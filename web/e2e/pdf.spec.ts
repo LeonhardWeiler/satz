@@ -11,6 +11,8 @@ const HEIGHT = 1100
 const EDGE = 4
 const BLOCK = 4
 const BACKGROUND = 0x1e
+const MAX_DIFF = 48
+const MAX_SHARE = 0.0005
 
 function pageBox(xml: string, name: string) {
   const m = xml.match(new RegExp(`<${name} l="([\\d.]+)" b="([\\d.]+)" r="([\\d.]+)" t="([\\d.]+)"`))!
@@ -79,10 +81,10 @@ async function expectCanvasMatchesPdf(page: Page) {
         ...[0, 1, 2].map((c) => Math.abs(sample(shot, px, py, c, inBleed) - sample(ref, px, py, c, false))),
       )
       compared++
-      if (d > 64) differing++
+      if (d > MAX_DIFF) differing++
     }
   }
-  expect(differing / compared).toBeLessThan(0.001)
+  expect(differing / compared).toBeLessThan(MAX_SHARE)
 }
 
 test('canvas matches the exported pdf', async ({ page }) => {
@@ -175,6 +177,9 @@ test('draw shapes and a closed pen path, then export them', async ({ page }) => 
   const canvas = (await page.getByLabel('Page canvas').boundingBox())!
   const at = (fx: number, fy: number) => [canvas.x + canvas.width * fx, canvas.y + canvas.height * fy] as const
   const layers = page.getByRole('tree', { name: 'Layers' })
+  const names = ['Ellipse', 'Arrow', 'Star', 'Vector']
+  const count = (name: string) => layers.getByRole('button', { name, exact: true })
+  const before = await Promise.all(names.map((n) => count(n).count()))
   const drag = async (from: readonly [number, number], to: readonly [number, number]) => {
     await page.mouse.move(...from)
     await page.mouse.down()
@@ -196,9 +201,7 @@ test('draw shapes and a closed pen path, then export them', async ({ page }) => 
   await page.mouse.click(...at(0.55, 0.72))
   await page.mouse.click(...at(0.5, 0.6))
 
-  for (const name of ['Ellipse', 'Arrow', 'Star', 'Vector']) {
-    await expect(layers.getByRole('button', { name, exact: true })).toHaveCount(1)
-  }
+  for (const [i, name] of names.entries()) await expect(count(name)).toHaveCount(before[i] + 1)
   await page.keyboard.press('Escape')
   await page.mouse.move(canvas.x + 2, canvas.y + 2)
   await expectCanvasMatchesPdf(page)

@@ -1,6 +1,8 @@
 use crate::display_list::{CLOSE, LINE, MOVE, Op, rect};
 use crate::geom::{Shape, bounds, contains, fit, near, outline};
-use crate::style::{Align, Blend, Cap, Effect, Fill, Join, Style, paints};
+use crate::style::{
+    Align, Blend, Cap, Effect, EffectKind, Fill, FillKind, FillStop, Join, Style, paints,
+};
 use crate::text::layout;
 use loro::{
     Container, LoroDoc, LoroMap, LoroText, LoroTree, LoroValue, TreeID, TreeParentId, UndoManager,
@@ -264,6 +266,134 @@ impl Doc {
             [95.0, 180.0, 60.0, 40.0],
             fill(0x2c5fd9ff),
         );
+        let mm = MM as f32;
+        let gradient = |kind, transform, stops: &[(f32, u32)]| Fill {
+            kind,
+            transform,
+            stops: stops
+                .iter()
+                .map(|&(at, color)| FillStop { at, color })
+                .collect(),
+            ..Fill::default()
+        };
+        let named = |name: &str| Props {
+            name: Some(name.into()),
+            ..Props::default()
+        };
+        let shapes = [
+            add(
+                &page,
+                NewKind::Ellipse,
+                [8.0, 22.0, 30.0, 30.0],
+                Props {
+                    fills: Some(vec![gradient(
+                        FillKind::Radial,
+                        [0.6, 0.0, 0.0, 0.6, 0.4, 0.4],
+                        &[(0.0, 0xfff3c4ff), (1.0, 0xf5a623ff)],
+                    )]),
+                    effects: Some(vec![Effect {
+                        y: 2.0 * mm,
+                        radius: 3.0 * mm,
+                        color: 0x00000066,
+                        ..Effect::default()
+                    }]),
+                    ..named("Sun")
+                },
+            ),
+            add(
+                &page,
+                NewKind::Star,
+                [44.0, 22.0, 30.0, 30.0],
+                Props {
+                    fills: Some(vec![gradient(
+                        FillKind::Linear,
+                        [0.0, 1.0, -1.0, 0.0, 0.5, 0.0],
+                        &[(0.0, 0xffe066ff), (1.0, 0xff8a00ff)],
+                    )]),
+                    strokes: Some(vec![Fill::solid(WHITE)]),
+                    stroke_weight: Some(1.5),
+                    stroke_align: Some(Align::Outside),
+                    ..named("Star")
+                },
+            ),
+            add(
+                &page,
+                NewKind::Polygon,
+                [80.0, 26.0, 28.0, 26.0],
+                Props {
+                    fills: Some(vec![Fill::solid(0x2c5fd9ff)]),
+                    strokes: Some(vec![Fill::solid(0x1b2a6bff)]),
+                    opacity: Some(0.8),
+                    blend: Some(Blend::Multiply),
+                    ..named("Triangle")
+                },
+            ),
+            add(
+                &page,
+                NewKind::Rect,
+                [112.0, 22.0, 30.0, 22.0],
+                Props {
+                    radius: Some(4.0 * mm),
+                    fills: Some(vec![Fill::solid(0xffffffcc)]),
+                    strokes: Some(vec![Fill::solid(BLACK)]),
+                    stroke_align: Some(Align::Center),
+                    effects: Some(vec![Effect {
+                        kind: EffectKind::Blur,
+                        radius: 2.0 * mm,
+                        ..Effect::default()
+                    }]),
+                    ..named("Blurred tile")
+                },
+            ),
+            add(
+                &page,
+                NewKind::Arrow,
+                [112.0, 62.0, 30.0, 0.0],
+                Props {
+                    strokes: Some(vec![Fill::solid(WHITE)]),
+                    stroke_weight: Some(2.0),
+                    ..named("Arrow")
+                },
+            ),
+        ];
+        let masked = [
+            add(
+                &page,
+                NewKind::Ellipse,
+                [8.0, 56.0, 66.0, 16.0],
+                Props {
+                    mask: Some(true),
+                    ..named("Mask")
+                },
+            ),
+            add(
+                &page,
+                NewKind::Rect,
+                [8.0, 56.0, 66.0, 16.0],
+                Props {
+                    fills: Some(vec![gradient(
+                        FillKind::Linear,
+                        [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+                        &[(0.0, 0x2c5fd9ff), (0.5, WHITE), (1.0, 0x1b2a6bff)],
+                    )]),
+                    ..named("Stripes")
+                },
+            ),
+        ];
+        let mut group = |ids: Vec<String>, name: &str| {
+            let g = d
+                .apply(Command::Group { ids, frame: false })
+                .unwrap()
+                .remove(0);
+            d.apply(Command::Set {
+                id: g.clone(),
+                props: named(name),
+            })
+            .unwrap();
+            g
+        };
+        let masked = group(masked.to_vec(), "Masked");
+        group([shapes.to_vec(), vec![masked]].concat(), "Shapes");
         d.apply(Command::SetText {
             id: text,
             text: SAMPLE.into(),
@@ -966,7 +1096,6 @@ fn num(m: &LoroMap, key: &str) -> f64 {
 mod tests {
     use super::*;
     use crate::display_list::Paint;
-    use crate::style::{EffectKind, FillKind, FillStop};
 
     fn page(d: &Doc) -> Page {
         d.snapshot().pages.remove(0)
@@ -1441,12 +1570,17 @@ mod tests {
     fn render_emits_items_and_clips_frame_children() {
         let ops = Doc::new().render(0);
         assert!(matches!(ops[0], Op::Page { .. }));
-        assert_eq!(ops.iter().filter(|o| **o == Op::EndItem).count(), 4);
+        assert_eq!(ops.iter().filter(|o| **o == Op::EndItem).count(), 11);
         assert!(ops.iter().any(|o| matches!(o, Op::GlyphRun { .. })));
-        let push = ops.iter().position(|o| matches!(o, Op::PushClip { .. }));
-        let pop = ops.iter().position(|o| *o == Op::PopClip);
-        assert!(push.unwrap() < pop.unwrap());
-        assert_eq!(pop.unwrap(), ops.len() - 1);
+        let at = |f: fn(&Op) -> bool| ops.iter().position(f).unwrap();
+        assert!(
+            at(|o| matches!(o, Op::PushClip { invert: false, .. })) < at(|o| *o == Op::PopClip)
+        );
+        assert!(at(|o| *o == Op::BeginMask) < at(|o| *o == Op::PopMask));
+        assert!(
+            ops.iter()
+                .any(|o| matches!(o, Op::PushLayer { blur, .. } if *blur > 0.0))
+        );
         assert!(Doc::new().render(9).is_empty());
     }
 
