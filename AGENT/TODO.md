@@ -8,6 +8,78 @@ that match the canvas.
 Out of scope for M1: PDF/X, components, realtime collaboration, Figma import,
 font helper, i18n.
 
+## Bugs
+
+Found by hand on 2026-09-24 (notes in AGENT/bugs.md), causes checked in the code.
+
+### B1. Canvas chrome and other objects take on paint from an edited object (bugs.md 1, 2, 13, 14)
+- Cause: `renderer.ts` uses one shared `Paint` for content, the white page, trim/bleed guides and
+  the selection overlay. `setPaint` attaches a gradient shader and deletes it after drawing while it
+  is still attached. Re-recording an item with a gradient (moving Sun or Stripes, removing a fill)
+  leaves that shader on the paint, so the page, guides and handles are drawn with it until a solid
+  fill resets it (why moving the whole mask group "fixes" it). The PDF is not affected.
+- Fix: one paint for content and a separate one for chrome; `setShader(null)` before
+  `shader.delete()`; reset style, stroke cap/join/width per content op.
+- Test: e2e moves Sun and checks page-white and handle-blue pixels at fixed spots.
+
+### B2. Lines and arrows are resized as boxes (bugs.md 4, 5, 6)
+- Cause: selection handles are box-based. With h = 0 the top and bottom edge zones overlap the
+  whole line, so a press resizes vertically instead of moving; corners scale both axes.
+- Fix (Figma): two-point paths get only endpoint handles; dragging an endpoint moves that point via
+  `setPath` (Shift snaps to 45° like drawing); a press on the line moves it. Boxes with a zero
+  dimension get no edge handles on that axis. The properties show Length and Angle for lines
+  (written through `setPath`) instead of an editable H.
+- Test: e2e draws a line, drags its middle (moves, h stays 0) and an endpoint (only that end moves).
+
+### B3. Uneven spacing in the properties panel (bugs.md 7, 9)
+- Cause: spacing comes from per-element margins; an empty fill/stroke/effect list keeps the
+  header margin, the stroke settings grid has none after the list.
+- Fix: `.section` becomes a grid with one gap, no margins on children; empty lists are not
+  rendered; a section with only its header has equal space above and below. Check Layer, Layout
+  (Clip content), Text (textarea) and Page with the same rule.
+
+### B4. Masks mask more than expected and are invisible in the layers panel (bugs.md 8)
+- Cause: a mask masks all siblings above it in its parent (Figma rule). A frame at page level
+  therefore masks everything above it. Nothing in the layers panel shows the mask or its scope.
+  Hit testing ignores masks, so hidden parts of masked layers can still be clicked.
+- Fix (Figma): Ctrl+Alt+M or "Use as mask" on several layers wraps them in a new group named
+  "Mask group" with the lowest layer as mask; on one layer it keeps the sibling rule. The layers
+  panel shows a mask icon on the mask and marks the masked layers. `hit` tests masked layers
+  against the mask outline.
+
+### B5. Hover and cursor ignore modifier keys and keyboard edits (bugs.md 10, 11)
+- Cause: hover always uses `pick(..., 'click')`; hover and cursor are only recomputed on
+  `pointermove`.
+- Fix: remember the last pointer position and modifiers; recompute hover (mode `deep` while Ctrl
+  is held) and cursor on pointer move, on Ctrl keydown/keyup and after every editor change.
+
+### B6. No limits or rounding on typed values (bugs.md 12)
+- Fix: `Field` rounds committed values to 2 decimals in the shown unit. Limits live in the engine
+  and are enforced by `Set`/`SetFrame` with an error: text size >= 0.1 pt, W/H >= 0 (lines keep 0),
+  stroke weight, blur and radius >= 0, count 3–60, ratio 0.01–1, opacity 0–100 %.
+
+### B7. Colour picker is cut off at the window edge (bugs.md 15)
+- Cause: the native `<input type="color">` popup is placed by the browser.
+- Fix: own Figma-style colour picker popover (saturation/value area, hue, alpha, hex) placed with
+  viewport collision (flip and shift). Item 8 needs it anyway for CMYK values and swatches, so
+  build it there. The shape menu uses the same placement.
+
+### B8. Text looks heavier in the exported PDF than on the canvas (bugs.md 3)
+- Both draw the same glyph outlines (canvas-vs-PDF check passes). Likely rasterization: CanvasKit
+  draws text without the contrast/gamma boost most PDF viewers apply.
+- First step: compare canvas and PDF at 800 % in the same viewer setup. If outlines match, decide
+  whether to thicken the preview (e.g. CanvasKit subpixel edging) or leave it; if not, fix the
+  glyph run in `pdf.rs`.
+
+### B9. Undo and tool switches while a pen path or drag is open (found while checking)
+- Cause: Ctrl+Z inside the open pen undo group can remove the path node; the next `setPath`
+  then throws. Undo during a drag mixes with the drag's undo group.
+- Fix: `keys.ts` finishes the pen before undo/redo and ignores undo/redo during a drag.
+
+### B10. Layers with shadows are re-recorded on every frame (found while checking)
+- Cause: `renderer.ts` records a new SkPicture for each shadowed layer on every redraw.
+- Fix: cache layer pictures like items, keyed by the hashes of the items inside.
+
 ## Settled design
 
 - Engine (Rust → WASM) owns the Loro doc, layout and undo. React sends commands and
