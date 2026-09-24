@@ -1,12 +1,15 @@
 import { expect, test } from 'vitest'
 import { pick } from './select'
-import type { Node } from './model'
+import type { Node, Style } from './model'
 
-const rect = (id: string): Node => ({ id, name: id, x: 0, y: 0, w: 1, h: 1, kind: 'rect', fill: 0 })
-const group = (id: string, children: Node[]): Node => ({ id, name: id, x: 0, y: 0, w: 1, h: 1, kind: 'group', children })
-const frame = (id: string, children: Node[]): Node => ({
-  id, name: id, x: 0, y: 0, w: 1, h: 1, kind: 'frame', fill: 0, clip: true, children,
-})
+const style: Style = {
+  fills: [], strokes: [], strokeWeight: 1, strokeAlign: 'inside', join: 'miter', cap: 'none',
+  arrowStart: false, arrowEnd: false, opacity: 1, blend: 'normal', effects: [], mask: false,
+}
+const base = (id: string) => ({ id, name: id, x: 0, y: 0, w: 1, h: 1, ...style })
+const rect = (id: string): Node => ({ ...base(id), kind: 'shape', shape: 'rect', radius: 0 })
+const group = (id: string, children: Node[]): Node => ({ ...base(id), kind: 'group', children })
+const frame = (id: string, children: Node[]): Node => ({ ...base(id), kind: 'frame', clip: true, children })
 
 // page: frame f [ group g [ a, b ] ], group h [ group i [ c ] ]
 const tree = [frame('f', [group('g', [rect('a'), rect('b')])]), group('h', [group('i', [rect('c')])])]

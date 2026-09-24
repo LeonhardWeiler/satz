@@ -1,7 +1,9 @@
 mod display_list;
 mod doc;
+mod geom;
 mod linebreak;
 mod pdf;
+mod style;
 mod text;
 
 pub use display_list::{Op, encode};
@@ -36,8 +38,9 @@ impl Engine {
     }
 
     /// Path from the topmost page child down to the deepest node at (x, y) in pt.
-    pub fn hit(&self, page: usize, x: f64, y: f64) -> Vec<String> {
-        self.doc.hit(page, x, y)
+    /// `tolerance` in pt widens the hit area of outlines, e.g. for thin lines.
+    pub fn hit(&self, page: usize, x: f64, y: f64, tolerance: f64) -> Vec<String> {
+        self.doc.hit(page, x, y, tolerance)
     }
 
     /// The view is invalid after the next call into the engine.

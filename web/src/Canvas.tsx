@@ -8,6 +8,7 @@ import { pick } from './select'
 const PX_PER_PT = 96 / 72
 const DRAG = 3
 const EDGE = 4
+const HIT = 4
 const CURSORS: Record<string, string> = {
   nw: 'nwse-resize',
   se: 'nwse-resize',
@@ -119,7 +120,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       if (near(x, r, EDGE)) return 'e'
       return undefined
     }
-    const hit = (p: Point) => editor.engine.hit(0, p.x, p.y)
+    const hit = (p: Point) => editor.engine.hit(0, p.x, p.y, HIT / view.zoom)
 
     const resize = new ResizeObserver(([entry]) => {
       const box = entry.devicePixelContentBoxSize?.[0]

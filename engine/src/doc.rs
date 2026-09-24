@@ -1,4 +1,6 @@
-use crate::display_list::{Op, Paint, rect};
+use crate::display_list::{CLOSE, LINE, MOVE, Op, rect};
+use crate::geom::{Shape, bounds, contains, fit, near, outline};
+use crate::style::{Align, Blend, Cap, Effect, Fill, Join, Style, paints};
 use crate::text::layout;
 use loro::{
     Container, LoroDoc, LoroMap, LoroText, LoroTree, LoroValue, TreeID, TreeParentId, UndoManager,
@@ -35,10 +37,13 @@ pub enum Command {
     },
     Set {
         id: String,
-        name: Option<String>,
-        fill: Option<u32>,
-        size: Option<f64>,
-        clip: Option<bool>,
+        #[serde(flatten)]
+        props: Props,
+    },
+    /// Sets a path shape's outline from points in page space.
+    SetPath {
+        id: String,
+        path: Vec<f32>,
     },
     Delete {
         ids: Vec<String>,
@@ -74,10 +79,40 @@ pub enum Command {
     EndUndoGroup,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Props {
+    pub name: Option<String>,
+    pub size: Option<f64>,
+    pub clip: Option<bool>,
+    pub radius: Option<f32>,
+    pub count: Option<u32>,
+    pub ratio: Option<f32>,
+    pub path: Option<Vec<f32>>,
+    pub fills: Option<Vec<Fill>>,
+    pub strokes: Option<Vec<Fill>>,
+    pub stroke_weight: Option<f32>,
+    pub stroke_align: Option<Align>,
+    pub join: Option<Join>,
+    pub cap: Option<Cap>,
+    pub arrow_start: Option<bool>,
+    pub arrow_end: Option<bool>,
+    pub opacity: Option<f32>,
+    pub blend: Option<Blend>,
+    pub effects: Option<Vec<Effect>>,
+    pub mask: Option<bool>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum NewKind {
     Rect,
+    Ellipse,
+    Polygon,
+    Star,
+    Line,
+    Arrow,
+    Path,
     Text,
     Frame,
 }
@@ -117,27 +152,18 @@ pub struct Node {
     pub w: f64,
     pub h: f64,
     #[serde(flatten)]
+    pub style: Style,
+    #[serde(flatten)]
     pub kind: Kind,
 }
 
 #[derive(Debug, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Kind {
-    Rect {
-        fill: u32,
-    },
-    Text {
-        text: String,
-        size: f64,
-    },
-    Group {
-        children: Vec<Node>,
-    },
-    Frame {
-        fill: u32,
-        clip: bool,
-        children: Vec<Node>,
-    },
+    Shape(Shape),
+    Text { text: String, size: f64 },
+    Group { children: Vec<Node> },
+    Frame { clip: bool, children: Vec<Node> },
 }
 
 pub struct Doc {
@@ -157,6 +183,7 @@ type Res<T> = Result<T, String>;
 const MM: f64 = 72.0 / 25.4;
 const GRAY: u32 = 0xd9d9d9ff;
 const WHITE: u32 = 0xffffffff;
+const BLACK: u32 = 0x000000ff;
 const SAMPLE: &str = "Satz sets type in the browser. The engine shapes this paragraph \
 with harfrust, breaks it into lines with the Knuth-Plass algorithm and justifies \
 every line but the last to the width of its frame. The canvas and the PDF draw \
@@ -180,7 +207,7 @@ impl Doc {
         m.insert("width", 148.0 * MM).unwrap();
         m.insert("height", 210.0 * MM).unwrap();
         m.insert("bleed", 3.0 * MM).unwrap();
-        let mut add = |parent: &str, kind, [x, y, w, h]: [f64; 4], fill: Option<u32>| {
+        let mut add = |parent: &str, kind, [x, y, w, h]: [f64; 4], props: Props| {
             let id = d
                 .apply(Command::Create {
                     parent: parent.into(),
@@ -194,45 +221,46 @@ impl Doc {
                 .remove(0);
             d.apply(Command::Set {
                 id: id.clone(),
-                name: None,
-                fill,
-                size: None,
-                clip: None,
+                props,
             })
             .unwrap();
             id
+        };
+        let fill = |c| Props {
+            fills: Some(vec![Fill::solid(c)]),
+            ..Props::default()
         };
         let page = page.to_string();
         add(
             &page,
             NewKind::Rect,
             [-3.0, -3.0, 154.0, 80.0],
-            Some(0xe8452cff),
+            fill(0xe8452cff),
         );
-        let text = add(&page, NewKind::Text, [15.0, 95.0, 118.0, 70.0], None);
+        let text = add(
+            &page,
+            NewKind::Text,
+            [15.0, 95.0, 118.0, 70.0],
+            Props {
+                size: Some(14.0),
+                ..Props::default()
+            },
+        );
         let frame = add(
             &page,
             NewKind::Frame,
             [15.0, 172.0, 118.0, 23.0],
-            Some(0xf2efe8ff),
+            fill(0xf2efe8ff),
         );
         add(
             &frame,
             NewKind::Rect,
             [95.0, 180.0, 60.0, 40.0],
-            Some(0x2c5fd9ff),
+            fill(0x2c5fd9ff),
         );
         d.apply(Command::SetText {
-            id: text.clone(),
-            text: SAMPLE.into(),
-        })
-        .unwrap();
-        d.apply(Command::Set {
             id: text,
-            name: None,
-            fill: None,
-            size: Some(14.0),
-            clip: None,
+            text: SAMPLE.into(),
         })
         .unwrap();
         d.undo = UndoManager::new(&d.doc);
@@ -252,26 +280,77 @@ impl Doc {
                 let p = self.node(&parent)?;
                 let id = self.tree.create(p).map_err(err)?;
                 let m = self.meta(id);
-                let (name, fill) = match kind {
-                    NewKind::Rect => ("rect", GRAY),
-                    NewKind::Text => ("text", 0),
-                    NewKind::Frame => ("frame", WHITE),
+                let closed = Props {
+                    fills: Some(vec![Fill::solid(GRAY)]),
+                    stroke_align: Some(Align::Inside),
+                    ..Props::default()
                 };
-                m.insert("kind", name).map_err(err)?;
-                match kind {
+                let open = |path: Vec<f32>| Props {
+                    strokes: Some(vec![Fill::solid(BLACK)]),
+                    arrow_end: Some(kind == NewKind::Arrow),
+                    path: Some(path),
+                    ..Props::default()
+                };
+                let line = vec![MOVE, 0.0, 0.0, LINE, 1.0, 0.0];
+                let (name, shape, props) = match kind {
+                    NewKind::Rect => (
+                        "shape",
+                        "rect",
+                        Props {
+                            radius: Some(0.0),
+                            ..closed
+                        },
+                    ),
+                    NewKind::Ellipse => ("shape", "ellipse", closed),
+                    NewKind::Polygon => (
+                        "shape",
+                        "polygon",
+                        Props {
+                            count: Some(3),
+                            ..closed
+                        },
+                    ),
+                    NewKind::Star => (
+                        "shape",
+                        "star",
+                        Props {
+                            count: Some(5),
+                            ratio: Some(0.382),
+                            ..closed
+                        },
+                    ),
+                    NewKind::Line | NewKind::Arrow => ("shape", "path", open(line)),
+                    NewKind::Path => ("shape", "path", open(Vec::new())),
                     NewKind::Text => {
-                        m.insert("size", 12.0).map_err(err)?;
                         m.insert_container("text", LoroText::new())
                             .map_err(err)?
                             .insert(0, "Text")
                             .map_err(err)?;
+                        (
+                            "text",
+                            "",
+                            Props {
+                                size: Some(12.0),
+                                fills: Some(vec![Fill::solid(BLACK)]),
+                                ..Props::default()
+                            },
+                        )
                     }
-                    NewKind::Frame => {
-                        m.insert("fill", fill as i64).map_err(err)?;
-                        m.insert("clip", true).map_err(err)?;
-                    }
-                    NewKind::Rect => m.insert("fill", fill as i64).map_err(err)?,
+                    NewKind::Frame => (
+                        "frame",
+                        "",
+                        Props {
+                            fills: Some(vec![Fill::solid(WHITE)]),
+                            clip: Some(true),
+                            ..closed
+                        },
+                    ),
+                };
+                m.insert("kind", name).map_err(err)?;
+                if !shape.is_empty() {
+                    m.insert("shape", shape).map_err(err)?;
                 }
+                self.set(id, props)?;
                 self.set_frame(id, [x, y, w, h])?;
                 vec![id.to_string()]
             }
@@ -287,26 +366,20 @@ impl Doc {
                     .map_err(|e| format!("{e:?}"))?;
                 vec![]
             }
-            Command::Set {
-                id,
-                name,
-                fill,
-                size,
-                clip,
-            } => {
-                let m = self.meta(self.node(&id)?);
-                if let Some(v) = name {
-                    m.insert("name", v).map_err(err)?;
-                }
-                if let Some(v) = fill {
-                    m.insert("fill", v as i64).map_err(err)?;
-                }
-                if let Some(v) = size {
-                    m.insert("size", v).map_err(err)?;
-                }
-                if let Some(v) = clip {
-                    m.insert("clip", v).map_err(err)?;
-                }
+            Command::Set { id, props } => {
+                self.set(self.node(&id)?, props)?;
+                vec![]
+            }
+            Command::SetPath { id, path } => {
+                let id = self.node(&id)?;
+                self.set(
+                    id,
+                    Props {
+                        path: Some(fit(&path, [0.0, 0.0, 1.0, 1.0])),
+                        ..Props::default()
+                    },
+                )?;
+                self.set_frame(id, bounds(&path).map(f64::from))?;
                 vec![]
             }
             Command::Delete { ids } => {
@@ -327,7 +400,6 @@ impl Doc {
                 let m = self.meta(g);
                 if frame {
                     m.insert("kind", "frame").map_err(err)?;
-                    m.insert("fill", 0).map_err(err)?;
                     m.insert("clip", true).map_err(err)?;
                     self.set_frame(g, bounds)?;
                 } else {
@@ -500,56 +572,57 @@ impl Doc {
             height: p.height as f32,
             bleed: p.bleed as f32,
         }];
-        for n in &p.children {
-            draw(n, &mut ops);
-        }
+        draw_all(&p.children, &mut ops);
         ops
     }
 
-    pub fn hit(&self, page: usize, x: f64, y: f64) -> Vec<String> {
+    pub fn hit(&self, page: usize, x: f64, y: f64, tolerance: f64) -> Vec<String> {
         let mut path = Vec::new();
         if let Some(p) = self.snapshot().pages.get(page) {
-            hit(&p.children, x, y, &mut path);
+            hit(&p.children, x, y, tolerance, &mut path);
         }
         path
     }
 
     fn snap(&self, id: TreeID) -> Node {
         let m = self.meta(id);
+        let v = serde_json::to_value(m.get_deep_value()).unwrap_or_default();
         let children = || {
             self.children(id)
                 .into_iter()
                 .map(|c| self.snap(c))
                 .collect()
         };
-        let fill = || {
-            value(&m, "fill")
-                .and_then(|v| v.into_i64().ok())
-                .unwrap_or(0) as u32
-        };
         let kind = match self.kind(id).as_str() {
             "text" => Kind::Text {
-                text: container(&m, "text")
-                    .and_then(|c| c.into_text().ok())
-                    .map(|t| t.to_string())
-                    .unwrap_or_default(),
+                text: v["text"].as_str().unwrap_or_default().into(),
                 size: num(&m, "size"),
             },
             "group" => Kind::Group {
                 children: children(),
             },
             "frame" => Kind::Frame {
-                fill: fill(),
-                clip: value(&m, "clip").and_then(|v| v.into_bool().ok()) == Some(true),
+                clip: v["clip"] == true,
                 children: children(),
             },
-            _ => Kind::Rect { fill: fill() },
+            _ => Kind::Shape(
+                serde_json::from_value(v.clone()).unwrap_or(Shape::Rect { radius: 0.0 }),
+            ),
         };
-        let name = value(&m, "name")
-            .and_then(|v| v.into_string().ok())
-            .map(|s| s.to_string())
+        let style: Style = serde_json::from_value(v.clone()).unwrap_or_default();
+        let name = v["name"]
+            .as_str()
+            .map(String::from)
             .unwrap_or_else(|| match &kind {
-                Kind::Rect { .. } => "Rectangle".into(),
+                Kind::Shape(Shape::Rect { .. }) => "Rectangle".into(),
+                Kind::Shape(Shape::Ellipse) => "Ellipse".into(),
+                Kind::Shape(Shape::Polygon { .. }) => "Polygon".into(),
+                Kind::Shape(Shape::Star { .. }) => "Star".into(),
+                Kind::Shape(Shape::Path { .. }) if style.arrow_start || style.arrow_end => {
+                    "Arrow".into()
+                }
+                Kind::Shape(Shape::Path { path }) if path.len() == 6 => "Line".into(),
+                Kind::Shape(Shape::Path { .. }) => "Vector".into(),
                 Kind::Text { text, .. } => text.chars().take(40).collect(),
                 Kind::Group { .. } => "Group".into(),
                 Kind::Frame { .. } => "Frame".into(),
@@ -562,8 +635,21 @@ impl Doc {
             y,
             w,
             h,
+            style,
             kind,
         }
+    }
+
+    fn set(&self, id: TreeID, props: Props) -> Res<()> {
+        let m = self.meta(id);
+        let serde_json::Value::Object(props) = serde_json::to_value(props).map_err(err)? else {
+            return Err("props are not a map".into());
+        };
+        for (k, v) in props.into_iter().filter(|(_, v)| !v.is_null()) {
+            let v: LoroValue = serde_json::from_value(v).map_err(err)?;
+            m.insert(&k, v).map_err(err)?;
+        }
+        Ok(())
     }
 
     fn set_frame(&self, id: TreeID, [x, y, w, h]: [f64; 4]) -> Res<()> {
@@ -727,9 +813,27 @@ impl Default for Doc {
     }
 }
 
+/// Draws siblings; a mask masks the siblings above it.
+fn draw_all(nodes: &[Node], ops: &mut Vec<Op>) {
+    for (i, n) in nodes.iter().enumerate() {
+        if n.style.mask {
+            ops.push(Op::BeginMask);
+            draw(n, ops);
+            ops.push(Op::EndMask);
+            draw_all(&nodes[i + 1..], ops);
+            ops.push(Op::PopMask);
+            return;
+        }
+        draw(n, ops);
+    }
+}
+
 fn draw(n: &Node, ops: &mut Vec<Op>) {
     let frame = [n.x, n.y, n.w, n.h].map(|v| v as f32);
     let item = |ops: &mut Vec<Op>, body: Vec<Op>| {
+        if body.is_empty() {
+            return;
+        }
         let key = n.id.bytes().fold(0x811c9dc5u32, |h, b| {
             (h ^ b as u32).wrapping_mul(0x01000193)
         });
@@ -737,54 +841,57 @@ fn draw(n: &Node, ops: &mut Vec<Op>) {
         ops.extend(body);
         ops.push(Op::EndItem);
     };
-    let fill = |color: u32| Op::FillPath {
-        paint: Paint::Solid {
-            color: color.to_be_bytes().map(|c| c as f32 / 255.0),
-        },
-        path: rect(frame[0], frame[1], frame[2], frame[3]),
-    };
+    let layer = n.style.layer();
+    let wrapped = layer.is_some();
+    ops.extend(layer);
     match &n.kind {
-        Kind::Rect { fill: c } => item(ops, vec![fill(*c)]),
-        Kind::Text { text, size } => {
-            let black = Paint::Solid {
-                color: [0.0, 0.0, 0.0, 1.0],
-            };
-            item(ops, layout(text, *size as f32, frame, &black))
-        }
-        Kind::Group { children } => children.iter().for_each(|c| draw(c, ops)),
-        Kind::Frame {
-            fill: c,
-            clip,
-            children,
-        } => {
-            if c & 0xff != 0 {
-                item(ops, vec![fill(*c)]);
-            }
-            if *clip && (n.w <= 0.0 || n.h <= 0.0) {
-                return;
-            }
-            if *clip {
+        Kind::Shape(s) => item(ops, n.style.shape(&outline(s, frame), frame)),
+        Kind::Text { text, size } => item(
+            ops,
+            paints(&n.style.fills, frame)
+                .flat_map(|p| layout(text, *size as f32, frame, &p))
+                .collect(),
+        ),
+        Kind::Group { children } => draw_all(children, ops),
+        Kind::Frame { clip, children } => {
+            let r = rect(frame[0], frame[1], frame[2], frame[3]);
+            item(ops, n.style.shape(&r, frame));
+            if !*clip {
+                draw_all(children, ops);
+            } else if n.w > 0.0 && n.h > 0.0 {
                 ops.push(Op::PushClip {
-                    path: rect(frame[0], frame[1], frame[2], frame[3]),
+                    path: r,
                     invert: false,
                 });
-            }
-            children.iter().for_each(|c| draw(c, ops));
-            if *clip {
+                draw_all(children, ops);
                 ops.push(Op::PopClip);
             }
         }
     }
+    if wrapped {
+        ops.push(Op::PopLayer);
+    }
 }
 
-fn hit(nodes: &[Node], x: f64, y: f64, path: &mut Vec<String>) -> bool {
+fn hit(nodes: &[Node], x: f64, y: f64, tolerance: f64, path: &mut Vec<String>) -> bool {
     for n in nodes.iter().rev() {
         let inside = x >= n.x && x <= n.x + n.w && y >= n.y && y <= n.y + n.h;
         path.push(n.id.clone());
         let found = match &n.kind {
-            Kind::Group { children } => hit(children, x, y, path),
-            Kind::Frame { children, clip, .. } => {
-                (inside || !clip) && hit(children, x, y, path) || inside
+            Kind::Group { children } => hit(children, x, y, tolerance, path),
+            Kind::Frame { children, clip } => {
+                (inside || !clip) && hit(children, x, y, tolerance, path) || inside
+            }
+            Kind::Shape(s) => {
+                let p = outline(s, [n.x, n.y, n.w, n.h].map(|v| v as f32));
+                let (x, y) = (x as f32, y as f32);
+                let stroke = if n.style.strokes.iter().any(|f| f.visible) {
+                    n.style.stroke_weight / 2.0
+                } else {
+                    0.0
+                };
+                p.contains(&CLOSE) && contains(&p, x, y)
+                    || near(&p, x, y, tolerance as f32 + stroke)
             }
             _ => inside,
         };
@@ -841,6 +948,8 @@ fn num(m: &LoroMap, key: &str) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::display_list::Paint;
+    use crate::style::{EffectKind, FillKind, FillStop};
 
     fn page(d: &Doc) -> Page {
         d.snapshot().pages.remove(0)
@@ -890,10 +999,8 @@ mod tests {
         let p = &s.pages[0];
         assert!((p.width - 419.53).abs() < 0.01);
         assert!((p.bleed - 8.50).abs() < 0.01);
-        assert!(matches!(
-            p.children[0].kind,
-            Kind::Rect { fill: 0xe8452cff }
-        ));
+        assert_eq!(p.children[0].kind, Kind::Shape(Shape::Rect { radius: 0.0 }));
+        assert_eq!(p.children[0].style.fills, [Fill::solid(0xe8452cff)]);
         assert!(matches!(p.children[1].kind, Kind::Text { size: 14.0, .. }));
         assert!(
             matches!(&p.children[2].kind, Kind::Frame { clip: true, children, .. } if children.len() == 1)
@@ -913,16 +1020,12 @@ mod tests {
             (n.name.as_str(), frame(n)),
             ("Rectangle", [1.0, 2.0, 3.0, 4.0])
         );
-        assert_eq!(n.kind, Kind::Rect { fill: GRAY });
+        assert_eq!(n.kind, Kind::Shape(Shape::Rect { radius: 0.0 }));
+        assert_eq!(n.style.fills, [Fill::solid(GRAY)]);
+        assert_eq!(n.style.stroke_align, Align::Inside);
         let f = &pg.children[1];
-        assert!(matches!(
-            f.kind,
-            Kind::Frame {
-                fill: WHITE,
-                clip: true,
-                ..
-            }
-        ));
+        assert!(matches!(f.kind, Kind::Frame { clip: true, .. }));
+        assert_eq!(f.style.fills, [Fill::solid(WHITE)]);
         assert_eq!(children(f)[0].id, t);
         assert_eq!(children(f)[0].name, "Text");
     }
@@ -933,17 +1036,19 @@ mod tests {
         let a = create(&mut d, &p, NewKind::Rect, [0.0; 4]);
         d.apply(Command::Set {
             id: a.clone(),
-            name: Some("Bg".into()),
-            fill: Some(0xff0000ff),
-            size: None,
-            clip: None,
+            props: Props {
+                name: Some("Bg".into()),
+                fills: Some(vec![Fill::solid(0xff0000ff)]),
+                opacity: Some(0.5),
+                blend: Some(Blend::Multiply),
+                ..Props::default()
+            },
         })
         .unwrap();
         let n = &page(&d).children[0];
-        assert_eq!(
-            (n.name.as_str(), &n.kind),
-            ("Bg", &Kind::Rect { fill: 0xff0000ff })
-        );
+        assert_eq!(n.name, "Bg");
+        assert_eq!(n.style.fills, [Fill::solid(0xff0000ff)]);
+        assert_eq!((n.style.opacity, n.style.blend), (0.5, Blend::Multiply));
         let bad = Command::Delete {
             ids: vec!["nope".into()],
         };
@@ -1206,10 +1311,10 @@ mod tests {
         let (mut d, p) = empty();
         let a = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
         let b = create(&mut d, &p, NewKind::Rect, [5.0, 5.0, 10.0, 10.0]);
-        assert_eq!(d.hit(0, 7.0, 7.0), [b]);
-        assert_eq!(d.hit(0, 2.0, 2.0), [a]);
-        assert!(d.hit(0, 20.0, 2.0).is_empty());
-        assert!(d.hit(1, 2.0, 2.0).is_empty());
+        assert_eq!(d.hit(0, 7.0, 7.0, 0.0), [b]);
+        assert_eq!(d.hit(0, 2.0, 2.0, 0.0), [a]);
+        assert!(d.hit(0, 20.0, 2.0, 0.0).is_empty());
+        assert!(d.hit(1, 2.0, 2.0, 0.0).is_empty());
     }
 
     #[test]
@@ -1225,8 +1330,8 @@ mod tests {
             })
             .unwrap()
             .remove(0);
-        assert_eq!(d.hit(0, 5.0, 5.0), [f.clone(), g.clone(), a]);
-        assert_eq!(d.hit(0, 30.0, 30.0), [f]);
+        assert_eq!(d.hit(0, 5.0, 5.0, 0.0), [f.clone(), g.clone(), a]);
+        assert_eq!(d.hit(0, 30.0, 30.0, 0.0), [f]);
     }
 
     #[test]
@@ -1234,17 +1339,17 @@ mod tests {
         let (mut d, p) = empty();
         let f = create(&mut d, &p, NewKind::Frame, [0.0, 0.0, 10.0, 10.0]);
         let a = create(&mut d, &f, NewKind::Rect, [5.0, 5.0, 20.0, 20.0]);
-        assert!(d.hit(0, 15.0, 15.0).is_empty());
-        assert_eq!(d.hit(0, 8.0, 8.0), [f.clone(), a.clone()]);
+        assert!(d.hit(0, 15.0, 15.0, 0.0).is_empty());
+        assert_eq!(d.hit(0, 8.0, 8.0, 0.0), [f.clone(), a.clone()]);
         d.apply(Command::Set {
             id: f.clone(),
-            name: None,
-            fill: None,
-            size: None,
-            clip: Some(false),
+            props: Props {
+                clip: Some(false),
+                ..Props::default()
+            },
         })
         .unwrap();
-        assert_eq!(d.hit(0, 15.0, 15.0), [f, a]);
+        assert_eq!(d.hit(0, 15.0, 15.0, 0.0), [f, a]);
     }
 
     #[test]
@@ -1326,5 +1431,193 @@ mod tests {
         assert!(push.unwrap() < pop.unwrap());
         assert_eq!(pop.unwrap(), ops.len() - 1);
         assert!(Doc::new().render(9).is_empty());
+    }
+
+    fn set(d: &mut Doc, id: &str, props: Props) {
+        d.apply(Command::Set {
+            id: id.into(),
+            props,
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn shapes_are_hit_on_their_outline_not_their_box() {
+        let (mut d, p) = empty();
+        let e = create(&mut d, &p, NewKind::Ellipse, [0.0, 0.0, 10.0, 10.0]);
+        assert_eq!(d.hit(0, 5.0, 5.0, 0.0), [e]);
+        assert!(d.hit(0, 0.5, 0.5, 0.0).is_empty());
+
+        let l = create(&mut d, &p, NewKind::Line, [0.0; 4]);
+        d.apply(Command::SetPath {
+            id: l.clone(),
+            path: vec![MOVE, 20.0, 10.0, LINE, 10.0, 0.0],
+        })
+        .unwrap();
+        let n = &page(&d).children[1];
+        assert_eq!(
+            (frame(n), n.name.as_str()),
+            ([10.0, 0.0, 10.0, 10.0], "Line")
+        );
+        assert_eq!(d.hit(0, 15.0, 6.0, 0.5), [l]);
+        assert!(d.hit(0, 12.0, 8.0, 0.5).is_empty());
+        assert!(d.hit(0, 15.0, 6.0, 0.0).is_empty());
+    }
+
+    #[test]
+    fn inside_strokes_are_clipped_and_twice_as_wide() {
+        let (mut d, p) = empty();
+        let r = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
+        set(
+            &mut d,
+            &r,
+            Props {
+                fills: Some(vec![]),
+                strokes: Some(vec![Fill::solid(BLACK)]),
+                stroke_weight: Some(2.0),
+                ..Props::default()
+            },
+        );
+        let ops = d.render(0);
+        assert!(matches!(ops[2], Op::PushClip { invert: false, .. }));
+        assert!(matches!(ops[3], Op::StrokePath { width: 4.0, .. }));
+        assert_eq!(ops[4], Op::PopClip);
+        set(
+            &mut d,
+            &r,
+            Props {
+                stroke_align: Some(Align::Outside),
+                ..Props::default()
+            },
+        );
+        assert!(matches!(d.render(0)[2], Op::PushClip { invert: true, .. }));
+    }
+
+    #[test]
+    fn arrows_add_a_head_to_the_stroke() {
+        let (mut d, p) = empty();
+        create(&mut d, &p, NewKind::Arrow, [0.0, 0.0, 10.0, 0.0]);
+        assert_eq!(page(&d).children[0].name, "Arrow");
+        let Op::StrokePath { path, .. } = &d.render(0)[2] else {
+            panic!("no stroke");
+        };
+        assert_eq!(path[..6], [MOVE, 0.0, 0.0, LINE, 10.0, 0.0]);
+        assert_eq!(
+            path[6..],
+            [MOVE, 5.0, -5.0, LINE, 10.0, 0.0, LINE, 5.0, 5.0]
+        );
+    }
+
+    #[test]
+    fn opacity_blend_and_effects_wrap_the_node_in_a_layer() {
+        let (mut d, p) = empty();
+        let r = create(&mut d, &p, NewKind::Rect, [0.0; 4]);
+        assert!(
+            !d.render(0)
+                .iter()
+                .any(|o| matches!(o, Op::PushLayer { .. }))
+        );
+        set(
+            &mut d,
+            &r,
+            Props {
+                opacity: Some(0.5),
+                effects: Some(vec![
+                    Effect::default(),
+                    Effect {
+                        kind: EffectKind::Blur,
+                        radius: 4.0,
+                        ..Effect::default()
+                    },
+                    Effect {
+                        visible: false,
+                        ..Effect::default()
+                    },
+                ]),
+                ..Props::default()
+            },
+        );
+        let ops = d.render(0);
+        let Op::PushLayer {
+            opacity,
+            blur,
+            shadows,
+            ..
+        } = &ops[1]
+        else {
+            panic!("no layer");
+        };
+        assert_eq!((*opacity, *blur, shadows.len()), (0.5, 2.0, 1));
+        assert_eq!(shadows[0].offset, [0.0, 3.0]);
+        assert_eq!(shadows[0].blur, 3.0);
+        assert_eq!(ops.last(), Some(&Op::PopLayer));
+    }
+
+    #[test]
+    fn a_mask_masks_the_siblings_above_it() {
+        let (mut d, p) = empty();
+        let [a, m, b, c] = [0; 4].map(|_| create(&mut d, &p, NewKind::Ellipse, [0.0; 4]));
+        set(
+            &mut d,
+            &m,
+            Props {
+                mask: Some(true),
+                ..Props::default()
+            },
+        );
+        let ops = d.render(0);
+        let kinds: Vec<_> = ops[1..]
+            .iter()
+            .filter(|o| !matches!(o, Op::FillPath { .. } | Op::EndItem))
+            .collect();
+        let key = |id: &String| {
+            id.bytes().fold(0x811c9dc5u32, |h, b| {
+                (h ^ b as u32).wrapping_mul(0x01000193)
+            })
+        };
+        let item = |id| Op::BeginItem { item: key(id) };
+        assert_eq!(
+            kinds,
+            [
+                &item(&a),
+                &Op::BeginMask,
+                &item(&m),
+                &Op::EndMask,
+                &item(&b),
+                &item(&c),
+                &Op::PopMask
+            ]
+        );
+    }
+
+    #[test]
+    fn gradients_map_the_unit_box_into_the_frame() {
+        let (mut d, p) = empty();
+        let r = create(&mut d, &p, NewKind::Rect, [10.0, 20.0, 100.0, 50.0]);
+        set(
+            &mut d,
+            &r,
+            Props {
+                fills: Some(vec![Fill {
+                    kind: FillKind::Linear,
+                    transform: [0.0, 1.0, -1.0, 0.0, 0.5, 0.0],
+                    stops: vec![FillStop {
+                        at: 0.0,
+                        color: WHITE,
+                    }],
+                    ..Fill::default()
+                }]),
+                ..Props::default()
+            },
+        );
+        let Op::FillPath {
+            paint: Paint::Linear { transform, stops },
+            ..
+        } = &d.render(0)[2]
+        else {
+            panic!("no gradient");
+        };
+        assert_eq!(*transform, [0.0, 50.0, -100.0, 0.0, 60.0, 20.0]);
+        assert_eq!(stops[0].color, [1.0; 4]);
     }
 }

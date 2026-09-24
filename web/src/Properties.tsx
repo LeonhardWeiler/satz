@@ -81,7 +81,7 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
     each((n) => ({ type: 'setFrame', id: n.id, x: n.x, y: n.y, w: n.w, h: n.h, [key]: Math.max(key === 'w' || key === 'h' ? 0 : -Infinity, v * MM) }))
 
   const one = nodes.length === 1 ? nodes[0] : undefined
-  const fill = one && 'fill' in one ? one.fill : undefined
+  const fill = one?.fills[0]?.type === 'solid' ? one.fills[0].color : undefined
   const box = nodes.length ? bounds(nodes) : undefined
 
   return (
@@ -128,7 +128,9 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
               type="color"
               aria-label="Fill color"
               value={hex(fill)}
-              onChange={(e) => editor.apply({ type: 'set', id: one.id, fill: rgba(e.currentTarget.value, fill || 0xff) })}
+              onChange={(e) =>
+                editor.apply({ type: 'set', id: one.id, fills: [{ ...one.fills[0], color: rgba(e.currentTarget.value, fill || 0xff) }] })
+              }
             />
             <span className="hex">{hex(fill).slice(1).toUpperCase()}</span>
             <span className="alpha">{Math.round(((fill & 0xff) / 255) * 100)}%</span>
