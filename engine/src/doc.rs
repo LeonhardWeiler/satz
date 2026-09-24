@@ -1,4 +1,4 @@
-use crate::display_list::{Op, rect};
+use crate::display_list::{Op, Paint, rect};
 use crate::text::layout;
 use loro::{
     Container, LoroDoc, LoroMap, LoroText, LoroTree, LoroValue, TreeID, TreeParentId, UndoManager,
@@ -738,12 +738,19 @@ fn draw(n: &Node, ops: &mut Vec<Op>) {
         ops.push(Op::EndItem);
     };
     let fill = |color: u32| Op::FillPath {
-        color: color.to_be_bytes().map(|c| c as f32 / 255.0),
+        paint: Paint::Solid {
+            color: color.to_be_bytes().map(|c| c as f32 / 255.0),
+        },
         path: rect(frame[0], frame[1], frame[2], frame[3]),
     };
     match &n.kind {
         Kind::Rect { fill: c } => item(ops, vec![fill(*c)]),
-        Kind::Text { text, size } => item(ops, layout(text, *size as f32, frame)),
+        Kind::Text { text, size } => {
+            let black = Paint::Solid {
+                color: [0.0, 0.0, 0.0, 1.0],
+            };
+            item(ops, layout(text, *size as f32, frame, &black))
+        }
         Kind::Group { children } => children.iter().for_each(|c| draw(c, ops)),
         Kind::Frame {
             fill: c,
@@ -759,6 +766,7 @@ fn draw(n: &Node, ops: &mut Vec<Op>) {
             if *clip {
                 ops.push(Op::PushClip {
                     path: rect(frame[0], frame[1], frame[2], frame[3]),
+                    invert: false,
                 });
             }
             children.iter().for_each(|c| draw(c, ops));

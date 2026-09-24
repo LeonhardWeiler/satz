@@ -1,6 +1,6 @@
-import type { Canvas, CanvasKit, Font, Paint, SkPicture } from 'canvaskit-wasm'
+import type { Canvas, CanvasKit, Font, Paint, Rect, SkPicture } from 'canvaskit-wasm'
 import type { Engine } from './engine/engine'
-import { decode, type Op } from './displayList'
+import { close, decode, type Op, type Paint as Fill } from './displayList'
 
 export type View = { x: number; y: number; zoom: number }
 export type Box = { x: number; y: number; w: number; h: number }
@@ -25,6 +25,12 @@ const BACKGROUND = '#1e1e1e'
 const TRIM = '#000000'
 const BLEED = '#ff3b30'
 const ACCENT = '#0d99ff'
+const BLENDS = [
+  'SrcOver', 'Multiply', 'Screen', 'Overlay', 'Darken', 'Lighten', 'ColorDodge', 'ColorBurn',
+  'HardLight', 'SoftLight', 'Difference', 'Exclusion', 'Hue', 'Saturation', 'Color', 'Luminosity',
+] as const
+const CAPS = ['Butt', 'Round', 'Square'] as const
+const JOINS = ['Miter', 'Round', 'Bevel'] as const
 
 export class Renderer {
   private pictures = new Map<number, { hash: number; picture: SkPicture }>()
@@ -49,40 +55,18 @@ export class Renderer {
     canvas.scale(view.zoom, view.zoom)
     let bleedBox = ck.LTRBRect(0, 0, 0, 0)
     let trimBox = bleedBox
-    for (let i = 0; i < ops.length; i++) {
-      const op = ops[i]
-      if (op.op === 'page') {
-        const b = op.bleed
-        trimBox = ck.LTRBRect(0, 0, op.width, op.height)
-        bleedBox = ck.LTRBRect(-b, -b, op.width + b, op.height + b)
-        paint.setStyle(ck.PaintStyle.Fill)
-        paint.setColor(ck.WHITE)
-        canvas.drawRect(trimBox, paint)
-        canvas.save()
-        canvas.clipRect(bleedBox, ck.ClipOp.Intersect, true)
-      } else if (op.op === 'beginItem') {
-        let end = i
-        while (ops[end].op !== 'endItem') end++
-        let cached = this.pictures.get(op.item)
-        if (cached?.hash !== op.hash) {
-          cached?.picture.delete()
-          const recorder = new ck.PictureRecorder()
-          const rc = recorder.beginRecording(bleedBox)
-          for (const o of ops.slice(i + 1, end)) this.drawOp(rc, o)
-          cached = { hash: op.hash, picture: recorder.finishRecordingAsPicture() }
-          recorder.delete()
-          this.pictures.set(op.item, cached)
-        }
-        canvas.drawPicture(cached.picture)
-        i = end
-      } else if (op.op === 'pushClip') {
-        const path = ck.Path.MakeFromCmds(op.path)!
-        canvas.save()
-        canvas.clipPath(path, ck.ClipOp.Intersect, true)
-        path.delete()
-      } else if (op.op === 'popClip') {
-        canvas.restore()
-      }
+    const page = ops[0]
+    if (page?.op === 'page') {
+      const b = page.bleed
+      trimBox = ck.LTRBRect(0, 0, page.width, page.height)
+      bleedBox = ck.LTRBRect(-b, -b, page.width + b, page.height + b)
+      paint.setStyle(ck.PaintStyle.Fill)
+      paint.setColor(ck.WHITE)
+      canvas.drawRect(trimBox, paint)
+      canvas.save()
+      canvas.clipRect(bleedBox, ck.ClipOp.Intersect, true)
+      this.drawOps(canvas, ops, 1, ops.length, bleedBox)
+      canvas.restore()
     }
     canvas.restore()
     paint.setStyle(ck.PaintStyle.Stroke)
@@ -143,19 +127,132 @@ export class Renderer {
     canvas.restore()
   }
 
+  private drawOps(canvas: Canvas, ops: Op[], from: number, to: number, bounds: Rect) {
+    const { ck } = this
+    for (let i = from; i < to; i++) {
+      const op = ops[i]
+      if (op.op === 'beginItem') {
+        const end = close(ops, i)
+        let cached = this.pictures.get(op.item)
+        if (cached?.hash !== op.hash) {
+          cached?.picture.delete()
+          cached = { hash: op.hash, picture: this.record(ops, i + 1, end, bounds) }
+          this.pictures.set(op.item, cached)
+        }
+        canvas.drawPicture(cached.picture)
+        i = end
+      } else if (op.op === 'pushClip') {
+        const end = close(ops, i)
+        const path = ck.Path.MakeFromCmds(op.path)!
+        canvas.save()
+        canvas.clipPath(path, op.invert ? ck.ClipOp.Difference : ck.ClipOp.Intersect, true)
+        path.delete()
+        this.drawOps(canvas, ops, i + 1, end, bounds)
+        canvas.restore()
+        i = end
+      } else if (op.op === 'pushLayer') {
+        const end = close(ops, i)
+        const layer = new ck.Paint()
+        layer.setAlphaf(op.opacity)
+        layer.setBlendMode(ck.BlendMode[BLENDS[op.blend]])
+        const blur = op.blur > 0 ? ck.ImageFilter.MakeBlur(op.blur, op.blur, ck.TileMode.Decal, null) : null
+        if (!op.shadows.length) {
+          layer.setImageFilter(blur)
+          canvas.saveLayer(layer)
+          this.drawOps(canvas, ops, i + 1, end, bounds)
+        } else {
+          const picture = this.record(ops, i + 1, end, bounds)
+          canvas.saveLayer(layer)
+          for (const s of op.shadows) {
+            const p = new ck.Paint()
+            const f = ck.ImageFilter.MakeDropShadowOnly(s.offset[0], s.offset[1], s.blur, s.blur, s.color, null)
+            p.setImageFilter(f)
+            canvas.saveLayer(p)
+            canvas.drawPicture(picture)
+            canvas.restore()
+            f.delete()
+            p.delete()
+          }
+          const p = new ck.Paint()
+          p.setImageFilter(blur)
+          canvas.saveLayer(p)
+          canvas.drawPicture(picture)
+          canvas.restore()
+          p.delete()
+          picture.delete()
+        }
+        canvas.restore()
+        blur?.delete()
+        layer.delete()
+        i = end
+      } else if (op.op === 'beginMask') {
+        const mid = close(ops, i)
+        const end = close(ops, mid)
+        const mask = new ck.Paint()
+        mask.setBlendMode(ck.BlendMode.DstIn)
+        canvas.saveLayer()
+        this.drawOps(canvas, ops, mid + 1, end, bounds)
+        canvas.saveLayer(mask)
+        this.drawOps(canvas, ops, i + 1, mid, bounds)
+        canvas.restore()
+        canvas.restore()
+        mask.delete()
+        i = end
+      } else this.drawOp(canvas, op)
+    }
+  }
+
+  private record(ops: Op[], from: number, to: number, bounds: Rect) {
+    const recorder = new this.ck.PictureRecorder()
+    this.drawOps(recorder.beginRecording(bounds), ops, from, to, bounds)
+    const picture = recorder.finishRecordingAsPicture()
+    recorder.delete()
+    return picture
+  }
+
   private drawOp(canvas: Canvas, op: Op) {
     const { ck, paint } = this
-    paint.setStyle(ck.PaintStyle.Fill)
-    if (op.op === 'fillPath') {
+    if (op.op === 'fillPath' || op.op === 'strokePath') {
       const path = ck.Path.MakeFromCmds(op.path)
       if (!path) return
-      paint.setColor(op.color)
+      const shader = this.setPaint(op.paint)
+      if (op.op === 'strokePath') {
+        paint.setStyle(ck.PaintStyle.Stroke)
+        paint.setStrokeWidth(op.width)
+        paint.setStrokeCap(ck.StrokeCap[CAPS[op.cap]])
+        paint.setStrokeJoin(ck.StrokeJoin[JOINS[op.join]])
+        paint.setStrokeMiter(4)
+      }
       canvas.drawPath(path, paint)
       path.delete()
+      shader?.delete()
     } else if (op.op === 'glyphRun') {
-      paint.setColor(op.color)
+      const shader = this.setPaint(op.paint)
       canvas.drawGlyphs(op.glyphs, op.positions, 0, 0, this.font(op.font, op.size), paint)
+      shader?.delete()
     }
+  }
+
+  /** Sets fill style and paint; returns the shader to delete after drawing. */
+  private setPaint(p: Fill) {
+    const { ck, paint } = this
+    paint.setStyle(ck.PaintStyle.Fill)
+    paint.setShader(null)
+    if (p.type === 'solid' || p.stops.length < 2) {
+      paint.setColor(p.type === 'solid' ? p.color : (p.stops[0]?.color ?? ck.TRANSPARENT))
+      return null
+    }
+    const [a, b, c, d, e, f] = p.transform
+    const matrix = [a, c, e, b, d, f, 0, 0, 1]
+    const colors = p.stops.map((s) => s.color)
+    const pos = p.stops.map((s) => s.at)
+    const shader =
+      p.type === 'linear'
+        ? ck.Shader.MakeLinearGradient([0, 0], [1, 0], colors, pos, ck.TileMode.Clamp, matrix)
+        : ck.Shader.MakeRadialGradient([0, 0], 1, colors, pos, ck.TileMode.Clamp, matrix)
+    paint.setColor(ck.BLACK)
+    paint.setShader(shader)
+    return shader
   }
 
   private font(id: number, size: number) {

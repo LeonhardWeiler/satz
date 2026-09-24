@@ -1,4 +1,4 @@
-use crate::display_list::Op;
+use crate::display_list::{Op, Paint};
 use crate::linebreak::{Item, break_lines};
 use harfrust::{FontRef, ShapeOptions, ShaperData, UnicodeBuffer};
 use read_fonts::TableProvider;
@@ -16,7 +16,7 @@ const FORCE: Item = Item::Penalty {
     cost: f32::NEG_INFINITY,
 };
 
-pub fn layout(text: &str, size: f32, [x, y, w, h]: [f32; 4]) -> Vec<Op> {
+pub fn layout(text: &str, size: f32, [x, y, w, h]: [f32; 4], paint: &Paint) -> Vec<Op> {
     let font = FontRef::new(FONT).unwrap();
     let scale = size / font.head().unwrap().units_per_em() as f32;
     let hhea = font.hhea().unwrap();
@@ -90,7 +90,7 @@ pub fn layout(text: &str, size: f32, [x, y, w, h]: [f32; 4]) -> Vec<Op> {
             ops.push(Op::GlyphRun {
                 font: 0,
                 size,
-                color: [0.0, 0.0, 0.0, 1.0],
+                paint: paint.clone(),
                 glyphs: ids,
                 positions,
             });
@@ -104,6 +104,10 @@ pub fn layout(text: &str, size: f32, [x, y, w, h]: [f32; 4]) -> Vec<Op> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const BLACK: Paint = Paint::Solid {
+        color: [0.0, 0.0, 0.0, 1.0],
+    };
 
     const H: u16 = 9;
     const I: u16 = 36;
@@ -129,7 +133,7 @@ mod tests {
 
     #[test]
     fn short_text_sits_on_the_first_baseline() {
-        let r = runs(&layout("Hi", 10.0, [5.0, 7.0, 100.0, 50.0]));
+        let r = runs(&layout("Hi", 10.0, [5.0, 7.0, 100.0, 50.0], &BLACK));
         assert_eq!(r.len(), 1);
         assert_eq!(r[0].0, vec![H, I]);
         assert_close(&r[0].1, &[5.0, 7.0 + ASCENT, 12.88, 7.0 + ASCENT]);
@@ -138,14 +142,14 @@ mod tests {
     #[test]
     fn shaping_forms_the_fi_ligature() {
         assert_eq!(
-            runs(&layout("fi", 10.0, [0.0, 0.0, 100.0, 50.0]))[0].0,
+            runs(&layout("fi", 10.0, [0.0, 0.0, 100.0, 50.0], &BLACK))[0].0,
             vec![417]
         );
     }
 
     #[test]
     fn wrapped_lines_are_justified_to_the_frame_width() {
-        let r = runs(&layout("Hi Hi Hi", 10.0, [5.0, 7.0, 25.0, 50.0]));
+        let r = runs(&layout("Hi Hi Hi", 10.0, [5.0, 7.0, 25.0, 50.0], &BLACK));
         let b1 = 7.0 + ASCENT;
         let b2 = b1 + 12.0;
         assert_eq!(r.len(), 2);
@@ -156,14 +160,14 @@ mod tests {
     #[test]
     fn lines_below_the_frame_are_not_drawn() {
         assert_eq!(
-            runs(&layout("Hi Hi Hi", 10.0, [5.0, 7.0, 25.0, 15.0])).len(),
+            runs(&layout("Hi Hi Hi", 10.0, [5.0, 7.0, 25.0, 15.0], &BLACK)).len(),
             1
         );
     }
 
     #[test]
     fn newline_starts_a_new_line() {
-        let r = runs(&layout("Hi\nHi", 10.0, [0.0, 0.0, 100.0, 50.0]));
+        let r = runs(&layout("Hi\nHi", 10.0, [0.0, 0.0, 100.0, 50.0], &BLACK));
         assert_close(&r[1].1, &[0.0, ASCENT + 12.0, 7.88, ASCENT + 12.0]);
     }
 }
