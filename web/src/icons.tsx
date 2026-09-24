@@ -14,6 +14,10 @@ const PATHS = {
   text: 'M6 6h12M12 6v13M9.5 19h5',
   group: 'M5.5 5.5h13v13h-13z',
   chevron: 'M9 7l5 5-5 5',
+  plus: 'M12 6v12M6 12h12',
+  minus: 'M6 12h12',
+  eye: 'M3.5 12s3-5.5 8.5-5.5 8.5 5.5 8.5 5.5-3 5.5-8.5 5.5S3.5 12 3.5 12zM12 12m-2.5 0a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0',
+  eyeOff: 'M3.5 12s3-5.5 8.5-5.5 8.5 5.5 8.5 5.5-3 5.5-8.5 5.5S3.5 12 3.5 12zM5 19L19 5',
 } as const
 
 export function Icon({ name, size = 24 }: { name: IconName; size?: number }) {

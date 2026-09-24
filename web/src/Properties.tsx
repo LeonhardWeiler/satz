@@ -1,64 +1,20 @@
-import { useState, type ReactNode } from 'react'
+import { Field, Section, Select } from './controls'
 import { MM, bounds, useEditor, type Editor } from './editor'
-import type { Command, Node } from './model'
+import type { Blend, Command, Fill, Node, Props, Style } from './model'
+import { EffectList, PaintList } from './Paints'
 
-const round = (v: number) => String(Math.round(v * 100) / 100)
-const hex = (fill: number) => '#' + (fill >>> 8).toString(16).padStart(6, '0')
-const rgba = (hex: string, fill: number) => ((parseInt(hex.slice(1), 16) << 8) | (fill & 0xff)) >>> 0
-
-function Field({
-  label,
-  value,
-  unit,
-  onCommit,
-  readOnly,
-}: {
-  label: string
-  value: number | null
-  unit: string
-  onCommit?: (v: number) => void
-  readOnly?: boolean
-}) {
-  const [draft, setDraft] = useState<string | null>(null)
-  const commit = () => {
-    const v = parseFloat(draft ?? '')
-    if (draft !== null && Number.isFinite(v)) onCommit?.(v)
-    setDraft(null)
-  }
-  return (
-    <label className="field" title={`${label} in ${unit}`}>
-      <span className="field-label">{label}</span>
-      <input
-        name={label.toLowerCase()}
-        inputMode="decimal"
-        autoComplete="off"
-        spellCheck={false}
-        readOnly={readOnly}
-        value={draft ?? (value === null ? 'Mixed' : round(value))}
-        onChange={(e) => setDraft(e.currentTarget.value)}
-        onFocus={(e) => e.currentTarget.select()}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') e.currentTarget.blur()
-          if (e.key === 'Escape') {
-            setDraft(null)
-            e.currentTarget.blur()
-          }
-        }}
-      />
-      <span className="field-unit">{unit}</span>
-    </label>
-  )
+const BLENDS: Record<Blend, string> = {
+  normal: 'Normal', multiply: 'Multiply', screen: 'Screen', overlay: 'Overlay', darken: 'Darken',
+  lighten: 'Lighten', colorDodge: 'Color dodge', colorBurn: 'Color burn', hardLight: 'Hard light',
+  softLight: 'Soft light', difference: 'Difference', exclusion: 'Exclusion', hue: 'Hue',
+  saturation: 'Saturation', color: 'Color', luminosity: 'Luminosity',
 }
-
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="section" aria-label={title}>
-      <h3>{title}</h3>
-      {children}
-    </section>
-  )
-}
+const ALIGNS: Record<Style['strokeAlign'], string> = { inside: 'Inside', center: 'Center', outside: 'Outside' }
+const JOINS: Record<Style['join'], string> = { miter: 'Miter join', round: 'Round join', bevel: 'Bevel join' }
+const CAPS: Record<Style['cap'], string> = { none: 'No cap', round: 'Round cap', square: 'Square cap' }
+const ENDS = { none: 'None', arrow: 'Line arrow' } as const
+const BLACK: Fill = { type: 'solid', color: 0x000000ff, stops: [], transform: [1, 0, 0, 1, 0, 0], visible: true }
+const GRAY: Fill = { ...BLACK, color: 0xd9d9d9ff }
 
 export function Properties({ editor, onExport }: { editor: Editor; onExport: () => void }) {
   const page = useEditor(editor, (e) => e.page)
@@ -82,8 +38,9 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
     each((n) => ({ type: 'setFrame', id: n.id, x: n.x, y: n.y, w: n.w, h: n.h, [key]: Math.max(key === 'w' || key === 'h' ? 0 : -Infinity, v * MM) }))
 
   const one = nodes.length === 1 ? nodes[0] : undefined
-  const fill = one?.fills[0]?.type === 'solid' ? one.fills[0].color : undefined
   const box = nodes.length ? bounds(nodes) : undefined
+  const set = (props: Props) => one && editor.apply({ type: 'set', id: one.id, ...props })
+  const open = one?.kind === 'shape' && one.shape === 'path' && !one.path.includes(5)
 
   return (
     <aside className="panel properties" aria-label="Properties">
@@ -115,6 +72,15 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
             <Field label="Y" value={nodes.length > 1 ? same((n) => n.y / MM) : box.y / MM} unit="mm" onCommit={frame('y')} />
             <Field label="W" value={same((n) => n.w / MM)} unit="mm" onCommit={frame('w')} />
             <Field label="H" value={same((n) => n.h / MM)} unit="mm" onCommit={frame('h')} />
+            {one?.kind === 'shape' && one.shape === 'rect' && (
+              <Field label="R" title="Corner radius in mm" unit="mm" value={one.radius / MM} onCommit={(v) => set({ radius: Math.max(0, v * MM) })} />
+            )}
+            {one?.kind === 'shape' && (one.shape === 'polygon' || one.shape === 'star') && (
+              <Field label="N" title="Count" unit="" value={one.count} onCommit={(v) => v >= 3 && set({ count: Math.round(v) })} />
+            )}
+            {one?.kind === 'shape' && one.shape === 'star' && (
+              <Field label="Ratio" title="Star ratio in %" unit="%" value={one.ratio * 100} onCommit={(v) => set({ ratio: Math.min(1, Math.max(0.01, v / 100)) })} />
+            )}
           </div>
           {one?.kind === 'frame' && (
             <label className="check">
@@ -128,22 +94,56 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
           )}
         </Section>
       )}
-      {one && fill !== undefined && (
-        <Section title="Fill">
-          <div className="fill">
-            <input
-              type="color"
-              aria-label="Fill color"
-              value={hex(fill)}
-              onChange={(e) =>
-                editor.apply({ type: 'set', id: one.id, fills: [{ ...one.fills[0], color: rgba(e.currentTarget.value, fill || 0xff) }] })
-              }
+      {one && (
+        <Section title="Layer">
+          <div className="grid">
+            <Field
+              label=""
+              title="Opacity"
+              unit="%"
+              value={one.opacity * 100}
+              onCommit={(v) => set({ opacity: Math.min(1, Math.max(0, v / 100)) })}
             />
-            <span className="hex">{hex(fill).slice(1).toUpperCase()}</span>
-            <span className="alpha">{Math.round(((fill & 0xff) / 255) * 100)}%</span>
+            <Select label="Blend mode" value={one.blend} options={BLENDS} onChange={(blend) => set({ blend })} />
           </div>
+          <label className="check">
+            <input type="checkbox" checked={one.mask} onChange={(e) => set({ mask: e.currentTarget.checked })} />
+            Use as mask
+          </label>
         </Section>
       )}
+      {one && one.kind !== 'group' && (
+        <PaintList title="Fill" paints={one.fills} added={one.kind === 'text' ? BLACK : GRAY} onChange={(fills) => set({ fills })} />
+      )}
+      {one && (one.kind === 'shape' || one.kind === 'frame') && (
+        <PaintList title="Stroke" paints={one.strokes} added={BLACK} onChange={(strokes) => set({ strokes })}>
+          {one.strokes.length > 0 && (
+            <div className="grid">
+              <Field label="" title="Stroke weight" unit="pt" value={one.strokeWeight} onCommit={(v) => v >= 0 && set({ strokeWeight: v })} />
+              {!open && <Select label="Stroke position" value={one.strokeAlign} options={ALIGNS} onChange={(strokeAlign) => set({ strokeAlign })} />}
+              <Select label="Stroke join" value={one.join} options={JOINS} onChange={(join) => set({ join })} />
+              {open && (
+                <>
+                  <Select label="Stroke cap" value={one.cap} options={CAPS} onChange={(cap) => set({ cap })} />
+                  <Select
+                    label="Start point"
+                    value={one.arrowStart ? 'arrow' : 'none'}
+                    options={ENDS}
+                    onChange={(v) => set({ arrowStart: v === 'arrow' })}
+                  />
+                  <Select
+                    label="End point"
+                    value={one.arrowEnd ? 'arrow' : 'none'}
+                    options={ENDS}
+                    onChange={(v) => set({ arrowEnd: v === 'arrow' })}
+                  />
+                </>
+              )}
+            </div>
+          )}
+        </PaintList>
+      )}
+      {one && <EffectList effects={one.effects} onChange={(effects) => set({ effects })} />}
       {one?.kind === 'text' && (
         <Section title="Text">
           <div className="grid">
