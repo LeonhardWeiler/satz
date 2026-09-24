@@ -1,10 +1,12 @@
 mod display_list;
 mod doc;
+mod linebreak;
+mod text;
 
 pub use display_list::{Op, encode};
 pub use doc::{Command, Doc, Snapshot};
 
-use js_sys::Uint32Array;
+use js_sys::{Uint8Array, Uint32Array};
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
@@ -37,5 +39,9 @@ impl Engine {
     pub fn display_list(&mut self, page: usize) -> Uint32Array {
         self.list = encode(&self.doc.render(page));
         unsafe { Uint32Array::view(&self.list) }
+    }
+
+    pub fn font(&self, _id: u32) -> Uint8Array {
+        unsafe { Uint8Array::view(text::FONT) }
     }
 }

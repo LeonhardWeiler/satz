@@ -1,4 +1,5 @@
 use crate::display_list::{Op, rect};
+use crate::text::layout;
 use loro::{
     Container, ContainerID, ContainerTrait, LoroDoc, LoroList, LoroMap, LoroText, LoroValue,
     UpdateOptions, ValueOrContainer,
@@ -53,7 +54,7 @@ pub struct Item {
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Kind {
     Rect { fill: u32 },
-    Text { text: String },
+    Text { text: String, size: f64 },
 }
 
 pub struct Doc {
@@ -61,6 +62,10 @@ pub struct Doc {
 }
 
 const MM: f64 = 72.0 / 25.4;
+const SAMPLE: &str = "Satz sets type in the browser. The engine shapes this paragraph \
+with harfrust, breaks it into lines with the Knuth-Plass algorithm and justifies \
+every line but the last to the width of its frame. The canvas and the PDF draw \
+the same glyphs from the same font.";
 
 impl Doc {
     pub fn new() -> Doc {
@@ -84,10 +89,11 @@ impl Doc {
         item("rect", -3.0 * MM, -3.0 * MM, 154.0 * MM, 80.0 * MM)
             .insert("fill", 0xe8452cffu32 as i64)
             .unwrap();
-        item("text", 15.0 * MM, 95.0 * MM, 118.0 * MM, 90.0 * MM)
-            .insert_container("text", LoroText::new())
+        let text = item("text", 15.0 * MM, 95.0 * MM, 118.0 * MM, 90.0 * MM);
+        text.insert("size", 14.0).unwrap();
+        text.insert_container("text", LoroText::new())
             .unwrap()
-            .insert(0, "Satz sets type in the browser.")
+            .insert(0, SAMPLE)
             .unwrap();
         doc.commit();
         Doc { doc }
@@ -140,11 +146,13 @@ impl Doc {
         }];
         for (i, it) in p.items.iter().enumerate() {
             ops.push(Op::BeginItem { item: i as u32 });
-            if let Kind::Rect { fill } = it.kind {
-                ops.push(Op::FillPath {
+            let frame = [it.x, it.y, it.w, it.h].map(|v| v as f32);
+            match &it.kind {
+                Kind::Rect { fill } => ops.push(Op::FillPath {
                     color: fill.to_be_bytes().map(|c| c as f32 / 255.0),
-                    path: rect(it.x as f32, it.y as f32, it.w as f32, it.h as f32),
-                });
+                    path: rect(frame[0], frame[1], frame[2], frame[3]),
+                }),
+                Kind::Text { text, size } => ops.extend(layout(text, *size as f32, frame)),
             }
             ops.push(Op::EndItem);
         }
@@ -173,6 +181,7 @@ fn item(m: &LoroMap) -> Item {
                 .and_then(|c| c.into_text().ok())
                 .map(|t| t.to_string())
                 .unwrap_or_default(),
+            size: num(m, "size"),
         },
         _ => Kind::Rect {
             fill: value(m, "fill")
@@ -246,7 +255,8 @@ mod tests {
         assert_eq!(
             it.kind,
             Kind::Text {
-                text: "Hallo".into()
+                text: "Hallo".into(),
+                size: 14.0
             }
         );
     }
@@ -265,6 +275,7 @@ mod tests {
         let ops = Doc::new().render(0);
         assert!(matches!(ops[0], Op::Page { .. }));
         assert_eq!(ops.iter().filter(|o| **o == Op::EndItem).count(), 2);
+        assert!(ops.iter().any(|o| matches!(o, Op::GlyphRun { .. })));
         assert!(Doc::new().render(9).is_empty());
     }
 }

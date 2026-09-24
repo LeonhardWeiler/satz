@@ -4,7 +4,7 @@ export type Command =
 
 export type Item = { id: string; x: number; y: number; w: number; h: number } & (
   | { kind: 'rect'; fill: number }
-  | { kind: 'text'; text: string }
+  | { kind: 'text'; text: string; size: number }
 )
 
 export type Page = { width: number; height: number; bleed: number; items: Item[] }
