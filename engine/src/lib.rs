@@ -35,6 +35,11 @@ impl Engine {
         Ok(self.doc.snapshot().serialize(&ser)?)
     }
 
+    /// Path from the topmost page child down to the deepest node at (x, y) in pt.
+    pub fn hit(&self, page: usize, x: f64, y: f64) -> Vec<String> {
+        self.doc.hit(page, x, y)
+    }
+
     /// The view is invalid after the next call into the engine.
     #[wasm_bindgen(js_name = displayList)]
     pub fn display_list(&mut self, page: usize) -> Uint32Array {

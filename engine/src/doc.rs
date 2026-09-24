@@ -421,6 +421,14 @@ impl Doc {
         ops
     }
 
+    pub fn hit(&self, page: usize, x: f64, y: f64) -> Vec<String> {
+        let mut path = Vec::new();
+        if let Some(p) = self.snapshot().pages.get(page) {
+            hit(&p.children, x, y, &mut path);
+        }
+        path
+    }
+
     fn snap(&self, id: TreeID) -> Node {
         let m = self.meta(id);
         let children = || {
@@ -639,6 +647,25 @@ fn draw(n: &Node, ops: &mut Vec<Op>) {
             }
         }
     }
+}
+
+fn hit(nodes: &[Node], x: f64, y: f64, path: &mut Vec<String>) -> bool {
+    for n in nodes.iter().rev() {
+        let inside = x >= n.x && x <= n.x + n.w && y >= n.y && y <= n.y + n.h;
+        path.push(n.id.clone());
+        let found = match &n.kind {
+            Kind::Group { children } => hit(children, x, y, path),
+            Kind::Frame { children, clip, .. } => {
+                (inside || !clip) && hit(children, x, y, path) || inside
+            }
+            _ => inside,
+        };
+        if found {
+            return true;
+        }
+        path.pop();
+    }
+    false
 }
 
 fn union(boxes: impl Iterator<Item = [f64; 4]>) -> [f64; 4] {
@@ -1003,6 +1030,52 @@ mod tests {
             })
             .is_err()
         );
+    }
+
+    #[test]
+    fn hit_returns_the_topmost_node_under_the_point() {
+        let (mut d, p) = empty();
+        let a = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
+        let b = create(&mut d, &p, NewKind::Rect, [5.0, 5.0, 10.0, 10.0]);
+        assert_eq!(d.hit(0, 7.0, 7.0), [b]);
+        assert_eq!(d.hit(0, 2.0, 2.0), [a]);
+        assert!(d.hit(0, 20.0, 2.0).is_empty());
+        assert!(d.hit(1, 2.0, 2.0).is_empty());
+    }
+
+    #[test]
+    fn hit_returns_the_path_down_to_the_deepest_node() {
+        let (mut d, p) = empty();
+        let f = create(&mut d, &p, NewKind::Frame, [0.0, 0.0, 100.0, 100.0]);
+        let a = create(&mut d, &f, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
+        let b = create(&mut d, &f, NewKind::Rect, [50.0, 50.0, 10.0, 10.0]);
+        let g = d
+            .apply(Command::Group {
+                ids: vec![a.clone(), b],
+                frame: false,
+            })
+            .unwrap()
+            .remove(0);
+        assert_eq!(d.hit(0, 5.0, 5.0), [f.clone(), g.clone(), a]);
+        assert_eq!(d.hit(0, 30.0, 30.0), [f]);
+    }
+
+    #[test]
+    fn clipped_content_is_only_hit_inside_its_frame() {
+        let (mut d, p) = empty();
+        let f = create(&mut d, &p, NewKind::Frame, [0.0, 0.0, 10.0, 10.0]);
+        let a = create(&mut d, &f, NewKind::Rect, [5.0, 5.0, 20.0, 20.0]);
+        assert!(d.hit(0, 15.0, 15.0).is_empty());
+        assert_eq!(d.hit(0, 8.0, 8.0), [f.clone(), a.clone()]);
+        d.apply(Command::Set {
+            id: f.clone(),
+            name: None,
+            fill: None,
+            size: None,
+            clip: Some(false),
+        })
+        .unwrap();
+        assert_eq!(d.hit(0, 15.0, 15.0), [f, a]);
     }
 
     #[test]
