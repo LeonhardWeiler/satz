@@ -68,3 +68,24 @@ body,
   outline: 2px solid #ffffff;
   outline-offset: 2px;
 }
+
+.notice {
+  display: grid;
+  place-content: center;
+  height: 100%;
+  max-width: 44ch;
+  margin: 0 auto;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.notice h1 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.notice p {
+  margin: 0;
+  color: #b3b3b3;
+}
