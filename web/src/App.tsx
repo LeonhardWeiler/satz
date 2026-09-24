@@ -1,7 +1,11 @@
+import type { CanvasKit } from 'canvaskit-wasm'
 import type { Engine } from './engine/engine'
-import type { Snapshot } from './model'
+import { Canvas } from './Canvas'
 
-export function App({ engine }: { engine: Engine }) {
-  const snapshot: Snapshot = engine.snapshot()
-  return <pre>{JSON.stringify(snapshot, null, 2)}</pre>
+export function App({ ck, engine }: { ck: CanvasKit; engine: Engine }) {
+  return (
+    <main className="app">
+      <Canvas ck={ck} engine={engine} />
+    </main>
+  )
 }

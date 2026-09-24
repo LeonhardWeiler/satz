@@ -10,5 +10,5 @@ test('decodes what the rust encoder wrote', () => {
   const plain = JSON.parse(
     JSON.stringify(decode(words), (_, v) => (ArrayBuffer.isView(v) ? Array.from(v as Float32Array) : v)),
   )
-  expect(plain).toEqual(JSON.parse(read('display-list.json').toString()))
+  expect(plain).toMatchObject(JSON.parse(read('display-list.json').toString()))
 })

@@ -53,6 +53,7 @@ pub fn rect(x: f32, y: f32, w: f32, h: f32) -> Vec<f32> {
 
 pub fn encode(ops: &[Op]) -> Vec<u32> {
     let mut out = Vec::new();
+    let mut open = Vec::new();
     let floats = |out: &mut Vec<u32>, v: &[f32]| out.extend(v.iter().map(|f| f.to_bits()));
     for op in ops {
         match op {
@@ -64,8 +65,17 @@ pub fn encode(ops: &[Op]) -> Vec<u32> {
                 out.push(0);
                 floats(&mut out, &[*width, *height, *bleed]);
             }
-            Op::BeginItem { item } => out.extend([1, *item]),
-            Op::EndItem => out.push(2),
+            Op::BeginItem { item } => {
+                out.extend([1, *item, 0]);
+                open.push(out.len());
+            }
+            Op::EndItem => {
+                let start = open.pop().expect("EndItem without BeginItem");
+                out[start - 1] = out[start..]
+                    .iter()
+                    .fold(0x811c9dc5, |h, w| (h ^ w).wrapping_mul(0x01000193));
+                out.push(2);
+            }
             Op::FillPath { color, path } => {
                 out.push(3);
                 floats(&mut out, color);
@@ -101,6 +111,22 @@ pub fn encode(ops: &[Op]) -> Vec<u32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn item_hash_follows_item_content() {
+        let hash = |color| {
+            encode(&[
+                Op::BeginItem { item: 0 },
+                Op::FillPath {
+                    color,
+                    path: rect(0.0, 0.0, 1.0, 1.0),
+                },
+                Op::EndItem,
+            ])[2]
+        };
+        assert_eq!(hash([1.0; 4]), hash([1.0; 4]));
+        assert_ne!(hash([1.0; 4]), hash([0.5; 4]));
+    }
 
     #[test]
     fn writes_fixture_for_the_ts_decoder() {

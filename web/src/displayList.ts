@@ -1,6 +1,6 @@
 export type Op =
   | { op: 'page'; width: number; height: number; bleed: number }
-  | { op: 'beginItem'; item: number }
+  | { op: 'beginItem'; item: number; hash: number }
   | { op: 'endItem' }
   | { op: 'fillPath'; color: Float32Array; path: Float32Array }
   | {
@@ -27,7 +27,8 @@ export function decode(words: Uint32Array): Op[] {
         break
       }
       case 1:
-        ops.push({ op: 'beginItem', item: words[i++] })
+        ops.push({ op: 'beginItem', item: words[i], hash: words[i + 1] })
+        i += 2
         break
       case 2:
         ops.push({ op: 'endItem' })
