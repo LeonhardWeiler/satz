@@ -41,7 +41,9 @@ const JOINS = ['Miter', 'Round', 'Bevel'] as const
 export class Renderer {
   private pictures = new Map<number, { hash: number; picture: SkPicture }>()
   private fonts = new Map<string, Font>()
+  /** Paint for display-list content; `chrome` draws the page, guides and overlay. */
   private paint: Paint
+  private chrome: Paint
 
   constructor(
     private ck: CanvasKit,
@@ -49,10 +51,11 @@ export class Renderer {
   ) {
     this.paint = new ck.Paint()
     this.paint.setAntiAlias(true)
+    this.chrome = this.paint.copy()
   }
 
   draw(canvas: Canvas, view: View, dpr: number, overlay: Overlay) {
-    const { ck, paint } = this
+    const { ck, chrome: paint } = this
     const ops = decode(this.engine.displayList(0))
     canvas.clear(ck.parseColorString(BACKGROUND))
     canvas.save()
@@ -85,7 +88,7 @@ export class Renderer {
   }
 
   private drawOverlay(canvas: Canvas, view: View, dpr: number, { selection, hover, marquee, handles, pen }: Overlay) {
-    const { ck, paint } = this
+    const { ck, chrome: paint } = this
     const screen = (b: Box) =>
       ck.XYWHRect(
         Math.round(view.x + b.x * view.zoom) + 0.5,
@@ -234,11 +237,12 @@ export class Renderer {
   }
 
   private drawOp(canvas: Canvas, op: Op) {
+    if (op.op !== 'fillPath' && op.op !== 'strokePath' && op.op !== 'glyphRun') return
     const { ck, paint } = this
-    if (op.op === 'fillPath' || op.op === 'strokePath') {
+    const shader = this.setPaint(op.paint)
+    if (op.op === 'glyphRun') canvas.drawGlyphs(op.glyphs, op.positions, 0, 0, this.font(op.font, op.size), paint)
+    else {
       const path = ck.Path.MakeFromCmds(op.path)
-      if (!path) return
-      const shader = this.setPaint(op.paint)
       if (op.op === 'strokePath') {
         paint.setStyle(ck.PaintStyle.Stroke)
         paint.setStrokeWidth(op.width)
@@ -246,17 +250,14 @@ export class Renderer {
         paint.setStrokeJoin(ck.StrokeJoin[JOINS[op.join]])
         paint.setStrokeMiter(4)
       }
-      canvas.drawPath(path, paint)
-      path.delete()
-      shader?.delete()
-    } else if (op.op === 'glyphRun') {
-      const shader = this.setPaint(op.paint)
-      canvas.drawGlyphs(op.glyphs, op.positions, 0, 0, this.font(op.font, op.size), paint)
-      shader?.delete()
+      if (path) canvas.drawPath(path, paint)
+      path?.delete()
     }
+    paint.setShader(null)
+    shader?.delete()
   }
 
-  /** Sets fill style and paint; returns the shader to delete after drawing. */
+  /** Sets fill style and paint; returns the shader to delete after drawing and detaching. */
   private setPaint(p: Fill) {
     const { ck, paint } = this
     paint.setStyle(ck.PaintStyle.Fill)
@@ -297,5 +298,6 @@ export class Renderer {
     for (const { picture } of this.pictures.values()) picture.delete()
     for (const font of this.fonts.values()) font.delete()
     this.paint.delete()
+    this.chrome.delete()
   }
 }

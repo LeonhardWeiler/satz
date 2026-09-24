@@ -5,9 +5,8 @@ import { join } from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
 import { PNG } from 'pngjs'
 import { fitView } from '../src/renderer'
+import { open } from './util'
 
-const WIDTH = 1400
-const HEIGHT = 1100
 const EDGE = 4
 const BLOCK = 4
 const BACKGROUND = 0x1e
@@ -18,12 +17,6 @@ function pageBox(xml: string, name: string) {
   const m = xml.match(new RegExp(`<${name} l="([\\d.]+)" b="([\\d.]+)" r="([\\d.]+)" t="([\\d.]+)"`))!
   const [l, b, r, t] = m.slice(1).map(Number)
   return { l, b, r, t }
-}
-
-async function open(page: Page) {
-  await page.setViewportSize({ width: WIDTH, height: HEIGHT })
-  await page.goto('')
-  await expect(page.getByLabel('Zoom')).not.toHaveText('0%')
 }
 
 async function expectCanvasMatchesPdf(page: Page) {

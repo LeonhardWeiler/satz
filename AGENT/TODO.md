@@ -12,16 +12,6 @@ font helper, i18n.
 
 Found by hand on 2026-09-24 (notes in AGENT/bugs.md), causes checked in the code.
 
-### B1. Canvas chrome and other objects take on paint from an edited object (bugs.md 1, 2, 13, 14)
-- Cause: `renderer.ts` uses one shared `Paint` for content, the white page, trim/bleed guides and
-  the selection overlay. `setPaint` attaches a gradient shader and deletes it after drawing while it
-  is still attached. Re-recording an item with a gradient (moving Sun or Stripes, removing a fill)
-  leaves that shader on the paint, so the page, guides and handles are drawn with it until a solid
-  fill resets it (why moving the whole mask group "fixes" it). The PDF is not affected.
-- Fix: one paint for content and a separate one for chrome; `setShader(null)` before
-  `shader.delete()`; reset style, stroke cap/join/width per content op.
-- Test: e2e moves Sun and checks page-white and handle-blue pixels at fixed spots.
-
 ### B2. Lines and arrows are resized as boxes (bugs.md 4, 5, 6)
 - Cause: selection handles are box-based. With h = 0 the top and bottom edge zones overlap the
   whole line, so a press resizes vertically instead of moving; corners scale both axes.
