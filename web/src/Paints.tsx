@@ -61,7 +61,7 @@ export function PaintList({
                   {p.type === 'solid' ? (
                     <Swatch label={`${title} color`} color={p.color} onChange={(color) => set({ ...p, color })} />
                   ) : (
-                    <span className="swatch" style={{ background: gradient(p) }} />
+                    <span className="swatch" aria-hidden="true" style={{ background: gradient(p) }} />
                   )}
                   <Select label={`${title} type`} value={p.type} options={TYPES} onChange={(t) => set(retype(p, t))} />
                   {p.type === 'solid' && (

@@ -79,13 +79,22 @@ export function Select<T extends string>({
   )
 }
 
-export function Section({ title, onAdd, children }: { title: string; onAdd?: () => void; children?: ReactNode }) {
+export function Section({
+  title,
+  onAdd,
+  children,
+}: {
+  title: string
+  onAdd?: () => void
+  children?: ReactNode
+}) {
+  const add = `Add ${title.toLowerCase().replace(/s$/, '')}`
   return (
     <section className="section" aria-label={title}>
       <header className="section-header">
         <h3>{title}</h3>
         {onAdd && (
-          <button type="button" className="icon-button" aria-label={`Add ${title.toLowerCase()}`} title={`Add ${title.toLowerCase()}`} onClick={onAdd}>
+          <button type="button" className="icon-button" aria-label={add} title={add} onClick={onAdd}>
             <Icon name="plus" size={16} />
           </button>
         )}
