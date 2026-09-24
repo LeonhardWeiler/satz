@@ -21,12 +21,16 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
   else if (mod && key === 'z') editor.apply({ type: e.shiftKey ? 'redo' : 'undo' })
   else if (mod && key === 'y') editor.apply({ type: 'redo' })
   else if (mod && key === 'a') editor.set({ selection: siblings })
+  else if (mod && key === 'v') editor.set({ selection: editor.apply({ type: 'paste', above: ids }) })
   else if (e.key === 'Escape') {
     if (editor.tool !== 'move') editor.set({ tool: 'move' })
     else editor.set({ selection: one?.parent ? [one.parent.id] : [] })
   } else if (!ids.length) return false
   else if (e.key === 'Delete' || e.key === 'Backspace') editor.apply({ type: 'delete', ids })
-  else if (e.key === 'Enter' && !mod) {
+  else if (mod && (key === 'c' || key === 'x')) {
+    editor.apply({ type: 'copy', ids })
+    if (key === 'x') editor.apply({ type: 'delete', ids })
+  }  else if (e.key === 'Enter' && !mod) {
     const kids = editor.selected().flatMap((n) => ('children' in n ? n.children.map((c) => c.id) : []))
     if (kids.length) editor.set({ selection: kids })
   } else if (mod && key === 'd') editor.set({ selection: editor.apply({ type: 'duplicate', ids }) })

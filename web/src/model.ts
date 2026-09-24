@@ -8,7 +8,8 @@ export type Command =
   | { type: 'ungroup'; ids: string[] }
   | { type: 'move'; ids: string[]; parent: string; index: number }
   | { type: 'order'; ids: string[]; to: 'forward' | 'backward' | 'front' | 'back' }
-  | { type: 'duplicate'; ids: string[] }
+  | { type: 'duplicate' | 'copy'; ids: string[] }
+  | { type: 'paste'; above: string[] }
   | { type: 'undo' | 'redo' | 'beginUndoGroup' | 'endUndoGroup' }
 
 export type Node = { id: string; name: string; x: number; y: number; w: number; h: number } & (

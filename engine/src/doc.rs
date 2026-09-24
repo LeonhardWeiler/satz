@@ -62,6 +62,12 @@ pub enum Command {
     Duplicate {
         ids: Vec<String>,
     },
+    Copy {
+        ids: Vec<String>,
+    },
+    Paste {
+        above: Vec<String>,
+    },
     Undo,
     Redo,
     BeginUndoGroup,
@@ -138,6 +144,12 @@ pub struct Doc {
     doc: LoroDoc,
     tree: LoroTree,
     undo: UndoManager,
+    clipboard: Vec<(Clip, Option<TreeID>)>,
+}
+
+struct Clip {
+    meta: LoroValue,
+    children: Vec<Clip>,
 }
 
 type Res<T> = Result<T, String>;
@@ -156,7 +168,12 @@ impl Doc {
         let tree = doc.get_tree("nodes");
         tree.enable_fractional_index(0);
         let undo = UndoManager::new(&doc);
-        let mut d = Doc { doc, tree, undo };
+        let mut d = Doc {
+            doc,
+            tree,
+            undo,
+            clipboard: Vec::new(),
+        };
         let page = d.tree.create(None).unwrap();
         let m = d.meta(page);
         m.insert("kind", "page").unwrap();
@@ -404,10 +421,44 @@ impl Doc {
                 let mut out = Vec::new();
                 for id in self.sorted(&ids)?.into_iter().rev() {
                     let parent = self.tree.parent(id).ok_or("no parent")?;
-                    let copy = self.copy(id, parent, self.index(id) + 1)?;
+                    let copy = self.paste(&self.clip(id), parent, self.index(id) + 1)?;
                     out.push(copy.to_string());
                 }
                 out.reverse();
+                out
+            }
+            Command::Copy { ids } => {
+                self.clipboard = self
+                    .sorted(&ids)?
+                    .into_iter()
+                    .map(|id| (self.clip(id), self.tree.parent(id).and_then(parent_node)))
+                    .collect();
+                vec![]
+            }
+            Command::Paste { above } => {
+                let above = self.sorted(&above)?.pop();
+                let mut out = Vec::new();
+                for (i, (clip, from)) in self.clipboard.iter().enumerate() {
+                    let (parent, index) = match above {
+                        Some(a) => (
+                            self.tree.parent(a).ok_or("no parent")?,
+                            self.index(a) + 1 + i,
+                        ),
+                        None => {
+                            let p = from
+                                .filter(|&p| self.node(&p.to_string()).is_ok())
+                                .or_else(|| {
+                                    self.tree
+                                        .roots()
+                                        .into_iter()
+                                        .find(|&r| self.kind(r) == "page")
+                                })
+                                .ok_or("no page")?;
+                            (p.into(), self.children(p).len())
+                        }
+                    };
+                    out.push(self.paste(clip, parent, index)?.to_string());
+                }
                 out
             }
         };
@@ -553,21 +604,32 @@ impl Doc {
         ["x", "y", "w", "h"].map(|k| num(&m, k))
     }
 
-    fn copy(&self, id: TreeID, parent: TreeParentId, index: usize) -> Res<TreeID> {
+    fn clip(&self, id: TreeID) -> Clip {
+        Clip {
+            meta: self.meta(id).get_deep_value(),
+            children: self
+                .children(id)
+                .into_iter()
+                .map(|c| self.clip(c))
+                .collect(),
+        }
+    }
+
+    fn paste(&self, clip: &Clip, parent: TreeParentId, index: usize) -> Res<TreeID> {
         let new = self.tree.create_at(parent, index).map_err(err)?;
-        let (from, to) = (self.meta(id), self.meta(new));
-        for (k, v) in from.get_value().into_map().unwrap().iter() {
-            match container(&from, k).and_then(|c| c.into_text().ok()) {
-                Some(t) => to
+        let to = self.meta(new);
+        for (k, v) in clip.meta.clone().into_map().unwrap().iter() {
+            match (k.as_str(), v) {
+                ("text", LoroValue::String(t)) => to
                     .insert_container(k, LoroText::new())
                     .map_err(err)?
-                    .insert(0, &t.to_string())
+                    .insert(0, t)
                     .map_err(err)?,
-                None => to.insert(k, v.clone()).map_err(err)?,
+                _ => to.insert(k, v.clone()).map_err(err)?,
             }
         }
-        for (i, c) in self.children(id).into_iter().enumerate() {
-            self.copy(c, new.into(), i)?;
+        for (i, c) in clip.children.iter().enumerate() {
+            self.paste(c, new.into(), i)?;
         }
         Ok(new)
     }
@@ -724,6 +786,13 @@ fn hit(nodes: &[Node], x: f64, y: f64, path: &mut Vec<String>) -> bool {
         path.pop();
     }
     false
+}
+
+fn parent_node(p: TreeParentId) -> Option<TreeID> {
+    match p {
+        TreeParentId::Node(p) => Some(p),
+        _ => None,
+    }
 }
 
 fn union(boxes: impl Iterator<Item = [f64; 4]>) -> [f64; 4] {
@@ -1063,6 +1132,40 @@ mod tests {
         assert_ne!(children(orig)[0].id, children(dup)[0].id);
         assert_eq!(children(dup)[0].kind, children(orig)[0].kind);
         assert_eq!(frame(&children(dup)[0]), [1.0, 1.0, 5.0, 5.0]);
+    }
+
+    #[test]
+    fn paste_goes_above_the_target_or_back_into_the_source_parent() {
+        let (mut d, p) = empty();
+        let f = create(&mut d, &p, NewKind::Frame, [0.0, 0.0, 9.0, 9.0]);
+        let t = create(&mut d, &f, NewKind::Text, [1.0, 1.0, 5.0, 5.0]);
+        let a = create(&mut d, &p, NewKind::Rect, [0.0; 4]);
+        let b = create(&mut d, &p, NewKind::Rect, [0.0; 4]);
+        d.apply(Command::Copy {
+            ids: vec![t.clone(), f.clone()],
+        })
+        .unwrap();
+        d.apply(Command::Delete {
+            ids: vec![t.clone()],
+        })
+        .unwrap();
+        let pasted = d
+            .apply(Command::Paste {
+                above: vec![a.clone()],
+            })
+            .unwrap();
+        assert_eq!(pasted.len(), 2);
+        let pg = page(&d);
+        assert_eq!(
+            ids(&pg.children),
+            [&f, &a, &pasted[0], &pasted[1], &b].map(String::clone)
+        );
+        assert_eq!(children(&pg.children[2]).len(), 1);
+        assert!(matches!(pg.children[3].kind, Kind::Text { .. }));
+        let again = d.apply(Command::Paste { above: vec![] }).unwrap();
+        let pg = page(&d);
+        assert_eq!(pg.children.last().unwrap().id, again[0]);
+        assert_eq!(ids(children(&pg.children[0])), [again[1].clone()]);
     }
 
     #[test]

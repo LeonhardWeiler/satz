@@ -147,3 +147,25 @@ test('marquee, group, enter the group and undo', async ({ page }) => {
   await page.keyboard.press('Control+z')
   await expect(groups).toHaveCount(0)
 })
+
+test('copy, paste and alt-drag duplicate', async ({ page }) => {
+  await open(page)
+  const canvas = (await page.getByLabel('Page canvas').boundingBox())!
+  const rects = page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true })
+  await rects.first().click()
+  await page.keyboard.press('Control+c')
+  await page.keyboard.press('Control+v')
+  await expect(rects).toHaveCount(3)
+
+  const [x, y] = [canvas.x + canvas.width * 0.5, canvas.y + canvas.height * 0.1]
+  await page.keyboard.press('Escape')
+  await page.mouse.move(x, y)
+  await page.keyboard.down('Alt')
+  await page.mouse.down()
+  await page.mouse.move(x + 40, y + 40, { steps: 4 })
+  await page.mouse.up()
+  await page.keyboard.up('Alt')
+  await expect(rects).toHaveCount(4)
+  await page.keyboard.press('Control+z')
+  await expect(rects).toHaveCount(3)
+})

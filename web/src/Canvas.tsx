@@ -236,6 +236,10 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           if (Math.hypot(dx, dy) * view.zoom <= DRAG) return
           drag.active = true
           editor.apply({ type: 'beginUndoGroup' })
+          if (e.altKey) {
+            editor.set({ selection: editor.apply({ type: 'duplicate', ids: drag.frames.map((n) => n.id) }) })
+            drag.frames = editor.selected()
+          }
         }
         if (e.shiftKey) {
           if (Math.abs(dx) > Math.abs(dy)) dy = 0
