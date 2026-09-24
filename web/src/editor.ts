@@ -1,9 +1,12 @@
 import { useSyncExternalStore } from 'react'
 import type { Engine } from './engine/engine'
 import type { Command, Node, Snapshot } from './model'
+import { penPath, type Anchor } from './pen'
 import { index, type Entry } from './select'
 
-export type Tool = 'move' | 'frame' | 'rect' | 'text'
+export type Shape = 'rect' | 'line' | 'arrow' | 'ellipse' | 'polygon' | 'star'
+export type Tool = 'move' | 'frame' | 'text' | 'pen' | Shape
+export type Pen = { id: string; anchors: Anchor[] }
 
 export const MM = 72 / 25.4
 
@@ -13,6 +16,8 @@ export class Editor {
   selection: string[] = []
   tool: Tool = 'move'
   renaming: string | null = null
+  /** The path being drawn with the pen tool, inside an open undo group. */
+  pen: Pen | null = null
   private listeners = new Set<() => void>()
 
   constructor(readonly engine: Engine) {
@@ -33,9 +38,25 @@ export class Editor {
     return ids
   }
 
-  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming'>>) {
+  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'pen'>>) {
     Object.assign(this, patch)
     this.emit()
+  }
+
+  setTool(tool: Tool) {
+    this.finishPen(false)
+    this.set({ tool })
+  }
+
+  /** Ends the pen path; a path with fewer than two anchors is removed. */
+  finishPen(closed: boolean) {
+    const pen = this.pen
+    if (!pen) return
+    this.pen = null
+    if (pen.anchors.length < 2) this.apply({ type: 'delete', ids: [pen.id] })
+    else this.apply({ type: 'setPath', id: pen.id, path: penPath(pen.anchors, closed) })
+    this.apply({ type: 'endUndoGroup' })
+    this.set({ tool: 'move', selection: pen.anchors.length < 2 ? [] : [pen.id] })
   }
 
   selected(): Node[] {

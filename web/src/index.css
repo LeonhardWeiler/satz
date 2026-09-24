@@ -421,6 +421,81 @@ textarea {
   color: #ffffff;
 }
 
+.tool-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.tool-more {
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.tool-more svg {
+  transform: rotate(90deg);
+}
+
+.tool-more:hover,
+.tool-more[aria-expanded='true'] {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.menu {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 0;
+  display: grid;
+  min-width: 180px;
+  padding: 8px 0;
+  border-radius: 13px;
+  background: #1e1e1e;
+  box-shadow: 0 2px 12px rgb(0 0 0 / 0.5);
+}
+
+.menu-item {
+  display: grid;
+  grid-template-columns: 16px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 16px 4px 12px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu-item:hover,
+.menu-item:focus-visible {
+  background: var(--accent);
+  outline: none;
+}
+
+.menu-item:hover kbd,
+.menu-item:focus-visible kbd {
+  color: var(--text);
+}
+
+.menu-item[aria-checked='true'] > span {
+  font-weight: 600;
+}
+
+.menu-item kbd {
+  color: var(--text-3);
+  font: inherit;
+}
+
 @media (max-width: 900px) {
   .app {
     grid-template-columns: 0 minmax(0, 1fr) 240px;

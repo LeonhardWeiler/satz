@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CanvasKit, Surface } from 'canvaskit-wasm'
-import { MM, bounds, type Editor } from './editor'
+import { MM, bounds, type Editor, type Tool } from './editor'
 import type { Node } from './model'
+import { penPath } from './pen'
 import { Renderer, fitView, HANDLE, type Box, type View } from './renderer'
 import { pick } from './select'
 
@@ -19,7 +20,10 @@ const CURSORS: Record<string, string> = {
   e: 'ew-resize',
   w: 'ew-resize',
 }
-const DEFAULT_SIZE = { rect: [30, 30], frame: [30, 30], text: [60, 12] } as const
+const DEFAULT_SIZE: Record<Exclude<Tool, 'move' | 'pen'>, [number, number]> = {
+  rect: [30, 30], ellipse: [30, 30], polygon: [30, 30], star: [30, 30], frame: [30, 30], text: [60, 12],
+  line: [30, 0], arrow: [30, 0],
+}
 
 type Point = { x: number; y: number }
 type Drag =
@@ -28,6 +32,7 @@ type Drag =
   | { kind: 'resize'; start: Point; handle: string; box: Box; frames: Node[] }
   | { kind: 'marquee'; start: Point; end: Point; base: string[] }
   | { kind: 'draw'; start: Point; id: string; moved: boolean; tool: keyof typeof DEFAULT_SIZE }
+  | { kind: 'pen'; start: Point }
 
 export function isTyping(e: Event) {
   return e.target instanceof HTMLElement && e.target.closest('input, textarea, select, [contenteditable]') !== null
@@ -47,6 +52,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     let space = false
     let drag: Drag | null = null
     let hover: string | undefined
+    let cursor: Point | undefined
 
     const toDoc = (e: { offsetX: number; offsetY: number }): Point => ({
       x: (e.offsetX - view.x) / view.zoom,
@@ -82,6 +88,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           hover: hovered,
           marquee,
           handles: box,
+          pen: editor.pen && { anchors: editor.pen.anchors, cursor: drag ? undefined : cursor },
         })
         surface.flush()
       })
@@ -162,12 +169,32 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         canvas.dataset.panning = ''
         return
       }
+      const parent = () => hit(p).findLast((id) => editor.nodes.get(id)?.node.kind === 'frame') ?? editor.page.id
+      if (editor.tool === 'pen') {
+        const pen = editor.pen
+        const anchor = { x: p.x, y: p.y, hx: 0, hy: 0 }
+        drag = { kind: 'pen', start: p }
+        if (!pen) {
+          editor.apply({ type: 'beginUndoGroup' })
+          const [id] = editor.apply({ type: 'create', parent: parent(), kind: 'path', x: p.x, y: p.y, w: 0, h: 0 })
+          editor.set({ pen: { id, anchors: [anchor] }, selection: [] })
+          return
+        }
+        const first = pen.anchors[0]
+        if (pen.anchors.length > 1 && Math.hypot(first.x - p.x, first.y - p.y) * view.zoom <= HANDLE) {
+          drag = null
+          editor.finishPen(true)
+          return
+        }
+        const anchors = [...pen.anchors, anchor]
+        editor.set({ pen: { ...pen, anchors } })
+        editor.apply({ type: 'setPath', id: pen.id, path: penPath(anchors, false) })
+        return
+      }
       if (editor.tool !== 'move') {
-        const path = hit(p)
-        const parent = path.findLast((id) => editor.nodes.get(id)?.node.kind === 'frame') ?? editor.page.id
         const tool = editor.tool
         editor.apply({ type: 'beginUndoGroup' })
-        const [id] = editor.apply({ type: 'create', parent, kind: tool, x: p.x, y: p.y, w: 0, h: 0 })
+        const [id] = editor.apply({ type: 'create', parent: parent(), kind: tool, x: p.x, y: p.y, w: 0, h: 0 })
         drag = { kind: 'draw', start: p, id, moved: false, tool }
         editor.set({ selection: [id] })
         return
@@ -196,6 +223,11 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     }
     const onPointerMove = (e: PointerEvent) => {
       const p = toDoc(e)
+      if (editor.pen && !drag) {
+        cursor = p
+        redraw()
+        return
+      }
       if (!drag) {
         canvas.style.cursor = CURSORS[handleAt(e) ?? ''] ?? ''
         const id = editor.tool === 'move' ? pick(editor.page.children, hit(p), editor.selection, 'click') : undefined
@@ -217,11 +249,29 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           .filter((n) => n.x < m.x + m.w && n.x + n.w > m.x && n.y < m.y + m.h && n.y + n.h > m.y)
           .map((n) => n.id)
         editor.set({ selection: [...new Set([...drag.base, ...inside])] })
+      } else if (drag.kind === 'pen') {
+        const pen = editor.pen
+        if (!pen || Math.hypot(p.x - drag.start.x, p.y - drag.start.y) * view.zoom <= DRAG) return
+        const anchors = [...pen.anchors]
+        anchors[anchors.length - 1] = { ...anchors.at(-1)!, hx: p.x - drag.start.x, hy: p.y - drag.start.y }
+        editor.set({ pen: { ...pen, anchors } })
+        editor.apply({ type: 'setPath', id: pen.id, path: penPath(anchors, false) })
       } else if (drag.kind === 'draw') {
         drag.moved ||= Math.hypot(p.x - drag.start.x, p.y - drag.start.y) * view.zoom > DRAG
         if (!drag.moved) return
         let dx = p.x - drag.start.x
         let dy = p.y - drag.start.y
+        if (drag.tool === 'line' || drag.tool === 'arrow') {
+          if (e.shiftKey) {
+            const a = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4)
+            const d = Math.hypot(dx, dy)
+            dx = Math.cos(a) * d
+            dy = Math.sin(a) * d
+          }
+          const { x, y } = drag.start
+          editor.apply({ type: 'setPath', id: drag.id, path: [0, x, y, 1, x + dx, y + dy] })
+          return
+        }
         if (e.shiftKey) {
           const d = Math.max(Math.abs(dx), Math.abs(dy))
           dx = Math.sign(dx || 1) * d
@@ -286,7 +336,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           const [w, h] = DEFAULT_SIZE[drag.tool]
           editor.apply({ type: 'setFrame', id: drag.id, x: drag.start.x, y: drag.start.y, w: w * MM, h: h * MM })
         }
-        editor.set({ tool: 'move' })
+        editor.setTool('move')
       }
       if (drag?.kind === 'draw' || drag?.kind === 'resize' || (drag?.kind === 'move' && drag.active)) {
         editor.apply({ type: 'endUndoGroup' })
@@ -306,6 +356,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     }
     const onLeave = () => {
       hover = undefined
+      cursor = undefined
       redraw()
     }
     const onKey = (e: KeyboardEvent) => {

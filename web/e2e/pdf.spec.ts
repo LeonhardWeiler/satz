@@ -169,3 +169,37 @@ test('copy, paste and alt-drag duplicate', async ({ page }) => {
   await page.keyboard.press('Control+z')
   await expect(rects).toHaveCount(3)
 })
+
+test('draw shapes and a closed pen path, then export them', async ({ page }) => {
+  await open(page)
+  const canvas = (await page.getByLabel('Page canvas').boundingBox())!
+  const at = (fx: number, fy: number) => [canvas.x + canvas.width * fx, canvas.y + canvas.height * fy] as const
+  const layers = page.getByRole('tree', { name: 'Layers' })
+  const drag = async (from: readonly [number, number], to: readonly [number, number]) => {
+    await page.mouse.move(...from)
+    await page.mouse.down()
+    await page.mouse.move(...to, { steps: 4 })
+    await page.mouse.up()
+  }
+
+  await page.keyboard.press('o')
+  await drag(at(0.35, 0.45), at(0.45, 0.55))
+  await page.keyboard.press('Shift+L')
+  await drag(at(0.5, 0.45), at(0.6, 0.55))
+  await page.getByRole('button', { name: 'Shape tools' }).click()
+  await page.getByRole('menuitemradio', { name: /Star/ }).click()
+  await drag(at(0.35, 0.6), at(0.45, 0.7))
+
+  await page.keyboard.press('p')
+  await page.mouse.click(...at(0.5, 0.6))
+  await drag(at(0.65, 0.62), at(0.68, 0.7))
+  await page.mouse.click(...at(0.55, 0.72))
+  await page.mouse.click(...at(0.5, 0.6))
+
+  for (const name of ['Ellipse', 'Arrow', 'Star', 'Vector']) {
+    await expect(layers.getByRole('button', { name, exact: true })).toHaveCount(1)
+  }
+  await page.keyboard.press('Escape')
+  await page.mouse.move(canvas.x + 2, canvas.y + 2)
+  await expectCanvasMatchesPdf(page)
+})

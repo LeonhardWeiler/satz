@@ -1,6 +1,8 @@
 import { MM, type Editor, type Tool } from './editor'
 
-const TOOLS: Record<string, Tool> = { v: 'move', f: 'frame', a: 'frame', r: 'rect', t: 'text' }
+const TOOLS: Record<string, Tool> = {
+  v: 'move', f: 'frame', a: 'frame', r: 'rect', o: 'ellipse', l: 'line', p: 'pen', t: 'text',
+}
 const ORDER = { BracketRight: ['forward', 'front'], BracketLeft: ['backward', 'back'] } as const
 const ARROWS: Record<string, [number, number]> = {
   ArrowLeft: [-1, 0],
@@ -17,13 +19,15 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
   const one = editor.nodes.get(ids[0])
   const siblings = (one?.parent?.children ?? editor.page.children).map((n) => n.id)
 
-  if (!mod && !e.altKey && !e.shiftKey && TOOLS[key]) editor.set({ tool: TOOLS[key] })
+  if (editor.pen && (e.key === 'Escape' || e.key === 'Enter')) editor.finishPen(false)
+  else if (!mod && !e.altKey && !e.shiftKey && TOOLS[key]) editor.setTool(TOOLS[key])
+  else if (!mod && !e.altKey && e.shiftKey && key === 'l') editor.setTool('arrow')
   else if (mod && key === 'z') editor.apply({ type: e.shiftKey ? 'redo' : 'undo' })
   else if (mod && key === 'y') editor.apply({ type: 'redo' })
   else if (mod && key === 'a') editor.set({ selection: siblings })
   else if (mod && key === 'v') editor.set({ selection: editor.apply({ type: 'paste', above: ids }) })
   else if (e.key === 'Escape') {
-    if (editor.tool !== 'move') editor.set({ tool: 'move' })
+    if (editor.tool !== 'move') editor.setTool('move')
     else editor.set({ selection: one?.parent ? [one.parent.id] : [] })
   } else if (!ids.length) return false
   else if (e.key === 'Delete' || e.key === 'Backspace') editor.apply({ type: 'delete', ids })

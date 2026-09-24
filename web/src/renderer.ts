@@ -4,7 +4,13 @@ import { close, decode, type Op, type Paint as Fill } from './displayList'
 
 export type View = { x: number; y: number; zoom: number }
 export type Box = { x: number; y: number; w: number; h: number }
-export type Overlay = { selection: Box[]; hover?: Box; marquee?: Box; handles?: Box }
+export type Overlay = {
+  selection: Box[]
+  hover?: Box
+  marquee?: Box
+  handles?: Box
+  pen?: { anchors: { x: number; y: number; hx: number; hy: number }[]; cursor?: { x: number; y: number } } | null
+}
 
 const FIT_PADDING = 64
 export const HANDLE = 8
@@ -68,7 +74,6 @@ export class Renderer {
       this.drawOps(canvas, ops, 1, ops.length, bleedBox)
       canvas.restore()
     }
-    canvas.restore()
     paint.setStyle(ck.PaintStyle.Stroke)
     paint.setStrokeWidth(0)
     paint.setColor(ck.parseColorString(TRIM))
@@ -79,7 +84,7 @@ export class Renderer {
     this.drawOverlay(canvas, view, dpr, overlay)
   }
 
-  private drawOverlay(canvas: Canvas, view: View, dpr: number, { selection, hover, marquee, handles }: Overlay) {
+  private drawOverlay(canvas: Canvas, view: View, dpr: number, { selection, hover, marquee, handles, pen }: Overlay) {
     const { ck, paint } = this
     const screen = (b: Box) =>
       ck.XYWHRect(
@@ -108,6 +113,24 @@ export class Renderer {
       paint.setStyle(ck.PaintStyle.Stroke)
       paint.setColor(accent)
       canvas.drawRect(r, paint)
+    }
+    if (pen) {
+      const at = (x: number, y: number) => [view.x + x * view.zoom, view.y + y * view.zoom] as const
+      const last = pen.anchors.at(-1)!
+      if (pen.cursor) canvas.drawLine(...at(last.x, last.y), ...at(pen.cursor.x, pen.cursor.y), paint)
+      if (last.hx || last.hy) {
+        canvas.drawLine(...at(last.x - last.hx, last.y - last.hy), ...at(last.x + last.hx, last.y + last.hy), paint)
+      }
+      for (const a of pen.anchors) {
+        const [x, y] = at(a.x, a.y)
+        const h = ck.XYWHRect(Math.round(x) - 3.5, Math.round(y) - 3.5, 7, 7)
+        paint.setStyle(ck.PaintStyle.Fill)
+        paint.setColor(ck.WHITE)
+        canvas.drawRect(h, paint)
+        paint.setStyle(ck.PaintStyle.Stroke)
+        paint.setColor(accent)
+        canvas.drawRect(h, paint)
+      }
     }
     if (handles) {
       const r = screen(handles)

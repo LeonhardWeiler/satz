@@ -155,10 +155,9 @@ pub fn bounds(path: &[f32]) -> [f32; 4] {
         f32::NEG_INFINITY,
         f32::NEG_INFINITY,
     ];
-    map(path, |[x, y]| {
+    for [x, y] in flatten(path).into_iter().flatten() {
         b = [b[0].min(x), b[1].min(y), b[2].max(x), b[3].max(y)];
-        [x, y]
-    });
+    }
     if b[0] > b[2] {
         return [0.0; 4];
     }
@@ -166,7 +165,7 @@ pub fn bounds(path: &[f32]) -> [f32; 4] {
 }
 
 /// Applies `f` to every point of a path.
-pub fn map(path: &[f32], mut f: impl FnMut([f32; 2]) -> [f32; 2]) -> Vec<f32> {
+pub fn map(path: &[f32], f: impl Fn([f32; 2]) -> [f32; 2]) -> Vec<f32> {
     let mut out = Vec::with_capacity(path.len());
     let mut i = 0;
     while i < path.len() {
@@ -382,11 +381,11 @@ mod tests {
     }
 
     #[test]
-    fn bounds_span_all_points() {
-        let path = [
-            MOVE, 1.0, 2.0, LINE, 4.0, 0.0, CUBIC, 2.0, 5.0, 3.0, 3.0, 1.0, 1.0,
-        ];
-        assert_eq!(bounds(&path), [1.0, 0.0, 3.0, 5.0]);
+    fn bounds_follow_the_curve_not_its_control_points() {
+        let path = [MOVE, 0.0, 0.0, CUBIC, 0.0, 10.0, 10.0, 10.0, 10.0, 0.0];
+        let [x, y, w, h] = bounds(&path);
+        assert_eq!([x, y, w], [0.0, 0.0, 10.0]);
+        assert!((h - 7.5).abs() < 0.01, "{h}");
         assert_eq!(bounds(&[]), [0.0; 4]);
     }
 }
