@@ -1,9 +1,16 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import type { CanvasKit } from 'canvaskit-wasm'
 import type { Engine } from './engine/engine'
-import { Canvas } from './Canvas'
+import { Canvas, isTyping } from './Canvas'
+import { Editor } from './editor'
+import { handleKey } from './keys'
+import { Layers } from './Layers'
+import { Properties } from './Properties'
+import { Toolbar } from './Toolbar'
 
 export function App({ ck, engine }: { ck: CanvasKit; engine: Engine }) {
+  const [editor] = useState(() => new Editor(engine))
+
   const exportPdf = () => {
     const url = URL.createObjectURL(new Blob([engine.pdf() as Uint8Array<ArrayBuffer>], { type: 'application/pdf' }))
     const a = document.createElement('a')
@@ -15,10 +22,9 @@ export function App({ ck, engine }: { ck: CanvasKit; engine: Engine }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === 'KeyE') {
-        e.preventDefault()
-        exportPdf()
-      }
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === 'KeyE') exportPdf()
+      else if (isTyping(e) || !handleKey(editor, e)) return
+      e.preventDefault()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -26,10 +32,11 @@ export function App({ ck, engine }: { ck: CanvasKit; engine: Engine }) {
 
   return (
     <main className="app">
-      <Canvas ck={ck} engine={engine} />
-      <button type="button" className="export" onClick={exportPdf} title="Export PDF (Ctrl+Shift+E)">
-        Export PDF
-      </button>
+      <h1 className="sr-only">Satz</h1>
+      <Layers editor={editor} />
+      <Canvas ck={ck} editor={editor} />
+      <Properties editor={editor} onExport={exportPdf} />
+      <Toolbar editor={editor} />
     </main>
   )
 }

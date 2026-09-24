@@ -1,8 +1,8 @@
-import type { Node } from './model'
+import type { Container, Node } from './model'
 
-export type Entry = { node: Node; parent?: Node }
+export type Entry = { node: Node; parent?: Container }
 
-export function index(nodes: Node[], parent?: Node, out = new Map<string, Entry>()) {
+export function index(nodes: Node[], parent?: Container, out = new Map<string, Entry>()) {
   for (const node of nodes) {
     out.set(node.id, { node, parent })
     if ('children' in node) index(node.children, node, out)

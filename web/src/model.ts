@@ -18,6 +18,8 @@ export type Node = { id: string; name: string; x: number; y: number; w: number; 
   | { kind: 'frame'; fill: number; clip: boolean; children: Node[] }
 )
 
+export type Container = Extract<Node, { children: Node[] }>
+
 export type Page = { id: string; width: number; height: number; bleed: number; children: Node[] }
 
 export type Snapshot = { pages: Page[]; canUndo: boolean; canRedo: boolean }

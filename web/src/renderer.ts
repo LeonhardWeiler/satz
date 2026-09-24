@@ -3,8 +3,11 @@ import type { Engine } from './engine/engine'
 import { decode, type Op } from './displayList'
 
 export type View = { x: number; y: number; zoom: number }
+export type Box = { x: number; y: number; w: number; h: number }
+export type Overlay = { selection: Box[]; hover?: Box; marquee?: Box; handles?: Box }
 
-const FIT_PADDING = 48
+const FIT_PADDING = 64
+export const HANDLE = 8
 
 export function fitView(
   page: { width: number; height: number; bleed: number },
@@ -21,6 +24,7 @@ export function fitView(
 const BACKGROUND = '#1e1e1e'
 const TRIM = '#000000'
 const BLEED = '#ff3b30'
+const ACCENT = '#0d99ff'
 
 export class Renderer {
   private pictures = new Map<number, { hash: number; picture: SkPicture }>()
@@ -35,7 +39,7 @@ export class Renderer {
     this.paint.setAntiAlias(true)
   }
 
-  draw(canvas: Canvas, view: View, dpr: number) {
+  draw(canvas: Canvas, view: View, dpr: number, overlay: Overlay) {
     const { ck, paint } = this
     const ops = decode(this.engine.displayList(0))
     canvas.clear(ck.parseColorString(BACKGROUND))
@@ -87,6 +91,55 @@ export class Renderer {
     canvas.drawRect(trimBox, paint)
     paint.setColor(ck.parseColorString(BLEED))
     canvas.drawRect(bleedBox, paint)
+    canvas.restore()
+    this.drawOverlay(canvas, view, dpr, overlay)
+  }
+
+  private drawOverlay(canvas: Canvas, view: View, dpr: number, { selection, hover, marquee, handles }: Overlay) {
+    const { ck, paint } = this
+    const screen = (b: Box) =>
+      ck.XYWHRect(
+        Math.round(view.x + b.x * view.zoom) + 0.5,
+        Math.round(view.y + b.y * view.zoom) + 0.5,
+        Math.round(b.w * view.zoom),
+        Math.round(b.h * view.zoom),
+      )
+    const accent = ck.parseColorString(ACCENT)
+    canvas.save()
+    canvas.scale(dpr, dpr)
+    paint.setStyle(ck.PaintStyle.Stroke)
+    paint.setColor(accent)
+    paint.setStrokeWidth(1)
+    for (const b of selection) canvas.drawRect(screen(b), paint)
+    if (hover) {
+      paint.setStrokeWidth(2)
+      canvas.drawRect(screen(hover), paint)
+      paint.setStrokeWidth(1)
+    }
+    if (marquee) {
+      const r = ck.XYWHRect(marquee.x + 0.5, marquee.y + 0.5, marquee.w, marquee.h)
+      paint.setStyle(ck.PaintStyle.Fill)
+      paint.setColor(ck.Color(13, 153, 255, 0.1))
+      canvas.drawRect(r, paint)
+      paint.setStyle(ck.PaintStyle.Stroke)
+      paint.setColor(accent)
+      canvas.drawRect(r, paint)
+    }
+    if (handles) {
+      const r = screen(handles)
+      canvas.drawRect(r, paint)
+      for (const x of [r[0], r[2]]) {
+        for (const y of [r[1], r[3]]) {
+          const h = ck.XYWHRect(x - HANDLE / 2, y - HANDLE / 2, HANDLE, HANDLE)
+          paint.setStyle(ck.PaintStyle.Fill)
+          paint.setColor(ck.WHITE)
+          canvas.drawRect(h, paint)
+          paint.setStyle(ck.PaintStyle.Stroke)
+          paint.setColor(accent)
+          canvas.drawRect(h, paint)
+        }
+      }
+    }
     canvas.restore()
   }
 

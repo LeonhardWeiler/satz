@@ -2,11 +2,11 @@ import { execFileSync } from 'node:child_process'
 import { mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { PNG } from 'pngjs'
 import { fitView } from '../src/renderer'
 
-const WIDTH = 900
+const WIDTH = 1400
 const HEIGHT = 1100
 const EDGE = 4
 const BLOCK = 4
@@ -18,11 +18,14 @@ function pageBox(xml: string, name: string) {
   return { l, b, r, t }
 }
 
-test('canvas matches the exported pdf', async ({ page }) => {
+async function open(page: Page) {
   await page.setViewportSize({ width: WIDTH, height: HEIGHT })
   await page.goto('')
   await expect(page.getByLabel('Zoom')).not.toHaveText('0%')
+}
 
+async function expectCanvasMatchesPdf(page: Page) {
+  const canvas = (await page.getByLabel('Page canvas').boundingBox())!
   const dir = mkdtempSync(join(tmpdir(), 'satz-'))
   const pdf = join(dir, 'satz.pdf')
   const download = page.waitForEvent('download')
@@ -35,10 +38,10 @@ test('canvas matches the exported pdf', async ({ page }) => {
   const bleed = trimBox.l - bleedBox.l
   const width = trimBox.r - trimBox.l
   const height = trimBox.t - trimBox.b
-  const view = fitView({ width, height, bleed }, WIDTH, HEIGHT)
+  const view = fitView({ width, height, bleed }, canvas.width, canvas.height)
 
-  const x = Math.round(view.x - bleed * view.zoom)
-  const y = Math.round(view.y - bleed * view.zoom)
+  const x = Math.round(canvas.x + view.x - bleed * view.zoom)
+  const y = Math.round(canvas.y + view.y - bleed * view.zoom)
   const w = Math.round((width + 2 * bleed) * view.zoom)
   const h = Math.round((height + 2 * bleed) * view.zoom)
   await page.waitForTimeout(100)
@@ -80,4 +83,67 @@ test('canvas matches the exported pdf', async ({ page }) => {
     }
   }
   expect(differing / compared).toBeLessThan(0.001)
+}
+
+test('canvas matches the exported pdf', async ({ page }) => {
+  await open(page)
+  await expectCanvasMatchesPdf(page)
+})
+
+test('draw, move, undo and redo a rectangle, then export it', async ({ page }) => {
+  await open(page)
+  const canvas = (await page.getByLabel('Page canvas').boundingBox())!
+  const rects = page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true })
+  const x = page.getByRole('region', { name: 'Layout' }).getByTitle('X in mm').getByRole('textbox')
+  await expect(rects).toHaveCount(2)
+
+  await page.keyboard.press('r')
+  const cx = canvas.x + canvas.width / 2
+  const cy = canvas.y + canvas.height / 2
+  await page.mouse.move(cx - 60, cy - 40)
+  await page.mouse.down()
+  await page.mouse.move(cx + 20, cy + 40, { steps: 4 })
+  await page.mouse.up()
+  await expect(rects).toHaveCount(3)
+  const drawn = await x.inputValue()
+
+  await page.mouse.move(cx - 20, cy)
+  await page.mouse.down()
+  await page.mouse.move(cx + 40, cy, { steps: 4 })
+  await page.mouse.up()
+  await expect(x).not.toHaveValue(drawn)
+
+  await page.keyboard.press('Control+z')
+  await expect(x).toHaveValue(drawn)
+  await page.keyboard.press('Control+z')
+  await expect(rects).toHaveCount(2)
+  await page.keyboard.press('Control+Shift+z')
+  await expect(rects).toHaveCount(3)
+
+  await page.keyboard.press('Escape')
+  await page.mouse.move(canvas.x + 2, canvas.y + 2)
+  await expectCanvasMatchesPdf(page)
+})
+
+test('marquee, group, enter the group and undo', async ({ page }) => {
+  await open(page)
+  const canvas = (await page.getByLabel('Page canvas').boundingBox())!
+  const at = (fx: number, fy: number) => [canvas.x + canvas.width * fx, canvas.y + canvas.height * fy] as const
+  const title = page.getByRole('complementary', { name: 'Properties' }).getByRole('heading', { level: 2 })
+  const groups = page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Group', exact: true })
+
+  await page.mouse.move(...at(0.2, 0.45))
+  await page.mouse.down()
+  await page.mouse.move(...at(0.6, 0.8), { steps: 5 })
+  await page.mouse.up()
+  await expect(title).toHaveText('2 layers')
+  await page.keyboard.press('Control+g')
+  await expect(title).toHaveText('Group')
+  await expect(groups).toHaveCount(1)
+  await page.mouse.dblclick(...at(0.5, 0.5))
+  await expect(title).toHaveText(/^Satz sets type/)
+  await page.keyboard.press('Escape')
+  await expect(title).toHaveText('Group')
+  await page.keyboard.press('Control+z')
+  await expect(groups).toHaveCount(0)
 })
