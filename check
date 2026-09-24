@@ -9,3 +9,4 @@ cd web
 pnpm install --frozen-lockfile
 pnpm exec tsc --noEmit
 pnpm lint
+pnpm test
