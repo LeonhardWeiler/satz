@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Satz – project health report</title>
+<style>
+  :root { --bg:#16161a; --card:#202026; --line:#2e2e36; --text:#e6e6ea; --muted:#9a9aa6; --accent:#0d99ff;
+          --critical:#ff453a; --high:#ff9f0a; --medium:#ffd60a; --low:#64d2ff; --info:#9a9aa6; --good:#30d158; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.55 system-ui, sans-serif; }
+  main { max-width:960px; margin:0 auto; padding:40px 24px 80px; }
+  h1 { margin:0 0 4px; font-size:28px; }
+  h2 { margin:48px 0 16px; font-size:21px; border-bottom:1px solid var(--line); padding-bottom:8px; }
+  h3 { margin:0; font-size:16px; }
+  a { color:var(--accent); }
+  code { font:13px ui-monospace, monospace; background:#2a2a32; padding:1px 5px; border-radius:4px; }
+  .meta { color:var(--muted); margin:0 0 24px; }
+  .counters { display:flex; flex-wrap:wrap; gap:12px; margin:0 0 24px; }
+  .counter { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 16px; min-width:110px; }
+  .counter b { display:block; font-size:24px; }
+  .counter span { color:var(--muted); font-size:13px; text-transform:uppercase; letter-spacing:.04em; }
+  nav ol { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px 16px 16px 40px; margin:0; }
+  nav ol ol { background:none; border:0; padding:4px 0 0 20px; columns:2; }
+  .card { background:var(--card); border:1px solid var(--line); border-left:4px solid var(--info); border-radius:10px; padding:16px 18px; margin:0 0 14px; }
+  .card.critical { border-left-color:var(--critical); } .card.high { border-left-color:var(--high); }
+  .card.medium { border-left-color:var(--medium); } .card.low { border-left-color:var(--low); }
+  .card header { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:6px; }
+  .id { font:600 13px ui-monospace, monospace; color:var(--muted); }
+  .badge { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:2px 8px; border-radius:99px; color:#000; }
+  .badge.critical { background:var(--critical); } .badge.high { background:var(--high); } .badge.medium { background:var(--medium); }
+  .badge.low { background:var(--low); } .badge.info { background:var(--info); } .badge.good { background:var(--good); }
+  .file { color:var(--muted); font-size:13px; margin:0 0 8px; }
+  .card p { margin:6px 0; }
+  .rec::before { content:"Recommendation: "; font-weight:600; color:var(--accent); }
+  ul.plain { padding-left:20px; }
+  table { border-collapse:collapse; width:100%; }
+  td { padding:6px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+</style>
+</head>
+<body>
+<main>
+<h1>Satz – project health report</h1>
+<p class="meta">2026-09-24 · branch <code>main</code> · commit <code>a8142d2</code> · browser DTP (Rust/WASM engine, CanvasKit renderer, React UI, krilla PDF)</p>
+
+<div class="counters">
+  <div class="counter"><b>0</b><span>Critical</span></div>
+  <div class="counter"><b>1</b><span>High</span></div>
+  <div class="counter"><b>10</b><span>Medium</span></div>
+  <div class="counter"><b>10</b><span>Low</span></div>
+  <div class="counter"><b>2</b><span>Info</span></div>
+  <div class="counter"><b>23</b><span>Total</span></div>
+</div>
+
+<nav aria-label="Contents">
+<ol>
+  <li><a href="#open">Open findings</a>
+    <ol>
+      <li><a href="#BUG-1">BUG-1 Gradient shader leaks into chrome</a></li>
+      <li><a href="#BUG-2">BUG-2 Lines resized as boxes</a></li>
+      <li><a href="#BUG-3">BUG-3 Mask scope</a></li>
+      <li><a href="#BUG-4">BUG-4 Undo during pen or drag</a></li>
+      <li><a href="#BUG-5">BUG-5 Layer drop into own descendant</a></li>
+      <li><a href="#BUG-6">BUG-6 Text box stale after undo</a></li>
+      <li><a href="#ROB-1">ROB-1 Commands not atomic</a></li>
+      <li><a href="#PERF-1">PERF-1 Full snapshot per event</a></li>
+      <li><a href="#PERF-2">PERF-2 Export on main thread</a></li>
+      <li><a href="#UX-1">UX-1 Blank screen while loading</a></li>
+      <li><a href="#TEST-1">TEST-1 Gaps in e2e coverage</a></li>
+      <li><a href="#UX-2">UX-2 Hover and cursor</a></li>
+      <li><a href="#UX-3">UX-3 No limits on values</a></li>
+      <li><a href="#UX-4">UX-4 Colour picker clipped</a></li>
+      <li><a href="#UI-1">UI-1 Panel spacing</a></li>
+      <li><a href="#A11Y-1">A11Y-1 Layers keyboard</a></li>
+      <li><a href="#PERF-3">PERF-3 Shadow layers re-recorded</a></li>
+      <li><a href="#MEM-1">MEM-1 Renderer caches never evict</a></li>
+      <li><a href="#ARCH-1">ARCH-1 Canvas pointer logic</a></li>
+      <li><a href="#SEC-1">SEC-1 Actions not pinned</a></li>
+      <li><a href="#DOC-1">DOC-1 No CLAUDE.md</a></li>
+      <li><a href="#UX-5">UX-5 Start zoom 127 %</a></li>
+      <li><a href="#BUG-7">BUG-7 Text weight in PDF</a></li>
+    </ol>
+  </li>
+  <li><a href="#strong">What is already strong</a></li>
+  <li><a href="#decided">Deliberately decided</a></li>
+  <li><a href="#legend">Legend</a></li>
+</ol>
+</nav>
+
+<h2 id="open">1. Open findings</h2>
+
+<article class="card high" id="BUG-1">
+  <header><span class="id">BUG-1</span><span class="badge high">high</span><h3>Gradient shader leaks into page, guides and handles</h3></header>
+  <p class="file"><code>web/src/renderer.ts</code> (TODO B1, bugs.md 1, 2, 13, 14)</p>
+  <p>One shared <code>Paint</code> draws content, the white page, trim/bleed guides and the selection overlay. <code>drawOp</code> deletes the gradient shader while it is still attached; the chrome code only calls <code>setColor</code>, so after re-recording a gradient item the page, guides and handles are drawn with the deleted shader. Canvas only; the PDF is correct.</p>
+  <p class="rec">Separate paint for chrome, <code>setShader(null)</code> before <code>shader.delete()</code>, and an e2e that moves a gradient item and samples page-white and handle-blue pixels.</p>
+</article>
+
+<article class="card medium" id="BUG-2">
+  <header><span class="id">BUG-2</span><span class="badge medium">medium</span><h3>Lines and arrows are resized as boxes</h3></header>
+  <p class="file"><code>web/src/Canvas.tsx</code> <code>handleAt</code> (TODO B2)</p>
+  <p>With <code>h = 0</code> the n and s edge zones cover the whole line, so a press resizes instead of moving; corner handles scale both axes.</p>
+  <p class="rec">Endpoint handles for two-point paths written through <code>setPath</code>; no edge handles on a zero axis.</p>
+</article>
+
+<article class="card medium" id="BUG-3">
+  <header><span class="id">BUG-3</span><span class="badge medium">medium</span><h3>A mask hides more than expected and is invisible in the layers panel</h3></header>
+  <p class="file"><code>engine/src/doc.rs</code> <code>draw_all</code>, <code>hit</code>; <code>web/src/Layers.tsx</code> (TODO B4)</p>
+  <p>A mask masks every later sibling in its parent, so a page-level frame used as mask hides the whole page. The layers panel shows nothing, and <code>hit</code> ignores masks, so hidden parts stay clickable.</p>
+  <p class="rec">Figma "Mask group" on multi-selection, mask icon and scope in the layers panel, hit test against the mask outline.</p>
+</article>
+
+<article class="card medium" id="BUG-4">
+  <header><span class="id">BUG-4</span><span class="badge medium">medium</span><h3>Undo while a pen path or drag is open</h3></header>
+  <p class="file"><code>web/src/keys.ts</code> (TODO B9)</p>
+  <p>Ctrl+Z inside the open pen undo group can remove the path node; the next <code>setPath</code> throws. Undo during a drag mixes with the drag's undo group.</p>
+  <p class="rec">Finish the pen before undo/redo; ignore undo/redo while a drag is active.</p>
+</article>
+
+<article class="card medium" id="BUG-5">
+  <header><span class="id">BUG-5</span><span class="badge medium">medium</span><h3>Dropping a layer into its own descendant throws</h3></header>
+  <p class="file"><code>web/src/Layers.tsx</code> <code>over</code>, <code>onDrop</code>; <code>engine/src/doc.rs</code> <code>Command::Move</code></p>
+  <p><code>over</code> only rejects the dragged rows themselves. Dragging an expanded group onto one of its children (into, above or below) sends a <code>move</code> whose target parent is inside the moved node; Loro rejects the cyclic move, the <code>JsError</code> escapes the drop handler and the drop indicator stays visible.</p>
+  <p class="rec">Reject targets inside a dragged subtree in <code>over</code>, and check ancestry in <code>Command::Move</code> before the first <code>mov_to</code>.</p>
+</article>
+
+<article class="card medium" id="BUG-6">
+  <header><span class="id">BUG-6</span><span class="badge medium">medium</span><h3>Text content box is stale after undo and re-applies the undone text</h3></header>
+  <p class="file"><code>web/src/Properties.tsx</code> (Text section textarea)</p>
+  <p>The textarea is uncontrolled with <code>key={one.id}</code>. After Ctrl+Z restores an older text, the box still shows the newer one; focusing and leaving it compares against the restored text and sends <code>setText</code> again, silently redoing the edit.</p>
+  <p class="rec">Key the textarea on id and text, or keep a draft like <code>Field</code> does.</p>
+</article>
+
+<article class="card medium" id="ROB-1">
+  <header><span class="id">ROB-1</span><span class="badge medium">medium</span><h3>Commands are not atomic and engine errors are unhandled</h3></header>
+  <p class="file"><code>engine/src/doc.rs</code> <code>apply</code>; <code>web/src/editor.ts</code> <code>apply</code>; <code>web/src/Properties.tsx</code> <code>each</code></p>
+  <p><code>apply</code> returns <code>Err</code> after partial mutation (e.g. <code>Move</code>, <code>Group</code> loop over several ids) and skips <code>commit</code>, so the half-done ops land in the next command's transaction. In the UI a throw inside <code>beginUndoGroup … endUndoGroup</code> (property edits, drags, nudges) leaves the group open, so later edits merge into one undo step. The snapshot is not refreshed after the error.</p>
+  <p class="rec">Validate all inputs before the first mutation in each command; have <code>Editor.apply</code> end an open undo group and re-read the snapshot on error.</p>
+</article>
+
+<article class="card medium" id="PERF-1">
+  <header><span class="id">PERF-1</span><span class="badge medium">medium</span><h3>Full snapshot and full text layout on every event</h3></header>
+  <p class="file"><code>engine/src/doc.rs</code> <code>render</code>, <code>hit</code>; <code>web/src/editor.ts</code>; <code>web/src/Canvas.tsx</code></p>
+  <p>Each drag step serialises the whole document to JS (<code>Editor.apply</code>), rebuilds it again for the display list and reshapes and re-breaks every text item (harfrust + Knuth-Plass) per frame. Every hover <code>pointermove</code> calls <code>hit</code>, which builds another full snapshot. Fine for the demo page; it will not hold for the 8-page booklet with threaded text.</p>
+  <p class="rec">Cache text layout per node keyed by text, size and frame; render and hit test from one cached tree that commands invalidate.</p>
+</article>
+
+<article class="card medium" id="PERF-2">
+  <header><span class="id">PERF-2</span><span class="badge medium">medium</span><h3>PDF export blocks the UI; raster size has no upper bound</h3></header>
+  <p class="file"><code>web/src/App.tsx</code> <code>exportPdf</code>; <code>engine/src/pdf.rs</code>; <code>engine/src/raster.rs</code></p>
+  <p>Export runs synchronously on the main thread without feedback. Shadows and blurs are rasterised at the document ppi, which accepts any positive value: an A2-sized shadow at 300 ppi is ≈ 4961 × 7016 px (≈ 139 MB per buffer, several copies during blur and demultiply); a large ppi can exhaust WASM memory and trap the engine.</p>
+  <p class="rec">Cap <code>rasterPpi</code> in <code>SetDocument</code> (part of TODO B6); show progress, later move export into a Worker.</p>
+</article>
+
+<article class="card medium" id="UX-1">
+  <header><span class="id">UX-1</span><span class="badge medium">medium</span><h3>Blank screen while ≈ 5 MB of WASM load, and on load failure</h3></header>
+  <p class="file"><code>web/src/main.tsx</code>, <code>web/index.html</code></p>
+  <p>Build output: <code>engine_bg.wasm</code> 2.1 MB gzip, <code>canvaskit.wasm</code> 3.0 MB gzip. Nothing is rendered until both are initialised; if the fetch or init fails, the page stays empty with no message. This is the first impression of the live portfolio build.</p>
+  <p class="rec">Static loading text in <code>index.html</code>; catch the init promise and render the same notice style as the WebGL message.</p>
+</article>
+
+<article class="card medium" id="TEST-1">
+  <header><span class="id">TEST-1</span><span class="badge medium">medium</span><h3>E2E misses re-recording, chrome pixels and Firefox</h3></header>
+  <p class="file"><code>web/e2e/pdf.spec.ts</code>, <code>web/playwright.config.ts</code></p>
+  <p>The canvas-vs-PDF check compares content only and never edits a gradient item before comparing, which is why BUG-1 passed CI. Only Chromium runs, although Firefox is a settled target browser.</p>
+  <p class="rec">Add the BUG-1 regression test; add a Firefox project once its WebGL path works in CI.</p>
+</article>
+
+<article class="card low" id="UX-2">
+  <header><span class="id">UX-2</span><span class="badge low">low</span><h3>Hover and cursor ignore modifier keys and keyboard edits</h3></header>
+  <p class="file"><code>web/src/Canvas.tsx</code> <code>onPointerMove</code> (TODO B5)</p>
+  <p>Hover always uses <code>pick(…, 'click')</code>, so Ctrl does not preview the deep pick; hover and cursor only update on pointer move, so a resize cursor stays after Delete.</p>
+  <p class="rec">Keep the last pointer position and modifiers; recompute on Ctrl down/up and on every editor change.</p>
+</article>
+
+<article class="card low" id="UX-3">
+  <header><span class="id">UX-3</span><span class="badge low">low</span><h3>No limits or rounding on typed values</h3></header>
+  <p class="file"><code>web/src/controls.tsx</code>, <code>engine/src/doc.rs</code> <code>set</code> (TODO B6)</p>
+  <p>The engine accepts any value through <code>Set</code>/<code>SetFrame</code>; the UI clamps a few fields ad hoc (<code>Math.max</code> in Properties).</p>
+  <p class="rec">Limits in the engine only, 2-decimal rounding in <code>Field</code>; drop the UI-side clamps.</p>
+</article>
+
+<article class="card low" id="UX-4">
+  <header><span class="id">UX-4</span><span class="badge low">low</span><h3>Native colour picker is cut off at the window edge</h3></header>
+  <p class="file"><code>web/src/controls.tsx</code> <code>Swatch</code> (TODO B7)</p>
+  <p class="rec">Own popover with collision handling, built together with CMYK and swatches (TODO item 8).</p>
+</article>
+
+<article class="card low" id="UI-1">
+  <header><span class="id">UI-1</span><span class="badge low">low</span><h3>Uneven spacing in the properties panel</h3></header>
+  <p class="file"><code>web/src/index.css</code>, <code>web/src/Paints.tsx</code> (TODO B3)</p>
+  <p>Empty fill/stroke/effect lists still render and keep margins; the stroke settings grid sits too close to the list.</p>
+  <p class="rec"><code>.section</code> as a grid with one gap, no child margins, empty lists not rendered.</p>
+</article>
+
+<article class="card low" id="A11Y-1">
+  <header><span class="id">A11Y-1</span><span class="badge low">low</span><h3>Layers tree has tree roles but no tree keyboard behaviour</h3></header>
+  <p class="file"><code>web/src/Layers.tsx</code></p>
+  <p><code>role="tree"</code>/<code>treeitem</code> promise arrow-key navigation, but every row is a separate tab stop and reordering is drag-and-drop only. As the canvas has no keyboard access, the layers panel is the only way to reach objects without a mouse.</p>
+  <p class="rec">Roving tabindex with Up/Down/Left/Right on the tree; the existing <code>[</code>/<code>]</code> shortcuts already cover reordering.</p>
+</article>
+
+<article class="card low" id="PERF-3">
+  <header><span class="id">PERF-3</span><span class="badge low">low</span><h3>Layers with shadows are re-recorded every frame</h3></header>
+  <p class="file"><code>web/src/renderer.ts</code> <code>drawOps</code> (TODO B10)</p>
+  <p class="rec">Cache layer pictures like items, keyed by the hashes of the items inside.</p>
+</article>
+
+<article class="card low" id="MEM-1">
+  <header><span class="id">MEM-1</span><span class="badge low">low</span><h3>Renderer caches never evict</h3></header>
+  <p class="file"><code>web/src/renderer.ts</code> <code>pictures</code>, <code>font</code></p>
+  <p>Pictures of deleted items stay in the map until the canvas unmounts; <code>font()</code> creates a new <code>Typeface</code> per size and never deletes it.</p>
+  <p class="rec">Drop pictures whose item did not appear in the current display list; one typeface per font id.</p>
+</article>
+
+<article class="card low" id="ARCH-1">
+  <header><span class="id">ARCH-1</span><span class="badge low">low</span><h3>All pointer logic lives in one untested effect</h3></header>
+  <p class="file"><code>web/src/Canvas.tsx</code></p>
+  <p>Handle detection, resize maths, marquee and drawing sit in a single ≈ 380-line <code>useEffect</code>. BUG-2 and UX-2 will grow it, and none of it has unit tests, unlike <code>select.ts</code> and <code>pen.ts</code>.</p>
+  <p class="rec">Move <code>handleAt</code> and the resize computation into a pure module with vitest cases before fixing BUG-2.</p>
+</article>
+
+<article class="card low" id="SEC-1">
+  <header><span class="id">SEC-1</span><span class="badge low">low</span><h3>GitHub Actions pinned to tags, not commits</h3></header>
+  <p class="file"><code>.github/workflows/ci.yml</code></p>
+  <p>The deploy job holds <code>pages: write</code> and <code>id-token: write</code>; third-party actions are referenced by mutable major tags.</p>
+  <p class="rec">Pin actions to commit SHAs (Dependabot keeps them current).</p>
+</article>
+
+<article class="card low" id="DOC-1">
+  <header><span class="id">DOC-1</span><span class="badge low">low</span><h3>No CLAUDE.md</h3></header>
+  <p class="file">repo root</p>
+  <p>Non-obvious rules live only in code and TODO: the display list contract between <code>display_list.rs</code> and <code>displayList.ts</code>, the <code>wasm-bindgen</code> pin that must match the flake's CLI, the trash root for undo, the Figma mask rule.</p>
+  <p class="rec">Run <code>/init</code> and keep it to those points plus <code>./check</code>.</p>
+</article>
+
+<article class="card info" id="UX-5">
+  <header><span class="id">UX-5</span><span class="badge info">info</span><h3>Start zoom shows 127 %</h3></header>
+  <p class="file"><code>web/src/renderer.ts</code> <code>fitView</code> (bugs.md 16, not yet in TODO)</p>
+  <p>The page is zoomed to fit the window; 127 % is the fit value for the A5 page at that window size. This matches Figma. Shift+0 gives 100 %.</p>
+  <p class="rec">Keep fit; answer bugs.md 16 in the TODO so it is not reported again.</p>
+</article>
+
+<article class="card info" id="BUG-7">
+  <header><span class="id">BUG-7</span><span class="badge info">info</span><h3>Text looks heavier in the PDF than on the canvas</h3></header>
+  <p class="file"><code>web/src/renderer.ts</code> <code>font</code>; <code>engine/src/pdf.rs</code> (TODO B8, not verified)</p>
+  <p>Both draw the same outlines and the canvas-vs-PDF check passes; likely viewer gamma/stem darkening versus CanvasKit anti-aliasing.</p>
+  <p class="rec">Compare at 800 % in one viewer before changing code.</p>
+</article>
+
+<h2 id="strong">2. What is already strong</h2>
+<ul class="plain">
+  <li><span class="badge good">gate</span> <code>./check</code> passes: fmt, clippy <code>-D warnings</code>, 53 cargo tests, wasm build, <code>tsc</code>, eslint, 9 vitest tests, build, 6 Playwright tests. CI runs the same script in <code>nix develop</code>.</li>
+  <li><span class="badge good">test</span> Pixel diff of the live canvas against the exported PDF rasterised by MuPDF, including TrimBox/BleedBox checks.</li>
+  <li><span class="badge good">test</span> Display list roundtrip: the TS decoder is tested against bytes written by the Rust encoder.</li>
+  <li><span class="badge good">build</span> Toolchain fully in <code>flake.nix</code>; <code>wasm-bindgen</code> pinned to the CLI version in the flake.</li>
+  <li><span class="badge good">design</span> One display list feeds canvas and PDF; item hashes make per-item picture caching cheap.</li>
+  <li><span class="badge good">undo</span> Loro undo with stable ids via a trash root; tests cover structure and text restore.</li>
+  <li><span class="badge good">deps</span> 3 runtime web dependencies; CI with <code>contents: read</code> by default.</li>
+  <li><span class="badge good">a11y</span> Labelled controls, <code>:focus-visible</code> styles, menu roles in the shape menu, WebGL 2 notice with e2e test.</li>
+</ul>
+
+<h2 id="decided">3. Deliberately decided</h2>
+<table>
+  <tr><td>Engine</td><td>Rust → WASM owns the Loro doc, layout and undo; harfrust, hypher, own Knuth-Plass; krilla for PDF, PDF/X built in-house later.</td></tr>
+  <tr><td>Rendering</td><td>CanvasKit (Skia, WebGL2) drawing a binary display list; replaced Vello for GPU effects. Large WASM download accepted.</td></tr>
+  <tr><td>UI</td><td>Figma UI3 layout, behaviour and shortcuts (Ctrl for Cmd), dark, English, mm by default. Mask rule follows Figma.</td></tr>
+  <tr><td>Colour</td><td>RGB or CMYK per document plus spot colours, <code>moxcms</code> preview with PSO Coated v3.</td></tr>
+  <tr><td>Hosting</td><td>Static on GitHub Pages, no backend; persistence in IndexedDB and <code>.satz</code> files (TODO item 14).</td></tr>
+  <tr><td>Browsers</td><td>Chromium and Firefox; Safari best effort.</td></tr>
+  <tr><td>Scope</td><td>M1 excludes PDF/X, components, realtime collaboration, Figma import, font helper, i18n.</td></tr>
+</table>
+
+<h2 id="legend">4. Legend</h2>
+<table>
+  <tr><td><span class="badge critical">critical</span></td><td>Data loss, security hole or broken build.</td></tr>
+  <tr><td><span class="badge high">high</span></td><td>Wrong output or broken core flow users hit quickly.</td></tr>
+  <tr><td><span class="badge medium">medium</span></td><td>Real defect or risk with a workaround or limited reach.</td></tr>
+  <tr><td><span class="badge low">low</span></td><td>Polish, hygiene, small risk.</td></tr>
+  <tr><td><span class="badge info">info</span></td><td>Observation or open question, no defect confirmed.</td></tr>
+</table>
+</main>
+</body>
+</html>
