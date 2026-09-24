@@ -257,7 +257,9 @@ textarea {
 }
 
 .section {
-  padding: 12px 16px 16px;
+  display: grid;
+  gap: 8px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -321,7 +323,6 @@ textarea {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 12px;
 }
 
 .check input {
@@ -413,11 +414,6 @@ span.swatch {
   align-items: center;
   justify-content: space-between;
   min-height: 24px;
-  margin-bottom: 4px;
-}
-
-.paint > .grid {
-  margin-top: 8px;
 }
 
 .icon-button {
@@ -443,7 +439,6 @@ span.swatch {
   display: block;
   box-sizing: border-box;
   width: 100%;
-  margin-top: 8px;
   padding: 6px 8px;
   border: 1px solid transparent;
   border-radius: 5px;

@@ -12,13 +12,6 @@ font helper, i18n.
 
 Found by hand on 2026-09-24 (notes in AGENT/bugs.md), causes checked in the code.
 
-### B3. Uneven spacing in the properties panel (bugs.md 7, 9)
-- Cause: spacing comes from per-element margins; an empty fill/stroke/effect list keeps the
-  header margin, the stroke settings grid has none after the list.
-- Fix: `.section` becomes a grid with one gap, no margins on children; empty lists are not
-  rendered; a section with only its header has equal space above and below. Check Layer, Layout
-  (Clip content), Text (textarea) and Page with the same rule.
-
 ### B4. Masks mask more than expected and are invisible in the layers panel (bugs.md 8)
 - Cause: a mask masks all siblings above it in its parent (Figma rule). A frame at page level
   therefore masks everything above it. Nothing in the layers panel shows the mask or its scope.

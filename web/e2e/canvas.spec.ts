@@ -45,3 +45,37 @@ test('a line moves when dragged in the middle and changes one end at a time', as
   await expect(field('Length in mm')).not.toHaveValue('60')
   await expect(field('X in mm')).toHaveValue('30')
 })
+
+test('property sections space their rows evenly', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  const layers = page.getByRole('tree', { name: 'Layers' })
+  const expectEven = async () => {
+    const sections = await panel.evaluate((el) =>
+      [...el.querySelectorAll('.section')].map((s) => {
+        const r = s.getBoundingClientRect()
+        const kids = [...s.children].map((c) => c.getBoundingClientRect())
+        return {
+          name: s.getAttribute('aria-label'),
+          top: kids[0].top - r.top,
+          bottom: r.bottom - parseFloat(getComputedStyle(s).borderBottomWidth) - kids.at(-1)!.bottom,
+          gaps: kids.slice(1).map((k, i) => k.top - kids[i].bottom),
+        }
+      }),
+    )
+    for (const s of sections) {
+      expect(s.bottom, s.name!).toBeCloseTo(s.top, 0)
+      for (const g of s.gaps) expect(g, s.name!).toBeCloseTo(8, 0)
+    }
+  }
+  await expectEven()
+  await layers.getByRole('button', { name: 'Rectangle', exact: true }).first().click()
+  await expectEven()
+  await panel.getByRole('button', { name: 'Add stroke' }).click()
+  await panel.getByRole('button', { name: 'Add effect' }).click()
+  await expectEven()
+  await layers.getByRole('button', { name: 'Frame', exact: true }).click()
+  await expectEven()
+  await layers.getByRole('button', { name: /^Satz sets type/ }).click()
+  await expectEven()
+})
