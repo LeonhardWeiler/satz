@@ -2,10 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import type { CanvasKit, Surface } from 'canvaskit-wasm'
 import type { Engine } from './engine/engine'
 import type { Snapshot } from './model'
-import { Renderer, type View } from './renderer'
+import { Renderer, fitView, type View } from './renderer'
 
 const PX_PER_PT = 96 / 72
-const FIT_PADDING = 48
 
 export function Canvas({ ck, engine }: { ck: CanvasKit; engine: Engine }) {
   const ref = useRef<HTMLCanvasElement>(null)
@@ -40,14 +39,7 @@ export function Canvas({ ck, engine }: { ck: CanvasKit; engine: Engine }) {
       redraw()
     }
     const fit = () => {
-      const w = page.width + 2 * page.bleed
-      const h = page.height + 2 * page.bleed
-      view.zoom = Math.min(
-        (canvas.clientWidth - 2 * FIT_PADDING) / w,
-        (canvas.clientHeight - 2 * FIT_PADDING) / h,
-      )
-      view.x = (canvas.clientWidth - page.width * view.zoom) / 2
-      view.y = (canvas.clientHeight - page.height * view.zoom) / 2
+      Object.assign(view, fitView(page, canvas.clientWidth, canvas.clientHeight))
       setZoom(view.zoom)
       redraw()
     }

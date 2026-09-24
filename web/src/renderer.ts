@@ -4,6 +4,20 @@ import { decode, type Op } from './displayList'
 
 export type View = { x: number; y: number; zoom: number }
 
+const FIT_PADDING = 48
+
+export function fitView(
+  page: { width: number; height: number; bleed: number },
+  width: number,
+  height: number,
+): View {
+  const zoom = Math.min(
+    (width - 2 * FIT_PADDING) / (page.width + 2 * page.bleed),
+    (height - 2 * FIT_PADDING) / (page.height + 2 * page.bleed),
+  )
+  return { x: (width - page.width * zoom) / 2, y: (height - page.height * zoom) / 2, zoom }
+}
+
 const BACKGROUND = '#1e1e1e'
 const TRIM = '#000000'
 const BLEED = '#ff3b30'

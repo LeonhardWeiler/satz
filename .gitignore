@@ -5,3 +5,5 @@ pkg/
 .direnv/
 web/src/engine/
 web/src/testdata/
+web/test-results/
+web/playwright-report/

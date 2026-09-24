@@ -1,6 +1,7 @@
 mod display_list;
 mod doc;
 mod linebreak;
+mod pdf;
 mod text;
 
 pub use display_list::{Op, encode};
@@ -39,6 +40,11 @@ impl Engine {
     pub fn display_list(&mut self, page: usize) -> Uint32Array {
         self.list = encode(&self.doc.render(page));
         unsafe { Uint32Array::view(&self.list) }
+    }
+
+    pub fn pdf(&self) -> Vec<u8> {
+        let pages = self.doc.snapshot().pages.len();
+        pdf::pdf(&(0..pages).map(|i| self.doc.render(i)).collect::<Vec<_>>())
     }
 
     pub fn font(&self, _id: u32) -> Uint8Array {

@@ -10,6 +10,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 harfrust = "0.13.3"
 js-sys = "=0.3.104"
+krilla = { version = "0.8.2", default-features = false }
 loro = "1.16.2"
 read-fonts = "0.43.3"
 serde = { version = "1.0.229", features = ["derive"] }

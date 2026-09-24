@@ -44,3 +44,27 @@ body,
   background: var(--panel);
   font-variant-numeric: tabular-nums;
 }
+
+.export {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  height: 24px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 5px;
+  background: #0d99ff;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.export:hover {
+  background: #0a85e0;
+}
+
+.export:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}

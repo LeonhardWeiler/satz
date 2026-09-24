@@ -10,3 +10,5 @@ pnpm install --frozen-lockfile
 pnpm exec tsc --noEmit
 pnpm lint
 pnpm test
+pnpm build
+pnpm e2e
