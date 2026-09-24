@@ -3,3 +3,4 @@ node_modules/
 dist/
 pkg/
 .direnv/
+web/src/engine/

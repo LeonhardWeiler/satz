@@ -26,6 +26,7 @@
           packages = with pkgs; [
             rust
             wasm-pack
+            wasm-bindgen-cli_0_2_127
             binaryen
             nodejs_22
             pnpm
