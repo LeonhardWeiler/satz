@@ -1,90 +1,117 @@
-# Milestone 1: one poster, engine → canvas → PDF with bleed
+# Milestone 1: poster and booklet, engine → canvas → PDF with bleed
 
-Done when: a user on Linux Chrome/Firefox opens the GitHub Pages build, sets up an
-A2 poster with 3 mm bleed, places a text frame, an image and a rectangle in RGB or
-CMYK colors, sees it on the canvas, reloads without losing it, and exports a PDF
-with TrimBox, BleedBox and crop marks whose output matches the canvas.
+Done when: on the live GitHub Pages build, a user creates an A2 poster and an
+8-page A5 booklet that use every M1 feature (master pages, threaded text, effects,
+CMYK + spot color), and exports both as PDF with TrimBox, BleedBox and crop marks
+that match the canvas.
 
-Out of scope for M1: multi-page, master pages, frame threading, PDF/X, ICC preview,
-Local Font Access, collaboration.
+Out of scope for M1: PDF/X, components, realtime collaboration, Figma import,
+font helper, i18n.
 
-## 1. Workspace scaffold
+## Settled design
 
-- Cargo workspace with one crate `engine` (`cdylib` + `rlib`), built with
+- Engine (Rust → WASM) owns the Loro doc, layout and undo. React sends commands and
+  reads snapshots.
+- Engine emits one binary display list into WASM memory. A TS renderer reads it
+  zero-copy and draws with CanvasKit (Skia, WebGL2), caching one SkPicture per
+  item. The PDF writer (`krilla`) consumes the same display list.
+- Text: `harfrust` shaping, `hypher` hyphenation, own Knuth-Plass. CanvasKit draws
+  glyph IDs from the same font bytes.
+- Color: document is RGB or CMYK + spot colors. Screen preview via `moxcms` with
+  bundled PSO Coated v3 (FOGRA51).
+- UI: Figma UI3 layout, behavior and keybinds (Ctrl for Cmd), dark pro look,
+  English, units mm by default (switchable), type sizes in pt.
+- Browsers: Chromium + Firefox; Safari best effort.
+- License: ISC.
+
+## Thin slice
+
+### 1. Workspace scaffold
+- Cargo workspace with crate `engine` (`cdylib` + `rlib`), built with
   `wasm-pack build --target web` into `web/src/engine`.
-- `web/`: Vite + React + TypeScript, pnpm.
+- `web/`: Vite + React + TypeScript + `canvaskit-wasm`, pnpm.
 - One `check` entry point (`cargo fmt --check`, `cargo clippy -D warnings`,
-  `cargo test`, `tsc --noEmit`, `pnpm lint`) that CI and commits both use.
-- GitHub Actions: run checks, deploy `web/dist` to GitHub Pages.
+  `cargo test`, `tsc --noEmit`, `pnpm lint`) used by commits and CI.
+- GitHub Actions: checks, deploy `web/dist` to GitHub Pages.
 
-## 2. Document model (Loro)
+### 2. Minimal document and display list
+- Loro doc: one page (trim size, bleed), a rectangle and a text frame, geometry in pt.
+- Command API across the WASM boundary; snapshot for React.
+- Binary display list format (paths, fills, glyph runs, images) with a Rust
+  encoder and TS decoder, tested with a roundtrip.
 
-- Loro doc schema: document (color mode RGB/CMYK, swatches incl. spot colors),
-  one page (trim size, bleed), items (text frame, image frame, rectangle) with
-  geometry in pt, z-order, fill/stroke swatch refs.
-- Engine owns the Loro doc; React reads a snapshot and sends commands.
-- Undo/redo via Loro `UndoManager`.
-- Tests: create, edit, undo, export/import roundtrip.
+### 3. First text
+- Bundled open font, `harfrust` shaping, Knuth-Plass into one fixed frame.
+- TDD against fixed font and text.
 
-## 3. Display list
+### 4. Canvas
+- TS renderer draws the display list with CanvasKit; pan, zoom, HiDPI; trim and
+  bleed guides.
 
-- One engine-internal display list (paths, glyph runs, images, colors as
-  document color values) built from the document.
-- Canvas renderer and PDF writer both consume it; nothing else draws.
+### 5. First PDF
+- `krilla`: page = trim + bleed, TrimBox, BleedBox, crop marks, embedded font subset.
+- Playwright test: canvas screenshot vs. PDF rasterized with MuPDF, pixel diff
+  with tolerance, in CI.
+- Deploy; thin slice is live.
 
-## 4. Text (single frame)
+## Breadth
 
-- Font upload plus one bundled open font (e.g. Source Serif 4).
-- Shaping with `harfrust`, hyphenation with `hypher`.
-- Own Knuth-Plass line breaking into one rectangular frame; overset detection.
-- Paragraph attributes: size, leading, alignment (left, justified), language.
-- TDD against fixed fonts and texts.
+### 6. Object tree and editing
+- Figma tree: groups, containers with clip content, z-order.
+- Hit testing, selection, move/resize handles, Figma keybinds, undo/redo via Loro
+  `UndoManager`.
+- UI3 shell: floating toolbar, layers left, properties right, dark theme.
 
-## 5. Canvas rendering
+### 7. Shapes and paint
+- Rectangle (corner radius), ellipse, line, arrow, polygon, star; pen tool. One
+  path model.
+- Solid fills, linear and radial gradients, strokes, opacity, blend modes.
+- Drop shadow, blur, masks. PDF rasterizes shadow and blur at the document
+  setting (default 300 ppi); everything else stays vector.
 
-- `vello_hybrid` with the `webgl` feature into a `<canvas>`; `vello_cpu` fallback
-  if WebGL2 is unavailable. WebGPU path after M1.
-- Pan, zoom, HiDPI; show trim, bleed and margin guides.
-- CMYK and spot colors shown via naive conversion to sRGB (ICC preview after M1).
+### 8. Color
+- Document color mode RGB or CMYK; color styles = swatches incl. spot colors.
+- `moxcms` preview with PSO Coated v3.
+- PDF: DeviceCMYK in CMYK documents, Separation for spot colors.
 
-## 6. Editing
+### 9. Variables and constraints
+- Figma variables (color, number, modes) bound to properties.
+- Constraints for children on container resize.
+- Auto layout (direction, gap, padding, hug/fill/fixed).
 
-- Hit testing and selection in the engine; handles for move and resize.
-- Tools: select, text frame, rectangle, image frame.
-- In-frame text editing: caret, selection, typing, IME via a hidden input.
+### 10. Rich text
+- Character and paragraph attributes on Loro rich text; text styles.
+- Text frame model: insets, columns + gutter, vertical alignment, baseline grid.
+- Figma resize modes (auto width, auto height, fixed).
+- In-frame editing: engine draws caret and selection, hidden textarea for
+  keyboard and IME.
 
-## 7. Editor shell (React)
+### 11. Pages, masters, threading
+- Multiple pages, pages panel, master pages applied per page.
+- Frame threading across frames and pages; only fixed frames thread, the last
+  frame of a chain may be auto height. Overset detection.
 
-- Toolbar, layers panel (order, visibility, lock), properties panel
-  (geometry, colors, paragraph attributes), document setup dialog (size, bleed,
-  color mode), swatches panel.
+### 12. Fonts
+- Upload, bundled font, Local Font Access (Chromium).
+- Fonts referenced by name + hash; missing fonts fall back to the bundled font,
+  highlighted pink, reported by preflight.
 
-## 8. Images
+### 13. Images
+- Place PNG/JPEG; fit/fill, crop by moving content; effective ppi.
+- Per document, chosen at creation: embed or link. Linking uses File System
+  Access (Chromium); Firefox shows the option disabled with a hint. Missing
+  links reported by preflight with relink.
 
-- Place PNG/JPEG; keep original bytes for PDF.
-- Fit/fill within the frame, crop by moving content.
-- Effective resolution (ppi) per placed image.
+### 14. Persistence
+- Autosave Loro snapshot to IndexedDB.
+- `.satz` project file: Loro snapshot + embedded images (when embedding).
 
-## 9. Persistence
+### 15. Preflight
+- Overset text, missing fonts, missing links, images below 300 ppi, objects at the
+  trim edge that stop short of the bleed, RGB content in a CMYK document.
+- Panel lists issues; click selects the item. Export warns but does not block.
 
-- Autosave the Loro snapshot to IndexedDB.
-- Export/import a `.satz` project file (Loro snapshot + fonts + images).
-
-## 10. PDF export (`krilla`)
-
-- Page = trim + bleed; set TrimBox and BleedBox; crop marks outside the bleed.
-- Colors: DeviceCMYK in CMYK documents, Separation for spot colors, sRGB otherwise.
-- Embedded font subsets, original image bytes.
-- Tests: page boxes, color operators, fonts present; check with `qpdf --check`
-  and a visual diff against the canvas render.
-
-## 11. Preflight (minimal)
-
-- Overset text, images below 300 ppi, objects touching the trim edge that stop
-  short of the bleed, RGB content in a CMYK document.
-- Panel listing issues; click selects the item. Export warns but does not block.
-
-## 12. Ship
-
-- Example poster in the repo, built by a test and exported to PDF.
+### 16. Ship
+- Example A2 poster and 8-page A5 booklet in the repo, exported by a test and
+  covered by the canvas-vs-PDF check.
 - README with screenshot and live link.
