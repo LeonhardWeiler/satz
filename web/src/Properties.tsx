@@ -28,14 +28,17 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
   }
   const each = (cmd: (n: Node) => Command | undefined) => {
     editor.apply({ type: 'beginUndoGroup' })
-    for (const n of nodes) {
-      const c = cmd(n)
-      if (c) editor.apply(c)
+    try {
+      for (const n of nodes) {
+        const c = cmd(n)
+        if (c) editor.apply(c)
+      }
+    } finally {
+      editor.apply({ type: 'endUndoGroup' })
     }
-    editor.apply({ type: 'endUndoGroup' })
   }
   const frame = (key: 'x' | 'y' | 'w' | 'h') => (v: number) =>
-    each((n) => ({ type: 'setFrame', id: n.id, x: n.x, y: n.y, w: n.w, h: n.h, [key]: Math.max(key === 'w' || key === 'h' ? 0 : -Infinity, v * MM) }))
+    each((n) => ({ type: 'setFrame', id: n.id, x: n.x, y: n.y, w: n.w, h: n.h, [key]: v * MM }))
 
   const one = nodes.length === 1 ? nodes[0] : undefined
   const box = nodes.length ? bounds(nodes) : undefined
@@ -69,7 +72,7 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
               label="Raster"
               value={rasterPpi}
               unit="ppi"
-              onCommit={(v) => v > 0 && editor.apply({ type: 'setDocument', rasterPpi: v })}
+              onCommit={(v) => editor.apply({ type: 'setDocument', rasterPpi: v })}
             />
           </div>
         </Section>
@@ -91,13 +94,13 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
               </>
             )}
             {one?.kind === 'shape' && one.shape === 'rect' && (
-              <Field label="R" title="Corner radius in mm" unit="mm" value={one.radius / MM} onCommit={(v) => set({ radius: Math.max(0, v * MM) })} />
+              <Field label="R" title="Corner radius in mm" unit="mm" value={one.radius / MM} onCommit={(v) => set({ radius: v * MM })} />
             )}
             {one?.kind === 'shape' && (one.shape === 'polygon' || one.shape === 'star') && (
-              <Field label="N" title="Count" unit="" value={one.count} onCommit={(v) => v >= 3 && set({ count: Math.round(v) })} />
+              <Field label="N" title="Count" unit="" value={one.count} onCommit={(v) => set({ count: Math.round(v) })} />
             )}
             {one?.kind === 'shape' && one.shape === 'star' && (
-              <Field label="Ratio" title="Star ratio in %" unit="%" value={one.ratio * 100} onCommit={(v) => set({ ratio: Math.min(1, Math.max(0.01, v / 100)) })} />
+              <Field label="Ratio" title="Star ratio in %" unit="%" value={one.ratio * 100} onCommit={(v) => set({ ratio: v / 100 })} />
             )}
           </div>
           {one?.kind === 'frame' && (
@@ -120,7 +123,7 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
               title="Opacity"
               unit="%"
               value={one.opacity * 100}
-              onCommit={(v) => set({ opacity: Math.min(1, Math.max(0, v / 100)) })}
+              onCommit={(v) => set({ opacity: v / 100 })}
             />
             <Select label="Blend mode" value={one.blend} options={BLENDS} onChange={(blend) => set({ blend })} />
           </div>
@@ -149,7 +152,7 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
         <PaintList title="Stroke" paints={one.strokes} added={BLACK} onChange={(strokes) => set({ strokes })}>
           {one.strokes.length > 0 && (
             <div className="grid">
-              <Field label="" title="Stroke weight" unit="pt" value={one.strokeWeight} onCommit={(v) => v >= 0 && set({ strokeWeight: v })} />
+              <Field label="" title="Stroke weight" unit="pt" value={one.strokeWeight} onCommit={(v) => set({ strokeWeight: v })} />
               {!open && <Select label="Stroke position" value={one.strokeAlign} options={ALIGNS} onChange={(strokeAlign) => set({ strokeAlign })} />}
               <Select label="Stroke join" value={one.join} options={JOINS} onChange={(join) => set({ join })} />
               {open && (
@@ -181,7 +184,7 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
               label="Size"
               value={one.size}
               unit="pt"
-              onCommit={(size) => size > 0 && editor.apply({ type: 'set', id: one.id, size })}
+              onCommit={(size) => editor.apply({ type: 'set', id: one.id, size })}
             />
           </div>
           <textarea

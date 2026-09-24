@@ -12,11 +12,6 @@ font helper, i18n.
 
 Found by hand on 2026-09-24 (notes in AGENT/bugs.md), causes checked in the code.
 
-### B6. No limits or rounding on typed values (bugs.md 12)
-- Fix: `Field` rounds committed values to 2 decimals in the shown unit. Limits live in the engine
-  and are enforced by `Set`/`SetFrame` with an error: text size >= 0.1 pt, W/H >= 0 (lines keep 0),
-  stroke weight, blur and radius >= 0, count 3–60, ratio 0.01–1, opacity 0–100 %.
-
 ### B7. Colour picker is cut off at the window edge (bugs.md 15)
 - Cause: the native `<input type="color">` popup is placed by the browser.
 - Fix: own Figma-style colour picker popover (saturation/value area, hue, alpha, hex) placed with

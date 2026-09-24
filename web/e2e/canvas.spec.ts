@@ -123,3 +123,31 @@ test('the cursor follows keyboard edits without a pointer move', async ({ page }
   await page.keyboard.press('Delete')
   await expect(canvas).not.toHaveCSS('cursor', 'ns-resize')
 })
+
+test('typed values round to two decimals and out-of-range values are rejected', async ({ page }) => {
+  await open(page)
+  const layers = page.getByRole('tree', { name: 'Layers' })
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  const field = (title: string) => panel.getByTitle(title, { exact: true }).getByRole('textbox')
+  const rects = layers.getByRole('button', { name: 'Rectangle', exact: true })
+  const type = async (title: string, value: string) => {
+    await field(title).fill(value)
+    await field(title).press('Enter')
+  }
+
+  await rects.first().click()
+  await type('X in mm', '10.004')
+  await rects.last().click()
+  await type('X in mm', '10')
+  await rects.first().click({ modifiers: ['Shift'] })
+  await expect(field('X in mm')).toHaveValue('10')
+
+  await layers.getByRole('button', { name: /^Satz sets type/ }).click()
+  await type('Size in pt', '0.05')
+  await expect(field('Size in pt')).toHaveValue('14')
+  await type('Opacity', '150')
+  await expect(field('Opacity')).toHaveValue('100')
+  await page.keyboard.press('Control+z')
+  await expect(field('Size in pt')).toHaveValue('14')
+  await expect(layers.getByRole('button', { name: 'Rectangle', exact: true })).toHaveCount(2)
+})

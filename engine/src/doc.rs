@@ -113,6 +113,26 @@ pub struct Props {
     pub mask: Option<bool>,
 }
 
+impl Props {
+    fn check(&self) -> Res<()> {
+        let within = |v: Option<f64>, lo: f64, hi: f64, what: &str| match v {
+            Some(v) if !(lo..=hi).contains(&v) => Err(format!("{what} must be in {lo}..={hi}")),
+            _ => Ok(()),
+        };
+        let f = |v: Option<f32>| v.map(f64::from);
+        within(self.size, 0.1, f64::MAX, "text size")?;
+        within(f(self.stroke_weight), 0.0, f64::MAX, "stroke weight")?;
+        within(f(self.radius), 0.0, f64::MAX, "radius")?;
+        within(self.count.map(f64::from), 3.0, 60.0, "count")?;
+        within(f(self.ratio), 0.01, 1.0, "ratio")?;
+        within(f(self.opacity), 0.0, 1.0, "opacity")?;
+        for e in self.effects.iter().flatten() {
+            within(Some(e.radius.into()), 0.0, f64::MAX, "blur")?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum NewKind {
@@ -788,6 +808,7 @@ impl Doc {
     }
 
     fn set(&self, id: TreeID, props: Props) -> Res<()> {
+        props.check()?;
         let m = self.meta(id);
         let serde_json::Value::Object(props) = serde_json::to_value(props).map_err(err)? else {
             return Err("props are not a map".into());
@@ -800,6 +821,9 @@ impl Doc {
     }
 
     fn set_frame(&self, id: TreeID, [x, y, w, h]: [f64; 4]) -> Res<()> {
+        if !(w >= 0.0 && h >= 0.0) {
+            return Err("width and height must not be negative".into());
+        }
         let [ox, oy, ow, oh] = self.bounds(id);
         match self.kind(id).as_str() {
             "group" => {
@@ -1816,6 +1840,83 @@ mod tests {
         d.apply(Command::Mask { ids: vec![m] }).unwrap();
         assert_eq!(d.hit(0, 5.0, 5.0, 0.0), [above]);
         assert_eq!(d.hit(0, 0.5, 0.5, 0.0), [below]);
+    }
+
+    #[test]
+    fn set_and_set_frame_reject_values_out_of_range() {
+        let (mut d, p) = empty();
+        let r = create(&mut d, &p, NewKind::Star, [0.0; 4]);
+        let t = create(&mut d, &p, NewKind::Text, [0.0; 4]);
+        let set = |d: &mut Doc, id: &String, props| {
+            d.apply(Command::Set {
+                id: id.clone(),
+                props,
+            })
+        };
+        let bad = [
+            Props {
+                stroke_weight: Some(-0.1),
+                ..Props::default()
+            },
+            Props {
+                radius: Some(-1.0),
+                ..Props::default()
+            },
+            Props {
+                count: Some(2),
+                ..Props::default()
+            },
+            Props {
+                count: Some(61),
+                ..Props::default()
+            },
+            Props {
+                ratio: Some(0.0),
+                ..Props::default()
+            },
+            Props {
+                ratio: Some(1.01),
+                ..Props::default()
+            },
+            Props {
+                opacity: Some(1.5),
+                ..Props::default()
+            },
+            Props {
+                opacity: Some(f32::NAN),
+                ..Props::default()
+            },
+            Props {
+                effects: Some(vec![Effect {
+                    radius: -1.0,
+                    ..Effect::default()
+                }]),
+                ..Props::default()
+            },
+        ];
+        for props in bad {
+            let what = format!("{props:?}");
+            assert!(set(&mut d, &r, props).is_err(), "{what}");
+        }
+        let size = |s| Props {
+            size: Some(s),
+            ..Props::default()
+        };
+        assert!(set(&mut d, &t, size(0.09)).is_err());
+        set(&mut d, &t, size(0.1)).unwrap();
+        let set_frame = |d: &mut Doc, w, h| {
+            d.apply(Command::SetFrame {
+                id: r.clone(),
+                x: -5.0,
+                y: 0.0,
+                w,
+                h,
+            })
+        };
+        assert!(set_frame(&mut d, -1.0, 1.0).is_err());
+        assert!(set_frame(&mut d, 1.0, -1.0).is_err());
+        set_frame(&mut d, 10.0, 0.0).unwrap();
+        assert_eq!(frame(&page(&d).children[0]), [-5.0, 0.0, 10.0, 0.0]);
     }
 
     #[test]

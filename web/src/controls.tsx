@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Icon } from './icons'
 
-const round = (v: number) => String(Math.round(v * 100) / 100)
+const round = (v: number) => Math.round(v * 100) / 100
 
 export const hex = (color: number) => '#' + (color >>> 8).toString(16).padStart(6, '0')
 export const withHex = (color: number, hex: string) => ((parseInt(hex.slice(1), 16) << 8) | (color & 0xff)) >>> 0
@@ -27,8 +27,13 @@ export function Field({
   const [draft, setDraft] = useState<string | null>(null)
   const commit = () => {
     const v = parseFloat(draft ?? '')
-    if (draft !== null && Number.isFinite(v)) onCommit?.(v)
     setDraft(null)
+    if (draft === null || !Number.isFinite(v)) return
+    try {
+      onCommit?.(round(v))
+    } catch (e) {
+      console.warn(e)
+    }
   }
   return (
     <label className="field" title={title}>
@@ -40,7 +45,7 @@ export function Field({
         autoComplete="off"
         spellCheck={false}
         readOnly={readOnly}
-        value={draft ?? (value === null ? 'Mixed' : round(value))}
+        value={draft ?? (value === null ? 'Mixed' : String(round(value)))}
         onChange={(e) => setDraft(e.currentTarget.value)}
         onFocus={(e) => e.currentTarget.select()}
         onBlur={commit}

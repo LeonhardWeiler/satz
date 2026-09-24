@@ -160,7 +160,7 @@ export function EffectList({ effects, onChange }: { effects: Effect[]; onChange:
                     label="Blur"
                     unit="mm"
                     value={e.radius / MM}
-                    onCommit={(v) => set({ radius: Math.max(0, v * MM) })}
+                    onCommit={(v) => set({ radius: v * MM })}
                   />
                   {e.type === 'dropShadow' && (
                     <div className="row">
