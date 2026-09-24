@@ -1,9 +1,11 @@
 use crate::display_list::{CLOSE, CUBIC, LINE, MOVE, Op, Paint, close};
+use crate::raster::{blur, extent, rasterize, tint};
 use crate::text::FONT;
 use krilla::Document;
 use krilla::blend::BlendMode;
 use krilla::color::rgb;
-use krilla::geom::{Path, PathBuilder, Point, Rect, Transform};
+use krilla::geom::{Path, PathBuilder, Point, Rect, Size, Transform};
+use krilla::image::Image;
 use krilla::mask::{Mask, MaskType};
 use krilla::num::NormalizedF32;
 use krilla::page::PageSettings;
@@ -19,7 +21,8 @@ const MARK_OFFSET: f32 = 3.0 * MM;
 const MARK_LENGTH: f32 = 5.0 * MM;
 const MARK_WIDTH: f32 = 0.25;
 
-pub fn pdf(pages: &[Vec<Op>]) -> Vec<u8> {
+/// Shadows and blurs are rasterized at `ppi`; everything else stays vector.
+pub fn pdf(pages: &[Vec<Op>], ppi: f32) -> Vec<u8> {
     let font = Font::new(FONT.into(), 0).unwrap();
     let mut doc = Document::new();
     for ops in pages {
@@ -48,7 +51,12 @@ pub fn pdf(pages: &[Vec<Op>]) -> Vec<u8> {
             &rect(-bleed, -bleed, width + 2.0 * bleed, height + 2.0 * bleed),
             &FillRule::NonZero,
         );
-        draw(&mut s, &font, &ops[1..]);
+        let env = Env {
+            font: &font,
+            ppi,
+            page: [-bleed, -bleed, width + 2.0 * bleed, height + 2.0 * bleed],
+        };
+        draw(&mut s, &env, &ops[1..]);
         s.pop();
         crop_marks(&mut s, width, height);
         s.pop();
@@ -77,7 +85,13 @@ const BLENDS: [BlendMode; 16] = [
     BlendMode::Luminosity,
 ];
 
-fn draw(s: &mut Surface, font: &Font, ops: &[Op]) {
+struct Env<'a> {
+    font: &'a Font,
+    ppi: f32,
+    page: [f32; 4],
+}
+
+fn draw(s: &mut Surface, env: &Env, ops: &[Op]) {
     let mut pops = Vec::new();
     let mut i = 0;
     while i < ops.len() {
@@ -141,7 +155,14 @@ fn draw(s: &mut Surface, font: &Font, ops: &[Op]) {
                     })
                     .collect();
                 s.set_fill(Some(fill(paint)));
-                s.draw_glyphs(Point::from_xy(x0, y0), &run, font.clone(), "", *size, false);
+                s.draw_glyphs(
+                    Point::from_xy(x0, y0),
+                    &run,
+                    env.font.clone(),
+                    "",
+                    *size,
+                    false,
+                );
             }
             Op::PushClip { path, invert } => {
                 let mut pb = PathBuilder::new();
@@ -157,7 +178,12 @@ fn draw(s: &mut Surface, font: &Font, ops: &[Op]) {
                 s.push_clip_path(&pb.finish().unwrap(), &rule);
                 pops.push(1);
             }
-            Op::PushLayer { opacity, blend, .. } => {
+            Op::PushLayer {
+                opacity,
+                blend,
+                blur: sigma,
+                shadows,
+            } => {
                 let mut n = 1;
                 if *blend != 0 {
                     s.push_blend_mode(BLENDS[*blend as usize]);
@@ -166,12 +192,21 @@ fn draw(s: &mut Surface, font: &Font, ops: &[Op]) {
                 }
                 s.push_opacity(NormalizedF32::new(*opacity).unwrap_or(NormalizedF32::ONE));
                 pops.push(n);
+                let end = close(ops, i);
+                let inner = &ops[i + 1..end];
+                for sh in shadows {
+                    raster(s, env, inner, sh.offset, sh.blur, Some(sh.color));
+                }
+                if *sigma > 0.0 {
+                    raster(s, env, inner, [0.0; 2], *sigma, None);
+                    i = end - 1;
+                }
             }
             Op::BeginMask => {
                 let end = close(ops, i);
                 let mut sb = s.stream_builder();
                 let mut ms = sb.surface();
-                draw(&mut ms, font, &ops[i + 1..end]);
+                draw(&mut ms, env, &ops[i + 1..end]);
                 ms.finish();
                 let stream = sb.finish();
                 s.push_mask(Mask::new(stream, MaskType::Alpha));
@@ -187,6 +222,47 @@ fn draw(s: &mut Surface, font: &Font, ops: &[Op]) {
         }
         i += 1;
     }
+}
+
+/// Draws `ops` as an image, blurred by `sigma` pt, moved by `offset` and,
+/// for shadows, tinted with `color`.
+fn raster(
+    s: &mut Surface,
+    env: &Env,
+    ops: &[Op],
+    offset: [f32; 2],
+    sigma: f32,
+    color: Option<[f32; 4]>,
+) {
+    let Some([x, y, w, h]) = extent(ops) else {
+        return;
+    };
+    let m = 3.0 * sigma;
+    let [px, py, pw, ph] = env.page;
+    let l = (x + offset[0] - m).max(px);
+    let t = (y + offset[1] - m).max(py);
+    let r = (x + w + offset[0] + m).min(px + pw);
+    let b = (y + h + offset[1] + m).min(py + ph);
+    if l >= r || t >= b {
+        return;
+    }
+    let Some(mut pixmap) = rasterize(ops, [l - offset[0], t - offset[1], r - l, b - t], env.ppi)
+    else {
+        return;
+    };
+    if let Some(c) = color {
+        tint(&mut pixmap, c);
+    }
+    blur(&mut pixmap, sigma * env.ppi / 72.0);
+    let scale = 72.0 / env.ppi;
+    let (pw, ph) = (pixmap.width(), pixmap.height());
+    let image = Image::from_rgba8(pixmap.take_demultiplied(), pw, ph);
+    s.push_transform(&Transform::from_translate(l, t));
+    s.draw_image(
+        image,
+        Size::from_wh(pw as f32 * scale, ph as f32 * scale).unwrap(),
+    );
+    s.pop();
 }
 
 fn crop_marks(s: &mut Surface, w: f32, h: f32) {
@@ -321,10 +397,11 @@ fn append(pb: &mut PathBuilder, cmds: &[f32]) {
 #[cfg(test)]
 mod tests {
     use crate::Doc;
+    use crate::display_list::{Op, Paint, Shadow, rect};
 
     fn default_pdf() -> String {
         let d = Doc::new();
-        String::from_utf8_lossy(&super::pdf(&[d.render(0)])).into_owned()
+        String::from_utf8_lossy(&super::pdf(&[d.render(0)], 300.0)).into_owned()
     }
 
     fn page_box(pdf: &str, name: &str) -> Vec<f32> {
@@ -354,5 +431,50 @@ mod tests {
     #[test]
     fn the_font_is_embedded() {
         assert!(default_pdf().contains("/FontFile"));
+    }
+
+    fn image_width(ops: &[Op], ppi: f32) -> Option<u32> {
+        let pdf = String::from_utf8_lossy(&super::pdf(&[ops.to_vec()], ppi)).into_owned();
+        let at = pdf
+            .find("/Subtype /Image")
+            .or_else(|| pdf.find("/Subtype/Image"))?;
+        let w = at + pdf[at..].find("/Width")? + 6;
+        pdf[w..]
+            .trim_start()
+            .split(|c: char| !c.is_ascii_digit())
+            .next()?
+            .parse()
+            .ok()
+    }
+
+    #[test]
+    fn shadows_are_rasterized_at_the_document_resolution() {
+        let ops = vec![
+            Op::Page {
+                width: 100.0,
+                height: 100.0,
+                bleed: 0.0,
+            },
+            Op::PushLayer {
+                opacity: 1.0,
+                blend: 0,
+                blur: 0.0,
+                shadows: vec![Shadow {
+                    offset: [0.0, 0.0],
+                    blur: 1.0,
+                    color: [0.0, 0.0, 0.0, 0.5],
+                }],
+            },
+            Op::FillPath {
+                paint: Paint::Solid {
+                    color: [1.0, 0.0, 0.0, 1.0],
+                },
+                path: rect(10.0, 10.0, 12.0, 12.0),
+            },
+            Op::PopLayer,
+        ];
+        assert_eq!(image_width(&ops, 72.0), Some(18));
+        assert_eq!(image_width(&ops, 144.0), Some(36));
+        assert_eq!(image_width(&ops[2..3], 72.0), None);
     }
 }

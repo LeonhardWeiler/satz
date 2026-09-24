@@ -62,6 +62,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 export function Properties({ editor, onExport }: { editor: Editor; onExport: () => void }) {
   const page = useEditor(editor, (e) => e.page)
+  const rasterPpi = useEditor(editor, (e) => e.snapshot.rasterPpi)
   const selection = useEditor(editor, (e) => e.selection)
   const nodes = selection.flatMap((id) => editor.nodes.get(id)?.node ?? [])
 
@@ -98,6 +99,12 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
             <Field label="W" value={page.width / MM} unit="mm" readOnly />
             <Field label="H" value={page.height / MM} unit="mm" readOnly />
             <Field label="Bleed" value={page.bleed / MM} unit="mm" readOnly />
+            <Field
+              label="Raster"
+              value={rasterPpi}
+              unit="ppi"
+              onCommit={(v) => v > 0 && editor.apply({ type: 'setDocument', rasterPpi: v })}
+            />
           </div>
         </Section>
       )}

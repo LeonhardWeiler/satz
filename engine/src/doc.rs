@@ -70,6 +70,9 @@ pub enum Command {
     Copy {
         ids: Vec<String>,
     },
+    SetDocument {
+        raster_ppi: f64,
+    },
     Paste {
         above: Vec<String>,
     },
@@ -130,6 +133,8 @@ pub enum Order {
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
     pub pages: Vec<Page>,
+    /// Resolution at which the PDF rasterizes shadows and blurs.
+    pub raster_ppi: f64,
     pub can_undo: bool,
     pub can_redo: bool,
 }
@@ -207,6 +212,7 @@ impl Doc {
         m.insert("width", 148.0 * MM).unwrap();
         m.insert("height", 210.0 * MM).unwrap();
         m.insert("bleed", 3.0 * MM).unwrap();
+        d.apply(Command::SetDocument { raster_ppi: 300.0 }).unwrap();
         let mut add = |parent: &str, kind, [x, y, w, h]: [f64; 4], props: Props| {
             let id = d
                 .apply(Command::Create {
@@ -499,6 +505,16 @@ impl Doc {
                 out.reverse();
                 out
             }
+            Command::SetDocument { raster_ppi } => {
+                if raster_ppi <= 0.0 {
+                    return Err("raster ppi must be positive".into());
+                }
+                self.doc
+                    .get_map("document")
+                    .insert("rasterPpi", raster_ppi)
+                    .map_err(err)?;
+                vec![]
+            }
             Command::Copy { ids } => {
                 self.clipboard = self
                     .sorted(&ids)?
@@ -557,6 +573,7 @@ impl Doc {
             .collect();
         Snapshot {
             pages,
+            raster_ppi: num(&self.doc.get_map("document"), "rasterPpi"),
             can_undo: self.undo.can_undo(),
             can_redo: self.undo.can_redo(),
         }
@@ -1619,5 +1636,16 @@ mod tests {
         };
         assert_eq!(*transform, [0.0, 50.0, -100.0, 0.0, 60.0, 20.0]);
         assert_eq!(stops[0].color, [1.0; 4]);
+    }
+
+    #[test]
+    fn the_document_rasterizes_at_300_ppi_until_changed() {
+        let mut d = Doc::new();
+        assert_eq!(d.snapshot().raster_ppi, 300.0);
+        d.apply(Command::SetDocument { raster_ppi: 150.0 }).unwrap();
+        assert_eq!(d.snapshot().raster_ppi, 150.0);
+        assert!(d.apply(Command::SetDocument { raster_ppi: 0.0 }).is_err());
+        d.apply(Command::Undo).unwrap();
+        assert_eq!(d.snapshot().raster_ppi, 300.0);
     }
 }

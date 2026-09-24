@@ -3,6 +3,7 @@ mod doc;
 mod geom;
 mod linebreak;
 mod pdf;
+mod raster;
 mod style;
 mod text;
 
@@ -51,8 +52,9 @@ impl Engine {
     }
 
     pub fn pdf(&self) -> Vec<u8> {
-        let pages = self.doc.snapshot().pages.len();
-        pdf::pdf(&(0..pages).map(|i| self.doc.render(i)).collect::<Vec<_>>())
+        let snap = self.doc.snapshot();
+        let pages: Vec<_> = (0..snap.pages.len()).map(|i| self.doc.render(i)).collect();
+        pdf::pdf(&pages, snap.raster_ppi as f32)
     }
 
     pub fn font(&self, _id: u32) -> Uint8Array {
