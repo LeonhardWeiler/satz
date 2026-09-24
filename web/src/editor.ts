@@ -77,6 +77,18 @@ export function useEditor<T>(editor: Editor, read: (e: Editor) => T): T {
   return useSyncExternalStore(editor.subscribe, () => read(editor))
 }
 
+export type Point = { x: number; y: number }
+
+/** Start and end in pt of a line or arrow, i.e. a two-point path. */
+export function ends(n: Node): [Point, Point] | undefined {
+  if (n.kind !== 'shape' || n.shape !== 'path' || n.path.length !== 6) return undefined
+  const [, u0, v0, , u1, v1] = n.path
+  return [
+    { x: n.x + u0 * n.w, y: n.y + v0 * n.h },
+    { x: n.x + u1 * n.w, y: n.y + v1 * n.h },
+  ]
+}
+
 export function bounds(nodes: { x: number; y: number; w: number; h: number }[]) {
   const x = Math.min(...nodes.map((n) => n.x))
   const y = Math.min(...nodes.map((n) => n.y))

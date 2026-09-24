@@ -12,15 +12,6 @@ font helper, i18n.
 
 Found by hand on 2026-09-24 (notes in AGENT/bugs.md), causes checked in the code.
 
-### B2. Lines and arrows are resized as boxes (bugs.md 4, 5, 6)
-- Cause: selection handles are box-based. With h = 0 the top and bottom edge zones overlap the
-  whole line, so a press resizes vertically instead of moving; corners scale both axes.
-- Fix (Figma): two-point paths get only endpoint handles; dragging an endpoint moves that point via
-  `setPath` (Shift snaps to 45° like drawing); a press on the line moves it. Boxes with a zero
-  dimension get no edge handles on that axis. The properties show Length and Angle for lines
-  (written through `setPath`) instead of an editable H.
-- Test: e2e draws a line, drags its middle (moves, h stays 0) and an endpoint (only that end moves).
-
 ### B3. Uneven spacing in the properties panel (bugs.md 7, 9)
 - Cause: spacing comes from per-element margins; an empty fill/stroke/effect list keeps the
   header margin, the stroke settings grid has none after the list.

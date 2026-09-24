@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CanvasKit, Surface } from 'canvaskit-wasm'
-import { MM, bounds, type Editor, type Tool } from './editor'
+import { MM, bounds, ends, type Editor, type Point, type Tool } from './editor'
 import type { Node } from './model'
 import { penPath } from './pen'
 import { Renderer, fitView, HANDLE, type Box, type View } from './renderer'
@@ -25,14 +25,21 @@ const DEFAULT_SIZE: Record<Exclude<Tool, 'move' | 'pen'>, [number, number]> = {
   line: [30, 0], arrow: [30, 0],
 }
 
-type Point = { x: number; y: number }
 type Drag =
   | { kind: 'pan'; last: Point }
   | { kind: 'move'; start: Point; frames: Node[]; active: boolean }
   | { kind: 'resize'; start: Point; handle: string; box: Box; frames: Node[] }
+  | { kind: 'end'; start: Point; id: string; ends: [Point, Point]; index: number }
   | { kind: 'marquee'; start: Point; end: Point; base: string[] }
   | { kind: 'draw'; start: Point; id: string; moved: boolean; tool: keyof typeof DEFAULT_SIZE }
   | { kind: 'pen'; start: Point }
+
+/** Snaps a vector to the nearest multiple of 45°. */
+function snap45(dx: number, dy: number) {
+  const a = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4)
+  const d = Math.hypot(dx, dy)
+  return [Math.cos(a) * d, Math.sin(a) * d]
+}
 
 export function isTyping(e: Event) {
   return e.target instanceof HTMLElement && e.target.closest('input, textarea, select, [contenteditable]') !== null
@@ -64,9 +71,12 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       w: Math.abs(a.x - b.x),
       h: Math.abs(a.y - b.y),
     })
-    const selectionBox = () => {
+    /** Box handles of the selection, or the ends of a single selected line. */
+    const handles = () => {
       const nodes = editor.selected()
-      return nodes.length ? bounds(nodes) : undefined
+      if (editor.tool !== 'move' || !nodes.length) return {}
+      const line = nodes.length === 1 ? ends(nodes[0]) : undefined
+      return line ? { line } : { box: bounds(nodes) }
     }
 
     const redraw = () => {
@@ -74,7 +84,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       frame = requestAnimationFrame(() => {
         frame = 0
         if (!surface) return
-        const box = editor.tool === 'move' && drag?.kind !== 'marquee' ? selectionBox() : undefined
+        const { box, line } = drag?.kind === 'marquee' ? {} : handles()
         const hovered = hover && !editor.selection.includes(hover) ? editor.nodes.get(hover)?.node : undefined
         const marquee =
           drag?.kind === 'marquee'
@@ -88,6 +98,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           hover: hovered,
           marquee,
           handles: box,
+          ends: line,
           pen: editor.pen && { anchors: editor.pen.anchors, cursor: drag ? undefined : cursor },
         })
         surface.flush()
@@ -108,7 +119,12 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     }
 
     const handleAt = (e: PointerEvent) => {
-      const box = editor.tool === 'move' ? selectionBox() : undefined
+      const { box, line } = handles()
+      const { offsetX: x, offsetY: y } = e
+      if (line) {
+        const i = line.findIndex((p) => Math.hypot(view.x + p.x * view.zoom - x, view.y + p.y * view.zoom - y) <= HANDLE / 2 + 1)
+        return i < 0 ? undefined : `end${i}`
+      }
       if (!box) return undefined
       const l = view.x + box.x * view.zoom
       const t = view.y + box.y * view.zoom
@@ -116,15 +132,14 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const b = t + box.h * view.zoom
       const near = (v: number, a: number, d: number) => Math.abs(v - a) <= d
       const within = (v: number, a: number, c: number) => v >= a - EDGE && v <= c + EDGE
-      const { offsetX: x, offsetY: y } = e
-      const v = near(y, t, HANDLE / 2) ? 'n' : near(y, b, HANDLE / 2) ? 's' : ''
-      const h = near(x, l, HANDLE / 2) ? 'w' : near(x, r, HANDLE / 2) ? 'e' : ''
+      const v = !box.h ? '' : near(y, t, HANDLE / 2) ? 'n' : near(y, b, HANDLE / 2) ? 's' : ''
+      const h = !box.w ? '' : near(x, l, HANDLE / 2) ? 'w' : near(x, r, HANDLE / 2) ? 'e' : ''
       if (v && h) return v + h
       if (!within(x, l, r) || !within(y, t, b)) return undefined
-      if (near(y, t, EDGE)) return 'n'
-      if (near(y, b, EDGE)) return 's'
-      if (near(x, l, EDGE)) return 'w'
-      if (near(x, r, EDGE)) return 'e'
+      if (box.h && near(y, t, EDGE)) return 'n'
+      if (box.h && near(y, b, EDGE)) return 's'
+      if (box.w && near(x, l, EDGE)) return 'w'
+      if (box.w && near(x, r, EDGE)) return 'e'
       return undefined
     }
     const hit = (p: Point) => editor.engine.hit(0, p.x, p.y, HIT / view.zoom)
@@ -200,6 +215,12 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         return
       }
       const handle = handleAt(e)
+      const line = handle?.startsWith('end') && ends(editor.selected()[0])
+      if (line) {
+        drag = { kind: 'end', start: p, id: editor.selection[0], ends: line, index: Number(handle!.slice(3)) }
+        editor.apply({ type: 'beginUndoGroup' })
+        return
+      }
       if (handle) {
         const frames = editor.selected()
         drag = { kind: 'resize', start: p, handle, box: bounds(frames), frames }
@@ -262,12 +283,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         let dx = p.x - drag.start.x
         let dy = p.y - drag.start.y
         if (drag.tool === 'line' || drag.tool === 'arrow') {
-          if (e.shiftKey) {
-            const a = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4)
-            const d = Math.hypot(dx, dy)
-            dx = Math.cos(a) * d
-            dy = Math.sin(a) * d
-          }
+          if (e.shiftKey) [dx, dy] = snap45(dx, dy)
           const { x, y } = drag.start
           editor.apply({ type: 'setPath', id: drag.id, path: [0, x, y, 1, x + dx, y + dy] })
           return
@@ -297,6 +313,15 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           else dx = 0
         }
         for (const n of drag.frames) editor.apply({ type: 'setFrame', id: n.id, x: n.x + dx, y: n.y + dy, w: n.w, h: n.h })
+      } else if (drag.kind === 'end') {
+        const fixed = drag.ends[1 - drag.index]
+        const from = drag.ends[drag.index]
+        let dx = from.x + p.x - drag.start.x - fixed.x
+        let dy = from.y + p.y - drag.start.y - fixed.y
+        if (e.shiftKey) [dx, dy] = snap45(dx, dy)
+        const moved = { x: fixed.x + dx, y: fixed.y + dy }
+        const [a, b] = drag.index ? [fixed, moved] : [moved, fixed]
+        editor.apply({ type: 'setPath', id: drag.id, path: [0, a.x, a.y, 1, b.x, b.y] })
       } else if (drag.kind === 'resize') {
         const { box, handle } = drag
         const dx = p.x - drag.start.x
@@ -338,7 +363,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         }
         editor.setTool('move')
       }
-      if (drag?.kind === 'draw' || drag?.kind === 'resize' || (drag?.kind === 'move' && drag.active)) {
+      if (drag?.kind === 'draw' || drag?.kind === 'resize' || drag?.kind === 'end' || (drag?.kind === 'move' && drag.active)) {
         editor.apply({ type: 'endUndoGroup' })
       }
       if (drag?.kind === 'move' && !drag.active && !e.shiftKey) {

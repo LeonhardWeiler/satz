@@ -17,3 +17,31 @@ test('moving a gradient layer leaves the page and the handles alone', async ({ p
   const edge = await pixels(page, tx + 40 - 1, ty - 3, 3, 7)
   expect(edge.some((p) => near(p, [13, 153, 255]))).toBe(true)
 })
+
+test('a line moves when dragged in the middle and changes one end at a time', async ({ page }) => {
+  await open(page)
+  const layout = page.getByRole('region', { name: 'Layout' })
+  const field = (title: string) => layout.getByTitle(title).getByRole('textbox')
+  const [ax, ay] = await screen(page, 30, 86)
+  const [bx] = await screen(page, 90, 86)
+  await page.keyboard.press('l')
+  await drag(page, [ax, ay], [bx, ay])
+  await expect(field('Length in mm')).toHaveValue('60')
+  await expect(field('Angle in °')).toHaveValue('0')
+  const y = await field('Y in mm').inputValue()
+
+  await drag(page, [(ax + bx) / 2, ay], [(ax + bx) / 2, ay + 20])
+  await expect(field('Y in mm')).not.toHaveValue(y)
+  await expect(field('Length in mm')).toHaveValue('60')
+  await expect(field('Angle in °')).toHaveValue('0')
+  await expect(field('X in mm')).toHaveValue('30')
+
+  await drag(page, [bx, ay + 20], [bx, ay - 40])
+  await expect(field('X in mm')).toHaveValue('30')
+  await expect(field('Angle in °')).not.toHaveValue('0')
+
+  await field('Angle in °').fill('90')
+  await field('Angle in °').press('Enter')
+  await expect(field('Length in mm')).not.toHaveValue('60')
+  await expect(field('X in mm')).toHaveValue('30')
+})

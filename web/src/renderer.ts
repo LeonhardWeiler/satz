@@ -9,6 +9,8 @@ export type Overlay = {
   hover?: Box
   marquee?: Box
   handles?: Box
+  /** Ends of a selected line, shown instead of box handles. */
+  ends?: { x: number; y: number }[]
   pen?: { anchors: { x: number; y: number; hx: number; hy: number }[]; cursor?: { x: number; y: number } } | null
 }
 
@@ -87,7 +89,7 @@ export class Renderer {
     this.drawOverlay(canvas, view, dpr, overlay)
   }
 
-  private drawOverlay(canvas: Canvas, view: View, dpr: number, { selection, hover, marquee, handles, pen }: Overlay) {
+  private drawOverlay(canvas: Canvas, view: View, dpr: number, { selection, hover, marquee, handles, ends, pen }: Overlay) {
     const { ck, chrome: paint } = this
     const screen = (b: Box) =>
       ck.XYWHRect(
@@ -97,6 +99,16 @@ export class Renderer {
         Math.round(b.h * view.zoom),
       )
     const accent = ck.parseColorString(ACCENT)
+    const at = (x: number, y: number) => [view.x + x * view.zoom, view.y + y * view.zoom] as const
+    const square = (x: number, y: number, size: number) => {
+      const h = ck.XYWHRect(Math.floor(x - size / 2) + 0.5, Math.floor(y - size / 2) + 0.5, size, size)
+      paint.setStyle(ck.PaintStyle.Fill)
+      paint.setColor(ck.WHITE)
+      canvas.drawRect(h, paint)
+      paint.setStyle(ck.PaintStyle.Stroke)
+      paint.setColor(accent)
+      canvas.drawRect(h, paint)
+    }
     canvas.save()
     canvas.scale(dpr, dpr)
     paint.setStyle(ck.PaintStyle.Stroke)
@@ -118,37 +130,22 @@ export class Renderer {
       canvas.drawRect(r, paint)
     }
     if (pen) {
-      const at = (x: number, y: number) => [view.x + x * view.zoom, view.y + y * view.zoom] as const
       const last = pen.anchors.at(-1)!
       if (pen.cursor) canvas.drawLine(...at(last.x, last.y), ...at(pen.cursor.x, pen.cursor.y), paint)
       if (last.hx || last.hy) {
         canvas.drawLine(...at(last.x - last.hx, last.y - last.hy), ...at(last.x + last.hx, last.y + last.hy), paint)
       }
-      for (const a of pen.anchors) {
-        const [x, y] = at(a.x, a.y)
-        const h = ck.XYWHRect(Math.round(x) - 3.5, Math.round(y) - 3.5, 7, 7)
-        paint.setStyle(ck.PaintStyle.Fill)
-        paint.setColor(ck.WHITE)
-        canvas.drawRect(h, paint)
-        paint.setStyle(ck.PaintStyle.Stroke)
-        paint.setColor(accent)
-        canvas.drawRect(h, paint)
-      }
+      for (const a of pen.anchors) square(...at(a.x, a.y), 7)
+    }
+    if (ends) {
+      const [a, b] = ends
+      canvas.drawLine(...at(a.x, a.y), ...at(b.x, b.y), paint)
+      for (const e of ends) square(...at(e.x, e.y), HANDLE)
     }
     if (handles) {
       const r = screen(handles)
       canvas.drawRect(r, paint)
-      for (const x of [r[0], r[2]]) {
-        for (const y of [r[1], r[3]]) {
-          const h = ck.XYWHRect(x - HANDLE / 2, y - HANDLE / 2, HANDLE, HANDLE)
-          paint.setStyle(ck.PaintStyle.Fill)
-          paint.setColor(ck.WHITE)
-          canvas.drawRect(h, paint)
-          paint.setStyle(ck.PaintStyle.Stroke)
-          paint.setColor(accent)
-          canvas.drawRect(h, paint)
-        }
-      }
+      for (const x of [r[0], r[2]]) for (const y of [r[1], r[3]]) square(x, y, HANDLE)
     }
     canvas.restore()
   }

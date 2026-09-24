@@ -1,5 +1,5 @@
 import { Field, Section, Select } from './controls'
-import { MM, bounds, useEditor, type Editor } from './editor'
+import { MM, bounds, ends, useEditor, type Editor } from './editor'
 import type { Blend, Command, Fill, Node, Props, Style } from './model'
 import { EffectList, PaintList } from './Paints'
 
@@ -41,6 +41,15 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
   const box = nodes.length ? bounds(nodes) : undefined
   const set = (props: Props) => one && editor.apply({ type: 'set', id: one.id, ...props })
   const open = one?.kind === 'shape' && one.shape === 'path' && !one.path.includes(5)
+  const line = one && ends(one)
+  const length = line && Math.hypot(line[1].x - line[0].x, line[1].y - line[0].y)
+  const angle = line && (Math.atan2(line[0].y - line[1].y, line[1].x - line[0].x) * 180) / Math.PI
+  const setLine = (length: number, degrees: number) => {
+    if (!one || !line) return
+    const [a] = line
+    const r = (degrees * Math.PI) / 180
+    editor.apply({ type: 'setPath', id: one.id, path: [0, a.x, a.y, 1, a.x + length * Math.cos(r), a.y - length * Math.sin(r)] })
+  }
 
   return (
     <aside className="panel properties" aria-label="Properties">
@@ -70,8 +79,17 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
           <div className="grid">
             <Field label="X" value={nodes.length > 1 ? same((n) => n.x / MM) : box.x / MM} unit="mm" onCommit={frame('x')} />
             <Field label="Y" value={nodes.length > 1 ? same((n) => n.y / MM) : box.y / MM} unit="mm" onCommit={frame('y')} />
-            <Field label="W" value={same((n) => n.w / MM)} unit="mm" onCommit={frame('w')} />
-            <Field label="H" value={same((n) => n.h / MM)} unit="mm" onCommit={frame('h')} />
+            {line ? (
+              <>
+                <Field label="L" title="Length in mm" value={length! / MM} unit="mm" onCommit={(v) => setLine(Math.max(0, v * MM), angle!)} />
+                <Field label="∠" title="Angle in °" value={angle!} unit="°" onCommit={(v) => setLine(length!, v)} />
+              </>
+            ) : (
+              <>
+                <Field label="W" value={same((n) => n.w / MM)} unit="mm" onCommit={frame('w')} />
+                <Field label="H" value={same((n) => n.h / MM)} unit="mm" onCommit={frame('h')} />
+              </>
+            )}
             {one?.kind === 'shape' && one.shape === 'rect' && (
               <Field label="R" title="Corner radius in mm" unit="mm" value={one.radius / MM} onCommit={(v) => set({ radius: Math.max(0, v * MM) })} />
             )}
