@@ -79,3 +79,25 @@ test('property sections space their rows evenly', async ({ page }) => {
   await layers.getByRole('button', { name: /^Satz sets type/ }).click()
   await expectEven()
 })
+
+test('ctrl+alt+m on several layers makes a mask group over the lowest', async ({ page }) => {
+  await open(page)
+  const layers = page.getByRole('tree', { name: 'Layers' })
+  const masks = layers.getByTitle('Mask', { exact: true })
+  const group = layers.getByRole('button', { name: 'Mask group', exact: true })
+  await expect(masks).toHaveCount(1)
+  await expect(layers.getByTitle('Masked by Mask')).toHaveCount(1)
+
+  await layers.getByRole('button', { name: /^Satz sets type/ }).click()
+  await layers.getByRole('button', { name: 'Frame', exact: true }).click({ modifiers: ['Shift'] })
+  await page.keyboard.press('Control+Alt+m')
+  await expect(group).toHaveCount(1)
+  await expect(masks).toHaveCount(2)
+  await expect(layers.getByTitle(/^Masked by Satz sets type/)).toHaveCount(1)
+  const [x, y] = await screen(page, 74, 7)
+  for (const p of await pixels(page, x, y, 2, 2)) expect(near(p, [0xe8, 0x45, 0x2c])).toBe(true)
+
+  await page.keyboard.press('Control+z')
+  await expect(group).toHaveCount(0)
+  await expect(masks).toHaveCount(1)
+})

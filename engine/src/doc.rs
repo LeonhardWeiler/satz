@@ -57,6 +57,11 @@ pub enum Command {
     Ungroup {
         ids: Vec<String>,
     },
+    /// Toggles one layer's mask flag, or wraps several layers in a mask group
+    /// whose lowest layer masks the others.
+    Mask {
+        ids: Vec<String>,
+    },
     Move {
         ids: Vec<String>,
         parent: String,
@@ -527,28 +532,7 @@ impl Doc {
                 vec![]
             }
             Command::Group { ids, frame } => {
-                let ids = self.sorted(&ids)?;
-                let top = *ids.last().ok_or("nothing to group")?;
-                let parent = self.tree.parent(top).ok_or("no parent")?;
-                let index = self.index(top) + 1;
-                let bounds = union(ids.iter().map(|&id| self.bounds(id)));
-                let g = self.tree.create_at(parent, index).map_err(err)?;
-                let m = self.meta(g);
-                if frame {
-                    m.insert("kind", "frame").map_err(err)?;
-                    m.insert("clip", true).map_err(err)?;
-                    self.set_frame(g, bounds)?;
-                } else {
-                    m.insert("kind", "group").map_err(err)?;
-                }
-                let olds: Vec<_> = ids.iter().map(|&id| self.tree.parent(id)).collect();
-                for (i, &id) in ids.iter().enumerate() {
-                    self.tree.mov_to(id, g, i).map_err(err)?;
-                }
-                for p in olds {
-                    self.prune(p)?;
-                }
-                vec![g.to_string()]
+                vec![self.group(&self.sorted(&ids)?, frame)?.to_string()]
             }
             Command::Ungroup { ids } => {
                 let mut out = Vec::new();
@@ -565,6 +549,22 @@ impl Doc {
                     self.remove(g)?;
                 }
                 out
+            }
+            Command::Mask { ids } => {
+                let ids = self.sorted(&ids)?;
+                let lowest = *ids.first().ok_or("nothing to mask")?;
+                if ids.len() == 1 {
+                    let on = value(&self.meta(lowest), "mask").and_then(|v| v.into_bool().ok());
+                    self.meta(lowest)
+                        .insert("mask", on != Some(true))
+                        .map_err(err)?;
+                    vec![lowest.to_string()]
+                } else {
+                    let g = self.group(&ids, false)?;
+                    self.meta(g).insert("name", "Mask group").map_err(err)?;
+                    self.meta(lowest).insert("mask", true).map_err(err)?;
+                    vec![g.to_string()]
+                }
             }
             Command::Move { ids, parent, index } => {
                 let p = self.node(&parent)?;
@@ -829,6 +829,31 @@ impl Doc {
         Ok(())
     }
 
+    /// Wraps `ids`, in document order, in a group or frame at the place of the topmost.
+    fn group(&self, ids: &[TreeID], frame: bool) -> Res<TreeID> {
+        let top = *ids.last().ok_or("nothing to group")?;
+        let parent = self.tree.parent(top).ok_or("no parent")?;
+        let index = self.index(top) + 1;
+        let bounds = union(ids.iter().map(|&id| self.bounds(id)));
+        let g = self.tree.create_at(parent, index).map_err(err)?;
+        let m = self.meta(g);
+        if frame {
+            m.insert("kind", "frame").map_err(err)?;
+            m.insert("clip", true).map_err(err)?;
+            self.set_frame(g, bounds)?;
+        } else {
+            m.insert("kind", "group").map_err(err)?;
+        }
+        let olds: Vec<_> = ids.iter().map(|&id| self.tree.parent(id)).collect();
+        for (i, &id) in ids.iter().enumerate() {
+            self.tree.mov_to(id, g, i).map_err(err)?;
+        }
+        for p in olds {
+            self.prune(p)?;
+        }
+        Ok(g)
+    }
+
     fn bounds(&self, id: TreeID) -> [f64; 4] {
         if self.kind(id) == "group" {
             return union(self.children(id).into_iter().map(|c| self.bounds(c)));
@@ -1020,8 +1045,16 @@ fn draw(n: &Node, ops: &mut Vec<Op>) {
     }
 }
 
+/// Like `draw_all`, a node is only hit inside every mask below it among its siblings.
 fn hit(nodes: &[Node], x: f64, y: f64, tolerance: f64, path: &mut Vec<String>) -> bool {
-    for n in nodes.iter().rev() {
+    for (i, n) in nodes.iter().enumerate().rev() {
+        let masks = nodes[..i].iter().filter(|m| m.style.mask);
+        if masks
+            .into_iter()
+            .any(|m| !hit(std::slice::from_ref(m), x, y, tolerance, &mut Vec::new()))
+        {
+            continue;
+        }
         let inside = x >= n.x && x <= n.x + n.w && y >= n.y && y <= n.y + n.h;
         path.push(n.id.clone());
         let found = match &n.kind {
@@ -1739,6 +1772,50 @@ mod tests {
                 &Op::PopMask
             ]
         );
+    }
+
+    #[test]
+    fn masking_several_layers_wraps_them_in_a_mask_group_over_the_lowest() {
+        let (mut d, p) = empty();
+        let [a, b, c] = [0; 3].map(|_| create(&mut d, &p, NewKind::Rect, [0.0; 4]));
+        let g = d
+            .apply(Command::Mask {
+                ids: vec![c.clone(), b.clone()],
+            })
+            .unwrap()
+            .remove(0);
+        let pg = page(&d);
+        assert_eq!(ids(&pg.children), [a.clone(), g.clone()]);
+        assert_eq!(pg.children[1].name, "Mask group");
+        let kids = children(&pg.children[1]);
+        assert_eq!(ids(kids), [b.clone(), c]);
+        assert_eq!((kids[0].style.mask, kids[1].style.mask), (true, false));
+
+        assert_eq!(
+            d.apply(Command::Mask {
+                ids: vec![a.clone()]
+            })
+            .unwrap(),
+            std::slice::from_ref(&a)
+        );
+        assert!(page(&d).children[0].style.mask);
+        d.apply(Command::Mask { ids: vec![a] }).unwrap();
+        assert!(!page(&d).children[0].style.mask);
+        d.apply(Command::Undo).unwrap();
+        d.apply(Command::Undo).unwrap();
+        d.apply(Command::Undo).unwrap();
+        assert_eq!(page(&d).children.len(), 3);
+    }
+
+    #[test]
+    fn masked_layers_are_hit_only_inside_the_mask() {
+        let (mut d, p) = empty();
+        let below = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
+        let m = create(&mut d, &p, NewKind::Ellipse, [0.0, 0.0, 10.0, 10.0]);
+        let above = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
+        d.apply(Command::Mask { ids: vec![m] }).unwrap();
+        assert_eq!(d.hit(0, 5.0, 5.0, 0.0), [above]);
+        assert_eq!(d.hit(0, 0.5, 0.5, 0.0), [below]);
     }
 
     #[test]

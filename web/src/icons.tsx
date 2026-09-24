@@ -13,6 +13,8 @@ const PATHS = {
   pen: 'M12 4l5 8-3 7h-4l-3-7zM12 4v7M12 11m-1 0a1 1 0 1 0 2 0a1 1 0 1 0-2 0',
   text: 'M6 6h12M12 6v13M9.5 19h5',
   group: 'M5.5 5.5h13v13h-13z',
+  mask: 'M5.5 5.5h13v13h-13zM12 8.5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 1 0 0-7z',
+  masked: 'M8.5 4.5v9h8',
   chevron: 'M9 7l5 5-5 5',
   plus: 'M12 6v12M6 12h12',
   minus: 'M6 12h12',
@@ -39,10 +41,12 @@ export function Icon({ name, size = 24 }: { name: IconName; size?: number }) {
 export type IconName = keyof typeof PATHS
 
 export function KindIcon({ node }: { node: Node }) {
-  return <Icon name={iconOf(node)} size={16} />
+  const icon = <Icon name={iconOf(node)} size={16} />
+  return node.mask ? <span className="kind" title="Mask">{icon}</span> : icon
 }
 
 function iconOf(node: Node): IconName {
+  if (node.mask) return 'mask'
   if (node.kind !== 'shape') return node.kind
   if (node.shape !== 'path') return node.shape
   if (node.arrowStart || node.arrowEnd) return 'arrow'

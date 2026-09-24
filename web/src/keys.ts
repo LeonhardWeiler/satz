@@ -41,12 +41,7 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
   else if (mod && key === 'g' && e.shiftKey) editor.set({ selection: editor.apply({ type: 'ungroup', ids }) })
   else if (mod && key === 'g') editor.set({ selection: editor.apply({ type: 'group', ids, frame: e.altKey }) })
   else if (mod && key === 'r') editor.set({ renaming: ids[0] })
-  else if (mod && e.altKey && key === 'm') {
-    const mask = !editor.selected().every((n) => n.mask)
-    editor.apply({ type: 'beginUndoGroup' })
-    for (const id of ids) editor.apply({ type: 'set', id, mask })
-    editor.apply({ type: 'endUndoGroup' })
-  }
+  else if (mod && e.altKey && key === 'm') editor.set({ selection: editor.apply({ type: 'mask', ids }) })
   else if (mod && e.code in ORDER) {
     editor.apply({ type: 'order', ids, to: ORDER[e.code as keyof typeof ORDER][e.shiftKey ? 1 : 0] })
   } else if (!mod && ARROWS[e.key]) {

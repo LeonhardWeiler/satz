@@ -130,6 +130,18 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
           </label>
         </Section>
       )}
+      {nodes.length > 1 && (
+        <Section title="Layer">
+          <button
+            type="button"
+            className="button"
+            title="Use as mask (Ctrl+Alt+M)"
+            onClick={() => editor.set({ selection: editor.apply({ type: 'mask', ids: selection }) })}
+          >
+            Use as mask
+          </button>
+        </Section>
+      )}
       {one && one.kind !== 'group' && (
         <PaintList title="Fill" paints={one.fills} added={one.kind === 'text' ? BLACK : GRAY} onChange={(fills) => set({ fills })} />
       )}

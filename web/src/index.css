@@ -416,6 +416,29 @@ span.swatch {
   min-height: 24px;
 }
 
+.button {
+  justify-self: start;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: none;
+  cursor: pointer;
+}
+
+.button:hover {
+  background: var(--hover);
+}
+
+.kind {
+  display: grid;
+  flex: none;
+}
+
+.masked {
+  color: var(--text-3);
+}
+
 .icon-button {
   display: grid;
   place-items: center;

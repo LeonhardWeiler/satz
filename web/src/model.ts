@@ -47,6 +47,7 @@ export type Command =
   | { type: 'delete'; ids: string[] }
   | { type: 'group'; ids: string[]; frame: boolean }
   | { type: 'ungroup'; ids: string[] }
+  | { type: 'mask'; ids: string[] }
   | { type: 'move'; ids: string[]; parent: string; index: number }
   | { type: 'order'; ids: string[]; to: 'forward' | 'backward' | 'front' | 'back' }
   | { type: 'duplicate' | 'copy'; ids: string[] }

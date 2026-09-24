@@ -63,6 +63,7 @@ export function Layers({ editor }: { editor: Editor }) {
 
   const rows = (nodes: Node[], level: number): ReactNode =>
     nodes.toReversed().map((node) => {
+      const mask = nodes.slice(0, nodes.indexOf(node)).findLast((n) => n.mask)
       const kids = 'children' in node && node.children.length > 0
       const open = kids && !collapsed.has(node.id)
       return (
@@ -104,6 +105,11 @@ export function Layers({ editor }: { editor: Editor }) {
               </button>
             ) : (
               <span className="chevron" />
+            )}
+            {mask && (
+              <span className="kind masked" title={`Masked by ${mask.name}`}>
+                <Icon name="masked" size={16} />
+              </span>
             )}
             <KindIcon node={node} />
             {renaming === node.id ? (

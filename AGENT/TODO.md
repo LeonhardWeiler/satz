@@ -12,15 +12,6 @@ font helper, i18n.
 
 Found by hand on 2026-09-24 (notes in AGENT/bugs.md), causes checked in the code.
 
-### B4. Masks mask more than expected and are invisible in the layers panel (bugs.md 8)
-- Cause: a mask masks all siblings above it in its parent (Figma rule). A frame at page level
-  therefore masks everything above it. Nothing in the layers panel shows the mask or its scope.
-  Hit testing ignores masks, so hidden parts of masked layers can still be clicked.
-- Fix (Figma): Ctrl+Alt+M or "Use as mask" on several layers wraps them in a new group named
-  "Mask group" with the lowest layer as mask; on one layer it keeps the sibling rule. The layers
-  panel shows a mask icon on the mask and marks the masked layers. `hit` tests masked layers
-  against the mask outline.
-
 ### B5. Hover and cursor ignore modifier keys and keyboard edits (bugs.md 10, 11)
 - Cause: hover always uses `pick(..., 'click')`; hover and cursor are only recomputed on
   `pointermove`.
