@@ -12,12 +12,6 @@ font helper, i18n.
 
 Found by hand on 2026-09-24 (notes in AGENT/bugs.md), causes checked in the code.
 
-### B5. Hover and cursor ignore modifier keys and keyboard edits (bugs.md 10, 11)
-- Cause: hover always uses `pick(..., 'click')`; hover and cursor are only recomputed on
-  `pointermove`.
-- Fix: remember the last pointer position and modifiers; recompute hover (mode `deep` while Ctrl
-  is held) and cursor on pointer move, on Ctrl keydown/keyup and after every editor change.
-
 ### B6. No limits or rounding on typed values (bugs.md 12)
 - Fix: `Field` rounds committed values to 2 decimals in the shown unit. Limits live in the engine
   and are enforced by `Set`/`SetFrame` with an error: text size >= 0.1 pt, W/H >= 0 (lines keep 0),

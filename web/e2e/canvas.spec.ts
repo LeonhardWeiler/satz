@@ -101,3 +101,25 @@ test('ctrl+alt+m on several layers makes a mask group over the lowest', async ({
   await expect(group).toHaveCount(0)
   await expect(masks).toHaveCount(1)
 })
+
+test('holding ctrl hovers the deepest layer under the pointer', async ({ page }) => {
+  await open(page)
+  const [x, y] = await screen(page, 23, 52)
+  const accent = async () => (await pixels(page, x - 1, y - 3, 3, 7)).some((p) => near(p, [13, 153, 255]))
+  await page.mouse.move(x, y - 20)
+  expect(await accent()).toBe(false)
+  await page.keyboard.down('Control')
+  expect(await accent()).toBe(true)
+  await page.keyboard.up('Control')
+  expect(await accent()).toBe(false)
+})
+
+test('the cursor follows keyboard edits without a pointer move', async ({ page }) => {
+  await open(page)
+  const canvas = page.getByLabel('Page canvas')
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).last().click()
+  await page.mouse.move(...(await screen(page, 74, 77)))
+  await expect(canvas).toHaveCSS('cursor', 'ns-resize')
+  await page.keyboard.press('Delete')
+  await expect(canvas).not.toHaveCSS('cursor', 'ns-resize')
+})

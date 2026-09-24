@@ -25,6 +25,7 @@ const DEFAULT_SIZE: Record<Exclude<Tool, 'move' | 'pen'>, [number, number]> = {
   line: [30, 0], arrow: [30, 0],
 }
 
+type Pointer = { offsetX: number; offsetY: number; ctrlKey: boolean }
 type Drag =
   | { kind: 'pan'; last: Point }
   | { kind: 'move'; start: Point; frames: Node[]; active: boolean }
@@ -60,6 +61,8 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     let drag: Drag | null = null
     let hover: string | undefined
     let cursor: Point | undefined
+    /** Last pointer position and Ctrl state over the canvas, for hover and cursor. */
+    let pointer: Pointer | undefined
 
     const toDoc = (e: { offsetX: number; offsetY: number }): Point => ({
       x: (e.offsetX - view.x) / view.zoom,
@@ -118,7 +121,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       redraw()
     }
 
-    const handleAt = (e: PointerEvent) => {
+    const handleAt = (e: Pointer) => {
       const { box, line } = handles()
       const { offsetX: x, offsetY: y } = e
       if (line) {
@@ -143,6 +146,16 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       return undefined
     }
     const hit = (p: Point) => editor.engine.hit(0, p.x, p.y, HIT / view.zoom)
+    const track = () => {
+      if (!pointer || drag || editor.pen) return
+      canvas.style.cursor = CURSORS[handleAt(pointer) ?? ''] ?? ''
+      const mode = pointer.ctrlKey ? 'deep' : 'click'
+      const id = editor.tool === 'move' ? pick(editor.page.children, hit(toDoc(pointer)), editor.selection, mode) : undefined
+      if (id !== hover) {
+        hover = id
+        redraw()
+      }
+    }
 
     const resize = new ResizeObserver(([entry]) => {
       const box = entry.devicePixelContentBoxSize?.[0]
@@ -172,6 +185,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         view.y -= (e.shiftKey && !e.deltaX ? 0 : e.deltaY) * scale
         redraw()
       }
+      track()
     }
     const onPointerDown = (e: PointerEvent) => {
       if (e.button !== 0 && e.button !== 1) return
@@ -244,20 +258,13 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     }
     const onPointerMove = (e: PointerEvent) => {
       const p = toDoc(e)
+      pointer = { offsetX: e.offsetX, offsetY: e.offsetY, ctrlKey: e.ctrlKey || e.metaKey }
       if (editor.pen && !drag) {
         cursor = p
         redraw()
         return
       }
-      if (!drag) {
-        canvas.style.cursor = CURSORS[handleAt(e) ?? ''] ?? ''
-        const id = editor.tool === 'move' ? pick(editor.page.children, hit(p), editor.selection, 'click') : undefined
-        if (id !== hover) {
-          hover = id
-          redraw()
-        }
-        return
-      }
+      if (!drag) return track()
       if (drag.kind === 'pan') {
         view.x += e.clientX - drag.last.x
         view.y += e.clientY - drag.last.y
@@ -372,6 +379,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       }
       drag = null
       delete canvas.dataset.panning
+      track()
       redraw()
     }
     const onDoubleClick = (e: MouseEvent) => {
@@ -380,12 +388,17 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       if (id) editor.set({ selection: [id] })
     }
     const onLeave = () => {
+      pointer = undefined
       hover = undefined
       cursor = undefined
       redraw()
     }
     const onKey = (e: KeyboardEvent) => {
       if (isTyping(e)) return
+      if ((e.key === 'Control' || e.key === 'Meta') && pointer) {
+        pointer.ctrlKey = e.type === 'keydown'
+        track()
+      }
       if (e.code === 'Space') {
         space = e.type === 'keydown'
         canvas.toggleAttribute('data-space', space)
@@ -401,11 +414,13 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       else if (mod && (e.key === '=' || e.key === '+')) zoomAt(cx, cy, view.zoom * 2)
       else if (mod && e.key === '-') zoomAt(cx, cy, view.zoom / 2)
       else return
+      track()
       e.preventDefault()
     }
 
     const unsubscribe = editor.subscribe(() => {
       canvas.dataset.tool = editor.tool
+      track()
       redraw()
     })
     canvas.addEventListener('wheel', onWheel, { passive: false })
