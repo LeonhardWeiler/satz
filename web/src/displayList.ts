@@ -12,6 +12,8 @@ export type Op =
       positions: Float32Array
     }
   | { op: 'image'; image: number; rect: Float32Array }
+  | { op: 'pushClip'; path: Float32Array }
+  | { op: 'popClip' }
 
 export function decode(words: Uint32Array): Op[] {
   const { buffer, byteOffset } = words
@@ -54,6 +56,15 @@ export function decode(words: Uint32Array): Op[] {
       case 5:
         ops.push({ op: 'image', image: words[i], rect: f32(i + 1, 4) })
         i += 5
+        break
+      case 6: {
+        const n = words[i]
+        ops.push({ op: 'pushClip', path: f32(i + 1, n) })
+        i += 1 + n
+        break
+      }
+      case 7:
+        ops.push({ op: 'popClip' })
         break
       default:
         throw new Error(`display list: bad op ${words[i - 1]} at word ${i - 1}`)

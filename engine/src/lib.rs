@@ -25,7 +25,7 @@ impl Engine {
         Engine::default()
     }
 
-    pub fn apply(&mut self, cmd: JsValue) -> Result<(), JsError> {
+    pub fn apply(&mut self, cmd: JsValue) -> Result<Vec<String>, JsError> {
         let cmd: Command = serde_wasm_bindgen::from_value(cmd)?;
         self.doc.apply(cmd).map_err(|e| JsError::new(&e))
     }

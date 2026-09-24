@@ -71,6 +71,13 @@ export class Renderer {
         }
         canvas.drawPicture(cached.picture)
         i = end
+      } else if (op.op === 'pushClip') {
+        const path = ck.Path.MakeFromCmds(op.path)!
+        canvas.save()
+        canvas.clipPath(path, ck.ClipOp.Intersect, true)
+        path.delete()
+      } else if (op.op === 'popClip') {
+        canvas.restore()
       }
     }
     canvas.restore()

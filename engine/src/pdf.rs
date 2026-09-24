@@ -94,6 +94,8 @@ fn draw(s: &mut Surface, font: &Font, op: &Op) {
             s.set_fill(Some(fill(color)));
             s.draw_glyphs(Point::from_xy(x0, y0), &run, font.clone(), "", *size, false);
         }
+        Op::PushClip { path } => s.push_clip_path(&build(path).unwrap(), &FillRule::NonZero),
+        Op::PopClip => s.pop(),
         _ => {}
     }
 }

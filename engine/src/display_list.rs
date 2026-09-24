@@ -31,6 +31,10 @@ pub enum Op {
         image: u32,
         rect: [f32; 4],
     },
+    PushClip {
+        path: Vec<f32>,
+    },
+    PopClip,
 }
 
 pub fn rect(x: f32, y: f32, w: f32, h: f32) -> Vec<f32> {
@@ -103,6 +107,11 @@ pub fn encode(ops: &[Op]) -> Vec<u32> {
                 out.extend([5, *image]);
                 floats(&mut out, rect);
             }
+            Op::PushClip { path } => {
+                out.extend([6, path.len() as u32]);
+                floats(&mut out, path);
+            }
+            Op::PopClip => out.push(7),
         }
     }
     out
@@ -136,6 +145,9 @@ mod tests {
                 height: 595.25,
                 bleed: 8.5,
             },
+            Op::PushClip {
+                path: rect(1.0, 2.0, 3.0, 4.0),
+            },
             Op::BeginItem { item: 7 },
             Op::FillPath {
                 color: [1.0, 0.5, 0.25, 1.0],
@@ -153,6 +165,7 @@ mod tests {
                 rect: [1.0, 2.0, 3.0, 4.0],
             },
             Op::EndItem,
+            Op::PopClip,
         ];
         let words = encode(&ops);
         let bytes: Vec<u8> = words.iter().flat_map(|w| w.to_le_bytes()).collect();
