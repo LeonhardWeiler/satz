@@ -1,7 +1,7 @@
 use crate::display_list::{Op, rect};
 use crate::text::layout;
 use loro::{
-    Container, LoroDoc, LoroMap, LoroText, LoroTree, LoroValue, TreeID, TreeParentId,
+    Container, LoroDoc, LoroMap, LoroText, LoroTree, LoroValue, TreeID, TreeParentId, UndoManager,
     UpdateOptions, ValueOrContainer,
 };
 use serde::{Deserialize, Serialize};
@@ -62,6 +62,10 @@ pub enum Command {
     Duplicate {
         ids: Vec<String>,
     },
+    Undo,
+    Redo,
+    BeginUndoGroup,
+    EndUndoGroup,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -82,8 +86,11 @@ pub enum Order {
 }
 
 #[derive(Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Snapshot {
     pub pages: Vec<Page>,
+    pub can_undo: bool,
+    pub can_redo: bool,
 }
 
 #[derive(Debug, PartialEq, Serialize)]
@@ -130,6 +137,7 @@ pub enum Kind {
 pub struct Doc {
     doc: LoroDoc,
     tree: LoroTree,
+    undo: UndoManager,
 }
 
 type Res<T> = Result<T, String>;
@@ -147,7 +155,8 @@ impl Doc {
         let doc = LoroDoc::new();
         let tree = doc.get_tree("nodes");
         tree.enable_fractional_index(0);
-        let mut d = Doc { doc, tree };
+        let undo = UndoManager::new(&doc);
+        let mut d = Doc { doc, tree, undo };
         let page = d.tree.create(None).unwrap();
         let m = d.meta(page);
         m.insert("kind", "page").unwrap();
@@ -209,6 +218,7 @@ impl Doc {
             clip: None,
         })
         .unwrap();
+        d.undo = UndoManager::new(&d.doc);
         d
     }
 
@@ -285,7 +295,7 @@ impl Doc {
             Command::Delete { ids } => {
                 for id in self.nodes(&ids)? {
                     let parent = self.tree.parent(id);
-                    self.tree.delete(id).map_err(err)?;
+                    self.remove(id)?;
                     self.prune(parent)?;
                 }
                 vec![]
@@ -327,7 +337,7 @@ impl Doc {
                         self.tree.mov_to(c, parent, index + i).map_err(err)?;
                         out.push(c.to_string());
                     }
-                    self.tree.delete(g).map_err(err)?;
+                    self.remove(g)?;
                 }
                 out
             }
@@ -371,6 +381,25 @@ impl Doc {
                 }
                 vec![]
             }
+            Command::Undo => {
+                self.undo.group_end();
+                self.undo.undo().map_err(err)?;
+                vec![]
+            }
+            Command::Redo => {
+                self.undo.group_end();
+                self.undo.redo().map_err(err)?;
+                vec![]
+            }
+            Command::BeginUndoGroup => {
+                self.undo.group_end();
+                self.undo.group_start().map_err(err)?;
+                vec![]
+            }
+            Command::EndUndoGroup => {
+                self.undo.group_end();
+                vec![]
+            }
             Command::Duplicate { ids } => {
                 let mut out = Vec::new();
                 for id in self.sorted(&ids)?.into_iter().rev() {
@@ -391,6 +420,7 @@ impl Doc {
             .tree
             .roots()
             .into_iter()
+            .filter(|&p| self.kind(p) == "page")
             .map(|p| {
                 let m = self.meta(p);
                 Page {
@@ -402,7 +432,11 @@ impl Doc {
                 }
             })
             .collect();
-        Snapshot { pages }
+        Snapshot {
+            pages,
+            can_undo: self.undo.can_undo(),
+            can_redo: self.undo.can_redo(),
+        }
     }
 
     pub fn render(&self, page: usize) -> Vec<Op> {
@@ -544,17 +578,41 @@ impl Doc {
             && self.children(p).is_empty()
         {
             let up = self.tree.parent(p);
-            self.tree.delete(p).map_err(err)?;
+            self.remove(p)?;
             self.prune(up)?;
         }
         Ok(())
     }
 
+    /// Deleted nodes move under a trash root so that undo restores them with their id.
+    fn remove(&self, id: TreeID) -> Res<()> {
+        let trash = match self
+            .tree
+            .roots()
+            .into_iter()
+            .find(|&r| self.kind(r) == "trash")
+        {
+            Some(t) => t,
+            None => {
+                let t = self.tree.create(None).map_err(err)?;
+                self.meta(t).insert("kind", "trash").map_err(err)?;
+                t
+            }
+        };
+        self.tree.mov(id, trash).map_err(err)
+    }
+
     fn node(&self, id: &str) -> Res<TreeID> {
-        TreeID::try_from(id)
-            .ok()
-            .filter(|t| self.tree.contains(*t) && self.tree.is_node_deleted(t) == Ok(false))
-            .ok_or_else(|| format!("no node {id}"))
+        let t = TreeID::try_from(id).map_err(err)?;
+        let mut root = t;
+        while self.tree.contains(root) && self.tree.is_node_deleted(&root) == Ok(false) {
+            match self.tree.parent(root) {
+                Some(TreeParentId::Node(p)) => root = p,
+                _ if self.kind(root) == "page" => return Ok(t),
+                _ => break,
+            }
+        }
+        Err(format!("no node {id}"))
     }
 
     fn nodes(&self, ids: &[String]) -> Res<Vec<TreeID>> {
@@ -1076,6 +1134,74 @@ mod tests {
         })
         .unwrap();
         assert_eq!(d.hit(0, 15.0, 15.0), [f, a]);
+    }
+
+    #[test]
+    fn undo_reverts_one_command_and_redo_reapplies_it() {
+        let mut d = Doc::new();
+        let before = d.snapshot();
+        assert!(!before.can_undo);
+        let id = page(&d).children[0].id.clone();
+        d.apply(Command::Delete { ids: vec![id] }).unwrap();
+        let after = d.snapshot();
+        assert!(after.can_undo);
+        d.apply(Command::Undo).unwrap();
+        let undone = d.snapshot();
+        assert_eq!(undone.pages, before.pages);
+        assert!(undone.can_redo && !undone.can_undo);
+        d.apply(Command::Redo).unwrap();
+        assert_eq!(d.snapshot().pages, after.pages);
+    }
+
+    #[test]
+    fn an_undo_group_is_undone_in_one_step() {
+        let mut d = Doc::new();
+        let before = d.snapshot().pages;
+        let id = page(&d).children[0].id.clone();
+        d.apply(Command::BeginUndoGroup).unwrap();
+        for x in 1..4 {
+            d.apply(Command::SetFrame {
+                id: id.clone(),
+                x: x as f64,
+                y: 0.0,
+                w: 1.0,
+                h: 1.0,
+            })
+            .unwrap();
+        }
+        d.apply(Command::Undo).unwrap();
+        assert_eq!(d.snapshot().pages, before);
+        assert!(!d.snapshot().can_undo);
+
+        d.apply(Command::Redo).unwrap();
+        d.apply(Command::BeginUndoGroup).unwrap();
+        d.apply(Command::Delete { ids: vec![id] }).unwrap();
+        d.apply(Command::EndUndoGroup).unwrap();
+        d.apply(Command::Undo).unwrap();
+        assert_eq!(frame(&page(&d).children[0]), [3.0, 0.0, 1.0, 1.0]);
+    }
+
+    #[test]
+    fn undo_restores_structure_and_text_with_the_same_ids() {
+        let mut d = Doc::new();
+        let ids = ids(&page(&d).children);
+        let g = d
+            .apply(Command::Group {
+                ids: ids[..2].to_vec(),
+                frame: false,
+            })
+            .unwrap()
+            .remove(0);
+        let grouped = d.snapshot().pages;
+        d.apply(Command::Ungroup { ids: vec![g] }).unwrap();
+        d.apply(Command::SetText {
+            id: ids[1].clone(),
+            text: "x".into(),
+        })
+        .unwrap();
+        d.apply(Command::Undo).unwrap();
+        d.apply(Command::Undo).unwrap();
+        assert_eq!(d.snapshot().pages, grouped);
     }
 
     #[test]

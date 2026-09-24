@@ -9,6 +9,7 @@ export type Command =
   | { type: 'move'; ids: string[]; parent: string; index: number }
   | { type: 'order'; ids: string[]; to: 'forward' | 'backward' | 'front' | 'back' }
   | { type: 'duplicate'; ids: string[] }
+  | { type: 'undo' | 'redo' | 'beginUndoGroup' | 'endUndoGroup' }
 
 export type Node = { id: string; name: string; x: number; y: number; w: number; h: number } & (
   | { kind: 'rect'; fill: number }
@@ -19,4 +20,4 @@ export type Node = { id: string; name: string; x: number; y: number; w: number; 
 
 export type Page = { id: string; width: number; height: number; bleed: number; children: Node[] }
 
-export type Snapshot = { pages: Page[] }
+export type Snapshot = { pages: Page[]; canUndo: boolean; canRedo: boolean }
