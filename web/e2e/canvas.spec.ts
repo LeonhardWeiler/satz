@@ -180,3 +180,17 @@ test('undo finishes an open pen path and waits for a drag to end', async ({ page
   await expect(x).toHaveValue('-3')
   expect(errors).toEqual([])
 })
+
+test('mixed values fit their fields', async ({ page }) => {
+  await open(page)
+  const layers = page.getByRole('tree', { name: 'Layers' })
+  const rects = layers.getByRole('button', { name: 'Rectangle', exact: true })
+  await rects.first().click()
+  await rects.last().click({ modifiers: ['Shift'] })
+  const layout = page.getByRole('region', { name: 'Layout' })
+  for (const title of ['X in mm', 'W in mm']) {
+    const input = layout.getByTitle(title).getByRole('textbox')
+    await expect(input).toHaveValue('Mixed')
+    expect(await input.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
+  }
+})

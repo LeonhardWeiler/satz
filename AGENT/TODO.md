@@ -18,13 +18,6 @@ Found by hand on 2026-09-24 (notes in AGENT/bugs.md), causes checked in the code
   viewport collision (flip and shift). Item 8 needs it anyway for CMYK values and swatches, so
   build it there. The shape menu uses the same placement.
 
-### B8. Text looks heavier in the exported PDF than on the canvas (bugs.md 3)
-- Both draw the same glyph outlines (canvas-vs-PDF check passes). Likely rasterization: CanvasKit
-  draws text without the contrast/gamma boost most PDF viewers apply.
-- First step: compare canvas and PDF at 800 % in the same viewer setup. If outlines match, decide
-  whether to thicken the preview (e.g. CanvasKit subpixel edging) or leave it; if not, fix the
-  glyph run in `pdf.rs`.
-
 ## Settled design
 
 - Engine (Rust → WASM) owns the Loro doc, layout and undo. React sends commands and

@@ -57,7 +57,7 @@ export function Field({
           }
         }}
       />
-      <span className="field-unit">{unit}</span>
+      {(value !== null || draft !== null) && <span className="field-unit">{unit}</span>}
     </label>
   )
 }
