@@ -4,6 +4,8 @@ import CanvasKitInit from 'canvaskit-wasm'
 import canvaskitWasm from 'canvaskit-wasm/bin/canvaskit.wasm?url'
 import init, { Engine } from './engine/engine'
 import { App } from './App'
+import { Editor } from './editor'
+import { stored } from './file'
 import './index.css'
 
 const root = createRoot(document.getElementById('root')!)
@@ -23,10 +25,21 @@ if (!document.createElement('canvas').getContext('webgl2')) {
   )
 } else {
   try {
-    const [ck] = await Promise.all([CanvasKitInit({ locateFile: () => canvaskitWasm }), init()])
+    const [ck, , saved] = await Promise.all([
+      CanvasKitInit({ locateFile: () => canvaskitWasm }),
+      init(),
+      stored().catch(() => undefined),
+    ])
+    const editor = new Editor(new Engine())
+    let failed = ''
+    try {
+      if (saved) editor.load(saved.bytes, { name: saved.name, handle: saved.handle }, saved.dirty)
+    } catch (e) {
+      failed = `Could not restore ${saved!.name}: ${(e as Error).message}. Satz started a new document.`
+    }
     root.render(
       <StrictMode>
-        <App ck={ck} engine={new Engine()} />
+        <App ck={ck} editor={editor} notice={failed} />
       </StrictMode>,
     )
   } catch (e) {

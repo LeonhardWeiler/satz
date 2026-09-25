@@ -833,6 +833,23 @@ span.swatch {
   }
 }
 
+.status {
+  z-index: 1;
+  grid-area: 1 / 2;
+  align-self: end;
+  justify-self: center;
+  margin: 0 0 60px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: #1e1e1e;
+  color: #fff;
+  box-shadow: 0 2px 12px rgb(0 0 0 / 0.35);
+}
+
+.status:empty {
+  display: none;
+}
+
 .notice {
   display: grid;
   place-content: center;

@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import type { Engine } from './engine/engine'
 import type { Command, Container, Modes, Node, Page, Palette, Scope, Snapshot, TextNode } from './model'
+import type { Handle } from './file'
 import { penPath, type Anchor } from './pen'
 import type { Sheet } from './renderer'
 import { index, type Entry } from './select'
@@ -11,6 +12,7 @@ export type Tool = 'move' | 'frame' | 'text' | 'pen' | Shape
 export type Pen = { id: string; anchors: Anchor[] }
 
 export const MM = 72 / 25.4
+const UNTITLED: { name: string; handle: Handle | null } = { name: 'Untitled.satz', handle: null }
 
 export const scopeOf = ({ swatches, collections, variables }: Palette, modes: Modes = {}): Scope => ({
   swatches,
@@ -35,14 +37,38 @@ export class Editor {
   threading: string | null = null
   /** The current page or master, shown on the canvas in its spread. */
   pageId: string
+  file = UNTITLED
+  /** The document has changed since it was last saved to or opened from its file. */
+  dirty = false
   /** Typing into the edited text is one undo step until the caret moves. */
   private typing = false
+  private savedAt: string
   private listeners = new Set<() => void>()
 
   constructor(readonly engine: Engine) {
     this.snapshot = engine.snapshot()
     this.pageId = this.snapshot.pages[0].id
     this.nodes = this.index()
+    this.savedAt = engine.version()
+  }
+
+  /** Replaces the document by the one saved in `bytes`; on an error it stays as it was. */
+  load(bytes: Uint8Array, file = UNTITLED, dirty = false) {
+    this.engine.load(bytes)
+    Object.assign(this, { selection: [], tool: 'move', renaming: null, pen: null, editing: null, threading: null })
+    this.typing = false
+    this.snapshot = this.engine.snapshot()
+    this.pageId = this.snapshot.pages[0].id
+    this.nodes = this.index()
+    this.saved(file, dirty ? '' : this.engine.version())
+  }
+
+  /** The document at `version` is in `file`. */
+  saved(file: Editor['file'], version: string) {
+    this.file = file
+    this.savedAt = version
+    this.dirty = this.engine.version() !== version
+    this.emit()
   }
 
   /** The current page or master. */
@@ -110,6 +136,7 @@ export class Editor {
         const { anchor, focus } = this.editing
         this.editing = len < 0 ? null : { ...this.editing, anchor: Math.min(anchor, len), focus: Math.min(focus, len) }
       }
+      this.dirty = this.engine.version() !== this.savedAt
       this.follow()
       this.settle()
       this.emit()

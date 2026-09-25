@@ -12,8 +12,8 @@ use crate::text::{
 };
 use crate::variable::{Collection, Mode, Modes, Palette, Scope, Value, Variable};
 use loro::{
-    Container, ExpandType, LoroDoc, LoroMap, LoroText, LoroTree, LoroValue, StyleConfig, TextDelta,
-    TreeID, TreeParentId, UndoManager, UpdateOptions, ValueOrContainer,
+    Container, ExpandType, ExportMode, LoroDoc, LoroMap, LoroText, LoroTree, LoroValue,
+    StyleConfig, TextDelta, TreeID, TreeParentId, UndoManager, UpdateOptions, ValueOrContainer,
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::cell::RefCell;
@@ -637,21 +637,23 @@ every line but the last to the width of its frame. The canvas and the PDF draw \
 the same glyphs from the same font.";
 
 impl Doc {
-    pub fn new() -> Doc {
-        let doc = LoroDoc::new();
+    fn with(doc: LoroDoc) -> Doc {
         doc.config_default_text_style(Some(StyleConfig {
             expand: ExpandType::After,
         }));
         let tree = doc.get_tree("nodes");
         tree.enable_fractional_index(0);
-        let undo = UndoManager::new(&doc);
-        let mut d = Doc {
+        Doc {
+            undo: UndoManager::new(&doc),
             doc,
             tree,
-            undo,
             clipboard: Vec::new(),
             flows: RefCell::new(None),
-        };
+        }
+    }
+
+    pub fn new() -> Doc {
+        let mut d = Doc::with(LoroDoc::new());
         let page = d.tree.create(None).unwrap();
         let m = d.meta(page);
         m.insert("kind", "page").unwrap();
@@ -870,6 +872,35 @@ impl Doc {
         .unwrap();
         d.undo = UndoManager::new(&d.doc);
         d
+    }
+
+    /// The document without its history, for `load`.
+    pub fn save(&self) -> Vec<u8> {
+        let now = self.doc.state_frontiers();
+        self.doc
+            .export(ExportMode::shallow_snapshot(&now))
+            .expect("export")
+    }
+
+    pub fn version(&self) -> String {
+        format!("{:?}", self.doc.oplog_frontiers())
+    }
+
+    pub fn load(bytes: &[u8]) -> Res<Doc> {
+        let doc = LoroDoc::new();
+        doc.import(bytes).map_err(|_| "not a Satz document")?;
+        let mut d = Doc::with(doc);
+        let kinds: Vec<_> = d.tree.roots().into_iter().map(|r| d.kind(r)).collect();
+        if !kinds.iter().any(|k| k == "page")
+            || kinds
+                .iter()
+                .any(|k| !matches!(k.as_str(), "page" | "master" | "trash"))
+        {
+            return Err("not a Satz document".into());
+        }
+        d.finish(vec![], false)?;
+        d.undo = UndoManager::new(&d.doc);
+        Ok(d)
     }
 
     pub fn apply(&mut self, cmd: Command) -> Res<Vec<String>> {
@@ -7452,5 +7483,43 @@ mod tests {
         let took = start.elapsed();
         eprintln!("typing took {took:?}");
         assert!(took.as_millis() < 1000, "typing took {took:?}");
+    }
+
+    #[test]
+    fn a_saved_booklet_loads_as_it_was_without_undo_history() {
+        let mut b = booklet();
+        b.d.apply(Command::Delete {
+            ids: vec![b.frames[7].clone()],
+        })
+        .unwrap();
+        let mut loaded = Doc::load(&b.d.save()).unwrap();
+        let (before, after) = (b.d.snapshot(), loaded.snapshot());
+        assert!(!after.can_undo && !after.can_redo);
+        assert_eq!(
+            Snapshot {
+                can_undo: false,
+                ..before
+            },
+            after
+        );
+        for p in &b.pages {
+            assert_eq!(b.d.render(p), loaded.render(p));
+        }
+        loaded
+            .apply(Command::SetText {
+                id: b.frames[0].clone(),
+                text: "Hi".into(),
+            })
+            .unwrap();
+        loaded.apply(Command::Undo).unwrap();
+        assert_eq!(loaded.snapshot().stories[&b.frames[0]].text, b.story);
+    }
+
+    #[test]
+    fn a_file_that_is_not_a_satz_document_does_not_load() {
+        assert!(Doc::load(b"not a satz file").is_err());
+        let other = LoroDoc::new();
+        other.get_map("x").insert("a", 1).unwrap();
+        assert!(Doc::load(&other.export(ExportMode::Snapshot).unwrap()).is_err());
     }
 }

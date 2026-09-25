@@ -119,6 +119,21 @@ impl Engine {
         self.doc.pdf()
     }
 
+    pub fn save(&self) -> Vec<u8> {
+        self.doc.save()
+    }
+
+    /// Replaces the document; on an error it stays as it was.
+    pub fn load(&mut self, bytes: &[u8]) -> Result<(), JsError> {
+        self.doc = Doc::load(bytes).map_err(|e| JsError::new(&e))?;
+        Ok(())
+    }
+
+    /// Changes whenever the document does.
+    pub fn version(&self) -> String {
+        self.doc.version()
+    }
+
     pub fn font(&self, _id: u32) -> Uint8Array {
         unsafe { Uint8Array::view(text::FONT) }
     }

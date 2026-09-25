@@ -37,10 +37,7 @@ font helper, i18n.
 - Per document, chosen at creation: embed or link. Linking uses File System
   Access (Chromium); Firefox shows the option disabled with a hint. Missing
   links reported by preflight with relink.
-
-### 14. Persistence
-- Autosave Loro snapshot to IndexedDB.
-- `.satz` project file: Loro snapshot + embedded images (when embedding).
+- The `.satz` file and the autosave carry embedded images.
 
 ### 15. Preflight
 - Overset text, missing fonts, missing links, images below 300 ppi, objects at the
