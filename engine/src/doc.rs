@@ -2765,6 +2765,7 @@ impl Doc {
                 if let Some(o) = of.and_then(|o| self.node(&o).ok()) {
                     self.relink(&lefts, m, c, o)?;
                 }
+                self.unlink_all(c)?;
                 self.remove(c)?;
             }
         }
@@ -6993,6 +6994,18 @@ mod tests {
             .collect();
         assert_eq!(flow(&d, &copies[0]).4, Some(copies[1].clone()));
         assert_eq!(flow(&d, &copies[1]).1, 3);
+    }
+
+    #[test]
+    fn a_thread_from_the_left_master_page_keeps_its_story_when_facing_pages_go_off() {
+        let (mut d, _) = empty();
+        let m2 = add_master(&mut d);
+        let left = fixed_text(&mut d, &m2, [-100.0, 0.0, 50.0, LEADING + 1.0]);
+        let right = fixed_text(&mut d, &m2, [10.0, 0.0, 100.0, 100.0]);
+        set_text(&mut d, &left, "Hi\nHo");
+        thread(&mut d, &left, &right).unwrap();
+        facing(&mut d, false);
+        assert_eq!(flow(&d, &right).0, "Hi\nHo");
     }
 
     #[test]
