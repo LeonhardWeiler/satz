@@ -8,6 +8,64 @@ that match the canvas.
 Out of scope for M1: PDF/X, components, realtime collaboration, Figma import,
 font helper, i18n.
 
+## Bugs
+
+Found by the review on 2026-09-25 (IDs from `AGENT/project-health-report.html`), causes checked in
+the code, not reproduced in the browser.
+
+### B11. Arrow keys in the colour picker also move the selected layer (BUG-8)
+- Cause: the saturation area in `ColorPicker.tsx` is a `div role="slider"`; `step` only calls
+  `preventDefault`. `App.onKey` ignores `defaultPrevented` and `isTyping` only matches inputs, so
+  `handleKey` nudges the selection on every arrow press.
+- Fix: `if (e.defaultPrevented) return` at the top of `App.onKey`.
+- Test: e2e focuses the saturation area, presses ArrowRight, checks X is unchanged.
+
+### B12. Engine traps on a large raster ppi (PERF-2)
+- Cause: `SetDocument` only requires `rasterPpi > 0`. At 800 ppi a page-sized A2 shadow needs
+  ≈ 990 MB per buffer; the allocation traps the WASM engine and the app is dead.
+- Fix: range check 72..=1200 in `SetDocument` like the props in `Props::check`.
+- Test: cargo test rejects 0, 71 and 1201 and keeps the old value.
+
+### B13. Spot swatches may share a name with different alternates (PRINT-1)
+- Cause: `Swatch::check` does not look at other swatches; `Swatches.tsx` names new swatches
+  `Swatch {len + 1}`, which repeats after a delete. The PDF then has one Separation name with
+  conflicting alternates.
+- Fix: `AddSwatch`/`SetSwatch` reject a name used by another swatch; the default name takes the
+  highest existing number + 1.
+- Test: cargo test for both commands; e2e adds, deletes and adds again and sees distinct names.
+
+### B14. Dropping a layer into its own descendant throws (BUG-5, ROB-1)
+- Cause: `Layers.tsx` `over` only rejects the dragged rows. Dropping an expanded group on one of
+  its children sends a cyclic `move`; Loro rejects it after earlier ids may have moved, `apply`
+  returns before `commit`, and `Editor.apply` throws before it re-reads the snapshot. The drop
+  indicator stays visible.
+- Fix: `over` rejects targets inside a dragged subtree; `Command::Move` checks ancestry for all ids
+  before the first `mov_to`; `Editor.apply` re-reads the snapshot in `finally`.
+- Test: cargo test for the cyclic move leaving the tree unchanged; e2e drags a group onto its child.
+
+### B15. Text content and swatch name are stale after undo (BUG-6)
+- Cause: the text `textarea` in `Properties.tsx` and the name input in `Swatches.tsx` are
+  uncontrolled and keyed on the id only. After Ctrl+Z they show the newer value; the textarea
+  sends `setText` again on blur and silently redoes the edit.
+- Fix: key both on id and value.
+- Test: e2e edits the text, undoes, checks the textarea shows the old text and stays undone after
+  focus and blur.
+
+### B16. Clicking a panel while drawing with the pen splits the path's undo step (BUG-9)
+- Cause: `Editor.gesture` sends `beginUndoGroup`, which ends every open group, including the pen's.
+- Fix: `gesture` calls `finishPen(false)` first, as undo already does.
+- Test: e2e draws two anchors, clicks the properties panel, undoes once, the path is gone.
+
+### B17. Colour picker stays put when the properties panel scrolls (UX-6)
+- Cause: `Popover` re-places only on window resize and its own size change.
+- Fix: also listen to `scroll` with capture in the same effect.
+
+### B18. Space cannot activate focused buttons (A11Y-2)
+- Cause: `Canvas.tsx` `onKey` prevents Space on keydown and keyup for any target that is not an
+  input.
+- Fix: take Space for panning only when the target is the canvas or the body.
+- Test: e2e focuses a layer row button, presses Space, the layer is selected.
+
 ## Settled design
 
 - Engine (Rust → WASM) owns the Loro doc, layout and undo. React sends commands and
