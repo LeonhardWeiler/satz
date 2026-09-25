@@ -239,6 +239,59 @@
   <li><b>Smart Guides:</b> beim Verschieben Abstände zu den 2 nächsten Elementen; mit <kbd>Alt</kbd> ohne Verschieben Abstand zum Element unter der Maus (wie Figma).</li>
   <li><b>Einrasten</b> an Elementen, Raster, Seitenkanten usw. Gewichtung später durchdenken und testen.</li>
 </ul>
+<h3>Festgelegt nach Rückfragen</h3>
+<ul>
+  <li><b>2 Layout-Familien:</b> fest angedockt (wie A) und schwebend (wie heute). Beide bekommen dieselben Funktionen.</li>
+  <li><b>Start:</b> eigener Startbildschirm, <kbd>Ctrl N</kbd>. Formate A2–A6, DL, US Letter, Eigene; Hoch/Quer.</li>
+  <li><b>Dokument</b> (nichts ausgewählt, rechts oben): Formatvorlage, B, H, Anschnitt, Seiten, Doppelseiten, Farbmodus.</li>
+  <li><b>Zahlenfelder</b> im Geist von C: Label ziehen, ↑/↓ ±1, Shift ±10, Alt ±0,1, Rechenausdrücke, +/− nur bei Ganzzahlen.</li>
+  <li><b>Textstile</b> als Specimen-Menü wie A.</li>
+  <li><b>Quick-Edit</b> über der Auswahl je nach Objekt, dazu „More“; beim Ziehen ausgeblendet.</li>
+  <li><b>Smart Guides:</b> nächstes Ziel innerhalb 5 px gewinnt (Objekte, Seitenränder, Seitenmitte, Satzspiegel, Raster); <kbd>Ctrl</kbd> beim Ziehen schaltet Einrasten aus.</li>
+  <li><b>Master</b> per Auswahlfeld für alle gewählten Seiten, nie per Ziehen.</li>
+  <li><b>Ausblenden</b> nur ganzer Bereiche: <kbd>Alt 1</kbd> links, <kbd>Alt 2</kbd> rechts, <kbd>Alt 3</kbd> Leiste unten, <kbd>Ctrl \</kbd> alles.</li>
+  <li><b><kbd>Ctrl K</kbd></b> nur als Kürzel: Befehle, Ebenen, Seiten, Swatches, Textstile.</li>
+  <li><b><kbd>PgUp</kbd>/<kbd>PgDn</kbd></b> wechseln den Bogen. Der Canvas zeigt immer einen Bogen.</li>
+  <li><b>Preflight-Modus</b> groß und live, <kbd>Ctrl Alt Y</kbd> oder Knopf mit Warnungszähler: Canvas mit Proof und Gamut, rechts breite Spalte mit Prüfliste, Separationen, Farbauftrag, Export. Klick auf Eintrag wählt das Objekt, <kbd>Esc</kbd> beendet. Export (<kbd>Ctrl Shift E</kbd>) öffnet immer den Preflight.</li>
+  <li><b>Fest:</b> Leiste unten mit Mastern und Bögen, ausblendbar.</li>
+  <li><b>Schwebend:</b> keine Seitenliste. Oben links „‹ [2] [3] ›“: Kästchen wählen die Seite des Bogens (Ebenenbaum zeigt nur sie), Pfeile den Bogen. Übersichts-Modus nur per <kbd>.</kbd>, nicht durch Herauszoomen: alle Bögen, Master in eigener, klar getrennter Reihe; springen, mehrfach wählen und Master setzen, Seiten verschieben/hinzufügen/löschen, Master anlegen/bearbeiten.</li>
+  <li><b>Animationen</b> nie blockierend, Canvas-Hervorhebung ohne Animation.</li>
+</ul>
+
+<h2>8. Vier Designs nach den Vorlieben</h2>
+<p>Alle 4 setzen jeden Punkt aus Abschnitt 7 um und teilen denselben Verhaltenskern (<code>ui-ux/src/core.js</code>, von <code>src/build.sh</code> in jede Datei eingebettet, jede Datei steht allein). Gestaltung, Icons und das kreative Extra sind je eigen. Beim Öffnen erscheint der Startbildschirm; <kbd>Esc</kbd> öffnet das Beispielheft, <kbd>?</kbd> zeigt alle Kürzel.</p>
+
+<div class="design">
+  <a href="ui-ux/g-register.html"><img src="ui-ux/shots/g.jpg" alt="Mockup G"></a>
+  <div>
+    <h3>G · Register <span class="tag">frontend-design</span><span class="tag">fest</span></h3>
+    <p>Druckfarben als Rollen: Cyan für Auswahl und aktiv, Magenta für Smart Guides und Abstände (wie InDesign). Graphit, Canvas heller als Chrome, Hanken Grotesk. Extra: mm-Lineale, die die Ausdehnung der Auswahl und eingerastete Hilfslinien zeigen.</p>
+  </div>
+</div>
+<div class="design">
+  <a href="ui-ux/h-fahne.html"><img src="ui-ux/shots/h.jpg" alt="Mockup H"></a>
+  <div>
+    <h3>H · Fahne <span class="tag">frontend-design</span><span class="tag">schwebend</span></h3>
+    <p>Vokabular des Korrektors: Auswahl in Non-Photo-Blau, Guides und Abstände im Rotstift, Textmarker-Gelb für aktive Zustände. Schwebende Karten mit Abstand, Radius und Schatten, Onest. Extra: Übersichts-Modus als Leuchtpult, Master über einer Schnittlinie.</p>
+  </div>
+</div>
+<div class="design">
+  <a href="ui-ux/i-messwerk.html"><img src="ui-ux/shots/i.jpg" alt="Mockup I"></a>
+  <div>
+    <h3>I · Messwerk <span class="tag">taste</span><span class="tag">fest</span></h3>
+    <p class="dim">Design Read: Profi-Werkzeug, präzise Instrumentensprache, Satoshi, Phosphor, Zink mit Burnt Orange. Dials: Variance 3, Motion 4, Density 7.</p>
+    <p>Extra: Seitenleiste als Zeitleiste mit Abspielkopf auf dem aktuellen Bogen, Statuszeile mit Cursor in mm, Skalenstriche laufen beim Ziehen am Label durchs Zahlenfeld.</p>
+  </div>
+</div>
+<div class="design">
+  <a href="ui-ux/j-matte.html"><img src="ui-ux/shots/j.jpg" alt="Mockup J"></a>
+  <div>
+    <h3>J · Matte <span class="tag">taste</span><span class="tag">schwebend</span></h3>
+    <p class="dim">Design Read: Profi-Werkzeug, ruhige Werkbank-Sprache, Outfit, Phosphor, gedecktes Rosé. Dials: Variance 4, Motion 5, Density 5.</p>
+    <p>Extra: Canvas als Schneidematte mit 10/50-mm-Raster, das auf den Dokumentkoordinaten sitzt und mitzoomt; in der Übersicht liegen die Seiten auf der Matte, die Master in einer Ablage.</p>
+  </div>
+</div>
+<p><b>Getestet</b> (Chromium, 1440 × 900, je Design dasselbe Skript): Start, neues Dokument, Beispiele, <kbd>Alt 1/2/3</kbd>, <kbd>Ctrl \</kbd>, <kbd>PgUp</kbd>/<kbd>PgDn</kbd>, Baum-Tastatur, Ausblenden und Undo, Zahlenfelder (118/2, ↑, Shift ↑, Alt ↓, +1cm, Label ziehen), Ziehen mit Einrasten und Abständen, Alt-Abstände, <kbd>Ctrl K</kbd>, Preflight mit Separationen, Sprung zum Problem, Export, Master per Auswahlfeld für 2 Seiten, Seite verschieben, Master bearbeiten, Rechteck zeichnen, Zoom. Ergebnisse in allen 4 gleich, keine JS-Fehler. Nicht getestet: Firefox, echte Tastatur mit Colemak DH, Ziehen von Seiten per Maus, Screenreader, ohne Internet (Schriften und Phosphor per CDN).</p>
 </main>
 </body>
 </html>
