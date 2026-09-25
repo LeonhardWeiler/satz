@@ -177,11 +177,13 @@ fn paint(f: &Fill, [x, y, w, h]: [f32; 4], swatches: &[Swatch]) -> Paint {
         .map(|s| Stop {
             at: s.at,
             color: s.color.rgba(swatches),
+            ink: s.color.ink(swatches),
         })
         .collect();
     match f.kind {
         FillKind::Solid => Paint::Solid {
             color: f.color.rgba(swatches),
+            ink: f.color.ink(swatches),
         },
         FillKind::Linear => Paint::Linear { transform, stops },
         FillKind::Radial => Paint::Radial { transform, stops },

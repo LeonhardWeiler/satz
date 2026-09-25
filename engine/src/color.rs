@@ -31,6 +31,19 @@ pub enum Color {
     },
 }
 
+/// How a colour prints: as RGB, as CMYK, or as a tint of a spot colour.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub enum Ink {
+    #[default]
+    Rgb,
+    Cmyk([f32; 4]),
+    Spot {
+        name: String,
+        cmyk: [f32; 4],
+        tint: f32,
+    },
+}
+
 /// A spot colour's `color` is its CMYK alternate.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Swatch {
@@ -123,6 +136,27 @@ impl Color {
                 Color::Swatch { .. } => Color::Rgb(0),
             },
             None => Color::Rgb(0),
+        }
+    }
+
+    pub fn ink(&self, swatches: &[Swatch]) -> Ink {
+        if let Color::Swatch { swatch, tint, .. } = self
+            && let Some(Swatch {
+                name,
+                color: Color::Cmyk { cmyk, .. },
+                spot: true,
+                ..
+            }) = swatches.iter().find(|s| s.id == *swatch)
+        {
+            return Ink::Spot {
+                name: name.clone(),
+                cmyk: *cmyk,
+                tint: *tint,
+            };
+        }
+        match self.resolve(swatches) {
+            Color::Cmyk { cmyk, .. } => Ink::Cmyk(cmyk),
+            _ => Ink::Rgb,
         }
     }
 

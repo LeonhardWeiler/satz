@@ -1,9 +1,11 @@
-use crate::display_list::{CLOSE, CUBIC, LINE, MOVE, Op, Paint, close};
+use crate::color::{Ink, to_cmyk};
+use crate::display_list::{CLOSE, CUBIC, LINE, MOVE, Op, Paint, Stop as ListStop, close};
 use crate::raster::{blur, extent, rasterize, tint};
 use crate::text::FONT;
 use krilla::Document;
 use krilla::blend::BlendMode;
-use krilla::color::rgb;
+use krilla::color::separation::{SeparationColorant, SeparationSpace};
+use krilla::color::{cmyk, rgb, separation};
 use krilla::geom::{Path, PathBuilder, Point, Rect, Size, Transform};
 use krilla::image::Image;
 use krilla::mask::{Mask, MaskType};
@@ -277,7 +279,14 @@ fn crop_marks(s: &mut Surface, w: f32, h: f32) {
     }
     s.set_fill(None);
     s.set_stroke(Some(Stroke {
-        paint: rgb::Color::black().into(),
+        paint: krilla::color::Color::from(separation::Color::new(
+            255,
+            SeparationSpace::new(
+                SeparationColorant::AllColorants,
+                cmyk::Color::new(255, 255, 255, 255).into(),
+            ),
+        ))
+        .into(),
         width: MARK_WIDTH,
         ..Default::default()
     }));
@@ -294,20 +303,61 @@ fn fill(p: &Paint) -> Fill {
     }
 }
 
-fn rgba(c: &[f32; 4]) -> (rgb::Color, NormalizedF32) {
-    let [r, g, b] = [c[0], c[1], c[2]].map(|v| (v * 255.0).round() as u8);
-    (
-        rgb::Color::new(r, g, b),
-        NormalizedF32::new(c[3].clamp(0.0, 1.0)).unwrap(),
-    )
+fn byte(v: f32) -> u8 {
+    (v.clamp(0.0, 1.0) * 255.0).round() as u8
+}
+
+fn process(c: [f32; 4]) -> cmyk::Color {
+    cmyk::Color::new(byte(c[0]), byte(c[1]), byte(c[2]), byte(c[3]))
+}
+
+fn color(rgba: &[f32; 4], ink: &Ink) -> krilla::color::Color {
+    match ink {
+        Ink::Rgb => rgb::Color::new(byte(rgba[0]), byte(rgba[1]), byte(rgba[2])).into(),
+        Ink::Cmyk(c) => process(*c).into(),
+        Ink::Spot { name, cmyk, tint } => separation::Color::new(
+            byte(*tint),
+            SeparationSpace::new(
+                SeparationColorant::Custom(name.clone()),
+                process(*cmyk).into(),
+            ),
+        )
+        .into(),
+    }
+}
+
+fn opacity(rgba: &[f32; 4]) -> NormalizedF32 {
+    NormalizedF32::new(rgba[3].clamp(0.0, 1.0)).unwrap()
+}
+
+/// The stops' inks, or all of them as CMYK when they do not share one colour space.
+fn inks(stops: &[ListStop]) -> Vec<Ink> {
+    let shared = stops.windows(2).all(|w| match (&w[0].ink, &w[1].ink) {
+        (Ink::Rgb, Ink::Rgb) | (Ink::Cmyk(_), Ink::Cmyk(_)) => true,
+        (
+            Ink::Spot {
+                name: a, cmyk: x, ..
+            },
+            Ink::Spot {
+                name: b, cmyk: y, ..
+            },
+        ) => a == b && x == y,
+        _ => false,
+    });
+    stops
+        .iter()
+        .map(|s| match &s.ink {
+            ink if shared => ink.clone(),
+            Ink::Rgb => Ink::Cmyk(to_cmyk([s.color[0], s.color[1], s.color[2]])),
+            Ink::Cmyk(c) => Ink::Cmyk(*c),
+            Ink::Spot { cmyk, tint, .. } => Ink::Cmyk(cmyk.map(|v| v * tint)),
+        })
+        .collect()
 }
 
 fn convert(p: &Paint) -> (krilla::paint::Paint, NormalizedF32) {
     let (transform, stops) = match p {
-        Paint::Solid { color } => {
-            let (c, a) = rgba(color);
-            return (c.into(), a);
-        }
+        Paint::Solid { color: c, ink } => return (color(c, ink).into(), opacity(c)),
         Paint::Linear { transform, stops } | Paint::Radial { transform, stops } => (
             Transform::from_row(
                 transform[0],
@@ -319,13 +369,11 @@ fn convert(p: &Paint) -> (krilla::paint::Paint, NormalizedF32) {
             ),
             stops
                 .iter()
-                .map(|s| {
-                    let (color, opacity) = rgba(&s.color);
-                    Stop {
-                        offset: NormalizedF32::new(s.at.clamp(0.0, 1.0)).unwrap(),
-                        color: color.into(),
-                        opacity,
-                    }
+                .zip(inks(stops))
+                .map(|(s, ink)| Stop {
+                    offset: NormalizedF32::new(s.at.clamp(0.0, 1.0)).unwrap(),
+                    color: color(&s.color, &ink),
+                    opacity: opacity(&s.color),
                 })
                 .collect(),
         ),
@@ -397,7 +445,8 @@ fn append(pb: &mut PathBuilder, cmds: &[f32]) {
 #[cfg(test)]
 mod tests {
     use crate::Doc;
-    use crate::display_list::{Op, Paint, Shadow, rect};
+    use crate::color::Ink;
+    use crate::display_list::{Op, Paint, Shadow, Stop, rect};
 
     fn default_pdf() -> String {
         let d = Doc::new();
@@ -468,6 +517,7 @@ mod tests {
             Op::FillPath {
                 paint: Paint::Solid {
                     color: [1.0, 0.0, 0.0, 1.0],
+                    ink: Ink::Rgb,
                 },
                 path: rect(10.0, 10.0, 12.0, 12.0),
             },
@@ -476,5 +526,48 @@ mod tests {
         assert_eq!(image_width(&ops, 72.0), Some(18));
         assert_eq!(image_width(&ops, 144.0), Some(36));
         assert_eq!(image_width(&ops[2..3], 72.0), None);
+    }
+
+    fn page(paints: Vec<Paint>) -> String {
+        let mut ops = vec![Op::Page {
+            width: 100.0,
+            height: 100.0,
+            bleed: 0.0,
+        }];
+        ops.extend(paints.into_iter().map(|paint| Op::FillPath {
+            paint,
+            path: rect(10.0, 10.0, 10.0, 10.0),
+        }));
+        String::from_utf8_lossy(&super::pdf(&[ops], 72.0)).into_owned()
+    }
+
+    #[test]
+    fn spot_colours_are_separations_with_their_cmyk_alternate() {
+        let pdf = page(vec![Paint::Solid {
+            color: [0.0, 0.5, 0.8, 1.0],
+            ink: Ink::Spot {
+                name: "HKS 43".into(),
+                cmyk: [1.0, 0.6, 0.0, 0.0],
+                tint: 0.5,
+            },
+        }]);
+        assert!(pdf.contains("/Separation/HKS#2043/DeviceCMYK"), "{pdf}");
+    }
+
+    #[test]
+    fn a_gradient_mixing_rgb_and_cmyk_stops_is_written_in_cmyk() {
+        let stop = |at, ink| Stop {
+            at,
+            color: [1.0, 0.0, 0.0, 1.0],
+            ink,
+        };
+        let pdf = page(vec![Paint::Linear {
+            transform: [10.0, 0.0, 0.0, 10.0, 10.0, 10.0],
+            stops: vec![
+                stop(0.0, Ink::Rgb),
+                stop(1.0, Ink::Cmyk([0.0, 1.0, 1.0, 0.0])),
+            ],
+        }]);
+        assert!(pdf.contains("/ColorSpace/DeviceCMYK"), "{pdf}");
     }
 }

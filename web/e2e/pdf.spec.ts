@@ -43,7 +43,7 @@ async function expectCanvasMatchesPdf(page: Page) {
   const shot = PNG.sync.read(await page.screenshot({ clip: { x, y, width: w, height: h } }))
 
   const raster = join(dir, 'satz.png')
-  execFileSync('mutool', ['draw', '-q', '-b', 'BleedBox', '-r', `${view.zoom * 72}`, '-o', raster, pdf])
+  execFileSync('mutool', ['draw', '-q', '-O', '0', '-b', 'BleedBox', '-r', `${view.zoom * 72}`, '-o', raster, pdf])
   const ref = PNG.sync.read(readFileSync(raster))
   expect(Math.abs(ref.width - w)).toBeLessThanOrEqual(1)
   expect(Math.abs(ref.height - h)).toBeLessThanOrEqual(1)
@@ -78,6 +78,7 @@ async function expectCanvasMatchesPdf(page: Page) {
     }
   }
   expect(differing / compared).toBeLessThan(MAX_SHARE)
+  return pdf
 }
 
 test('canvas matches the exported pdf', async ({ page }) => {
@@ -198,4 +199,44 @@ test('draw shapes and a closed pen path, then export them', async ({ page }) => 
   await page.keyboard.press('Escape')
   await page.mouse.move(canvas.x + 2, canvas.y + 2)
   await expectCanvasMatchesPdf(page)
+})
+
+test('a cmyk document exports cmyk and spot colours and matches the canvas', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  const rects = page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true })
+  await panel.getByRole('combobox', { name: 'Color mode' }).selectOption('CMYK')
+
+  await page.getByRole('region', { name: 'Swatches' }).getByRole('button', { name: 'Add swatch' }).click()
+  const editor = page.getByRole('dialog', { name: 'Edit swatch' })
+  await editor.getByRole('textbox', { name: 'Name' }).fill('HKS 43')
+  await editor.getByRole('checkbox', { name: 'Spot color' }).check()
+  const ink = async (dialog: typeof editor, values: number[]) => {
+    for (const [i, name] of ['Cyan', 'Magenta', 'Yellow', 'Black'].entries()) {
+      await dialog.getByRole('textbox', { name }).fill(String(values[i]))
+      await dialog.getByRole('textbox', { name }).press('Enter')
+    }
+  }
+  await ink(editor, [100, 60, 0, 0])
+  await page.keyboard.press('Escape')
+
+  await rects.last().click()
+  await panel.getByRole('button', { name: 'Fill color' }).click()
+  await ink(page.getByRole('dialog', { name: 'Fill color' }), [0, 100, 100, 0])
+  await page.keyboard.press('Escape')
+  await rects.first().click()
+  await panel.getByRole('button', { name: 'Fill color' }).click()
+  const picker = page.getByRole('dialog', { name: 'Fill color' })
+  await picker.getByRole('tab', { name: 'Swatches' }).click()
+  await picker.getByRole('option', { name: 'HKS 43' }).click()
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Escape')
+  await expect(panel.getByRole('heading', { level: 2 })).toHaveText('Page')
+  await page.mouse.move(1, 1)
+
+  const pdf = await expectCanvasMatchesPdf(page)
+  const trace = execFileSync('mutool', ['draw', '-F', 'trace', '-o', '-', pdf]).toString()
+  expect(trace).toContain('colorspace="DeviceCMYK" color="0 1 1 0"')
+  expect(trace).toContain('colorspace="Separation(DeviceCMYK,HKS 43)" color="1"')
 })

@@ -107,6 +107,7 @@ mod tests {
 
     const BLACK: Paint = Paint::Solid {
         color: [0.0, 0.0, 0.0, 1.0],
+        ink: crate::color::Ink::Rgb,
     };
 
     const H: u16 = 9;

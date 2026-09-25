@@ -2192,7 +2192,7 @@ mod tests {
             .into_iter()
             .filter_map(|op| match op {
                 Op::FillPath {
-                    paint: Paint::Solid { color },
+                    paint: Paint::Solid { color, .. },
                     ..
                 } => Some(color),
                 _ => None,
@@ -2225,7 +2225,7 @@ mod tests {
             .into_iter()
             .filter_map(|op| match op {
                 Op::FillPath {
-                    paint: Paint::Solid { color },
+                    paint: Paint::Solid { color, .. },
                     ..
                 } => Some(color),
                 _ => None,

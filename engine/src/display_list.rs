@@ -1,3 +1,4 @@
+use crate::color::Ink;
 use serde::Serialize;
 
 pub const MOVE: f32 = 0.0;
@@ -63,8 +64,11 @@ pub enum Op {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum Paint {
+    /// `color` is the screen colour, `ink` how it prints.
     Solid {
         color: [f32; 4],
+        #[serde(skip)]
+        ink: Ink,
     },
     Linear {
         transform: [f32; 6],
@@ -80,6 +84,8 @@ pub enum Paint {
 pub struct Stop {
     pub at: f32,
     pub color: [f32; 4],
+    #[serde(skip)]
+    pub ink: Ink,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -113,7 +119,7 @@ fn floats(out: &mut Vec<u32>, v: &[f32]) {
 
 fn paint(out: &mut Vec<u32>, p: &Paint) {
     match p {
-        Paint::Solid { color } => {
+        Paint::Solid { color, .. } => {
             out.push(0);
             floats(out, color);
         }
@@ -268,7 +274,10 @@ mod tests {
             encode(&[
                 Op::BeginItem { item: 0 },
                 Op::FillPath {
-                    paint: Paint::Solid { color },
+                    paint: Paint::Solid {
+                        color,
+                        ink: Ink::Rgb,
+                    },
                     path: rect(0.0, 0.0, 1.0, 1.0),
                 },
                 Op::EndItem,
@@ -342,6 +351,7 @@ mod tests {
             Op::FillPath {
                 paint: Paint::Solid {
                     color: [0.0, 0.0, 0.0, 1.0],
+                    ink: Ink::Rgb,
                 },
                 path: rect(0.0, 0.0, 1.0, 1.0),
             },
@@ -354,10 +364,12 @@ mod tests {
                         Stop {
                             at: 0.0,
                             color: [1.0, 0.5, 0.25, 1.0],
+                            ink: Ink::Rgb,
                         },
                         Stop {
                             at: 1.0,
                             color: [0.0, 0.5, 1.0, 0.5],
+                            ink: Ink::Rgb,
                         },
                     ],
                 },
@@ -369,6 +381,7 @@ mod tests {
                     stops: vec![Stop {
                         at: 0.5,
                         color: [1.0, 1.0, 1.0, 1.0],
+                        ink: Ink::Rgb,
                     }],
                 },
                 width: 1.5,
@@ -381,6 +394,7 @@ mod tests {
                 size: 12.0,
                 paint: Paint::Solid {
                     color: [0.0, 0.0, 0.0, 1.0],
+                    ink: Ink::Rgb,
                 },
                 glyphs: vec![3, 65535, 42],
                 positions: vec![0.0, 0.0, 6.5, 0.0, 13.0, 0.0],
