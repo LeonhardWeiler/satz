@@ -1802,6 +1802,10 @@ impl Doc {
                 if a == b || self.next_of(b).is_some() || self.prev_of(b).is_some() {
                     return Err("the frame is threaded already".into());
                 }
+                let (ra, rb) = (self.root(a), self.root(b));
+                if ra != rb && (self.kind(ra) != "page" || self.kind(rb) != "page") {
+                    return Err("frames thread within the pages or within one master".into());
+                }
                 let own = self.own_text(b)?;
                 if own.len_utf16() > 0 {
                     let story = self.text(a)?;
@@ -6266,6 +6270,18 @@ mod tests {
             let l = create(&mut d, &p, kind, [0.0, 0.0, 40.0, 0.0]);
             assert_eq!(size(&d, &l), [40.0, 0.0]);
         }
+    }
+
+    #[test]
+    fn frames_thread_within_the_pages_or_within_one_master() {
+        let (mut d, p) = empty();
+        let (m1, m2) = (add_master(&mut d), add_master(&mut d));
+        let on_page = fixed_text(&mut d, &p, [0.0, 0.0, 100.0, 100.0]);
+        let [a, b, c] = [&m1, &m1, &m2].map(|m| fixed_text(&mut d, m, [0.0, 0.0, 100.0, 100.0]));
+        assert!(thread(&mut d, &a, &on_page).is_err());
+        assert!(thread(&mut d, &on_page, &a).is_err());
+        assert!(thread(&mut d, &a, &c).is_err());
+        thread(&mut d, &a, &b).unwrap();
     }
 
     #[test]
