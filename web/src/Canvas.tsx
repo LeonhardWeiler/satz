@@ -68,7 +68,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     const view: View = { x: 0, y: 0, zoom: 1 }
     /** The view of each spread left for another, as Figma keeps it for pages. */
     const views = new Map<string, View>()
-    const spreadKey = () => editor.spread.map((p) => p.id).join()
+    const spreadKey = () => `${editor.spread.map((p) => p.id).join()}/${editor.sheets.length}`
     let shown = spreadKey()
     let surface: Surface | null = null
     let frame = 0
@@ -211,7 +211,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         const penDx = pen ? editor.dx(pen.id) : 0
         const flowDx = drag?.kind === 'move' && drag.flow ? editor.dx(drag.flow.id) : 0
         const insert = drag?.kind === 'move' ? drag.to?.line.map((q) => ({ x: q.x + flowDx, y: q.y })) : undefined
-        renderer.draw(surface.getCanvas(), spread.map((p) => ({ id: p.id, x: p.x })), spread, view, canvas.width / canvas.clientWidth, {
+        renderer.draw(surface.getCanvas(), spread.map((p) => ({ id: p.id, x: p.x })), editor.sheets, view, canvas.width / canvas.clientWidth, {
           text,
           selection: editor.selection.length > 1 || ed || drag?.kind === 'draw' ? editor.selected().map(placed) : [],
           hover: hovered,
@@ -234,7 +234,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       redraw()
     }
     const fit = () => {
-      Object.assign(view, fitView(editor.spread, canvas.clientWidth, canvas.clientHeight))
+      Object.assign(view, fitView(editor.sheets, canvas.clientWidth, canvas.clientHeight))
       setZoom(view.zoom)
       redraw()
     }

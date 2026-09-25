@@ -28,9 +28,6 @@ font helper, i18n.
 ## Breadth
 
 ### 11. Spreads
-- Masters in a document with facing pages are spreads with a left and a right
-  page; a page shows the side it is on, so page numbers and mirrored layouts sit
-  on the outer edge. Without facing pages a master is one page.
 - Current page number, as in InDesign: a marker in text that shows the number of
   the page it is on, on a master its prefix, so that a master sets the page numbers
   of its pages.

@@ -1363,8 +1363,16 @@ impl Doc {
                 facing_pages,
             } => {
                 let m = self.doc.get_map("document");
-                if let Some(on) = facing_pages {
-                    m.insert("facingPages", on).map_err(err)?;
+                match facing_pages {
+                    Some(true) if !self.facing_pages() => {
+                        m.insert("facingPages", true).map_err(err)?;
+                        self.split_masters()?;
+                    }
+                    Some(false) if self.facing_pages() => {
+                        self.join_masters()?;
+                        m.insert("facingPages", false).map_err(err)?;
+                    }
+                    _ => {}
                 }
                 if let Some(ppi) = raster_ppi {
                     if !(72.0..=1200.0).contains(&ppi) {
@@ -1801,6 +1809,14 @@ impl Doc {
                 self.meta(copy)
                     .insert("overrideOf", id.clone())
                     .map_err(err)?;
+                if self
+                    .places()
+                    .iter()
+                    .any(|q| q.id == p && q.side == Some(Side::Left))
+                {
+                    let [x, y, w, h] = self.bounds(copy);
+                    self.set_frame(copy, [x + num(&self.meta(master), "width"), y, w, h])?;
+                }
                 detached.push(id);
                 self.meta(p)
                     .insert("detached", loro(detached)?)
@@ -2714,6 +2730,79 @@ impl Doc {
         out
     }
 
+    /// Makes each master a spread with a copy of its layers on its left page, which
+    /// the left pages that override a layer override instead.
+    fn split_masters(&self) -> Res<()> {
+        let lefts = self.left_pages();
+        for m in self.masters() {
+            let w = num(&self.meta(m), "width");
+            for c in self.children(m) {
+                let copy = self.paste(&self.clip(c), m.into(), self.index(c) + 1)?;
+                let [x, y, cw, ch] = self.bounds(copy);
+                self.set_frame(copy, [x - w, y, cw, ch])?;
+                self.meta(copy)
+                    .insert("leftOf", c.to_string())
+                    .map_err(err)?;
+                self.relink(&lefts, m, c, copy)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Makes each master one page again without the layers of its left page; left
+    /// pages that override one of its copies override the original again.
+    fn join_masters(&self) -> Res<()> {
+        let lefts = self.left_pages();
+        for m in self.masters() {
+            for c in self.children(m) {
+                let [x, _, w, _] = self.bounds(c);
+                if x + w > 0.0 {
+                    continue;
+                }
+                let of = value(&self.meta(c), "leftOf").and_then(|v| v.into_string().ok());
+                if let Some(o) = of.and_then(|o| self.node(&o).ok()) {
+                    self.relink(&lefts, m, c, o)?;
+                }
+                self.remove(c)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn left_pages(&self) -> Vec<TreeID> {
+        let places = self.places().into_iter();
+        places
+            .filter(|p| p.side == Some(Side::Left))
+            .map(|p| p.id)
+            .collect()
+    }
+
+    /// Makes the pages among `pages` that use the master `m` and override its layer
+    /// `from` override `to` instead.
+    fn relink(&self, pages: &[TreeID], m: TreeID, from: TreeID, to: TreeID) -> Res<()> {
+        let (from, to) = (from.to_string(), to.to_string());
+        for &p in pages.iter().filter(|&&p| self.master_of(p) == Some(m)) {
+            let mut detached = self.detached(p);
+            if !detached.contains(&from) {
+                continue;
+            }
+            for d in detached.iter_mut().filter(|d| **d == from) {
+                *d = to.clone();
+            }
+            self.meta(p)
+                .insert("detached", loro(detached)?)
+                .map_err(err)?;
+            for c in self.children(p) {
+                if value(&self.meta(c), "overrideOf").and_then(|v| v.into_string().ok())
+                    == Some(from.clone().into())
+                {
+                    self.meta(c).insert("overrideOf", to.clone()).map_err(err)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
     fn facing_pages(&self) -> bool {
         value(&self.doc.get_map("document"), "facingPages") == Some(LoroValue::Bool(true))
     }
@@ -2754,14 +2843,32 @@ impl Doc {
         ops
     }
 
-    /// The master layers a page shows and its own layers.
+    /// The master layers a page shows and its own layers. A page of a spread shows
+    /// its side of the master spread up to the spine.
     fn draw_sheet(&self, snap: &Snapshot, p: &Page, ops: &mut Vec<Op>) {
         if let Some(m) = p
             .master
             .as_ref()
             .and_then(|m| snap.masters.iter().find(|s| s.id == *m))
         {
-            draw_all(&self.master_layers(m, p), ops, &snap.palette);
+            let mut shown = Vec::new();
+            draw_all(&self.master_layers(m, p), &mut shown, &snap.palette);
+            let [w, h, b] = [p.width, p.height, p.bleed].map(|v| v as f32);
+            let half = match p.side {
+                Some(Side::Left) => Some(rect(-b, -b, w + b, h + 2.0 * b)),
+                Some(Side::Right) => Some(rect(0.0, -b, w + b, h + 2.0 * b)),
+                None => None,
+            };
+            if let Some(path) = half.clone() {
+                ops.push(Op::PushClip {
+                    path,
+                    invert: false,
+                });
+            }
+            ops.extend(shift(shown, master_dx(m, p) as f32, 0.0));
+            if half.is_some() {
+                ops.push(Op::PopClip);
+            }
         }
         draw_all(&p.children, ops, &snap.palette);
     }
@@ -2790,8 +2897,16 @@ impl Doc {
             .masters
             .iter()
             .find(|m| Some(&m.id) == p.master.as_ref())?;
+        let within = match p.side {
+            Some(Side::Left) => x <= p.width,
+            Some(Side::Right) => x >= 0.0,
+            None => true,
+        };
         let mut path = Vec::new();
-        hit(&self.master_layers(m, p), x, y, tolerance, &mut path);
+        if within {
+            let x = x - master_dx(m, p);
+            hit(&self.master_layers(m, p), x, y, tolerance, &mut path);
+        }
         path.into_iter().next()
     }
 
@@ -3299,6 +3414,15 @@ impl Default for Doc {
 }
 
 /// Draws siblings; a mask masks the siblings above it.
+/// How far the master spread `m` moves to show its side on the page `p`: a left
+/// page shows the master's left page.
+fn master_dx(m: &Page, p: &Page) -> f64 {
+    match p.side {
+        Some(Side::Left) => m.width,
+        _ => 0.0,
+    }
+}
+
 fn page_op(p: &Page) -> Op {
     Op::Page {
         width: p.width as f32,
@@ -3559,7 +3683,7 @@ fn num(m: &LoroMap, key: &str) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::display_list::Paint;
+    use crate::display_list::{CUBIC, Paint};
 
     fn page(d: &Doc) -> Page {
         d.snapshot().pages.remove(0)
@@ -6029,8 +6153,12 @@ mod tests {
                     let mut xs = Vec::new();
                     let mut i = 0;
                     while i < path.len() {
-                        let n = if path[i] == CLOSE { 0 } else { 1 };
-                        xs.extend((0..n).map(|_| path[i + 1]));
+                        let n = match path[i] {
+                            CLOSE => 0,
+                            CUBIC => 3,
+                            _ => 1,
+                        };
+                        xs.extend((0..n).map(|k| path[i + 1 + 2 * k]));
                         i += 1 + 2 * n;
                     }
                     let min = xs.iter().copied().fold(f32::MAX, f32::min);
@@ -6291,6 +6419,122 @@ mod tests {
         let pg = page(&d);
         assert_eq!((ids(&pg.children), pg.detached.len()), (vec![top], 0));
         assert_eq!(d.master_hit(&p1, 15.0, 15.0, 0.0), Some(r));
+    }
+
+    /// The x range of each clip pushed in `ops`.
+    fn clips_x(ops: &[Op]) -> Vec<[f32; 2]> {
+        let clips = ops.iter().filter_map(|o| match o {
+            Op::PushClip { path, .. } => Some(Op::FillPath {
+                paint: Paint::Solid {
+                    color: [0.0; 4],
+                    ink: Ink::Rgb,
+                },
+                path: path.clone(),
+            }),
+            _ => None,
+        });
+        filled_x(&clips.collect::<Vec<_>>())
+    }
+
+    /// A master 100 pt wide with a layer on its left and one on its right page, used by
+    /// a right page 1 and a left page 2 of its width.
+    fn master_spread() -> (Doc, [String; 5]) {
+        let (mut d, p1) = empty();
+        let p2 = add_page(&mut d, None);
+        let m = add_master(&mut d);
+        for p in [&p1, &p2, &m] {
+            set_width(&mut d, p, 100.0);
+        }
+        let left = create(&mut d, &m, NewKind::Rect, [-90.0, 0.0, 10.0, 10.0]);
+        let right = create(&mut d, &m, NewKind::Ellipse, [10.0, 0.0, 10.0, 10.0]);
+        for p in [&p1, &p2] {
+            use_master(&mut d, p, Some(&m)).unwrap();
+        }
+        (d, [p1, p2, m, left, right])
+    }
+
+    #[test]
+    fn a_page_shows_the_side_of_its_master_spread_that_it_is_on() {
+        let (d, [p1, p2, _, left, right]) = master_spread();
+        assert_eq!(d.master_hit(&p1, 15.0, 5.0, 0.0), Some(right.clone()));
+        assert_eq!(d.master_hit(&p2, 15.0, 5.0, 0.0), Some(left));
+        assert_eq!(d.master_hit(&p2, 115.0, 5.0, 0.0), None);
+        let [w, b] = [page(&d).width, page(&d).bleed].map(|v| v as f32);
+        assert_eq!(filled_x(&d.render(&p1)), [[-90.0, -80.0], [10.0, 20.0]]);
+        assert_eq!(clips_x(&d.render(&p1)), [[0.0, w + b]]);
+        assert_eq!(filled_x(&d.render(&p2)), [[10.0, 20.0], [110.0, 120.0]]);
+        assert_eq!(clips_x(&d.render(&p2)), [[-b, w]]);
+        let _ = right;
+    }
+
+    #[test]
+    fn a_master_layer_overridden_on_a_left_page_stays_where_the_page_shows_it() {
+        let (mut d, [_, p2, _, left, _]) = master_spread();
+        d.apply(Command::Override {
+            page: p2.clone(),
+            id: left.clone(),
+        })
+        .unwrap();
+        let s = d.snapshot();
+        assert_eq!(frame(&s.pages[1].children[0]), [10.0, 0.0, 10.0, 10.0]);
+        assert_eq!(d.master_hit(&p2, 15.0, 5.0, 0.0), None);
+    }
+
+    #[test]
+    fn with_facing_pages_a_master_gets_its_layers_on_both_pages_and_without_them_one_page() {
+        let (mut d, p1) = empty();
+        facing(&mut d, false);
+        let p2 = add_page(&mut d, None);
+        let m = add_master(&mut d);
+        set_width(&mut d, &m, 100.0);
+        let r = create(&mut d, &m, NewKind::Rect, [10.0, 0.0, 10.0, 10.0]);
+        for p in [&p1, &p2] {
+            use_master(&mut d, p, Some(&m)).unwrap();
+        }
+        let copies: Vec<String> = [&p1, &p2]
+            .map(|p| {
+                d.apply(Command::Override {
+                    page: p.clone(),
+                    id: r.clone(),
+                })
+                .unwrap()
+                .remove(0)
+            })
+            .into();
+        let master = |d: &Doc| {
+            d.snapshot().masters[0]
+                .children
+                .iter()
+                .map(frame)
+                .collect::<Vec<_>>()
+        };
+        let detached = |d: &Doc| {
+            d.snapshot()
+                .pages
+                .iter()
+                .map(|p| p.detached.clone())
+                .collect::<Vec<_>>()
+        };
+        let of = |d: &Doc| {
+            d.snapshot()
+                .pages
+                .iter()
+                .map(|p| p.children[0].override_of.clone().unwrap())
+                .collect::<Vec<_>>()
+        };
+        facing(&mut d, true);
+        assert_eq!(
+            master(&d),
+            [[10.0, 0.0, 10.0, 10.0], [-90.0, 0.0, 10.0, 10.0]]
+        );
+        let l = d.snapshot().masters[0].children[1].id.clone();
+        assert_eq!(detached(&d), [vec![r.clone()], vec![l.clone()]]);
+        assert_eq!(of(&d), [r.clone(), l]);
+        assert_eq!(ids(&d.snapshot().pages[1].children), [copies[1].clone()]);
+        facing(&mut d, false);
+        assert_eq!(master(&d), [[10.0, 0.0, 10.0, 10.0]]);
+        assert_eq!(detached(&d), [vec![r.clone()], vec![r.clone()]]);
+        assert_eq!(of(&d), [r.clone(), r]);
     }
 
     /// A fixed text frame on `page` at `frame`.

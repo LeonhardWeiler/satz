@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react'
 import type { Engine } from './engine/engine'
 import type { Command, Container, Modes, Node, Page, Palette, Scope, Snapshot } from './model'
 import { penPath, type Anchor } from './pen'
+import type { Sheet } from './renderer'
 import { index, type Entry } from './select'
 import type { Editing } from './textEdit'
 
@@ -55,6 +56,16 @@ export class Editor {
     const { pages, spreads } = this.snapshot
     const ids = spreads.find((s) => s.includes(this.pageId))
     return ids ? ids.map((id) => pages.find((p) => p.id === id)!) : [this.page]
+  }
+
+  /**
+   * The pages the canvas shows: those of the spread, or with facing pages the left and
+   * right page of the current master, which holds the layers of both.
+   */
+  get sheets(): Sheet[] {
+    const { masters, facingPages } = this.snapshot
+    const m = masters.find((p) => p.id === this.pageId)
+    return m && facingPages ? [{ ...m, x: -m.width }, m] : this.spread
   }
 
   /** How far the page of the layer `id` sits right of the spine on its spread. */

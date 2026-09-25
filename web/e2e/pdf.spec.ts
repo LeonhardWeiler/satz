@@ -384,3 +384,20 @@ test('a layer across the spine prints on both pages of its spread and matches th
   const trace = execFileSync('mutool', ['draw', '-F', 'trace', '-o', '-', pdf, '2-3']).toString()
   expect(trace.match(/<fill_path/g)).toHaveLength(2)
 })
+
+test('the pages of a spread show their sides of a master spread and match the canvas', async ({ page }) => {
+  await open(page, 2000)
+  const pages = page.getByRole('navigation', { name: 'Pages' })
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  await pages.getByRole('button', { name: 'Add master' }).click()
+  await page.keyboard.press('o')
+  await drag(page, await screen(page, 110, 150, PAIR, 0), await screen(page, 40, 200, PAIR, 1))
+  await page.keyboard.press('r')
+  await drag(page, await screen(page, 10, 10, PAIR, 0), await screen(page, 40, 25, PAIR, 0))
+  for (let i = 0; i < 2; i++) {
+    await pages.getByRole('button', { name: 'Add page' }).click()
+    await panel.getByRole('combobox', { name: 'Master' }).selectOption('A-Master')
+  }
+  await page.mouse.move(1, 1)
+  await expectCanvasMatchesPdf(page, 2, [2, 3])
+})

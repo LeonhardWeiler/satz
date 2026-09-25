@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test'
-import { drag, open, pixels, screen } from './util'
+import { PAIR, colors, drag, open, pixels, screen } from './util'
+
+const gray = ([r, g, b]: number[]) => [r, g, b].every((c) => Math.abs(c - 0xd9) < 8)
 
 test('a master is made, applied to a page, overridden with ctrl+shift+click and reset', async ({ page }) => {
   await open(page)
@@ -13,8 +15,9 @@ test('a master is made, applied to a page, overridden with ctrl+shift+click and 
   const master = pages.getByRole('button', { name: 'A-Master', exact: true })
   await expect(master).toHaveAttribute('aria-current', 'page')
   await expect(layers.getByRole('treeitem')).toHaveCount(0)
+  // The master is a spread whose right page page 1 shows.
   await page.keyboard.press('r')
-  await drag(page, await screen(page, 20, 197), await screen(page, 60, 207))
+  await drag(page, await screen(page, 20, 197, PAIR, 1), await screen(page, 60, 207, PAIR, 1))
   await expect(rects).toHaveCount(1)
   await master.dblclick()
   await pages.getByRole('textbox', { name: 'Master name' }).fill('Body')
@@ -44,4 +47,55 @@ test('a master is made, applied to a page, overridden with ctrl+shift+click and 
   await expect(title).toHaveText('Page')
   await page.keyboard.press('Control+z')
   await expect(rects).toHaveCount(3)
+})
+
+test('left pages show the left page of a master spread and right pages its right page, and override it there', async ({ page }) => {
+  await open(page)
+  const pages = page.getByRole('navigation', { name: 'Pages' })
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  const rects = page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true })
+  const at = (i: number, x: number, y: number) => screen(page, x, y, PAIR, i)
+  await pages.getByRole('button', { name: 'Add master' }).click()
+  await page.keyboard.press('r')
+  await drag(page, await at(0, 10, 190), await at(0, 30, 205))
+  await page.keyboard.press('r')
+  await drag(page, await at(1, 118, 190), await at(1, 138, 205))
+  await expect(rects).toHaveCount(2)
+  for (let i = 0; i < 2; i++) {
+    await pages.getByRole('button', { name: 'Add page' }).click()
+    await panel.getByRole('combobox', { name: 'Master' }).selectOption('A-Master')
+  }
+  await page.mouse.move(1, 1)
+  const shown = await colors(page, [await at(0, 20, 197), await at(0, 128, 197), await at(1, 20, 197), await at(1, 128, 197)])
+  expect(shown.map(gray)).toEqual([true, false, false, true])
+
+  await page.keyboard.down('Control')
+  await page.keyboard.down('Shift')
+  await page.mouse.click(...(await at(0, 20, 197)))
+  await page.keyboard.up('Shift')
+  await page.keyboard.up('Control')
+  await expect(pages.getByRole('button', { name: 'Page 2', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(rects).toHaveCount(1)
+  await expect(panel.getByRole('region', { name: 'Layout' }).getByTitle('X in mm').getByRole('textbox')).toHaveValue('10')
+  await panel.getByRole('button', { name: 'Reset to master' }).click()
+  await expect(rects).toHaveCount(0)
+})
+
+test('with facing pages a one-page master gets its layers on both of its pages', async ({ page }) => {
+  await open(page)
+  const pages = page.getByRole('navigation', { name: 'Pages' })
+  const facing = page.getByRole('complementary', { name: 'Properties' }).getByRole('checkbox', { name: 'Facing pages' })
+  const rects = page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true })
+  await facing.uncheck()
+  await pages.getByRole('button', { name: 'Add master' }).click()
+  await page.keyboard.press('r')
+  await drag(page, await screen(page, 20, 20), await screen(page, 60, 40))
+  await page.keyboard.press('Escape')
+  await facing.check()
+  await expect(rects).toHaveCount(2)
+  await page.mouse.move(1, 1)
+  const shown = await colors(page, [await screen(page, 40, 30, PAIR, 0), await screen(page, 40, 30, PAIR, 1)])
+  expect(shown.map(gray)).toEqual([true, true])
+  await facing.uncheck()
+  await expect(rects).toHaveCount(1)
 })
