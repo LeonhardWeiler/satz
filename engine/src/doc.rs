@@ -768,10 +768,7 @@ impl Doc {
                     NewKind::Line | NewKind::Arrow => ("shape", "path", open(line)),
                     NewKind::Path => ("shape", "path", open(Vec::new())),
                     NewKind::Text => {
-                        m.insert_container("text", LoroText::new())
-                            .map_err(err)?
-                            .insert(0, "Text")
-                            .map_err(err)?;
+                        m.insert_container("text", LoroText::new()).map_err(err)?;
                         m.insert("size", 12.0).map_err(err)?;
                         (
                             "text",
@@ -2137,6 +2134,7 @@ impl Doc {
                 }
                 Kind::Shape(Shape::Path { path }) if path.len() == 6 => "Line".into(),
                 Kind::Shape(Shape::Path { .. }) => "Vector".into(),
+                Kind::Text { text, .. } if text.is_empty() => "Text".into(),
                 Kind::Text { text, .. } => text.chars().take(40).collect(),
                 Kind::Group { .. } => "Group".into(),
                 Kind::Frame { .. } => "Frame".into(),
@@ -4790,9 +4788,12 @@ mod tests {
         let (mut d, p) = empty();
         let t = create(&mut d, &p, NewKind::Text, [10.0, 20.0, 0.0, 0.0]);
         assert_eq!(node_sizing(&d, &t), sizing(Size::Hug, Size::Hug).unwrap());
-        let [x, y, w1, h1] = frames(&d, &t)[0];
-        assert_eq!([x, y], [10.0, 20.0]);
-        assert!(w1 > 0.0 && close(h1, LEADING), "{w1} {h1}");
+        assert!(matches!(&page(&d).children[0].kind, Kind::Text { text, .. } if text.is_empty()));
+        assert_eq!(page(&d).children[0].name, "Text");
+        assert_eq!(frames(&d, &t)[0][..3], [10.0, 20.0, 0.0]);
+        assert!(close(frames(&d, &t)[0][3], LEADING));
+        set_text(&mut d, &t, "Text");
+        let w1 = frames(&d, &t)[0][2];
         set_text(&mut d, &t, "Text\nText text");
         let [_, _, w2, h2] = frames(&d, &t)[0];
         assert!(w2 > w1 * 1.5 && close(h2, 2.0 * LEADING), "{w2} {h2}");

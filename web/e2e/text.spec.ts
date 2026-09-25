@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { drag, open, screen } from './util'
+import { open, pixels, screen } from './util'
 
 test('type attributes and a text style are set in the text section and edited on the page', async ({ page }) => {
   await open(page)
@@ -72,7 +72,7 @@ test('insets, columns, vertical alignment and baseline grid are set in the text 
   await expect(frame.getByRole('radio', { name: 'Align bottom' })).toBeChecked()
 })
 
-test('a clicked text is auto width, a dragged one auto height, and resizing sets the mode', async ({ page }) => {
+test('a clicked text is auto width, a dragged one a fixed empty box shown while dragging, and resizing sets the mode', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
   const field = (name: string) => panel.getByRole('textbox', { name })
@@ -84,15 +84,26 @@ test('a clicked text is auto width, a dragged one auto height, and resizing sets
   await page.keyboard.press('t')
   await page.mouse.click(...(await screen(page, 20, 80)))
   await expect(mode('Auto width')).toBeChecked()
+  await expect(field('W in mm')).toHaveValue('0')
   await expect(field('H in mm')).toHaveValue('5.8')
   await expect(panel.getByRole('combobox', { name: 'Width sizing' })).toHaveValue('hug')
 
   await page.keyboard.press('Escape')
   await page.keyboard.press('t')
-  await drag(page, await screen(page, 20, 100), await screen(page, 60, 120))
-  await expect(mode('Auto height')).toBeChecked()
+  const [x0, y0] = await screen(page, 20, 100)
+  await page.mouse.move(x0, y0)
+  await page.mouse.down()
+  await page.mouse.move(...(await screen(page, 60, 120)), { steps: 4 })
+  const edge = await pixels(page, x0 - 3, y0 + 20, 6, 1)
+  expect(edge.some(([r, g, b]) => b > 200 && r < 100 && g > 100)).toBe(true)
+  await page.mouse.up()
+  await expect(mode('Fixed size')).toBeChecked()
   await expect(field('W in mm')).toHaveValue('40')
-  await expect(field('H in mm')).toHaveValue('5.8')
+  await expect(field('H in mm')).toHaveValue('20')
+  await expect(page.getByRole('textbox', { name: 'Text editor' })).toBeFocused()
+  await page.keyboard.type('Hi')
+  await expect(page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Hi', exact: true })).toBeVisible()
+  await expect(field('H in mm')).toHaveValue('20')
   await type('H in mm', '30')
   await expect(mode('Fixed size')).toBeChecked()
   await mode('Auto height').click()

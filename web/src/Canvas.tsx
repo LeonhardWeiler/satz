@@ -21,7 +21,7 @@ const CURSORS: Record<string, string> = {
   e: 'ew-resize',
   w: 'ew-resize',
 }
-/** Size in mm of a layer made with a click; a clicked text is auto width instead. */
+/** Size in mm of a layer made with a click; a clicked text is auto width, a dragged one fixed. */
 const DEFAULT_SIZE: Record<Exclude<Tool, 'move' | 'pen'>, [number, number]> = {
   rect: [30, 30], ellipse: [30, 30], polygon: [30, 30], star: [30, 30], frame: [30, 30], text: [0, 0],
   line: [30, 0], arrow: [30, 0],
@@ -130,7 +130,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         }
         renderer.draw(surface.getCanvas(), view, canvas.width / canvas.clientWidth, {
           text,
-          selection: editor.selection.length > 1 || ed ? editor.selected() : [],
+          selection: editor.selection.length > 1 || ed || drag?.kind === 'draw' ? editor.selected() : [],
           hover: hovered,
           marquee,
           handles: box,
@@ -427,9 +427,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     }
     const onPointerUp = (e: PointerEvent) => {
       if (drag?.kind === 'draw') {
-        if (drag.tool === 'text') {
-          if (drag.moved) editor.apply({ type: 'set', id: drag.id, sizing: { horizontal: 'fixed', vertical: 'hug' } })
-        } else if (!drag.moved) {
+        if (drag.tool !== 'text' && !drag.moved) {
           const [w, h] = DEFAULT_SIZE[drag.tool]
           editor.apply({ type: 'setFrame', id: drag.id, x: drag.start.x, y: drag.start.y, w: w * MM, h: h * MM })
         }
