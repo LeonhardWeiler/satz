@@ -2,7 +2,7 @@ import { Fragment } from 'react'
 import { Field, NameInput, nextName, Section, Select } from './controls'
 import { MM, useEditor, type Editor } from './editor'
 import { Icon } from './icons'
-import type { Attrs, Node, Props, Styled, TextProps, TextStyle } from './model'
+import type { Attrs, Node, Props, Sizing, Styled, TextProps, TextStyle } from './model'
 import { Bindable } from './Variables'
 
 type TextNode = Extract<Node, { kind: 'text' }>
@@ -23,6 +23,12 @@ const VERTICAL = [
   ['top', 'Align top', 'alignTop'],
   ['center', 'Align middle', 'alignMiddle'],
   ['bottom', 'Align bottom', 'alignBottom'],
+] as const
+/** Figma's text resize modes as sizing: auto width hugs both sides, auto height the height. */
+const RESIZING = [
+  ['autoWidth', 'Auto width'],
+  ['autoHeight', 'Auto height'],
+  ['fixedSize', 'Fixed size'],
 ] as const
 const LANGS = { en: 'English', de: 'German' } as const
 /** Styled attributes: title, label, unit and the text shown for 0. */
@@ -55,6 +61,16 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
       paragraphSpacing: a.paragraphSpacing,
     })
     format({ textStyle: id })
+  }
+  const { horizontal, vertical } = node.sizing
+  const resizing = horizontal === 'hug' ? 'autoWidth' : vertical === 'hug' ? 'autoHeight' : 'fixedSize'
+  const resize = (mode: (typeof RESIZING)[number][0]) => {
+    const width = horizontal === 'hug' ? 'fixed' : horizontal
+    const sizing: Sizing =
+      mode === 'autoWidth' ? { horizontal: 'hug', vertical: 'hug' }
+      : mode === 'autoHeight' ? { horizontal: width, vertical: 'hug' }
+      : { horizontal: width, vertical: vertical === 'fill' ? 'fill' : 'fixed' }
+    editor.apply({ type: 'set', id: node.id, sizing })
   }
   const align = same((a) => a.textAlign)
   const hyphenate = same((a) => a.hyphenate)
@@ -103,6 +119,21 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
             onClick={() => format({ textAlign: value })}
           >
             <Icon name={icon} size={16} />
+          </button>
+        ))}
+      </div>
+      <div role="radiogroup" aria-label="Resizing" className="segmented">
+        {RESIZING.map(([value, title]) => (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={resizing === value}
+            aria-label={title}
+            title={title}
+            onClick={() => resize(value)}
+          >
+            <Icon name={value} size={16} />
           </button>
         ))}
       </div>

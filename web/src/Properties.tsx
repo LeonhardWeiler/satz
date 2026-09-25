@@ -56,7 +56,7 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
   const scope = scopeOf(snapshot, one?.activeModes)
   const parent = one && editor.nodes.get(one.id)?.parent
   const flows = !!one && parent?.kind === 'frame' && parent.direction !== 'none' && !one.absolute
-  const hugs = one?.kind === 'frame' && one.direction !== 'none'
+  const hugs = (one?.kind === 'frame' && one.direction !== 'none') || one?.kind === 'text'
   const sizes = Object.fromEntries(Object.entries(SIZES).filter(([s]) => s === 'fixed' || (s === 'hug' ? hugs : flows))) as Record<Size, string>
   const box = nodes.length ? bounds(nodes) : undefined
   const bindable = (prop: Prop, title: string, label: string, field: ReactNode) =>

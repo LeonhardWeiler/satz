@@ -28,7 +28,9 @@ pub enum Align3 {
     End,
 }
 
-/// Hug only applies to auto layout frames, fill only inside them.
+/// Hug only applies to auto layout frames and text, fill only inside auto layout
+/// frames. On text, hugging both sides is Figma's auto width, hugging the height
+/// auto height.
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Size {

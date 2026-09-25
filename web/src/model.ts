@@ -41,8 +41,10 @@ export type Shape =
   | { shape: 'path'; path: number[] }
 
 export type Direction = 'none' | 'horizontal' | 'vertical'
-/** Hug only applies to auto layout frames, fill only inside them. */
+/** Hug only applies to auto layout frames and text, fill only inside auto layout frames. */
 export type Size = 'fixed' | 'hug' | 'fill'
+/** On text, hugging both sides is auto width and hugging the height auto height. */
+export type Sizing = { horizontal: Size; vertical: Size }
 
 /** Figma auto layout of a frame and how a layer sits in one. */
 export type Layout = {
@@ -54,7 +56,7 @@ export type Layout = {
   paddingLeft: number
   alignMain: 'start' | 'center' | 'end' | 'spaceBetween'
   alignCross: 'start' | 'center' | 'end'
-  sizing: { horizontal: Size; vertical: Size }
+  sizing: Sizing
   /** Left out of its parent's auto layout. */
   absolute: boolean
 }

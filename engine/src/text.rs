@@ -245,22 +245,75 @@ pub fn draw(
 }
 
 /// The lines of `text` that fit in `frame`, each a list of glyphs.
-pub fn lay_out(
-    text: &str,
-    spans: &[Span],
-    [x, y, w, h]: [f32; 4],
-    tf: &TextFrame,
-) -> Vec<Vec<Glyph>> {
-    let [top_in, right_in, bottom_in, left_in] =
-        [tf.inset_top, tf.inset_right, tf.inset_bottom, tf.inset_left].map(|v| v as f32);
-    let (ix, iy) = (x + left_in, y + top_in);
-    let (iw, ih) = (
-        (w - left_in - right_in).max(0.0),
-        (h - top_in - bottom_in).max(0.0),
+pub fn lay_out(text: &str, spans: &[Span], frame: [f32; 4], tf: &TextFrame) -> Vec<Vec<Glyph>> {
+    let (inner, cw) = columns(frame, tf);
+    place(rows(text, spans, Some(cw)).0, inner, cw, tf).lines
+}
+
+/// The frame size [w, h] that `text` needs at the width `w`, or on unbroken lines:
+/// the least height at which every line fits, over all columns.
+pub fn measure(text: &str, spans: &[Span], tf: &TextFrame, w: Option<f32>) -> [f32; 2] {
+    let (h_in, v_in) = (
+        (tf.inset_left + tf.inset_right) as f32,
+        (tf.inset_top + tf.inset_bottom) as f32,
     );
+    let n = tf.columns.max(1) as f32;
+    let (rows, cw, w) = match w {
+        Some(w) => {
+            let (_, cw) = columns([0.0, 0.0, w, 0.0], tf);
+            (rows(text, spans, Some(cw)).0, cw, w)
+        }
+        None => {
+            let (rows, natural) = rows(text, spans, None);
+            let cw = ceil(natural);
+            (rows, cw, n * cw + (n - 1.0) * tf.gutter as f32 + h_in)
+        }
+    };
+    let top = tf.inset_top as f32;
+    let fit = |ih: f32, columns: u32| {
+        let tf = TextFrame {
+            columns,
+            vertical_align: VerticalAlign::Top,
+            ..tf.clone()
+        };
+        place(rows.clone(), [0.0, top, cw, ih], cw, &tf)
+    };
+    let one = fit(f32::MAX, 1).bottom - top;
+    let ih = if tf.columns <= 1 {
+        one
+    } else {
+        let (mut lo, mut hi) = (0.0, one);
+        for _ in 0..30 {
+            let mid = (lo + hi) / 2.0;
+            if fit(mid, tf.columns).placed == rows.len() {
+                hi = mid;
+            } else {
+                lo = mid;
+            }
+        }
+        hi
+    };
+    [w, ih.max(0.0) + v_in]
+}
+
+/// `v` rounded up to 0.01, so that a line measured at its natural width fits again.
+fn ceil(v: f32) -> f32 {
+    (v * 100.0).ceil() / 100.0
+}
+
+/// The box inside the insets of `frame` and the width of each column in it.
+fn columns([x, y, w, h]: [f32; 4], tf: &TextFrame) -> ([f32; 4], f32) {
+    let [top, right, bottom, left] =
+        [tf.inset_top, tf.inset_right, tf.inset_bottom, tf.inset_left].map(|v| v as f32);
+    let (iw, ih) = ((w - left - right).max(0.0), (h - top - bottom).max(0.0));
     let n = tf.columns.max(1);
-    let gutter = tf.gutter as f32;
-    let cw = ((iw - (n - 1) as f32 * gutter) / n as f32).max(0.0);
+    let cw = ((iw - (n - 1) as f32 * tf.gutter as f32) / n as f32).max(0.0);
+    ([x + left, y + top, iw, ih], cw)
+}
+
+/// The lines of `text` broken to the column width `cw`, or each paragraph on one
+/// line when `None`; and the width of the widest paragraph set on one line.
+fn rows(text: &str, spans: &[Span], cw: Option<f32>) -> (Vec<Row>, f32) {
     let font = FontRef::new(FONT).unwrap();
     let upem = font.head().unwrap().units_per_em() as f32;
     let hhea = font.hhea().unwrap();
@@ -301,7 +354,7 @@ pub fn lay_out(
         (above, l - above)
     };
 
-    let mut rows: Vec<Row> = Vec::new();
+    let mut paras = Vec::new();
     let mut start = 0;
     for para in text.split('\n') {
         let first = &spans[span_at(start)].attrs;
@@ -345,9 +398,27 @@ pub fn lay_out(
                 )));
             }
         }
+        let content = items
+            .iter()
+            .rposition(|it| matches!(it, Item::Box(_)))
+            .map_or(0, |k| k + 1);
+        let natural: f32 = items[..content]
+            .iter()
+            .map(|it| match *it {
+                Item::Box(w) | Item::Glue { width: w, .. } => w,
+                Item::Penalty { .. } => 0.0,
+            })
+            .sum();
         items.extend([FILL, FORCE]);
         glyphs.extend([None, None]);
+        paras.push((items, glyphs, first.clone(), start, natural));
+        start += para.len() + 1;
+    }
+    let widest = paras.iter().map(|p| p.4).fold(0.0, f32::max);
+    let cw = cw.unwrap_or(ceil(widest));
 
+    let mut rows: Vec<Row> = Vec::new();
+    for (items, glyphs, first, start, _) in paras {
         let mut from = 0;
         for (end, r) in break_lines(&items, cw) {
             while from < end && !matches!(items[from], Item::Box(_)) {
@@ -418,9 +489,15 @@ pub fn lay_out(
         if let Some(r) = rows.last_mut() {
             r.after = first.paragraph_spacing as f32;
         }
-        start += para.len() + 1;
     }
+    (rows, widest)
+}
 
+/// `rows` placed in columns `cw` wide in the box `[ix, iy, _, ih]` inside the
+/// insets, as many as fit.
+fn place(rows: Vec<Row>, [ix, iy, _, ih]: [f32; 4], cw: f32, tf: &TextFrame) -> Placed {
+    let n = tf.columns.max(1);
+    let gutter = tf.gutter as f32;
     let (grid, grid_top) = (tf.baseline_grid as f32, iy + tf.baseline_start as f32);
     let snap = |b: f32| match grid {
         0.0 => b,
@@ -474,11 +551,23 @@ pub fn lay_out(
             g.y += shift;
         }
     }
-    lines
+    Placed {
+        placed: lines.len(),
+        bottom: columns.iter().map(|c| c.1).fold(iy, f32::max),
+        lines,
+    }
+}
+
+/// The lines that fit, how many of the rows that is, and the lowest line bottom.
+struct Placed {
+    lines: Vec<Vec<Glyph>>,
+    placed: usize,
+    bottom: f32,
 }
 
 /// A line with glyphs relative to its column's left edge and baseline, the space
 /// it needs above and below the baseline, and the paragraph spacing after it.
+#[derive(Clone)]
 struct Row {
     glyphs: Vec<Glyph>,
     above: f32,
@@ -763,6 +852,36 @@ mod tests {
         };
         let b = baselines("Hi\nHi", [0.0, 0.0, 100.0, 50.0], tf);
         assert_close(&[b[0][1], b[1][1]], &[18.0, 33.0]);
+    }
+
+    #[test]
+    fn measure_fits_the_frame_around_the_text_with_its_insets() {
+        let tf = TextFrame {
+            inset_top: 2.0,
+            inset_right: 5.0,
+            inset_bottom: 3.0,
+            inset_left: 4.0,
+            ..TextFrame::default()
+        };
+        let t = "Hi\nHi Hi";
+        let spans = one(t, attrs(10.0));
+        let [w, h] = measure(t, &spans, &tf, None);
+        assert_close(&[h], &[5.0 + 2.0 * AUTO]);
+        assert_eq!(lay_out(t, &spans, [0.0, 0.0, w, h], &tf).len(), 2);
+        assert_eq!(lay_out(t, &spans, [0.0, 0.0, w - 1.0, 99.0], &tf).len(), 3);
+        let [w, h] = measure(t, &spans, &tf, Some(25.0));
+        assert_close(&[w, h], &[25.0, 5.0 + 3.0 * AUTO]);
+    }
+
+    #[test]
+    fn measure_balances_the_height_over_the_columns() {
+        let tf = TextFrame {
+            columns: 2,
+            ..TextFrame::default()
+        };
+        let t = "Hi\nHi\nHi\nHi";
+        let [_, h] = measure(t, &one(t, attrs(10.0)), &tf, Some(100.0));
+        assert!((h - 2.0 * AUTO).abs() < 0.05, "{h}");
     }
 
     #[test]

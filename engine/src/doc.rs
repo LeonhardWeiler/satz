@@ -672,6 +672,15 @@ impl Doc {
         };
         let masked = group(masked.to_vec(), "Masked");
         group([shapes.to_vec(), vec![masked]].concat(), "Shapes");
+        d.apply(Command::SetFrame {
+            id: text.clone(),
+            x: 15.0 * MM,
+            y: 95.0 * MM,
+            w: 118.0 * MM,
+            h: 70.0 * MM,
+            ignore_constraints: false,
+        })
+        .unwrap();
         d.apply(Command::SetText {
             id: text.clone(),
             text: SAMPLE.into(),
@@ -759,6 +768,10 @@ impl Doc {
                             "",
                             Props {
                                 fills: Some(vec![Fill::solid(Color::black(mode))]),
+                                sizing: Some(Sizing {
+                                    horizontal: Size::Hug,
+                                    vertical: Size::Hug,
+                                }),
                                 ..Props::default()
                             },
                         )
@@ -801,6 +814,12 @@ impl Doc {
                     if changed {
                         *size = Size::Fixed;
                     }
+                }
+                if self.kind(id) == "text" && sizing.vertical != Size::Hug {
+                    sizing.horizontal = match sizing.horizontal {
+                        Size::Hug => Size::Fixed,
+                        s => s,
+                    };
                 }
                 if sizing != old {
                     self.meta(id).insert("sizing", loro(sizing)?).map_err(err)?;
@@ -933,10 +952,21 @@ impl Doc {
                 self.doc.get_list("textStyles").delete(i, 1).map_err(err)?;
                 vec![]
             }
-            Command::Set { id, props } => {
+            Command::Set { id, mut props } => {
                 let id = self.node(&id)?;
                 let set = serde_json::to_value(&props).map_err(err)?;
                 self.unbind(id, |p| !set[p].is_null())?;
+                // Text that hugs its width hugs its height: choosing hug for the width
+                // makes it auto width, a fixed height makes it fixed.
+                if let Some(s) = props.sizing.as_mut().filter(|s| {
+                    self.kind(id) == "text" && s.horizontal == Size::Hug && s.vertical != Size::Hug
+                }) {
+                    if self.layout(id).sizing.horizontal == Size::Hug {
+                        s.horizontal = Size::Fixed;
+                    } else {
+                        s.vertical = Size::Hug;
+                    }
+                }
                 self.set(id, props)?;
                 vec![]
             }
@@ -1433,7 +1463,7 @@ impl Doc {
         for p in self.tree.roots() {
             if !history && self.kind(p) == "page" {
                 self.settle(p, &Modes::new(), &palette)?;
-                self.lay_out(p)?;
+                self.lay_out(p, &palette)?;
             }
         }
         self.doc.commit();
@@ -1659,11 +1689,15 @@ impl Doc {
             .unwrap_or_default()
     }
 
-    /// Lays out the auto layout frames in `id`'s subtree, innermost first.
-    fn lay_out(&self, id: TreeID) -> Res<()> {
+    /// Fits hugging text and lays out the auto layout frames in `id`'s subtree,
+    /// innermost first.
+    fn lay_out(&self, id: TreeID, palette: &Palette) -> Res<()> {
         let kids = self.children(id);
         for &c in &kids {
-            self.lay_out(c)?;
+            self.lay_out(c, palette)?;
+        }
+        if self.kind(id) == "text" {
+            return self.fit(id, palette);
         }
         let l = self.layout(id);
         let Some((horizontal, pad)) = l.axes().filter(|_| self.kind(id) == "frame") else {
@@ -1687,34 +1721,79 @@ impl Doc {
                 [c0, m0, cs, ms]
             }
         };
-        let old = self.bounds(id);
-        let [[m0, ms], [c0, cs]] = axes(old);
         let fill = |c: TreeID| {
             let cl = self.layout(c);
             [horizontal, !horizontal].map(|a| cl.size(a) == Size::Fill)
         };
-        let children: Vec<_> = flow
-            .iter()
-            .map(|&c| {
-                let [[_, a], [_, b]] = axes(self.bounds(c));
-                ([a, b], fill(c))
-            })
-            .collect();
         let hug = [horizontal, !horizontal].map(|a| l.size(a) == Size::Hug);
-        let (size, boxes) = arrange(&l, pad, [ms, cs], hug, &children);
-        let frame = unaxes([[m0, size[0]], [c0, size[1]]]);
-        if frame != old {
-            self.set_frame(id, frame)?;
-        }
-        for (c, [[a0, a], [b0, b]]) in flow.into_iter().zip(boxes) {
-            let old = self.bounds(c);
-            let new = unaxes([[m0 + a0, a], [c0 + b0, b]]);
-            if new != old {
-                self.set_frame(c, new)?;
-                if new[2..] != old[2..] {
-                    self.lay_out(c)?;
+        // A child whose size follows the one it gets, like text that fills the width
+        // and hugs its height, sends the frame round again.
+        for _ in 0..4 {
+            let old = self.bounds(id);
+            let [[m0, ms], [c0, cs]] = axes(old);
+            let children: Vec<_> = flow
+                .iter()
+                .map(|&c| {
+                    let [[_, a], [_, b]] = axes(self.bounds(c));
+                    ([a, b], fill(c))
+                })
+                .collect();
+            let (size, boxes) = arrange(&l, pad, [ms, cs], hug, &children);
+            let frame = unaxes([[m0, size[0]], [c0, size[1]]]);
+            if frame != old {
+                self.set_frame(id, frame)?;
+            }
+            let mut again = false;
+            for (&c, [[a0, a], [b0, b]]) in flow.iter().zip(boxes) {
+                let old = self.bounds(c);
+                let new = unaxes([[m0 + a0, a], [c0 + b0, b]]);
+                if new != old {
+                    self.set_frame(c, new)?;
+                    if new[2..] != old[2..] {
+                        self.lay_out(c, palette)?;
+                        again |= self.bounds(c)[2..] != new[2..];
+                    }
                 }
             }
+            if !again {
+                break;
+            }
+        }
+        Ok(())
+    }
+
+    /// Sets the hugging sides of a text layer to what its text needs.
+    fn fit(&self, id: TreeID, palette: &Palette) -> Res<()> {
+        let Sizing {
+            horizontal,
+            vertical,
+        } = self.layout(id).sizing;
+        if vertical != Size::Hug {
+            return Ok(());
+        }
+        let v = serde_json::to_value(self.meta(id).get_deep_value()).map_err(err)?;
+        let modes = self.active_modes(id);
+        let spans = self.spans(
+            id,
+            &v,
+            &Scope {
+                palette,
+                modes: &modes,
+            },
+        );
+        let tf: TextFrame = serde_json::from_value(v.clone()).unwrap_or_default();
+        let old = self.bounds(id);
+        let [x, y, w, _] = old;
+        let auto_width = horizontal == Size::Hug;
+        let [nw, nh] = text::measure(
+            v["text"].as_str().unwrap_or_default(),
+            &spans,
+            &tf,
+            (!auto_width).then_some(w as f32),
+        );
+        let new = [x, y, if auto_width { nw.into() } else { w }, nh.into()];
+        if new != old {
+            self.set_frame(id, new)?;
         }
         Ok(())
     }
@@ -2757,7 +2836,7 @@ mod tests {
         let (orig, dup) = (&pg.children[0], &pg.children[1]);
         assert_ne!(children(orig)[0].id, children(dup)[0].id);
         assert_eq!(children(dup)[0].kind, children(orig)[0].kind);
-        assert_eq!(frame(&children(dup)[0]), [1.0, 1.0, 5.0, 5.0]);
+        assert_eq!(frame(&children(dup)[0]), frame(&children(orig)[0]));
     }
 
     #[test]
@@ -4525,5 +4604,155 @@ mod tests {
                 .is_err()
             );
         }
+    }
+
+    /// Auto line height of the bundled font at 12 pt.
+    const LEADING: f64 = 16.45;
+
+    fn close(a: f64, b: f64) -> bool {
+        (a - b).abs() < 0.05
+    }
+
+    fn set_frame(d: &mut Doc, id: &str, [x, y, w, h]: [f64; 4]) {
+        d.apply(Command::SetFrame {
+            id: id.into(),
+            x,
+            y,
+            w,
+            h,
+            ignore_constraints: false,
+        })
+        .unwrap();
+    }
+
+    fn set_text(d: &mut Doc, id: &str, text: &str) {
+        d.apply(Command::SetText {
+            id: id.into(),
+            text: text.into(),
+        })
+        .unwrap();
+    }
+
+    fn node_sizing(d: &Doc, id: &str) -> Sizing {
+        fn find(nodes: &[Node], id: &str) -> Option<Sizing> {
+            nodes.iter().find_map(|n| {
+                (n.id == id)
+                    .then_some(n.layout.sizing)
+                    .or_else(|| find(children(n), id))
+            })
+        }
+        find(&page(d).children, id).unwrap()
+    }
+
+    #[test]
+    fn a_new_text_layer_is_auto_width_and_grows_with_its_text_and_size() {
+        let (mut d, p) = empty();
+        let t = create(&mut d, &p, NewKind::Text, [10.0, 20.0, 0.0, 0.0]);
+        assert_eq!(node_sizing(&d, &t), sizing(Size::Hug, Size::Hug).unwrap());
+        let [x, y, w1, h1] = frames(&d, &t)[0];
+        assert_eq!([x, y], [10.0, 20.0]);
+        assert!(w1 > 0.0 && close(h1, LEADING), "{w1} {h1}");
+        set_text(&mut d, &t, "Text\nText text");
+        let [_, _, w2, h2] = frames(&d, &t)[0];
+        assert!(w2 > w1 * 1.5 && close(h2, 2.0 * LEADING), "{w2} {h2}");
+        let (c, m) = collection(&mut d, "Type");
+        let v = variable(&mut d, &c, "Size", Value::Number(24.0)).unwrap();
+        bind(&mut d, &t, "size", Some(&v)).unwrap();
+        let [_, _, w3, h3] = frames(&d, &t)[0];
+        assert!(close(w3, 2.0 * w2) && close(h3, 2.0 * h2), "{w3} {h3}");
+        set_value(&mut d, &v, &m, Value::Number(6.0)).unwrap();
+        let [_, _, w4, h4] = frames(&d, &t)[0];
+        assert!(close(w4, w2 / 2.0) && close(h4, h2 / 2.0), "{w4} {h4}");
+    }
+
+    #[test]
+    fn resizing_the_width_makes_text_auto_height_and_the_height_makes_it_fixed() {
+        let (mut d, p) = empty();
+        let t = create(&mut d, &p, NewKind::Text, [0.0, 0.0, 0.0, 0.0]);
+        set_text(&mut d, &t, "Hi there Hi there");
+        let auto_width = frames(&d, &t)[0];
+        set_frame(&mut d, &t, [0.0, 0.0, auto_width[2] / 2.0, auto_width[3]]);
+        assert_eq!(node_sizing(&d, &t), sizing(Size::Fixed, Size::Hug).unwrap());
+        let [.., w, h] = frames(&d, &t)[0];
+        assert!(
+            close(w, auto_width[2] / 2.0) && close(h, 2.0 * LEADING),
+            "{w} {h}"
+        );
+        set_frame(&mut d, &t, [0.0, 0.0, w, 100.0]);
+        assert_eq!(
+            node_sizing(&d, &t),
+            sizing(Size::Fixed, Size::Fixed).unwrap()
+        );
+        assert_eq!(frames(&d, &t)[0], [0.0, 0.0, w, 100.0]);
+        set(
+            &mut d,
+            &t,
+            Props {
+                sizing: sizing(Size::Hug, Size::Fixed),
+                ..Props::default()
+            },
+        );
+        assert_eq!(node_sizing(&d, &t), sizing(Size::Hug, Size::Hug).unwrap());
+        assert_eq!(frames(&d, &t)[0], auto_width);
+        set_frame(&mut d, &t, [0.0, 0.0, 50.0, 50.0]);
+        assert_eq!(
+            node_sizing(&d, &t),
+            sizing(Size::Fixed, Size::Fixed).unwrap()
+        );
+        set(
+            &mut d,
+            &t,
+            Props {
+                sizing: sizing(Size::Hug, Size::Hug),
+                ..Props::default()
+            },
+        );
+        set_frame(&mut d, &t, [0.0, 0.0, auto_width[2], 50.0]);
+        assert_eq!(
+            node_sizing(&d, &t),
+            sizing(Size::Fixed, Size::Fixed).unwrap()
+        );
+    }
+
+    #[test]
+    fn text_filling_an_auto_layout_frame_rewraps_and_the_frame_hugs_it() {
+        let (mut d, p) = empty();
+        let f = create(&mut d, &p, NewKind::Frame, [0.0, 0.0, 100.0, 10.0]);
+        let t = create(&mut d, &f, NewKind::Text, [0.0, 0.0, 0.0, 0.0]);
+        set(
+            &mut d,
+            &f,
+            Props {
+                direction: Some(Direction::Vertical),
+                padding_top: Some(5.0),
+                padding_right: Some(5.0),
+                padding_bottom: Some(5.0),
+                padding_left: Some(5.0),
+                sizing: sizing(Size::Fixed, Size::Hug),
+                ..Props::default()
+            },
+        );
+        set(
+            &mut d,
+            &t,
+            Props {
+                sizing: sizing(Size::Fill, Size::Hug),
+                ..Props::default()
+            },
+        );
+        set_text(&mut d, &t, "Hi there Hi there Hi there Hi there Hi there");
+        let [outer, text] = frames(&d, &f)[..] else {
+            panic!("one child");
+        };
+        assert_eq!(text[2], 90.0);
+        assert!(text[3] > 2.5 * LEADING, "{text:?}");
+        assert!(close(outer[3], text[3] + 10.0), "{outer:?} {text:?}");
+        set_frame(&mut d, &f, [0.0, 0.0, 400.0, outer[3]]);
+        let [outer, text] = frames(&d, &f)[..] else {
+            panic!("one child");
+        };
+        assert_eq!(text[2], 390.0);
+        assert!(close(text[3], LEADING), "{text:?}");
+        assert!(close(outer[3], LEADING + 10.0), "{outer:?}");
     }
 }

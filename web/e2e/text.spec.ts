@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { open } from './util'
+import { drag, open, screen } from './util'
 
 test('type attributes and a text style are set in the text section and edited on the page', async ({ page }) => {
   await open(page)
@@ -70,4 +70,33 @@ test('insets, columns, vertical alignment and baseline grid are set in the text 
   await expect(field('Gutter in mm')).toHaveValue('5')
   await expect(field('Baseline grid in pt')).toHaveValue('18')
   await expect(frame.getByRole('radio', { name: 'Align bottom' })).toBeChecked()
+})
+
+test('a clicked text is auto width, a dragged one auto height, and resizing sets the mode', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  const field = (name: string) => panel.getByRole('textbox', { name })
+  const mode = (name: string) => panel.getByRole('radio', { name })
+  const type = async (name: string, v: string) => {
+    await field(name).fill(v)
+    await field(name).press('Enter')
+  }
+  await page.keyboard.press('t')
+  await page.mouse.click(...(await screen(page, 20, 80)))
+  await expect(mode('Auto width')).toBeChecked()
+  await expect(field('H in mm')).toHaveValue('5.8')
+  await expect(panel.getByRole('combobox', { name: 'Width sizing' })).toHaveValue('hug')
+
+  await page.keyboard.press('t')
+  await drag(page, await screen(page, 20, 100), await screen(page, 60, 120))
+  await expect(mode('Auto height')).toBeChecked()
+  await expect(field('W in mm')).toHaveValue('40')
+  await expect(field('H in mm')).toHaveValue('5.8')
+  await type('H in mm', '30')
+  await expect(mode('Fixed size')).toBeChecked()
+  await mode('Auto height').click()
+  await expect(field('H in mm')).toHaveValue('5.8')
+  await panel.getByRole('combobox', { name: 'Width sizing' }).selectOption('Hug')
+  await expect(mode('Auto width')).toBeChecked()
+  await expect(field('W in mm')).not.toHaveValue('40')
 })

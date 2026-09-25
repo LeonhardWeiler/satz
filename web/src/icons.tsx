@@ -33,6 +33,9 @@ const PATHS = {
   alignTop: 'M5 5h14M12 8v11M8.5 11.5L12 8l3.5 3.5',
   alignMiddle: 'M5 12h14M12 4v5M12 15v5M9.5 6.5L12 9l2.5-2.5M9.5 17.5L12 15l2.5 2.5',
   alignBottom: 'M5 19h14M12 5v11M8.5 12.5L12 16l3.5-3.5',
+  autoWidth: 'M4 12h16M7 9l-3 3 3 3M17 9l3 3-3 3',
+  autoHeight: 'M12 4v16M9 7l3-3 3 3M9 17l3 3 3-3',
+  fixedSize: 'M5.5 5.5h13v13h-13zM9 12h6M12 9v6',
   eyeOff: 'M3.5 12s3-5.5 8.5-5.5 8.5 5.5 8.5 5.5-3 5.5-8.5 5.5S3.5 12 3.5 12zM5 19L19 5',
 } as const
 

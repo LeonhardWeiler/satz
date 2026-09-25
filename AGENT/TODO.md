@@ -28,7 +28,6 @@ font helper, i18n.
 ## Breadth
 
 ### 10. Rich text
-- Figma resize modes (auto width, auto height, fixed).
 - In-frame editing: engine draws caret and selection, hidden textarea for
   keyboard and IME.
 
