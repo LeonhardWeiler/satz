@@ -2734,8 +2734,11 @@ impl Doc {
         let lefts = self.left_pages();
         for m in self.masters() {
             let w = num(&self.meta(m), "width");
+            let mut clips = Vec::new();
             for c in self.children(m) {
-                let copy = self.paste(&self.clip(c), m.into(), self.index(c) + 1)?;
+                let clip = self.clip(c);
+                let copy = self.paste(&clip, m.into(), self.index(c) + 1)?;
+                clips.push((clip, copy));
                 let [x, y, cw, ch] = self.bounds(copy);
                 self.set_frame(copy, [x - w, y, cw, ch])?;
                 self.meta(copy)
@@ -2743,6 +2746,7 @@ impl Doc {
                     .map_err(err)?;
                 self.relink(&lefts, m, c, copy)?;
             }
+            self.rethread(&clips)?;
         }
         Ok(())
     }
@@ -6729,7 +6733,12 @@ mod tests {
     /// The story, start, end, previous and next frame, and overset of a text layer.
     fn flow(d: &Doc, id: &str) -> (String, usize, usize, Option<String>, Option<String>, bool) {
         let s = d.snapshot();
-        let all: Vec<&Node> = s.pages.iter().flat_map(|p| &p.children).collect();
+        let all: Vec<&Node> = s
+            .pages
+            .iter()
+            .chain(&s.masters)
+            .flat_map(|p| &p.children)
+            .collect();
         let n = all.into_iter().find(|n| n.id == id).unwrap();
         match &n.kind {
             Kind::Text {
@@ -6964,6 +6973,26 @@ mod tests {
         assert!(thread(&mut d, &on_page, &a).is_err());
         assert!(thread(&mut d, &a, &c).is_err());
         thread(&mut d, &a, &b).unwrap();
+    }
+
+    #[test]
+    fn threaded_master_frames_thread_on_the_left_page_when_facing_pages_go_on() {
+        let (mut d, _) = empty();
+        facing(&mut d, false);
+        let m = add_master(&mut d);
+        let a = fixed_text(&mut d, &m, [0.0, 0.0, 100.0, LEADING + 1.0]);
+        let b = fixed_text(&mut d, &m, [0.0, 50.0, 100.0, 100.0]);
+        set_text(&mut d, &a, "Hi\nHo");
+        thread(&mut d, &a, &b).unwrap();
+        facing(&mut d, true);
+        let copies: Vec<String> = d.snapshot().masters[0]
+            .children
+            .iter()
+            .filter(|n| n.x < 0.0)
+            .map(|n| n.id.clone())
+            .collect();
+        assert_eq!(flow(&d, &copies[0]).4, Some(copies[1].clone()));
+        assert_eq!(flow(&d, &copies[1]).1, 3);
     }
 
     #[test]
