@@ -467,6 +467,11 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         editor.set({ editing: { id: n.id, anchor: i, focus: i } })
       } else if (id) editor.set({ selection: [id] })
     }
+    /** A triple click in the edited text selects all of it. */
+    const onClick = (e: MouseEvent) => {
+      const edited = e.detail >= 3 && editor.tool === 'move' ? inEdited(toDoc(e)) : undefined
+      if (edited) select(editor, 0, edited.text.length)
+    }
     const onLeave = () => {
       pointer = undefined
       hover = undefined
@@ -511,6 +516,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     canvas.addEventListener('pointercancel', onPointerUp)
     canvas.addEventListener('pointerleave', onLeave)
     canvas.addEventListener('dblclick', onDoubleClick)
+    canvas.addEventListener('click', onClick)
     window.addEventListener('keydown', onKey)
     window.addEventListener('keyup', onKey)
     return () => {
@@ -525,6 +531,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       canvas.removeEventListener('pointercancel', onPointerUp)
       canvas.removeEventListener('pointerleave', onLeave)
       canvas.removeEventListener('dblclick', onDoubleClick)
+      canvas.removeEventListener('click', onClick)
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('keyup', onKey)
       renderer.delete()

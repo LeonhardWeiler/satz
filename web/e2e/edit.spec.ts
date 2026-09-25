@@ -66,3 +66,14 @@ test('double-clicking a text puts the caret where it was clicked, and ime input 
   await page.mouse.click(...(await screen(page, 140, 205)))
   await expect(editor).toHaveCount(0)
 })
+
+test('a triple click in a text selects all of it', async ({ page }) => {
+  await open(page)
+  const layers = page.getByRole('tree', { name: 'Layers' })
+  await layers.getByRole('button', { name: /^Satz sets type/ }).click()
+  const at = await screen(page, 60, 100)
+  await page.mouse.click(...at, { clickCount: 3 })
+  await expect(page.getByRole('textbox', { name: 'Text editor' })).toBeFocused()
+  await page.keyboard.type('Z')
+  await expect(layers.getByRole('button', { name: 'Z', exact: true })).toBeVisible()
+})
