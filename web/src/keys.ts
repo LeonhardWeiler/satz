@@ -19,11 +19,14 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
   const one = editor.nodes.get(ids[0])
   const siblings = (one?.parent?.children ?? editor.page.children).map((n) => n.id)
 
+  if (editor.dragging) return false
   if (editor.pen && (e.key === 'Escape' || e.key === 'Enter')) editor.finishPen(false)
   else if (!mod && !e.altKey && !e.shiftKey && TOOLS[key]) editor.setTool(TOOLS[key])
   else if (!mod && !e.altKey && e.shiftKey && key === 'l') editor.setTool('arrow')
-  else if (mod && key === 'z') editor.apply({ type: e.shiftKey ? 'redo' : 'undo' })
-  else if (mod && key === 'y') editor.apply({ type: 'redo' })
+  else if (mod && (key === 'z' || key === 'y')) {
+    editor.finishPen(false)
+    editor.apply({ type: key === 'y' || e.shiftKey ? 'redo' : 'undo' })
+  }
   else if (mod && key === 'a') editor.set({ selection: siblings })
   else if (mod && key === 'v') editor.set({ selection: editor.apply({ type: 'paste', above: ids }) })
   else if (e.key === 'Escape') {

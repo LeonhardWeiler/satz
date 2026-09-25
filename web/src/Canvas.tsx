@@ -189,6 +189,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     }
     const onPointerDown = (e: PointerEvent) => {
       if (e.button !== 0 && e.button !== 1) return
+      editor.dragging = true
       canvas.focus()
       canvas.setPointerCapture(e.pointerId)
       const p = toDoc(e)
@@ -378,6 +379,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         if (id && editor.selection.length > 1) editor.set({ selection: [id] })
       }
       drag = null
+      editor.dragging = false
       delete canvas.dataset.panning
       track()
       redraw()

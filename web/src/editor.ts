@@ -18,6 +18,8 @@ export class Editor {
   renaming: string | null = null
   /** The path being drawn with the pen tool, inside an open undo group. */
   pen: Pen | null = null
+  /** The pointer is down on the canvas, possibly inside a drag's undo group. */
+  dragging = false
   private listeners = new Set<() => void>()
 
   constructor(readonly engine: Engine) {

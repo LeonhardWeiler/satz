@@ -151,3 +151,32 @@ test('typed values round to two decimals and out-of-range values are rejected', 
   await expect(field('Size in pt')).toHaveValue('14')
   await expect(layers.getByRole('button', { name: 'Rectangle', exact: true })).toHaveCount(2)
 })
+
+test('undo finishes an open pen path and waits for a drag to end', async ({ page }) => {
+  const errors: Error[] = []
+  page.on('pageerror', (e) => errors.push(e))
+  await open(page)
+  const vectors = page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Vector', exact: true })
+  const x = page.getByRole('region', { name: 'Layout' }).getByTitle('X in mm').getByRole('textbox')
+
+  await page.keyboard.press('p')
+  await page.mouse.click(...(await screen(page, 30, 86)))
+  await page.mouse.click(...(await screen(page, 60, 88)))
+  await page.keyboard.press('Control+z')
+  await page.mouse.click(...(await screen(page, 90, 86)))
+  await expect(vectors).toHaveCount(0)
+
+  await page.keyboard.press('v')
+  const [rx, ry] = await screen(page, 74, 7)
+  await page.mouse.move(rx, ry)
+  await page.mouse.down()
+  await expect(x).toHaveValue('-3')
+  await page.mouse.move(rx + 30, ry, { steps: 3 })
+  await page.keyboard.press('Control+z')
+  await page.mouse.move(rx + 60, ry, { steps: 3 })
+  await page.mouse.up()
+  await expect(x).not.toHaveValue('-3')
+  await page.keyboard.press('Control+z')
+  await expect(x).toHaveValue('-3')
+  expect(errors).toEqual([])
+})
