@@ -211,7 +211,7 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
             aria-label="Text content"
             rows={6}
             defaultValue={one.text}
-            key={one.id}
+            key={`${one.id} ${one.text}`}
             onBlur={(e) => {
               if (e.currentTarget.value !== one.text) editor.apply({ type: 'setText', id: one.id, text: e.currentTarget.value })
             }}

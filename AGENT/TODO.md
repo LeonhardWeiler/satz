@@ -13,14 +13,6 @@ font helper, i18n.
 Found by the review on 2026-09-25 (IDs from `AGENT/project-health-report.html`), causes checked in
 the code, not reproduced in the browser.
 
-### B15. Text content and swatch name are stale after undo (BUG-6)
-- Cause: the text `textarea` in `Properties.tsx` and the name input in `Swatches.tsx` are
-  uncontrolled and keyed on the id only. After Ctrl+Z they show the newer value; the textarea
-  sends `setText` again on blur and silently redoes the edit.
-- Fix: key both on id and value.
-- Test: e2e edits the text, undoes, checks the textarea shows the old text and stays undone after
-  focus and blur.
-
 ### B16. Clicking a panel while drawing with the pen splits the path's undo step (BUG-9)
 - Cause: `Editor.gesture` sends `beginUndoGroup`, which ends every open group, including the pen's.
 - Fix: `gesture` calls `finishPen(false)` first, as undo already does.

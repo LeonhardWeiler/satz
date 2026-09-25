@@ -77,6 +77,7 @@ export function Swatches({ editor }: { editor: Editor }) {
             <label className="field">
               <span className="field-label">Name</span>
               <input
+                key={swatch.name}
                 name="swatch-name"
                 aria-label="Name"
                 autoComplete="off"
