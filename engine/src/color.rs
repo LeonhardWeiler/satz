@@ -1,3 +1,4 @@
+use crate::variable::{Scope, Value};
 use moxcms::{ColorProfile, Layout, RenderingIntent, TransformF32Executor, TransformOptions};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, OnceLock};
@@ -15,7 +16,8 @@ pub enum ColorMode {
 
 /// A colour keeps its own space whatever the document's mode.
 /// RGB is 0xRRGGBBAA; CMYK components, tint and alpha are 0..=1.
-/// The tint of a swatch only applies to spot colours.
+/// The tint of a swatch only applies to spot colours; alpha multiplies what a
+/// swatch or variable holds.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Color {
@@ -27,6 +29,10 @@ pub enum Color {
     Swatch {
         swatch: String,
         tint: f32,
+        alpha: f32,
+    },
+    Variable {
+        variable: String,
         alpha: f32,
     },
 }
@@ -68,7 +74,9 @@ impl Swatch {
     pub fn check(&self) -> Result<(), String> {
         self.color.check()?;
         match (&self.color, self.spot) {
-            (Color::Swatch { .. }, _) => Err("a swatch cannot use a swatch".into()),
+            (Color::Swatch { .. } | Color::Variable { .. }, _) => {
+                Err("a swatch cannot use a swatch or variable".into())
+            }
             (Color::Rgb(_), true) => Err("a spot colour needs a CMYK alternate".into()),
             _ => Ok(()),
         }
@@ -88,6 +96,7 @@ impl Color {
             Color::Rgb(_) => true,
             Color::Cmyk { cmyk, alpha } => cmyk.iter().chain([alpha]).all(unit),
             Color::Swatch { tint, alpha, .. } => unit(tint) && unit(alpha),
+            Color::Variable { alpha, .. } => unit(alpha),
         };
         ok.then_some(())
             .ok_or_else(|| "colour values must be in 0..=1".into())
@@ -116,70 +125,96 @@ impl Color {
         }
     }
 
-    /// The process colour a swatch stands for; missing swatches are transparent.
-    pub fn resolve(&self, swatches: &[Swatch]) -> Color {
-        let Color::Swatch {
-            swatch,
-            tint,
-            alpha,
-        } = self
-        else {
-            return self.clone();
-        };
-        match swatches.iter().find(|s| s.id == *swatch) {
-            Some(Swatch {
-                color: Color::Cmyk { cmyk, alpha: a },
-                spot: true,
-                ..
-            }) => Color::Cmyk {
-                cmyk: cmyk.map(|v| v * tint),
-                alpha: a * alpha,
+    /// `self` with its alpha multiplied by `a`.
+    fn fade(&self, a: f32) -> Color {
+        match self.clone() {
+            Color::Rgb(c) => Color::Rgb(c & !0xff | ((c & 0xff) as f32 * a).round() as u32),
+            Color::Cmyk { cmyk, alpha } => Color::Cmyk {
+                cmyk,
+                alpha: alpha * a,
             },
-            Some(s) => match s.color {
-                Color::Rgb(c) => {
-                    let a = ((c & 0xff) as f32 * alpha).round() as u32;
-                    Color::Rgb(c & !0xff | a)
-                }
-                Color::Cmyk { cmyk, alpha: a } => Color::Cmyk {
-                    cmyk,
-                    alpha: a * alpha,
-                },
-                Color::Swatch { .. } => Color::Rgb(0),
+            Color::Swatch {
+                swatch,
+                tint,
+                alpha,
+            } => Color::Swatch {
+                swatch,
+                tint,
+                alpha: alpha * a,
             },
-            None => Color::Rgb(0),
+            Color::Variable { variable, alpha } => Color::Variable {
+                variable,
+                alpha: alpha * a,
+            },
         }
     }
 
-    pub fn ink(&self, swatches: &[Swatch]) -> Ink {
-        if let Color::Swatch { swatch, tint, .. } = self
+    /// The colour a variable holds in the scope's modes; missing variables are transparent.
+    pub fn bind(&self, s: &Scope) -> Color {
+        let Color::Variable { variable, alpha } = self else {
+            return self.clone();
+        };
+        match s.value(variable) {
+            Some(Value::Color(c)) if !matches!(c, Color::Variable { .. }) => c.fade(*alpha),
+            _ => Color::Rgb(0),
+        }
+    }
+
+    /// The process colour a swatch or variable stands for; missing swatches are transparent.
+    pub fn resolve(&self, s: &Scope) -> Color {
+        match self.bind(s) {
+            Color::Swatch {
+                swatch,
+                tint,
+                alpha,
+            } => match s.swatches().iter().find(|w| w.id == swatch) {
+                Some(Swatch {
+                    color: Color::Cmyk { cmyk, alpha: a },
+                    spot: true,
+                    ..
+                }) => Color::Cmyk {
+                    cmyk: cmyk.map(|v| v * tint),
+                    alpha: a * alpha,
+                },
+                Some(w) if matches!(w.color, Color::Rgb(_) | Color::Cmyk { .. }) => {
+                    w.color.fade(alpha)
+                }
+                _ => Color::Rgb(0),
+            },
+            c => c,
+        }
+    }
+
+    pub fn ink(&self, s: &Scope) -> Ink {
+        if let Color::Swatch { swatch, tint, .. } = self.bind(s)
             && let Some(Swatch {
                 name,
                 color: Color::Cmyk { cmyk, .. },
                 spot: true,
                 ..
-            }) = swatches.iter().find(|s| s.id == *swatch)
+            }) = s.swatches().iter().find(|w| w.id == swatch)
         {
             return Ink::Spot {
                 name: name.clone(),
                 cmyk: *cmyk,
-                tint: *tint,
+                tint,
             };
         }
-        match self.resolve(swatches) {
+        match self.resolve(s) {
             Color::Cmyk { cmyk, .. } => Ink::Cmyk(cmyk),
             _ => Ink::Rgb,
         }
     }
 
     /// Screen colour; CMYK is previewed through FOGRA51.
-    pub fn rgba(&self, swatches: &[Swatch]) -> [f32; 4] {
-        match self.resolve(swatches) {
+    pub fn rgba(&self, s: &Scope) -> [f32; 4] {
+        match self.resolve(s) {
             Color::Rgb(c) => c.to_be_bytes().map(|v| v as f32 / 255.0),
             Color::Cmyk { cmyk, alpha } => {
                 let [r, g, b] = to_rgb(cmyk);
                 [r, g, b, alpha]
             }
-            Color::Swatch { .. } => [0.0; 4],
+            _ => [0.0; 4],
         }
     }
 }

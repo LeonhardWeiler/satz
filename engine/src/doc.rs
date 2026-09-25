@@ -5,11 +5,13 @@ use crate::style::{
     Align, Blend, Cap, Effect, EffectKind, Fill, FillKind, FillStop, Join, Style, paints,
 };
 use crate::text::layout;
+use crate::variable::{Collection, Mode, Modes, Palette, Scope, Value, Variable};
 use loro::{
     Container, LoroDoc, LoroMap, LoroText, LoroTree, LoroValue, TreeID, TreeParentId, UndoManager,
     UpdateOptions, ValueOrContainer,
 };
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use std::collections::BTreeMap;
 use std::fmt::Display;
 
 #[derive(Debug, Deserialize)]
@@ -100,6 +102,63 @@ pub enum Command {
     DeleteSwatch {
         id: String,
     },
+    /// Adds a collection with one mode; returns both ids.
+    AddCollection {
+        name: String,
+    },
+    SetCollection {
+        id: String,
+        name: String,
+    },
+    /// Removes a collection and its variables.
+    DeleteCollection {
+        id: String,
+    },
+    SetMode {
+        collection: String,
+        id: String,
+        name: String,
+    },
+    /// Removes a mode other than the last; layers using it fall back to the first.
+    DeleteMode {
+        collection: String,
+        id: String,
+    },
+    /// Removes a variable; what uses it keeps the value it had.
+    DeleteVariable {
+        id: String,
+    },
+    /// Adds a mode whose values start as those of the first mode.
+    AddMode {
+        collection: String,
+        name: String,
+    },
+    /// Adds a variable with `value` in every mode of its collection.
+    AddVariable {
+        collection: String,
+        name: String,
+        value: Value,
+    },
+    /// Renames a variable or sets its value in `mode`, by default the first.
+    SetVariable {
+        id: String,
+        name: Option<String>,
+        mode: Option<String>,
+        value: Option<Value>,
+    },
+    /// Binds a number property to a number variable, or unbinds it; see `BINDABLE`.
+    Bind {
+        id: String,
+        prop: String,
+        variable: Option<String>,
+    },
+    /// Chooses the mode of a collection for a page or layer and what it contains;
+    /// `None` inherits it.
+    UseMode {
+        id: String,
+        collection: String,
+        mode: Option<String>,
+    },
     Undo,
     Redo,
     BeginUndoGroup,
@@ -187,7 +246,8 @@ pub struct Snapshot {
     /// Resolution at which the PDF rasterizes shadows and blurs.
     pub raster_ppi: f64,
     pub color_mode: ColorMode,
-    pub swatches: Vec<Swatch>,
+    #[serde(flatten)]
+    pub palette: Palette,
     pub can_undo: bool,
     pub can_redo: bool,
 }
@@ -198,10 +258,12 @@ pub struct Page {
     pub width: f64,
     pub height: f64,
     pub bleed: f64,
+    pub modes: Modes,
     pub children: Vec<Node>,
 }
 
 #[derive(Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Node {
     pub id: String,
     pub name: String,
@@ -209,6 +271,12 @@ pub struct Node {
     pub y: f64,
     pub w: f64,
     pub h: f64,
+    /// Modes chosen on this layer.
+    pub modes: Modes,
+    /// Modes this layer's variables resolve in, its own and inherited.
+    pub active_modes: Modes,
+    /// Number variables by property.
+    pub bindings: BTreeMap<String, String>,
     #[serde(flatten)]
     pub style: Style,
     #[serde(flatten)]
@@ -239,6 +307,8 @@ struct Clip {
 type Res<T> = Result<T, String>;
 
 const MM: f64 = 72.0 / 25.4;
+/// Properties a number variable can bind to; lengths count in mm, opacity in %.
+const BINDABLE: [&str; 5] = ["w", "h", "radius", "strokeWeight", "opacity"];
 const WHITE: u32 = 0xffffffff;
 const BLACK: u32 = 0x000000ff;
 const SAMPLE: &str = "Satz sets type in the browser. The engine shapes this paragraph \
@@ -549,7 +619,10 @@ impl Doc {
                 vec![id.to_string()]
             }
             Command::SetFrame { id, x, y, w, h } => {
-                self.set_frame(self.node(&id)?, [x, y, w, h])?;
+                let id = self.node(&id)?;
+                let [.., ow, oh] = self.bounds(id);
+                self.unbind(id, |p| p == "w" && w != ow || p == "h" && h != oh)?;
+                self.set_frame(id, [x, y, w, h])?;
                 vec![]
             }
             Command::SetText { id, text } => {
@@ -561,7 +634,10 @@ impl Doc {
                 vec![]
             }
             Command::Set { id, props } => {
-                self.set(self.node(&id)?, props)?;
+                let id = self.node(&id)?;
+                let set = serde_json::to_value(&props).map_err(err)?;
+                self.unbind(id, |p| !set[p].is_null())?;
+                self.set(id, props)?;
                 vec![]
             }
             Command::SetPath { id, path } => {
@@ -712,7 +788,7 @@ impl Doc {
                 vec![]
             }
             Command::AddSwatch { name, color, spot } => {
-                let id = format!("{}@{}", self.doc.len_ops(), self.doc.peer_id());
+                let id = self.new_id();
                 let swatch = Swatch {
                     id: id.clone(),
                     name,
@@ -720,13 +796,7 @@ impl Doc {
                     spot,
                 };
                 self.check_swatch(&swatch)?;
-                let list = self.doc.get_list("swatches");
-                let m = list
-                    .insert_container(list.len(), LoroMap::new())
-                    .map_err(err)?;
-                for (k, v) in loro(swatch)?.into_map().unwrap().iter() {
-                    m.insert(k, v.clone()).map_err(err)?;
-                }
+                self.put("swatches", None, swatch)?;
                 vec![id]
             }
             Command::SetSwatch {
@@ -740,36 +810,208 @@ impl Doc {
                 swatch.color = color.unwrap_or(swatch.color);
                 swatch.spot = spot.unwrap_or(swatch.spot);
                 self.check_swatch(&swatch)?;
-                let m = self
-                    .doc
-                    .get_list("swatches")
-                    .get(i)
-                    .and_then(|v| v.into_container().ok())
-                    .and_then(|c| c.into_map().ok())
-                    .ok_or("no swatch map")?;
-                for (k, v) in loro(swatch)?.into_map().unwrap().iter() {
-                    m.insert(k, v.clone()).map_err(err)?;
-                }
+                self.put("swatches", Some(i), swatch)?;
                 vec![]
             }
             Command::DeleteSwatch { id } => {
                 let (i, _) = self.swatch(&id)?;
-                let swatches = self.swatches();
-                let mut all = Vec::new();
-                for r in self.tree.roots() {
-                    self.walk(r, &mut all);
-                }
-                for n in all {
-                    let m = self.meta(n);
-                    for key in ["fills", "strokes", "effects"] {
-                        let Some(v) = value(&m, key) else { continue };
-                        let mut v = serde_json::to_value(v).map_err(err)?;
-                        if detach(&mut v, &id, &swatches) {
-                            m.insert(key, loro(v)?).map_err(err)?;
+                let used = |c: &Color| matches!(c, Color::Swatch { swatch, .. } if *swatch == id);
+                self.recolor(|c, s| used(c).then(|| c.resolve(s)))?;
+                let palette = self.palette();
+                let scope = Scope {
+                    palette: &palette,
+                    modes: &Modes::new(),
+                };
+                for (j, mut v) in palette.variables.iter().cloned().enumerate() {
+                    let mut changed = false;
+                    for value in v.values.values_mut() {
+                        if let Value::Color(c) = value
+                            && used(c)
+                        {
+                            *c = c.resolve(&scope);
+                            changed = true;
                         }
+                    }
+                    if changed {
+                        self.put("variables", Some(j), v)?;
                     }
                 }
                 self.doc.get_list("swatches").delete(i, 1).map_err(err)?;
+                vec![]
+            }
+            Command::SetCollection { id, name } => {
+                let (i, mut c) = self.find::<Collection>("collections", &id)?;
+                c.name = name;
+                self.put("collections", Some(i), c)?;
+                vec![]
+            }
+            Command::DeleteCollection { id } => {
+                let (i, _) = self.find::<Collection>("collections", &id)?;
+                for (_, v) in self.variables(&id).collect::<Vec<_>>() {
+                    self.delete_variable(&v.id)?;
+                }
+                self.forget_modes(|c, _| c == id)?;
+                self.doc.get_list("collections").delete(i, 1).map_err(err)?;
+                vec![]
+            }
+            Command::SetMode {
+                collection,
+                id,
+                name,
+            } => {
+                let (i, mut c) = self.find::<Collection>("collections", &collection)?;
+                let m = c
+                    .modes
+                    .iter_mut()
+                    .find(|m| m.id == id)
+                    .ok_or_else(|| format!("no mode {id}"))?;
+                m.name = name;
+                self.put("collections", Some(i), c)?;
+                vec![]
+            }
+            Command::DeleteMode { collection, id } => {
+                let (i, mut c) = self.find::<Collection>("collections", &collection)?;
+                if c.modes.len() == 1 {
+                    return Err("a collection keeps one mode".into());
+                }
+                c.modes.retain(|m| m.id != id);
+                self.put("collections", Some(i), c)?;
+                for (j, mut v) in self.variables(&collection).collect::<Vec<_>>() {
+                    v.values.remove(&id);
+                    self.put("variables", Some(j), v)?;
+                }
+                self.forget_modes(|c, m| c == collection && m == id)?;
+                vec![]
+            }
+            Command::DeleteVariable { id } => {
+                self.delete_variable(&id)?;
+                vec![]
+            }
+            Command::AddCollection { name } => {
+                let id = self.new_id();
+                let mode = format!("{id}.0");
+                self.put(
+                    "collections",
+                    None,
+                    Collection {
+                        id: id.clone(),
+                        name,
+                        modes: vec![Mode {
+                            id: mode.clone(),
+                            name: "Mode 1".into(),
+                        }],
+                    },
+                )?;
+                vec![id, mode]
+            }
+            Command::AddMode { collection, name } => {
+                let (i, mut c) = self.find::<Collection>("collections", &collection)?;
+                let id = self.new_id();
+                let first = c.modes[0].id.clone();
+                c.modes.push(Mode {
+                    id: id.clone(),
+                    name,
+                });
+                self.put("collections", Some(i), c)?;
+                for (i, mut v) in self.variables(&collection) {
+                    v.values.insert(id.clone(), v.values[&first].clone());
+                    self.put("variables", Some(i), v)?;
+                }
+                vec![id]
+            }
+            Command::AddVariable {
+                collection,
+                name,
+                value,
+            } => {
+                let (_, c) = self.find::<Collection>("collections", &collection)?;
+                check_value(&value)?;
+                if self.variables(&collection).any(|(_, v)| v.name == name) {
+                    return Err(format!("a variable named {name} exists"));
+                }
+                let id = self.new_id();
+                let values = c.modes.into_iter().map(|m| (m.id, value.clone()));
+                self.put(
+                    "variables",
+                    None,
+                    Variable {
+                        id: id.clone(),
+                        collection,
+                        name,
+                        values: values.collect(),
+                    },
+                )?;
+                vec![id]
+            }
+            Command::SetVariable {
+                id,
+                name,
+                mode,
+                value,
+            } => {
+                let (i, mut v) = self.find::<Variable>("variables", &id)?;
+                if let Some(name) = name {
+                    if self
+                        .variables(&v.collection)
+                        .any(|(_, o)| o.id != id && o.name == name)
+                    {
+                        return Err(format!("a variable named {name} exists"));
+                    }
+                    v.name = name;
+                }
+                if let Some(value) = value {
+                    let (_, c) = self.find::<Collection>("collections", &v.collection)?;
+                    let mode = mode.unwrap_or_else(|| c.modes[0].id.clone());
+                    let old = v
+                        .values
+                        .get(&mode)
+                        .ok_or_else(|| format!("no mode {mode}"))?;
+                    check_value(&value)?;
+                    if !old.same_kind(&value) {
+                        return Err("a variable keeps its type".into());
+                    }
+                    v.values.insert(mode, value);
+                }
+                self.put("variables", Some(i), v)?;
+                vec![]
+            }
+            Command::Bind { id, prop, variable } => {
+                let n = self.node(&id)?;
+                if !BINDABLE.contains(&prop.as_str()) {
+                    return Err(format!("{prop} cannot be bound"));
+                }
+                let mut bindings = self.bindings(n);
+                match variable {
+                    Some(v) => {
+                        let (_, var) = self.find::<Variable>("variables", &v)?;
+                        if !var.values.values().all(|v| matches!(v, Value::Number(_))) {
+                            return Err("only number variables bind to numbers".into());
+                        }
+                        bindings.insert(prop, v);
+                    }
+                    None => {
+                        bindings.remove(&prop);
+                    }
+                }
+                self.meta(n)
+                    .insert("bindings", loro(bindings)?)
+                    .map_err(err)?;
+                vec![]
+            }
+            Command::UseMode {
+                id,
+                collection,
+                mode,
+            } => {
+                let n = self.node(&id)?;
+                let (_, c) = self.find::<Collection>("collections", &collection)?;
+                let mut modes = self.modes(n);
+                match mode {
+                    Some(m) if c.modes.iter().any(|x| x.id == m) => modes.insert(collection, m),
+                    Some(m) => return Err(format!("no mode {m}")),
+                    None => modes.remove(&collection),
+                };
+                self.meta(n).insert("modes", loro(modes)?).map_err(err)?;
                 vec![]
             }
             Command::Copy { ids } => {
@@ -807,8 +1049,130 @@ impl Doc {
                 out
             }
         };
+        let palette = self.palette();
+        for p in self.tree.roots() {
+            if self.kind(p) == "page" {
+                self.settle(p, &Modes::new(), &palette)?;
+            }
+        }
         self.doc.commit();
         Ok(out)
+    }
+
+    /// Writes the values of bound variables into `id` and its subtree.
+    fn settle(&self, id: TreeID, inherited: &Modes, palette: &Palette) -> Res<()> {
+        let mut modes = inherited.clone();
+        modes.extend(self.modes(id));
+        let scope = Scope {
+            palette,
+            modes: &modes,
+        };
+        let m = self.meta(id);
+        let old = self.bounds(id);
+        let mut frame = old;
+        for (prop, var) in self.bindings(id) {
+            let Some(&Value::Number(v)) = scope.value(&var) else {
+                continue;
+            };
+            let v = match prop.as_str() {
+                "opacity" => (v / 100.0).clamp(0.0, 1.0),
+                _ => v.max(0.0) * MM,
+            };
+            match prop.as_str() {
+                "w" => frame[2] = v,
+                "h" => frame[3] = v,
+                _ if num(&m, &prop) != v => {
+                    m.insert(&prop, v).map_err(err)?;
+                }
+                _ => {}
+            }
+        }
+        if frame != old {
+            self.set_frame(id, frame)?;
+        }
+        for c in self.children(id) {
+            self.settle(c, &modes, palette)?;
+        }
+        Ok(())
+    }
+
+    /// Calls `f` for every node, including deleted ones, with its active modes.
+    fn each(&self, mut f: impl FnMut(TreeID, &Modes) -> Res<()>) -> Res<()> {
+        let mut stack: Vec<_> = self
+            .tree
+            .roots()
+            .into_iter()
+            .map(|r| (r, Modes::new()))
+            .collect();
+        while let Some((id, mut modes)) = stack.pop() {
+            modes.extend(self.modes(id));
+            f(id, &modes)?;
+            stack.extend(self.children(id).into_iter().map(|c| (c, modes.clone())));
+        }
+        Ok(())
+    }
+
+    /// Replaces the colours of every node that `f` maps to another colour.
+    fn recolor(&self, f: impl Fn(&Color, &Scope) -> Option<Color>) -> Res<()> {
+        let palette = self.palette();
+        self.each(|id, modes| {
+            let s = Scope {
+                palette: &palette,
+                modes,
+            };
+            let m = self.meta(id);
+            for key in ["fills", "strokes", "effects"] {
+                let Some(v) = value(&m, key) else { continue };
+                let mut v = serde_json::to_value(v).map_err(err)?;
+                if map_colors(&mut v, &|c| f(c, &s)) {
+                    m.insert(key, loro(v)?).map_err(err)?;
+                }
+            }
+            Ok(())
+        })
+    }
+
+    fn delete_variable(&self, id: &str) -> Res<()> {
+        let (i, _) = self.find::<Variable>("variables", id)?;
+        self.recolor(|c, s| {
+            matches!(c, Color::Variable { variable, .. } if variable == id).then(|| c.bind(s))
+        })?;
+        self.each(|n, _| {
+            let bindings = self.bindings(n);
+            self.unbind(n, |p| bindings[p] == id)
+        })?;
+        self.doc.get_list("variables").delete(i, 1).map_err(err)
+    }
+
+    /// Drops the modes chosen on any node for which `f(collection, mode)` holds.
+    fn forget_modes(&self, f: impl Fn(&str, &str) -> bool) -> Res<()> {
+        self.each(|n, _| {
+            let mut modes = self.modes(n);
+            let len = modes.len();
+            modes.retain(|c, m| !f(c, m));
+            if modes.len() < len {
+                self.meta(n).insert("modes", loro(modes)?).map_err(err)?;
+            }
+            Ok(())
+        })
+    }
+
+    fn bindings(&self, id: TreeID) -> BTreeMap<String, String> {
+        value(&self.meta(id), "bindings")
+            .and_then(|v| serde_json::from_value(serde_json::to_value(v).ok()?).ok())
+            .unwrap_or_default()
+    }
+
+    fn unbind(&self, id: TreeID, drop: impl Fn(&str) -> bool) -> Res<()> {
+        let mut bindings = self.bindings(id);
+        let n = bindings.len();
+        bindings.retain(|p, _| !drop(p));
+        if bindings.len() < n {
+            self.meta(id)
+                .insert("bindings", loro(bindings)?)
+                .map_err(err)?;
+        }
+        Ok(())
     }
 
     pub fn snapshot(&self) -> Snapshot {
@@ -819,12 +1183,18 @@ impl Doc {
             .filter(|&p| self.kind(p) == "page")
             .map(|p| {
                 let m = self.meta(p);
+                let modes = self.modes(p);
                 Page {
                     id: p.to_string(),
                     width: num(&m, "width"),
                     height: num(&m, "height"),
                     bleed: num(&m, "bleed"),
-                    children: self.children(p).into_iter().map(|c| self.snap(c)).collect(),
+                    children: self
+                        .children(p)
+                        .into_iter()
+                        .map(|c| self.snap(c, &modes))
+                        .collect(),
+                    modes,
                 }
             })
             .collect();
@@ -832,17 +1202,76 @@ impl Doc {
             pages,
             raster_ppi: num(&self.doc.get_map("document"), "rasterPpi"),
             color_mode: self.color_mode(),
-            swatches: self.swatches(),
+            palette: self.palette(),
             can_undo: self.undo.can_undo(),
             can_redo: self.undo.can_redo(),
         }
     }
 
     fn swatches(&self) -> Vec<Swatch> {
-        serde_json::to_value(self.doc.get_list("swatches").get_deep_value())
+        self.list("swatches")
+    }
+
+    fn palette(&self) -> Palette {
+        Palette {
+            swatches: self.swatches(),
+            collections: self.list("collections"),
+            variables: self.list("variables"),
+        }
+    }
+
+    fn variables(&self, collection: &str) -> impl Iterator<Item = (usize, Variable)> {
+        let all: Vec<Variable> = self.list("variables");
+        let collection = collection.to_string();
+        all.into_iter()
+            .enumerate()
+            .filter(move |(_, v)| v.collection == collection)
+    }
+
+    fn modes(&self, id: TreeID) -> Modes {
+        value(&self.meta(id), "modes")
+            .and_then(|v| serde_json::from_value(serde_json::to_value(v).ok()?).ok())
+            .unwrap_or_default()
+    }
+
+    fn new_id(&self) -> String {
+        format!("{}@{}", self.doc.len_ops(), self.doc.peer_id())
+    }
+
+    /// The entries of the list `name`, each stored as a map.
+    fn list<T: DeserializeOwned>(&self, name: &str) -> Vec<T> {
+        serde_json::to_value(self.doc.get_list(name).get_deep_value())
             .ok()
             .and_then(|v| serde_json::from_value(v).ok())
             .unwrap_or_default()
+    }
+
+    fn find<T: DeserializeOwned>(&self, name: &str, id: &str) -> Res<(usize, T)> {
+        let all: Vec<serde_json::Value> = self.list(name);
+        let i = all
+            .iter()
+            .position(|v| v["id"] == id)
+            .ok_or_else(|| format!("no {} {id}", name.trim_end_matches('s')))?;
+        Ok((i, serde_json::from_value(all[i].clone()).map_err(err)?))
+    }
+
+    /// Writes `v` over entry `i` of the list `name`, or appends it.
+    fn put(&self, name: &str, i: Option<usize>, v: impl Serialize) -> Res<()> {
+        let list = self.doc.get_list(name);
+        let m = match i {
+            Some(i) => list
+                .get(i)
+                .and_then(|v| v.into_container().ok())
+                .and_then(|c| c.into_map().ok())
+                .ok_or("no entry")?,
+            None => list
+                .insert_container(list.len(), LoroMap::new())
+                .map_err(err)?,
+        };
+        for (k, v) in loro(v)?.into_map().unwrap().iter() {
+            m.insert(k, v.clone()).map_err(err)?;
+        }
+        Ok(())
     }
 
     fn check_swatch(&self, swatch: &Swatch) -> Res<()> {
@@ -858,11 +1287,7 @@ impl Doc {
     }
 
     fn swatch(&self, id: &str) -> Res<(usize, Swatch)> {
-        self.swatches()
-            .into_iter()
-            .enumerate()
-            .find(|(_, s)| s.id == id)
-            .ok_or_else(|| format!("no swatch {id}"))
+        self.find("swatches", id)
     }
 
     fn color_mode(&self) -> ColorMode {
@@ -881,7 +1306,7 @@ impl Doc {
             height: p.height as f32,
             bleed: p.bleed as f32,
         }];
-        draw_all(&p.children, &mut ops, &snap.swatches);
+        draw_all(&p.children, &mut ops, &snap.palette);
         ops
     }
 
@@ -893,13 +1318,16 @@ impl Doc {
         path
     }
 
-    fn snap(&self, id: TreeID) -> Node {
+    fn snap(&self, id: TreeID, inherited: &Modes) -> Node {
         let m = self.meta(id);
         let v = serde_json::to_value(m.get_deep_value()).unwrap_or_default();
+        let modes = self.modes(id);
+        let mut active_modes = inherited.clone();
+        active_modes.extend(modes.clone());
         let children = || {
             self.children(id)
                 .into_iter()
-                .map(|c| self.snap(c))
+                .map(|c| self.snap(c, &active_modes))
                 .collect()
         };
         let kind = match self.kind(id).as_str() {
@@ -944,6 +1372,9 @@ impl Doc {
             y,
             w,
             h,
+            modes,
+            active_modes,
+            bindings: self.bindings(id),
             style,
             kind,
         }
@@ -1151,21 +1582,21 @@ impl Default for Doc {
 }
 
 /// Draws siblings; a mask masks the siblings above it.
-fn draw_all(nodes: &[Node], ops: &mut Vec<Op>, sw: &[Swatch]) {
+fn draw_all(nodes: &[Node], ops: &mut Vec<Op>, pal: &Palette) {
     for (i, n) in nodes.iter().enumerate() {
         if n.style.mask {
             ops.push(Op::BeginMask);
-            draw(n, ops, sw);
+            draw(n, ops, pal);
             ops.push(Op::EndMask);
-            draw_all(&nodes[i + 1..], ops, sw);
+            draw_all(&nodes[i + 1..], ops, pal);
             ops.push(Op::PopMask);
             return;
         }
-        draw(n, ops, sw);
+        draw(n, ops, pal);
     }
 }
 
-fn draw(n: &Node, ops: &mut Vec<Op>, sw: &[Swatch]) {
+fn draw(n: &Node, ops: &mut Vec<Op>, pal: &Palette) {
     let frame = [n.x, n.y, n.w, n.h].map(|v| v as f32);
     let item = |ops: &mut Vec<Op>, body: Vec<Op>| {
         if body.is_empty() {
@@ -1178,29 +1609,33 @@ fn draw(n: &Node, ops: &mut Vec<Op>, sw: &[Swatch]) {
         ops.extend(body);
         ops.push(Op::EndItem);
     };
-    let layer = n.style.layer(sw);
+    let s = &Scope {
+        palette: pal,
+        modes: &n.active_modes,
+    };
+    let layer = n.style.layer(s);
     let wrapped = layer.is_some();
     ops.extend(layer);
     match &n.kind {
-        Kind::Shape(s) => item(ops, n.style.shape(&outline(s, frame), frame, sw)),
+        Kind::Shape(shape) => item(ops, n.style.shape(&outline(shape, frame), frame, s)),
         Kind::Text { text, size } => item(
             ops,
-            paints(&n.style.fills, frame, sw)
+            paints(&n.style.fills, frame, s)
                 .flat_map(|p| layout(text, *size as f32, frame, &p))
                 .collect(),
         ),
-        Kind::Group { children } => draw_all(children, ops, sw),
+        Kind::Group { children } => draw_all(children, ops, pal),
         Kind::Frame { clip, children } => {
             let r = rect(frame[0], frame[1], frame[2], frame[3]);
-            item(ops, n.style.shape(&r, frame, sw));
+            item(ops, n.style.shape(&r, frame, s));
             if !*clip {
-                draw_all(children, ops, sw);
+                draw_all(children, ops, pal);
             } else if n.w > 0.0 && n.h > 0.0 {
                 ops.push(Op::PushClip {
                     path: r,
                     invert: false,
                 });
-                draw_all(children, ops, sw);
+                draw_all(children, ops, pal);
                 ops.push(Op::PopClip);
             }
         }
@@ -1275,21 +1710,29 @@ fn loro(v: impl Serialize) -> Res<LoroValue> {
     serde_json::from_value(serde_json::to_value(v).map_err(err)?).map_err(err)
 }
 
-/// Replaces colours that use swatch `id` in `v` by what the swatch stands for.
-fn detach(v: &mut serde_json::Value, id: &str, swatches: &[Swatch]) -> bool {
+/// Replaces the colours in `v` that `f` maps to another colour.
+fn map_colors(v: &mut serde_json::Value, f: &impl Fn(&Color) -> Option<Color>) -> bool {
     match v {
-        serde_json::Value::Object(o) if o.get("swatch").and_then(|s| s.as_str()) == Some(id) => {
-            let Ok(c) = serde_json::from_value::<Color>(v.clone()) else {
-                return false;
-            };
-            *v = serde_json::to_value(c.resolve(swatches)).unwrap();
+        serde_json::Value::Object(o)
+            if (o.contains_key("swatch") || o.contains_key("variable"))
+                && let Ok(c) = serde_json::from_value::<Color>(v.clone())
+                && let Some(c) = f(&c) =>
+        {
+            *v = serde_json::to_value(c).unwrap();
             true
         }
-        serde_json::Value::Object(o) => o
-            .values_mut()
-            .fold(false, |d, v| detach(v, id, swatches) | d),
-        serde_json::Value::Array(a) => a.iter_mut().fold(false, |d, v| detach(v, id, swatches) | d),
+        serde_json::Value::Object(o) => o.values_mut().fold(false, |d, v| map_colors(v, f) | d),
+        serde_json::Value::Array(a) => a.iter_mut().fold(false, |d, v| map_colors(v, f) | d),
         _ => false,
+    }
+}
+
+fn check_value(v: &Value) -> Res<()> {
+    match v {
+        Value::Color(Color::Variable { .. }) => Err("a variable cannot hold a variable".into()),
+        Value::Color(c) => c.check(),
+        Value::Number(n) if !n.is_finite() => Err("numbers must be finite".into()),
+        Value::Number(_) => Ok(()),
     }
 }
 
@@ -2303,14 +2746,20 @@ mod tests {
         };
         assert!(d.apply(rename("Blue")).is_err());
         d.apply(rename("Red")).unwrap();
-        let names: Vec<_> = d.snapshot().swatches.into_iter().map(|s| s.name).collect();
+        let names: Vec<_> = d
+            .snapshot()
+            .palette
+            .swatches
+            .into_iter()
+            .map(|s| s.name)
+            .collect();
         assert_eq!(names, ["Red", "Blue"]);
     }
 
     #[test]
     fn swatches_are_added_renamed_and_deleted_with_undo() {
         let mut d = Doc::new();
-        assert_eq!(d.snapshot().swatches, []);
+        assert_eq!(d.snapshot().palette.swatches, []);
         let id = swatch(&mut d, "Red", Color::Rgb(0xff0000ff), false).unwrap();
         d.apply(Command::SetSwatch {
             id: id.clone(),
@@ -2320,7 +2769,7 @@ mod tests {
         })
         .unwrap();
         assert_eq!(
-            d.snapshot().swatches,
+            d.snapshot().palette.swatches,
             [Swatch {
                 id: id.clone(),
                 name: "Signal".into(),
@@ -2329,9 +2778,9 @@ mod tests {
             }]
         );
         d.apply(Command::DeleteSwatch { id: id.clone() }).unwrap();
-        assert_eq!(d.snapshot().swatches, []);
+        assert_eq!(d.snapshot().palette.swatches, []);
         d.apply(Command::Undo).unwrap();
-        assert_eq!(d.snapshot().swatches[0].id, id);
+        assert_eq!(d.snapshot().palette.swatches[0].id, id);
     }
 
     #[test]
@@ -2430,5 +2879,276 @@ mod tests {
         assert!(set(&mut d, fill(bound("x", -0.5))).is_err());
         assert!(swatch(&mut d, "X", process(0.0, 0.0, 0.0, 2.0), false).is_err());
         assert!(set(&mut d, fill(process(0.0, 1.0, 0.0, 0.0))).is_ok());
+    }
+
+    fn collection(d: &mut Doc, name: &str) -> (String, String) {
+        let ids = d
+            .apply(Command::AddCollection { name: name.into() })
+            .unwrap();
+        (ids[0].clone(), ids[1].clone())
+    }
+
+    fn variable(d: &mut Doc, collection: &str, name: &str, value: Value) -> Res<String> {
+        d.apply(Command::AddVariable {
+            collection: collection.into(),
+            name: name.into(),
+            value,
+        })
+        .map(|mut ids| ids.remove(0))
+    }
+
+    fn set_value(d: &mut Doc, id: &str, mode: &str, value: Value) -> Res<Vec<String>> {
+        d.apply(Command::SetVariable {
+            id: id.into(),
+            name: None,
+            mode: Some(mode.into()),
+            value: Some(value),
+        })
+    }
+
+    fn use_mode(d: &mut Doc, id: &str, collection: &str, mode: Option<&str>) {
+        d.apply(Command::UseMode {
+            id: id.into(),
+            collection: collection.into(),
+            mode: mode.map(String::from),
+        })
+        .unwrap();
+    }
+
+    fn var(id: &str) -> Color {
+        Color::Variable {
+            variable: id.into(),
+            alpha: 1.0,
+        }
+    }
+
+    #[test]
+    fn a_fill_bound_to_a_colour_variable_takes_the_mode_of_its_frame_or_page() {
+        let (mut d, p) = empty();
+        let (c, light) = collection(&mut d, "Theme");
+        let dark = d
+            .apply(Command::AddMode {
+                collection: c.clone(),
+                name: "Dark".into(),
+            })
+            .unwrap()
+            .remove(0);
+        let bg = variable(&mut d, &c, "Bg", Value::Color(Color::Rgb(0xff0000ff))).unwrap();
+        set_value(&mut d, &bg, &dark, Value::Color(Color::Rgb(0x0000ffff))).unwrap();
+        let f = create(&mut d, &p, NewKind::Frame, [0.0, 0.0, 10.0, 10.0]);
+        let r = create(&mut d, &f, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
+        set(
+            &mut d,
+            &r,
+            Props {
+                fills: Some(vec![Fill::solid(var(&bg))]),
+                ..Props::default()
+            },
+        );
+        let red = [1.0, 0.0, 0.0, 1.0];
+        let blue = [0.0, 0.0, 1.0, 1.0];
+        assert_eq!(solid_colors(&d)[1], red);
+        use_mode(&mut d, &p, &c, Some(&dark));
+        assert_eq!(solid_colors(&d)[1], blue);
+        use_mode(&mut d, &f, &c, Some(&light));
+        assert_eq!(solid_colors(&d)[1], red);
+        let s = d.snapshot();
+        assert_eq!(s.pages[0].modes[&c], dark);
+        let fr = &s.pages[0].children[0];
+        assert_eq!(fr.modes[&c], light);
+        assert_eq!(children(fr)[0].style.fills, [Fill::solid(var(&bg))]);
+        use_mode(&mut d, &f, &c, None);
+        assert_eq!(solid_colors(&d)[1], blue);
+    }
+
+    fn bind(d: &mut Doc, id: &str, prop: &str, variable: Option<&str>) -> Res<Vec<String>> {
+        d.apply(Command::Bind {
+            id: id.into(),
+            prop: prop.into(),
+            variable: variable.map(String::from),
+        })
+    }
+
+    #[test]
+    fn bound_numbers_follow_their_variable_in_mm_and_percent_until_set_directly() {
+        let (mut d, p) = empty();
+        let (c, _) = collection(&mut d, "Sizes");
+        let big = d
+            .apply(Command::AddMode {
+                collection: c.clone(),
+                name: "Big".into(),
+            })
+            .unwrap()
+            .remove(0);
+        let size = variable(&mut d, &c, "Size", Value::Number(10.0)).unwrap();
+        let half = variable(&mut d, &c, "Half", Value::Number(50.0)).unwrap();
+        set_value(&mut d, &size, &big, Value::Number(20.0)).unwrap();
+        let f = create(&mut d, &p, NewKind::Frame, [0.0, 0.0, 100.0, 100.0]);
+        let r = create(&mut d, &f, NewKind::Rect, [5.0, 5.0, 1.0, 1.0]);
+        for prop in ["w", "radius", "strokeWeight"] {
+            bind(&mut d, &r, prop, Some(&size)).unwrap();
+        }
+        bind(&mut d, &r, "opacity", Some(&half)).unwrap();
+        let rect = |d: &Doc| {
+            let pg = page(d);
+            let n = &children(&pg.children[0])[0];
+            let radius = match n.kind {
+                Kind::Shape(Shape::Rect { radius }) => radius,
+                _ => -1.0,
+            };
+            (n.w, radius, n.style.stroke_weight, n.style.opacity)
+        };
+        let mm = |v: f64| v * MM;
+        assert_eq!(rect(&d), (mm(10.0), mm(10.0) as f32, mm(10.0) as f32, 0.5));
+        assert_eq!(page(&d).children[0].bindings, Default::default());
+        assert_eq!(children(&page(&d).children[0])[0].bindings["w"], size);
+        use_mode(&mut d, &f, &c, Some(&big));
+        assert_eq!(rect(&d).0, mm(20.0));
+        d.apply(Command::Undo).unwrap();
+        assert_eq!(rect(&d).0, mm(10.0));
+        set(
+            &mut d,
+            &r,
+            Props {
+                radius: Some(1.0),
+                ..Props::default()
+            },
+        );
+        d.apply(Command::SetFrame {
+            id: r.clone(),
+            x: 5.0,
+            y: 5.0,
+            w: 3.0,
+            h: 1.0,
+        })
+        .unwrap();
+        set_value(&mut d, &size, &big, Value::Number(30.0)).unwrap();
+        use_mode(&mut d, &f, &c, Some(&big));
+        assert_eq!(rect(&d), (3.0, 1.0, mm(30.0) as f32, 0.5));
+        let pg = page(&d);
+        let bindings = &children(&pg.children[0])[0].bindings;
+        assert_eq!(
+            bindings.keys().collect::<Vec<_>>(),
+            ["opacity", "strokeWeight"]
+        );
+        bind(&mut d, &r, "strokeWeight", None).unwrap();
+        assert!(bind(&mut d, &r, "name", Some(&size)).is_err());
+        let color = variable(&mut d, &c, "Ink", Value::Color(Color::Rgb(0))).unwrap();
+        assert!(bind(&mut d, &r, "w", Some(&color)).is_err());
+    }
+
+    #[test]
+    fn collections_modes_and_variables_are_renamed_and_deleted_and_users_keep_their_values() {
+        let (mut d, p) = empty();
+        let (c, first) = collection(&mut d, "Theme");
+        let dark = d
+            .apply(Command::AddMode {
+                collection: c.clone(),
+                name: "Dark".into(),
+            })
+            .unwrap()
+            .remove(0);
+        let spot = swatch(&mut d, "HKS 57", process(0.0, 1.0, 0.0, 0.0), true).unwrap();
+        let ink = variable(&mut d, &c, "Ink", Value::Color(Color::Rgb(0xff0000ff))).unwrap();
+        let size = variable(&mut d, &c, "Size", Value::Number(2.0)).unwrap();
+        assert!(variable(&mut d, &c, "Ink", Value::Number(1.0)).is_err());
+        assert!(set_value(&mut d, &ink, &dark, Value::Number(1.0)).is_err());
+        assert!(set_value(&mut d, &ink, &dark, Value::Color(var(&ink))).is_err());
+        set_value(&mut d, &ink, &dark, Value::Color(bound(&spot, 0.5))).unwrap();
+        d.apply(Command::SetCollection {
+            id: c.clone(),
+            name: "Brand".into(),
+        })
+        .unwrap();
+        d.apply(Command::SetMode {
+            collection: c.clone(),
+            id: dark.clone(),
+            name: "Night".into(),
+        })
+        .unwrap();
+        let s = d.snapshot();
+        assert_eq!(s.palette.collections[0].name, "Brand");
+        assert_eq!(s.palette.collections[0].modes[1].name, "Night");
+
+        let r = create(&mut d, &p, NewKind::Rect, [0.0; 4]);
+        set(
+            &mut d,
+            &r,
+            Props {
+                fills: Some(vec![Fill::solid(Color::Variable {
+                    variable: ink.clone(),
+                    alpha: 0.5,
+                })]),
+                ..Props::default()
+            },
+        );
+        bind(&mut d, &r, "radius", Some(&size)).unwrap();
+        use_mode(&mut d, &r, &c, Some(&dark));
+        d.apply(Command::DeleteVariable { id: ink.clone() })
+            .unwrap();
+        d.apply(Command::DeleteVariable { id: size.clone() })
+            .unwrap();
+        let n = &page(&d).children[0];
+        assert_eq!(
+            n.style.fills,
+            [Fill::solid(Color::Swatch {
+                swatch: spot.clone(),
+                tint: 0.5,
+                alpha: 0.5
+            })]
+        );
+        assert!(n.bindings.is_empty());
+        assert_eq!(
+            n.kind,
+            Kind::Shape(Shape::Rect {
+                radius: 2.0 * MM as f32
+            })
+        );
+
+        let ink = variable(&mut d, &c, "Ink", Value::Color(bound(&spot, 1.0))).unwrap();
+        d.apply(Command::DeleteSwatch { id: spot }).unwrap();
+        assert_eq!(
+            d.snapshot().palette.variables[0].values[&first],
+            Value::Color(process(0.0, 1.0, 0.0, 0.0))
+        );
+        use_mode(&mut d, &p, &c, Some(&first));
+        assert!(
+            d.apply(Command::DeleteMode {
+                collection: c.clone(),
+                id: first.clone(),
+            })
+            .is_ok()
+        );
+        assert_eq!(page(&d).modes, Modes::new());
+        assert_eq!(
+            d.snapshot().palette.variables[0]
+                .values
+                .keys()
+                .collect::<Vec<_>>(),
+            [&dark]
+        );
+        assert!(
+            d.apply(Command::DeleteMode {
+                collection: c.clone(),
+                id: dark,
+            })
+            .is_err()
+        );
+        set(
+            &mut d,
+            &r,
+            Props {
+                fills: Some(vec![Fill::solid(var(&ink))]),
+                ..Props::default()
+            },
+        );
+        d.apply(Command::DeleteCollection { id: c }).unwrap();
+        let s = d.snapshot();
+        assert_eq!(s.pages[0].children[0].modes, Modes::new());
+        assert!(s.palette.collections.is_empty() && s.palette.variables.is_empty());
+        assert_eq!(
+            s.pages[0].children[0].style.fills,
+            [Fill::solid(process(0.0, 1.0, 0.0, 0.0))]
+        );
     }
 }

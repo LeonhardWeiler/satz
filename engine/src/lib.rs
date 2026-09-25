@@ -7,6 +7,7 @@ mod pdf;
 mod raster;
 mod style;
 mod text;
+mod variable;
 
 pub use display_list::{Op, encode};
 pub use doc::{Command, Doc, Snapshot};
@@ -92,7 +93,14 @@ pub fn neutral(name: &str, mode: JsValue) -> Result<JsValue, JsError> {
 #[wasm_bindgen]
 pub fn resolve(color: JsValue, swatches: JsValue) -> Result<JsValue, JsError> {
     let color: color::Color = serde_wasm_bindgen::from_value(color)?;
-    let swatches: Vec<color::Swatch> = serde_wasm_bindgen::from_value(swatches)?;
+    let palette = variable::Palette {
+        swatches: serde_wasm_bindgen::from_value(swatches)?,
+        ..Default::default()
+    };
+    let scope = variable::Scope {
+        palette: &palette,
+        modes: &Default::default(),
+    };
     let ser = serde_wasm_bindgen::Serializer::json_compatible();
-    Ok(color.resolve(&swatches).serialize(&ser)?)
+    Ok(color.resolve(&scope).serialize(&ser)?)
 }
