@@ -70,11 +70,6 @@ font helper, i18n.
 - Drop shadow, blur, masks. PDF rasterizes shadow and blur at the document
   setting (default 300 ppi); everything else stays vector.
 
-### 8. Color
-- Document color mode RGB or CMYK; color styles = swatches incl. spot colors.
-- `moxcms` preview with PSO Coated v3.
-- PDF: DeviceCMYK in CMYK documents, Separation for spot colors.
-
 ### 9. Variables and constraints
 - Figma variables (color, number, modes) bound to properties.
 - Constraints for children on container resize.

@@ -423,6 +423,7 @@ mod tests {
                     offset: [4.0, 0.0],
                     blur: 0.0,
                     color: [1.0, 0.0, 0.0, 1.0],
+                    ink: crate::color::Ink::Rgb,
                 }],
             },
             Op::FillPath {

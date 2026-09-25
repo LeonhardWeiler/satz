@@ -44,6 +44,17 @@ pub enum Ink {
     },
 }
 
+impl Ink {
+    /// The process colour this prints as; `rgba` is its screen colour.
+    pub fn cmyk(&self, rgba: &[f32; 4]) -> [f32; 4] {
+        match self {
+            Ink::Rgb => to_cmyk([rgba[0], rgba[1], rgba[2]]),
+            Ink::Cmyk(c) => *c,
+            Ink::Spot { cmyk, tint, .. } => cmyk.map(|v| v * tint),
+        }
+    }
+}
+
 /// A spot colour's `color` is its CMYK alternate.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Swatch {

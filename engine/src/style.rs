@@ -259,6 +259,7 @@ impl Style {
                 offset: [e.x, e.y],
                 blur: e.radius / 2.0,
                 color: e.color.rgba(swatches),
+                ink: e.color.ink(swatches),
             })
             .collect();
         (self.opacity < 1.0 || self.blend != Blend::Normal || blur > 0.0 || !shadows.is_empty())

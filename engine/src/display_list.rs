@@ -93,6 +93,8 @@ pub struct Shadow {
     pub offset: [f32; 2],
     pub blur: f32,
     pub color: [f32; 4],
+    #[serde(skip)]
+    pub ink: Ink,
 }
 
 pub fn rect(x: f32, y: f32, w: f32, h: f32) -> Vec<f32> {
@@ -345,6 +347,7 @@ mod tests {
                     offset: [1.0, 2.0],
                     blur: 3.0,
                     color: [0.0, 0.0, 0.0, 0.25],
+                    ink: Ink::Rgb,
                 }],
             },
             Op::BeginMask,

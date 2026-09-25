@@ -1,5 +1,5 @@
-use crate::color::{Ink, to_cmyk};
-use crate::display_list::{CLOSE, CUBIC, LINE, MOVE, Op, Paint, Stop as ListStop, close};
+use crate::color::{ColorMode, Ink};
+use crate::display_list::{CLOSE, CUBIC, LINE, MOVE, Op, Paint, Shadow, Stop as ListStop, close};
 use crate::raster::{blur, extent, rasterize, tint};
 use crate::text::FONT;
 use krilla::Document;
@@ -7,7 +7,7 @@ use krilla::blend::BlendMode;
 use krilla::color::separation::{SeparationColorant, SeparationSpace};
 use krilla::color::{cmyk, rgb, separation};
 use krilla::geom::{Path, PathBuilder, Point, Rect, Size, Transform};
-use krilla::image::Image;
+use krilla::image::{BitsPerComponent, CustomImage, Image, ImageColorspace};
 use krilla::mask::{Mask, MaskType};
 use krilla::num::NormalizedF32;
 use krilla::page::PageSettings;
@@ -23,8 +23,8 @@ const MARK_OFFSET: f32 = 3.0 * MM;
 const MARK_LENGTH: f32 = 5.0 * MM;
 const MARK_WIDTH: f32 = 0.25;
 
-/// Shadows and blurs are rasterized at `ppi`; everything else stays vector.
-pub fn pdf(pages: &[Vec<Op>], ppi: f32) -> Vec<u8> {
+/// Shadows and blurs are rasterized at `ppi` in the colour mode `mode`; everything else stays vector.
+pub fn pdf(pages: &[Vec<Op>], ppi: f32, mode: ColorMode) -> Vec<u8> {
     let font = Font::new(FONT.into(), 0).unwrap();
     let mut doc = Document::new();
     for ops in pages {
@@ -56,6 +56,7 @@ pub fn pdf(pages: &[Vec<Op>], ppi: f32) -> Vec<u8> {
         let env = Env {
             font: &font,
             ppi,
+            cmyk: mode == ColorMode::Cmyk,
             page: [-bleed, -bleed, width + 2.0 * bleed, height + 2.0 * bleed],
         };
         draw(&mut s, &env, &ops[1..]);
@@ -90,6 +91,7 @@ const BLENDS: [BlendMode; 16] = [
 struct Env<'a> {
     font: &'a Font,
     ppi: f32,
+    cmyk: bool,
     page: [f32; 4],
 }
 
@@ -197,7 +199,7 @@ fn draw(s: &mut Surface, env: &Env, ops: &[Op]) {
                 let end = close(ops, i);
                 let inner = &ops[i + 1..end];
                 for sh in shadows {
-                    raster(s, env, inner, sh.offset, sh.blur, Some(sh.color));
+                    raster(s, env, inner, sh.offset, sh.blur, Some(sh));
                 }
                 if *sigma > 0.0 {
                     raster(s, env, inner, [0.0; 2], *sigma, None);
@@ -227,14 +229,14 @@ fn draw(s: &mut Surface, env: &Env, ops: &[Op]) {
 }
 
 /// Draws `ops` as an image, blurred by `sigma` pt, moved by `offset` and,
-/// for shadows, tinted with `color`.
+/// for shadows, tinted with the shadow's colour. CMYK documents get CMYK images.
 fn raster(
     s: &mut Surface,
     env: &Env,
     ops: &[Op],
     offset: [f32; 2],
     sigma: f32,
-    color: Option<[f32; 4]>,
+    shadow: Option<&Shadow>,
 ) {
     let Some([x, y, w, h]) = extent(ops) else {
         return;
@@ -248,23 +250,115 @@ fn raster(
     if l >= r || t >= b {
         return;
     }
-    let Some(mut pixmap) = rasterize(ops, [l - offset[0], t - offset[1], r - l, b - t], env.ppi)
-    else {
-        return;
+    let plane = |ops: &[Op], tint_with: Option<[f32; 4]>| {
+        let mut px = rasterize(ops, [l - offset[0], t - offset[1], r - l, b - t], env.ppi)?;
+        if let Some(c) = tint_with {
+            tint(&mut px, c);
+        }
+        blur(&mut px, sigma * env.ppi / 72.0);
+        Some(px)
     };
-    if let Some(c) = color {
-        tint(&mut pixmap, c);
-    }
-    blur(&mut pixmap, sigma * env.ppi / 72.0);
+    let image = if env.cmyk {
+        let plate = |pick: fn([f32; 4]) -> [f32; 3]| {
+            let to = |rgba: &[f32; 4], ink: &Ink| {
+                let [a, b, c] = pick(ink.cmyk(rgba));
+                [a, b, c, rgba[3]]
+            };
+            plane(&recolor(ops, &to), shadow.map(|s| to(&s.color, &s.ink)))
+        };
+        let (Some(cmy), Some(k)) = (plate(|c| [c[0], c[1], c[2]]), plate(|c| [c[3], 0.0, 0.0]))
+        else {
+            return;
+        };
+        let size = (cmy.width(), cmy.height());
+        let (cmy, k) = (cmy.take_demultiplied(), k.take_demultiplied());
+        let image = CmykImage {
+            color: cmy
+                .chunks(4)
+                .zip(k.chunks(4))
+                .flat_map(|(a, b)| [a[0], a[1], a[2], b[0]])
+                .collect(),
+            alpha: cmy.chunks(4).map(|a| a[3]).collect(),
+            size,
+        };
+        Image::from_custom(image, true).unwrap()
+    } else {
+        let Some(px) = plane(ops, shadow.map(|s| s.color)) else {
+            return;
+        };
+        let (w, h) = (px.width(), px.height());
+        Image::from_rgba8(px.take_demultiplied(), w, h)
+    };
     let scale = 72.0 / env.ppi;
-    let (pw, ph) = (pixmap.width(), pixmap.height());
-    let image = Image::from_rgba8(pixmap.take_demultiplied(), pw, ph);
+    let (pw, ph) = image.size();
     s.push_transform(&Transform::from_translate(l, t));
     s.draw_image(
         image,
         Size::from_wh(pw as f32 * scale, ph as f32 * scale).unwrap(),
     );
     s.pop();
+}
+
+/// `ops` with every colour replaced by `f(colour, ink)`.
+fn recolor(ops: &[Op], f: &impl Fn(&[f32; 4], &Ink) -> [f32; 4]) -> Vec<Op> {
+    let stops = |stops: &mut Vec<ListStop>| {
+        for s in stops {
+            s.color = f(&s.color, &s.ink);
+        }
+    };
+    ops.iter()
+        .map(|op| {
+            let mut op = op.clone();
+            match &mut op {
+                Op::FillPath { paint, .. }
+                | Op::StrokePath { paint, .. }
+                | Op::GlyphRun { paint, .. } => match paint {
+                    Paint::Solid { color, ink } => *color = f(color, ink),
+                    Paint::Linear { stops: s, .. } | Paint::Radial { stops: s, .. } => stops(s),
+                },
+                Op::PushLayer { shadows, .. } => {
+                    for s in shadows {
+                        s.color = f(&s.color, &s.ink);
+                    }
+                }
+                _ => {}
+            }
+            op
+        })
+        .collect()
+}
+
+#[derive(Hash, Clone)]
+struct CmykImage {
+    color: Vec<u8>,
+    alpha: Vec<u8>,
+    size: (u32, u32),
+}
+
+impl CustomImage for CmykImage {
+    fn color_channel(&self) -> &[u8] {
+        &self.color
+    }
+
+    fn alpha_channel(&self) -> Option<&[u8]> {
+        Some(&self.alpha)
+    }
+
+    fn bits_per_component(&self) -> BitsPerComponent {
+        BitsPerComponent::Eight
+    }
+
+    fn size(&self) -> (u32, u32) {
+        self.size
+    }
+
+    fn icc_profile(&self) -> Option<&[u8]> {
+        None
+    }
+
+    fn color_space(&self) -> ImageColorspace {
+        ImageColorspace::Cmyk
+    }
 }
 
 fn crop_marks(s: &mut Surface, w: f32, h: f32) {
@@ -348,9 +442,7 @@ fn inks(stops: &[ListStop]) -> Vec<Ink> {
         .iter()
         .map(|s| match &s.ink {
             ink if shared => ink.clone(),
-            Ink::Rgb => Ink::Cmyk(to_cmyk([s.color[0], s.color[1], s.color[2]])),
-            Ink::Cmyk(c) => Ink::Cmyk(*c),
-            Ink::Spot { cmyk, tint, .. } => Ink::Cmyk(cmyk.map(|v| v * tint)),
+            ink => Ink::Cmyk(ink.cmyk(&s.color)),
         })
         .collect()
 }
@@ -445,12 +537,12 @@ fn append(pb: &mut PathBuilder, cmds: &[f32]) {
 #[cfg(test)]
 mod tests {
     use crate::Doc;
-    use crate::color::Ink;
+    use crate::color::{ColorMode, Ink};
     use crate::display_list::{Op, Paint, Shadow, Stop, rect};
 
     fn default_pdf() -> String {
         let d = Doc::new();
-        String::from_utf8_lossy(&super::pdf(&[d.render(0)], 300.0)).into_owned()
+        String::from_utf8_lossy(&super::pdf(&[d.render(0)], 300.0, ColorMode::Rgb)).into_owned()
     }
 
     fn page_box(pdf: &str, name: &str) -> Vec<f32> {
@@ -483,7 +575,8 @@ mod tests {
     }
 
     fn image_width(ops: &[Op], ppi: f32) -> Option<u32> {
-        let pdf = String::from_utf8_lossy(&super::pdf(&[ops.to_vec()], ppi)).into_owned();
+        let pdf =
+            String::from_utf8_lossy(&super::pdf(&[ops.to_vec()], ppi, ColorMode::Rgb)).into_owned();
         let at = pdf
             .find("/Subtype /Image")
             .or_else(|| pdf.find("/Subtype/Image"))?;
@@ -512,6 +605,7 @@ mod tests {
                     offset: [0.0, 0.0],
                     blur: 1.0,
                     color: [0.0, 0.0, 0.0, 0.5],
+                    ink: Ink::Rgb,
                 }],
             },
             Op::FillPath {
@@ -538,7 +632,7 @@ mod tests {
             paint,
             path: rect(10.0, 10.0, 10.0, 10.0),
         }));
-        String::from_utf8_lossy(&super::pdf(&[ops], 72.0)).into_owned()
+        String::from_utf8_lossy(&super::pdf(&[ops], 72.0, ColorMode::Rgb)).into_owned()
     }
 
     #[test]
@@ -569,5 +663,52 @@ mod tests {
             ],
         }]);
         assert!(pdf.contains("/ColorSpace/DeviceCMYK"), "{pdf}");
+    }
+
+    fn shadowed() -> Vec<Op> {
+        let black = Ink::Cmyk([0.0, 0.0, 0.0, 1.0]);
+        vec![
+            Op::Page {
+                width: 100.0,
+                height: 100.0,
+                bleed: 0.0,
+            },
+            Op::PushLayer {
+                opacity: 1.0,
+                blend: 0,
+                blur: 0.0,
+                shadows: vec![Shadow {
+                    offset: [2.0, 2.0],
+                    blur: 1.0,
+                    color: [0.0, 0.0, 0.0, 0.5],
+                    ink: black.clone(),
+                }],
+            },
+            Op::FillPath {
+                paint: Paint::Solid {
+                    color: [0.0, 0.0, 0.0, 1.0],
+                    ink: black,
+                },
+                path: rect(10.0, 10.0, 12.0, 12.0),
+            },
+            Op::PopLayer,
+        ]
+    }
+
+    fn image_dict(mode: ColorMode) -> String {
+        let pdf = String::from_utf8_lossy(&super::pdf(&[shadowed()], 72.0, mode)).into_owned();
+        pdf.match_indices("/Subtype/Image")
+            .map(|(at, _)| &pdf[pdf[..at].rfind("<<").unwrap()..at + pdf[at..].find(">>").unwrap()])
+            .find(|d| d.contains("/SMask"))
+            .unwrap()
+            .to_string()
+    }
+
+    #[test]
+    fn shadows_are_rasterized_in_the_documents_colour_mode() {
+        let cmyk = image_dict(ColorMode::Cmyk);
+        assert!(cmyk.contains("/ColorSpace/DeviceCMYK"), "{cmyk}");
+        let rgb = image_dict(ColorMode::Rgb);
+        assert!(rgb.contains("/ColorSpace/DeviceRGB"), "{rgb}");
     }
 }

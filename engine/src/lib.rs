@@ -55,7 +55,7 @@ impl Engine {
     pub fn pdf(&self) -> Vec<u8> {
         let snap = self.doc.snapshot();
         let pages: Vec<_> = (0..snap.pages.len()).map(|i| self.doc.render(i)).collect();
-        pdf::pdf(&pages, snap.raster_ppi as f32)
+        pdf::pdf(&pages, snap.raster_ppi as f32, snap.color_mode)
     }
 
     pub fn font(&self, _id: u32) -> Uint8Array {
