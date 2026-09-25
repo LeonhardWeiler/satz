@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<title>Satz – Code- und Design-Review</title>
+<title>Satz – Code- und Struktur-Review</title>
 <style>
   :root { color-scheme: dark; --bg:#1e1e1e; --panel:#2c2c2c; --line:#3a3a3a; --fg:#e6e6e6; --dim:#9a9a9a; --ok:#4cc38a; --warn:#f5a623; --bad:#f2555a; --acc:#0d99ff; }
   * { box-sizing: border-box; }
@@ -14,7 +14,7 @@
   p, li { color: var(--fg); }
   .dim { color: var(--dim); }
   code { font: 13px ui-monospace, monospace; background: #00000055; padding: 1px 5px; border-radius: 4px; }
-  .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap: 12px; margin: 20px 0; }
+  .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(170px,1fr)); gap: 12px; margin: 20px 0; }
   .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
   .tile b { display:block; font-size: 24px; font-variant-numeric: tabular-nums; }
   .card { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: 8px; padding: 16px 18px; margin: 12px 0; }
@@ -26,6 +26,7 @@
   .tag.high { background:#f2555a33; color: var(--bad); }
   .tag.mid { background:#f5a62333; color: var(--warn); }
   .tag.low { background:#9a9a9a33; color: var(--dim); }
+  .tag.new { background:#0d99ff33; color: var(--acc); }
   table { width:100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
   th, td { text-align:left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
   th { color: var(--dim); font-weight: 500; }
@@ -35,115 +36,131 @@
 </head>
 <body>
 <main>
-<h1>Satz – Code- und Design-Review</h1>
-<p class="dim">Stand <code>79a329b</code> (main), 25.09.2026 · 82 Commits · Rust-Engine → WASM, React-UI, CanvasKit, krilla-PDF</p>
+<h1>Satz – Code- und Struktur-Review</h1>
+<p class="dim">Stand <code>d3b9d25</code> (main), 26.09.2026 · 110 Commits · Rust-Engine → WASM, React-UI, CanvasKit, krilla-PDF · Performance steht in <code>performance-review.html</code>, UI/UX in <code>ui-ux-review.html</code>, offene Kleinbefunde in <code>project-health-report.html</code></p>
 
 <div class="grid">
   <div class="tile"><span class="dim">Gesamturteil</span><b>gut, B+</b></div>
-  <div class="tile"><span class="dim">Rust-Tests</span><b>142 grün</b></div>
-  <div class="tile"><span class="dim">E2E-Tests (Playwright)</span><b>61 in 13 Specs</b></div>
-  <div class="tile"><span class="dim">Größte Datei</span><b>doc.rs 6981 Z.</b></div>
+  <div class="tile"><span class="dim">Rust-Tests</span><b>176 grün</b></div>
+  <div class="tile"><span class="dim">E2E (Playwright)</span><b>84 in 16 Specs</b></div>
+  <div class="tile"><span class="dim">vitest</span><b>18 grün</b></div>
+  <div class="tile"><span class="dim">Größte Datei</span><b>doc.rs 7666 Z.</b></div>
 </div>
 
-<p>Das Projekt ist deutlich über dem Niveau typischer Portfolio-Projekte. Die Architektur ist klar geschnitten: Die Engine besitzt das Dokument, und die UI schickt nur Kommandos. Canvas und PDF lesen dieselbe Display List. Die Checks laufen lokal und in CI identisch über Nix. Die Schwächen sind vor allem strukturell. Die Engine rechnet bei jeder Anfrage das ganze Dokument neu. <code>doc.rs</code> ist ein Gott-Modul. Das Speicherformat ist stringly typed. Keines davon ist heute ein Bug, aber jedes wird mit wachsendem Umfang (Milestone 1: A2-Poster plus 8-seitige Broschüre) teurer.</p>
+<p>Seit dem letzten Stand (<code>79a329b</code>) sind Autosave, <code>.satz</code>-Dateien und eigene Fonts dazugekommen. Die Flows werden jetzt einmal pro Kommando gesetzt, und die Canvas-Mathematik liegt in <code>handles.ts</code> mit Unit-Tests. Die Architektur trägt weiterhin: Die Engine besitzt das Dokument, und die UI schickt nur Kommandos. Das größte Risiko hat sich verschoben. Es liegt jetzt weniger in der Performance als in der <b>Atomarität der Kommandos</b>: Ein Kommando, das mit einem Fehler abbricht, hinterlässt halbe Änderungen im Dokument. Das ist nachgewiesen, siehe Befund 1. Daneben wächst <code>doc.rs</code> weiter, und der Doppelseiten-Umbau erzeugt Folgefehler.</p>
 
 <h2>Geprüft</h2>
 <table>
   <tr><th>Check</th><th>Ergebnis</th></tr>
-  <tr><td><code>cargo clippy -D warnings</code></td><td>sauber</td></tr>
-  <tr><td><code>cargo test</code></td><td>142 bestanden, 0 fehlgeschlagen</td></tr>
-  <tr><td><code>tsc --noEmit</code>, <code>eslint</code></td><td>sauber</td></tr>
-  <tr><td><code>vitest</code></td><td>10 bestanden</td></tr>
-  <tr><td>WASM-Build, <code>vite build</code>, Playwright-E2E</td><td class="dim">nicht ausgeführt (läuft in CI per <code>./check</code>)</td></tr>
-  <tr><td>UI im Browser angesehen</td><td class="dim">nein; Bewertung der UI nur aus dem Code</td></tr>
-  <tr><td>Performance gemessen</td><td class="dim">nein; die Aussagen unten stammen aus dem Code, nicht aus einer Messung</td></tr>
+  <tr><td><code>./check</code> komplett: fmt, clippy <code>-D warnings</code>, <code>cargo test</code>, WASM-Build, <code>tsc</code>, eslint, vitest, <code>vite build</code></td><td>sauber; 176 Rust-Tests, 18 vitest</td></tr>
+  <tr><td>Playwright-E2E</td><td>84 bestanden. Port 4173 war von einem alten <code>vite preview</code> belegt, deshalb liefen sie mit <code>reuseExistingServer</code> gegen den frisch gebauten <code>dist</code>.</td></tr>
+  <tr><td>Verdachtsfälle als temporäre Rust-Tests</td><td>8 Fälle geprüft, 6 bestätigt (Befunde 1, 3, 5, 9); die Tests sind wieder entfernt</td></tr>
+  <tr><td>Gelesen</td><td>alle Engine-Module, <code>lib.rs</code>, alle Dateien in <code>web/src</code> außer den Panels ColorPicker, Variables und Swatches im Detail (dort nur Aufrufe der Engine)</td></tr>
+  <tr><td>UI im Browser, Firefox</td><td class="dim">nein</td></tr>
 </table>
 
 <h2>1. Was stark ist</h2>
 
-<div class="card good"><h3>Klare Grenze Engine ↔ UI</h3>
-<p>Alle Mutationen laufen über ein einziges <code>Command</code>-Enum (<code>engine/src/doc.rs:30</code>), und Lesen läuft über <code>Snapshot</code>. Die UI hält keinen eigenen Dokumentzustand, <code>Editor.apply</code> holt nach jedem Kommando einen frischen Snapshot. Undo, CRDT (Loro) und Validierung sitzen damit an genau einer Stelle.</p></div>
+<div class="card good"><h3>Eine Grenze, eine Display List</h3>
+<p>Alle Mutationen laufen über das <code>Command</code>-Enum, Lesen über <code>Snapshot</code>. Canvas und PDF lesen dieselbe Display List, und <code>pdf.spec.ts</code> vergleicht beide Pixel für Pixel. Undo, Loro und Validierung sitzen damit an einer Stelle. Genau deshalb lässt sich Befund 1 auch an einer Stelle beheben.</p></div>
 
-<div class="card good"><h3>Eine Display List für Canvas und PDF</h3>
-<p>Die Engine erzeugt eine binäre Display List, die der TS-Renderer zero-copy liest und pro Item als <code>SkPicture</code> mit Hash cached. Der PDF-Writer nutzt dieselben Ops. Dass Canvas und PDF übereinstimmen, prüft ein eigener E2E-Test (<code>pdf.spec.ts</code>). Das ist bei DTP genau die Eigenschaft, die zählt.</p></div>
+<div class="card good"><h3>Tests, die Verhalten beschreiben</h3>
+<p>Die Testnamen lesen sich wie eine Spezifikation, etwa <code>deleting_the_page_with_the_head_of_the_booklet_story_hands_it_to_the_next_frame</code>. Die 8-seitige Broschüre als Fixture prüft Seiten, Master, Threads und Modes zusammen. Jeder Feature-Commit bringt Tests mit, und <code>./check</code> ist lokal und in CI dasselbe Gate.</p></div>
 
-<div class="card good"><h3>Toolchain und Disziplin</h3>
-<p><code>flake.nix</code> pinnt alles, auch Playwright-Browser und mupdf. <code>./check</code> ist das einzige Gate und läuft in CI 1:1 genauso, samt Deploy auf GitHub Pages. Die Commit-Historie ist konsistent (<code>area: what</code>), und jeder Feature-Commit bringt Tests mit. <code>clippy -D warnings</code>, festgepinnte <code>wasm-bindgen</code>-Versionen und <code>--frozen-lockfile</code> machen den Build reproduzierbar.</p></div>
-
-<div class="card good"><h3>Anspruchsvolle Eigenleistung</h3>
-<p>Eigener Knuth-Plass-Umbruch, Textverkettung über Rahmen und Seiten, Master-Doppelseiten, Figma-Auto-Layout, CMYK mit eigenem FOGRA51-Profil, Masken und Effekte. Das ist fachlich tief und nicht nur eine Bibliothek mit UI drumherum. Die Abhängigkeiten sind knapp und bewusst gewählt (harfrust, hypher, krilla, moxcms, tiny-skia).</p></div>
-
-<div class="card good"><h3>Lesbarer, knapper Stil</h3>
-<p>Doc-Kommentare beschreiben Verhalten statt Implementierung, zum Beispiel <code>/// Removes a master; its pages keep their own layers.</code>. Die Frontend-Module sind klein, und die reinen Funktionen (<code>select.ts</code>, <code>pen.ts</code>, <code>insertion</code>) sind unit-getestet. Es gibt 3 <code>unsafe</code>, alle für die dokumentierten Zero-copy-Views.</p></div>
+<div class="card good"><h3>Reine Funktionen, wo es zählt</h3>
+<p><code>layout::arrange</code>, <code>linebreak</code>, <code>geom</code>, <code>handles.ts</code>, <code>select.ts</code> und <code>pen.ts</code> sind reine Funktionen mit eigenen Tests. Die Abhängigkeiten sind knapp, und die Toolchain ist über <code>flake.nix</code> vollständig gepinnt.</p></div>
 
 <h2>2. Befunde, nach Schwere</h2>
 
-<div class="card high"><h3><span class="tag high">hoch</span>Jede Anfrage baut das ganze Dokument neu</h3>
-<p><code>render</code>, <code>print</code>, <code>hit</code> und <code>master_hit</code> (<code>doc.rs:2815–2970</code>) rufen jeweils <code>self.snapshot()</code> auf. Dieser Aufruf läuft über alle Seiten und Master, setzt über <code>flows()</code> alle Stories neu und macht für jedes Property einen <code>serde_json</code>-Roundtrip. Die Folgen:</p>
+<div class="card high"><h3><span class="tag high">hoch</span><span class="tag new">neu</span>1. Ein fehlgeschlagenes Kommando hinterlässt halbe Änderungen</h3>
+<p><code>Doc::apply</code> (<code>doc.rs:928–1979</code>) schreibt in Loro und prüft teilweise erst danach. Bricht ein Arm mit <code>Err</code> ab, wird <code>finish</code> nicht aufgerufen. Die schon geschriebenen Ops bleiben in der offenen Loro-Transaktion und werden mit dem <b>nächsten</b> Kommando committet, auch in dessen Undo-Schritt. Die UI zeigt sie sofort, weil <code>Editor.change</code> auch im Fehlerfall einen neuen Snapshot holt. Mit temporären Tests nachgewiesen:</p>
 <ul>
-  <li>Jede Mausbewegung über dem Canvas löst über <code>engine.hit</code> einen vollständigen Neuaufbau aus, bei Doppelseiten pro Seite.</li>
-  <li><code>Engine::pdf</code> (<code>lib.rs:118</code>) ruft pro Seite <code>print</code> auf, und das macht wieder einen <code>snapshot</code>. Der Aufwand wächst also quadratisch mit der Seitenzahl.</li>
-  <li>Jeder Tastendruck beim Tippen: <code>apply</code>, dann ein vollständiger Snapshot, der über <code>serde_wasm_bindgen</code> als JS-Objekt über die Grenze geht.</li>
+  <li><code>Set { opacity: 2 }</code> auf einer Ebene mit gebundener Deckkraft: Der Fehler „opacity must be in 0..=1“ kommt, aber die Bindung ist schon entfernt (<code>unbind</code> in <code>doc.rs:1206</code> läuft vor <code>props.check()</code> in <code>set</code>).</li>
+  <li><code>Create</code> mit negativer Breite: Der Fehler kommt, der Knoten existiert trotzdem. Das nächste <code>Undo</code> entfernt ihn zusammen mit dem nächsten Kommando.</li>
+  <li><code>SetDocument { facingPages: true, rasterPpi: 5000 }</code>: Der Fehler kommt, die Master sind aber schon geteilt und die Doppelseiten an.</li>
 </ul>
-<p>Bei 1 bis 8 Seiten ist das vermutlich nicht spürbar, nicht gemessen. Genau das Zielszenario (Broschüre mit verketteten Texten) ist aber am stärksten betroffen.</p>
-<p class="fix">Den Snapshot in <code>Doc</code> cachen und nur in <code>apply</code> invalidieren, weil alle Mutationen dort durchlaufen. Das ist eine Stelle, etwa 10 Zeilen, und behebt alle 4 Aufrufer. In <code>pdf()</code> den Snapshot einmal durchreichen.</p></div>
+<p>Die UI schickt diese Kombinationen heute selten, weil <code>Field</code> Eingaben vorfiltert. Die Fehlerklasse betrifft aber jeden künftigen Arm. Bei Kollaboration würde der halbe Zustand auch an andere Peers gehen.</p>
+<p class="fix">Jeder Arm prüft vollständig, bevor er schreibt; in den 3 Fällen oben heißt das: <code>check</code> vor <code>unbind</code>, Größe vor <code>tree.create</code>, ppi vor <code>split_masters</code>. Dazu gehört ein einziger Test, der eine Liste ungültiger Kommandos durchläuft und nach jedem <code>Err</code> <code>doc.get_pending_txn_len() == 0</code> und einen unveränderten Snapshot verlangt. Das fängt die ganze Klasse ab, auch für künftige Kommandos.</p></div>
 
-<div class="card high"><h3><span class="tag high">hoch</span><code>doc.rs</code> ist ein Gott-Modul</h3>
-<p>6981 Zeilen, davon etwa 3770 Code und 3200 Tests. <code>Doc::apply</code> ist ein einziges <code>match</code> über etwa 1130 Zeilen (<code>doc.rs:859–1990</code>). Seiten, Master, Doppelseiten, Textverkettung, Formatierung, Swatches, Variablen, Clipboard, Hit-Testing und Zeichnen liegen in einem <code>impl</code>. Die übrigen Engine-Module sind sauber geschnitten, aber alle 17 Feature-Commits der letzten Tage landen in derselben Datei. Die Datei ist schwer zu reviewen, und Merge-Konflikte sind vorprogrammiert.</p>
-<p class="fix">Keine neuen Schichten, nur Dateien: <code>doc/pages.rs</code>, <code>doc/text.rs</code>, <code>doc/palette.rs</code>, <code>doc/clipboard.rs</code>, <code>doc/draw.rs</code> mit je einem eigenen <code>impl Doc</code>. Die <code>apply</code>-Arme rufen dort je eine Methode auf. Tests wandern mit ihrem Bereich.</p></div>
+<div class="card high"><h3><span class="tag high">hoch</span>2. <code>doc.rs</code> ist ein Gott-Modul und wächst weiter</h3>
+<p>7666 Zeilen (vorher 6981): 3918 Code, 3750 Tests. <code>Doc::apply</code> ist ein <code>match</code> über etwa 1050 Zeilen mit 52 Armen. Seiten, Master, Doppelseiten, Threads, Formatierung, Textstile, Swatches, Variablen, Clipboard, Fonts, Hit-Testing, Snapshot und Zeichnen liegen in einem <code>impl</code>. Fast jeder Feature-Commit seit dem letzten Review ändert diese Datei. Befund 1 ist eine direkte Folge: Bei 52 Armen in einer Funktion sieht man nicht, welcher vor dem Schreiben prüft.</p>
+<p class="fix">Nur Dateien, keine neuen Schichten: <code>doc/pages.rs</code> (Seiten, Master, Doppelseiten), <code>doc/story.rs</code> (Threads, Format, Textstile), <code>doc/palette.rs</code> (Swatches, Variablen, Modes), <code>doc/clipboard.rs</code>, <code>doc/draw.rs</code> (Snapshot, Render, Hit). Jede Datei bekommt ein eigenes <code>impl Doc</code>, die <code>apply</code>-Arme rufen dort je eine Methode auf, und die Tests wandern mit. Das ist mechanisch und am billigsten vor Bildern (§13) und Preflight (§15).</p></div>
 
-<div class="card mid"><h3><span class="tag mid">mittel</span>Speicher-Schema ist stringly typed</h3>
-<p>Die Rust-Typen (<code>Layout</code>, <code>Style</code>, <code>Kind</code>) existieren, aber der Zugriff auf Loro umgeht sie. <code>kind()</code> liefert einen <code>String</code>, der mit <code>== "text"</code> verglichen wird. Keys wie <code>"overrideOf"</code>, <code>"leftOf"</code>, <code>"detached"</code> und <code>"textStyles"</code> stehen als verstreute Literale im Code. <code>layout()</code> und <code>modes()</code> deserialisieren bei jedem Aufruf den ganzen Meta-Map über <code>serde_json</code>. Ein Tippfehler in einem Key ist kein Compile-Fehler, sondern ein stiller Default (<code>unwrap_or_default</code>).</p>
-<p class="fix">Ein <code>enum NodeKind</code> für <code>kind()</code> und Key-Konstanten an einer Stelle, so wie es mit <code>STORY</code> und <code>BINDABLE</code> schon gemacht ist. Das ist billig und fängt eine ganze Fehlerklasse ab.</p></div>
+<div class="card mid"><h3><span class="tag mid">mittel</span><span class="tag new">neu</span>3. Nach dem Löschen eines Masters löscht „Reset to master“ die Ebene</h3>
+<p><code>DeleteMaster</code> (<code>doc.rs:1837</code>) und <code>UseMaster</code> (<code>doc.rs:1848</code>) lassen <code>detached</code> auf der Seite und <code>overrideOf</code> auf den überschriebenen Kopien stehen. Die UI zeigt dann weiter „Reset to master“ und „Reset overrides“ (<code>Properties.tsx:140, 166</code>). Ein Klick entfernt die Kopie, und kein Master zeigt sie wieder. Nachgewiesen: Master mit einer Ebene, überschreiben, Master löschen, zurücksetzen – die Seite ist leer. Das widerspricht dem eigenen Doc-Kommentar „its pages keep their own layers“.</p>
+<p class="fix">Beim Löschen oder Wechseln des Masters <code>detached</code> der betroffenen Seiten und <code>overrideOf</code> ihrer Kopien entfernen, mit Test. Grundsätzlicher: Ob eine Ebene ein Override ist, sollte aus dem aktuellen Master abgeleitet werden, statt an 2 Stellen gespeichert zu sein, die auseinanderlaufen können.</p></div>
 
-<div class="card mid"><h3><span class="tag mid">mittel</span>Doppeltes Schema Rust ↔ TypeScript</h3>
-<p><code>web/src/model.ts</code> spiegelt <code>Command</code>, <code>Snapshot</code>, <code>Node</code>, <code>Style</code> und <code>Layout</code> von Hand. Jede neue Command-Variante muss an 2 Stellen gleich geschrieben werden, inklusive <code>camelCase</code>-Rename und <code>flatten</code>. Die E2E-Tests fangen Abweichungen nur dort, wo sie etwas abdecken.</p>
-<p class="fix">Die TS-Typen aus Rust generieren, mit <code>tsify</code>, das zu <code>wasm-bindgen</code> passt. Dann liegt die Entscheidung an einer Stelle. Vor dem Einbau die Kompatibilität mit der gepinnten Version 0.2.127 prüfen.</p></div>
-
-<div class="card mid"><h3><span class="tag mid">mittel</span>„Facing pages“ schreibt das Dokument um</h3>
-<p>Das Umschalten von Doppelseiten kopiert über <code>split_masters</code> und <code>join_masters</code> (<code>doc.rs:2717ff.</code>) Master-Ebenen, markiert sie mit <code>leftOf</code> und verlinkt die Overrides um. Eine Layout-Einstellung wird damit zu einer strukturellen Mutation. Das macht Undo, Round-Trips (an, aus, an) und später CRDT-Merges riskant. Schalten 2 Peers gleichzeitig um, entstehen doppelte Kopien. Einmal an und wieder aus ist verlustfrei, wenn die Tests stimmen. Nachträglich verschobene Ebenen (<code>x + w &gt; 0</code> entscheidet) werden aber anders zugeordnet.</p>
-<p class="fix">Wenn möglich einen Master immer als Doppelseite speichern (linke plus rechte Hälfte) und bei „facing off“ nur die rechte Hälfte zeigen. Dann ist der Schalter reine Darstellung. Das ist eine Designentscheidung und sollte vor Kollaboration fallen.</p></div>
-
-<div class="card mid"><h3><span class="tag mid">mittel</span><code>Canvas.tsx</code>: ein <code>useEffect</code> mit etwa 650 Zeilen</h3>
-<p>Der gesamte Interaktionszustand (<code>drag</code>, <code>hover</code>, <code>view</code>, Ports, Caret-Blinken) lebt als Closure-Variablen in einem Effekt (<code>Canvas.tsx:63–718</code>). Das funktioniert und vermeidet React-Re-Renders, was hier richtig ist. Der Code lässt sich aber nur per E2E testen, und jede neue Geste vergrößert denselben Block.</p>
-<p class="fix">Die Gesten-Mathematik (Resize mit Constraints, Snap, Port-Geometrie, Draw) als reine Funktionen neben <code>select.ts</code> und <code>pen.ts</code> herausziehen und per vitest testen. Den Event-Code im Effekt dünn halten.</p></div>
-
-<div class="card mid"><h3><span class="tag mid">mittel</span>Keine Persistenz</h3>
-<p>Ein Reload verwirft alles. Laut <code>AGENT/TODO.md</code> §14 ist Autosave in IndexedDB geplant. Für eine öffentliche Pages-Demo, die Recruiter ausprobieren, ist das die sichtbarste Lücke. Mit Loro ist es billig: <code>export</code> nach jedem <code>apply</code> gedrosselt, <code>import</code> beim Start.</p></div>
-
-<div class="card low"><h3><span class="tag low">niedrig</span>Panics beenden die Engine</h3>
-<p>23 <code>unwrap()</code> in Nicht-Test-Code von <code>doc.rs</code>, etwa <code>meta()</code> in <code>doc.rs:3441</code>. Ein Panic im WASM hinterlässt eine unbrauchbare Instanz, und ohne <code>console_error_panic_hook</code> gibt es keine lesbare Meldung. Die Fehler sind als <code>Result&lt;T, String&gt;</code> modelliert, für eine WASM-API ist das ausreichend.</p>
-<p class="fix">Die <code>unwrap()</code> auf Pfaden, die Nutzereingaben erreichen, in <code>?</code> umwandeln. Den Panic-Hook einbauen, damit Fehler in E2E-Logs sichtbar werden.</p></div>
-
-<div class="card low"><h3><span class="tag low">niedrig</span>Kleinigkeiten</h3>
+<div class="card mid"><h3><span class="tag mid">mittel</span><span class="tag new">neu</span>4. Fehlerbehandlung und Undo-Gruppen sind über 5 Dateien verteilt</h3>
+<p><code>Editor.apply</code> wirft bei jedem Engine-Fehler. Ob ein Aufrufer das fängt, entscheidet jeder selbst: <code>Field</code> fängt die Fehler seiner <code>onCommit</code> und 2 Stellen in <code>Canvas.tsx</code> fangen die von <code>thread</code>, alle schreiben nur <code>console.warn</code>. Tastatur, Canvas-Gesten, Menüs und Buttons fangen nicht. Die Folgen:</p>
 <ul>
-  <li><code>Engine::font(_id)</code> ignoriert die ID; bis Fonts (§12) kommen, ist das ein Platzhalter.</li>
-  <li><code>Doc::new</code> baut das Demo-Dokument auf etwa 230 Zeilen im Konstruktor. Das gehört in eine eigene <code>fn sample()</code>, damit Tests ein leeres Dokument bekommen können.</li>
-  <li><code>index.css</code> hat 1246 Zeilen in einer Datei. Das ist akzeptabel, aber Panel-Styles ließen sich neben ihre Komponenten legen.</li>
-  <li><code>Editor.lookup</code> baut für jede Suche den Index aller Seiten neu, das ist O(Dokument) pro Aufruf.</li>
+  <li>Wirft ein Kommando in <code>onPointerUp</code> (<code>Canvas.tsx</code>), bleiben <code>drag</code> und die offene Undo-Gruppe stehen. Die nächste Mausbewegung zieht weiter, und die folgenden Kommandos landen im selben Undo-Schritt.</li>
+  <li>Die Pfeiltasten-Verschiebung in <code>keys.ts:61–65</code> öffnet eine Gruppe ohne <code>try/finally</code>. <code>Properties.tsx</code> macht es richtig, <code>keys.ts</code> und <code>Canvas.tsx</code> nicht.</li>
+  <li>Die Engine kennt nur eine Gruppe, <code>BeginUndoGroup</code> schließt die offene. Der Zustand „Gruppe offen“ steckt aber in 3 UI-Flags (<code>typing</code>, <code>pen</code>, die Drag-Gesten). Ändert man beim Tippen einen Wert im Properties-Panel, schließt das die Tipp-Gruppe in der Engine. <code>typing</code> bleibt in der UI aber <code>true</code>, und die folgenden Tasten sind einzelne Undo-Schritte.</li>
+  <li>Abgelehnte Eingaben sind unsichtbar, zum Beispiel ein doppelter Master-Name beim Umbenennen. Den Thread-Fall führt der Health-Report schon als UX-8.</li>
+</ul>
+<p class="fix">Die Entscheidung an eine Stelle legen: <code>Editor.apply</code> fängt Engine-Fehler, meldet sie über die vorhandene Statuszeile und gibt <code>[]</code> zurück. Dazu kommt <code>editor.batch(fn)</code> mit <code>try/finally</code> für jede Undo-Gruppe, auch für Gesten. Sie zählt die Verschachtelung, damit eine innere Gruppe die äußere nicht beendet.</p></div>
+
+<div class="card mid"><h3><span class="tag mid">mittel</span><span class="tag new">neu</span>5. Abgeleitete Größen liegen im Dokument, und ein neuer Font ist ein Undo-Schritt</h3>
+<p>Die Hug-Größen von Text und Auto-Layout werden in <code>finish</code> berechnet und als <code>w</code>/<code>h</code> in Loro geschrieben. Sie hängen aber von lokal vorhandenen Fonts ab, und die Font-Liste ist globaler Zustand außerhalb des Dokuments (<code>thread_local FONTS</code>, <code>text.rs:27</code>). Nachgewiesen: <code>Doc::add_font</code> (<code>doc.rs:900</code>) setzt den Text neu und committet das als normalen Undo-Schritt. Nach Ctrl+Z hat ein Auto-Width-Text wieder die Breite des Ersatzfonts (1586 statt 2176 pt), obwohl er im neuen Font gesetzt ist, und das bleibt so bis zum nächsten Kommando. Außerdem markiert es das Dokument als geändert. Mit Kollaboration würden 2 Peers mit verschiedenen Fonts dieselben Größen gegeneinander überschreiben.</p>
+<p class="fix">Kurzfristig: das Neusetzen nach <code>add_font</code> nicht in die Undo-Historie aufnehmen (Loro-Commit mit Origin, den der <code>UndoManager</code> ausschließt). Vor Kollaboration entscheiden, ob Hug-Größen überhaupt gespeichert oder nur im Snapshot berechnet werden.</p></div>
+
+<div class="card mid"><h3><span class="tag mid">mittel</span>6. Das Speicher-Schema ist stringly typed</h3>
+<p>Unverändert gegenüber dem letzten Stand. <code>kind()</code> (<code>doc.rs:3572</code>) liefert einen <code>String</code>, der an 25 Stellen gegen Literale wie <code>"text"</code> verglichen wird. Keys wie <code>"overrideOf"</code>, <code>"leftOf"</code>, <code>"detached"</code> und <code>"next"</code> stehen verstreut im Code. <code>layout()</code>, <code>modes()</code>, <code>bindings()</code> und <code>constraints()</code> laufen über einen <code>serde_json</code>-Roundtrip mit <code>unwrap_or_default</code>. Ein Tippfehler ergibt also still einen Default, keinen Compile-Fehler.</p>
+<p class="fix">Ein <code>enum NodeKind</code> für <code>kind()</code> und Key-Konstanten an einer Stelle, wie es <code>STORY</code> und <code>BINDABLE</code> schon tun. Das passt gut zur Aufteilung aus Befund 2.</p></div>
+
+<div class="card mid"><h3><span class="tag mid">mittel</span>7. Doppelte Verträge Rust ↔ TypeScript</h3>
+<p><code>model.ts</code> spiegelt <code>Command</code>, <code>Snapshot</code>, <code>Node</code>, <code>Style</code> und <code>Layout</code> von Hand, inklusive <code>camelCase</code> und <code>flatten</code>. Dazu kommen der Binärvertrag der Display List (<code>display_list.rs</code> ↔ <code>displayList.ts</code>) und die Blend-Reihenfolge, die 4-mal gleich sein muss: im <code>Blend</code>-Enum und in <code>BLENDS</code> in <code>pdf.rs:74</code>, <code>raster.rs:13</code> und <code>renderer.ts:53</code>. Der Display-List-Vertrag ist über die Fixture getestet, <code>model.ts</code> nur so weit, wie E2E-Tests reichen.</p>
+<p class="fix">Die TS-Typen mit <code>tsify</code> aus Rust generieren (vorher die Kompatibilität mit <code>wasm-bindgen 0.2.127</code> prüfen). Die Blend-Tabellen in Rust aus einem <code>impl Blend</code> ableiten statt aus parallelen Arrays.</p></div>
+
+<div class="card mid"><h3><span class="tag mid">mittel</span>8. „Facing pages“ baut das Dokument um</h3>
+<p><code>split_masters</code> und <code>join_masters</code> (<code>doc.rs:2825–2899</code>) kopieren Master-Ebenen, markieren sie mit <code>leftOf</code> und verlinken Overrides und Threads um. Seit dem letzten Review gab es 3 Fix-Commits genau hier (<code>52bfb67</code>, <code>d0a5c93</code>, <code>f181f5e</code>). Die Zuordnung beim Zurückschalten hängt weiter an der Heuristik <code>x + w &gt; 0</code>. Bei Kollaboration erzeugen 2 gleichzeitige Umschaltungen doppelte Kopien.</p>
+<p class="fix">Einen Master immer als Doppelseite speichern und bei „facing off“ nur die rechte Hälfte zeigen, sodass der Schalter reine Darstellung ist. Das ist eine Designentscheidung und sollte vor Kollaboration fallen.</p></div>
+
+<div class="card mid"><h3><span class="tag mid">mittel</span><span class="tag new">neu</span>9. Einheiten werden an 28 Stellen umgerechnet</h3>
+<p><code>value={x / MM}</code> und <code>onCommit={(v) =&gt; … v * MM}</code> stehen 28-mal in <code>Properties.tsx</code>, <code>Text.tsx</code>, <code>AutoLayout.tsx</code> und <code>Paints.tsx</code>. <code>Field</code> bekommt schon <code>unit="mm"</code>, rechnet aber nicht selbst. Laut TODO sollen Einheiten umschaltbar werden. Dann müsste man alle 28 Stellen ändern, und eine vergessene Stelle rechnet falsch.</p>
+<p class="fix"><code>Field</code> bekommt Werte in pt und rechnet mit <code>unit</code> selbst um. Dann ist die Einheit eine Entscheidung an einer Stelle, und die Aufrufer werden kürzer.</p></div>
+
+<div class="card low"><h3><span class="tag low">niedrig</span><span class="tag new">neu</span>10. Die Validierung lässt NaN durch</h3>
+<p><code>Props::check</code> (<code>doc.rs:339</code>) prüft Größen und Farben, aber nicht <code>gap</code>, Effekt-Offsets, Gradient-<code>transform</code>, Stop-Positionen und Pfadpunkte. <code>resize</code> prüft <code>w</code> und <code>h</code>, aber nicht <code>x</code> und <code>y</code>. Nachgewiesen: <code>SetFrame { x: NaN }</code> und <code>Set { gap: NaN }</code> werden angenommen und gespeichert. Die UI filtert heute über <code>Number.isFinite</code> in <code>Field</code>. Die Canvas-Gesten rechnen aber selbst, und eine Division durch eine Breite von 0 würde NaN ins Dokument schreiben, wo es Hit-Tests und das Layout still bricht.</p>
+<p class="fix">Eine Prüfung „alle Zahlen endlich“ für jedes Kommando an der Grenze in <code>apply</code>, zusammen mit Befund 1.</p></div>
+
+<div class="card low"><h3><span class="tag low">niedrig</span>11. Ein Panic beendet die Engine</h3>
+<p>59 <code>unwrap</code>/<code>expect</code> in Nicht-Test-Code, davon 24 in <code>doc.rs</code> und 12 in <code>pdf.rs</code>. Ohne <code>console_error_panic_hook</code> bleibt nach einem Panic eine unbrauchbare Instanz ohne lesbare Meldung zurück. Ein konkreter Pfad mit Nutzereingabe: <code>typeface()</code> (<code>text.rs:33</code>) prüft von einem hochgeladenen Font nur <code>cmap</code> und <code>name</code>, <code>rows()</code> ruft danach <code>head().unwrap()</code> und <code>hhea().unwrap()</code> auf (<code>text.rs:531</code>). Ein defekter Font ohne <code>hhea</code> würde beim ersten Setzen die Engine beenden. Das ist nicht ausprobiert, nur aus dem Code gelesen.</p>
+<p class="fix"><code>typeface()</code> prüft alle Tabellen, die <code>rows()</code> braucht. Den Panic-Hook einbauen, damit Fehler in E2E-Logs sichtbar werden.</p></div>
+
+<div class="card low"><h3><span class="tag low">niedrig</span>12. Zwischenstände werden teils gecacht, teils nicht</h3>
+<p>Die Flows sind jetzt gecacht (<code>Doc::flows</code>, <code>doc.rs:601</code>) und werden an 2 Stellen invalidiert (<code>apply</code>, <code>add_font</code>). <code>render</code>, <code>hit</code> und <code>master_hit</code> bauen dagegen für jeden Aufruf einen vollständigen Snapshot. <code>prev_of</code> (<code>doc.rs:2164</code>) hat 2 Pfade, je nachdem, ob der Cache gerade gefüllt ist: im Cache aus der Kette ab dem Kopf, ohne Cache per Baumsuche. Zahlen und Messungen stehen in <code>performance-review.html</code> §2.</p>
+<p class="fix">Einen Cache für alles Abgeleitete (Flows und Snapshot), geleert an genau einer Stelle. Dann gibt es auch in <code>prev_of</code> nur noch einen Pfad.</p></div>
+
+<div class="card low"><h3><span class="tag low">niedrig</span><span class="tag new">neu</span>13. Views auf WASM-Speicher überleben Engine-Aufrufe</h3>
+<p><code>decode</code> liefert <code>Float32Array</code>-Views direkt auf den WASM-Speicher. <code>Renderer.draw</code> (<code>renderer.ts:112</code>) zeichnet daraus und ruft dabei <code>engine.font()</code> auf (<code>renderer.ts:384</code>). Heute alloziert das nichts in WASM, also geht es gut. Sobald ein solcher Aufruf Speicher wachsen lässt, zum Beispiel für Bilder aus §13, werden die Views ungültig, und es wird still falsch gezeichnet. <code>Canvas.tsx:189</code> kopiert das Text-Overlay deshalb schon mit <code>.slice()</code>.</p>
+<p class="fix">Auch in <code>Renderer.draw</code> die Liste mit <code>.slice()</code> kopieren, bevor sie decodiert wird. Das ist eine Zeile, und der Vertrag „ungültig nach dem nächsten Aufruf“ hängt dann nicht mehr an der Reihenfolge der Aufrufe.</p></div>
+
+<div class="card low"><h3><span class="tag low">niedrig</span>14. Kleinigkeiten</h3>
+<ul>
+  <li>Pfadbefehle werden an 5 Stellen dekodiert: <code>display_list::shift</code>, <code>geom::map</code>, <code>geom::flatten</code>, <code>pdf::append</code>, <code>raster::build</code>. Ein gemeinsamer Iterator über (Verb, Punkte) in <code>geom</code> ersetzt 4 davon.</li>
+  <li><code>Doc::new</code> baut das Beispieldokument auf 220 Zeilen im Konstruktor. Jeder Test startet damit und löscht es über <code>empty()</code> wieder. Eine eigene <code>fn sample()</code> und ein leeres <code>Doc::new</code> machen die Tests einfacher und schneller; <code>cargo test</code> braucht heute 23 s.</li>
+  <li><code>Editor.lookup</code> (<code>editor.ts:170</code>) baut für jede Suche den Index aller Seiten neu. <code>follow()</code> ruft es nach jedem Tastendruck auf, der den Frame wechselt.</li>
 </ul></div>
 
-<h2>3. Design-Qualität (Produkt, UX)</h2>
-<p>Die Produktentscheidungen sind kohärent: Figma-UX (UI3, Tastenkürzel, Auto-Layout, Variablen mit Modes) für Bedienung und InDesign-Konzepte (Master, Doppelseiten, Textverkettung mit In- und Out-Port, Übersatz) für Druck. Das ist eine glaubwürdige Positionierung und keine Kopie eines einzelnen Vorbilds. Ein paar Details zeigen Sorgfalt:</p>
-<ul>
-  <li>Klick erzeugt Auto-Width-Text, Ziehen Auto-Height-Text, wie in Figma.</li>
-  <li>Leerer Text wird beim Verlassen gelöscht.</li>
-  <li>Tippen ist ein Undo-Schritt, bis der Caret springt.</li>
-  <li>Eine Geste ist ein Undo-Schritt.</li>
-  <li>Jeder Spread merkt sich seinen eigenen View.</li>
-</ul>
-<p>Barrierefreiheit: Die Panels verwenden ARIA-Attribute (Variables, ColorPicker, Pages, Toolbar). Es gibt einen WebGL2-Fallback mit <code>role="alert"</code>. Der Canvas selbst ist nicht per Tastatur navigierbar, wie bei allen Design-Tools.</p>
-<p class="dim">Die UI habe ich nicht im Browser angesehen. Visuelle Qualität, Abstände und Kontraste sind deshalb nicht bewertet.</p>
+<h2>3. Nicht mehr verfolgt</h2>
+<table>
+  <tr><th>Früherer Vorschlag</th><th>Warum nicht mehr</th></tr>
+  <tr><td>Den 650-Zeilen-Effekt in <code>Canvas.tsx</code> zerlegen</td><td>Die Mathematik liegt jetzt in <code>handles.ts</code> mit Tests. Was im Effekt bleibt, ist Event-Verdrahtung mit Closure-Zustand. Ein weiteres Zerlegen brächte Indirektion ohne Testgewinn. Die verbleibende Schwäche ist die Fehlerbehandlung, siehe Befund 4.</td></tr>
+  <tr><td><code>index.css</code> (1277 Zeilen) auf Komponenten verteilen</td><td>Eine flache CSS-Datei mit Klassen pro Panel ist bei 16 Komponenten gut auffindbar. Aufteilen verschiebt nur Code.</td></tr>
+</table>
 
 <h2>4. Empfohlene Reihenfolge</h2>
 <table>
   <tr><th>#</th><th>Schritt</th><th>Aufwand</th><th>Nutzen</th></tr>
-  <tr><td>1</td><td>Snapshot-Cache in <code>Doc</code>, invalidiert in <code>apply</code></td><td>klein</td><td>behebt die Skalierung von Hover, Render und PDF</td></tr>
-  <tr><td>2</td><td><code>doc.rs</code> in Dateien pro Bereich aufteilen</td><td>mittel, mechanisch</td><td>Reviewbarkeit, bevor Fonts und Bilder dazukommen</td></tr>
-  <tr><td>3</td><td>Autosave in IndexedDB</td><td>klein</td><td>die Demo wird benutzbar</td></tr>
-  <tr><td>4</td><td><code>NodeKind</code>-Enum und Key-Konstanten</td><td>klein</td><td>eine Fehlerklasse weniger</td></tr>
-  <tr><td>5</td><td>TS-Typen aus Rust generieren</td><td>mittel</td><td>eine Quelle für das Schema</td></tr>
-  <tr><td>6</td><td>Master immer als Doppelseite speichern</td><td>mittel</td><td>vor Kollaboration entscheiden</td></tr>
+  <tr><td>1</td><td>Prüfen vor Schreiben in <code>apply</code>, Test über ungültige Kommandos, endliche Zahlen (Befunde 1, 10)</td><td>klein</td><td>Kommandos werden atomar, eine ganze Fehlerklasse fällt weg</td></tr>
+  <tr><td>2</td><td>Overrides beim Löschen/Wechseln des Masters aufräumen (3)</td><td>klein</td><td>kein Datenverlust mehr über „Reset“</td></tr>
+  <tr><td>3</td><td><code>Editor.apply</code> meldet Fehler, <code>editor.batch</code> für Undo-Gruppen (4)</td><td>klein</td><td>keine hängenden Gesten und Undo-Gruppen, sichtbare Ablehnungen</td></tr>
+  <tr><td>4</td><td><code>doc.rs</code> in Dateien pro Bereich, dabei <code>NodeKind</code> und Key-Konstanten (2, 6)</td><td>mittel, mechanisch</td><td>reviewbar, bevor Bilder und Preflight kommen</td></tr>
+  <tr><td>5</td><td><code>Field</code> rechnet Einheiten selbst (9)</td><td>klein</td><td>Voraussetzung für umschaltbare Einheiten</td></tr>
+  <tr><td>6</td><td>Font-Neusetzen außerhalb der Undo-Historie (5), <code>.slice()</code> im Renderer (13), Panic-Hook (11)</td><td>klein</td><td>je 1 Fehlerquelle weniger</td></tr>
+  <tr><td>7</td><td>TS-Typen aus Rust generieren (7)</td><td>mittel</td><td>ein Schema statt 2</td></tr>
+  <tr><td>8</td><td>Master immer als Doppelseite, gespeicherte vs. berechnete Hug-Größen (5, 8)</td><td>mittel</td><td>Designentscheidungen vor Kollaboration</td></tr>
 </table>
 </main>
 </body>
