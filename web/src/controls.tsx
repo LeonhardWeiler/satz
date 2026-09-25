@@ -1,8 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Icon } from './icons'
 
-const round = (v: number) => Math.round(v * 100) / 100
-
+const round = (v: number, unit: string) => (unit === '%' ? Math.round(v) : Math.round(v * 100) / 100)
 
 export function Field({
   label,
@@ -25,7 +24,7 @@ export function Field({
     setDraft(null)
     if (draft === null || !Number.isFinite(v)) return
     try {
-      onCommit?.(round(v))
+      onCommit?.(round(v, unit))
     } catch (e) {
       console.warn(e)
     }
@@ -40,7 +39,7 @@ export function Field({
         autoComplete="off"
         spellCheck={false}
         readOnly={readOnly}
-        value={draft ?? (value === null ? 'Mixed' : String(round(value)))}
+        value={draft ?? (value === null ? 'Mixed' : String(round(value, unit)))}
         onChange={(e) => setDraft(e.currentTarget.value)}
         onFocus={(e) => e.currentTarget.select()}
         onBlur={commit}

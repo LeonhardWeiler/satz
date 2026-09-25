@@ -73,7 +73,7 @@ pub fn preview(c: f32, m: f32, y: f32, k: f32) -> u32 {
 /// CMYK of the 0xRRGGBB colour `rgb` in the document's print condition.
 #[wasm_bindgen(js_name = toCmyk)]
 pub fn to_cmyk(rgb: u32) -> Vec<f32> {
-    color::to_cmyk([16, 8, 0].map(|s| (rgb >> s & 0xff) as f32 / 255.0)).to_vec()
+    color::separate(rgb).to_vec()
 }
 
 /// `"black"`, `"white"` or `"gray"` in the colour mode `mode`.

@@ -202,6 +202,19 @@ fn fogra51() -> ColorProfile {
     ColorProfile::new_from_slice(FOGRA51).unwrap()
 }
 
+/// CMYK of the colour 0xRRGGBB; black, white and gray take their pure K.
+pub fn separate(rgb: u32) -> [f32; 4] {
+    let rgba = Color::Rgb(rgb << 8 | 0xff);
+    for neutral in [Color::black, Color::white, Color::gray] {
+        if let (true, Color::Cmyk { cmyk, .. }) =
+            (neutral(ColorMode::Rgb) == rgba, neutral(ColorMode::Cmyk))
+        {
+            return cmyk;
+        }
+    }
+    to_cmyk([16, 8, 0].map(|s| (rgb >> s & 0xff) as f32 / 255.0))
+}
+
 pub fn to_rgb(cmyk: [f32; 4]) -> [f32; 3] {
     static T: OnceLock<Arc<TransformF32Executor>> = OnceLock::new();
     let t = T.get_or_init(|| {
@@ -230,4 +243,18 @@ pub fn to_cmyk(rgb: [f32; 3]) -> [f32; 4] {
     let mut cmyk = [0.0; 4];
     t.transform(&rgb, &mut cmyk).unwrap();
     cmyk.map(|v| v.clamp(0.0, 1.0))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn black_white_and_gray_separate_to_pure_k() {
+        assert_eq!(separate(0x000000), [0.0, 0.0, 0.0, 1.0]);
+        assert_eq!(separate(0xffffff), [0.0; 4]);
+        assert_eq!(separate(0xd9d9d9), [0.0, 0.0, 0.0, 0.15]);
+        let [c, m, y, _] = separate(0xff0000);
+        assert!(c < 0.05 && m > 0.9 && y > 0.9);
+    }
 }

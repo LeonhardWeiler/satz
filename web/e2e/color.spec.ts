@@ -185,3 +185,22 @@ test('a new swatch never repeats the name of an existing one', async ({ page }) 
   await add()
   await expect(swatches.getByRole('option')).toHaveText(['Swatch 2', 'Swatch 3'])
 })
+
+test('opacity shows whole percent', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).last().click()
+  const opacity = panel.getByTitle('Fill opacity').getByRole('textbox')
+  await opacity.fill('50')
+  await opacity.press('Enter')
+  await expect(opacity).toHaveValue('50')
+})
+
+test('a spot colour made from black gets k 100 as its alternate', async ({ page }) => {
+  await open(page)
+  await page.getByRole('button', { name: 'Add swatch' }).click()
+  const editor = page.getByRole('dialog', { name: 'Edit swatch' })
+  await editor.getByRole('checkbox', { name: 'Spot color' }).check()
+  for (const [name, v] of [['Cyan', '0'], ['Magenta', '0'], ['Yellow', '0'], ['Black', '100']])
+    await expect(editor.getByRole('textbox', { name })).toHaveValue(v)
+})
