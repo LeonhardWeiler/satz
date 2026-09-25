@@ -302,14 +302,7 @@ pub fn lay_out(
     tf: &TextFrame,
     from: usize,
 ) -> Vec<Vec<Glyph>> {
-    let (inner, cw) = columns(frame, tf);
-    place(
-        rows(text, spans, Some(cw), from, &tf.number).0,
-        inner,
-        cw,
-        tf,
-    )
-    .lines
+    set(text, spans, frame, tf, from).0.lines
 }
 
 /// The byte where the text from `from` that does not fit in `frame` starts, for the
@@ -321,10 +314,25 @@ pub fn overflow(
     tf: &TextFrame,
     from: usize,
 ) -> Option<usize> {
+    set(text, spans, frame, tf, from).1
+}
+
+/// The text from the byte `from` set in `frame`, and the byte where the text that
+/// does not fit starts. Only about as many lines as the columns can hold are broken.
+fn set(
+    text: &str,
+    spans: &[Span],
+    frame: [f32; 4],
+    tf: &TextFrame,
+    from: usize,
+) -> (Placed, Option<usize>) {
     let (inner, cw) = columns(frame, tf);
-    let rows = rows(text, spans, Some(cw), from, &tf.number).0;
+    let room = (inner[3] + 0.01) * tf.columns.max(1) as f32;
+    let rows = rows(text, spans, Some(cw), from, &tf.number, room).0;
     let starts: Vec<usize> = rows.iter().map(|r| r.stops[0].0).collect();
-    starts.get(place(rows, inner, cw, tf).placed).copied()
+    let placed = place(rows, inner, cw, tf);
+    let rest = starts.get(placed.placed).copied();
+    (placed, rest)
 }
 
 /// The frame size [w, h] that `text` from the byte `from` needs at the width `w`, or
@@ -344,10 +352,14 @@ pub fn measure(
     let (rows, cw, w) = match w {
         Some(w) => {
             let (_, cw) = columns([0.0, 0.0, w, 0.0], tf);
-            (rows(text, spans, Some(cw), from, &tf.number).0, cw, w)
+            (
+                rows(text, spans, Some(cw), from, &tf.number, f32::INFINITY).0,
+                cw,
+                w,
+            )
         }
         None => {
-            let (rows, natural) = rows(text, spans, None, from, &tf.number);
+            let (rows, natural) = rows(text, spans, None, from, &tf.number, f32::INFINITY);
             let cw = ceil(natural);
             (rows, cw, n * cw + (n - 1.0) * tf.gutter as f32 + h_in)
         }
@@ -394,10 +406,29 @@ fn columns([x, y, w, h]: [f32; 4], tf: &TextFrame) -> ([f32; 4], f32) {
     ([x + left, y + top, iw, ih], cw)
 }
 
+/// A shaped paragraph: its items, glyphs and clusters, attributes, first byte and
+/// natural width.
+type Para = (
+    Vec<Item>,
+    Vec<Option<(u16, f32, f32, usize, usize, bool)>>,
+    Vec<usize>,
+    Attrs,
+    usize,
+    f32,
+);
+
 /// The lines of `text` from the byte `from`, a line start, broken to the column width
 /// `cw`, or each paragraph on one line when `None`; and the width of the widest
-/// paragraph set on one line. A page number marker is set as `number`.
-fn rows(text: &str, spans: &[Span], cw: Option<f32>, from: usize, number: &str) -> (Vec<Row>, f32) {
+/// paragraph set on one line. A page number marker is set as `number`. Paragraphs
+/// stop once their lines need more than `room` in height.
+fn rows(
+    text: &str,
+    spans: &[Span],
+    cw: Option<f32>,
+    from: usize,
+    number: &str,
+    room: f32,
+) -> (Vec<Row>, f32) {
     let font = FontRef::new(FONT).unwrap();
     let upem = font.head().unwrap().units_per_em() as f32;
     let hhea = font.hhea().unwrap();
@@ -438,6 +469,100 @@ fn rows(text: &str, spans: &[Span], cw: Option<f32>, from: usize, number: &str) 
         (above, l - above)
     };
 
+    let break_para =
+        |(items, glyphs, clusters, first, start, _): Para, cw: f32, rows: &mut Vec<Row>| {
+            let mut from = 0;
+            for (end, r) in break_lines(&items, cw) {
+                let line_start = if from == 0 { start } else { clusters[from] };
+                while from < end && !matches!(items[from], Item::Box(_)) {
+                    from += 1;
+                }
+                let r = match first.text_align {
+                    TextAlign::Justify if r.is_finite() => r.max(-1.0),
+                    _ if r.is_finite() => r.clamp(-1.0, 0.0),
+                    _ => 0.0,
+                };
+                let spread = |it: &Item| match *it {
+                    Item::Box(adv) => adv,
+                    Item::Glue {
+                        width,
+                        stretch,
+                        shrink,
+                    } => width + r * if r < 0.0 { shrink } else { stretch },
+                    Item::Penalty { .. } => 0.0,
+                };
+                let hyphenated = matches!(items[end], Item::Penalty { width, .. } if width > 0.0);
+                let last = if hyphenated { end + 1 } else { end };
+                let used: f32 = items[from..end].iter().map(spread).sum::<f32>()
+                    + if hyphenated {
+                        hyphen_width(&items[end])
+                    } else {
+                        0.0
+                    };
+                let spans_here: Vec<usize> = (from..last)
+                    .filter(|&k| matches!(items[k], Item::Box(_)) || k == end)
+                    .filter_map(|k| glyphs[k].map(|g| g.3))
+                    .collect();
+                let (above, below) = if spans_here.is_empty() {
+                    vertical(&spans[span_at(start)].attrs)
+                } else {
+                    spans_here
+                        .iter()
+                        .map(|&s| vertical(&spans[s].attrs))
+                        .fold((0.0f32, 0.0f32), |(a, b), (c, d)| (a.max(c), b.max(d)))
+                };
+                let mut cx = match first.text_align {
+                    TextAlign::Center => (cw - used) / 2.0,
+                    TextAlign::Right => cw - used,
+                    _ => 0.0,
+                };
+                let mut line = Vec::new();
+                let mut stops: Vec<(usize, f32)> = Vec::new();
+                let mut end_x = None;
+                for k in from..last {
+                    if items[k] == FILL {
+                        end_x.get_or_insert(cx);
+                    }
+                    if matches!(items[k], Item::Penalty { .. }) && k != end {
+                        continue;
+                    }
+                    if !matches!(items[k], Item::Penalty { .. })
+                        && stops.last().is_none_or(|s| s.0 < clusters[k])
+                    {
+                        stops.push((clusters[k], cx));
+                    }
+                    if let Some((id, dx, dy, span, cluster, hyphen)) = glyphs[k] {
+                        line.push(Glyph {
+                            id,
+                            x: cx + dx,
+                            y: -dy,
+                            span,
+                            cluster,
+                            hyphen,
+                        });
+                    }
+                    cx += spread(&items[k]);
+                }
+                if stops.first().is_none_or(|s| s.0 > line_start) {
+                    stops.insert(0, (line_start, stops.first().map_or(cx, |s| s.1)));
+                }
+                stops.push((clusters[end].max(line_start), end_x.unwrap_or(cx)));
+                rows.push(Row {
+                    glyphs: line,
+                    above,
+                    below,
+                    after: 0.0,
+                    stops,
+                });
+                from = end + 1;
+            }
+            if let Some(r) = rows.last_mut() {
+                r.after = first.paragraph_spacing as f32;
+            }
+        };
+
+    let mut rows: Vec<Row> = Vec::new();
+    let (mut widest, mut used) = (0.0f32, 0.0f32);
     let mut paras = Vec::new();
     let mut start = 0;
     for para in text.split('\n') {
@@ -520,101 +645,26 @@ fn rows(text: &str, spans: &[Span], cw: Option<f32>, from: usize, number: &str) 
             clusters.drain(..k);
             line0 = from;
         }
-        paras.push((items, glyphs, clusters, first.clone(), line0, natural));
         start += para.len() + 1;
-    }
-    let widest = paras.iter().map(|p| p.5).fold(0.0, f32::max);
-    let cw = cw.unwrap_or(ceil(widest));
-
-    let mut rows: Vec<Row> = Vec::new();
-    for (items, glyphs, clusters, first, start, _) in paras {
-        let mut from = 0;
-        for (end, r) in break_lines(&items, cw) {
-            let line_start = if from == 0 { start } else { clusters[from] };
-            while from < end && !matches!(items[from], Item::Box(_)) {
-                from += 1;
-            }
-            let r = match first.text_align {
-                TextAlign::Justify if r.is_finite() => r.max(-1.0),
-                _ if r.is_finite() => r.clamp(-1.0, 0.0),
-                _ => 0.0,
-            };
-            let spread = |it: &Item| match *it {
-                Item::Box(adv) => adv,
-                Item::Glue {
-                    width,
-                    stretch,
-                    shrink,
-                } => width + r * if r < 0.0 { shrink } else { stretch },
-                Item::Penalty { .. } => 0.0,
-            };
-            let hyphenated = matches!(items[end], Item::Penalty { width, .. } if width > 0.0);
-            let last = if hyphenated { end + 1 } else { end };
-            let used: f32 = items[from..end].iter().map(spread).sum::<f32>()
-                + if hyphenated {
-                    hyphen_width(&items[end])
-                } else {
-                    0.0
-                };
-            let spans_here: Vec<usize> = (from..last)
-                .filter(|&k| matches!(items[k], Item::Box(_)) || k == end)
-                .filter_map(|k| glyphs[k].map(|g| g.3))
-                .collect();
-            let (above, below) = if spans_here.is_empty() {
-                vertical(&spans[span_at(start)].attrs)
-            } else {
-                spans_here
-                    .iter()
-                    .map(|&s| vertical(&spans[s].attrs))
-                    .fold((0.0f32, 0.0f32), |(a, b), (c, d)| (a.max(c), b.max(d)))
-            };
-            let mut cx = match first.text_align {
-                TextAlign::Center => (cw - used) / 2.0,
-                TextAlign::Right => cw - used,
-                _ => 0.0,
-            };
-            let mut line = Vec::new();
-            let mut stops: Vec<(usize, f32)> = Vec::new();
-            let mut end_x = None;
-            for k in from..last {
-                if items[k] == FILL {
-                    end_x.get_or_insert(cx);
-                }
-                if matches!(items[k], Item::Penalty { .. }) && k != end {
-                    continue;
-                }
-                if !matches!(items[k], Item::Penalty { .. })
-                    && stops.last().is_none_or(|s| s.0 < clusters[k])
-                {
-                    stops.push((clusters[k], cx));
-                }
-                if let Some((id, dx, dy, span, cluster, hyphen)) = glyphs[k] {
-                    line.push(Glyph {
-                        id,
-                        x: cx + dx,
-                        y: -dy,
-                        span,
-                        cluster,
-                        hyphen,
-                    });
-                }
-                cx += spread(&items[k]);
-            }
-            if stops.first().is_none_or(|s| s.0 > line_start) {
-                stops.insert(0, (line_start, stops.first().map_or(cx, |s| s.1)));
-            }
-            stops.push((clusters[end].max(line_start), end_x.unwrap_or(cx)));
-            rows.push(Row {
-                glyphs: line,
-                above,
-                below,
-                after: 0.0,
-                stops,
-            });
-            from = end + 1;
+        widest = widest.max(natural);
+        let para = (items, glyphs, clusters, first.clone(), line0, natural);
+        let Some(cw) = cw else {
+            paras.push(para);
+            continue;
+        };
+        let set = rows.len();
+        break_para(para, cw, &mut rows);
+        used += rows[set..]
+            .iter()
+            .map(|r| r.above + r.below + r.after)
+            .sum::<f32>();
+        if used > room {
+            break;
         }
-        if let Some(r) = rows.last_mut() {
-            r.after = first.paragraph_spacing as f32;
+    }
+    if cw.is_none() {
+        for para in paras {
+            break_para(para, ceil(widest), &mut rows);
         }
     }
     (rows, widest)
@@ -744,14 +794,7 @@ pub fn lines(
     tf: &TextFrame,
     from: usize,
 ) -> Vec<Line> {
-    let (inner, cw) = columns(frame, tf);
-    place(
-        rows(text, spans, Some(cw), from, &tf.number).0,
-        inner,
-        cw,
-        tf,
-    )
-    .geometry
+    set(text, spans, frame, tf, from).0.geometry
 }
 
 /// The line holding the byte offset `at`: the first that reaches it, unless the next
