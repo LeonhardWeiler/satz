@@ -27,10 +27,6 @@ font helper, i18n.
 
 ## Breadth
 
-### 11. Pages, masters, threading
-- Frame threading across frames and pages; only fixed frames thread, the last
-  frame of a chain may be auto height. Overset detection.
-
 ### 12. Fonts
 - Upload, bundled font, Local Font Access (Chromium).
 - Fonts referenced by name + hash; missing fonts fall back to the bundled font,
@@ -69,3 +65,4 @@ font helper, i18n.
   command.
 - Masters based on other masters; overriding layers nested in a master's groups
   and frames.
+- Threading: click an in-port to thread a frame in before another, as InDesign does.

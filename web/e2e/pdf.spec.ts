@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
 import { PNG } from 'pngjs'
 import { fitView } from '../src/renderer'
-import { open } from './util'
+import { STORY, frameOnNewPage, open, port, screen } from './util'
 
 const EDGE = 4
 const BLOCK = 4
@@ -345,4 +345,21 @@ test('a master drawn under a page matches the canvas', async ({ page }) => {
   await page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Master' }).selectOption('A-Master')
   await page.mouse.move(1, 1)
   await expectCanvasMatchesPdf(page)
+})
+
+test('text threaded across two pages matches the canvas and reads as one story', async ({ page }) => {
+  await open(page)
+  const a = [20, 20, 70, 50]
+  await frameOnNewPage(page, a)
+  await page.keyboard.type(STORY)
+  await page.keyboard.press('Escape')
+  await page.mouse.click(...(await port(page, a, true)))
+  await page.getByRole('navigation', { name: 'Pages' }).getByRole('button', { name: 'Add page' }).click()
+  await page.mouse.click(...(await screen(page, 30, 100)))
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Escape')
+  await page.mouse.move(1, 1)
+  const pdf = await expectCanvasMatchesPdf(page, 3)
+  const text = execFileSync('mutool', ['draw', '-q', '-F', 'text', '-o', '-', pdf, '2-3']).toString()
+  expect(text.replace(/\s+/g, ' ')).toContain(STORY)
 })

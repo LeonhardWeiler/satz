@@ -83,7 +83,13 @@ export function handleTextKey(editor: Editor, e: KeyboardEvent): boolean {
     const up = e.key === 'ArrowUp'
     const [x, top, bottom] = engine.caret(ed.id, focus)
     let to = engine.textIndex(ed.id, x, up ? top - 0.5 : bottom + 0.5)
-    if (engine.textLine(ed.id, to)[0] === engine.textLine(ed.id, focus)[0]) to = up ? 0 : text.length
+    if (engine.textLine(ed.id, to)[0] === engine.textLine(ed.id, focus)[0]) {
+      // Past the first or last line of a frame the caret goes on in the frame before or after.
+      const n = editor.nodes.get(ed.id)?.node
+      const frame = n?.kind === 'text' ? n : undefined
+      if (up) to = frame?.prev ? Math.max(0, frame.start - 1) : 0
+      else to = frame?.next && frame.end < text.length ? frame.end : text.length
+    }
     move(editor, to, extend)
   } else if (e.key === 'Home' || e.key === 'End') {
     const [start, end] = mod ? [0, text.length] : engine.textLine(ed.id, focus)

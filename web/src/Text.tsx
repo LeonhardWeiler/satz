@@ -3,10 +3,9 @@ import { Field, NameInput, nextName, Section, Select } from './controls'
 import { MM, useEditor, type Editor } from './editor'
 import { Icon } from './icons'
 import { range } from './textEdit'
-import type { Attrs, Node, Props, Sizing, Styled, TextProps, TextStyle } from './model'
+import type { Attrs, Props, Sizing, Styled, TextNode, TextProps, TextStyle } from './model'
 import { Bindable } from './Variables'
 
-type TextNode = Extract<Node, { kind: 'text' }>
 
 const ALIGNS = [
   ['left', 'Align left', 'alignLeft'],
@@ -134,6 +133,7 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
             aria-checked={resizing === value}
             aria-label={title}
             title={title}
+            disabled={(value === 'autoWidth' && !!(node.prev || node.next)) || (value === 'autoHeight' && !!node.next)}
             onClick={() => resize(value)}
           >
             <Icon name={value} size={16} />

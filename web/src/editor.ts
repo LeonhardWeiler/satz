@@ -30,6 +30,8 @@ export class Editor {
   dragging = false
   /** The text layer edited in its frame, which is then the selection. */
   editing: Editing | null = null
+  /** The text frame whose out-port was clicked, to thread into the next one clicked. */
+  threading: string | null = null
   /** The page shown on the canvas. */
   pageId: string
   /** Typing into the edited text is one undo step until the caret moves. */
@@ -71,16 +73,46 @@ export class Editor {
         const { anchor, focus } = this.editing
         this.editing = len < 0 ? null : { ...this.editing, anchor: Math.min(anchor, len), focus: Math.min(focus, len) }
       }
+      this.follow()
       this.emit()
     }
   }
 
-  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'pen' | 'editing'>>) {
+  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'pen' | 'editing' | 'threading'>>) {
     const leaves = this.editing && patch.selection && !patch.selection.includes(this.editing.id)
     if (leaves && !('editing' in patch)) this.stopEditing()
     if (patch.editing) patch = { selection: [patch.editing.id], ...patch }
     Object.assign(this, patch)
+    this.follow()
     this.emit()
+  }
+
+  /** The layer `id` on any page or master, and the page it is on. */
+  lookup(id: string) {
+    for (const page of [...this.snapshot.pages, ...this.snapshot.masters]) {
+      const entry = index(page.children).get(id)
+      if (entry) return { ...entry, page }
+    }
+    return undefined
+  }
+
+  /** Moves the edit into the frame of the thread that holds the caret, and to its page. */
+  private follow() {
+    const e = this.editing
+    if (!e) return
+    let frame: string
+    try {
+      frame = this.engine.textFrame(e.id, e.focus)
+    } catch {
+      return
+    }
+    if (frame === e.id) return
+    const found = this.lookup(frame)
+    if (!found) return
+    this.pageId = found.page.id
+    this.nodes = index(found.page.children)
+    this.editing = { ...e, id: frame }
+    this.selection = [frame]
   }
 
   /** Shows the page `id` with nothing selected. */
@@ -96,7 +128,7 @@ export class Editor {
   setTool(tool: Tool) {
     this.finishPen(false)
     this.stopEditing()
-    this.set({ tool })
+    this.set({ tool, threading: null })
   }
 
   beginTyping() {
@@ -118,7 +150,7 @@ export class Editor {
     this.endTyping()
     this.editing = null
     const n = this.nodes.get(e.id)?.node
-    if (n?.kind === 'text' && !n.text) this.apply({ type: 'delete', ids: [e.id] })
+    if (n?.kind === 'text' && !n.text && !n.prev && !n.next) this.apply({ type: 'delete', ids: [e.id] })
     this.emit()
   }
 

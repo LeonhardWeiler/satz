@@ -33,3 +33,21 @@ export async function pixels(page: Page, x: number, y: number, w: number, h: num
   for (let i = 0; i < png.data.length; i += 4) out.push([png.data[i], png.data[i + 1], png.data[i + 2]])
   return out
 }
+
+export const STORY =
+  'Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore ' +
+  'et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum.'
+
+/** Screen position of the out-port of a text frame from (x0, y0) to (x1, y1) in mm, or its in-port. */
+export async function port(page: Page, [x0, y0, x1, y1]: number[], out: boolean) {
+  const [l, t] = await screen(page, x0, y0)
+  const [r, b] = await screen(page, x1, y1)
+  return (out ? [r, b - 16] : [l, t + 16]) as [number, number]
+}
+
+/** Adds a page and draws a fixed text frame from (x0, y0) to (x1, y1) in mm on it. */
+export async function frameOnNewPage(page: Page, box: number[]) {
+  await page.getByRole('navigation', { name: 'Pages' }).getByRole('button', { name: 'Add page' }).click()
+  await page.keyboard.press('t')
+  await drag(page, await screen(page, box[0], box[1]), await screen(page, box[2], box[3]))
+}

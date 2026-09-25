@@ -95,6 +95,8 @@ export type Command =
   | { type: 'useMaster'; page: string; master: string | null }
   | { type: 'override'; page: string; id: string }
   | { type: 'resetToMaster'; ids: string[] }
+  | { type: 'thread'; from: string; to: string }
+  | { type: 'unthread'; id: string }
   | { type: 'setDocument'; rasterPpi?: number; colorMode?: ColorMode }
   | { type: 'addSwatch'; name: string; color: Color; spot: boolean }
   | { type: 'setSwatch'; id: string; name?: string; color?: Color; spot?: boolean }
@@ -128,12 +130,29 @@ export type Node = {
   Layout &
   (
     | ({ kind: 'shape' } & Shape)
-    | ({ kind: 'text'; text: string; spans: Span[] } & TextFrame)
+    | ({ kind: 'text' } & Threaded & TextFrame)
     | { kind: 'group'; children: Node[] }
     | { kind: 'frame'; clip: boolean; children: Node[] }
   )
 
 export type Container = Extract<Node, { children: Node[] }>
+export type TextNode = Extract<Node, { kind: 'text' }>
+
+/**
+ * A text layer in its thread: `text` and `spans` are the story of the thread, whose
+ * first frame is `story`; the layer sets it from `start` to `end` in UTF-16, and is
+ * `overset` when it is the last frame and text is left.
+ */
+export type Threaded = {
+  text: string
+  spans: Span[]
+  story: string
+  start: number
+  end: number
+  prev: string | null
+  next: string | null
+  overset: boolean
+}
 
 /**
  * A page or a master: `name` is a master's, `master` the one a page draws under its

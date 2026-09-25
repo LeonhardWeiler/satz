@@ -16,7 +16,7 @@ use loro::{
     TreeID, TreeParentId, UndoManager, UpdateOptions, ValueOrContainer,
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::Display;
 use std::ops::Range;
 
@@ -195,6 +195,17 @@ pub enum Command {
     /// they stood for again.
     ResetToMaster {
         ids: Vec<String>,
+    },
+    /// Threads the text layer `to` after `from`, before the frame that followed it:
+    /// the story of `from` flows on in `to`, whose own text ends the story as a
+    /// paragraph. Frames with a next frame are fixed, the last may be auto height.
+    Thread {
+        from: String,
+        to: String,
+    },
+    /// Breaks the thread after a text layer; its story stays with the frames before.
+    Unthread {
+        id: String,
     },
     AddSwatch {
         name: String,
@@ -489,11 +500,23 @@ pub struct Node {
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Kind {
     Shape(Shape),
+    /// `text` and `spans` are the story of the thread, whose first frame is `story`;
+    /// the layer sets it from `start` up to `end` in UTF-16, and `overset` when it is
+    /// the last frame and text is left.
     Text {
         text: String,
         spans: Vec<Span>,
         #[serde(flatten)]
         frame: TextFrame,
+        story: String,
+        start: usize,
+        end: usize,
+        prev: Option<String>,
+        next: Option<String>,
+        overset: bool,
+        /// `start` as a byte offset.
+        #[serde(skip)]
+        from: usize,
     },
     Group {
         children: Vec<Node>,
@@ -502,6 +525,18 @@ pub enum Kind {
         clip: bool,
         children: Vec<Node>,
     },
+}
+
+/// Where the story of a thread, from the frame `head`, flows through a frame: the
+/// bytes `start..end`, its neighbours, and text left over at the end of the thread.
+struct Flow {
+    head: TreeID,
+    story: std::rc::Rc<(String, Vec<Span>)>,
+    start: usize,
+    end: usize,
+    prev: Option<TreeID>,
+    next: Option<TreeID>,
+    overset: bool,
 }
 
 pub struct Doc {
@@ -534,6 +569,19 @@ const BINDABLE: [&str; 11] = [
     "paddingRight",
     "paddingBottom",
     "paddingLeft",
+];
+/// The keys of a text layer that belong to its story and move with it.
+const STORY: [&str; 10] = [
+    "size",
+    "lineHeight",
+    "letterSpacing",
+    "paragraphSpacing",
+    "fill",
+    "textStyle",
+    "textAlign",
+    "hyphenate",
+    "lang",
+    "fills",
 ];
 /// Figma's selection blue at 30 %.
 const SELECTION: [f32; 4] = [0.051, 0.6, 1.0, 0.3];
@@ -925,7 +973,7 @@ impl Doc {
                 vec![]
             }
             Command::Format { id, range, props } => {
-                let n = self.node(&id)?;
+                let n = self.story(self.node(&id)?);
                 let t = self.text(n)?;
                 props.check()?;
                 let len = t.len_utf16();
@@ -1037,7 +1085,7 @@ impl Doc {
             Command::DeleteTextStyle { id } => {
                 let (i, _) = self.find::<TextStyle>("textStyles", &id)?;
                 self.each(|n, _| match self.kind(n).as_str() {
-                    "text" => self.detach(n, None, |s| s == id),
+                    "text" if self.story(n) == n => self.detach(n, None, |s| s == id),
                     _ => Ok(()),
                 })?;
                 self.doc.get_list("textStyles").delete(i, 1).map_err(err)?;
@@ -1045,6 +1093,15 @@ impl Doc {
             }
             Command::Set { id, mut props } => {
                 let id = self.node(&id)?;
+                if let Some(s) = props.sizing {
+                    let threaded = self.next_of(id).is_some() || self.prev_of(id).is_some();
+                    if threaded && s.horizontal == Size::Hug {
+                        return Err("a threaded text frame cannot be auto width".into());
+                    }
+                    if self.next_of(id).is_some() && s.vertical == Size::Hug {
+                        return Err("only the last frame of a thread can be auto height".into());
+                    }
+                }
                 let set = serde_json::to_value(&props).map_err(err)?;
                 self.unbind(id, |p| !set[p].is_null())?;
                 // Text that hugs its width hugs its height: choosing hug for the width
@@ -1076,6 +1133,7 @@ impl Doc {
             Command::Delete { ids } => {
                 for id in self.nodes(&ids)? {
                     let parent = self.tree.parent(id);
+                    self.unlink_all(id)?;
                     self.remove(id)?;
                     self.prune(parent)?;
                 }
@@ -1476,6 +1534,7 @@ impl Doc {
                     return self.finish(vec![], false);
                 }
                 let n = self.node(&id)?;
+                let n = if prop == "size" { self.story(n) } else { n };
                 if !BINDABLE.contains(&prop.as_str()) {
                     return Err(format!("{prop} cannot be bound"));
                 }
@@ -1602,6 +1661,7 @@ impl Doc {
                 if self.pages().len() == 1 {
                     return Err("a document keeps one page".into());
                 }
+                self.unlink_all(p)?;
                 self.remove(p)?;
                 vec![]
             }
@@ -1655,6 +1715,7 @@ impl Doc {
                         self.meta(p).delete("master").map_err(err)?;
                     }
                 }
+                self.unlink_all(m)?;
                 self.remove(m)?;
                 vec![]
             }
@@ -1720,6 +1781,61 @@ impl Doc {
                 }
                 vec![]
             }
+            Command::Thread { from, to } => {
+                let (a, b) = (self.node(&from)?, self.node(&to)?);
+                if self.kind(a) != "text" || self.kind(b) != "text" {
+                    return Err("only text frames thread".into());
+                }
+                if a == b || self.next_of(b).is_some() || self.prev_of(b).is_some() {
+                    return Err("the frame is threaded already".into());
+                }
+                let own = self.own_text(b)?;
+                if own.len_utf16() > 0 {
+                    let story = self.text(a)?;
+                    let at = story.len_utf16();
+                    story.insert_utf16(at, "\n").map_err(err)?;
+                    let mut delta = vec![TextDelta::Retain {
+                        retain: at + 1,
+                        attributes: None,
+                    }];
+                    delta.extend(own.to_delta());
+                    story.apply_delta(&delta).map_err(err)?;
+                    own.delete_utf16(0, own.len_utf16()).map_err(err)?;
+                }
+                if let Some(c) = self.next_of(a) {
+                    self.meta(b).insert("next", c.to_string()).map_err(err)?;
+                }
+                self.meta(a).insert("next", b.to_string()).map_err(err)?;
+                let fills = value(&self.meta(self.story(a)), "fills");
+                if let Some(f) = fills {
+                    self.meta(b).insert("fills", f).map_err(err)?;
+                }
+                for f in [a, b] {
+                    let old = self.layout(f).sizing;
+                    let last = self.next_of(f).is_none();
+                    let sizing = Sizing {
+                        horizontal: match old.horizontal {
+                            Size::Hug => Size::Fixed,
+                            s => s,
+                        },
+                        vertical: match old.vertical {
+                            Size::Hug if !last || old.horizontal == Size::Hug => Size::Fixed,
+                            s => s,
+                        },
+                    };
+                    if sizing != old {
+                        self.meta(f).insert("sizing", loro(sizing)?).map_err(err)?;
+                    }
+                }
+                vec![]
+            }
+            Command::Unthread { id } => {
+                let a = self.node(&id)?;
+                if self.next_of(a).is_some() {
+                    self.meta(a).delete("next").map_err(err)?;
+                }
+                vec![]
+            }
         };
         self.finish(out, history)
     }
@@ -1729,63 +1845,130 @@ impl Doc {
         for p in self.tree.roots() {
             if !history && matches!(self.kind(p).as_str(), "page" | "master") {
                 self.settle(p, &Modes::new(), &palette)?;
-                self.lay_out(p, &palette)?;
+                self.lay_out(p)?;
             }
         }
         self.doc.commit();
         Ok(out)
     }
 
-    /// The text of the text layer `id` and its lines as set in its frame.
+    /// The story of the text layer `id` and the lines of it set in its frame.
     fn text_lines(&self, id: &str) -> Res<(String, Vec<text::Line>)> {
         let n = self.node(id)?;
-        let t = self.text(n)?.to_string();
+        self.frame_lines(n)
+    }
+
+    fn frame_lines(&self, n: TreeID) -> Res<(String, Vec<text::Line>)> {
+        let (t, spans, flows) = self.flow(self.story(n))?;
+        let from = flows.iter().find(|f| f.0 == n).map_or(0, |f| f.1);
         let v = serde_json::to_value(self.meta(n).get_deep_value()).map_err(err)?;
+        let tf: TextFrame = serde_json::from_value(v).unwrap_or_default();
+        let frame = self.bounds(n).map(|v| v as f32);
+        let lines = text::lines(&t, &spans, frame, &tf, from);
+        Ok((t, lines))
+    }
+
+    /// The story of the thread starting at `head`, its spans, and each frame with the
+    /// byte where its text starts and where the text left over for the next begins.
+    #[allow(clippy::type_complexity)]
+    fn flow(&self, head: TreeID) -> Res<(String, Vec<Span>, Vec<(TreeID, usize, Option<usize>)>)> {
+        let t = self.own_text(head)?.to_string();
+        let v = serde_json::to_value(self.meta(head).get_deep_value()).map_err(err)?;
         let palette = self.palette();
-        let modes = self.active_modes(n);
+        let modes = self.active_modes(head);
         let s = Scope {
             palette: &palette,
             modes: &modes,
         };
-        let spans = self.spans(n, &v, &s);
-        let tf: TextFrame = serde_json::from_value(v).unwrap_or_default();
-        let frame = self.bounds(n).map(|v| v as f32);
-        let lines = text::lines(&t, &spans, frame, &tf);
-        Ok((t, lines))
+        let spans = self.spans(head, &v, &s);
+        let mut out = Vec::new();
+        let mut from = Some(0);
+        for f in self.thread(head) {
+            let start = from.unwrap_or(t.len());
+            let next = from.and_then(|b| {
+                let v = serde_json::to_value(self.meta(f).get_deep_value()).ok()?;
+                let tf: TextFrame = serde_json::from_value(v).unwrap_or_default();
+                let frame = self.bounds(f).map(|v| v as f32);
+                text::overflow(&t, &spans, frame, &tf, b)
+            });
+            out.push((f, start, next));
+            from = next;
+        }
+        Ok((t, spans, out))
     }
 
-    /// [x, top, bottom] in pt of a caret before the UTF-16 `index` of the text `id`.
+    /// The frame of the thread of `n` that holds the byte `at`: the last one that
+    /// gets text and starts at or before it.
+    fn holding(&self, n: TreeID, at: usize) -> Res<TreeID> {
+        let (_, _, flows) = self.flow(self.story(n))?;
+        let mut holder = flows[0].0;
+        for (i, &(f, start, _)) in flows.iter().enumerate() {
+            let gets_text = i == 0 || flows[i - 1].2.is_some();
+            if gets_text && start <= at {
+                holder = f;
+            }
+        }
+        Ok(holder)
+    }
+
+    /// The frame of the thread of the text `id` that holds the UTF-16 `index`.
+    pub fn text_frame(&self, id: &str, index: usize) -> Res<String> {
+        let n = self.node(id)?;
+        let t = self.text(n)?.to_string();
+        Ok(self.holding(n, byte_of(&t, index)?)?.to_string())
+    }
+
+    /// [x, top, bottom] in pt of a caret before the UTF-16 `index` of the text `id`,
+    /// in the frame of its thread that holds it.
     pub fn caret(&self, id: &str, index: usize) -> Res<[f64; 3]> {
-        let (t, lines) = self.text_lines(id)?;
-        Ok(text::caret(&t, &lines, byte_of(&t, index)?).map(f64::from))
+        let n = self.node(id)?;
+        let t = self.text(n)?.to_string();
+        let at = byte_of(&t, index)?;
+        let (t, lines) = self.frame_lines(self.holding(n, at)?)?;
+        Ok(text::caret(&t, &lines, at).map(f64::from))
     }
 
-    /// The UTF-16 index of the character boundary of the text `id` nearest (x, y).
+    /// The UTF-16 index of the character boundary in the frame `id` nearest (x, y).
     pub fn text_index(&self, id: &str, x: f64, y: f64) -> Res<usize> {
         let (t, lines) = self.text_lines(id)?;
-        Ok(utf16_of(&t, text::index_at(&lines, x as f32, y as f32)))
+        let at = match lines.is_empty() {
+            true => self
+                .flow(self.story(self.node(id)?))?
+                .2
+                .iter()
+                .find(|f| f.0.to_string() == id)
+                .map_or(0, |f| f.1),
+            false => text::index_at(&lines, x as f32, y as f32),
+        };
+        Ok(utf16_of(&t, at))
     }
 
     /// UTF-16 start and end of the line of the text `id` that holds `index`.
     pub fn text_line(&self, id: &str, index: usize) -> Res<[usize; 2]> {
-        let (t, lines) = self.text_lines(id)?;
+        let n = self.node(id)?;
+        let t = self.text(n)?.to_string();
         let at = byte_of(&t, index)?;
+        let (t, lines) = self.frame_lines(self.holding(n, at)?)?;
         Ok(match lines.get(text::line_of(&lines, at)) {
             Some(l) => [l.start, l.end].map(|b| utf16_of(&t, b)),
             None => [index; 2],
         })
     }
 
-    /// The selection from `anchor` to `focus` in the text `id` as highlighted
-    /// boxes, or a caret `caret_width` pt wide where they meet.
+    /// The selection from `anchor` to `focus` in the text `id` as highlighted boxes in
+    /// the frames of its thread on `page`, or a caret `caret_width` pt wide where they
+    /// meet.
     pub fn text_overlay(
         &self,
         id: &str,
         anchor: usize,
         focus: usize,
         caret_width: f32,
+        page: &str,
     ) -> Res<Vec<Op>> {
-        let (t, lines) = self.text_lines(id)?;
+        let n = self.node(id)?;
+        let page = self.sheet(page)?;
+        let t = self.text(n)?.to_string();
         let [a, b] = [anchor.min(focus), anchor.max(focus)].map(|i| byte_of(&t, i));
         let (a, b) = (a?, b?);
         let solid = |color| Paint::Solid {
@@ -1793,33 +1976,132 @@ impl Doc {
             ink: Ink::Rgb,
         };
         if a == b {
+            let f = self.holding(n, a)?;
+            if self.root(f) != page {
+                return Ok(Vec::new());
+            }
+            let (t, lines) = self.frame_lines(f)?;
             let [x, top, bottom] = text::caret(&t, &lines, a);
             return Ok(vec![Op::FillPath {
                 paint: solid([0.0, 0.0, 0.0, 1.0]),
                 path: rect(x - caret_width / 2.0, top, caret_width, bottom - top),
             }]);
         }
-        Ok(lines
-            .iter()
-            .filter(|l| a <= l.end && b > l.start || a == l.start && b >= l.start)
-            .map(|l| {
-                let x0 = text::x_at(&t, l, a.max(l.start));
-                let mut x1 = text::x_at(&t, l, b.min(l.end));
-                if b > l.end {
-                    x1 = x1.max(x0 + (l.bottom - l.top) / 4.0);
-                }
-                Op::FillPath {
-                    paint: solid(SELECTION),
-                    path: rect(x0, l.top, x1 - x0, l.bottom - l.top),
-                }
-            })
-            .collect())
+        let mut ops = Vec::new();
+        for f in self.thread(self.story(n)) {
+            if self.root(f) != page {
+                continue;
+            }
+            let (t, lines) = self.frame_lines(f)?;
+            ops.extend(
+                lines
+                    .iter()
+                    .filter(|l| a <= l.end && b > l.start || a == l.start && b >= l.start)
+                    .map(|l| {
+                        let x0 = text::x_at(&t, l, a.max(l.start));
+                        let mut x1 = text::x_at(&t, l, b.min(l.end));
+                        if b > l.end {
+                            x1 = x1.max(x0 + (l.bottom - l.top) / 4.0);
+                        }
+                        Op::FillPath {
+                            paint: solid(SELECTION),
+                            path: rect(x0, l.top, x1 - x0, l.bottom - l.top),
+                        }
+                    }),
+            );
+        }
+        Ok(ops)
     }
 
-    fn text(&self, id: TreeID) -> Res<LoroText> {
+    /// The layer's own text, which is its story's unless it follows another frame.
+    fn own_text(&self, id: TreeID) -> Res<LoroText> {
         container(&self.meta(id), "text")
             .and_then(|c| c.into_text().ok())
             .ok_or_else(|| "not a text node".into())
+    }
+
+    /// The text layer that follows `id` in its thread.
+    fn next_of(&self, id: TreeID) -> Option<TreeID> {
+        let v = value(&self.meta(id), "next")?.into_string().ok()?;
+        let n = self.node(&v).ok()?;
+        (self.kind(n) == "text").then_some(n)
+    }
+
+    /// The text layer that `id` follows in its thread.
+    fn prev_of(&self, id: TreeID) -> Option<TreeID> {
+        let mut all = Vec::new();
+        for r in self.pages().into_iter().chain(self.masters()) {
+            self.walk(r, &mut all);
+        }
+        all.into_iter()
+            .find(|&n| n != id && self.kind(n) == "text" && self.next_of(n) == Some(id))
+    }
+
+    /// The first frame of the thread of `id`, which holds the story.
+    fn story(&self, id: TreeID) -> TreeID {
+        let mut head = id;
+        let mut seen = vec![id];
+        while let Some(p) = self.prev_of(head).filter(|p| !seen.contains(p)) {
+            seen.push(p);
+            head = p;
+        }
+        head
+    }
+
+    /// The frames of the thread from `head` on.
+    fn thread(&self, head: TreeID) -> Vec<TreeID> {
+        let mut out = vec![head];
+        while let Some(n) = self
+            .next_of(*out.last().unwrap())
+            .filter(|n| !out.contains(n))
+        {
+            out.push(n);
+        }
+        out
+    }
+
+    /// Takes the text layers in `id`'s subtree out of their threads, which close up;
+    /// a story whose first frame goes moves on to the next frame.
+    fn unlink_all(&self, id: TreeID) -> Res<()> {
+        let mut all = Vec::new();
+        self.walk(id, &mut all);
+        for n in all.into_iter().filter(|&n| self.kind(n) == "text") {
+            let next = self.next_of(n);
+            match (self.prev_of(n), next) {
+                (Some(p), Some(x)) => self.meta(p).insert("next", x.to_string()).map_err(err)?,
+                (Some(p), None) => self.meta(p).delete("next").map_err(err)?,
+                (None, Some(x)) => {
+                    let delta = self.own_text(n)?.to_delta();
+                    let t = self
+                        .meta(x)
+                        .insert_container("text", LoroText::new())
+                        .map_err(err)?;
+                    t.apply_delta(&delta).map_err(err)?;
+                    let (from, to) = (self.meta(n), self.meta(x));
+                    for k in STORY {
+                        match value(&from, k) {
+                            Some(v) => to.insert(k, v).map_err(err)?,
+                            None => to.delete(k).map_err(err)?,
+                        }
+                    }
+                    if let Some(size) = self.bindings(n).get("size") {
+                        let mut b = self.bindings(x);
+                        b.insert("size".into(), size.clone());
+                        to.insert("bindings", loro(b)?).map_err(err)?;
+                    }
+                }
+                (None, None) => {}
+            }
+            if next.is_some() {
+                self.meta(n).delete("next").map_err(err)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// The story of the text layer `id`, held by the first frame of its thread.
+    fn text(&self, id: TreeID) -> Res<LoroText> {
+        self.own_text(self.story(id))
     }
 
     /// Replaces the text styles for which `only` holds in `range` of `id`, or in all
@@ -2037,13 +2319,13 @@ impl Doc {
 
     /// Fits hugging text and lays out the auto layout frames in `id`'s subtree,
     /// innermost first.
-    fn lay_out(&self, id: TreeID, palette: &Palette) -> Res<()> {
+    fn lay_out(&self, id: TreeID) -> Res<()> {
         let kids = self.children(id);
         for &c in &kids {
-            self.lay_out(c, palette)?;
+            self.lay_out(c)?;
         }
         if self.kind(id) == "text" {
-            return self.fit(id, palette);
+            return self.fit(id);
         }
         let l = self.layout(id);
         let Some((horizontal, pad)) = l.axes().filter(|_| self.kind(id) == "frame") else {
@@ -2109,7 +2391,7 @@ impl Doc {
                 if new != old {
                     self.set_frame(c, new)?;
                     if new[2..] != old[2..] {
-                        self.lay_out(c, palette)?;
+                        self.lay_out(c)?;
                         again |= self.bounds(c)[2..] != new[2..];
                     }
                 }
@@ -2121,35 +2403,24 @@ impl Doc {
         Ok(())
     }
 
-    /// Sets the hugging sides of a text layer to what its text needs.
-    fn fit(&self, id: TreeID, palette: &Palette) -> Res<()> {
+    /// Sets the hugging sides of a text layer to what its text needs, from where its
+    /// thread's story reaches it.
+    fn fit(&self, id: TreeID) -> Res<()> {
         let Sizing {
             horizontal,
             vertical,
         } = self.layout(id).sizing;
-        if vertical != Size::Hug {
+        if vertical != Size::Hug || self.next_of(id).is_some() {
             return Ok(());
         }
+        let (t, spans, flows) = self.flow(self.story(id))?;
+        let from = flows.iter().find(|f| f.0 == id).map_or(0, |f| f.1);
         let v = serde_json::to_value(self.meta(id).get_deep_value()).map_err(err)?;
-        let modes = self.active_modes(id);
-        let spans = self.spans(
-            id,
-            &v,
-            &Scope {
-                palette,
-                modes: &modes,
-            },
-        );
-        let tf: TextFrame = serde_json::from_value(v.clone()).unwrap_or_default();
+        let tf: TextFrame = serde_json::from_value(v).unwrap_or_default();
         let old = self.bounds(id);
         let [x, y, w, _] = old;
         let auto_width = horizontal == Size::Hug;
-        let [nw, nh] = text::measure(
-            v["text"].as_str().unwrap_or_default(),
-            &spans,
-            &tf,
-            (!auto_width).then_some(w as f32),
-        );
+        let [nw, nh] = text::measure(&t, &spans, &tf, (!auto_width).then_some(w as f32), from);
         let new = [x, y, if auto_width { nw.into() } else { w }, nh.into()];
         if new != old {
             self.set_frame(id, new)?;
@@ -2181,8 +2452,49 @@ impl Doc {
         Ok(())
     }
 
+    /// How the story of every thread flows through its frames.
+    fn flows(&self) -> HashMap<TreeID, Flow> {
+        let mut all = Vec::new();
+        for r in self.pages().into_iter().chain(self.masters()) {
+            self.walk(r, &mut all);
+        }
+        let texts: Vec<TreeID> = all
+            .into_iter()
+            .filter(|&n| self.kind(n) == "text")
+            .collect();
+        let mut prev = HashMap::new();
+        for &n in &texts {
+            if let Some(x) = self.next_of(n) {
+                prev.insert(x, n);
+            }
+        }
+        let mut out = HashMap::new();
+        for &head in texts.iter().filter(|n| !prev.contains_key(n)) {
+            let Ok((text, spans, frames)) = self.flow(head) else {
+                continue;
+            };
+            let story = std::rc::Rc::new((text, spans));
+            for (i, &(f, start, next)) in frames.iter().enumerate() {
+                out.insert(
+                    f,
+                    Flow {
+                        head,
+                        story: story.clone(),
+                        start,
+                        end: next.unwrap_or(story.0.len()),
+                        prev: i.checked_sub(1).map(|j| frames[j].0),
+                        next: frames.get(i + 1).map(|n| n.0),
+                        overset: i + 1 == frames.len() && next.is_some(),
+                    },
+                );
+            }
+        }
+        out
+    }
+
     pub fn snapshot(&self) -> Snapshot {
         let palette = self.palette();
+        let flows = self.flows();
         let sheet = |p: TreeID| {
             let m = self.meta(p);
             let v = serde_json::to_value(m.get_value()).unwrap_or_default();
@@ -2198,7 +2510,7 @@ impl Doc {
                 children: self
                     .children(p)
                     .into_iter()
-                    .map(|c| self.snap(c, &modes, &palette))
+                    .map(|c| self.snap(c, &modes, &palette, &flows))
                     .collect(),
                 modes,
             }
@@ -2335,10 +2647,11 @@ impl Doc {
         let Ok(id) = self.sheet(&m.id) else {
             return Vec::new();
         };
+        let flows = self.flows();
         self.children(id)
             .into_iter()
             .filter(|c| !p.detached.contains(&c.to_string()))
-            .map(|c| self.snap(c, &modes, &palette))
+            .map(|c| self.snap(c, &modes, &palette, &flows))
             .collect()
     }
 
@@ -2369,7 +2682,13 @@ impl Doc {
         path
     }
 
-    fn snap(&self, id: TreeID, inherited: &Modes, palette: &Palette) -> Node {
+    fn snap(
+        &self,
+        id: TreeID,
+        inherited: &Modes,
+        palette: &Palette,
+        flows: &HashMap<TreeID, Flow>,
+    ) -> Node {
         let m = self.meta(id);
         let v = serde_json::to_value(m.get_deep_value()).unwrap_or_default();
         let modes = self.modes(id);
@@ -2378,21 +2697,45 @@ impl Doc {
         let children = || {
             self.children(id)
                 .into_iter()
-                .map(|c| self.snap(c, &active_modes, palette))
+                .map(|c| self.snap(c, &active_modes, palette, flows))
                 .collect()
         };
         let kind = match self.kind(id).as_str() {
-            "text" => Kind::Text {
-                text: v["text"].as_str().unwrap_or_default().into(),
-                spans: self.spans(
-                    id,
-                    &v,
-                    &Scope {
-                        palette,
-                        modes: &active_modes,
-                    },
-                ),
-                frame: serde_json::from_value(v.clone()).unwrap_or_default(),
+            "text" => match flows.get(&id) {
+                Some(f) => {
+                    let (text, spans) = &*f.story;
+                    Kind::Text {
+                        text: text.clone(),
+                        spans: spans.clone(),
+                        frame: serde_json::from_value(v.clone()).unwrap_or_default(),
+                        story: f.head.to_string(),
+                        start: utf16_of(text, f.start),
+                        end: utf16_of(text, f.end),
+                        prev: f.prev.map(|p| p.to_string()),
+                        next: f.next.map(|n| n.to_string()),
+                        overset: f.overset,
+                        from: f.start,
+                    }
+                }
+                None => Kind::Text {
+                    text: v["text"].as_str().unwrap_or_default().into(),
+                    spans: self.spans(
+                        id,
+                        &v,
+                        &Scope {
+                            palette,
+                            modes: &active_modes,
+                        },
+                    ),
+                    frame: serde_json::from_value(v.clone()).unwrap_or_default(),
+                    story: id.to_string(),
+                    start: 0,
+                    end: 0,
+                    prev: None,
+                    next: None,
+                    overset: false,
+                    from: 0,
+                },
             },
             "group" => Kind::Group {
                 children: children(),
@@ -2419,8 +2762,8 @@ impl Doc {
                 }
                 Kind::Shape(Shape::Path { path }) if path.len() == 6 => "Line".into(),
                 Kind::Shape(Shape::Path { .. }) => "Vector".into(),
-                Kind::Text { text, .. } if text.is_empty() => "Text".into(),
-                Kind::Text { text, .. } => text.chars().take(40).collect(),
+                Kind::Text { text, from, .. } if text[*from..].is_empty() => "Text".into(),
+                Kind::Text { text, from, .. } => text[*from..].chars().take(40).collect(),
                 Kind::Group { .. } => "Group".into(),
                 Kind::Frame { .. } => "Frame".into(),
             });
@@ -2580,8 +2923,21 @@ impl Doc {
     }
 
     fn clip(&self, id: TreeID) -> Clip {
+        let mut meta = self.meta(id).get_deep_value();
+        let head = self.story(id);
+        if let LoroValue::Map(m) = &mut meta
+            && head != id
+        {
+            let m = m.make_mut();
+            for k in STORY {
+                match value(&self.meta(head), k) {
+                    Some(v) => m.insert(k.into(), v),
+                    None => m.remove(k),
+                };
+            }
+        }
         Clip {
-            meta: self.meta(id).get_deep_value(),
+            meta,
             text: self.text(id).map(|t| t.to_delta()).unwrap_or_default(),
             children: self
                 .children(id)
@@ -2596,6 +2952,7 @@ impl Doc {
         let to = self.meta(new);
         for (k, v) in clip.meta.clone().into_map().unwrap().iter() {
             match (k.as_str(), v) {
+                ("next", _) => {}
                 ("text", LoroValue::String(_)) => to
                     .insert_container(k, LoroText::new())
                     .map_err(err)?
@@ -2803,7 +3160,12 @@ fn draw(n: &Node, ops: &mut Vec<Op>, pal: &Palette) {
             text,
             spans,
             frame: tf,
-        } => item(ops, text::draw(text, spans, &n.style.fills, frame, tf, s)),
+            from,
+            ..
+        } => item(
+            ops,
+            text::draw(text, spans, &n.style.fills, frame, tf, s, *from),
+        ),
         Kind::Group { children } => draw_all(children, ops, pal),
         Kind::Frame { clip, children } => {
             let r = rect(frame[0], frame[1], frame[2], frame[3]);
@@ -3327,7 +3689,13 @@ mod tests {
         assert_eq!(ids(&pg.children), [&f, &copy].map(String::clone));
         let (orig, dup) = (&pg.children[0], &pg.children[1]);
         assert_ne!(children(orig)[0].id, children(dup)[0].id);
-        assert_eq!(children(dup)[0].kind, children(orig)[0].kind);
+        let text = |n: &Node| match &n.kind {
+            Kind::Text {
+                text, spans, frame, ..
+            } => (text.clone(), spans.clone(), frame.clone()),
+            k => panic!("not text: {k:?}"),
+        };
+        assert_eq!(text(&children(dup)[0]), text(&children(orig)[0]));
         assert_eq!(frame(&children(dup)[0]), frame(&children(orig)[0]));
     }
 
@@ -5296,10 +5664,10 @@ mod tests {
                 })
                 .collect()
         };
-        let caret = fills(d.text_overlay(&t, 2, 2, 0.5).unwrap());
+        let caret = fills(d.text_overlay(&t, 2, 2, 0.5, &p).unwrap());
         assert_eq!(caret.len(), 1);
         assert!((caret[0][1] - x2 as f32 + 0.25).abs() < 0.01, "{caret:?}");
-        assert_eq!(fills(d.text_overlay(&t, 1, 4, 0.5).unwrap()).len(), 2);
+        assert_eq!(fills(d.text_overlay(&t, 1, 4, 0.5, &p).unwrap()).len(), 2);
         assert!(d.caret(&t, 9).is_err());
     }
 
@@ -5591,5 +5959,223 @@ mod tests {
         let pg = page(&d);
         assert_eq!((ids(&pg.children), pg.detached.len()), (vec![top], 0));
         assert_eq!(d.master_hit(&p1, 15.0, 15.0, 0.0), Some(r));
+    }
+
+    /// A fixed text frame on `page` at `frame`.
+    fn fixed_text(d: &mut Doc, page: &str, frame: [f64; 4]) -> String {
+        let t = create(d, page, NewKind::Text, [frame[0], frame[1], 0.0, 0.0]);
+        set_frame(d, &t, frame);
+        t
+    }
+
+    fn thread(d: &mut Doc, from: &str, to: &str) -> Res<Vec<String>> {
+        d.apply(Command::Thread {
+            from: from.into(),
+            to: to.into(),
+        })
+    }
+
+    /// The story, start, end, previous and next frame, and overset of a text layer.
+    fn flow(d: &Doc, id: &str) -> (String, usize, usize, Option<String>, Option<String>, bool) {
+        let s = d.snapshot();
+        let all: Vec<&Node> = s.pages.iter().flat_map(|p| &p.children).collect();
+        let n = all.into_iter().find(|n| n.id == id).unwrap();
+        match &n.kind {
+            Kind::Text {
+                text,
+                story,
+                start,
+                end,
+                prev,
+                next,
+                overset,
+                ..
+            } => {
+                assert!(story == id || prev.is_some(), "{story} heads {id}");
+                (
+                    text.clone(),
+                    *start,
+                    *end,
+                    prev.clone(),
+                    next.clone(),
+                    *overset,
+                )
+            }
+            k => panic!("not text: {k:?}"),
+        }
+    }
+
+    #[test]
+    fn threaded_frames_set_one_story_that_flows_on_across_frames_and_pages() {
+        let (mut d, p1) = empty();
+        let p2 = add_page(&mut d, None);
+        let a = fixed_text(&mut d, &p1, [0.0, 0.0, 100.0, 2.0 * LEADING + 1.0]);
+        let b = fixed_text(&mut d, &p2, [10.0, 10.0, 100.0, 300.0]);
+        set_text(&mut d, &a, "Hi\nHi\nHi\nHi");
+        assert!(flow(&d, &a).5);
+        thread(&mut d, &a, &b).unwrap();
+        let story = "Hi\nHi\nHi\nHi".to_string();
+        assert_eq!(
+            flow(&d, &a),
+            (story.clone(), 0, 6, None, Some(b.clone()), false)
+        );
+        assert_eq!(flow(&d, &b), (story, 6, 11, Some(a.clone()), None, false));
+        let runs = |d: &Doc, p: &str| {
+            d.render(p)
+                .into_iter()
+                .filter_map(|o| match o {
+                    Op::GlyphRun { positions, .. } => Some(positions[1]),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(runs(&d, &p1).len(), 2);
+        let on2 = runs(&d, &p2);
+        assert_eq!(on2.len(), 2);
+        assert!(on2[0] > 10.0 && on2[0] < 10.0 + LEADING as f32, "{on2:?}");
+        edit(&mut d, &b, [7, 7], "X").unwrap();
+        assert_eq!(flow(&d, &a).0, "Hi\nHi\nHXi\nHi");
+        assert_eq!(d.text_frame(&a, 8).unwrap(), b);
+        assert_eq!(d.text_frame(&b, 2).unwrap(), a);
+        assert_eq!(d.text_frame(&a, 6).unwrap(), b);
+        let [_, top, _] = d.caret(&a, 8).unwrap();
+        assert!(close(top, 10.0), "{top}");
+        assert_eq!(d.text_index(&b, 11.0, 11.0).unwrap(), 6);
+        assert_eq!(d.text_line(&a, 7).unwrap(), [6, 9]);
+        let overlay = |d: &Doc, page: &str| d.text_overlay(&a, 1, 8, 0.5, page).unwrap().len();
+        assert_eq!((overlay(&d, &p1), overlay(&d, &p2)), (2, 1));
+        set_frame(&mut d, &b, [10.0, 10.0, 100.0, LEADING + 1.0]);
+        assert!(flow(&d, &b).5);
+        d.apply(Command::Unthread { id: a.clone() }).unwrap();
+        assert_eq!(flow(&d, &a).4, None);
+        assert!(flow(&d, &a).5);
+        assert_eq!(flow(&d, &b).0, "");
+        assert_eq!(flow(&d, &b).3, None);
+        d.apply(Command::Undo).unwrap();
+        assert_eq!(flow(&d, &b).3, Some(a));
+    }
+
+    #[test]
+    fn only_fixed_frames_thread_and_the_last_may_be_auto_height() {
+        let (mut d, p) = empty();
+        let a = create(&mut d, &p, NewKind::Text, [0.0, 0.0, 0.0, 0.0]);
+        set_text(&mut d, &a, "Hi Hi Hi Hi");
+        set_frame(&mut d, &a, [0.0, 0.0, 30.0, LEADING]);
+        set(
+            &mut d,
+            &a,
+            Props {
+                sizing: sizing(Size::Fixed, Size::Hug),
+                ..Props::default()
+            },
+        );
+        let b = create(&mut d, &p, NewKind::Text, [0.0, 100.0, 0.0, 0.0]);
+        set_text(&mut d, &b, "Yo");
+        let c = fixed_text(&mut d, &p, [0.0, 200.0, 30.0, 30.0]);
+        set(
+            &mut d,
+            &c,
+            Props {
+                sizing: sizing(Size::Fixed, Size::Hug),
+                ..Props::default()
+            },
+        );
+        thread(&mut d, &a, &b).unwrap();
+        assert_eq!(
+            node_sizing(&d, &a),
+            sizing(Size::Fixed, Size::Fixed).unwrap()
+        );
+        assert_eq!(
+            node_sizing(&d, &b),
+            sizing(Size::Fixed, Size::Fixed).unwrap()
+        );
+        assert_eq!(flow(&d, &a).0, "Hi Hi Hi Hi\nYo");
+        assert!(close(frames(&d, &a)[0][3], 2.0 * LEADING));
+        thread(&mut d, &b, &c).unwrap();
+        assert_eq!(flow(&d, &c).1, 14);
+        assert!(close(frames(&d, &c)[0][3], LEADING));
+        assert_eq!(node_sizing(&d, &c), sizing(Size::Fixed, Size::Hug).unwrap());
+        set_frame(&mut d, &b, [0.0, 100.0, 30.0, 1.0]);
+        assert_eq!(flow(&d, &c).1, 12);
+        assert!(close(frames(&d, &c)[0][3], LEADING));
+        for (id, s) in [
+            (&a, sizing(Size::Fixed, Size::Hug)),
+            (&c, sizing(Size::Hug, Size::Hug)),
+        ] {
+            let bad = Command::Set {
+                id: id.clone(),
+                props: Props {
+                    sizing: s,
+                    ..Props::default()
+                },
+            };
+            assert!(d.apply(bad).is_err());
+        }
+        assert!(thread(&mut d, &a, &a).is_err());
+        assert!(thread(&mut d, &c, &a).is_err());
+        let r = create(&mut d, &p, NewKind::Rect, [0.0; 4]);
+        assert!(thread(&mut d, &c, &r).is_err());
+    }
+
+    #[test]
+    fn a_frame_threaded_after_one_with_a_next_goes_in_between() {
+        let (mut d, p) = empty();
+        let a = fixed_text(&mut d, &p, [0.0, 0.0, 50.0, 20.0]);
+        let c = fixed_text(&mut d, &p, [0.0, 100.0, 50.0, 20.0]);
+        let b = fixed_text(&mut d, &p, [0.0, 50.0, 50.0, 20.0]);
+        thread(&mut d, &a, &c).unwrap();
+        thread(&mut d, &a, &b).unwrap();
+        assert_eq!(flow(&d, &a).4, Some(b.clone()));
+        assert_eq!(flow(&d, &b).4, Some(c.clone()));
+        assert_eq!(flow(&d, &c).3, Some(b));
+    }
+
+    #[test]
+    fn deleting_a_threaded_frame_keeps_its_story_in_the_rest_of_the_thread() {
+        let (mut d, p) = empty();
+        let a = fixed_text(&mut d, &p, [0.0, 0.0, 100.0, LEADING + 1.0]);
+        let b = fixed_text(&mut d, &p, [0.0, 50.0, 100.0, LEADING + 1.0]);
+        let c = fixed_text(&mut d, &p, [0.0, 100.0, 100.0, 100.0]);
+        set_text(&mut d, &a, "Hi\nHo\nHu");
+        thread(&mut d, &a, &b).unwrap();
+        thread(&mut d, &b, &c).unwrap();
+        format(&mut d, &a, None, sized(10.0)).unwrap();
+        d.apply(Command::Delete {
+            ids: vec![b.clone()],
+        })
+        .unwrap();
+        assert_eq!(flow(&d, &a).4, Some(c.clone()));
+        assert_eq!(flow(&d, &c).1, 3);
+        d.apply(Command::Delete {
+            ids: vec![a.clone()],
+        })
+        .unwrap();
+        let (text, start, _, prev, ..) = flow(&d, &c);
+        assert_eq!((text.as_str(), start, prev), ("Hi\nHo\nHu", 0, None));
+        assert!(spans(&d).iter().all(|s| s.attrs.size == 10.0));
+        d.apply(Command::Undo).unwrap();
+        d.apply(Command::Undo).unwrap();
+        assert_eq!(flow(&d, &b).3, Some(a));
+    }
+
+    #[test]
+    fn a_copy_of_a_threaded_frame_holds_its_whole_story_and_no_thread() {
+        let (mut d, p) = empty();
+        let a = fixed_text(&mut d, &p, [0.0, 0.0, 100.0, LEADING + 1.0]);
+        let b = fixed_text(&mut d, &p, [0.0, 50.0, 100.0, 100.0]);
+        set_text(&mut d, &a, "Hi\nHo");
+        thread(&mut d, &a, &b).unwrap();
+        let copy = d
+            .apply(Command::Duplicate {
+                ids: vec![b.clone()],
+            })
+            .unwrap()
+            .remove(0);
+        let (text, start, _, prev, next, _) = flow(&d, &copy);
+        assert_eq!(
+            (text.as_str(), start, prev, next),
+            ("Hi\nHo", 0, None, None)
+        );
+        assert_eq!(flow(&d, &a).4, Some(b));
     }
 }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CanvasKit, Surface } from 'canvaskit-wasm'
 import { MM, bounds, ends, insertion, useEditor, type Editor, type Point, type Tool } from './editor'
-import type { Container, Node } from './model'
+import type { Container, Node, TextNode } from './model'
 import { penPath } from './pen'
 import { Renderer, fitView, HANDLE, type Box, type View } from './renderer'
 import { pick } from './select'
@@ -11,6 +11,9 @@ const PX_PER_PT = 96 / 72
 const DRAG = 3
 const EDGE = 4
 const HIT = 4
+/** Distance in px of a text frame's in- and out-port from its top and bottom corner. */
+const PORT_INSET = 16
+const PORT = 10
 const CURSORS: Record<string, string> = {
   nw: 'nwse-resize',
   se: 'nwse-resize',
@@ -34,7 +37,7 @@ type Drag =
   | { kind: 'resize'; start: Point; handle: string; box: Box; frames: Node[] }
   | { kind: 'end'; start: Point; id: string; ends: [Point, Point]; index: number }
   | { kind: 'marquee'; start: Point; end: Point; base: string[] }
-  | { kind: 'draw'; start: Point; id: string; moved: boolean; tool: keyof typeof DEFAULT_SIZE }
+  | { kind: 'draw'; start: Point; id: string; moved: boolean; tool: keyof typeof DEFAULT_SIZE; thread?: string }
   | { kind: 'pen'; start: Point }
   | { kind: 'text' }
 
@@ -98,12 +101,52 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       w: Math.abs(a.x - b.x),
       h: Math.abs(a.y - b.y),
     })
+    /**
+     * The in- and out-port in screen space of a single selected text frame that can
+     * thread, as in InDesign: on its left edge below the top and its right edge above
+     * the bottom.
+     */
+    const ports = () => {
+      const [n] = editor.selected()
+      if (editor.tool !== 'move' || editor.selection.length !== 1 || editor.editing || n?.kind !== 'text') return undefined
+      if (n.sizing.horizontal === 'hug' && n.sizing.vertical === 'hug' && !n.prev && !n.next) return undefined
+      return { node: n, ...portsOf(n) }
+    }
+    const portsOf = (n: Node) => ({
+      in: { x: view.x + n.x * view.zoom, y: view.y + n.y * view.zoom + Math.min(PORT_INSET, (n.h * view.zoom) / 2) },
+      out: { x: view.x + (n.x + n.w) * view.zoom, y: view.y + (n.y + n.h) * view.zoom - Math.min(PORT_INSET, (n.h * view.zoom) / 2) },
+    })
+    const portAt = (e: { offsetX: number; offsetY: number }) => {
+      const p = ports()
+      const near = (q: Point) => Math.abs(q.x - e.offsetX) <= PORT / 2 + 1 && Math.abs(q.y - e.offsetY) <= PORT / 2 + 1
+      return !p ? undefined : near(p.out) ? { side: 'out' as const, node: p.node } : near(p.in) ? { side: 'in' as const, node: p.node } : undefined
+    }
     /** Box handles of the selection, or the ends of a single selected line. */
     const handles = () => {
       const nodes = editor.selected()
       if (editor.tool !== 'move' || !nodes.length || editor.editing) return {}
       const line = nodes.length === 1 ? ends(nodes[0]) : undefined
       return line ? { line } : { box: bounds(nodes) }
+    }
+
+    /** Ports of the selected text frame, and lines from each frame of its thread on this page to the next. */
+    const threadOverlay = () => {
+      const p = drag ? undefined : ports()
+      if (!p) return {}
+      const n = p.node
+      const state = (threaded: boolean, overset = false) => (overset ? 'overset' : threaded ? 'threaded' : 'empty') as 'overset' | 'threaded' | 'empty'
+      const frames = [...editor.nodes.values()].flatMap(({ node }) => (node.kind === 'text' && node.story === n.story ? [node] : []))
+      const lines = frames.flatMap((f) => {
+        const next = f.next && frames.find((g) => g.id === f.next)
+        return next ? [[portsOf(f).out, portsOf(next).in] as [Point, Point]] : []
+      })
+      return {
+        ports: [
+          { ...p.in, state: state(!!n.prev) },
+          { ...p.out, state: state(!!n.next, n.overset) },
+        ],
+        threads: lines,
+      }
     }
 
     const redraw = () => {
@@ -129,7 +172,9 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
             top: `${view.y + top * view.zoom}px`,
             height: `${(bottom - top) * view.zoom}px`,
           })
-          if (caretOn || ed.anchor !== ed.focus) text = editor.engine.textOverlay(ed.id, ed.anchor, ed.focus, 1 / view.zoom).slice()
+          if (caretOn || ed.anchor !== ed.focus) {
+            text = editor.engine.textOverlay(ed.id, ed.anchor, ed.focus, 1 / view.zoom, editor.page.id).slice()
+          }
         }
         renderer.draw(surface.getCanvas(), editor.page.id, view, canvas.width / canvas.clientWidth, {
           text,
@@ -140,6 +185,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           ends: line,
           pen: editor.pen && { anchors: editor.pen.anchors, cursor: drag ? undefined : cursor },
           insert: drag?.kind === 'move' ? drag.to?.line : undefined,
+          ...threadOverlay(),
         })
         surface.flush()
       })
@@ -185,7 +231,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     const hit = (p: Point) => editor.engine.hit(editor.page.id, p.x, p.y, HIT / view.zoom)
     const track = () => {
       if (!pointer || drag || editor.pen) return
-      canvas.style.cursor = CURSORS[handleAt(pointer) ?? ''] ?? ''
+      canvas.style.cursor = portAt(pointer) ? 'pointer' : (CURSORS[handleAt(pointer) ?? ''] ?? '')
       const mode = pointer.ctrlKey ? 'deep' : 'click'
       const id = editor.tool === 'move' ? pick(editor.page.children, hit(toDoc(pointer)), editor.selection, mode) : undefined
       if (id !== hover) {
@@ -224,10 +270,13 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       }
       track()
     }
-    /** The edited text layer when `p` is inside its frame. */
+    /** The frame of the edited text's thread on this page that `p` is inside. */
     const inEdited = (p: Point) => {
       const n = editor.editing && editor.nodes.get(editor.editing.id)?.node
-      return n?.kind === 'text' && p.x >= n.x && p.x <= n.x + n.w && p.y >= n.y && p.y <= n.y + n.h ? n : undefined
+      if (n?.kind !== 'text') return undefined
+      const inside = (f: Node): f is TextNode =>
+        f.kind === 'text' && f.story === n.story && p.x >= f.x && p.x <= f.x + f.w && p.y >= f.y && p.y <= f.y + f.h
+      return inside(n) ? n : [...editor.nodes.values()].map((e) => e.node).find(inside)
     }
     const onPointerDown = (e: PointerEvent) => {
       if (e.button !== 0 && e.button !== 1) return
@@ -253,6 +302,27 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         return
       }
       const parent = () => hit(p).findLast((id) => editor.nodes.get(id)?.node.kind === 'frame') ?? editor.page.id
+      if (editor.threading) {
+        // A loaded out-port threads into the text frame clicked, or a new one drawn.
+        const from = editor.threading
+        if (portAt(e)) return
+        const target = hit(p).findLast((id) => editor.nodes.get(id)?.node.kind === 'text')
+        if (target === from) return
+        if (target) {
+          try {
+            editor.apply({ type: 'thread', from, to: target })
+          } catch (err) {
+            console.warn(err)
+          }
+          editor.set({ threading: null, selection: [target] })
+          return
+        }
+        editor.apply({ type: 'beginUndoGroup' })
+        const [id] = editor.apply({ type: 'create', parent: parent(), kind: 'text', x: p.x, y: p.y, w: 0, h: 0 })
+        drag = { kind: 'draw', start: p, id, moved: false, tool: 'text', thread: from }
+        editor.set({ selection: [id] })
+        return
+      }
       if (editor.tool === 'pen') {
         const pen = editor.pen
         const anchor = { x: p.x, y: p.y, hx: 0, hy: 0 }
@@ -288,6 +358,12 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         : undefined
       if (master) {
         editor.set({ selection: editor.apply({ type: 'override', page: editor.page.id, id: master }) })
+        return
+      }
+      const port = portAt(e)
+      if (port) {
+        if (port.side === 'out') editor.set({ threading: port.node.id })
+        drag = null
         return
       }
       const handle = handleAt(e)
@@ -333,7 +409,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       if (!drag) return track()
       if (drag.kind === 'text') {
         const ed = editor.editing
-        if (ed) select(editor, ed.anchor, editor.engine.textIndex(ed.id, p.x, p.y))
+        if (ed) select(editor, ed.anchor, editor.engine.textIndex(inEdited(p)?.id ?? ed.id, p.x, p.y))
       } else if (drag.kind === 'pan') {
         view.x += e.clientX - drag.last.x
         view.y += e.clientY - drag.last.y
@@ -437,7 +513,16 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       }
     }
     const onPointerUp = (e: PointerEvent) => {
-      if (drag?.kind === 'draw') {
+      if (drag?.kind === 'draw' && drag.thread) {
+        const from = editor.lookup(drag.thread)?.node
+        if (!drag.moved && from) editor.apply({ type: 'setFrame', id: drag.id, x: drag.start.x, y: drag.start.y, w: from.w, h: from.h })
+        try {
+          editor.apply({ type: 'thread', from: drag.thread, to: drag.id })
+        } catch (err) {
+          console.warn(err)
+        }
+        editor.set({ threading: null, selection: [drag.id] })
+      } else if (drag?.kind === 'draw') {
         if (drag.tool !== 'text' && !drag.moved) {
           const [w, h] = DEFAULT_SIZE[drag.tool]
           editor.apply({ type: 'setFrame', id: drag.id, x: drag.start.x, y: drag.start.y, w: w * MM, h: h * MM })
@@ -464,6 +549,14 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     }
     const onDoubleClick = (e: MouseEvent) => {
       if (editor.tool !== 'move') return
+      const port = portAt(e)
+      if (port) {
+        // Double-clicking a port breaks the thread there.
+        const id = port.side === 'out' ? port.node.id : port.node.prev
+        if (id && (port.side === 'in' || port.node.next)) editor.apply({ type: 'unthread', id })
+        editor.set({ threading: null })
+        return
+      }
       const p = toDoc(e)
       const edited = inEdited(p)
       if (edited) {
@@ -526,6 +619,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       }
       wake()
       canvas.dataset.tool = editor.tool
+      canvas.toggleAttribute('data-threading', editor.threading !== null)
       track()
       redraw()
     })

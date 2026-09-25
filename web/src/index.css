@@ -57,6 +57,10 @@ body,
   cursor: crosshair;
 }
 
+.canvas[data-threading] {
+  cursor: alias;
+}
+
 .canvas[data-space] {
   cursor: grab;
 }
@@ -1083,7 +1087,12 @@ span.swatch {
   cursor: pointer;
 }
 
-.segmented button:hover {
+.segmented button:disabled {
+  color: var(--text-3);
+  cursor: default;
+}
+
+.segmented button:hover:not(:disabled) {
   color: var(--text);
 }
 

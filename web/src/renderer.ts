@@ -18,10 +18,17 @@ export type Overlay = {
   pen?: { anchors: { x: number; y: number; hx: number; hy: number }[]; cursor?: { x: number; y: number } } | null
   /** Display list of the caret or selection in the text being edited, in page space. */
   text?: Uint32Array
+  /** In- and out-ports of a text frame in screen space: empty, threaded, or holding overset text. */
+  ports?: { x: number; y: number; state: 'empty' | 'threaded' | 'overset' }[]
+  /** Lines in screen space from each frame of a thread to the next. */
+  threads?: [{ x: number; y: number }, { x: number; y: number }][]
 }
 
 const FIT_PADDING = 64
 export const HANDLE = 8
+const PORT = 10
+/** Path verbs of CanvasKit's path commands. */
+const [MOVE, LINE, CLOSE] = [0, 1, 5]
 
 export function fitView(
   page: { width: number; height: number; bleed: number },
@@ -106,7 +113,12 @@ export class Renderer {
     }
   }
 
-  private drawOverlay(canvas: Canvas, view: View, dpr: number, { selection, hover, marquee, handles, ends, pen, insert }: Overlay) {
+  private drawOverlay(
+    canvas: Canvas,
+    view: View,
+    dpr: number,
+    { selection, hover, marquee, handles, ends, pen, insert, ports, threads }: Overlay,
+  ) {
     const { ck, chrome: paint } = this
     const screen = (b: Box) =>
       ck.XYWHRect(
@@ -168,6 +180,25 @@ export class Renderer {
       const r = screen(handles)
       canvas.drawRect(r, paint)
       for (const x of [r[0], r[2]]) for (const y of [r[1], r[3]]) square(x, y, HANDLE)
+    }
+    for (const [a, b] of threads ?? []) canvas.drawLine(a.x, a.y, b.x, b.y, paint)
+    for (const p of ports ?? []) {
+      square(p.x, p.y, PORT)
+      const [x, y] = [Math.floor(p.x) + 0.5, Math.floor(p.y) + 0.5]
+      if (p.state === 'overset') {
+        paint.setColor(ck.parseColorString(BLEED))
+        paint.setStrokeWidth(2)
+        canvas.drawLine(x - 3, y, x + 3, y, paint)
+        canvas.drawLine(x, y - 3, x, y + 3, paint)
+        paint.setStrokeWidth(1)
+        paint.setColor(accent)
+      } else if (p.state === 'threaded') {
+        const path = ck.Path.MakeFromCmds([MOVE, x - 2, y - 3, LINE, x + 3, y, LINE, x - 2, y + 3, CLOSE])
+        paint.setStyle(ck.PaintStyle.Fill)
+        if (path) canvas.drawPath(path, paint)
+        paint.setStyle(ck.PaintStyle.Stroke)
+        path?.delete()
+      }
     }
     canvas.restore()
   }

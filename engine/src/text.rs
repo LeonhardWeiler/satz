@@ -208,7 +208,8 @@ pub struct Glyph {
     pub hyphen: bool,
 }
 
-/// Glyph runs of `text` set in `frame`; characters without a fill take `fills`.
+/// Glyph runs of `text` from the byte `from` set in `frame`; characters without a
+/// fill take `fills`.
 pub fn draw(
     text: &str,
     spans: &[Span],
@@ -216,6 +217,7 @@ pub fn draw(
     frame: [f32; 4],
     tf: &TextFrame,
     s: &Scope,
+    from: usize,
 ) -> Vec<Op> {
     let span_paints: Vec<Vec<Paint>> = spans
         .iter()
@@ -228,7 +230,7 @@ pub fn draw(
         })
         .collect();
     let mut ops = Vec::new();
-    for line in lay_out(text, spans, frame, tf) {
+    for line in lay_out(text, spans, frame, tf, from) {
         let mut at = 0;
         for run in line.chunk_by(|a, b| {
             spans[a.span].attrs.size == spans[b.span].attrs.size
@@ -283,15 +285,42 @@ fn source(
     (out, ranges)
 }
 
-/// The lines of `text` that fit in `frame`, each a list of glyphs.
-pub fn lay_out(text: &str, spans: &[Span], frame: [f32; 4], tf: &TextFrame) -> Vec<Vec<Glyph>> {
+/// The lines of `text` from the byte `from` that fit in `frame`, each a list of glyphs.
+pub fn lay_out(
+    text: &str,
+    spans: &[Span],
+    frame: [f32; 4],
+    tf: &TextFrame,
+    from: usize,
+) -> Vec<Vec<Glyph>> {
     let (inner, cw) = columns(frame, tf);
-    place(rows(text, spans, Some(cw)).0, inner, cw, tf).lines
+    place(rows(text, spans, Some(cw), from).0, inner, cw, tf).lines
 }
 
-/// The frame size [w, h] that `text` needs at the width `w`, or on unbroken lines:
-/// the least height at which every line fits, over all columns.
-pub fn measure(text: &str, spans: &[Span], tf: &TextFrame, w: Option<f32>) -> [f32; 2] {
+/// The byte where the text from `from` that does not fit in `frame` starts, for the
+/// next frame of a thread; `None` when it all fits.
+pub fn overflow(
+    text: &str,
+    spans: &[Span],
+    frame: [f32; 4],
+    tf: &TextFrame,
+    from: usize,
+) -> Option<usize> {
+    let (inner, cw) = columns(frame, tf);
+    let rows = rows(text, spans, Some(cw), from).0;
+    let starts: Vec<usize> = rows.iter().map(|r| r.stops[0].0).collect();
+    starts.get(place(rows, inner, cw, tf).placed).copied()
+}
+
+/// The frame size [w, h] that `text` from the byte `from` needs at the width `w`, or
+/// on unbroken lines: the least height at which every line fits, over all columns.
+pub fn measure(
+    text: &str,
+    spans: &[Span],
+    tf: &TextFrame,
+    w: Option<f32>,
+    from: usize,
+) -> [f32; 2] {
     let (h_in, v_in) = (
         (tf.inset_left + tf.inset_right) as f32,
         (tf.inset_top + tf.inset_bottom) as f32,
@@ -300,10 +329,10 @@ pub fn measure(text: &str, spans: &[Span], tf: &TextFrame, w: Option<f32>) -> [f
     let (rows, cw, w) = match w {
         Some(w) => {
             let (_, cw) = columns([0.0, 0.0, w, 0.0], tf);
-            (rows(text, spans, Some(cw)).0, cw, w)
+            (rows(text, spans, Some(cw), from).0, cw, w)
         }
         None => {
-            let (rows, natural) = rows(text, spans, None);
+            let (rows, natural) = rows(text, spans, None, from);
             let cw = ceil(natural);
             (rows, cw, n * cw + (n - 1.0) * tf.gutter as f32 + h_in)
         }
@@ -350,9 +379,10 @@ fn columns([x, y, w, h]: [f32; 4], tf: &TextFrame) -> ([f32; 4], f32) {
     ([x + left, y + top, iw, ih], cw)
 }
 
-/// The lines of `text` broken to the column width `cw`, or each paragraph on one
-/// line when `None`; and the width of the widest paragraph set on one line.
-fn rows(text: &str, spans: &[Span], cw: Option<f32>) -> (Vec<Row>, f32) {
+/// The lines of `text` from the byte `from`, a line start, broken to the column width
+/// `cw`, or each paragraph on one line when `None`; and the width of the widest
+/// paragraph set on one line.
+fn rows(text: &str, spans: &[Span], cw: Option<f32>, from: usize) -> (Vec<Row>, f32) {
     let font = FontRef::new(FONT).unwrap();
     let upem = font.head().unwrap().units_per_em() as f32;
     let hhea = font.hhea().unwrap();
@@ -396,6 +426,10 @@ fn rows(text: &str, spans: &[Span], cw: Option<f32>) -> (Vec<Row>, f32) {
     let mut paras = Vec::new();
     let mut start = 0;
     for para in text.split('\n') {
+        if start + para.len() < from {
+            start += para.len() + 1;
+            continue;
+        }
         let first = &spans[span_at(start)].attrs;
         let mut buf = UnicodeBuffer::new();
         buf.push_str(para);
@@ -457,7 +491,20 @@ fn rows(text: &str, spans: &[Span], cw: Option<f32>) -> (Vec<Row>, f32) {
         items.extend([FILL, FORCE]);
         glyphs.extend([None, None]);
         clusters.extend([start + para.len(); 2]);
-        paras.push((items, glyphs, clusters, first.clone(), start, natural));
+        // A paragraph that an earlier frame began goes on at its first glyph from
+        // `from`, without the space or hyphen it broke at.
+        let mut line0 = start;
+        if from > start {
+            let mut k = clusters.partition_point(|&c| c < from);
+            while k < items.len() - 2 && !matches!(items[k], Item::Box(_)) {
+                k += 1;
+            }
+            items.drain(..k);
+            glyphs.drain(..k);
+            clusters.drain(..k);
+            line0 = from;
+        }
+        paras.push((items, glyphs, clusters, first.clone(), line0, natural));
         start += para.len() + 1;
     }
     let widest = paras.iter().map(|p| p.5).fold(0.0, f32::max);
@@ -672,10 +719,17 @@ pub struct Line {
     pub stops: Vec<(usize, f32)>,
 }
 
-/// The lines of `text` that fit in `frame`, with where their characters sit.
-pub fn lines(text: &str, spans: &[Span], frame: [f32; 4], tf: &TextFrame) -> Vec<Line> {
+/// The lines of `text` from the byte `from` that fit in `frame`, with where their
+/// characters sit.
+pub fn lines(
+    text: &str,
+    spans: &[Span],
+    frame: [f32; 4],
+    tf: &TextFrame,
+    from: usize,
+) -> Vec<Line> {
     let (inner, cw) = columns(frame, tf);
-    place(rows(text, spans, Some(cw)).0, inner, cw, tf).geometry
+    place(rows(text, spans, Some(cw), from).0, inner, cw, tf).geometry
 }
 
 /// The line holding the byte offset `at`: the first that reaches it, unless the next
@@ -769,7 +823,7 @@ mod tests {
             palette: &palette,
             modes: &modes,
         };
-        draw(text, spans, &[Fill::solid(0x000000ffu32)], frame, tf, &s)
+        draw(text, spans, &[Fill::solid(0x000000ffu32)], frame, tf, &s, 0)
             .into_iter()
             .map(|op| match op {
                 Op::GlyphRun {
@@ -1018,11 +1072,14 @@ mod tests {
         };
         let t = "Hi\nHi Hi";
         let spans = one(t, attrs(10.0));
-        let [w, h] = measure(t, &spans, &tf, None);
+        let [w, h] = measure(t, &spans, &tf, None, 0);
         assert_close(&[h], &[5.0 + 2.0 * AUTO]);
-        assert_eq!(lay_out(t, &spans, [0.0, 0.0, w, h], &tf).len(), 2);
-        assert_eq!(lay_out(t, &spans, [0.0, 0.0, w - 1.0, 99.0], &tf).len(), 3);
-        let [w, h] = measure(t, &spans, &tf, Some(25.0));
+        assert_eq!(lay_out(t, &spans, [0.0, 0.0, w, h], &tf, 0).len(), 2);
+        assert_eq!(
+            lay_out(t, &spans, [0.0, 0.0, w - 1.0, 99.0], &tf, 0).len(),
+            3
+        );
+        let [w, h] = measure(t, &spans, &tf, Some(25.0), 0);
         assert_close(&[w, h], &[25.0, 5.0 + 3.0 * AUTO]);
     }
 
@@ -1033,7 +1090,7 @@ mod tests {
             ..TextFrame::default()
         };
         let t = "Hi\nHi\nHi\nHi";
-        let [_, h] = measure(t, &one(t, attrs(10.0)), &tf, Some(100.0));
+        let [_, h] = measure(t, &one(t, attrs(10.0)), &tf, Some(100.0), 0);
         assert!((h - 2.0 * AUTO).abs() < 0.05, "{h}");
     }
 
@@ -1041,7 +1098,7 @@ mod tests {
     fn carets_sit_where_the_characters_start_and_wrap_with_the_lines() {
         let t = "Hi Hi Hi";
         let frame = [5.0, 7.0, 25.0, 50.0];
-        let ls = lines(t, &one(t, attrs(10.0)), frame, &TextFrame::default());
+        let ls = lines(t, &one(t, attrs(10.0)), frame, &TextFrame::default(), 0);
         assert_eq!(ls.len(), 2);
         assert_eq!(
             (ls[0].start, ls[0].end, ls[1].start, ls[1].end),
@@ -1062,7 +1119,13 @@ mod tests {
             text_align: TextAlign::Justify,
             ..attrs(10.0)
         };
-        let ls = lines(t, &one(t, a), [5.0, 7.0, 25.0, 50.0], &TextFrame::default());
+        let ls = lines(
+            t,
+            &one(t, a),
+            [5.0, 7.0, 25.0, 50.0],
+            &TextFrame::default(),
+            0,
+        );
         let [end, ..] = caret(t, &ls, 8);
         assert!(end > 12.88 && end < 20.0, "{end}");
     }
@@ -1075,6 +1138,7 @@ mod tests {
             &one(t, attrs(10.0)),
             [5.0, 7.0, 25.0, 50.0],
             &TextFrame::default(),
+            0,
         );
         assert_eq!(index_at(&ls, 12.0, 10.0), 1);
         assert_eq!(index_at(&ls, 0.0, 0.0), 0);
@@ -1097,6 +1161,7 @@ mod tests {
             frame,
             &TextFrame::default(),
             &s,
+            0,
         )
         .into_iter()
         .map(|op| match op {
@@ -1140,9 +1205,54 @@ mod tests {
             &one(t, a),
             [0.0, 0.0, 150.0, 1000.0],
             &TextFrame::default(),
+            0,
         );
         let counts: Vec<usize> = lines.iter().map(Vec::len).collect();
         let shortest = counts[..counts.len() - 1].iter().min().unwrap();
         assert!(*shortest >= 14, "{counts:?}");
+    }
+
+    #[test]
+    fn text_left_over_by_a_frame_is_set_from_where_it_stops_in_the_next() {
+        let t = "Hi Hi Hi";
+        let spans = one(t, attrs(10.0));
+        let tf = TextFrame::default();
+        assert_eq!(overflow(t, &spans, [0.0, 0.0, 25.0, 15.0], &tf, 0), Some(6));
+        assert_eq!(overflow(t, &spans, [0.0, 0.0, 25.0, 50.0], &tf, 0), None);
+        assert_eq!(overflow(t, &spans, [0.0, 0.0, 25.0, 50.0], &tf, 6), None);
+        let rest = lay_out(t, &spans, [100.0, 0.0, 100.0, 50.0], &tf, 6);
+        assert_eq!(rest.len(), 1);
+        assert_eq!(rest[0].iter().map(|g| g.id).collect::<Vec<_>>(), [H, I]);
+        assert_close(&[rest[0][0].x, rest[0][0].y], &[100.0, ASCENT]);
+        let ls = lines(t, &spans, [100.0, 0.0, 100.0, 50.0], &tf, 6);
+        assert_eq!((ls[0].start, ls[0].end), (6, 8));
+        assert_close(&measure(t, &spans, &tf, Some(25.0), 6), &[25.0, AUTO]);
+        let de = Attrs {
+            hyphenate: true,
+            lang: Lang::De,
+            ..attrs(10.0)
+        };
+        let w = "Silbentrennung";
+        let spans = one(w, de);
+        let at = overflow(w, &spans, [0.0, 0.0, 45.0, 15.0], &tf, 0).unwrap();
+        assert_eq!(&w[at..], "trennung");
+        let rest = lay_out(w, &spans, [0.0, 0.0, 100.0, 50.0], &tf, at);
+        assert_eq!(rest.len(), 1);
+        assert!(!rest[0].iter().any(|g| g.hyphen));
+        assert_eq!(rest[0].len(), "trennung".len());
+    }
+
+    #[test]
+    fn a_frame_that_starts_at_a_later_paragraph_skips_the_ones_before() {
+        let t = "Hi\nHi Hi";
+        let spans = one(t, attrs(10.0));
+        let tf = TextFrame::default();
+        assert_eq!(
+            overflow(t, &spans, [0.0, 0.0, 100.0, 15.0], &tf, 0),
+            Some(3)
+        );
+        let rest = lay_out(t, &spans, [0.0, 0.0, 100.0, 50.0], &tf, 3);
+        assert_eq!(rest.len(), 1);
+        assert_eq!(rest[0].len(), 4);
     }
 }

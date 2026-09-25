@@ -70,6 +70,14 @@ impl Engine {
             .to_vec())
     }
 
+    /// The frame of the thread of the text `id` that holds the UTF-16 `index`.
+    #[wasm_bindgen(js_name = textFrame)]
+    pub fn text_frame(&self, id: &str, index: u32) -> Result<String, JsError> {
+        self.doc
+            .text_frame(id, index as usize)
+            .map_err(|e| JsError::new(&e))
+    }
+
     /// The UTF-16 index of the character boundary of the text `id` nearest (x, y) in pt.
     #[wasm_bindgen(js_name = textIndex)]
     pub fn text_index(&self, id: &str, x: f64, y: f64) -> Result<u32, JsError> {
@@ -87,8 +95,9 @@ impl Engine {
         Ok(l.map_err(|e| JsError::new(&e))?.map(|i| i as u32).to_vec())
     }
 
-    /// Display list of the selection from `anchor` to `focus` in the text `id`, or of
-    /// a caret `caret_width` pt wide. The view is invalid after the next call.
+    /// Display list of the selection from `anchor` to `focus` in the text `id` on the
+    /// page `page`, or of a caret `caret_width` pt wide. The view is invalid after the
+    /// next call.
     #[wasm_bindgen(js_name = textOverlay)]
     pub fn text_overlay(
         &mut self,
@@ -96,10 +105,11 @@ impl Engine {
         anchor: u32,
         focus: u32,
         caret_width: f32,
+        page: &str,
     ) -> Result<Uint32Array, JsError> {
         let ops = self
             .doc
-            .text_overlay(id, anchor as usize, focus as usize, caret_width)
+            .text_overlay(id, anchor as usize, focus as usize, caret_width, page)
             .map_err(|e| JsError::new(&e))?;
         self.overlay = encode(&ops);
         Ok(unsafe { Uint32Array::view(&self.overlay) })
