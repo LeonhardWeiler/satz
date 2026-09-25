@@ -112,3 +112,17 @@ test('a clicked text is auto width, a dragged one a fixed empty box shown while 
   await expect(mode('Auto width')).toBeChecked()
   await expect(field('W in mm')).not.toHaveValue('40')
 })
+
+test('a space typed at the end of an auto width text stays on its line', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  const field = (name: string) => panel.getByRole('textbox', { name })
+  await page.keyboard.press('t')
+  await page.mouse.click(...(await screen(page, 20, 80)))
+  await page.keyboard.type('Hello')
+  await expect(field('H in mm')).toHaveValue('5.8')
+  const w = await field('W in mm').inputValue()
+  await page.keyboard.type(' ')
+  await expect(field('W in mm')).not.toHaveValue(w)
+  await expect(field('H in mm')).toHaveValue('5.8')
+})

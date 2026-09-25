@@ -477,11 +477,7 @@ fn rows(text: &str, spans: &[Span], cw: Option<f32>, from: usize) -> (Vec<Row>, 
                 )));
             }
         }
-        let content = items
-            .iter()
-            .rposition(|it| matches!(it, Item::Box(_)))
-            .map_or(0, |k| k + 1);
-        let natural: f32 = items[..content]
+        let natural: f32 = items
             .iter()
             .map(|it| match *it {
                 Item::Box(w) | Item::Glue { width: w, .. } => w,
@@ -1081,6 +1077,18 @@ mod tests {
         );
         let [w, h] = measure(t, &spans, &tf, Some(25.0), 0);
         assert_close(&[w, h], &[25.0, 5.0 + 3.0 * AUTO]);
+    }
+
+    #[test]
+    fn measure_keeps_a_trailing_space_on_the_line() {
+        let tf = TextFrame::default();
+        let t = "Hello ";
+        let spans = one(t, attrs(10.0));
+        let [w, h] = measure(t, &spans, &tf, None, 0);
+        let [bare, _] = measure("Hello", &one("Hello", attrs(10.0)), &tf, None, 0);
+        assert!(w > bare, "{w} {bare}");
+        assert_close(&[h], &[AUTO]);
+        assert_eq!(lay_out(t, &spans, [0.0, 0.0, w, h], &tf, 0).len(), 1);
     }
 
     #[test]
