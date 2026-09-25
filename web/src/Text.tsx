@@ -2,6 +2,7 @@ import { Fragment } from 'react'
 import { Field, NameInput, nextName, Section, Select } from './controls'
 import { MM, useEditor, type Editor } from './editor'
 import { Icon } from './icons'
+import { range } from './textEdit'
 import type { Attrs, Node, Props, Sizing, Styled, TextProps, TextStyle } from './model'
 import { Bindable } from './Variables'
 
@@ -46,7 +47,9 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
     const values = node.spans.map(get)
     return values.every((v) => v === values[0]) ? values[0] : null
   }
-  const format = (props: TextProps) => editor.apply({ type: 'format', id: node.id, range: null, ...props })
+  const edited = useEditor(editor, (e) => (e.editing?.id === node.id && e.editing.anchor !== e.editing.focus ? e.editing : null))
+  /** Formats the selection of the text being edited, or else all of it. */
+  const format = (props: TextProps) => editor.apply({ type: 'format', id: node.id, range: edited && range(edited), ...props })
   const style = same((a) => a.textStyle)
   const options: Record<string, string> = { '': 'No style', ...Object.fromEntries(styles.map((s) => [s.id, s.name])) }
   if (style === null) options.mixed = 'Mixed'
@@ -156,16 +159,6 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
           onChange={(l) => l !== 'mixed' && format({ lang: l as Attrs['lang'] })}
         />
       </div>
-      <textarea
-        className="content"
-        aria-label="Text content"
-        rows={6}
-        defaultValue={node.text}
-        key={`${node.id} ${node.text}`}
-        onBlur={(e) => {
-          if (e.currentTarget.value !== node.text) editor.apply({ type: 'setText', id: node.id, text: e.currentTarget.value })
-        }}
-      />
     </Section>
   )
 }

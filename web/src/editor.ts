@@ -3,6 +3,7 @@ import type { Engine } from './engine/engine'
 import type { Command, Container, Modes, Node, Palette, Scope, Snapshot } from './model'
 import { penPath, type Anchor } from './pen'
 import { index, type Entry } from './select'
+import type { Editing } from './textEdit'
 
 export type Shape = 'rect' | 'line' | 'arrow' | 'ellipse' | 'polygon' | 'star'
 export type Tool = 'move' | 'frame' | 'text' | 'pen' | Shape
@@ -27,6 +28,10 @@ export class Editor {
   pen: Pen | null = null
   /** The pointer is down on the canvas, possibly inside a drag's undo group. */
   dragging = false
+  /** The text layer edited in its frame, which is then the selection. */
+  editing: Editing | null = null
+  /** Typing into the edited text is one undo step until the caret moves. */
+  private typing = false
   private listeners = new Set<() => void>()
 
   constructor(readonly engine: Engine) {
@@ -45,18 +50,51 @@ export class Editor {
       this.snapshot = this.engine.snapshot()
       this.nodes = index(this.page.children)
       this.selection = this.selection.filter((id) => this.nodes.has(id))
+      const n = this.editing && this.nodes.get(this.editing.id)?.node
+      if (this.editing) {
+        const len = n?.kind === 'text' ? n.text.length : -1
+        const { anchor, focus } = this.editing
+        this.editing = len < 0 ? null : { ...this.editing, anchor: Math.min(anchor, len), focus: Math.min(focus, len) }
+      }
       this.emit()
     }
   }
 
-  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'pen'>>) {
+  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'pen' | 'editing'>>) {
+    const leaves = this.editing && patch.selection && !patch.selection.includes(this.editing.id)
+    if (leaves && !('editing' in patch)) this.stopEditing()
+    if (patch.editing) patch = { selection: [patch.editing.id], ...patch }
     Object.assign(this, patch)
     this.emit()
   }
 
   setTool(tool: Tool) {
     this.finishPen(false)
+    this.stopEditing()
     this.set({ tool })
+  }
+
+  beginTyping() {
+    if (this.typing) return
+    this.typing = true
+    this.apply({ type: 'beginUndoGroup' })
+  }
+
+  endTyping() {
+    if (!this.typing) return
+    this.typing = false
+    this.apply({ type: 'endUndoGroup' })
+  }
+
+  /** Leaves the edited text selected, or removes it when it is empty, as Figma does. */
+  stopEditing() {
+    const e = this.editing
+    if (!e) return
+    this.endTyping()
+    this.editing = null
+    const n = this.nodes.get(e.id)?.node
+    if (n?.kind === 'text' && !n.text) this.apply({ type: 'delete', ids: [e.id] })
+    this.emit()
   }
 
   /** Ends the pen path; a path with fewer than two anchors is removed. */
@@ -73,6 +111,7 @@ export class Editor {
   /** Makes the pointer gesture that starts now one undo step. */
   gesture = () => {
     this.finishPen(false)
+    this.endTyping()
     this.apply({ type: 'beginUndoGroup' })
     window.addEventListener('pointerup', () => this.apply({ type: 'endUndoGroup' }), { once: true })
   }

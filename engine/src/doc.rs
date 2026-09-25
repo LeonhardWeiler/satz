@@ -1,5 +1,6 @@
+use crate::color::Ink;
 use crate::color::{Color, ColorMode, Swatch};
-use crate::display_list::{CLOSE, LINE, MOVE, Op, rect};
+use crate::display_list::{CLOSE, LINE, MOVE, Op, Paint, rect};
 use crate::geom::{Shape, bounds, contains, fit, near, outline};
 use crate::layout::{Align3, Direction, Layout, MainAlign, Size, Sizing, arrange};
 use crate::style::{
@@ -48,6 +49,13 @@ pub enum Command {
     },
     SetText {
         id: String,
+        text: String,
+    },
+    /// Replaces a range of the text in UTF-16 code units; inserted text takes the
+    /// attributes of the character before it.
+    EditText {
+        id: String,
+        range: [usize; 2],
         text: String,
     },
     /// Sets text attributes on a range in UTF-16 code units, or on the whole text.
@@ -460,6 +468,8 @@ const BINDABLE: [&str; 11] = [
     "paddingBottom",
     "paddingLeft",
 ];
+/// Figma's selection blue at 30 %.
+const SELECTION: [f32; 4] = [0.051, 0.6, 1.0, 0.3];
 const WHITE: u32 = 0xffffffff;
 const BLACK: u32 = 0x000000ff;
 const SAMPLE: &str = "Satz sets type in the browser. The engine shapes this paragraph \
@@ -831,6 +841,23 @@ impl Doc {
                 self.text(self.node(&id)?)?
                     .update(&text, UpdateOptions::default())
                     .map_err(|e| format!("{e:?}"))?;
+                vec![]
+            }
+            Command::EditText {
+                id,
+                range: [a, b],
+                text,
+            } => {
+                let t = self.text(self.node(&id)?)?;
+                if !(a <= b && b <= t.len_utf16()) {
+                    return Err("range outside the text".into());
+                }
+                if b > a {
+                    t.delete_utf16(a, b - a).map_err(err)?;
+                }
+                if !text.is_empty() {
+                    t.insert_utf16(a, &text).map_err(err)?;
+                }
                 vec![]
             }
             Command::Format { id, range, props } => {
@@ -1468,6 +1495,86 @@ impl Doc {
         }
         self.doc.commit();
         Ok(out)
+    }
+
+    /// The text of the text layer `id` and its lines as set in its frame.
+    fn text_lines(&self, id: &str) -> Res<(String, Vec<text::Line>)> {
+        let n = self.node(id)?;
+        let t = self.text(n)?.to_string();
+        let v = serde_json::to_value(self.meta(n).get_deep_value()).map_err(err)?;
+        let palette = self.palette();
+        let modes = self.active_modes(n);
+        let s = Scope {
+            palette: &palette,
+            modes: &modes,
+        };
+        let spans = self.spans(n, &v, &s);
+        let tf: TextFrame = serde_json::from_value(v).unwrap_or_default();
+        let frame = self.bounds(n).map(|v| v as f32);
+        let lines = text::lines(&t, &spans, frame, &tf);
+        Ok((t, lines))
+    }
+
+    /// [x, top, bottom] in pt of a caret before the UTF-16 `index` of the text `id`.
+    pub fn caret(&self, id: &str, index: usize) -> Res<[f64; 3]> {
+        let (t, lines) = self.text_lines(id)?;
+        Ok(text::caret(&t, &lines, byte_of(&t, index)?).map(f64::from))
+    }
+
+    /// The UTF-16 index of the character boundary of the text `id` nearest (x, y).
+    pub fn text_index(&self, id: &str, x: f64, y: f64) -> Res<usize> {
+        let (t, lines) = self.text_lines(id)?;
+        Ok(utf16_of(&t, text::index_at(&lines, x as f32, y as f32)))
+    }
+
+    /// UTF-16 start and end of the line of the text `id` that holds `index`.
+    pub fn text_line(&self, id: &str, index: usize) -> Res<[usize; 2]> {
+        let (t, lines) = self.text_lines(id)?;
+        let at = byte_of(&t, index)?;
+        Ok(match lines.get(text::line_of(&lines, at)) {
+            Some(l) => [l.start, l.end].map(|b| utf16_of(&t, b)),
+            None => [index; 2],
+        })
+    }
+
+    /// The selection from `anchor` to `focus` in the text `id` as highlighted
+    /// boxes, or a caret `caret_width` pt wide where they meet.
+    pub fn text_overlay(
+        &self,
+        id: &str,
+        anchor: usize,
+        focus: usize,
+        caret_width: f32,
+    ) -> Res<Vec<Op>> {
+        let (t, lines) = self.text_lines(id)?;
+        let [a, b] = [anchor.min(focus), anchor.max(focus)].map(|i| byte_of(&t, i));
+        let (a, b) = (a?, b?);
+        let solid = |color| Paint::Solid {
+            color,
+            ink: Ink::Rgb,
+        };
+        if a == b {
+            let [x, top, bottom] = text::caret(&t, &lines, a);
+            return Ok(vec![Op::FillPath {
+                paint: solid([0.0, 0.0, 0.0, 1.0]),
+                path: rect(x - caret_width / 2.0, top, caret_width, bottom - top),
+            }]);
+        }
+        Ok(lines
+            .iter()
+            .filter(|l| a <= l.end && b > l.start || a == l.start && b >= l.start)
+            .map(|l| {
+                let x0 = text::x_at(&t, l, a.max(l.start));
+                let mut x1 = text::x_at(&t, l, b.min(l.end));
+                if b > l.end {
+                    x1 = x1.max(x0 + (l.bottom - l.top) / 4.0);
+                }
+                Op::FillPath {
+                    paint: solid(SELECTION),
+                    path: rect(x0, l.top, x1 - x0, l.bottom - l.top),
+                }
+            })
+            .collect())
     }
 
     fn text(&self, id: TreeID) -> Res<LoroText> {
@@ -2438,6 +2545,27 @@ fn paragraphs(text: &str, r: &Range<usize>) -> Range<usize> {
         .copied()
         .unwrap_or(text.encode_utf16().count());
     start..end
+}
+
+/// The byte offset in `s` of the UTF-16 `index`.
+fn byte_of(s: &str, index: usize) -> Res<usize> {
+    let mut units = 0;
+    for (b, c) in s.char_indices() {
+        if units >= index {
+            return Ok(b);
+        }
+        units += c.len_utf16();
+    }
+    if units >= index {
+        Ok(s.len())
+    } else {
+        Err("index outside the text".into())
+    }
+}
+
+/// The UTF-16 index of the byte offset `byte` in `s`.
+fn utf16_of(s: &str, byte: usize) -> usize {
+    s[..byte.min(s.len())].encode_utf16().count()
 }
 
 fn parent_node(p: TreeParentId) -> Option<TreeID> {
@@ -4754,5 +4882,54 @@ mod tests {
         assert_eq!(text[2], 390.0);
         assert!(close(text[3], LEADING), "{text:?}");
         assert!(close(outer[3], LEADING + 10.0), "{outer:?}");
+    }
+
+    fn edit(d: &mut Doc, id: &str, range: [usize; 2], text: &str) -> Res<Vec<String>> {
+        d.apply(Command::EditText {
+            id: id.into(),
+            range,
+            text: text.into(),
+        })
+    }
+
+    #[test]
+    fn edit_text_replaces_a_range_and_typed_text_takes_the_attributes_before_it() {
+        let (mut d, _) = empty();
+        let t = text(&mut d, "Hello world");
+        format(&mut d, &t, Some([0, 5]), sized(20.0)).unwrap();
+        edit(&mut d, &t, [5, 5], "!").unwrap();
+        assert_eq!(lens_and(&d, |a| a.size), [(6, 20.0), (6, 12.0)]);
+        edit(&mut d, &t, [0, 1], "J").unwrap();
+        edit(&mut d, &t, [6, 12], "").unwrap();
+        assert!(matches!(&page(&d).children[0].kind, Kind::Text { text, .. } if text == "Jello!"));
+        assert!(edit(&mut d, &t, [3, 9], "x").is_err());
+        assert!(edit(&mut d, &t, [4, 3], "x").is_err());
+    }
+
+    #[test]
+    fn the_engine_finds_and_draws_the_caret_and_the_selection_of_a_text() {
+        let (mut d, p) = empty();
+        let t = create(&mut d, &p, NewKind::Text, [10.0, 20.0, 0.0, 0.0]);
+        set_text(&mut d, &t, "Hi\nHi");
+        let [x0, top, bottom] = d.caret(&t, 0).unwrap();
+        assert!(close(x0, 10.0) && close(top, 20.0) && close(bottom, 20.0 + LEADING));
+        let [x2, ..] = d.caret(&t, 2).unwrap();
+        assert!(x2 > x0);
+        assert_eq!(d.text_index(&t, x2 + 0.5, 25.0).unwrap(), 2);
+        assert_eq!(d.text_index(&t, 11.0, 20.0 + LEADING + 3.0).unwrap(), 3);
+        assert_eq!(d.text_line(&t, 4).unwrap(), [3, 5]);
+        let fills = |ops: Vec<Op>| -> Vec<Vec<f32>> {
+            ops.into_iter()
+                .map(|op| match op {
+                    Op::FillPath { path, .. } => path,
+                    op => panic!("unexpected {op:?}"),
+                })
+                .collect()
+        };
+        let caret = fills(d.text_overlay(&t, 2, 2, 0.5).unwrap());
+        assert_eq!(caret.len(), 1);
+        assert!((caret[0][1] - x2 as f32 + 0.25).abs() < 0.01, "{caret:?}");
+        assert_eq!(fills(d.text_overlay(&t, 1, 4, 0.5).unwrap()).len(), 2);
+        assert!(d.caret(&t, 9).is_err());
     }
 }

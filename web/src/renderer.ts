@@ -16,6 +16,8 @@ export type Overlay = {
   /** Where dragged layers land in an auto layout frame. */
   insert?: [{ x: number; y: number }, { x: number; y: number }]
   pen?: { anchors: { x: number; y: number; hx: number; hy: number }[]; cursor?: { x: number; y: number } } | null
+  /** Display list of the caret or selection in the text being edited, in page space. */
+  text?: Uint32Array
 }
 
 const FIT_PADDING = 64
@@ -85,6 +87,7 @@ export class Renderer {
       this.drawOps(canvas, ops, 1, ops.length, bleedBox)
       canvas.restore()
     }
+    for (const op of overlay.text ? decode(overlay.text) : []) this.drawOp(canvas, op)
     paint.setStyle(ck.PaintStyle.Stroke)
     paint.setStrokeWidth(0)
     paint.setColor(ck.parseColorString(TRIM))

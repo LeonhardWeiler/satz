@@ -74,6 +74,33 @@ body,
   pointer-events: none;
 }
 
+/* Takes keyboard and IME input at the caret; shows only the text being composed. */
+.text-input {
+  position: absolute;
+  width: 1px;
+  min-height: 1em;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  resize: none;
+  opacity: 0;
+  pointer-events: none;
+  white-space: pre;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.text-input[data-composing] {
+  width: auto;
+  min-width: 2em;
+  padding: 0 2px;
+  outline: 1px solid var(--accent);
+  background: var(--panel);
+  color: var(--text);
+  opacity: 1;
+  field-sizing: content;
+}
+
 .panel {
   z-index: 1;
   display: flex;
@@ -681,22 +708,6 @@ span.swatch {
 .icon-button:hover {
   background: var(--hover);
   color: var(--text);
-}
-
-.content {
-  display: block;
-  box-sizing: border-box;
-  width: 100%;
-  padding: 6px 8px;
-  border: 1px solid transparent;
-  border-radius: 5px;
-  background: var(--input);
-  resize: vertical;
-  outline: none;
-}
-
-.content:focus {
-  border-color: var(--accent);
 }
 
 .toolbar {

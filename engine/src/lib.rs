@@ -22,6 +22,7 @@ use wasm_bindgen::prelude::*;
 pub struct Engine {
     doc: Doc,
     list: Vec<u32>,
+    overlay: Vec<u32>,
 }
 
 #[wasm_bindgen]
@@ -52,6 +53,50 @@ impl Engine {
     pub fn display_list(&mut self, page: usize) -> Uint32Array {
         self.list = encode(&self.doc.render(page));
         unsafe { Uint32Array::view(&self.list) }
+    }
+
+    /// [x, top, bottom] in pt of a caret before the UTF-16 `index` of the text `id`.
+    pub fn caret(&self, id: &str, index: u32) -> Result<Vec<f64>, JsError> {
+        Ok(self
+            .doc
+            .caret(id, index as usize)
+            .map_err(|e| JsError::new(&e))?
+            .to_vec())
+    }
+
+    /// The UTF-16 index of the character boundary of the text `id` nearest (x, y) in pt.
+    #[wasm_bindgen(js_name = textIndex)]
+    pub fn text_index(&self, id: &str, x: f64, y: f64) -> Result<u32, JsError> {
+        let i = self
+            .doc
+            .text_index(id, x, y)
+            .map_err(|e| JsError::new(&e))?;
+        Ok(i as u32)
+    }
+
+    /// UTF-16 start and end of the line of the text `id` that holds `index`.
+    #[wasm_bindgen(js_name = textLine)]
+    pub fn text_line(&self, id: &str, index: u32) -> Result<Vec<u32>, JsError> {
+        let l = self.doc.text_line(id, index as usize);
+        Ok(l.map_err(|e| JsError::new(&e))?.map(|i| i as u32).to_vec())
+    }
+
+    /// Display list of the selection from `anchor` to `focus` in the text `id`, or of
+    /// a caret `caret_width` pt wide. The view is invalid after the next call.
+    #[wasm_bindgen(js_name = textOverlay)]
+    pub fn text_overlay(
+        &mut self,
+        id: &str,
+        anchor: u32,
+        focus: u32,
+        caret_width: f32,
+    ) -> Result<Uint32Array, JsError> {
+        let ops = self
+            .doc
+            .text_overlay(id, anchor as usize, focus as usize, caret_width)
+            .map_err(|e| JsError::new(&e))?;
+        self.overlay = encode(&ops);
+        Ok(unsafe { Uint32Array::view(&self.overlay) })
     }
 
     pub fn pdf(&self) -> Vec<u8> {

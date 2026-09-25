@@ -87,6 +87,7 @@ test('a clicked text is auto width, a dragged one auto height, and resizing sets
   await expect(field('H in mm')).toHaveValue('5.8')
   await expect(panel.getByRole('combobox', { name: 'Width sizing' })).toHaveValue('hug')
 
+  await page.keyboard.press('Escape')
   await page.keyboard.press('t')
   await drag(page, await screen(page, 20, 100), await screen(page, 60, 120))
   await expect(mode('Auto height')).toBeChecked()

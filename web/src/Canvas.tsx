@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CanvasKit, Surface } from 'canvaskit-wasm'
-import { MM, bounds, ends, insertion, type Editor, type Point, type Tool } from './editor'
+import { MM, bounds, ends, insertion, useEditor, type Editor, type Point, type Tool } from './editor'
 import type { Container, Node } from './model'
 import { penPath } from './pen'
 import { Renderer, fitView, HANDLE, type Box, type View } from './renderer'
 import { pick } from './select'
+import { handleTextKey, insert, range, select, textOf, wordAt } from './textEdit'
 
 const PX_PER_PT = 96 / 72
 const DRAG = 3
@@ -35,6 +36,7 @@ type Drag =
   | { kind: 'marquee'; start: Point; end: Point; base: string[] }
   | { kind: 'draw'; start: Point; id: string; moved: boolean; tool: keyof typeof DEFAULT_SIZE }
   | { kind: 'pen'; start: Point }
+  | { kind: 'text' }
 
 /** Snaps a vector to the nearest multiple of 45°. */
 function snap45(dx: number, dy: number) {
@@ -47,9 +49,15 @@ export function isTyping(e: Event) {
   return e.target instanceof HTMLElement && e.target.closest('input:not([type=checkbox]), textarea, select, [contenteditable]') !== null
 }
 
+/** Half a blink period of the caret in ms. */
+const BLINK = 530
+
 export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   const ref = useRef<HTMLCanvasElement>(null)
+  const area = useRef<HTMLTextAreaElement>(null)
   const [zoom, setZoom] = useState(0)
+  const [composing, setComposing] = useState(false)
+  const editing = useEditor(editor, (e) => e.editing !== null)
 
   useEffect(() => {
     const canvas = ref.current!
@@ -64,6 +72,18 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     let cursor: Point | undefined
     /** Last pointer position and Ctrl state over the canvas, for hover and cursor. */
     let pointer: Pointer | undefined
+    let caretOn = true
+    let blink: ReturnType<typeof setInterval> | undefined
+    /** Shows the caret and blinks it from now on, so that it stays while typing. */
+    const wake = () => {
+      caretOn = true
+      clearInterval(blink)
+      blink = setInterval(() => {
+        caretOn = !caretOn
+        if (editor.editing) redraw()
+      }, BLINK)
+    }
+    wake()
 
     const toDoc = (e: { offsetX: number; offsetY: number }): Point => ({
       x: (e.offsetX - view.x) / view.zoom,
@@ -78,7 +98,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     /** Box handles of the selection, or the ends of a single selected line. */
     const handles = () => {
       const nodes = editor.selected()
-      if (editor.tool !== 'move' || !nodes.length) return {}
+      if (editor.tool !== 'move' || !nodes.length || editor.editing) return {}
       const line = nodes.length === 1 ? ends(nodes[0]) : undefined
       return line ? { line } : { box: bounds(nodes) }
     }
@@ -97,8 +117,20 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
                 { x: view.x + drag.end.x * view.zoom, y: view.y + drag.end.y * view.zoom },
               )
             : undefined
+        const ed = editor.editing
+        let text: Uint32Array | undefined
+        if (ed) {
+          const [x, top, bottom] = editor.engine.caret(ed.id, ed.focus)
+          Object.assign(area.current?.style ?? {}, {
+            left: `${view.x + x * view.zoom}px`,
+            top: `${view.y + top * view.zoom}px`,
+            height: `${(bottom - top) * view.zoom}px`,
+          })
+          if (caretOn || ed.anchor !== ed.focus) text = editor.engine.textOverlay(ed.id, ed.anchor, ed.focus, 1 / view.zoom).slice()
+        }
         renderer.draw(surface.getCanvas(), view, canvas.width / canvas.clientWidth, {
-          selection: editor.selection.length > 1 ? editor.selected() : [],
+          text,
+          selection: editor.selection.length > 1 || ed ? editor.selected() : [],
           hover: hovered,
           marquee,
           handles: box,
@@ -189,12 +221,28 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       }
       track()
     }
+    /** The edited text layer when `p` is inside its frame. */
+    const inEdited = (p: Point) => {
+      const n = editor.editing && editor.nodes.get(editor.editing.id)?.node
+      return n?.kind === 'text' && p.x >= n.x && p.x <= n.x + n.w && p.y >= n.y && p.y <= n.y + n.h ? n : undefined
+    }
     const onPointerDown = (e: PointerEvent) => {
       if (e.button !== 0 && e.button !== 1) return
+      const p = toDoc(e)
+      const edited = e.button === 0 && !space ? inEdited(p) : undefined
+      if (edited) {
+        e.preventDefault()
+        editor.dragging = true
+        canvas.setPointerCapture(e.pointerId)
+        const i = editor.engine.textIndex(edited.id, p.x, p.y)
+        select(editor, e.shiftKey ? editor.editing!.anchor : i, i)
+        drag = { kind: 'text' }
+        return
+      }
+      editor.stopEditing()
       editor.dragging = true
       canvas.focus()
       canvas.setPointerCapture(e.pointerId)
-      const p = toDoc(e)
       if (e.button === 1 || space) {
         e.preventDefault()
         drag = { kind: 'pan', last: { x: e.clientX, y: e.clientY } }
@@ -272,7 +320,10 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         return
       }
       if (!drag) return track()
-      if (drag.kind === 'pan') {
+      if (drag.kind === 'text') {
+        const ed = editor.editing
+        if (ed) select(editor, ed.anchor, editor.engine.textIndex(ed.id, p.x, p.y))
+      } else if (drag.kind === 'pan') {
         view.x += e.clientX - drag.last.x
         view.y += e.clientY - drag.last.y
         drag.last = { x: e.clientX, y: e.clientY }
@@ -383,6 +434,8 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           editor.apply({ type: 'setFrame', id: drag.id, x: drag.start.x, y: drag.start.y, w: w * MM, h: h * MM })
         }
         editor.setTool('move')
+        const n = editor.nodes.get(drag.id)?.node
+        if (n?.kind === 'text') editor.set({ editing: { id: n.id, anchor: 0, focus: n.text.length } })
       }
       if (drag?.kind === 'move' && drag.flow && drag.to) {
         editor.apply({ type: 'move', ids: drag.frames.map((n) => n.id), parent: drag.flow.id, index: drag.to.index })
@@ -402,8 +455,19 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     }
     const onDoubleClick = (e: MouseEvent) => {
       if (editor.tool !== 'move') return
-      const id = pick(editor.page.children, hit(toDoc(e)), editor.selection, 'double')
-      if (id) editor.set({ selection: [id] })
+      const p = toDoc(e)
+      const edited = inEdited(p)
+      if (edited) {
+        const [a, b] = wordAt(edited.text, editor.engine.textIndex(edited.id, p.x, p.y))
+        select(editor, a, b)
+        return
+      }
+      const id = pick(editor.page.children, hit(p), editor.selection, 'double')
+      const n = id && editor.nodes.get(id)?.node
+      if (n && n.kind === 'text' && editor.selection.includes(id)) {
+        const i = editor.engine.textIndex(n.id, p.x, p.y)
+        editor.set({ editing: { id: n.id, anchor: i, focus: i } })
+      } else if (id) editor.set({ selection: [id] })
     }
     const onLeave = () => {
       pointer = undefined
@@ -437,6 +501,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     }
 
     const unsubscribe = editor.subscribe(() => {
+      wake()
       canvas.dataset.tool = editor.tool
       track()
       redraw()
@@ -452,6 +517,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     window.addEventListener('keyup', onKey)
     return () => {
       cancelAnimationFrame(frame)
+      clearInterval(blink)
       unsubscribe()
       resize.disconnect()
       canvas.removeEventListener('wheel', onWheel)
@@ -471,6 +537,55 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   return (
     <div className="stage">
       <canvas ref={ref} className="canvas" aria-label="Page canvas" tabIndex={-1} data-tool="move" />
+      {editing && (
+        <textarea
+          ref={(el) => {
+            area.current = el
+            el?.focus({ preventScroll: true })
+          }}
+          className="text-input"
+          aria-label="Text editor"
+          data-composing={composing || undefined}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          onBlur={(e) => {
+            if (editor.editing && e.relatedTarget === null) e.currentTarget.focus({ preventScroll: true })
+          }}
+          onKeyDown={(e) => {
+            if (e.nativeEvent.isComposing) return
+            if (handleTextKey(editor, e.nativeEvent)) e.preventDefault()
+          }}
+          onInput={(e) => {
+            if ((e.nativeEvent as InputEvent).isComposing) return
+            const v = e.currentTarget.value
+            e.currentTarget.value = ''
+            insert(editor, v)
+          }}
+          onCompositionStart={() => setComposing(true)}
+          onCompositionEnd={(e) => {
+            setComposing(false)
+            e.currentTarget.value = ''
+            insert(editor, e.data)
+          }}
+          onCopy={(e) => {
+            const [a, b] = range(editor.editing!)
+            e.clipboardData.setData('text/plain', textOf(editor).slice(a, b))
+            e.preventDefault()
+          }}
+          onCut={(e) => {
+            const [a, b] = range(editor.editing!)
+            e.clipboardData.setData('text/plain', textOf(editor).slice(a, b))
+            insert(editor, '')
+            e.preventDefault()
+          }}
+          onPaste={(e) => {
+            insert(editor, e.clipboardData.getData('text/plain').replace(/\r\n?/g, '\n'))
+            e.preventDefault()
+          }}
+        />
+      )}
       <output className="zoom" aria-label="Zoom">
         {Math.round((zoom / PX_PER_PT) * 100)}%
       </output>

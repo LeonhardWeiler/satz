@@ -70,6 +70,7 @@ export type Command =
   | { type: 'setFrame'; id: string; x: number; y: number; w: number; h: number; ignoreConstraints?: boolean }
   | { type: 'autoLayout'; ids: string[] }
   | { type: 'setText'; id: string; text: string }
+  | { type: 'editText'; id: string; range: [number, number]; text: string }
   | ({ type: 'format'; id: string; range: [number, number] | null } & TextProps)
   | { type: 'addTextStyle'; name: string; size: number; lineHeight: number; letterSpacing: number; paragraphSpacing: number }
   | ({ type: 'setTextStyle'; id: string; name?: string } & Partial<Pick<TextStyle, Styled>>)

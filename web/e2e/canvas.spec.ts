@@ -212,20 +212,6 @@ test('dropping a group onto its own child changes nothing', async ({ page }) => 
   expect(errors).toEqual([])
 })
 
-test('undo restores the text content and blur does not redo it', async ({ page }) => {
-  await open(page)
-  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
-  const text = page.getByRole('textbox', { name: 'Text content' })
-  const old = await text.inputValue()
-  await text.fill('Changed')
-  await text.blur()
-  await page.keyboard.press('Control+z')
-  await expect(text).toHaveValue(old)
-  await text.focus()
-  await text.blur()
-  await expect(text).toHaveValue(old)
-})
-
 test('clicking a panel while drawing with the pen keeps the path one undo step', async ({ page }) => {
   await open(page)
   const items = page.getByRole('tree', { name: 'Layers' }).getByRole('treeitem')

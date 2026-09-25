@@ -369,8 +369,10 @@ fn rows(text: &str, spans: &[Span], cw: Option<f32>) -> (Vec<Row>, f32) {
         };
         let mut items = Vec::new();
         let mut glyphs = Vec::new();
+        let mut clusters = Vec::new();
         for (info, pos) in shaped.glyph_infos().iter().zip(shaped.glyph_positions()) {
-            let span = span_at(start + info.cluster as usize);
+            let cluster = start + info.cluster as usize;
+            let span = span_at(cluster);
             let a = &spans[span].attrs;
             let scale = a.size as f32 / upem;
             let adv = pos.x_advance as f32 * scale + (a.size * a.letter_spacing / 100.0) as f32;
@@ -380,7 +382,9 @@ fn rows(text: &str, spans: &[Span], cw: Option<f32>) -> (Vec<Row>, f32) {
                     cost: HYPHEN_COST,
                 });
                 glyphs.push(Some((hyphen, 0.0, 0.0, span)));
+                clusters.push(cluster);
             }
+            clusters.push(cluster);
             if para[info.cluster as usize..].starts_with(' ') {
                 items.push(Item::Glue {
                     width: adv,
@@ -411,16 +415,18 @@ fn rows(text: &str, spans: &[Span], cw: Option<f32>) -> (Vec<Row>, f32) {
             .sum();
         items.extend([FILL, FORCE]);
         glyphs.extend([None, None]);
-        paras.push((items, glyphs, first.clone(), start, natural));
+        clusters.extend([start + para.len(); 2]);
+        paras.push((items, glyphs, clusters, first.clone(), start, natural));
         start += para.len() + 1;
     }
-    let widest = paras.iter().map(|p| p.4).fold(0.0, f32::max);
+    let widest = paras.iter().map(|p| p.5).fold(0.0, f32::max);
     let cw = cw.unwrap_or(ceil(widest));
 
     let mut rows: Vec<Row> = Vec::new();
-    for (items, glyphs, first, start, _) in paras {
+    for (items, glyphs, clusters, first, start, _) in paras {
         let mut from = 0;
         for (end, r) in break_lines(&items, cw) {
+            let line_start = if from == 0 { start } else { clusters[from] };
             while from < end && !matches!(items[from], Item::Box(_)) {
                 from += 1;
             }
@@ -464,9 +470,19 @@ fn rows(text: &str, spans: &[Span], cw: Option<f32>) -> (Vec<Row>, f32) {
                 _ => 0.0,
             };
             let mut line = Vec::new();
+            let mut stops: Vec<(usize, f32)> = Vec::new();
+            let mut end_x = None;
             for k in from..last {
+                if items[k] == FILL {
+                    end_x.get_or_insert(cx);
+                }
                 if matches!(items[k], Item::Penalty { .. }) && k != end {
                     continue;
+                }
+                if !matches!(items[k], Item::Penalty { .. })
+                    && stops.last().is_none_or(|s| s.0 < clusters[k])
+                {
+                    stops.push((clusters[k], cx));
                 }
                 if let Some((id, dx, dy, span)) = glyphs[k] {
                     line.push(Glyph {
@@ -478,11 +494,16 @@ fn rows(text: &str, spans: &[Span], cw: Option<f32>) -> (Vec<Row>, f32) {
                 }
                 cx += spread(&items[k]);
             }
+            if stops.first().is_none_or(|s| s.0 > line_start) {
+                stops.insert(0, (line_start, stops.first().map_or(cx, |s| s.1)));
+            }
+            stops.push((clusters[end].max(line_start), end_x.unwrap_or(cx)));
             rows.push(Row {
                 glyphs: line,
                 above,
                 below,
                 after: 0.0,
+                stops,
             });
             from = end + 1;
         }
@@ -505,6 +526,7 @@ fn place(rows: Vec<Row>, [ix, iy, _, ih]: [f32; 4], cw: f32, tf: &TextFrame) -> 
     };
     let bottom = iy + ih + 0.01;
     let mut lines: Vec<Vec<Glyph>> = Vec::new();
+    let mut geometry: Vec<Line> = Vec::new();
     let mut columns: Vec<(usize, f32)> = Vec::new();
     let (mut col, mut top) = (0, iy);
     for row in rows {
@@ -523,6 +545,15 @@ fn place(rows: Vec<Row>, [ix, iy, _, ih]: [f32; 4], cw: f32, tf: &TextFrame) -> 
             columns.push((lines.len(), 0.0));
         }
         let cx = ix + col as f32 * (cw + gutter);
+        geometry.push(Line {
+            start: row.stops[0].0,
+            end: row.stops.last().unwrap().0,
+            top: baseline - row.above,
+            bottom: baseline + row.below,
+            left: cx,
+            right: cx + cw,
+            stops: row.stops.iter().map(|&(b, x)| (b, cx + x)).collect(),
+        });
         lines.push(
             row.glyphs
                 .into_iter()
@@ -550,9 +581,14 @@ fn place(rows: Vec<Row>, [ix, iy, _, ih]: [f32; 4], cw: f32, tf: &TextFrame) -> 
         for g in lines[first..last].iter_mut().flatten() {
             g.y += shift;
         }
+        for l in &mut geometry[first..last] {
+            l.top += shift;
+            l.bottom += shift;
+        }
     }
     Placed {
         placed: lines.len(),
+        geometry,
         bottom: columns.iter().map(|c| c.1).fold(iy, f32::max),
         lines,
     }
@@ -561,6 +597,7 @@ fn place(rows: Vec<Row>, [ix, iy, _, ih]: [f32; 4], cw: f32, tf: &TextFrame) -> 
 /// The lines that fit, how many of the rows that is, and the lowest line bottom.
 struct Placed {
     lines: Vec<Vec<Glyph>>,
+    geometry: Vec<Line>,
     placed: usize,
     bottom: f32,
 }
@@ -573,6 +610,79 @@ struct Row {
     above: f32,
     below: f32,
     after: f32,
+    /// See `Line::stops`, relative to the column.
+    stops: Vec<(usize, f32)>,
+}
+
+/// A line set in a frame: the bytes `start..end` of the text it holds, the space it
+/// takes from `top` to `bottom`, its column from `left` to `right`, and `stops`, the
+/// byte offsets where its characters start with their x, ascending from `start` and
+/// ending at `end`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Line {
+    pub start: usize,
+    pub end: usize,
+    pub top: f32,
+    pub bottom: f32,
+    pub left: f32,
+    pub right: f32,
+    pub stops: Vec<(usize, f32)>,
+}
+
+/// The lines of `text` that fit in `frame`, with where their characters sit.
+pub fn lines(text: &str, spans: &[Span], frame: [f32; 4], tf: &TextFrame) -> Vec<Line> {
+    let (inner, cw) = columns(frame, tf);
+    place(rows(text, spans, Some(cw)).0, inner, cw, tf).geometry
+}
+
+/// The line holding the byte offset `at`: the first that reaches it, unless the next
+/// line starts right there, as after a hyphen; text past the last line is on it.
+pub fn line_of(lines: &[Line], at: usize) -> usize {
+    (0..lines.len())
+        .find(|&i| {
+            at < lines[i].end
+                || at == lines[i].end && lines.get(i + 1).is_none_or(|n| n.start != at)
+        })
+        .unwrap_or(lines.len().saturating_sub(1))
+}
+
+/// [x, top, bottom] of a caret before the byte offset `at` of `text`.
+pub fn caret(text: &str, lines: &[Line], at: usize) -> [f32; 3] {
+    match lines.get(line_of(lines, at)) {
+        Some(l) => [x_at(text, l, at), l.top, l.bottom],
+        None => [0.0; 3],
+    }
+}
+
+/// The x of a caret before the byte offset `at` of `text` on the line `l`; inside
+/// a ligature the characters share its width.
+pub fn x_at(text: &str, l: &Line, at: usize) -> f32 {
+    let at = at.clamp(l.start, l.end);
+    let i = l.stops.partition_point(|s| s.0 <= at).max(1) - 1;
+    let (b0, x0) = l.stops[i];
+    match l.stops.get(i + 1) {
+        Some(&(b1, x1)) if at > b0 => {
+            let chars = |r: std::ops::Range<usize>| text[r].chars().count().max(1) as f32;
+            x0 + (x1 - x0) * chars(b0..at) / chars(b0..b1)
+        }
+        _ => x0,
+    }
+}
+
+/// The byte offset of the character boundary nearest to (x, y): on the line under
+/// y, or the nearest line, in the column nearest to x.
+pub fn index_at(lines: &[Line], x: f32, y: f32) -> usize {
+    let away = |lo: f32, hi: f32, v: f32| (lo - v).max(v - hi).max(0.0);
+    let Some(l) = lines.iter().min_by(|a, b| {
+        let d = |l: &Line| (away(l.left, l.right, x), away(l.top, l.bottom, y));
+        d(a).partial_cmp(&d(b)).unwrap()
+    }) else {
+        return 0;
+    };
+    l.stops
+        .iter()
+        .min_by(|a, b| (a.1 - x).abs().partial_cmp(&(b.1 - x).abs()).unwrap())
+        .map_or(l.start, |s| s.0)
 }
 
 #[cfg(test)]
@@ -882,6 +992,51 @@ mod tests {
         let t = "Hi\nHi\nHi\nHi";
         let [_, h] = measure(t, &one(t, attrs(10.0)), &tf, Some(100.0));
         assert!((h - 2.0 * AUTO).abs() < 0.05, "{h}");
+    }
+
+    #[test]
+    fn carets_sit_where_the_characters_start_and_wrap_with_the_lines() {
+        let t = "Hi Hi Hi";
+        let frame = [5.0, 7.0, 25.0, 50.0];
+        let ls = lines(t, &one(t, attrs(10.0)), frame, &TextFrame::default());
+        assert_eq!(ls.len(), 2);
+        assert_eq!(
+            (ls[0].start, ls[0].end, ls[1].start, ls[1].end),
+            (0, 5, 6, 8)
+        );
+        assert_close(&caret(t, &ls, 0), &[5.0, 7.0, 7.0 + AUTO]);
+        assert_close(&caret(t, &ls, 1)[..1], &[12.88]);
+        assert_close(&caret(t, &ls, 6), &[5.0, 7.0 + AUTO, 7.0 + 2.0 * AUTO]);
+        let [end, ..] = caret(t, &ls, 8);
+        assert!(end > 12.88 && end < 20.0, "{end}");
+        assert_close(&caret(t, &ls, 5)[1..], &[7.0, 7.0 + AUTO]);
+    }
+
+    #[test]
+    fn the_caret_at_the_end_of_a_justified_paragraph_follows_its_last_word() {
+        let t = "Hi Hi Hi";
+        let a = Attrs {
+            text_align: TextAlign::Justify,
+            ..attrs(10.0)
+        };
+        let ls = lines(t, &one(t, a), [5.0, 7.0, 25.0, 50.0], &TextFrame::default());
+        let [end, ..] = caret(t, &ls, 8);
+        assert!(end > 12.88 && end < 20.0, "{end}");
+    }
+
+    #[test]
+    fn a_point_finds_the_nearest_character_boundary_on_its_line() {
+        let t = "Hi Hi Hi";
+        let ls = lines(
+            t,
+            &one(t, attrs(10.0)),
+            [5.0, 7.0, 25.0, 50.0],
+            &TextFrame::default(),
+        );
+        assert_eq!(index_at(&ls, 12.0, 10.0), 1);
+        assert_eq!(index_at(&ls, 0.0, 0.0), 0);
+        assert_eq!(index_at(&ls, 100.0, 25.0), 8);
+        assert_eq!(index_at(&ls, 6.0, 100.0), 6);
     }
 
     #[test]

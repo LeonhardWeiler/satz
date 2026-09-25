@@ -37,7 +37,9 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
   else if (mod && (key === 'c' || key === 'x')) {
     editor.apply({ type: 'copy', ids })
     if (key === 'x') editor.apply({ type: 'delete', ids })
-  }  else if (e.key === 'Enter' && !mod) {
+  } else if (e.key === 'Enter' && !mod && one?.node.kind === 'text' && ids.length === 1) {
+    editor.set({ editing: { id: one.node.id, anchor: 0, focus: one.node.text.length } })
+  } else if (e.key === 'Enter' && !mod) {
     const kids = editor.selected().flatMap((n) => ('children' in n ? n.children.map((c) => c.id) : []))
     if (kids.length) editor.set({ selection: kids })
   } else if (mod && key === 'd') editor.set({ selection: editor.apply({ type: 'duplicate', ids }) })

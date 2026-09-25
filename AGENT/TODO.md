@@ -27,10 +27,6 @@ font helper, i18n.
 
 ## Breadth
 
-### 10. Rich text
-- In-frame editing: engine draws caret and selection, hidden textarea for
-  keyboard and IME.
-
 ### 11. Pages, masters, threading
 - Multiple pages, pages panel, master pages applied per page.
 - Frame threading across frames and pages; only fixed frames thread, the last
