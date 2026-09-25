@@ -220,6 +220,25 @@
 
 <h2>6. Getestet</h2>
 <p>Bestand: App mit Vite und Playwright (Chromium, SwiftShader) gestartet, Rechteck und Text gezeichnet, Farbwähler, Formenmenü, Variablen, Kontextmenü, schmales Fenster geöffnet. Mockups: jedes in Chromium geöffnet, Kerninteraktion per Skript ausgelöst und per Screenshot geprüft (A Stil-Menü, Einklappen, Rechenausdruck; B <kbd>PgDn</kbd>; C Palette, Schubladen; D Hover, Baum; E Proof, Gamut, Umgebung; F Dialog, Export). Nicht getestet: Firefox, Screenreader, echte Tastatur mit Colemak DH, Mockups ohne Internet (Schriften und Phosphor kommen per CDN).</p>
+
+<h2>7. Feedback des Nutzers</h2>
+<h3>Pro Entwurf</h3>
+<ul>
+  <li><b>A:</b> Schriftauswahl übernehmen.</li>
+  <li><b>B:</b> Übersicht aller Seiten und Master gefällt, Platz dafür noch offen. Formatvorlagen (A4, A5, …) in der Dokumenteinstellung übernehmen, <kbd>PgUp</kbd>/<kbd>PgDn</kbd> ebenso. Master per Auswahlfeld in den Einstellungen zuweisen, nicht per Ziehen.</li>
+  <li><b>C:</b> Jedes Element einzeln ausblendbar. Befehlspalette <kbd>Ctrl K</kbd> gewünscht, Einbau offen. Einstellungsfelder rechts (Radien, Schrift, Schlichtheit) als Vorbild. Schnellbearbeitung über der Auswahl übernehmen, Größenanzeige darunter nicht.</li>
+  <li><b>D:</b> Baum-Tastatur übernehmen. Hervorhebung auf dem Canvas ja, aber ohne Animation.</li>
+  <li><b>E:</b> Proof, Gamut-Warnung und Separationen mit Farbauftrag interessant, aber nur bei Bedarf eingeblendet; Platz im Layout offen.</li>
+  <li><b>F:</b> Als Ganzes zu sehr Figma-Klon. Gut: Panel-Abstände, Radien, Schatten, Startbildschirm als erster Entwurf. Preflight noch nicht final.</li>
+</ul>
+<h3>Allgemein</h3>
+<ul>
+  <li><b>Animationen blockieren nie:</b> alles bleibt während einer Animation sofort klickbar. Animationen selbst sind erwünscht.</li>
+  <li><b>Layout mit festen, nicht schwebenden Panels</b> wie in A: schlichter und platzsparender.</li>
+  <li><b>Zahlenfelder wie in A:</b> Ziehen, +/−, usw.</li>
+  <li><b>Smart Guides:</b> beim Verschieben Abstände zu den 2 nächsten Elementen; mit <kbd>Alt</kbd> ohne Verschieben Abstand zum Element unter der Maus (wie Figma).</li>
+  <li><b>Einrasten</b> an Elementen, Raster, Seitenkanten usw. Gewichtung später durchdenken und testen.</li>
+</ul>
 </main>
 </body>
 </html>
