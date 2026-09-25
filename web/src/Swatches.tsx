@@ -4,6 +4,7 @@ import { fromRgb, neutral, resolve, rgb, type Color } from './color'
 import { Picker, SwatchOption } from './ColorPicker'
 import { NameInput, nextName } from './controls'
 import { scopeOf, useEditor, type Editor } from './editor'
+import type { Fill } from './model'
 import { Icon } from './icons'
 
 export function Swatches({ editor }: { editor: Editor }) {
@@ -20,6 +21,12 @@ export function Swatches({ editor }: { editor: Editor }) {
     const color = fill ? resolve(fill.color, scopeOf(snapshot, node.activeModes)) : neutral('black', mode)
     const name = nextName('Swatch', swatches.map((s) => s.name))
     setEditing(editor.apply({ type: 'addSwatch', name, color, spot: false })[0])
+  }
+  const pick = (id: string) => {
+    const nodes = editor.selected()
+    if (nodes.length === 0) return setEditing(id)
+    const fill: Fill = { type: 'solid', color: { swatch: id, tint: 1, alpha: 1 }, stops: [], transform: [1, 0, 0, 1, 0, 0], visible: true }
+    for (const n of nodes) editor.apply({ type: 'set', id: n.id, fills: [fill] })
   }
   const set = (patch: { name?: string; color?: Color; spot?: boolean }) =>
     editing && editor.apply({ type: 'setSwatch', id: editing, ...patch })
@@ -42,7 +49,7 @@ export function Swatches({ editor }: { editor: Editor }) {
               if (e.key === 'Enter') setEditing(s.id)
             }}
           >
-            <SwatchOption swatch={s} selected={s.id === editing} onPick={() => {}} />
+            <SwatchOption swatch={s} selected={s.id === editing} onPick={() => pick(s.id)} />
           </div>
         ))}
       </div>
