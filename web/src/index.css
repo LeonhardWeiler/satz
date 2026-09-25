@@ -1156,6 +1156,7 @@ span.swatch {
 }
 
 .page-list {
+  flex: none;
   max-height: 160px;
 }
 
