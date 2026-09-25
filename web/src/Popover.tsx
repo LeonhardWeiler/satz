@@ -5,10 +5,12 @@ export type Anchor = () => DOMRect
 const GAP = 8
 const MARGIN = 8
 
-/** Start of a `size` long box beside [lo, hi]: before it, or after it when it does not fit before. */
-function flip(lo: number, hi: number, size: number, room: number) {
+/** Start of a `size` long box beside [lo, hi], before or `after` it, flipped when it does not fit. */
+function flip(lo: number, hi: number, size: number, room: number, after: boolean) {
   const before = lo - GAP - size
-  return before >= MARGIN || hi + GAP + size > room - MARGIN ? before : hi + GAP
+  const fitsBefore = before >= MARGIN
+  const fitsAfter = hi + GAP + size <= room - MARGIN
+  return (after ? !fitsAfter && fitsBefore : fitsBefore || !fitsAfter) ? before : hi + GAP
 }
 
 const shift = (v: number, size: number, room: number) => Math.max(MARGIN, Math.min(v, room - MARGIN - size))
@@ -21,7 +23,7 @@ export function Popover({
   ...props
 }: {
   anchor: Anchor
-  side: 'left' | 'top'
+  side: 'left' | 'right' | 'top'
   ref?: RefObject<HTMLDivElement | null>
 } & HTMLAttributes<HTMLDivElement>) {
   const own = useRef<HTMLDivElement>(null)
@@ -37,7 +39,7 @@ export function Popover({
       const { offsetWidth: w, offsetHeight: h } = el
       const [vw, vh] = [window.innerWidth, window.innerHeight]
       const [x, y] =
-        side === 'left' ? [flip(a.left, a.right, w, vw), a.top] : [a.left, flip(a.top, a.bottom, h, vh)]
+        side === 'top' ? [a.left, flip(a.top, a.bottom, h, vh, false)] : [flip(a.left, a.right, w, vw, side === 'right'), a.top]
       el.style.left = `${shift(x, w, vw)}px`
       el.style.top = `${shift(y, h, vh)}px`
     }

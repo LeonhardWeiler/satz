@@ -90,6 +90,7 @@ test('a cmyk document shows and takes cmyk values in the picker', async ({ page 
   expect(Number(await field('Magenta').inputValue())).toBeGreaterThan(80)
 
   await page.keyboard.press('Escape')
+  await expect(picker).toBeHidden()
   await page.keyboard.press('Escape')
   await page.keyboard.press('r')
   const [ax, ay] = await screen(page, 20, 90)
@@ -99,4 +100,44 @@ test('a cmyk document shows and takes cmyk values in the picker', async ({ page 
   await page.mouse.up()
   await panel.getByRole('button', { name: 'Fill color' }).click()
   await expect(field('Black')).toHaveValue('15')
+})
+
+test('a spot swatch is made in the swatches panel, bound in the picker, tinted and deleted', async ({ page }) => {
+  await open(page)
+  const swatches = page.getByRole('region', { name: 'Swatches' })
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  await swatches.getByRole('button', { name: 'Add swatch' }).click()
+  const editor = page.getByRole('dialog', { name: 'Edit swatch' })
+  await editor.getByRole('textbox', { name: 'Name' }).fill('HKS 43')
+  await editor.getByRole('checkbox', { name: 'Spot color' }).check()
+  for (const [name, v] of [['Cyan', '100'], ['Magenta', '60'], ['Yellow', '0'], ['Black', '0']]) {
+    await editor.getByRole('textbox', { name }).fill(v)
+    await editor.getByRole('textbox', { name }).press('Enter')
+  }
+  await page.keyboard.press('Escape')
+  await expect(editor).toBeHidden()
+  await expect(swatches.getByRole('option', { name: 'HKS 43' })).toHaveAttribute('title', /Spot color/)
+
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).last().click()
+  await panel.getByRole('button', { name: 'Fill color' }).click()
+  const picker = page.getByRole('dialog', { name: 'Fill color' })
+  await picker.getByRole('tab', { name: 'Swatches' }).click()
+  await picker.getByRole('option', { name: 'HKS 43' }).click()
+  await page.keyboard.press('Escape')
+  const [x, y] = await screen(page, 74, 7)
+  const [r, , b] = (await pixels(page, x, y, 1, 1))[0]
+  expect(b - r).toBeGreaterThan(100)
+  await expect(panel.getByText('HKS 43')).toBeVisible()
+  await panel.getByRole('textbox', { name: 'Fill tint' }).fill('0')
+  await panel.getByRole('textbox', { name: 'Fill tint' }).press('Enter')
+  expect(near((await pixels(page, x, y, 1, 1))[0], [255, 255, 255])).toBe(true)
+  await panel.getByRole('textbox', { name: 'Fill tint' }).fill('100')
+  await panel.getByRole('textbox', { name: 'Fill tint' }).press('Enter')
+
+  await swatches.getByRole('option', { name: 'HKS 43' }).dblclick()
+  await editor.getByRole('button', { name: 'Delete swatch' }).click()
+  await expect(swatches.getByRole('option')).toHaveCount(0)
+  await expect(panel.getByRole('combobox', { name: 'Fill type' })).toHaveValue('solid')
+  const [r2, , b2] = (await pixels(page, x, y, 1, 1))[0]
+  expect(b2 - r2).toBeGreaterThan(100)
 })

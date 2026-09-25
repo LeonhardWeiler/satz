@@ -1,12 +1,21 @@
-import { neutral as engineNeutral, preview, toCmyk } from './engine/engine'
+import { neutral as engineNeutral, preview, resolve as engineResolve, toCmyk } from './engine/engine'
+import type { Swatch } from './model'
 
 export type ColorMode = 'rgb' | 'cmyk'
-/** RGB is 0xRRGGBBAA; CMYK components and alpha are 0..1. */
-export type Color = number | { cmyk: number[]; alpha: number }
+/** RGB is 0xRRGGBBAA; CMYK components, tint and alpha are 0..1. A swatch's tint only applies to spot colours. */
+export type Color = number | { cmyk: number[]; alpha: number } | { swatch: string; tint: number; alpha: number }
+export type Process = Exclude<Color, { swatch: string }>
 export type Hsv = [h: number, s: number, v: number]
 
+/** The process colour a swatch stands for. */
+export const resolve = (c: Color, swatches: Swatch[]): Process =>
+  typeof c === 'object' && 'swatch' in c ? engineResolve(c, swatches) : c
+
 /** Screen colour as 0xRRGGBB. */
-export const rgb = (c: Color) => (typeof c === 'number' ? c >>> 8 : preview(c.cmyk[0], c.cmyk[1], c.cmyk[2], c.cmyk[3]))
+export function rgb(c: Color, swatches: Swatch[]) {
+  const p = resolve(c, swatches)
+  return typeof p === 'number' ? p >>> 8 : preview(p.cmyk[0], p.cmyk[1], p.cmyk[2], p.cmyk[3])
+}
 
 export const alpha = (c: Color) => (typeof c === 'number' ? ((c & 0xff) / 255) * 100 : c.alpha * 100)
 
@@ -15,8 +24,10 @@ export function withAlpha(c: Color, percent: number): Color {
   return typeof c === 'number' ? ((c & ~0xff) | Math.round(a * 255)) >>> 0 : { ...c, alpha: a }
 }
 
-export const css = (c: Color) =>
-  `#${rgb(c).toString(16).padStart(6, '0')}${Math.round(alpha(c) * 2.55).toString(16).padStart(2, '0')}`
+export function css(c: Color, swatches: Swatch[]) {
+  const p = resolve(c, swatches)
+  return `#${rgb(p, swatches).toString(16).padStart(6, '0')}${Math.round(alpha(p) * 2.55).toString(16).padStart(2, '0')}`
+}
 
 /** `rgb` in the document's mode, with the alpha of `like`. */
 export function fromRgb(rgb: number, like: Color, mode: ColorMode): Color {

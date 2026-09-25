@@ -61,6 +61,12 @@ export class Editor {
     this.set({ tool: 'move', selection: pen.anchors.length < 2 ? [] : [pen.id] })
   }
 
+  /** Makes the pointer gesture that starts now one undo step. */
+  gesture = () => {
+    this.apply({ type: 'beginUndoGroup' })
+    window.addEventListener('pointerup', () => this.apply({ type: 'endUndoGroup' }), { once: true })
+  }
+
   selected(): Node[] {
     return this.selection.flatMap((id) => this.nodes.get(id)?.node ?? [])
   }

@@ -6,6 +6,7 @@ import { Editor } from './editor'
 import { handleKey } from './keys'
 import { Layers } from './Layers'
 import { Properties } from './Properties'
+import { Swatches } from './Swatches'
 import { Toolbar } from './Toolbar'
 
 export function App({ ck, engine }: { ck: CanvasKit; engine: Engine }) {
@@ -33,7 +34,10 @@ export function App({ ck, engine }: { ck: CanvasKit; engine: Engine }) {
   return (
     <main className="app">
       <h1 className="sr-only">Satz</h1>
-      <Layers editor={editor} />
+      <div className="left">
+        <Layers editor={editor} />
+        <Swatches editor={editor} />
+      </div>
       <Canvas ck={ck} editor={editor} />
       <Properties editor={editor} onExport={exportPdf} />
       <Toolbar editor={editor} />

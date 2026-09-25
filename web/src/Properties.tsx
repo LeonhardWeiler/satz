@@ -21,6 +21,7 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
   const page = useEditor(editor, (e) => e.page)
   const rasterPpi = useEditor(editor, (e) => e.snapshot.rasterPpi)
   const mode = useEditor(editor, (e) => e.snapshot.colorMode)
+  const swatches = useEditor(editor, (e) => e.snapshot.swatches)
   const selection = useEditor(editor, (e) => e.selection)
   const nodes = selection.flatMap((id) => editor.nodes.get(id)?.node ?? [])
 
@@ -60,10 +61,7 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
     <aside
       className="panel properties"
       aria-label="Properties"
-      onPointerDown={() => {
-        editor.apply({ type: 'beginUndoGroup' })
-        window.addEventListener('pointerup', () => editor.apply({ type: 'endUndoGroup' }), { once: true })
-      }}
+      onPointerDown={editor.gesture}
     >
       <header className="panel-header">
         <h2>{one ? one.name : nodes.length ? `${nodes.length} layers` : 'Page'}</h2>
@@ -166,10 +164,11 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
           paints={one.fills}
           added={solid(neutral(one.kind === 'text' ? 'black' : 'gray', mode))}
           mode={mode}
+          swatches={swatches}
           onChange={(fills) => set({ fills })} />
       )}
       {one && (one.kind === 'shape' || one.kind === 'frame') && (
-        <PaintList title="Stroke" paints={one.strokes} added={solid(neutral('black', mode))} mode={mode} onChange={(strokes) => set({ strokes })}>
+        <PaintList title="Stroke" paints={one.strokes} added={solid(neutral('black', mode))} mode={mode} swatches={swatches} onChange={(strokes) => set({ strokes })}>
           {one.strokes.length > 0 && (
             <div className="grid">
               <Field label="" title="Stroke weight" unit="pt" value={one.strokeWeight} onCommit={(v) => set({ strokeWeight: v })} />
@@ -196,7 +195,7 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
           )}
         </PaintList>
       )}
-      {one && <EffectList effects={one.effects} mode={mode} onChange={(effects) => set({ effects })} />}
+      {one && <EffectList effects={one.effects} mode={mode} swatches={swatches} onChange={(effects) => set({ effects })} />}
       {one?.kind === 'text' && (
         <Section title="Text">
           <div className="grid">

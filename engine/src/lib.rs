@@ -87,3 +87,12 @@ pub fn neutral(name: &str, mode: JsValue) -> Result<JsValue, JsError> {
     };
     Ok(serde_wasm_bindgen::to_value(&color)?)
 }
+
+/// `color` with swatches replaced by what they stand for.
+#[wasm_bindgen]
+pub fn resolve(color: JsValue, swatches: JsValue) -> Result<JsValue, JsError> {
+    let color: color::Color = serde_wasm_bindgen::from_value(color)?;
+    let swatches: Vec<color::Swatch> = serde_wasm_bindgen::from_value(swatches)?;
+    let ser = serde_wasm_bindgen::Serializer::json_compatible();
+    Ok(color.resolve(&swatches).serialize(&ser)?)
+}
