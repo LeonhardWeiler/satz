@@ -1,6 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { PNG } from 'pngjs'
-import { open, screen } from './util'
+import { colors, open, screen } from './util'
 
 const near = ([r, g, b]: number[], [R, G, B]: number[]) => Math.max(Math.abs(r - R), Math.abs(g - G), Math.abs(b - B)) <= 24
 
@@ -83,17 +82,9 @@ test('a fill bound to a colour variable follows the mode of its frame and page',
   await bind(rects.first())
   await expect(panel.getByText('Color 1')).toBeVisible()
   /** Colours of the top rectangle and of the one in the frame, from one screenshot. */
-  const colors = async () => {
-    const points = [await screen(page, 74, 7), await screen(page, 100, 185)]
-    await page.waitForTimeout(100)
-    const png = PNG.sync.read(await page.screenshot())
-    return points.map(([x, y]) => {
-      const i = (Math.round(y) * png.width + Math.round(x)) * 4
-      return [png.data[i], png.data[i + 1], png.data[i + 2]]
-    })
-  }
+  const shown = async () => colors(page, [await screen(page, 74, 7), await screen(page, 100, 185)])
   const expectColors = async (top: number[], inFrame: number[]) => {
-    const [a, b] = await colors()
+    const [a, b] = await shown()
     expect(near(a, top) && near(b, inFrame), `${a} ${b}`).toBe(true)
   }
   const [red, blue] = [[255, 0, 0], [0, 0, 255]]

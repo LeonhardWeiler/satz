@@ -6,6 +6,7 @@ const env = Object.fromEntries(
 
 export default defineConfig({
   testDir: 'e2e',
+  workers: process.env.CI ? 2 : undefined,
   use: { baseURL: 'http://localhost:4173/satz/' },
   projects: [
     {

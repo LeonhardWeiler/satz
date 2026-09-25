@@ -29,9 +29,14 @@ export async function drag(page: Page, from: readonly [number, number], to: read
   await page.mouse.up()
 }
 
+/** Waits until the canvas has drawn the frame it has asked for, if any. */
+export async function drawn(page: Page) {
+  await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+}
+
 /** RGB pixels of the screen area [x, y, w, h] once the canvas has drawn. */
 export async function pixels(page: Page, x: number, y: number, w: number, h: number) {
-  await page.waitForTimeout(100)
+  await drawn(page)
   const png = PNG.sync.read(await page.screenshot({ clip: { x, y, width: w, height: h } }))
   const out: [number, number, number][] = []
   for (let i = 0; i < png.data.length; i += 4) out.push([png.data[i], png.data[i + 1], png.data[i + 2]])
@@ -40,7 +45,7 @@ export async function pixels(page: Page, x: number, y: number, w: number, h: num
 
 /** RGB pixels at screen points, from one screenshot once the canvas has drawn. */
 export async function colors(page: Page, points: (readonly [number, number])[]) {
-  await page.waitForTimeout(100)
+  await drawn(page)
   const png = PNG.sync.read(await page.screenshot())
   return points.map(([x, y]) => {
     const i = (Math.round(y) * png.width + Math.round(x)) * 4

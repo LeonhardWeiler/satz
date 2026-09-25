@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
 import { PNG } from 'pngjs'
 import { fitView, type Sheet } from '../src/renderer'
-import { PAIR, STORY, drag, frameOnNewPage, open, port, screen } from './util'
+import { PAIR, STORY, drag, drawn, frameOnNewPage, open, port, screen } from './util'
 
 const EDGE = 4
 const BLOCK = 4
@@ -45,7 +45,7 @@ async function expectCanvasMatchesPdf(page: Page, n = 1, spread = [n]) {
   const y = Math.round(canvas.y + view.y - bleed * view.zoom)
   const w = Math.round((width + 2 * bleed) * view.zoom)
   const h = Math.round((height + 2 * bleed) * view.zoom)
-  await page.waitForTimeout(100)
+  await drawn(page)
   const shot = PNG.sync.read(await page.screenshot({ clip: { x, y, width: w, height: h } }))
 
   const raster = join(dir, 'satz.png')
