@@ -547,6 +547,8 @@ pub struct Doc {
 }
 
 struct Clip {
+    /// The copied layer, so that copies of threaded frames thread among themselves.
+    id: TreeID,
     meta: LoroValue,
     text: Vec<TextDelta>,
     children: Vec<Clip>,
@@ -1302,12 +1304,16 @@ impl Doc {
             }
             Command::Duplicate { ids } => {
                 let mut out = Vec::new();
+                let mut clips = Vec::new();
                 for id in self.sorted(&ids)?.into_iter().rev() {
                     let parent = self.tree.parent(id).ok_or("no parent")?;
-                    let copy = self.paste(&self.clip(id), parent, self.index(id) + 1)?;
+                    let clip = self.clip(id);
+                    let copy = self.paste(&clip, parent, self.index(id) + 1)?;
                     self.meta(copy).delete("overrideOf").map_err(err)?;
                     out.push(copy.to_string());
+                    clips.push((clip, copy));
                 }
+                self.rethread(&clips)?;
                 out.reverse();
                 out
             }
@@ -1583,6 +1589,7 @@ impl Doc {
                 let above = self.sorted(&above)?.pop();
                 let page = page.map(|p| self.sheet(&p)).transpose()?;
                 let mut out = Vec::new();
+                let mut pasted = Vec::new();
                 for (i, (clip, from)) in self.clipboard.iter().enumerate() {
                     let (parent, index) = match above {
                         Some(a) => (
@@ -1604,7 +1611,9 @@ impl Doc {
                     let copy = self.paste(clip, parent, index)?;
                     self.meta(copy).delete("overrideOf").map_err(err)?;
                     out.push(copy.to_string());
+                    pasted.push((clip, copy));
                 }
+                self.rethread(&pasted)?;
                 out
             }
             Command::AddPage { after } => {
@@ -1633,9 +1642,13 @@ impl Doc {
                 for (k, v) in self.meta(from).get_value().into_map().unwrap().iter() {
                     m.insert(k, v.clone()).map_err(err)?;
                 }
+                let mut clips = Vec::new();
                 for (i, c) in self.children(from).into_iter().enumerate() {
-                    self.paste(&self.clip(c), p.into(), i)?;
+                    let clip = self.clip(c);
+                    let copy = self.paste(&clip, p.into(), i)?;
+                    clips.push((clip, copy));
                 }
+                self.rethread(&clips)?;
                 vec![p.to_string()]
             }
             Command::SetPage {
@@ -2937,6 +2950,7 @@ impl Doc {
             }
         }
         Clip {
+            id,
             meta,
             text: self.text(id).map(|t| t.to_delta()).unwrap_or_default(),
             children: self
@@ -2965,6 +2979,40 @@ impl Doc {
             self.paste(c, new.into(), i)?;
         }
         Ok(new)
+    }
+
+    /// Threads the copies of `pasted`, clips with the layer pasted from each, as their
+    /// originals are threaded among them. A copy that follows another copy leaves the
+    /// story, which each clip holds whole, to the first copy of its thread.
+    fn rethread<C: std::borrow::Borrow<Clip>>(&self, pasted: &[(C, TreeID)]) -> Res<()> {
+        let mut pairs = Vec::new();
+        for (clip, copy) in pasted {
+            self.pair_up(clip.borrow(), *copy, &mut pairs);
+        }
+        let copies: HashMap<String, TreeID> = pairs
+            .iter()
+            .map(|(old, new, _)| (old.to_string(), *new))
+            .collect();
+        for (_, new, next) in pairs {
+            if let Some(&to) = next.and_then(|n| copies.get(&n)) {
+                self.meta(new).insert("next", to.to_string()).map_err(err)?;
+                let own = self.own_text(to)?;
+                own.delete_utf16(0, own.len_utf16()).map_err(err)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Each layer copied into `clip` with its copy under `copy` and the layer it threads to.
+    fn pair_up(&self, clip: &Clip, copy: TreeID, out: &mut Vec<(TreeID, TreeID, Option<String>)>) {
+        let next = clip
+            .meta
+            .as_map()
+            .and_then(|m| m.get("next")?.as_string().cloned());
+        out.push((clip.id, copy, next.map(|n| n.to_string())));
+        for (c, n) in clip.children.iter().zip(self.children(copy)) {
+            self.pair_up(c, n, out);
+        }
     }
 
     fn prune(&self, parent: Option<TreeParentId>) -> Res<()> {
@@ -6177,5 +6225,59 @@ mod tests {
             ("Hi\nHo", 0, None, None)
         );
         assert_eq!(flow(&d, &a).4, Some(b));
+    }
+
+    #[test]
+    fn copies_of_threaded_frames_thread_among_themselves() {
+        let (mut d, p) = empty();
+        let a = fixed_text(&mut d, &p, [0.0, 0.0, 100.0, LEADING + 1.0]);
+        let b = fixed_text(&mut d, &p, [0.0, 50.0, 100.0, LEADING + 1.0]);
+        let c = fixed_text(&mut d, &p, [0.0, 100.0, 100.0, 100.0]);
+        set_text(&mut d, &a, "Hi\nHo\nHu");
+        thread(&mut d, &a, &b).unwrap();
+        thread(&mut d, &b, &c).unwrap();
+
+        let page = d
+            .apply(Command::DuplicatePage { id: p.clone() })
+            .unwrap()
+            .remove(0);
+        let [a2, b2, c2] = d.snapshot().pages[1]
+            .children
+            .iter()
+            .map(|n| n.id.clone())
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+        assert_eq!(flow(&d, &a2).4, Some(b2.clone()));
+        assert_eq!(flow(&d, &b2).4, Some(c2.clone()));
+        assert_eq!(flow(&d, &c2).1, 6);
+        assert_eq!(flow(&d, &a).4, Some(b.clone()));
+        d.apply(Command::DeletePage { id: page }).unwrap();
+
+        let copies = d
+            .apply(Command::Duplicate {
+                ids: vec![b.clone(), c.clone()],
+            })
+            .unwrap();
+        let (text, start, _, prev, next, _) = flow(&d, &copies[0]);
+        assert_eq!(
+            (text.as_str(), start, prev, next),
+            ("Hi\nHo\nHu", 0, None, Some(copies[1].clone()))
+        );
+        assert_eq!(flow(&d, &copies[1]).1, 3);
+        assert_eq!(flow(&d, &c).3, Some(b.clone()));
+
+        d.apply(Command::Copy {
+            ids: vec![a.clone(), b.clone()],
+        })
+        .unwrap();
+        let pasted = d
+            .apply(Command::Paste {
+                above: vec![],
+                page: None,
+            })
+            .unwrap();
+        assert_eq!(flow(&d, &pasted[0]).4, Some(pasted[1].clone()));
+        assert_eq!(flow(&d, &pasted[1]).1, 3);
     }
 }
