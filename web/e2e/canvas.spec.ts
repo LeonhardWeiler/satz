@@ -152,6 +152,16 @@ test('typed values round to two decimals and out-of-range values are rejected', 
   await expect(layers.getByRole('button', { name: 'Rectangle', exact: true })).toHaveCount(2)
 })
 
+test('a rectangle typed to height 0 keeps the least size', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  const field = (title: string) => panel.getByTitle(title, { exact: true }).getByRole('textbox')
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).first().click()
+  await field('H in mm').fill('0')
+  await field('H in mm').press('Enter')
+  await expect(field('H in mm')).toHaveValue('0.01')
+})
+
 test('undo finishes an open pen path and waits for a drag to end', async ({ page }) => {
   const errors: Error[] = []
   page.on('pageerror', (e) => errors.push(e))

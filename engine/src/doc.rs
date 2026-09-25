@@ -2870,6 +2870,8 @@ impl Doc {
         if !(w >= 0.0 && h >= 0.0) {
             return Err("width and height must not be negative".into());
         }
+        let [least_w, least_h] = self.least_size(id);
+        let (w, h) = (w.max(least_w), h.max(least_h));
         let [ox, oy, ow, oh] = self.bounds(id);
         match self.kind(id).as_str() {
             "group" => {
@@ -2900,6 +2902,21 @@ impl Doc {
             m.insert(k, v).map_err(err)?;
         }
         Ok(())
+    }
+
+    /// The least [w, h] of `id`: 0.01 mm for a box, which would vanish at 0, but 0 for a
+    /// path, whose bounds follow its points, and for a side of a text that hugs it.
+    fn least_size(&self, id: TreeID) -> [f64; 2] {
+        let least = 0.01 * MM;
+        match self.kind(id).as_str() {
+            "shape" if value(&self.meta(id), "shape") == Some("path".into()) => [0.0; 2],
+            "shape" | "frame" => [least; 2],
+            "text" => {
+                let s = self.layout(id).sizing;
+                [s.horizontal, s.vertical].map(|s| if s == Size::Hug { 0.0 } else { least })
+            }
+            _ => [0.0; 2],
+        }
     }
 
     /// Wraps `ids`, in document order, in a group or frame at the place of the topmost.
@@ -4210,7 +4227,7 @@ mod tests {
         assert!(set_frame(&mut d, -1.0, 1.0).is_err());
         assert!(set_frame(&mut d, 1.0, -1.0).is_err());
         set_frame(&mut d, 10.0, 0.0).unwrap();
-        assert_eq!(frame(&page(&d).children[0]), [-5.0, 0.0, 10.0, 0.0]);
+        assert_eq!(frame(&page(&d).children[0]), [-5.0, 0.0, 10.0, 0.01 * MM]);
     }
 
     #[test]
@@ -6225,6 +6242,30 @@ mod tests {
             ("Hi\nHo", 0, None, None)
         );
         assert_eq!(flow(&d, &a).4, Some(b));
+    }
+
+    #[test]
+    fn boxes_keep_a_least_size_and_paths_may_be_flat() {
+        let (mut d, p) = empty();
+        let least = 0.01 * MM;
+        let size = |d: &Doc, id: &str| {
+            let [.., w, h] = d.bounds(d.node(id).unwrap());
+            [w, h]
+        };
+        for kind in [NewKind::Rect, NewKind::Ellipse, NewKind::Frame] {
+            let r = create(&mut d, &p, kind, [0.0, 0.0, 40.0, 0.0]);
+            assert_eq!(size(&d, &r), [40.0, least]);
+            set_frame(&mut d, &r, [0.0, 0.0, 0.0, 20.0]);
+            assert_eq!(size(&d, &r), [least, 20.0]);
+        }
+        let t = fixed_text(&mut d, &p, [0.0, 0.0, 40.0, 0.0]);
+        assert_eq!(size(&d, &t), [40.0, least]);
+        let hug = create(&mut d, &p, NewKind::Text, [0.0, 0.0, 0.0, 0.0]);
+        assert_eq!(size(&d, &hug)[0], 0.0);
+        for kind in [NewKind::Line, NewKind::Arrow] {
+            let l = create(&mut d, &p, kind, [0.0, 0.0, 40.0, 0.0]);
+            assert_eq!(size(&d, &l), [40.0, 0.0]);
+        }
     }
 
     #[test]
