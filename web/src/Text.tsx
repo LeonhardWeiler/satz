@@ -2,7 +2,7 @@ import { Fragment } from 'react'
 import { Field, NameInput, nextName, Section, Select } from './controls'
 import { MM, useEditor, type Editor } from './editor'
 import { Icon } from './icons'
-import { range } from './textEdit'
+import { PAGE_NUMBER, insert, range } from './textEdit'
 import type { Attrs, Props, Sizing, Styled, TextNode, TextProps, TextStyle } from './model'
 import { Bindable } from './Variables'
 
@@ -47,6 +47,7 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
     return values.every((v) => v === values[0]) ? values[0] : null
   }
   const edited = useEditor(editor, (e) => (e.editing?.id === node.id && e.editing.anchor !== e.editing.focus ? e.editing : null))
+  const editing = useEditor(editor, (e) => e.editing?.id === node.id)
   /** Formats the selection of the text being edited, or else all of it. */
   const format = (props: TextProps) => editor.apply({ type: 'format', id: node.id, range: edited && range(edited), ...props })
   const style = same((a) => a.textStyle)
@@ -159,6 +160,18 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
           onChange={(l) => l !== 'mixed' && format({ lang: l as Attrs['lang'] })}
         />
       </div>
+      {editing && (
+        <button
+          type="button"
+          className="button"
+          title="Insert page number (Ctrl+Alt+Shift+N)"
+          // Keeps the focus in the edited text.
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => insert(editor, PAGE_NUMBER)}
+        >
+          Insert page number
+        </button>
+      )}
     </Section>
   )
 }

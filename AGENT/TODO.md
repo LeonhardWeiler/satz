@@ -27,11 +27,6 @@ font helper, i18n.
 
 ## Breadth
 
-### 11. Spreads
-- Current page number, as in InDesign: a marker in text that shows the number of
-  the page it is on, on a master its prefix, so that a master sets the page numbers
-  of its pages.
-
 ### 12. Fonts
 - Upload, bundled font, Local Font Access (Chromium).
 - Fonts referenced by name + hash; missing fonts fall back to the bundled font,

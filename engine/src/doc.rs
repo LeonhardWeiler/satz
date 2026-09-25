@@ -514,6 +514,7 @@ pub struct Node {
     pub kind: Kind,
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Kind {
@@ -1938,8 +1939,7 @@ impl Doc {
     fn frame_lines(&self, n: TreeID) -> Res<(String, Vec<text::Line>)> {
         let (t, spans, flows) = self.flow(self.story(n))?;
         let from = flows.iter().find(|f| f.0 == n).map_or(0, |f| f.1);
-        let v = serde_json::to_value(self.meta(n).get_deep_value()).map_err(err)?;
-        let tf: TextFrame = serde_json::from_value(v).unwrap_or_default();
+        let tf = self.text_frame_of(n);
         let frame = self.bounds(n).map(|v| v as f32);
         let lines = text::lines(&t, &spans, frame, &tf, from);
         Ok((t, lines))
@@ -1963,8 +1963,7 @@ impl Doc {
         for f in self.thread(head) {
             let start = from.unwrap_or(t.len());
             let next = from.and_then(|b| {
-                let v = serde_json::to_value(self.meta(f).get_deep_value()).ok()?;
-                let tf: TextFrame = serde_json::from_value(v).unwrap_or_default();
+                let tf = self.text_frame_of(f);
                 let frame = self.bounds(f).map(|v| v as f32);
                 text::overflow(&t, &spans, frame, &tf, b)
             });
@@ -2492,8 +2491,7 @@ impl Doc {
         }
         let (t, spans, flows) = self.flow(self.story(id))?;
         let from = flows.iter().find(|f| f.0 == id).map_or(0, |f| f.1);
-        let v = serde_json::to_value(self.meta(id).get_deep_value()).map_err(err)?;
-        let tf: TextFrame = serde_json::from_value(v).unwrap_or_default();
+        let tf = self.text_frame_of(id);
         let old = self.bounds(id);
         let [x, y, w, _] = old;
         let auto_width = horizontal == Size::Hug;
@@ -2821,7 +2819,7 @@ impl Doc {
             return Vec::new();
         };
         let mut ops = vec![page_op(p)];
-        self.draw_sheet(&snap, p, &mut ops);
+        self.draw_sheet(&snap, p, None, &mut ops);
         ops
     }
 
@@ -2836,41 +2834,65 @@ impl Doc {
         let spread = snap.spreads.iter().find(|s| s.contains(&p.id));
         for q in spread.into_iter().flatten() {
             let q = snap.pages.iter().find(|o| o.id == *q).unwrap();
+            let dx = q.x - p.x;
+            let b = p.bleed;
+            let window =
+                (q.id != p.id).then_some([-b - dx, -b, p.width + 2.0 * b, p.height + 2.0 * b]);
             let mut own = Vec::new();
-            self.draw_sheet(&snap, q, &mut own);
-            ops.extend(shift(own, (q.x - p.x) as f32, 0.0));
+            self.draw_sheet(&snap, q, window, &mut own);
+            ops.extend(shift(own, dx as f32, 0.0));
         }
         ops
     }
 
-    /// The master layers a page shows and its own layers. A page of a spread shows
-    /// its side of the master spread up to the spine.
-    fn draw_sheet(&self, snap: &Snapshot, p: &Page, ops: &mut Vec<Op>) {
+    /// The master layers a page shows and its own layers, those that reach into
+    /// `window` when there is one. A page of a spread shows its side of the master
+    /// spread up to the spine.
+    fn draw_sheet(&self, snap: &Snapshot, p: &Page, window: Option<[f64; 4]>, ops: &mut Vec<Op>) {
+        let into = |n: &Node, dx: f64, r: [f64; 4]| {
+            let [x, y, w, h] = reach(n);
+            x + dx < r[0] + r[2] && x + dx + w > r[0] && y < r[1] + r[3] && y + h > r[1]
+        };
         if let Some(m) = p
             .master
             .as_ref()
             .and_then(|m| snap.masters.iter().find(|s| s.id == *m))
         {
-            let mut shown = Vec::new();
-            draw_all(&self.master_layers(m, p), &mut shown, &snap.palette);
-            let [w, h, b] = [p.width, p.height, p.bleed].map(|v| v as f32);
+            let (w, h, b) = (p.width, p.height, p.bleed);
             let half = match p.side {
-                Some(Side::Left) => Some(rect(-b, -b, w + b, h + 2.0 * b)),
-                Some(Side::Right) => Some(rect(0.0, -b, w + b, h + 2.0 * b)),
-                None => None,
+                Some(Side::Left) => [-b, -b, w + b, h + 2.0 * b],
+                Some(Side::Right) => [0.0, -b, w + b, h + 2.0 * b],
+                None => [-b, -b, w + 2.0 * b, h + 2.0 * b],
             };
-            if let Some(path) = half.clone() {
+            let dx = master_dx(m, p);
+            let mut layers = self.master_layers(m, p);
+            if !layers.iter().any(|n| n.style.mask) {
+                layers.retain(|n| into(n, dx, half) && window.is_none_or(|r| into(n, dx, r)));
+            }
+            let mut shown = Vec::new();
+            draw_all(&layers, &mut shown, &snap.palette);
+            let clip = p.side.is_some() && !shown.is_empty();
+            if clip {
+                let [x, y, w, h] = half.map(|v| v as f32);
                 ops.push(Op::PushClip {
-                    path,
+                    path: rect(x, y, w, h),
                     invert: false,
                 });
             }
-            ops.extend(shift(shown, master_dx(m, p) as f32, 0.0));
-            if half.is_some() {
+            ops.extend(shift(shown, dx as f32, 0.0));
+            if clip {
                 ops.push(Op::PopClip);
             }
         }
-        draw_all(&p.children, ops, &snap.palette);
+        // A mask masks the layers above it, so layers go only all together then.
+        match window {
+            Some(r) if !p.children.iter().any(|n| n.style.mask) => {
+                for n in p.children.iter().filter(|n| into(n, 0.0, r)) {
+                    draw(n, ops, &snap.palette);
+                }
+            }
+            _ => draw_all(&p.children, ops, &snap.palette),
+        }
     }
 
     /// The layers of the master `m` that the page `p` shows, in its modes.
@@ -2882,11 +2904,34 @@ impl Doc {
             return Vec::new();
         };
         let flows = self.flows();
-        self.children(id)
+        let mut layers: Vec<Node> = self
+            .children(id)
             .into_iter()
             .filter(|c| !p.detached.contains(&c.to_string()))
             .map(|c| self.snap(c, &modes, &palette, &flows))
-            .collect()
+            .collect();
+        if let Ok(page) = self.page(&p.id) {
+            renumber(&mut layers, &self.number(page));
+        }
+        layers
+    }
+
+    /// How the text layer `n` sets its text, with the number of the page it is on.
+    fn text_frame_of(&self, n: TreeID) -> TextFrame {
+        let v = serde_json::to_value(self.meta(n).get_deep_value()).unwrap_or_default();
+        TextFrame {
+            number: self.number(self.root(n)),
+            ..serde_json::from_value(v).unwrap_or_default()
+        }
+    }
+
+    /// What a page number on the page or master `root` shows: the page's number, or
+    /// the master's prefix.
+    fn number(&self, root: TreeID) -> String {
+        match self.pages().iter().position(|&p| p == root) {
+            Some(i) => (i + 1).to_string(),
+            None => prefix(&self.name(root)),
+        }
     }
 
     /// The layer of the master of the page `page` at (x, y) that the page shows.
@@ -2949,7 +2994,7 @@ impl Doc {
                     Kind::Text {
                         text: text.clone(),
                         spans: spans.clone(),
-                        frame: serde_json::from_value(v.clone()).unwrap_or_default(),
+                        frame: self.text_frame_of(id),
                         story: f.head.to_string(),
                         start: utf16_of(text, f.start),
                         end: utf16_of(text, f.end),
@@ -2969,7 +3014,7 @@ impl Doc {
                             modes: &active_modes,
                         },
                     ),
-                    frame: serde_json::from_value(v.clone()).unwrap_or_default(),
+                    frame: self.text_frame_of(id),
                     story: id.to_string(),
                     start: 0,
                     end: 0,
@@ -3005,7 +3050,11 @@ impl Doc {
                 Kind::Shape(Shape::Path { path }) if path.len() == 6 => "Line".into(),
                 Kind::Shape(Shape::Path { .. }) => "Vector".into(),
                 Kind::Text { text, from, .. } if text[*from..].is_empty() => "Text".into(),
-                Kind::Text { text, from, .. } => text[*from..].chars().take(40).collect(),
+                Kind::Text { text, from, .. } => text[*from..]
+                    .chars()
+                    .take(40)
+                    .map(|c| if c == text::PAGE_NUMBER { '#' } else { c })
+                    .collect(),
                 Kind::Group { .. } => "Group".into(),
                 Kind::Frame { .. } => "Frame".into(),
             });
@@ -3421,6 +3470,43 @@ fn master_dx(m: &Page, p: &Page) -> f64 {
         Some(Side::Left) => m.width,
         _ => 0.0,
     }
+}
+
+/// The box of a layer with its strokes and effects: what it can draw into.
+fn reach(n: &Node) -> [f64; 4] {
+    let s = &n.style;
+    let mut m = 3.0 * f64::from(s.stroke_weight);
+    for e in &s.effects {
+        m = m.max(f64::from(e.x.abs().max(e.y.abs()) + 3.0 * e.radius));
+    }
+    [n.x - m, n.y - m, n.w + 2.0 * m, n.h + 2.0 * m]
+}
+
+/// Sets the page number of the text layers among `nodes` to `number`.
+fn renumber(nodes: &mut [Node], number: &str) {
+    for n in nodes {
+        match &mut n.kind {
+            Kind::Text { frame, .. } => frame.number = number.into(),
+            Kind::Group { children } | Kind::Frame { children, .. } => renumber(children, number),
+            Kind::Shape(_) => {}
+        }
+    }
+}
+
+/// The letters a master's page numbers show: the prefix of "A-Master", or the first
+/// letter, as the pages panel shows it.
+fn prefix(name: &str) -> String {
+    let head: String = name
+        .chars()
+        .take_while(|c| c.is_alphanumeric() || *c == '_')
+        .collect();
+    let short = (1..=3).contains(&head.chars().count()) && name[head.len()..].starts_with('-');
+    let p = if short {
+        head
+    } else {
+        name.chars().take(1).collect()
+    };
+    p.to_uppercase()
 }
 
 fn page_op(p: &Page) -> Op {
@@ -6191,10 +6277,14 @@ mod tests {
         set_width(&mut d, &p2, 100.0);
         create(&mut d, &p2, NewKind::Rect, [90.0, 0.0, 20.0, 10.0]);
         create(&mut d, &p3, NewKind::Rect, [5.0, 0.0, 10.0, 10.0]);
+        create(&mut d, &p3, NewKind::Rect, [50.0, 0.0, 10.0, 10.0]);
         create(&mut d, &p1, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
-        assert_eq!(filled_x(&d.render(&p3)), [[5.0, 15.0]]);
+        assert_eq!(filled_x(&d.render(&p3)), [[5.0, 15.0], [50.0, 60.0]]);
         assert_eq!(filled_x(&d.print(&p2)), [[90.0, 110.0], [105.0, 115.0]]);
-        assert_eq!(filled_x(&d.print(&p3)), [[-10.0, 10.0], [5.0, 15.0]]);
+        assert_eq!(
+            filled_x(&d.print(&p3)),
+            [[-10.0, 10.0], [5.0, 15.0], [50.0, 60.0]]
+        );
         assert_eq!(filled_x(&d.print(&p1)), [[0.0, 10.0]]);
     }
 
@@ -6460,9 +6550,9 @@ mod tests {
         assert_eq!(d.master_hit(&p2, 15.0, 5.0, 0.0), Some(left));
         assert_eq!(d.master_hit(&p2, 115.0, 5.0, 0.0), None);
         let [w, b] = [page(&d).width, page(&d).bleed].map(|v| v as f32);
-        assert_eq!(filled_x(&d.render(&p1)), [[-90.0, -80.0], [10.0, 20.0]]);
+        assert_eq!(filled_x(&d.render(&p1)), [[10.0, 20.0]]);
         assert_eq!(clips_x(&d.render(&p1)), [[0.0, w + b]]);
-        assert_eq!(filled_x(&d.render(&p2)), [[10.0, 20.0], [110.0, 120.0]]);
+        assert_eq!(filled_x(&d.render(&p2)), [[10.0, 20.0]]);
         assert_eq!(clips_x(&d.render(&p2)), [[-b, w]]);
         let _ = right;
     }
@@ -6535,6 +6625,50 @@ mod tests {
         assert_eq!(master(&d), [[10.0, 0.0, 10.0, 10.0]]);
         assert_eq!(detached(&d), [vec![r.clone()], vec![r.clone()]]);
         assert_eq!(of(&d), [r.clone(), r]);
+    }
+
+    /// The text of the glyph runs of `ops`.
+    fn run_texts(ops: &[Op]) -> Vec<String> {
+        ops.iter()
+            .filter_map(|o| match o {
+                Op::GlyphRun { text, .. } => Some(text.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_page_number_shows_the_number_of_its_page_and_on_a_master_its_prefix() {
+        let (mut d, p1) = empty();
+        let p2 = add_page(&mut d, None);
+        let p3 = add_page(&mut d, None);
+        let m = add_master(&mut d);
+        let marked = |d: &mut Doc, parent: &str, text: &str| {
+            let t = create(d, parent, NewKind::Text, [0.0, 0.0, 0.0, 0.0]);
+            d.apply(Command::SetText {
+                id: t.clone(),
+                text: text.replace('#', &text::PAGE_NUMBER.to_string()),
+            })
+            .unwrap();
+            t
+        };
+        marked(&mut d, &p1, "#");
+        marked(&mut d, &m, "Page #");
+        for p in [&p2, &p3] {
+            use_master(&mut d, p, Some(&m)).unwrap();
+        }
+        assert_eq!(run_texts(&d.render(&p1)), ["1"]);
+        assert_eq!(run_texts(&d.render(&m)), ["PageA"]);
+        assert_eq!(run_texts(&d.render(&p2)), ["Page2"]);
+        assert_eq!(run_texts(&d.render(&p3)), ["Page3"]);
+        assert_eq!(page(&d).children[0].name, "#");
+        assert!(page(&d).children[0].w > 0.0);
+        d.apply(Command::MovePage {
+            id: p1.clone(),
+            index: 2,
+        })
+        .unwrap();
+        assert_eq!(run_texts(&d.render(&p1)), ["3"]);
     }
 
     /// A fixed text frame on `page` at `frame`.

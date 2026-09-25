@@ -1,3 +1,7 @@
+import { execFileSync } from 'node:child_process'
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
 import { PAIR, colors, drag, open, pixels, screen } from './util'
 
@@ -98,4 +102,33 @@ test('with facing pages a one-page master gets its layers on both of its pages',
   expect(shown.map(gray)).toEqual([true, true])
   await facing.uncheck()
   await expect(rects).toHaveCount(1)
+})
+
+test('a page number on the pages of a master spread shows the number of each page', async ({ page }) => {
+  await open(page)
+  const pages = page.getByRole('navigation', { name: 'Pages' })
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  const layers = page.getByRole('tree', { name: 'Layers' })
+  await pages.getByRole('button', { name: 'Add master' }).click()
+  await page.keyboard.press('t')
+  await page.mouse.click(...(await screen(page, 10, 200, PAIR, 0)))
+  await panel.getByRole('button', { name: 'Insert page number' }).click()
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('t')
+  await page.mouse.click(...(await screen(page, 130, 200, PAIR, 1)))
+  await page.keyboard.press('Control+Alt+Shift+N')
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Escape')
+  await expect(layers.getByRole('button', { name: '#', exact: true })).toHaveCount(2)
+  for (let i = 0; i < 2; i++) {
+    await pages.getByRole('button', { name: 'Add page' }).click()
+    await panel.getByRole('combobox', { name: 'Master' }).selectOption('A-Master')
+  }
+  const pdf = join(mkdtempSync(join(tmpdir(), 'satz-')), 'satz.pdf')
+  const download = page.waitForEvent('download')
+  await panel.getByRole('button', { name: 'Export PDF' }).click()
+  await (await download).saveAs(pdf)
+  const text = execFileSync('mutool', ['draw', '-q', '-F', 'text', '-o', '-', pdf, '2-3']).toString()
+  expect(text.replace(/\s+/g, ' ').trim()).toBe('2 3')
 })

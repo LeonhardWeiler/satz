@@ -1,5 +1,8 @@
 import type { Editor } from './editor'
 
+/** Stands for the number of the page a text is on, as InDesign's Current Page Number. */
+export const PAGE_NUMBER = '\u0018'
+
 /** The text layer being edited in its frame; `anchor` and `focus` are UTF-16 indices. */
 export type Editing = { id: string; anchor: number; focus: number }
 
@@ -103,6 +106,7 @@ export function handleTextKey(editor: Editor, e: KeyboardEvent): boolean {
     }
     insert(editor, '')
   } else if (e.key === 'Enter') insert(editor, '\n')
+  else if (mod && e.altKey && e.shiftKey && e.code === 'KeyN') insert(editor, PAGE_NUMBER)
   else if (mod && key === 'a') select(editor, 0, text.length)
   else if (mod && (key === 'z' || key === 'y')) {
     editor.endTyping()

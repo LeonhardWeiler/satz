@@ -178,6 +178,9 @@ pub struct TextFrame {
     pub vertical_align: VerticalAlign,
     pub baseline_grid: f64,
     pub baseline_start: f64,
+    /// What a page number marker stands for: the number of the page the text is on.
+    #[serde(skip)]
+    pub number: String,
 }
 
 impl Default for TextFrame {
@@ -192,9 +195,13 @@ impl Default for TextFrame {
             vertical_align: VerticalAlign::Top,
             baseline_grid: 0.0,
             baseline_start: 0.0,
+            number: String::new(),
         }
     }
 }
+
+/// Stands for the number of the page a text is on, as InDesign's Current Page Number.
+pub const PAGE_NUMBER: char = '\u{18}';
 
 /// A glyph at (x, y) on its baseline, drawn with the attributes of `span`, for the
 /// text from byte `cluster`, or a hyphen inserted there.
@@ -236,7 +243,7 @@ pub fn draw(
             spans[a.span].attrs.size == spans[b.span].attrs.size
                 && span_paints[a.span] == span_paints[b.span]
         }) {
-            let (run_text, ranges) = source(text, &line, at..at + run.len());
+            let (run_text, ranges) = source(text, &line, at..at + run.len(), &tf.number);
             at += run.len();
             for paint in &span_paints[run[0].span] {
                 ops.push(Op::GlyphRun {
@@ -256,11 +263,13 @@ pub fn draw(
 
 /// The text that the glyphs `run` of `line` stand for and each glyph's range in it:
 /// up to the next glyph's text or space, so a ligature stands for all its letters.
-/// Spaces have no glyph; PDF readers find them in the gaps.
+/// Spaces have no glyph; PDF readers find them in the gaps. A page number marker
+/// stands for `number`.
 fn source(
     text: &str,
     line: &[Glyph],
     run: std::ops::Range<usize>,
+    number: &str,
 ) -> (String, Vec<std::ops::Range<usize>>) {
     let mut out = String::new();
     let mut ranges = Vec::new();
@@ -278,7 +287,7 @@ fn source(
             let word = text[g.cluster..next]
                 .find(char::is_whitespace)
                 .map_or(next, |i| g.cluster + i);
-            out.push_str(&text[g.cluster..word]);
+            out.push_str(&text[g.cluster..word].replace(PAGE_NUMBER, number));
         }
         ranges.push(start..out.len());
     }
@@ -294,7 +303,13 @@ pub fn lay_out(
     from: usize,
 ) -> Vec<Vec<Glyph>> {
     let (inner, cw) = columns(frame, tf);
-    place(rows(text, spans, Some(cw), from).0, inner, cw, tf).lines
+    place(
+        rows(text, spans, Some(cw), from, &tf.number).0,
+        inner,
+        cw,
+        tf,
+    )
+    .lines
 }
 
 /// The byte where the text from `from` that does not fit in `frame` starts, for the
@@ -307,7 +322,7 @@ pub fn overflow(
     from: usize,
 ) -> Option<usize> {
     let (inner, cw) = columns(frame, tf);
-    let rows = rows(text, spans, Some(cw), from).0;
+    let rows = rows(text, spans, Some(cw), from, &tf.number).0;
     let starts: Vec<usize> = rows.iter().map(|r| r.stops[0].0).collect();
     starts.get(place(rows, inner, cw, tf).placed).copied()
 }
@@ -329,10 +344,10 @@ pub fn measure(
     let (rows, cw, w) = match w {
         Some(w) => {
             let (_, cw) = columns([0.0, 0.0, w, 0.0], tf);
-            (rows(text, spans, Some(cw), from).0, cw, w)
+            (rows(text, spans, Some(cw), from, &tf.number).0, cw, w)
         }
         None => {
-            let (rows, natural) = rows(text, spans, None, from);
+            let (rows, natural) = rows(text, spans, None, from, &tf.number);
             let cw = ceil(natural);
             (rows, cw, n * cw + (n - 1.0) * tf.gutter as f32 + h_in)
         }
@@ -381,8 +396,8 @@ fn columns([x, y, w, h]: [f32; 4], tf: &TextFrame) -> ([f32; 4], f32) {
 
 /// The lines of `text` from the byte `from`, a line start, broken to the column width
 /// `cw`, or each paragraph on one line when `None`; and the width of the widest
-/// paragraph set on one line.
-fn rows(text: &str, spans: &[Span], cw: Option<f32>, from: usize) -> (Vec<Row>, f32) {
+/// paragraph set on one line. A page number marker is set as `number`.
+fn rows(text: &str, spans: &[Span], cw: Option<f32>, from: usize, number: &str) -> (Vec<Row>, f32) {
     let font = FontRef::new(FONT).unwrap();
     let upem = font.head().unwrap().units_per_em() as f32;
     let hhea = font.hhea().unwrap();
@@ -432,7 +447,12 @@ fn rows(text: &str, spans: &[Span], cw: Option<f32>, from: usize) -> (Vec<Row>, 
         }
         let first = &spans[span_at(start)].attrs;
         let mut buf = UnicodeBuffer::new();
-        buf.push_str(para);
+        for (i, c) in para.char_indices() {
+            match c {
+                PAGE_NUMBER => number.chars().for_each(|d| buf.add(d, i as u32)),
+                c => buf.add(c, i as u32),
+            }
+        }
         buf.guess_segment_properties();
         let shaped = shaper.shape(buf, ShapeOptions::new());
         let breaks = if first.hyphenate {
@@ -725,7 +745,13 @@ pub fn lines(
     from: usize,
 ) -> Vec<Line> {
     let (inner, cw) = columns(frame, tf);
-    place(rows(text, spans, Some(cw), from).0, inner, cw, tf).geometry
+    place(
+        rows(text, spans, Some(cw), from, &tf.number).0,
+        inner,
+        cw,
+        tf,
+    )
+    .geometry
 }
 
 /// The line holding the byte offset `at`: the first that reaches it, unless the next
@@ -853,6 +879,32 @@ mod tests {
         assert_eq!(r.len(), 1);
         assert_eq!(r[0].0, vec![H, I]);
         assert_close(&r[0].1, &[5.0, 7.0 + ASCENT, 12.88, 7.0 + ASCENT]);
+    }
+
+    #[test]
+    fn a_page_number_marker_sets_the_number_of_the_page_in_its_place() {
+        let frame = [0.0, 0.0, 100.0, 50.0];
+        let marked = format!("p{PAGE_NUMBER}.");
+        let tf = TextFrame {
+            number: "12".into(),
+            ..TextFrame::default()
+        };
+        let a = attrs(10.0);
+        let runs = framed(&marked, &one(&marked, a.clone()), frame, &tf);
+        assert_eq!(runs, framed("p12.", &one("p12.", a.clone()), frame, &tf));
+        let palette = Palette::default();
+        let modes = Modes::new();
+        let s = Scope {
+            palette: &palette,
+            modes: &modes,
+        };
+        let black = [Fill::solid(0x000000ffu32)];
+        let ops = draw(&marked, &one(&marked, a.clone()), &black, frame, &tf, &s, 0);
+        assert!(matches!(&ops[0], Op::GlyphRun { text, .. } if text == "p12."));
+        let lines = lines(&marked, &one(&marked, a), frame, &tf, 0);
+        let [before, after] =
+            [1, 1 + PAGE_NUMBER.len_utf8()].map(|at| caret(&marked, &lines, at)[0]);
+        assert!(after - before > 9.9, "{before} {after}");
     }
 
     #[test]
