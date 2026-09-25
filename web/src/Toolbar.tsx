@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useEditor, type Editor, type Shape, type Tool } from './editor'
 import { Icon, type IconName } from './icons'
+import { Popover } from './Popover'
 
 type Entry = { tool: Tool; label: string; key: string; icon: IconName }
 
@@ -37,6 +38,7 @@ export function Toolbar({ editor }: { editor: Editor }) {
   const active = useEditor(editor, (e) => e.tool)
   const [last, setLast] = useState<Shape>('rect')
   const [open, setOpen] = useState(false)
+  const group = useRef<HTMLDivElement>(null)
   const current = SHAPES.find((s) => s.tool === active)
   if (current && current.tool !== last) setLast(current.tool)
   const shape = current ?? SHAPES.find((s) => s.tool === last)!
@@ -46,6 +48,7 @@ export function Toolbar({ editor }: { editor: Editor }) {
       <ToolButton entry={MOVE} active={active} editor={editor} />
       <ToolButton entry={FRAME} active={active} editor={editor} />
       <div
+        ref={group}
         className="tool-group"
         onBlur={(e) => {
           if (!e.currentTarget.contains(e.relatedTarget)) setOpen(false)
@@ -69,7 +72,7 @@ export function Toolbar({ editor }: { editor: Editor }) {
           <Icon name="chevron" size={12} />
         </button>
         {open && (
-          <div className="menu" role="menu" aria-label="Shape tools">
+          <Popover anchor={() => group.current!.getBoundingClientRect()} side="top" className="menu" role="menu" aria-label="Shape tools">
             {SHAPES.map(({ tool, label, key, icon }) => (
               <button
                 key={tool}
@@ -87,7 +90,7 @@ export function Toolbar({ editor }: { editor: Editor }) {
                 <kbd>{key}</kbd>
               </button>
             ))}
-          </div>
+          </Popover>
         )}
       </div>
       <ToolButton entry={PEN} active={active} editor={editor} />

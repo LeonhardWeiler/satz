@@ -10,6 +10,7 @@
   --text-3: rgb(255 255 255 / 0.45);
   --border: #444444;
   --accent: #0d99ff;
+  --checker: repeating-conic-gradient(#ffffff 0 25%, #cccccc 0 50%) 0 0 / 8px 8px;
   font: 11px/16px Inter, system-ui, sans-serif;
   color: var(--text);
   background: var(--canvas);
@@ -368,6 +369,160 @@ textarea {
 
 .swatch {
   flex: none;
+  display: grid;
+  box-sizing: border-box;
+  width: 24px;
+  height: 24px;
+  padding: 4px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: var(--input);
+  cursor: pointer;
+}
+
+.swatch:hover {
+  border-color: var(--border);
+}
+
+.swatch:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.swatch > span,
+span.swatch {
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
+}
+
+.swatch > span {
+  background: linear-gradient(var(--color), var(--color)), var(--checker);
+}
+
+span.swatch {
+  padding: 0;
+  border-color: var(--border);
+  background-clip: padding-box;
+}
+
+.popover {
+  position: fixed;
+  z-index: 10;
+  outline: none;
+}
+
+.picker {
+  display: grid;
+  gap: 12px;
+  box-sizing: border-box;
+  width: 240px;
+  padding: 0 12px 12px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--panel);
+  box-shadow: 0 2px 12px rgb(0 0 0 / 0.5);
+}
+
+.picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 40px;
+  margin-bottom: -12px;
+}
+
+.picker-header h2 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.picker-area {
+  position: relative;
+  height: 200px;
+  border-radius: 5px;
+  background-image: linear-gradient(to top, #000000, transparent), linear-gradient(to right, #ffffff, transparent);
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.picker-area:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.picker-thumb {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.3), inset 0 0 0 1px rgb(0 0 0 / 0.3);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.picker-sliders {
+  display: grid;
+  gap: 8px;
+}
+
+.picker-sliders input {
+  width: 100%;
+  height: 12px;
+  margin: 0;
+  border-radius: 6px;
+  appearance: none;
+  cursor: pointer;
+}
+
+.picker-hue {
+  background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+}
+
+.picker-alpha {
+  background:
+    linear-gradient(to right, transparent, var(--color)),
+    var(--checker);
+}
+
+.picker-sliders input::-webkit-slider-thumb {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.3);
+  appearance: none;
+}
+
+.picker-sliders input::-moz-range-thumb {
+  box-sizing: border-box;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: none;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.3);
+}
+
+.picker-sliders input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.select {
+  flex: 1;
+  min-width: 0;
+}
+
+.stops {
+  display: grid;
+  gap: 8px;
+  padding-left: 28px;
+}
+
+.swatch {
+  flex: none;
   box-sizing: border-box;
   width: 24px;
   height: 24px;
@@ -540,9 +695,6 @@ span.swatch {
 }
 
 .menu {
-  position: absolute;
-  bottom: calc(100% + 10px);
-  left: 0;
   display: grid;
   min-width: 180px;
   padding: 8px 0;

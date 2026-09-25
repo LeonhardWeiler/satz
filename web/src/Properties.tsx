@@ -55,7 +55,14 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
   }
 
   return (
-    <aside className="panel properties" aria-label="Properties">
+    <aside
+      className="panel properties"
+      aria-label="Properties"
+      onPointerDown={() => {
+        editor.apply({ type: 'beginUndoGroup' })
+        window.addEventListener('pointerup', () => editor.apply({ type: 'endUndoGroup' }), { once: true })
+      }}
+    >
       <header className="panel-header">
         <h2>{one ? one.name : nodes.length ? `${nodes.length} layers` : 'Page'}</h2>
         <button type="button" className="primary" onClick={onExport} title="Export PDF (Ctrl+Shift+E)">

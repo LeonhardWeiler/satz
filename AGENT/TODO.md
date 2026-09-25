@@ -8,16 +8,6 @@ that match the canvas.
 Out of scope for M1: PDF/X, components, realtime collaboration, Figma import,
 font helper, i18n.
 
-## Bugs
-
-Found by hand on 2026-09-24 (notes in AGENT/bugs.md), causes checked in the code.
-
-### B7. Colour picker is cut off at the window edge (bugs.md 15)
-- Cause: the native `<input type="color">` popup is placed by the browser.
-- Fix: own Figma-style colour picker popover (saturation/value area, hue, alpha, hex) placed with
-  viewport collision (flip and shift). Item 8 needs it anyway for CMYK values and swatches, so
-  build it there. The shape menu uses the same placement.
-
 ## Settled design
 
 - Engine (Rust → WASM) owns the Loro doc, layout and undo. React sends commands and

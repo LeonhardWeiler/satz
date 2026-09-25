@@ -4,7 +4,6 @@ import { Icon } from './icons'
 const round = (v: number) => Math.round(v * 100) / 100
 
 export const hex = (color: number) => '#' + (color >>> 8).toString(16).padStart(6, '0')
-export const withHex = (color: number, hex: string) => ((parseInt(hex.slice(1), 16) << 8) | (color & 0xff)) >>> 0
 export const alpha = (color: number) => ((color & 0xff) / 255) * 100
 export const withAlpha = (color: number, percent: number) =>
   ((color & ~0xff) | Math.round(Math.min(100, Math.max(0, percent)) * 2.55)) >>> 0
@@ -106,19 +105,6 @@ export function Section({
       </header>
       {children}
     </section>
-  )
-}
-
-export function Swatch({ label, color, onChange }: { label: string; color: number; onChange: (c: number) => void }) {
-  return (
-    <input
-      type="color"
-      className="swatch"
-      aria-label={label}
-      title={label}
-      value={hex(color)}
-      onChange={(e) => onChange(withHex(color, e.currentTarget.value))}
-    />
   )
 }
 

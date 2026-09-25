@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { Field, RowActions, Section, Select, Swatch, alpha, hex, withAlpha } from './controls'
+import { ColorPicker } from './ColorPicker'
+import { Field, RowActions, Section, Select, alpha, hex, withAlpha } from './controls'
 import { MM } from './editor'
 import type { Effect, Fill } from './model'
 
@@ -60,7 +61,7 @@ export function PaintList({
                 <li key={i} className="paint" data-hidden={!p.visible || undefined}>
                   <div className="row">
                     {p.type === 'solid' ? (
-                      <Swatch label={`${title} color`} color={p.color} onChange={(color) => set({ ...p, color })} />
+                      <ColorPicker label={`${title} color`} color={p.color} onChange={(color) => set({ ...p, color })} />
                     ) : (
                       <span className="swatch" aria-hidden="true" style={{ background: gradient(p) }} />
                     )}
@@ -95,7 +96,7 @@ export function PaintList({
                         const stop = (next: Partial<typeof s>) => set({ ...p, stops: replace(p.stops, k, { ...s, ...next }) })
                         return (
                           <div key={k} className="row">
-                            <Swatch label={`Stop ${k + 1} color`} color={s.color} onChange={(color) => stop({ color })} />
+                            <ColorPicker label={`Stop ${k + 1} color`} color={s.color} onChange={(color) => stop({ color })} />
                             <Field
                               label=""
                               title={`Stop ${k + 1} position`}
@@ -164,7 +165,7 @@ export function EffectList({ effects, onChange }: { effects: Effect[]; onChange:
                   />
                   {e.type === 'dropShadow' && (
                     <div className="row">
-                      <Swatch label="Shadow color" color={e.color} onChange={(color) => set({ color })} />
+                      <ColorPicker label="Shadow color" color={e.color} onChange={(color) => set({ color })} />
                       <Field
                         label=""
                         title="Shadow opacity"
