@@ -64,3 +64,39 @@ test('hex, saturation, hue and alpha change the fill', async ({ page }) => {
   await page.keyboard.press('Control+z')
   await expect(panel.getByTitle('Fill opacity').getByRole('textbox')).toHaveValue('100')
 })
+
+test('a cmyk document shows and takes cmyk values in the picker', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  const rects = page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true })
+  await panel.getByRole('combobox', { name: 'Color mode' }).selectOption('CMYK')
+
+  await rects.last().click()
+  await panel.getByRole('button', { name: 'Fill color' }).click()
+  const picker = page.getByRole('dialog', { name: 'Fill color' })
+  await expect(picker.getByRole('textbox', { name: 'Hex' })).toHaveCount(0)
+  const field = (name: string) => picker.getByRole('textbox', { name })
+  for (const [name, v] of [['Cyan', '100'], ['Magenta', '0'], ['Yellow', '0'], ['Black', '0']]) {
+    await field(name).fill(v)
+    await field(name).press('Enter')
+  }
+  const [x, y] = await screen(page, 74, 7)
+  expect(near((await pixels(page, x, y, 1, 1))[0], [0, 163, 228])).toBe(true)
+
+  const hue = picker.getByRole('slider', { name: 'Hue' })
+  await hue.focus()
+  await hue.press('Home')
+  expect(Number(await field('Cyan').inputValue())).toBeLessThan(5)
+  expect(Number(await field('Magenta').inputValue())).toBeGreaterThan(80)
+
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('r')
+  const [ax, ay] = await screen(page, 20, 90)
+  await page.mouse.move(ax, ay)
+  await page.mouse.down()
+  await page.mouse.move(ax + 60, ay + 40, { steps: 3 })
+  await page.mouse.up()
+  await panel.getByRole('button', { name: 'Fill color' }).click()
+  await expect(field('Black')).toHaveValue('15')
+})

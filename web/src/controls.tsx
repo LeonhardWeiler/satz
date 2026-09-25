@@ -3,10 +3,6 @@ import { Icon } from './icons'
 
 const round = (v: number) => Math.round(v * 100) / 100
 
-export const hex = (color: number) => '#' + (color >>> 8).toString(16).padStart(6, '0')
-export const alpha = (color: number) => ((color & 0xff) / 255) * 100
-export const withAlpha = (color: number, percent: number) =>
-  ((color & ~0xff) | Math.round(Math.min(100, Math.max(0, percent)) * 2.55)) >>> 0
 
 export function Field({
   label,

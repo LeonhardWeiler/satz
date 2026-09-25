@@ -1,3 +1,4 @@
+import { neutral, type Color, type ColorMode } from './color'
 import { Field, Section, Select } from './controls'
 import { MM, bounds, ends, useEditor, type Editor } from './editor'
 import type { Blend, Command, Fill, Node, Props, Style } from './model'
@@ -13,12 +14,13 @@ const ALIGNS: Record<Style['strokeAlign'], string> = { inside: 'Inside', center:
 const JOINS: Record<Style['join'], string> = { miter: 'Miter join', round: 'Round join', bevel: 'Bevel join' }
 const CAPS: Record<Style['cap'], string> = { none: 'No cap', round: 'Round cap', square: 'Square cap' }
 const ENDS = { none: 'None', arrow: 'Line arrow' } as const
-const BLACK: Fill = { type: 'solid', color: 0x000000ff, stops: [], transform: [1, 0, 0, 1, 0, 0], visible: true }
-const GRAY: Fill = { ...BLACK, color: 0xd9d9d9ff }
+const MODES: Record<ColorMode, string> = { rgb: 'RGB', cmyk: 'CMYK' }
+const solid = (color: Color): Fill => ({ type: 'solid', color, stops: [], transform: [1, 0, 0, 1, 0, 0], visible: true })
 
 export function Properties({ editor, onExport }: { editor: Editor; onExport: () => void }) {
   const page = useEditor(editor, (e) => e.page)
   const rasterPpi = useEditor(editor, (e) => e.snapshot.rasterPpi)
+  const mode = useEditor(editor, (e) => e.snapshot.colorMode)
   const selection = useEditor(editor, (e) => e.selection)
   const nodes = selection.flatMap((id) => editor.nodes.get(id)?.node ?? [])
 
@@ -80,6 +82,12 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
               value={rasterPpi}
               unit="ppi"
               onCommit={(v) => editor.apply({ type: 'setDocument', rasterPpi: v })}
+            />
+            <Select
+              label="Color mode"
+              value={mode}
+              options={MODES}
+              onChange={(colorMode) => editor.apply({ type: 'setDocument', colorMode })}
             />
           </div>
         </Section>
@@ -153,10 +161,15 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
         </Section>
       )}
       {one && one.kind !== 'group' && (
-        <PaintList title="Fill" paints={one.fills} added={one.kind === 'text' ? BLACK : GRAY} onChange={(fills) => set({ fills })} />
+        <PaintList
+          title="Fill"
+          paints={one.fills}
+          added={solid(neutral(one.kind === 'text' ? 'black' : 'gray', mode))}
+          mode={mode}
+          onChange={(fills) => set({ fills })} />
       )}
       {one && (one.kind === 'shape' || one.kind === 'frame') && (
-        <PaintList title="Stroke" paints={one.strokes} added={BLACK} onChange={(strokes) => set({ strokes })}>
+        <PaintList title="Stroke" paints={one.strokes} added={solid(neutral('black', mode))} mode={mode} onChange={(strokes) => set({ strokes })}>
           {one.strokes.length > 0 && (
             <div className="grid">
               <Field label="" title="Stroke weight" unit="pt" value={one.strokeWeight} onCommit={(v) => set({ strokeWeight: v })} />
@@ -183,7 +196,7 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
           )}
         </PaintList>
       )}
-      {one && <EffectList effects={one.effects} onChange={(effects) => set({ effects })} />}
+      {one && <EffectList effects={one.effects} mode={mode} onChange={(effects) => set({ effects })} />}
       {one?.kind === 'text' && (
         <Section title="Text">
           <div className="grid">

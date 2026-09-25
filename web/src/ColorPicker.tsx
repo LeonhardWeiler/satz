@@ -1,33 +1,17 @@
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
-import { Field, alpha, withAlpha } from './controls'
+import { alpha, css, fromHsv, fromRgb, rgb as screen, toHsv, withAlpha, type Color, type ColorMode, type Hsv } from './color'
+import { Field } from './controls'
 import { Icon } from './icons'
 import { Popover, type Anchor } from './Popover'
 
-type Hsv = [h: number, s: number, v: number]
-
 const hex = (rgb: number) => rgb.toString(16).padStart(6, '0').toUpperCase()
-export const css = (color: number) => `#${(color >>> 0).toString(16).padStart(8, '0')}`
-
-function toHsv(color: number): Hsv {
-  const [r, g, b] = [24, 16, 8].map((s) => ((color >>> s) & 0xff) / 255)
-  const v = Math.max(r, g, b)
-  const d = v - Math.min(r, g, b)
-  const h = d === 0 ? 0 : v === r ? ((g - b) / d + 6) % 6 : v === g ? (b - r) / d + 2 : (r - g) / d + 4
-  return [h * 60, v === 0 ? 0 : d / v, v]
-}
-
-function toRgb([h, s, v]: Hsv) {
-  const f = (n: number) => {
-    const k = (n + h / 60) % 6
-    return Math.round((v - v * s * Math.max(0, Math.min(k, 4 - k, 1))) * 255)
-  }
-  return (f(5) << 16) | (f(3) << 8) | f(1)
-}
-
 const clamp = (v: number) => Math.min(1, Math.max(0, v))
+const INKS = ['Cyan', 'Magenta', 'Yellow', 'Black']
 
-export function ColorPicker({ label, color, onChange }: { label: string; color: number; onChange: (c: number) => void }) {
+type Props = { label: string; color: Color; mode: ColorMode; onChange: (c: Color) => void }
+
+export function ColorPicker({ label, color, mode, onChange }: Props) {
   const [open, setOpen] = useState(false)
   const button = useRef<HTMLButtonElement>(null)
   return (
@@ -55,6 +39,7 @@ export function ColorPicker({ label, color, onChange }: { label: string; color: 
             button={button}
             label={label}
             color={color}
+            mode={mode}
             onChange={onChange}
             onClose={(refocus) => {
               setOpen(false)
@@ -72,27 +57,22 @@ function Picker({
   button,
   label,
   color,
+  mode,
   onChange,
   onClose,
-}: {
-  anchor: Anchor
-  button: RefObject<HTMLElement | null>
-  label: string
-  color: number
-  onChange: (c: number) => void
-  onClose: (refocus: boolean) => void
-}) {
+}: Props & { anchor: Anchor; button: RefObject<HTMLElement | null>; onClose: (refocus: boolean) => void }) {
   const ref = useRef<HTMLDivElement>(null)
-  const [state, setState] = useState(() => ({ color, hsv: toHsv(color) }))
-  if (state.color !== color) setState({ color, hsv: color >>> 8 === toRgb(state.hsv) ? state.hsv : toHsv(color) })
+  const rgb = screen(color)
+  const [state, setState] = useState(() => ({ color, hsv: toHsv(rgb) }))
+  if (state.color !== color) setState({ color, hsv: rgb === screen(state.color) ? state.hsv : toHsv(rgb) })
   const [h, s, v] = state.hsv
-  const rgb = color >>> 8
 
   const set = (hsv: Hsv) => {
-    const next = ((toRgb(hsv) << 8) | (color & 0xff)) >>> 0
+    const next = fromRgb(fromHsv(hsv), color, mode)
     setState({ color: next, hsv })
     onChange(next)
   }
+  const cmyk = typeof color === 'number' ? fromRgb(rgb, color, 'cmyk') : color
 
   useEffect(() => ref.current?.focus(), [])
 
@@ -120,7 +100,7 @@ function Picker({
   const commitHex = (text: string) => {
     const t = text.replace(/^#/, '')
     const full = t.length === 3 ? [...t].map((c) => c + c).join('') : t
-    if (/^[0-9a-f]{6}$/i.test(full)) set(toHsv(parseInt(full, 16) << 8))
+    if (/^[0-9a-f]{6}$/i.test(full)) set(toHsv(parseInt(full, 16)))
   }
 
   return (
@@ -182,6 +162,20 @@ function Picker({
           onChange={(e) => onChange(withAlpha(color, Number(e.currentTarget.value)))}
         />
       </div>
+      {mode === 'cmyk' && typeof cmyk !== 'number' ? (
+        <div className="picker-inks">
+          {INKS.map((ink, i) => (
+            <Field
+              key={ink}
+              label={'CMYK'[i]}
+              title={ink}
+              unit=""
+              value={cmyk.cmyk[i] * 100}
+              onCommit={(p) => onChange({ ...cmyk, cmyk: cmyk.cmyk.map((c, j) => (j === i ? clamp(p / 100) : c)) })}
+            />
+          ))}
+        </div>
+      ) : (
       <div className="row">
         <label className="field">
           <span className="field-label">Hex</span>
@@ -201,6 +195,7 @@ function Picker({
         </label>
         <Field label="" title="Opacity in %" unit="%" value={alpha(color)} onCommit={(p) => onChange(withAlpha(color, p))} />
       </div>
+      )}
     </Popover>
   )
 }

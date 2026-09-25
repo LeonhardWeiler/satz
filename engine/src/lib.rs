@@ -62,3 +62,28 @@ impl Engine {
         unsafe { Uint8Array::view(text::FONT) }
     }
 }
+
+/// Screen preview of a CMYK colour as 0xRRGGBB.
+#[wasm_bindgen]
+pub fn preview(c: f32, m: f32, y: f32, k: f32) -> u32 {
+    let [r, g, b] = color::to_rgb([c, m, y, k]).map(|v| (v * 255.0).round() as u32);
+    r << 16 | g << 8 | b
+}
+
+/// CMYK of the 0xRRGGBB colour `rgb` in the document's print condition.
+#[wasm_bindgen(js_name = toCmyk)]
+pub fn to_cmyk(rgb: u32) -> Vec<f32> {
+    color::to_cmyk([16, 8, 0].map(|s| (rgb >> s & 0xff) as f32 / 255.0)).to_vec()
+}
+
+/// `"black"`, `"white"` or `"gray"` in the colour mode `mode`.
+#[wasm_bindgen]
+pub fn neutral(name: &str, mode: JsValue) -> Result<JsValue, JsError> {
+    let mode = serde_wasm_bindgen::from_value(mode)?;
+    let color = match name {
+        "black" => color::Color::black(mode),
+        "white" => color::Color::white(mode),
+        _ => color::Color::gray(mode),
+    };
+    Ok(serde_wasm_bindgen::to_value(&color)?)
+}

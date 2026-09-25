@@ -64,20 +64,50 @@ impl Color {
     }
 }
 
+fn transform(
+    from: &ColorProfile,
+    from_layout: Layout,
+    to: &ColorProfile,
+    to_layout: Layout,
+) -> Arc<TransformF32Executor> {
+    let options = TransformOptions {
+        rendering_intent: RenderingIntent::RelativeColorimetric,
+        ..TransformOptions::default()
+    };
+    from.create_transform_f32(from_layout, to, to_layout, options)
+        .unwrap()
+}
+
+fn fogra51() -> ColorProfile {
+    ColorProfile::new_from_slice(FOGRA51).unwrap()
+}
+
 pub fn to_rgb(cmyk: [f32; 4]) -> [f32; 3] {
     static T: OnceLock<Arc<TransformF32Executor>> = OnceLock::new();
     let t = T.get_or_init(|| {
-        let profile = ColorProfile::new_from_slice(FOGRA51).unwrap();
-        let srgb = ColorProfile::new_srgb();
-        let options = TransformOptions {
-            rendering_intent: RenderingIntent::RelativeColorimetric,
-            ..TransformOptions::default()
-        };
-        profile
-            .create_transform_f32(Layout::Rgba, &srgb, Layout::Rgb, options)
-            .unwrap()
+        transform(
+            &fogra51(),
+            Layout::Rgba,
+            &ColorProfile::new_srgb(),
+            Layout::Rgb,
+        )
     });
     let mut rgb = [0.0; 3];
     t.transform(&cmyk, &mut rgb).unwrap();
     rgb.map(|v| v.clamp(0.0, 1.0))
+}
+
+pub fn to_cmyk(rgb: [f32; 3]) -> [f32; 4] {
+    static T: OnceLock<Arc<TransformF32Executor>> = OnceLock::new();
+    let t = T.get_or_init(|| {
+        transform(
+            &ColorProfile::new_srgb(),
+            Layout::Rgb,
+            &fogra51(),
+            Layout::Rgba,
+        )
+    });
+    let mut cmyk = [0.0; 4];
+    t.transform(&rgb, &mut cmyk).unwrap();
+    cmyk.map(|v| v.clamp(0.0, 1.0))
 }

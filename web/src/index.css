@@ -462,6 +462,16 @@ span.swatch {
   pointer-events: none;
 }
 
+.picker-inks {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+.picker-inks .field-label {
+  min-width: 0;
+}
+
 .picker-sliders {
   display: grid;
   gap: 8px;

@@ -1,12 +1,14 @@
+import type { Color, ColorMode } from './color'
+
 export type Fill = {
   type: 'solid' | 'linear' | 'radial'
-  color: number
-  stops: { at: number; color: number }[]
+  color: Color
+  stops: { at: number; color: Color }[]
   transform: number[]
   visible: boolean
 }
 
-export type Effect = { type: 'dropShadow' | 'blur'; x: number; y: number; radius: number; color: number; visible: boolean }
+export type Effect = { type: 'dropShadow' | 'blur'; x: number; y: number; radius: number; color: Color; visible: boolean }
 
 export type Blend =
   | 'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten' | 'colorDodge' | 'colorBurn'
@@ -52,7 +54,7 @@ export type Command =
   | { type: 'order'; ids: string[]; to: 'forward' | 'backward' | 'front' | 'back' }
   | { type: 'duplicate' | 'copy'; ids: string[] }
   | { type: 'paste'; above: string[] }
-  | { type: 'setDocument'; rasterPpi: number }
+  | { type: 'setDocument'; rasterPpi?: number; colorMode?: ColorMode }
   | { type: 'undo' | 'redo' | 'beginUndoGroup' | 'endUndoGroup' }
 
 export type Node = { id: string; name: string; x: number; y: number; w: number; h: number } & Style &
@@ -67,4 +69,4 @@ export type Container = Extract<Node, { children: Node[] }>
 
 export type Page = { id: string; width: number; height: number; bleed: number; children: Node[] }
 
-export type Snapshot = { pages: Page[]; rasterPpi: number; canUndo: boolean; canRedo: boolean }
+export type Snapshot = { pages: Page[]; rasterPpi: number; colorMode: ColorMode; canUndo: boolean; canRedo: boolean }

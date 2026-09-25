@@ -1,14 +1,17 @@
 import type { ReactNode } from 'react'
 import { ColorPicker } from './ColorPicker'
-import { Field, RowActions, Section, Select, alpha, hex, withAlpha } from './controls'
+import { alpha, css, neutral, withAlpha, type ColorMode } from './color'
+import { Field, RowActions, Section, Select } from './controls'
 import { MM } from './editor'
 import type { Effect, Fill } from './model'
 
 const TYPES = { solid: 'Solid', linear: 'Linear', radial: 'Radial' } as const
 const EFFECTS = { dropShadow: 'Drop shadow', blur: 'Layer blur' } as const
 const RADIAL = [0.5, 0, 0, 0.5, 0.5, 0.5]
-const SHADOW: Effect = { type: 'dropShadow', x: 0, y: 4, radius: 4, color: 0x00000040, visible: true }
-const BLUR: Effect = { type: 'blur', x: 0, y: 0, radius: 4, color: 0, visible: true }
+const shadow = (mode: ColorMode): Effect => ({
+  type: 'dropShadow', x: 0, y: 4, radius: 4, color: withAlpha(neutral('black', mode), 25), visible: true,
+})
+const blur = (mode: ColorMode): Effect => ({ ...shadow(mode), type: 'blur', y: 0 })
 
 /** Linear gradient across the unit box through its centre, 0° left to right, 90° top to bottom. */
 function linear(degrees: number) {
@@ -29,7 +32,7 @@ function retype(p: Fill, type: Fill['type']): Fill {
 const replace = <T,>(list: T[], i: number, item: T) => list.map((v, j) => (j === i ? item : v))
 
 function gradient(p: Fill) {
-  const stops = p.stops.map((s) => `${hex(s.color)}${Math.round(alpha(s.color) * 2.55).toString(16).padStart(2, '0')} ${s.at * 100}%`)
+  const stops = p.stops.map((s) => `${css(s.color)} ${s.at * 100}%`)
   const shape = p.type === 'linear' ? `linear-gradient(${angle(p.transform) + 90}deg` : 'radial-gradient(circle'
   return `${shape}, ${stops.join(', ')})`
 }
@@ -38,11 +41,13 @@ export function PaintList({
   title,
   paints,
   added,
+  mode,
   onChange,
   children,
 }: {
   title: 'Fill' | 'Stroke'
   paints: Fill[]
+  mode: ColorMode
   added: Fill
   onChange: (paints: Fill[]) => void
   children?: ReactNode
@@ -61,7 +66,7 @@ export function PaintList({
                 <li key={i} className="paint" data-hidden={!p.visible || undefined}>
                   <div className="row">
                     {p.type === 'solid' ? (
-                      <ColorPicker label={`${title} color`} color={p.color} onChange={(color) => set({ ...p, color })} />
+                      <ColorPicker label={`${title} color`} color={p.color} mode={mode} onChange={(color) => set({ ...p, color })} />
                     ) : (
                       <span className="swatch" aria-hidden="true" style={{ background: gradient(p) }} />
                     )}
@@ -96,7 +101,7 @@ export function PaintList({
                         const stop = (next: Partial<typeof s>) => set({ ...p, stops: replace(p.stops, k, { ...s, ...next }) })
                         return (
                           <div key={k} className="row">
-                            <ColorPicker label={`Stop ${k + 1} color`} color={s.color} onChange={(color) => stop({ color })} />
+                            <ColorPicker label={`Stop ${k + 1} color`} color={s.color} mode={mode} onChange={(color) => stop({ color })} />
                             <Field
                               label=""
                               title={`Stop ${k + 1} position`}
@@ -126,9 +131,9 @@ export function PaintList({
   )
 }
 
-export function EffectList({ effects, onChange }: { effects: Effect[]; onChange: (effects: Effect[]) => void }) {
+export function EffectList({ effects, mode, onChange }: { effects: Effect[]; mode: ColorMode; onChange: (effects: Effect[]) => void }) {
   return (
-    <Section title="Effects" onAdd={() => onChange([...effects, SHADOW])}>
+    <Section title="Effects" onAdd={() => onChange([...effects, shadow(mode)])}>
       {effects.length > 0 && (
         <ul className="rows">
           {effects.map((e, i) => {
@@ -141,7 +146,7 @@ export function EffectList({ effects, onChange }: { effects: Effect[]; onChange:
                     label="Effect type"
                     value={e.type}
                     options={EFFECTS}
-                    onChange={(type) => set({ ...(type === 'blur' ? BLUR : SHADOW), visible: e.visible })}
+                    onChange={(type) => set({ ...(type === 'blur' ? blur : shadow)(mode), visible: e.visible })}
                   />
                   <RowActions
                     what={what}
@@ -165,7 +170,7 @@ export function EffectList({ effects, onChange }: { effects: Effect[]; onChange:
                   />
                   {e.type === 'dropShadow' && (
                     <div className="row">
-                      <ColorPicker label="Shadow color" color={e.color} onChange={(color) => set({ color })} />
+                      <ColorPicker label="Shadow color" color={e.color} mode={mode} onChange={(color) => set({ color })} />
                       <Field
                         label=""
                         title="Shadow opacity"
