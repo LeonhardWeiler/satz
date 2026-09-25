@@ -153,3 +153,19 @@ test('arrow keys in the saturation area do not move the layer', async ({ page })
   await area.press('ArrowRight')
   await expect(x).toHaveValue(before)
 })
+
+test('a new swatch never repeats the name of an existing one', async ({ page }) => {
+  await open(page)
+  const swatches = page.getByRole('region', { name: 'Swatches' })
+  const editor = page.getByRole('dialog', { name: 'Edit swatch' })
+  const add = async () => {
+    await swatches.getByRole('button', { name: 'Add swatch' }).click()
+    await page.keyboard.press('Escape')
+  }
+  await add()
+  await add()
+  await swatches.getByRole('option', { name: 'Swatch 1' }).dblclick()
+  await editor.getByRole('button', { name: 'Delete swatch' }).click()
+  await add()
+  await expect(swatches.getByRole('option')).toHaveText(['Swatch 2', 'Swatch 3'])
+})

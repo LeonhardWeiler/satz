@@ -13,14 +13,6 @@ font helper, i18n.
 Found by the review on 2026-09-25 (IDs from `AGENT/project-health-report.html`), causes checked in
 the code, not reproduced in the browser.
 
-### B13. Spot swatches may share a name with different alternates (PRINT-1)
-- Cause: `Swatch::check` does not look at other swatches; `Swatches.tsx` names new swatches
-  `Swatch {len + 1}`, which repeats after a delete. The PDF then has one Separation name with
-  conflicting alternates.
-- Fix: `AddSwatch`/`SetSwatch` reject a name used by another swatch; the default name takes the
-  highest existing number + 1.
-- Test: cargo test for both commands; e2e adds, deletes and adds again and sees distinct names.
-
 ### B14. Dropping a layer into its own descendant throws (BUG-5, ROB-1)
 - Cause: `Layers.tsx` `over` only rejects the dragged rows. Dropping an expanded group on one of
   its children sends a cyclic `move`; Loro rejects it after earlier ids may have moved, `apply`

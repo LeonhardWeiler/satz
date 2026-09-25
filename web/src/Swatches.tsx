@@ -15,7 +15,8 @@ export function Swatches({ editor }: { editor: Editor }) {
   const add = () => {
     const fill = editor.selected()[0]?.fills.find((f) => f.type === 'solid')
     const color = fill ? resolve(fill.color, swatches) : neutral('black', mode)
-    setEditing(editor.apply({ type: 'addSwatch', name: `Swatch ${swatches.length + 1}`, color, spot: false })[0])
+    const n = Math.max(0, ...swatches.map((s) => Number(/^Swatch (\d+)$/.exec(s.name)?.[1] ?? 0))) + 1
+    setEditing(editor.apply({ type: 'addSwatch', name: `Swatch ${n}`, color, spot: false })[0])
   }
   const set = (patch: { name?: string; color?: Color; spot?: boolean }) =>
     editing && editor.apply({ type: 'setSwatch', id: editing, ...patch })

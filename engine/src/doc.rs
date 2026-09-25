@@ -712,7 +712,7 @@ impl Doc {
                     color,
                     spot,
                 };
-                swatch.check()?;
+                self.check_swatch(&swatch)?;
                 let list = self.doc.get_list("swatches");
                 let m = list
                     .insert_container(list.len(), LoroMap::new())
@@ -732,7 +732,7 @@ impl Doc {
                 swatch.name = name.unwrap_or(swatch.name);
                 swatch.color = color.unwrap_or(swatch.color);
                 swatch.spot = spot.unwrap_or(swatch.spot);
-                swatch.check()?;
+                self.check_swatch(&swatch)?;
                 let m = self
                     .doc
                     .get_list("swatches")
@@ -836,6 +836,18 @@ impl Doc {
             .ok()
             .and_then(|v| serde_json::from_value(v).ok())
             .unwrap_or_default()
+    }
+
+    fn check_swatch(&self, swatch: &Swatch) -> Res<()> {
+        swatch.check()?;
+        if self
+            .swatches()
+            .iter()
+            .any(|s| s.id != swatch.id && s.name == swatch.name)
+        {
+            return Err(format!("a swatch named {} exists", swatch.name));
+        }
+        Ok(())
     }
 
     fn swatch(&self, id: &str) -> Res<(usize, Swatch)> {
@@ -2246,6 +2258,24 @@ mod tests {
 
     fn near(a: [f32; 4], b: [f32; 4]) -> bool {
         a.iter().zip(b).all(|(x, y)| (x - y).abs() < 0.05)
+    }
+
+    #[test]
+    fn swatch_names_are_unique() {
+        let mut d = Doc::new();
+        let red = swatch(&mut d, "Red", Color::Rgb(0xff0000ff), false).unwrap();
+        swatch(&mut d, "Blue", Color::Rgb(0x0000ffff), false).unwrap();
+        assert!(swatch(&mut d, "Red", process(0.0, 1.0, 1.0, 0.0), true).is_err());
+        let rename = |name: &str| Command::SetSwatch {
+            id: red.clone(),
+            name: Some(name.into()),
+            color: None,
+            spot: None,
+        };
+        assert!(d.apply(rename("Blue")).is_err());
+        d.apply(rename("Red")).unwrap();
+        let names: Vec<_> = d.snapshot().swatches.into_iter().map(|s| s.name).collect();
+        assert_eq!(names, ["Red", "Blue"]);
     }
 
     #[test]
