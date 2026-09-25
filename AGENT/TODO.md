@@ -13,10 +13,6 @@ font helper, i18n.
 Found by the review on 2026-09-25 (IDs from `AGENT/project-health-report.html`), causes checked in
 the code, not reproduced in the browser.
 
-### B17. Colour picker stays put when the properties panel scrolls (UX-6)
-- Cause: `Popover` re-places only on window resize and its own size change.
-- Fix: also listen to `scroll` with capture in the same effect.
-
 ### B18. Space cannot activate focused buttons (A11Y-2)
 - Cause: `Canvas.tsx` `onKey` prevents Space on keydown and keyup for any target that is not an
   input.

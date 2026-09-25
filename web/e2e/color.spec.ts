@@ -29,6 +29,22 @@ test('the colour picker and the shape menu stay inside the window', async ({ pag
   await expectInside(page, page.getByRole('menu', { name: 'Shape tools' }))
 })
 
+test('the colour picker follows its button when the properties panel scrolls', async ({ page }) => {
+  await open(page)
+  await page.setViewportSize({ width: 1400, height: 400 })
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).last().click()
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  for (let i = 0; i < 4; i++) await panel.getByRole('button', { name: 'Add effect' }).click()
+  const button = panel.getByRole('button', { name: 'Fill color' })
+  const y = async () => (await button.boundingBox())!.y
+  await panel.evaluate((el, d) => el.scrollBy(0, d), (await y()) - 200)
+  await button.click()
+  const picker = page.getByRole('dialog', { name: 'Fill color' })
+  await panel.evaluate((el) => el.scrollBy(0, 180))
+  expect(await y()).toBeCloseTo(20)
+  await expect.poll(async () => (await picker.boundingBox())!.y).toBeCloseTo(20)
+})
+
 test('hex, saturation, hue and alpha change the fill', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })

@@ -47,9 +47,11 @@ export function Popover({
     const observer = new ResizeObserver(place)
     observer.observe(el)
     window.addEventListener('resize', place)
+    window.addEventListener('scroll', place, true)
     return () => {
       observer.disconnect()
       window.removeEventListener('resize', place)
+      window.removeEventListener('scroll', place, true)
     }
   }, [side, ref])
   return <div ref={ref} {...props} className={`popover ${props.className ?? ''}`} />
