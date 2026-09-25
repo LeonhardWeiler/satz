@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Satz mockup D: Präzision</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #18181b;
+  --panel: #1f1f23;
+  --raised: #27272b;
+  --line: #2e2e33;
+  --text: #f4f4f5;
+  --text-2: #a1a1aa;
+  --text-3: #8b8b94;
+  --accent: #3ecf8e;
+  --accent-bg: rgb(62 207 142 / .13);
+  --canvas: #232327;
+  --ease: cubic-bezier(.16, 1, .3, 1);
+  font: 12px/16px Geist, system-ui, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; overflow: hidden; -webkit-font-smoothing: antialiased; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 1.5px solid var(--accent); outline-offset: -1.5px; }
+.num { font-family: 'Geist Mono', monospace; font-size: 11.5px; }
+.ph { font-size: 15px; }
+
+.app { display: grid; grid-template-columns: 264px minmax(0, 1fr) 272px; height: 100%; }
+aside { display: flex; flex-direction: column; min-height: 0; background: var(--panel); }
+.left { border-right: 1px solid var(--line); }
+.right { border-left: 1px solid var(--line); }
+
+.file { display: flex; align-items: center; justify-content: space-between; height: 44px; padding: 0 12px 0 14px; font-weight: 600; }
+.tabs { display: flex; gap: 4px; padding: 0 10px 8px; border-bottom: 1px solid var(--line); }
+.tabs button { height: 26px; padding: 0 10px; border: 0; border-radius: 6px; background: none; color: var(--text-2); font-weight: 500; }
+.tabs button[aria-selected=true] { background: var(--raised); color: var(--text); }
+
+.pages { border-bottom: 1px solid var(--line); }
+.bar { display: flex; align-items: center; gap: 6px; width: 100%; height: 34px; padding: 0 12px 0 10px; border: 0; background: none; color: var(--text-2); text-align: left; }
+.bar b { flex: 1; color: var(--text); font-weight: 500; }
+.bar .ph-caret-down { transition: transform .2s var(--ease); }
+.pages[data-closed] .ph-caret-down { transform: rotate(-90deg); }
+.pages ul { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; margin: 0; padding: 0 8px 8px; list-style: none; }
+.pages[data-closed] ul { display: none; }
+.pages li { display: flex; justify-content: space-between; height: 26px; align-items: center; padding: 0 8px; border-radius: 6px; color: var(--text-2); }
+.pages li:hover { background: var(--raised); }
+.pages li[aria-current=true] { background: var(--raised); color: var(--text); }
+.pages li span { color: var(--text-3); }
+
+.find { display: grid; gap: 8px; padding: 10px 10px 6px; }
+.search { display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; color: var(--text-3); }
+.search:focus-within { border-color: var(--accent); }
+.search input { flex: 1; min-width: 0; border: 0; background: none; outline: none; }
+.search kbd { padding: 0 5px; border: 1px solid var(--line); border-radius: 4px; font: inherit; }
+.filters { display: flex; gap: 4px; }
+.filters button { height: 24px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: none; color: var(--text-2); }
+.filters button[aria-pressed=true] { border-color: transparent; background: var(--raised); color: var(--text); }
+
+.tree { flex: 1; margin: 0; padding: 2px 6px 8px; overflow: auto; list-style: none; outline: none; }
+.row { position: relative; display: flex; align-items: center; gap: 6px; height: 28px; padding-right: 6px; border-radius: 6px; color: var(--text-2); white-space: nowrap; user-select: none; }
+.row:hover { background: var(--raised); }
+.row[data-parent] { background: rgb(255 255 255 / .025); }
+.row[aria-selected=true] { background: var(--accent-bg); color: var(--text); }
+.row[aria-selected=true]::before { content: ''; position: absolute; left: 0; top: 6px; bottom: 6px; width: 2px; border-radius: 1px; background: var(--accent); }
+.tree:focus-visible .row[aria-selected=true] { box-shadow: inset 0 0 0 1px var(--accent); }
+.row .guide { align-self: stretch; flex: none; width: 14px; border-left: 1px solid var(--line); margin-left: 7px; }
+.row .caret { display: grid; flex: none; place-items: center; width: 16px; height: 16px; color: var(--text-3); transition: transform .18s var(--ease); }
+.row[data-open] .caret { transform: rotate(90deg); }
+.row .name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.row .kind { color: var(--text-3); }
+.row[aria-selected=true] .kind { color: var(--accent); }
+.row .act { display: grid; place-items: center; width: 22px; height: 22px; border: 0; border-radius: 4px; background: none; color: var(--text-3); opacity: 0; }
+.row:hover .act, .row .act[data-on] { opacity: 1; }
+.row .act:hover { background: var(--line); color: var(--text); }
+.row[data-hidden] .name, .row[data-hidden] .kind { opacity: .45; }
+.row input { flex: 1; min-width: 0; height: 22px; padding: 0 4px; border: 1px solid var(--accent); border-radius: 4px; background: var(--bg); outline: none; }
+.empty { padding: 14px; color: var(--text-3); }
+
+.stage { position: relative; display: grid; place-items: center; background: var(--canvas); overflow: hidden; }
+.sheet { position: relative; height: calc(100vh - 120px); aspect-ratio: 1056 / 1498; box-shadow: 0 16px 48px rgb(0 0 0 / .35); }
+.sheet img { display: block; width: 100%; height: 100%; }
+.box { position: absolute; outline: 1px solid var(--accent); pointer-events: none; transition: all .16s var(--ease); }
+.box.hover { outline-width: 2px; outline-color: rgb(62 207 142 / .6); }
+.tools { position: absolute; bottom: 16px; left: 50%; display: flex; gap: 2px; padding: 4px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); transform: translateX(-50%); }
+.tools button { display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 6px; background: none; color: var(--text-2); }
+.tools button:hover { background: var(--raised); color: var(--text); }
+.tools button[aria-pressed=true] { background: var(--accent); color: #0f2a1d; }
+.tools .ph { font-size: 18px; }
+
+.crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; min-height: 44px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.crumbs button { height: 24px; padding: 0 6px; border: 0; border-radius: 6px; background: none; color: var(--text-2); }
+.crumbs button:hover { background: var(--raised); color: var(--text); }
+.crumbs button:last-child { color: var(--text); font-weight: 500; }
+.crumbs .ph { color: var(--text-3); font-size: 12px; }
+.sec { display: grid; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.sec h3 { margin: 0; font-size: 12px; font-weight: 500; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.field { display: flex; align-items: center; justify-content: space-between; height: 28px; padding: 0 8px; border-radius: 6px; background: var(--raised); color: var(--text-3); }
+.field span:last-child { color: var(--text); }
+.keys { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 0; color: var(--text-2); }
+.keys dt { color: var(--text); }
+.keys kbd { padding: 0 5px; border: 1px solid var(--line); border-radius: 4px; font: inherit; font-family: 'Geist Mono', monospace; font-size: 11px; }
+.keys dd { margin: 0; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="left" aria-label="Navigation">
+    <div class="file">Booklet A5 <i class="ph ph-caret-down"></i></div>
+    <div class="tabs" role="tablist"><button role="tab" aria-selected="true">Layers</button><button role="tab" aria-selected="false">Assets</button></div>
+    <div class="pages" id="pages">
+      <button class="bar" aria-expanded="true"><i class="ph ph-caret-down"></i><b>Pages</b><span class="num">8</span></button>
+      <ul>
+        <li aria-current="true">Page 1 <span>B</span></li><li>Page 2 <span>A</span></li>
+        <li>Page 3 <span>A</span></li><li>Page 4 <span>A</span></li>
+      </ul>
+    </div>
+    <div class="find">
+      <label class="search"><i class="ph ph-magnifying-glass"></i><input id="search" placeholder="Find layers" aria-label="Find layers"><kbd>/</kbd></label>
+      <div class="filters" id="filters">
+        <button aria-pressed="true" data-f="">All</button><button aria-pressed="false" data-f="text">Text</button>
+        <button aria-pressed="false" data-f="shape">Shapes</button><button aria-pressed="false" data-f="frame">Frames</button>
+      </div>
+    </div>
+    <ul class="tree" id="tree" role="tree" aria-label="Layers" tabindex="0"></ul>
+  </aside>
+
+  <main class="stage" aria-label="Canvas">
+    <div class="sheet" id="sheet"><img src="page.jpg" alt="Page 1"><div class="box" id="selBox"></div><div class="box hover" id="hoverBox" hidden></div></div>
+    <div class="tools" role="toolbar" aria-label="Tools">
+      <button aria-pressed="true" title="Move (V)"><i class="ph ph-cursor"></i></button>
+      <button title="Frame (F)"><i class="ph ph-hash"></i></button>
+      <button title="Rectangle (R)"><i class="ph ph-square"></i></button>
+      <button title="Pen (P)"><i class="ph ph-pen-nib"></i></button>
+      <button title="Text (T)"><i class="ph ph-text-t"></i></button>
+    </div>
+  </main>
+
+  <aside class="right" aria-label="Properties">
+    <nav class="crumbs" id="crumbs" aria-label="Selection path"></nav>
+    <div class="sec"><h3>Layout</h3>
+      <div class="grid num"><div class="field"><span>X</span><span>5.6</span></div><div class="field"><span>Y</span><span>56.1</span></div><div class="field"><span>W</span><span>66.0</span></div><div class="field"><span>H</span><span>16.0</span></div></div>
+    </div>
+    <div class="sec"><h3>Fill</h3><div class="field"><span>Linear</span><span class="num">100 %</span></div></div>
+    <div class="sec"><h3>Tree keys</h3>
+      <dl class="keys">
+        <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Previous, next row</dd>
+        <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Collapse, expand</dd>
+        <dt><kbd>Enter</kbd></dt><dd>Select children</dd>
+        <dt><kbd>Shift Enter</kbd></dt><dd>Select parent</dd>
+        <dt><kbd>Tab</kbd></dt><dd>Next sibling</dd>
+        <dt><kbd>Ctrl R</kbd></dt><dd>Rename</dd>
+        <dt><kbd>Ctrl Shift H</kbd></dt><dd>Hide, show</dd>
+        <dt><kbd>Ctrl Shift L</kbd></dt><dd>Lock, unlock</dd>
+        <dt><kbd>/</kbd></dt><dd>Find layers</dd>
+      </dl>
+    </div>
+  </aside>
+</div>
+
+<script>
+const T = (name, kind, icon, box, children) => ({ name, kind, icon, box, children, open: true })
+const root = [
+  T('Satz sets type in the browser', 'text', 'text-t', [.10, .45, .80, .163]),
+  T('Shapes', 'group', 'selection', [.053, .097, .912, .246], [
+    T('Masked', 'group', 'selection', [.053, .267, .446, .076], [
+      T('Stripes', 'shape', 'square', [.053, .267, .446, .076]),
+      T('Mask', 'shape', 'intersect', [.053, .267, .446, .076]),
+    ]),
+    T('Arrow', 'shape', 'arrow-up-right', [.756, .276, .209, .038]),
+    T('Blurred tile', 'shape', 'square', [.757, .105, .203, .101]),
+    T('Triangle', 'shape', 'triangle', [.54, .124, .19, .124]),
+    T('Star', 'shape', 'star', [.288, .097, .22, .157]),
+    T('Sun', 'shape', 'circle', [.053, .104, .204, .144]),
+  ]),
+  T('Frame', 'frame', 'hash', [.101, .82, .798, .111], [T('Rectangle', 'shape', 'square', [.642, .858, .257, .073])]),
+  T('Poster ground', 'shape', 'square', [0, 0, 1, .366]),
+]
+const parent = new Map()
+const walk = (list, p) => list.forEach((n) => { parent.set(n, p); if (n.children) walk(n.children, n) })
+walk(root, null)
+root[1].children[2].hidden = true
+root[1].children[0].children[1].locked = true
+let sel = root[1].children[0].children[0], renaming = null, filter = '', query = ''
+
+const siblings = (n) => (parent.get(n)?.children ?? root)
+const ancestors = (n) => { const a = []; for (let p = parent.get(n); p; p = parent.get(p)) a.unshift(p); return a }
+const match = (n) => (!filter || n.kind === filter) && n.name.toLowerCase().includes(query)
+const flatten = (list, depth, out) => {
+  for (const n of list) {
+    const kids = n.children ? flatten(n.children, depth + 1, []) : []
+    const filtering = filter || query
+    if (!filtering || match(n) || kids.length) out.push([n, depth])
+    if (n.children && (n.open || filtering)) out.push(...kids)
+  }
+  return out
+}
+let rows = []
+
+function render() {
+  rows = flatten(root, 0, [])
+  const up = new Set(ancestors(sel))
+  const tree = document.getElementById('tree')
+  tree.innerHTML = rows.length ? rows.map(([n, d], i) => `
+    <li class="row" role="treeitem" data-i="${i}" aria-selected="${n === sel}" ${up.has(n) ? 'data-parent' : ''} ${n.open && n.children ? 'data-open' : ''} ${n.hidden ? 'data-hidden' : ''}>
+      ${'<span class="guide"></span>'.repeat(d)}
+      <span class="caret">${n.children ? '<i class="ph ph-caret-right"></i>' : ''}</span>
+      <i class="ph ph-${n.icon} kind"></i>
+      ${n === renaming ? `<input value="${n.name}" aria-label="Layer name">` : `<span class="name">${n.name}</span>`}
+      <button class="act" data-a="lock" ${n.locked ? 'data-on' : ''} title="Lock (Ctrl Shift L)"><i class="ph ph-lock-simple${n.locked ? '' : '-open'}"></i></button>
+      <button class="act" data-a="hide" ${n.hidden ? 'data-on' : ''} title="Hide (Ctrl Shift H)"><i class="ph ph-eye${n.hidden ? '-slash' : ''}"></i></button>
+    </li>`).join('') : '<p class="empty">No layer matches. Clear the search or pick another filter.</p>'
+  const input = tree.querySelector('input')
+  if (input) { input.focus(); input.select(); input.onkeydown = (e) => { if (e.key === 'Enter' || e.key === 'Escape') { if (e.key === 'Enter') renaming.name = input.value.trim() || renaming.name; renaming = null; render(); tree.focus(); e.stopPropagation() } } }
+  const [x, y, w, h] = sel.box
+  Object.assign(document.getElementById('selBox').style, { left: `${x * 100}%`, top: `${y * 100}%`, width: `${w * 100}%`, height: `${h * 100}%` })
+  document.getElementById('crumbs').innerHTML = [...ancestors(sel), sel].map((n, i) => `${i ? '<i class="ph ph-caret-right"></i>' : ''}<button data-c="${rows.findIndex(([r]) => r === n)}">${n.name}</button>`).join('')
+}
+render()
+
+const tree = document.getElementById('tree')
+const select = (n) => { if (n) { sel = n; render() } }
+tree.addEventListener('click', (e) => {
+  const li = e.target.closest('.row')
+  if (!li) return
+  const n = rows[+li.dataset.i][0]
+  const a = e.target.closest('.act')?.dataset.a
+  if (a === 'hide') n.hidden = !n.hidden
+  else if (a === 'lock') n.locked = !n.locked
+  else if (e.target.closest('.caret') && n.children) n.open = !n.open
+  else sel = n
+  render()
+})
+tree.addEventListener('dblclick', (e) => { const li = e.target.closest('.row'); if (li) { renaming = rows[+li.dataset.i][0]; render() } })
+const hoverBox = document.getElementById('hoverBox')
+tree.addEventListener('pointerover', (e) => {
+  const li = e.target.closest('.row')
+  const n = li && rows[+li.dataset.i][0]
+  hoverBox.hidden = !n || n === sel
+  if (n) { const [x, y, w, h] = n.box; Object.assign(hoverBox.style, { left: `${x * 100}%`, top: `${y * 100}%`, width: `${w * 100}%`, height: `${h * 100}%` }) }
+})
+tree.addEventListener('pointerleave', () => { hoverBox.hidden = true })
+document.getElementById('crumbs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) select(rows[+b.dataset.c][0]) })
+
+addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT') { if (e.key === 'Escape') e.target.blur(); return }
+  const mod = e.ctrlKey || e.metaKey, i = rows.findIndex(([n]) => n === sel)
+  const sib = siblings(sel), k = sib.indexOf(sel)
+  if (e.key === '/') document.getElementById('search').focus()
+  else if (e.key === 'ArrowDown') select(rows[i + 1]?.[0])
+  else if (e.key === 'ArrowUp') select(rows[i - 1]?.[0])
+  else if (e.key === 'ArrowRight' && sel.children) { sel.open = true; render() }
+  else if (e.key === 'ArrowLeft') { if (sel.children && sel.open) { sel.open = false; render() } else select(parent.get(sel)) }
+  else if (e.key === 'Enter' && e.shiftKey) select(parent.get(sel))
+  else if (e.key === 'Enter' && sel.children) { sel.open = true; select(sel.children[0]) }
+  else if (e.key === 'Tab') select(sib[(k + (e.shiftKey ? -1 : 1) + sib.length) % sib.length])
+  else if (mod && e.key.toLowerCase() === 'r') { renaming = sel; render() }
+  else if (mod && e.shiftKey && e.key.toLowerCase() === 'h') { sel.hidden = !sel.hidden; render() }
+  else if (mod && e.shiftKey && e.key.toLowerCase() === 'l') { sel.locked = !sel.locked; render() }
+  else return
+  e.preventDefault()
+})
+document.getElementById('search').addEventListener('input', (e) => { query = e.target.value.toLowerCase(); render() })
+document.getElementById('filters').addEventListener('click', (e) => {
+  const b = e.target.closest('button')
+  if (!b) return
+  filter = b.dataset.f
+  for (const x of e.currentTarget.children) x.setAttribute('aria-pressed', x === b)
+  render()
+})
+document.querySelector('#pages .bar').onclick = (e) => {
+  const closed = document.getElementById('pages').toggleAttribute('data-closed')
+  e.currentTarget.setAttribute('aria-expanded', !closed)
+}
+</script>
+</body>
+</html>

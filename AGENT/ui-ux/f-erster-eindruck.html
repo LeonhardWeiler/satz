@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Satz mockup F: Erster Eindruck</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+<style>
+:root {
+  color-scheme: dark;
+  --canvas: #1e1e1e;
+  --panel: #2c2c2c;
+  --input: #383838;
+  --hover: #383838;
+  --line: #444444;
+  --text: #ffffff;
+  --text-2: rgb(255 255 255 / .72);
+  --text-3: rgb(255 255 255 / .6);
+  --accent: #0d99ff;
+  --ease: cubic-bezier(.16, 1, .3, 1);
+  font: 11px/16px Inter, system-ui, sans-serif;
+  font-feature-settings: 'cv11', 'tnum';
+  color: var(--text);
+  background: var(--canvas);
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; overflow: hidden; -webkit-font-smoothing: antialiased; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.ph { font-size: 16px; }
+kbd { color: var(--text-3); font: inherit; }
+
+.app { display: grid; grid-template-columns: 240px minmax(0, 1fr) 240px; gap: 8px; height: 100%; padding: 8px; }
+.panel { z-index: 1; display: flex; flex-direction: column; min-height: 0; border: 1px solid var(--line); border-radius: 13px; background: var(--panel); box-shadow: 0 2px 12px rgb(0 0 0 / .35); overflow: hidden; }
+.left { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 8px; min-height: 0; }
+.ph-row { display: flex; align-items: center; justify-content: space-between; height: 40px; padding: 0 8px 0 16px; }
+.ph-row h2 { margin: 0; font-size: 12px; font-weight: 600; }
+.icon { display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 5px; background: none; color: var(--text-2); }
+.icon:hover { background: var(--hover); color: var(--text); }
+.list { margin: 0; padding: 0 8px 8px; list-style: none; overflow: auto; }
+.list li { display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 8px; border-radius: 5px; color: var(--text-2); }
+.list li:hover { background: var(--hover); }
+.list li[aria-current=true] { color: var(--text); font-weight: 500; }
+.list .ph { color: var(--text-3); }
+.empty { display: grid; gap: 8px; padding: 4px 16px 16px; color: var(--text-3); }
+.empty button { justify-self: start; }
+.btn { height: 24px; padding: 0 8px; border: 1px solid var(--line); border-radius: 5px; background: none; }
+.btn:hover { background: var(--hover); }
+.primary { height: 28px; padding: 0 12px; border: 0; border-radius: 5px; background: var(--accent); color: #fff; font-weight: 500; }
+.primary:hover { background: #0a85e0; }
+
+.stage { position: relative; grid-column: 2; display: grid; place-items: center; margin: -8px; }
+.sheet { position: relative; height: calc(100vh - 110px); aspect-ratio: 1056 / 1498; box-shadow: 0 0 0 1px rgb(255 255 255 / .06), 0 12px 40px rgb(0 0 0 / .5); transition: opacity .3s, transform .4s var(--ease); }
+.sheet img { display: block; width: 100%; height: 100%; }
+body[data-new] .sheet { opacity: 0; transform: scale(.97); }
+.tools { position: absolute; bottom: 12px; left: 50%; display: flex; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 13px; background: var(--panel); box-shadow: 0 2px 12px rgb(0 0 0 / .35); transform: translateX(-50%); }
+.tool { display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 8px; background: none; }
+.tool:hover { background: var(--hover); }
+.tool[aria-pressed=true] { background: var(--accent); }
+.tool .ph { font-size: 18px; }
+.help { position: absolute; right: 16px; bottom: 16px; width: 28px; height: 28px; border: 1px solid var(--line); border-radius: 50%; background: var(--panel); color: var(--text-2); }
+.help:hover { color: var(--text); }
+
+.props { grid-column: 3; }
+.props header { justify-content: space-between; }
+.sec { display: grid; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); }
+.sec h3 { margin: 0; font-size: 11px; font-weight: 600; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.field { display: flex; align-items: center; height: 24px; padding: 0 8px; border-radius: 5px; background: var(--input); color: var(--text-3); gap: 6px; }
+.field b { flex: 1; color: var(--text); font-weight: 400; }
+.status { display: flex; align-items: center; gap: 8px; color: var(--text-2); }
+.status button { margin-left: auto; }
+
+.pop { position: fixed; top: 52px; right: 16px; z-index: 5; width: 280px; border: 1px solid var(--line); border-radius: 13px; background: var(--panel); box-shadow: 0 8px 32px rgb(0 0 0 / .5); opacity: 0; pointer-events: none; transform: translateY(-6px); transition: opacity .15s, transform .22s var(--ease); }
+.pop[data-open] { opacity: 1; pointer-events: auto; transform: none; }
+.pop h3 { margin: 0; padding: 14px 16px 8px; font-size: 12px; font-weight: 600; }
+.pop .sec h3 { padding: 0; }
+.issue { display: flex; gap: 8px; width: 100%; padding: 6px 8px; border: 0; border-radius: 5px; background: none; color: var(--text-2); text-align: left; }
+.issue:hover { background: var(--hover); color: var(--text); }
+.issue .ph { flex: none; margin-top: 0; color: var(--text); }
+.issue small { display: block; color: var(--text-3); }
+.pop footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); }
+.select { height: 24px; padding: 0 6px; border: 0; border-radius: 5px; background: var(--input); }
+.bar { height: 2px; margin: 0 16px; border-radius: 1px; background: var(--input); overflow: hidden; }
+.bar i { display: block; width: 0; height: 100%; background: var(--accent); transition: width 1.1s var(--ease); }
+
+dialog { padding: 0; border: 1px solid var(--line); border-radius: 13px; background: var(--panel); color: var(--text); box-shadow: 0 24px 80px rgb(0 0 0 / .6); }
+dialog::backdrop { background: rgb(0 0 0 / .45); }
+dialog[open] { animation: rise .32s var(--ease); }
+@keyframes rise { from { opacity: 0; transform: translateY(8px) scale(.98); } }
+.new { width: min(640px, calc(100vw - 32px)); }
+.new header { display: flex; align-items: baseline; justify-content: space-between; padding: 20px 24px 4px; }
+.new h1 { margin: 0; font-size: 15px; font-weight: 600; }
+.new p { margin: 0; padding: 0 24px 16px; color: var(--text-2); }
+.new .body { display: grid; grid-template-columns: 1fr 220px; border-top: 1px solid var(--line); }
+.presets { display: grid; gap: 2px; padding: 12px; border-right: 1px solid var(--line); }
+.preset { display: grid; grid-template-columns: 40px 1fr; align-items: center; gap: 12px; padding: 8px; border: 0; border-radius: 8px; background: none; text-align: left; }
+.preset:hover { background: var(--hover); }
+.preset[aria-checked=true] { background: rgb(13 153 255 / .16); }
+.preset .shape { display: grid; place-items: center; height: 40px; }
+.preset .shape i { display: block; border: 1px solid var(--text-2); border-radius: 1px; }
+.preset[aria-checked=true] .shape i { border-color: var(--accent); }
+.preset b { display: block; font-size: 12px; font-weight: 500; }
+.preset span { color: var(--text-3); }
+.settings { display: grid; align-content: start; gap: 8px; padding: 16px; }
+.settings label { display: grid; gap: 4px; color: var(--text-2); }
+.seg { display: flex; padding: 2px; border-radius: 5px; background: var(--input); }
+.seg button { flex: 1; height: 20px; border: 0; border-radius: 4px; background: none; color: var(--text-2); }
+.seg button[aria-checked=true] { background: var(--hover); color: var(--text); box-shadow: 0 0 0 1px var(--line); }
+.new footer { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-top: 1px solid var(--line); }
+
+.keys { width: min(720px, calc(100vw - 32px)); }
+.keys header { display: flex; justify-content: space-between; align-items: center; padding: 12px 12px 12px 20px; border-bottom: 1px solid var(--line); }
+.keys h1 { margin: 0; font-size: 13px; font-weight: 600; }
+.keys .cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; padding: 16px 20px 20px; }
+.keys h2 { margin: 0 0 8px; font-size: 11px; font-weight: 600; }
+.keys dl { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; margin: 0; }
+.keys dt { color: var(--text-2); }
+.keys dd { margin: 0; }
+.keys dd kbd { padding: 1px 5px; border: 1px solid var(--line); border-radius: 4px; color: var(--text); }
+
+.toast { position: fixed; left: 50%; bottom: 64px; display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); box-shadow: 0 8px 24px rgb(0 0 0 / .4); opacity: 0; pointer-events: none; transform: translate(-50%, 8px); transition: opacity .18s, transform .26s var(--ease); }
+.toast[data-show] { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+@media (prefers-reduced-motion: reduce) { *, dialog[open] { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body data-new>
+<div class="app">
+  <div class="left">
+    <nav class="panel" aria-label="Pages">
+      <div class="ph-row"><h2>Pages</h2><button class="icon" aria-label="Add page"><i class="ph ph-plus"></i></button></div>
+      <ul class="list">
+        <li aria-current="true"><i class="ph ph-file"></i>Page 1</li>
+        <li><i class="ph ph-file"></i>Page 2</li>
+      </ul>
+      <div class="ph-row"><h2>Masters</h2><button class="icon" aria-label="Add master"><i class="ph ph-plus"></i></button></div>
+      <div class="empty">A master holds what repeats on every page, like page numbers.<button class="btn">Create master from page 1</button></div>
+    </nav>
+    <nav class="panel" aria-label="Layers">
+      <div class="ph-row"><h2>Layers</h2></div>
+      <ul class="list">
+        <li><i class="ph ph-text-t"></i>Satz sets type in the browser</li>
+        <li><i class="ph ph-selection"></i>Shapes</li>
+        <li style="padding-left:24px"><i class="ph ph-star"></i>Star</li>
+        <li style="padding-left:24px"><i class="ph ph-circle"></i>Sun</li>
+        <li><i class="ph ph-hash"></i>Frame</li>
+        <li><i class="ph ph-square"></i>Rectangle</li>
+      </ul>
+    </nav>
+    <section class="panel" aria-label="Swatches">
+      <div class="ph-row"><h2>Swatches</h2><button class="icon" aria-label="Add swatch"><i class="ph ph-plus"></i></button></div>
+      <div class="empty">No swatches yet. Select a layer and press + to keep its fill color for reuse.</div>
+    </section>
+  </div>
+
+  <main class="stage" aria-label="Canvas">
+    <div class="sheet"><img src="page.jpg" alt="Page 1"></div>
+    <div class="tools" role="toolbar" aria-label="Tools">
+      <button class="tool" aria-pressed="true" title="Move (V)"><i class="ph ph-cursor"></i></button>
+      <button class="tool" title="Frame (F)"><i class="ph ph-hash"></i></button>
+      <button class="tool" title="Rectangle (R)"><i class="ph ph-square"></i></button>
+      <button class="tool" title="Pen (P)"><i class="ph ph-pen-nib"></i></button>
+      <button class="tool" title="Text (T)"><i class="ph ph-text-t"></i></button>
+    </div>
+    <button class="help" id="helpBtn" title="Keyboard shortcuts (?)">?</button>
+  </main>
+
+  <aside class="panel props" aria-label="Properties">
+    <header class="ph-row"><h2>Booklet A5</h2><button class="primary" id="exportBtn">Export</button></header>
+    <div class="sec"><h3>Page 1</h3>
+      <div class="grid"><div class="field">W <b>148</b>mm</div><div class="field">H <b>210</b>mm</div><div class="field">Bleed <b>3</b>mm</div><div class="field">Master <b>None</b></div></div>
+    </div>
+    <div class="sec"><h3>Document</h3>
+      <div class="grid"><div class="field">Color <b>CMYK</b></div><div class="field">Pages <b>8</b></div></div>
+    </div>
+    <div class="sec"><h3>Preflight</h3>
+      <div class="status"><i class="ph ph-warning"></i>2 issues<button class="btn" id="checkBtn">Review</button></div>
+    </div>
+  </aside>
+</div>
+
+<div class="pop" id="export" role="dialog" aria-label="Export">
+  <h3>Export PDF</h3>
+  <div class="sec">
+    <select class="select" aria-label="Preset"><option>Print: CMYK, bleed, crop marks</option><option>Screen: RGB, no marks</option></select>
+    <div class="grid"><div class="field">Pages <b>All</b></div><div class="field">Bleed <b>3</b>mm</div></div>
+  </div>
+  <div class="sec">
+    <h3>2 issues found</h3>
+    <button class="issue"><i class="ph ph-text-align-left"></i><span>Text does not fit its frame<small>Page 3, "Intro"</small></span></button>
+    <button class="issue"><i class="ph ph-image"></i><span>Image at 180 ppi, 300 needed<small>Page 5, "Portrait"</small></span></button>
+  </div>
+  <div class="bar"><i id="progress"></i></div>
+  <footer><button class="btn" id="cancel">Cancel</button><button class="primary" id="doExport">Export anyway</button></footer>
+</div>
+
+<dialog class="new" id="new" aria-label="New document">
+  <header><h1>New document</h1><kbd>Enter to create</kbd></header>
+  <p>Pick a format. Everything can be changed later in the document settings.</p>
+  <div class="body">
+    <div class="presets" role="radiogroup" aria-label="Format" id="presets">
+      <button class="preset" role="radio" aria-checked="false" data-p="420,594,1,0"><span class="shape"><i style="width:21px;height:30px"></i></span><span><b>A2 poster</b><span>420 × 594 mm, one page</span></span></button>
+      <button class="preset" role="radio" aria-checked="true" data-p="148,210,8,1"><span class="shape"><i style="width:14px;height:20px;box-shadow:15px 0 0 -1px var(--panel),15px 0 0 0 currentColor"></i></span><span><b>A5 booklet</b><span>148 × 210 mm, 8 facing pages</span></span></button>
+      <button class="preset" role="radio" aria-checked="false" data-p="210,297,1,0"><span class="shape"><i style="width:20px;height:28px"></i></span><span><b>A4 flyer</b><span>210 × 297 mm, one page</span></span></button>
+      <button class="preset" role="radio" aria-checked="false" data-p="85,55,2,0"><span class="shape"><i style="width:28px;height:18px"></i></span><span><b>Business card</b><span>85 × 55 mm, front and back</span></span></button>
+    </div>
+    <div class="settings">
+      <label>Size<div class="grid"><div class="field">W <b id="w">148</b>mm</div><div class="field">H <b id="h">210</b>mm</div></div></label>
+      <label>Pages<div class="grid"><div class="field"><b id="n">8</b></div><div class="field">Bleed <b>3</b>mm</div></div></label>
+      <label>Color<div class="seg" role="radiogroup"><button role="radio" aria-checked="false">RGB</button><button role="radio" aria-checked="true">CMYK</button></div></label>
+    </div>
+  </div>
+  <footer><button class="btn" id="example">Open example</button><button class="primary" id="create" autofocus>Create</button></footer>
+</dialog>
+
+<dialog class="keys" id="keys" aria-label="Keyboard shortcuts">
+  <header><h1>Keyboard shortcuts</h1><button class="icon" id="closeKeys" aria-label="Close"><i class="ph ph-x"></i></button></header>
+  <div class="cols">
+    <section><h2>Tools</h2><dl>
+      <dt>Move</dt><dd><kbd>V</kbd></dd><dt>Frame</dt><dd><kbd>F</kbd></dd><dt>Rectangle</dt><dd><kbd>R</kbd></dd>
+      <dt>Ellipse</dt><dd><kbd>O</kbd></dd><dt>Line</dt><dd><kbd>L</kbd></dd><dt>Pen</dt><dd><kbd>P</kbd></dd><dt>Text</dt><dd><kbd>T</kbd></dd>
+      <dt>Pan</dt><dd><kbd>Space</kbd></dd></dl></section>
+    <section><h2>Arrange</h2><dl>
+      <dt>Group</dt><dd><kbd>Ctrl G</kbd></dd><dt>Frame selection</dt><dd><kbd>Ctrl Alt G</kbd></dd><dt>Ungroup</dt><dd><kbd>Ctrl Shift G</kbd></dd>
+      <dt>Auto layout</dt><dd><kbd>Shift A</kbd></dd><dt>Use as mask</dt><dd><kbd>Ctrl Alt M</kbd></dd><dt>Forward, front</dt><dd><kbd>Ctrl ]</kbd></dd>
+      <dt>Duplicate</dt><dd><kbd>Ctrl D</kbd></dd><dt>Nudge 1 mm, 10 mm</dt><dd><kbd>Arrows</kbd></dd></dl></section>
+    <section><h2>View and file</h2><dl>
+      <dt>Zoom to fit</dt><dd><kbd>Shift 1</kbd></dd><dt>Zoom to 100 %</dt><dd><kbd>Shift 0</kbd></dd><dt>Zoom in, out</dt><dd><kbd>Ctrl +</kbd></dd>
+      <dt>Rename</dt><dd><kbd>Ctrl R</kbd></dd><dt>Undo, redo</dt><dd><kbd>Ctrl Z</kbd></dd><dt>Export PDF</dt><dd><kbd>Ctrl Shift E</kbd></dd>
+      <dt>This list</dt><dd><kbd>?</kbd></dd></dl></section>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" role="status"><span>Exported booklet-a5.pdf</span><button class="btn">Open</button></div>
+
+<script>
+const newDoc = document.getElementById('new'), keys = document.getElementById('keys')
+newDoc.showModal()
+const create = () => { newDoc.close(); document.body.removeAttribute('data-new') }
+document.getElementById('create').onclick = create
+document.getElementById('example').onclick = create
+newDoc.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.target.closest('.preset')) create() })
+newDoc.addEventListener('cancel', () => document.body.removeAttribute('data-new'))
+document.getElementById('presets').addEventListener('click', (e) => {
+  const b = e.target.closest('.preset')
+  if (!b) return
+  for (const x of e.currentTarget.children) x.setAttribute('aria-checked', x === b)
+  const [w, h, n] = b.dataset.p.split(',')
+  Object.entries({ w, h, n }).forEach(([id, v]) => { document.getElementById(id).textContent = v })
+})
+document.querySelector('.seg').addEventListener('click', (e) => {
+  const b = e.target.closest('button')
+  if (b) for (const x of e.currentTarget.children) x.setAttribute('aria-checked', x === b)
+})
+
+const pop = document.getElementById('export'), bar = document.getElementById('progress'), toast = document.getElementById('toast')
+const openExport = (open) => { pop.toggleAttribute('data-open', open); bar.style.width = '0' }
+document.getElementById('exportBtn').onclick = () => openExport(!pop.hasAttribute('data-open'))
+document.getElementById('checkBtn').onclick = () => openExport(true)
+document.getElementById('cancel').onclick = () => openExport(false)
+document.getElementById('doExport').onclick = () => {
+  bar.style.width = '100%'
+  setTimeout(() => {
+    openExport(false)
+    toast.setAttribute('data-show', '')
+    setTimeout(() => toast.removeAttribute('data-show'), 2600)
+  }, 1150)
+}
+
+document.getElementById('helpBtn').onclick = () => keys.showModal()
+document.getElementById('closeKeys').onclick = () => keys.close()
+addEventListener('keydown', (e) => {
+  if (document.querySelector('dialog[open]')) return
+  if (e.key === '?') keys.showModal()
+  else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'e') { openExport(true); e.preventDefault() }
+  else if (e.key === 'Escape') openExport(false)
+})
+</script>
+</body>
+</html>

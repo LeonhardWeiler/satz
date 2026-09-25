@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Satz mockup B: Druckbogen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --chrome: #f3f3f4;
+  --panel: #ffffff;
+  --raised: #f0f0f2;
+  --line: #e1e1e5;
+  --text: #1f2023;
+  --text-2: #55575e;
+  --text-3: #6c6e75;
+  --accent: #c2185b;
+  --board: #dcdcdf;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  font: 12px/16px 'Schibsted Grotesk', system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  background: var(--chrome);
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; overflow: hidden; -webkit-font-smoothing: antialiased; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+svg { display: block; }
+i[data-i] { display: grid; flex: none; place-items: center; color: var(--text-3); }
+
+.app { display: grid; grid-template: minmax(0, 1fr) 150px / 224px minmax(0, 1fr) 256px; height: 100%; }
+aside { min-height: 0; background: var(--panel); overflow: auto; }
+.left { grid-row: 1; border-right: 1px solid var(--line); }
+.right { grid-row: 1; grid-column: 3; border-left: 1px solid var(--line); }
+h2 { display: flex; align-items: center; justify-content: space-between; height: 40px; margin: 0; padding: 0 12px 0 14px; font-size: 12px; font-weight: 600; }
+h2 small { color: var(--text-3); font-weight: 400; }
+
+.tree { margin: 0; padding: 0 6px 6px; list-style: none; }
+.tree li { display: flex; align-items: center; gap: 6px; height: 26px; padding-right: 8px; border-radius: 3px; color: var(--text-2); white-space: nowrap; }
+.tree li:hover { background: var(--raised); }
+
+.stage { position: relative; display: grid; place-items: center; background: var(--board); overflow: hidden; container-type: size; }
+.spread { display: flex; outline: 1px dashed rgb(194 24 91 / .4); outline-offset: 7px; transition: opacity .18s; }
+.spread.out { opacity: 0; }
+.pg { position: relative; height: min(100cqh - 120px, (100cqw - 120px) / 2 / .705); aspect-ratio: 1056 / 1498; background: #fff; box-shadow: 0 1px 3px rgb(0 0 0 / .12); }
+.pg img { display: block; width: 100%; height: 100%; }
+.pg.blank { visibility: hidden; }
+.pg .lines { position: absolute; inset: 12% 12%; background: repeating-linear-gradient(#fff 0 10px, #e4e4e7 10px 12px); }
+.pg .lines::before { content: ''; position: absolute; inset: -4% 0 auto; height: 22%; background: #c9cacf; }
+.pg .lines.b::before { height: 48%; background: #e8452c; }
+.pg label { position: absolute; left: 0; right: 0; bottom: -28px; color: var(--text-2); text-align: center; }
+.pg + .pg { box-shadow: 0 1px 3px rgb(0 0 0 / .12), inset 1px 0 rgb(0 0 0 / .08); }
+.zoom { position: absolute; top: 10px; right: 12px; height: 24px; padding: 0 8px; border: 1px solid var(--line); border-radius: 3px; background: var(--panel); color: var(--text-2); }
+
+.tools { position: absolute; top: 10px; left: 12px; display: flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); }
+.tool { display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 3px; background: none; color: var(--text-2); }
+.tool:hover { background: var(--raised); color: var(--text); }
+.tool[aria-pressed=true] { background: var(--text); color: #fff; }
+
+.strip { grid-column: 1 / -1; display: flex; gap: 20px; align-items: stretch; padding: 12px 16px 10px; border-top: 1px solid var(--line); background: var(--panel); overflow-x: auto; }
+.group { display: flex; flex-direction: column; gap: 6px; }
+.group > span { color: var(--text-3); }
+.row { display: flex; gap: 14px; align-items: flex-end; flex: 1; }
+.masters { padding-right: 20px; border-right: 1px solid var(--line); }
+.thumbs { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 4px 4px 0; border-radius: 4px; border-bottom: 2px solid transparent; transition: border-color .16s, background .16s; }
+.thumbs:hover { background: var(--raised); }
+.thumbs[aria-current=true] { border-bottom-color: var(--accent); }
+.thumbs[data-over] { background: rgb(194 24 91 / .08); }
+.pair { display: flex; }
+.t { position: relative; width: 42px; height: 60px; background: #fff; box-shadow: 0 0 0 1px var(--line); }
+.t.none { visibility: hidden; }
+.t img { width: 100%; height: 100%; }
+.t .lines { position: absolute; inset: 14%; background: repeating-linear-gradient(#fff 0 3px, #dcdce0 3px 4px); }
+.t b { position: absolute; top: 2px; left: 3px; color: var(--text-3); font-size: 10px; font-weight: 500; line-height: 1; }
+.thumbs span { color: var(--text-2); }
+.master { cursor: grab; }
+.master .t { background: #fafafa; }
+.master .t::after { content: ''; position: absolute; inset: 14% 14% auto; height: 1px; background: #c9c9ce; box-shadow: 0 34px #c9c9ce; }
+.add { align-self: center; width: 28px; height: 28px; border: 1px dashed var(--line); border-radius: 3px; background: none; color: var(--text-2); }
+.add:hover { border-color: var(--text-3); color: var(--text); }
+
+.sec { display: grid; gap: 8px; padding: 0 14px 14px; border-bottom: 1px solid var(--line); }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.field { display: flex; align-items: center; height: 28px; border: 1px solid var(--line); border-radius: 3px; background: var(--panel); }
+.field:focus-within { border-color: var(--accent); }
+.field span { padding: 0 6px 0 8px; color: var(--text-3); }
+.field input { width: 100%; min-width: 0; border: 0; background: none; outline: none; }
+.field em { padding-right: 8px; color: var(--text-3); font-style: normal; }
+.select { width: 100%; height: 28px; padding: 0 6px; border: 1px solid var(--line); border-radius: 3px; background: var(--panel); }
+.check { display: flex; align-items: center; gap: 8px; }
+.check input { margin: 0; accent-color: var(--text); }
+.facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; }
+.facts dt { color: var(--text-3); }
+.facts dd { margin: 0; }
+.status { position: absolute; bottom: 10px; left: 12px; color: var(--text-2); }
+kbd { padding: 0 4px; border: 1px solid var(--line); border-radius: 3px; background: var(--panel); font: inherit; }
+
+.note { position: fixed; right: 268px; top: 40px; max-width: 420px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); color: var(--text-2); }
+.note b { color: var(--text); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="left" aria-label="Layers">
+    <h2>Layers <small>Page 1</small></h2>
+    <ul class="tree">
+      <li><i data-i="text"></i>Satz sets type in the browser</li>
+      <li><i data-i="group"></i>Shapes</li>
+      <li style="padding-left:20px"><i data-i="arrow"></i>Arrow</li>
+      <li style="padding-left:20px"><i data-i="rect"></i>Blurred tile</li>
+      <li style="padding-left:20px"><i data-i="polygon"></i>Triangle</li>
+      <li style="padding-left:20px"><i data-i="star"></i>Star</li>
+      <li style="padding-left:20px"><i data-i="ellipse"></i>Sun</li>
+      <li><i data-i="frame"></i>Frame</li>
+      <li><i data-i="rect"></i>Rectangle</li>
+      <li style="color:var(--text-3)"><i data-i="rect"></i>From master A: Folio</li>
+    </ul>
+  </aside>
+
+  <main class="stage" aria-label="Canvas">
+    <div class="tools" role="toolbar" aria-label="Tools">
+      <button class="tool" aria-pressed="true" title="Move (V)" data-i="move"></button>
+      <button class="tool" title="Frame (F)" data-i="frame"></button>
+      <button class="tool" title="Rectangle (R)" data-i="rect"></button>
+      <button class="tool" title="Pen (P)" data-i="pen"></button>
+      <button class="tool" title="Text (T)" data-i="text"></button>
+    </div>
+    <div class="spread" id="spread"></div>
+    <button class="zoom">Fit spread</button>
+    <p class="status" id="status"></p>
+  </main>
+
+  <aside class="right" aria-label="Document">
+    <h2>Document</h2>
+    <div class="sec">
+      <div class="grid">
+        <select class="select" aria-label="Page size"><option>A5</option><option>A4</option><option>A2</option></select>
+        <select class="select" aria-label="Color mode"><option>CMYK</option><option>RGB</option></select>
+        <label class="field"><span>W</span><input value="148"><em>mm</em></label>
+        <label class="field"><span>H</span><input value="210"><em>mm</em></label>
+        <label class="field"><span>Bleed</span><input value="3"><em>mm</em></label>
+        <label class="field"><span>Pages</span><input value="8" id="count"></label>
+      </div>
+      <label class="check"><input type="checkbox" checked id="facing">Facing pages</label>
+    </div>
+    <h2 id="pagehead">Page 1</h2>
+    <div class="sec">
+      <select class="select" aria-label="Master" id="masterSel"><option value="A">A-Body</option><option value="B">B-Cover</option><option value="">None</option></select>
+      <dl class="facts"><dt>Side</dt><dd id="side">Right</dd><dt>Overrides</dt><dd>1 layer</dd></dl>
+    </div>
+  </aside>
+
+  <nav class="strip" aria-label="Pages">
+    <div class="group masters"><span>Masters</span>
+      <div class="row">
+        <div class="thumbs master" draggable="true" data-m="A"><div class="pair"><div class="t"><b>A</b></div><div class="t"><b>A</b></div></div><span>A-Body</span></div>
+        <div class="thumbs master" draggable="true" data-m="B"><div class="pair"><div class="t"><b>B</b></div></div><span>B-Cover</span></div>
+      </div>
+    </div>
+    <div class="group" style="flex:1"><span>Pages</span>
+      <div class="row" id="spreads"></div>
+    </div>
+  </nav>
+</div>
+
+<p class="note"><b>B · Druckbogen.</b> PageDown / PageUp or click a spread. Drag a master onto a spread to apply it. Home and End jump to the covers.</p>
+
+<script>
+const P = {
+  move: 'M7 4l11 6.5-4.8 1.3 2.9 5-1.7 1-2.9-5L7 16.4z', frame: 'M8 3v18M16 3v18M3 8h18M3 16h18', rect: 'M5.5 5.5h13v13h-13z',
+  ellipse: 'M12 5.5a6.5 6.5 0 1 0 0 13a6.5 6.5 0 1 0 0-13z', polygon: 'M12 5.5l7 12.5h-14z',
+  star: 'M12 4.5l2.2 4.8 5.3.6-3.9 3.6 1.1 5.2-4.7-2.7-4.7 2.7 1.1-5.2-3.9-3.6 5.3-.6z', arrow: 'M5.5 18.5l13-13M11 5.5h7.5v7.5',
+  pen: 'M12 4l5 8-3 7h-4l-3-7zM12 4v7M12 11m-1 0a1 1 0 1 0 2 0a1 1 0 1 0-2 0', text: 'M6 6h12M12 6v13M9.5 19h5', group: 'M5.5 5.5h13v13h-13z',
+}
+const icons = (root) => root.querySelectorAll('[data-i]').forEach((el) => {
+  const n = el.dataset.i, s = el.classList.contains('tool') ? 20 : 16
+  el.innerHTML = `<svg width="${s}" height="${s}" viewBox="0 0 24 24" aria-hidden="true"><path d="${P[n]}" fill="${n === 'move' ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="${n === 'move' ? 1 : 1.5}" stroke-linejoin="round" ${n === 'group' ? 'stroke-dasharray="2.5 2"' : ''}/></svg>`
+})
+icons(document)
+
+const pages = 8
+const spreads = [[null, 1], [2, 3], [4, 5], [6, 7], [8, null]]
+const master = { 1: 'B', 8: 'B', 2: 'A', 3: 'A', 4: 'A', 5: 'A', 6: 'A', 7: 'A' }
+let current = 0
+
+const page = (n, big) => {
+  if (n === null) return `<div class="${big ? 'pg' : 't'} ${big ? 'blank' : 'none'}"></div>`
+  const inner = n === 1 ? '<img src="page.jpg" alt="">' : `<div class="lines ${n === 8 ? 'b' : ''}"></div>`
+  return big
+    ? `<div class="pg">${inner}<label>${n}</label></div>`
+    : `<div class="t">${inner}<b>${master[n] || ''}</b></div>`
+}
+
+function render() {
+  document.getElementById('spreads').innerHTML = spreads.map((s, i) =>
+    `<button class="thumbs" data-s="${i}" aria-current="${i === current}" style="background:none;border-left:0;border-right:0;border-top:0">
+      <div class="pair">${s.map((n) => page(n, false)).join('')}</div>
+      <span>${s.filter(Boolean).join('–')}</span></button>`).join('') + '<button class="add" title="Add spread">+</button>'
+  const s = spreads[current], el = document.getElementById('spread')
+  el.classList.add('out')
+  setTimeout(() => {
+    el.innerHTML = s.map((n) => page(n, true)).join('')
+    el.classList.remove('out')
+  }, 120)
+  const first = s.find(Boolean)
+  document.getElementById('pagehead').textContent = `Page ${first}`
+  document.getElementById('side').textContent = s[0] === first ? 'Left' : 'Right'
+  document.getElementById('masterSel').value = master[first] || ''
+  document.getElementById('status').innerHTML = `Spread ${current + 1} of ${spreads.length} <kbd>PgUp</kbd> <kbd>PgDn</kbd>`
+}
+render()
+
+const go = (i) => { current = Math.max(0, Math.min(spreads.length - 1, i)); render() }
+document.getElementById('spreads').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-s]')
+  if (b) go(+b.dataset.s)
+})
+addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT') return
+  if (e.key === 'PageDown') go(current + 1)
+  else if (e.key === 'PageUp') go(current - 1)
+  else if (e.key === 'Home') go(0)
+  else if (e.key === 'End') go(spreads.length - 1)
+  else return
+  e.preventDefault()
+})
+
+let dragged = null
+for (const m of document.querySelectorAll('.master')) m.addEventListener('dragstart', (e) => { dragged = m.dataset.m; e.dataTransfer.setData('text/plain', dragged) })
+const strip = document.getElementById('spreads')
+strip.addEventListener('dragover', (e) => {
+  const b = e.target.closest('[data-s]')
+  strip.querySelectorAll('[data-over]').forEach((x) => x !== b && x.removeAttribute('data-over'))
+  if (b && dragged) { e.preventDefault(); b.setAttribute('data-over', '') }
+})
+strip.addEventListener('drop', (e) => {
+  const b = e.target.closest('[data-s]')
+  if (!b) return
+  e.preventDefault()
+  for (const n of spreads[+b.dataset.s]) if (n) master[n] = dragged
+  dragged = null
+  go(+b.dataset.s)
+})
+document.getElementById('masterSel').onchange = (e) => {
+  for (const n of spreads[current]) if (n) master[n] = e.target.value
+  render()
+}
+</script>
+</body>
+</html>

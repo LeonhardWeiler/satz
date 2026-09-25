@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Satz mockup A: Satzspiegel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: dark;
+  --chrome: #1c1d1f;
+  --panel: #232427;
+  --raised: #2c2d31;
+  --line: #34363a;
+  --text: #e8e8ea;
+  --text-2: #a9abb0;
+  --text-3: #8d8f95;
+  --accent: #5a86ff;
+  --canvas: #2e2f33;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  font: 12px/16px 'Instrument Sans', system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  background: var(--chrome);
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; overflow: hidden; -webkit-font-smoothing: antialiased; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+svg { display: block; }
+i[data-i] { display: grid; flex: none; place-items: center; color: var(--text-3); }
+
+.app { display: grid; grid-template-columns: 232px minmax(0, 1fr) 272px; height: 100%; }
+aside { display: flex; flex-direction: column; min-height: 0; background: var(--panel); }
+aside.left { border-right: 1px solid var(--line); }
+aside.right { border-left: 1px solid var(--line); overflow: auto; }
+
+.doc { display: flex; align-items: center; justify-content: space-between; height: 44px; padding: 0 8px 0 14px; border-bottom: 1px solid var(--line); font-weight: 600; }
+.pager { display: flex; align-items: center; gap: 2px; color: var(--text-2); font-weight: 400; }
+.icon { display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--text-2); }
+.icon:hover { background: var(--raised); color: var(--text); }
+
+.tree { flex: 1; margin: 0; padding: 6px; overflow: auto; list-style: none; }
+.tree li { display: flex; align-items: center; gap: 6px; height: 28px; padding-right: 8px; border-radius: 4px; color: var(--text-2); white-space: nowrap; }
+.tree li:hover { background: var(--raised); }
+.tree li[aria-selected=true] { background: rgb(90 134 255 / .16); color: var(--text); }
+.tree li span { overflow: hidden; text-overflow: ellipsis; }
+.tree svg { flex: none; color: var(--text-3); }
+
+.stage { position: relative; display: grid; place-items: center; background: var(--canvas); overflow: hidden; }
+.sheet { position: relative; height: calc(100vh - 128px); aspect-ratio: 1056 / 1498; box-shadow: 0 1px 2px rgb(0 0 0 / .3), 0 8px 32px rgb(0 0 0 / .25); }
+.sheet img { display: block; width: 100%; height: 100%; }
+.sel { position: absolute; left: 10%; top: 45%; width: 80%; height: 16.3%; outline: 1px solid var(--accent); }
+.sel i { position: absolute; width: 7px; height: 7px; border: 1px solid var(--accent); background: #fff; }
+.sel i:nth-child(1) { left: -4px; top: -4px; } .sel i:nth-child(2) { right: -4px; top: -4px; }
+.sel i:nth-child(3) { left: -4px; bottom: -4px; } .sel i:nth-child(4) { right: -4px; bottom: -4px; }
+.zoom { position: absolute; top: 12px; right: 14px; color: var(--text-2); }
+
+.tools { position: absolute; bottom: 16px; left: 50%; display: flex; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); transform: translateX(-50%); }
+.tool { display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 6px; background: none; color: var(--text-2); transition: background .12s, color .12s; }
+.tool:hover { color: var(--text); background: var(--raised); }
+.tool[aria-pressed=true] { background: var(--accent); color: #fff; }
+
+.head { display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 10px 0 14px; border-bottom: 1px solid var(--line); }
+.head strong { flex: 1; overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.head svg { color: var(--text-3); }
+.export { height: 26px; padding: 0 10px; border: 1px solid var(--line); border-radius: 4px; background: none; }
+.export:hover { background: var(--raised); }
+.export kbd { margin-left: 6px; color: var(--text-3); font: inherit; }
+
+section { border-bottom: 1px solid var(--line); }
+.title { display: flex; align-items: center; width: 100%; height: 36px; padding: 0 10px 0 14px; border: 0; background: none; font-weight: 600; text-align: left; }
+.title span { flex: 1; }
+.title svg { color: var(--text-3); transition: transform .2s var(--ease); }
+section[data-closed] .title svg { transform: rotate(-90deg); }
+.fold { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .22s var(--ease); }
+section[data-closed] .fold { grid-template-rows: 0fr; }
+.fold > div { display: grid; gap: 8px; padding: 0 14px 14px; overflow: hidden; }
+section[data-closed] .fold > div { padding-bottom: 0; }
+
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.field { display: flex; align-items: center; height: 28px; border: 1px solid transparent; border-radius: 4px; background: var(--raised); transition: border-color .12s; }
+.field:hover { border-color: var(--line); }
+.field:focus-within { border-color: var(--accent); }
+.field label { flex: none; min-width: 28px; padding: 0 4px 0 8px; color: var(--text-3); cursor: ew-resize; user-select: none; }
+.field input { width: 100%; min-width: 0; height: 100%; padding: 0 2px; border: 0; background: none; outline: none; }
+.field .unit { padding-right: 8px; color: var(--text-3); }
+.unit-toggle { height: 22px; padding: 0 6px; border: 0; border-radius: 4px; background: var(--raised); color: var(--text-2); font-weight: 400; }
+.unit-toggle:hover { color: var(--text); }
+
+.style { position: relative; display: flex; align-items: center; justify-content: space-between; width: 100%; height: 40px; padding: 0 10px; border: 1px solid var(--line); border-radius: 4px; background: none; text-align: left; }
+.style b { font: 600 15px/1 'Source Serif 4', serif; }
+.style small { color: var(--text-3); font-size: 12px; }
+.menu { position: absolute; top: 44px; left: 0; right: 0; z-index: 2; padding: 4px; border: 1px solid var(--line); border-radius: 6px; background: var(--raised); box-shadow: 0 12px 32px rgb(0 0 0 / .45); opacity: 0; pointer-events: none; transform: translateY(-4px); transition: opacity .14s, transform .18s var(--ease); }
+.menu[data-open] { opacity: 1; pointer-events: auto; transform: none; }
+.menu button { display: flex; align-items: baseline; justify-content: space-between; width: 100%; padding: 8px; border: 0; border-radius: 4px; background: none; text-align: left; }
+.menu button:hover { background: var(--line); }
+.menu button span { font-family: 'Source Serif 4', serif; }
+.menu small { color: var(--text-3); }
+.menu hr { margin: 4px 0; border: 0; border-top: 1px solid var(--line); }
+
+.select { height: 28px; padding: 0 6px; border: 1px solid transparent; border-radius: 4px; background: var(--raised); }
+.row { display: flex; align-items: center; gap: 8px; }
+.row > * { flex: 1; min-width: 0; }
+.seg { display: flex; padding: 2px; border-radius: 4px; background: var(--raised); }
+.seg button { display: grid; flex: 1; place-items: center; height: 24px; border: 0; border-radius: 3px; background: none; color: var(--text-2); transition: background .12s, color .12s; }
+.seg button[aria-checked=true] { background: var(--line); color: var(--text); }
+.switch { display: flex; align-items: center; gap: 8px; }
+.switch button { position: relative; flex: none; width: 26px; height: 16px; padding: 0; border: 0; border-radius: 8px; background: var(--line); transition: background .16s; }
+.switch button::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--text); transition: transform .18s var(--ease); }
+.switch button[aria-checked=true] { background: var(--accent); }
+.switch button[aria-checked=true]::after { transform: translateX(10px); }
+.stepper { display: flex; align-items: center; height: 28px; border-radius: 4px; background: var(--raised); }
+.stepper button { width: 28px; height: 28px; border: 0; background: none; color: var(--text-2); }
+.stepper output { flex: 1; text-align: center; }
+.baseline { height: 28px; border-radius: 4px; background: repeating-linear-gradient(to bottom, transparent 0 6px, rgb(90 134 255 / .45) 6px 7px) var(--raised); }
+.hint { color: var(--text-3); }
+.chip { flex: none; width: 16px; height: 16px; border-radius: 3px; background: #4e1f22; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .12); }
+
+.note { position: fixed; left: 244px; top: 0; max-width: 460px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--text-2); }
+.note b { color: var(--text); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="left" aria-label="Document">
+    <div class="doc">Booklet A5
+      <div class="pager"><button class="icon" aria-label="Previous page" data-i="left"></button>Page 1 of 8<button class="icon" aria-label="Next page" data-i="chevron"></button></div>
+    </div>
+    <ul class="tree" role="tree" aria-label="Layers">
+      <li><span style="width:16px"></span><i data-i="text"></i><span>Satz ist ein Layoutprogramm</span></li>
+      <li aria-selected="true"><span style="width:16px"></span><i data-i="text"></i><span>Body copy</span></li>
+      <li><i data-i="chevronDown"></i><i data-i="group"></i><span>Shapes</span></li>
+      <li style="padding-left:16px"><i data-i="chevronDown"></i><i data-i="group"></i><span>Masked</span></li>
+      <li style="padding-left:48px"><i data-i="rect"></i><span>Stripes</span></li>
+      <li style="padding-left:48px"><i data-i="mask"></i><span>Mask</span></li>
+      <li style="padding-left:32px"><i data-i="arrow"></i><span>Arrow</span></li>
+      <li style="padding-left:32px"><i data-i="rect"></i><span>Blurred tile</span></li>
+      <li style="padding-left:32px"><i data-i="polygon"></i><span>Triangle</span></li>
+      <li style="padding-left:32px"><i data-i="star"></i><span>Star</span></li>
+      <li style="padding-left:32px"><i data-i="ellipse"></i><span>Sun</span></li>
+      <li><i data-i="chevron"></i><i data-i="frame"></i><span>Frame</span></li>
+      <li><span style="width:16px"></span><i data-i="rect"></i><span>Rectangle</span></li>
+    </ul>
+  </aside>
+
+  <main class="stage" aria-label="Canvas">
+    <div class="sheet"><img src="page.jpg" alt="Page 1"><div class="sel"><i></i><i></i><i></i><i></i></div></div>
+    <output class="zoom">95%</output>
+    <div class="tools" role="toolbar" aria-label="Tools">
+      <button class="tool" aria-pressed="true" title="Move (V)" data-i="move" data-k="v"></button>
+      <button class="tool" title="Frame (F)" data-i="frame" data-k="f"></button>
+      <button class="tool" title="Rectangle (R)" data-i="rect" data-k="r"></button>
+      <button class="tool" title="Pen (P)" data-i="pen" data-k="p"></button>
+      <button class="tool" title="Text (T)" data-i="text" data-k="t"></button>
+    </div>
+  </main>
+
+  <aside class="right" aria-label="Inspector">
+    <div class="head"><i data-i="text"></i><strong>Body copy</strong><button class="export" title="Export PDF">Export <kbd>Ctrl ⇧ E</kbd></button></div>
+
+    <section>
+      <button class="title" aria-expanded="true"><span>Frame</span><i data-i="chevronDown"></i></button>
+      <div class="fold"><div>
+        <div class="grid" data-lengths>
+          <div class="field"><label>X</label><input value="15.2"><span class="unit">mm</span></div>
+          <div class="field"><label>Y</label><input value="94.5"><span class="unit">mm</span></div>
+          <div class="field"><label>W</label><input value="118.4"><span class="unit">mm</span></div>
+          <div class="field"><label>H</label><input value="34.2"><span class="unit">mm</span></div>
+        </div>
+        <div class="row"><span class="hint">Units</span><button class="unit-toggle" id="unit" style="flex:none">mm</button></div>
+      </div></div>
+    </section>
+
+    <section>
+      <button class="title" aria-expanded="true"><span>Type</span><i data-i="chevronDown"></i></button>
+      <div class="fold"><div>
+        <div style="position:relative">
+          <button class="style" id="style" aria-haspopup="menu"><b>Body</b><small>12 / 16 pt</small></button>
+          <div class="menu" id="styles" role="menu">
+            <button role="menuitem"><span style="font-size:22px;font-weight:600">Headline</span><small>36 / 40</small></button>
+            <button role="menuitem"><span style="font-size:17px;font-weight:600">Subhead</span><small>18 / 22</small></button>
+            <button role="menuitem"><span style="font-size:14px">Body</span><small>12 / 16</small></button>
+            <button role="menuitem"><span style="font-size:11px">Caption</span><small>8 / 10</small></button>
+            <hr><button role="menuitem">New style from selection</button>
+          </div>
+        </div>
+        <div class="row"><select class="select" style="flex:2"><option>Source Serif 4</option></select><select class="select"><option>Regular</option></select></div>
+        <div class="grid">
+          <div class="field" title="Font size"><label>Size</label><input value="12"><span class="unit">pt</span></div>
+          <div class="field" title="Leading"><label>Lead</label><input value="16"><span class="unit">pt</span></div>
+          <div class="field" title="Tracking in 1/1000 em"><label>Track</label><input value="0"><span class="unit">/1000</span></div>
+          <div class="field" title="Space after paragraph"><label>After</label><input value="4"><span class="unit">pt</span></div>
+        </div>
+        <div class="seg" role="radiogroup" aria-label="Align">
+          <button role="radio" aria-checked="false" data-i="alignLeft" title="Left"></button>
+          <button role="radio" aria-checked="false" data-i="alignCenter" title="Center"></button>
+          <button role="radio" aria-checked="false" data-i="alignRight" title="Right"></button>
+          <button role="radio" aria-checked="true" data-i="alignJustify" title="Justify"></button>
+        </div>
+        <div class="row"><div class="switch"><button role="switch" aria-checked="true" aria-label="Hyphenate"></button>Hyphenate</div><select class="select"><option>German</option><option>English</option></select></div>
+      </div></div>
+    </section>
+
+    <section>
+      <button class="title" aria-expanded="true"><span>Text frame</span><i data-i="chevronDown"></i></button>
+      <div class="fold"><div>
+        <div class="grid">
+          <div class="stepper"><button aria-label="Fewer columns">−</button><output id="cols">1 col</output><button aria-label="More columns">+</button></div>
+          <div class="field" title="Gutter"><label>Gutter</label><input value="4.2"><span class="unit">mm</span></div>
+        </div>
+        <div class="row"><div class="field" title="Inset, all sides"><label>Inset</label><input value="0"><span class="unit">mm</span></div><button class="icon" style="flex:none" title="Set sides separately" data-i="detach"></button></div>
+        <div class="row"><div class="switch"><button role="switch" aria-checked="true" aria-label="Baseline grid"></button>Baseline grid</div></div>
+        <div class="grid">
+          <div class="field"><label>Every</label><input value="16"><span class="unit">pt</span></div>
+          <div class="baseline" aria-hidden="true"></div>
+        </div>
+      </div></div>
+    </section>
+
+    <section>
+      <button class="title" aria-expanded="true"><span>Fill</span><i data-i="plus"></i></button>
+      <div class="fold"><div>
+        <div class="row"><span class="chip" style="flex:none"></span><span>Night</span><div class="field" style="flex:0 0 72px"><input value="100"><span class="unit">%</span></div></div>
+      </div></div>
+    </section>
+
+    <section data-closed>
+      <button class="title" aria-expanded="false"><span>Effects</span><i data-i="chevronDown"></i></button>
+      <div class="fold"><div><span class="hint">No effects</span></div></div>
+    </section>
+  </aside>
+</div>
+
+<p class="note"><b>A · Satzspiegel.</b> Drag a field label to scrub. ↑/↓ in a field steps by 1, Shift by 10, Alt by 0.1. Type <code>118.4/2</code> and Enter. Click the style, the unit or a section title.</p>
+
+<script>
+const P = {
+  move: 'M7 4l11 6.5-4.8 1.3 2.9 5-1.7 1-2.9-5L7 16.4z', frame: 'M8 3v18M16 3v18M3 8h18M3 16h18', rect: 'M5.5 5.5h13v13h-13z',
+  ellipse: 'M12 5.5a6.5 6.5 0 1 0 0 13a6.5 6.5 0 1 0 0-13z', polygon: 'M12 5.5l7 12.5h-14z',
+  star: 'M12 4.5l2.2 4.8 5.3.6-3.9 3.6 1.1 5.2-4.7-2.7-4.7 2.7 1.1-5.2-3.9-3.6 5.3-.6z', arrow: 'M5.5 18.5l13-13M11 5.5h7.5v7.5',
+  pen: 'M12 4l5 8-3 7h-4l-3-7zM12 4v7M12 11m-1 0a1 1 0 1 0 2 0a1 1 0 1 0-2 0', text: 'M6 6h12M12 6v13M9.5 19h5',
+  group: 'M5.5 5.5h13v13h-13z', mask: 'M5.5 5.5h13v13h-13zM12 8.5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 1 0 0-7z',
+  chevron: 'M9 7l5 5-5 5', chevronDown: 'M7 9l5 5 5-5', left: 'M15 7l-5 5 5 5', plus: 'M12 6v12M6 12h12',
+  detach: 'M9 15l-2 2a2.8 2.8 0 0 1-4-4l2-2M15 9l2-2a2.8 2.8 0 0 1 4 4l-2 2',
+  alignLeft: 'M5 6h14M5 10h9M5 14h14M5 18h9', alignCenter: 'M5 6h14M7.5 10h9M5 14h14M7.5 18h9',
+  alignRight: 'M5 6h14M10 10h9M5 14h14M10 18h9', alignJustify: 'M5 6h14M5 10h14M5 14h14M5 18h9',
+}
+for (const el of document.querySelectorAll('[data-i]')) {
+  const n = el.dataset.i, s = el.classList.contains('tool') ? 22 : 16
+  el.insertAdjacentHTML('beforeend', `<svg width="${s}" height="${s}" viewBox="0 0 24 24" aria-hidden="true"><path d="${P[n]}" fill="${n === 'move' ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="${n === 'move' ? 1 : 1.5}" stroke-linejoin="round" ${n === 'group' ? 'stroke-dasharray="2.5 2"' : ''}/></svg>`)
+}
+
+const tools = [...document.querySelectorAll('.tool')]
+const pick = (t) => tools.forEach((b) => b.setAttribute('aria-pressed', b === t))
+tools.forEach((t) => t.onclick = () => pick(t))
+addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.ctrlKey || e.metaKey) return
+  const t = tools.find((b) => b.dataset.k === e.key.toLowerCase())
+  if (t) pick(t)
+  if (e.key === 'Escape') document.getElementById('styles').removeAttribute('data-open')
+})
+
+for (const s of document.querySelectorAll('section')) {
+  s.querySelector('.title').onclick = (e) => {
+    const closed = s.toggleAttribute('data-closed')
+    e.currentTarget.setAttribute('aria-expanded', !closed)
+  }
+}
+
+const fmt = (v) => String(Math.round(v * 100) / 100)
+for (const f of document.querySelectorAll('.field')) {
+  const input = f.querySelector('input'), label = f.querySelector('label')
+  input.addEventListener('focus', () => input.select())
+  input.addEventListener('keydown', (e) => {
+    const step = e.shiftKey ? 10 : e.altKey ? 0.1 : 1
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault()
+      input.value = fmt((parseFloat(input.value) || 0) + (e.key === 'ArrowUp' ? step : -step))
+    } else if (e.key === 'Enter') {
+      if (/^[\d\s.+\-*/()]+$/.test(input.value)) input.value = fmt(Function(`return (${input.value})`)())
+      input.blur()
+    }
+  })
+  if (!label) continue
+  label.addEventListener('pointerdown', (e) => {
+    const x0 = e.clientX, v0 = parseFloat(input.value) || 0
+    label.setPointerCapture(e.pointerId)
+    label.onpointermove = (m) => { input.value = fmt(v0 + Math.round((m.clientX - x0) / 2) * (m.shiftKey ? 10 : m.altKey ? 0.1 : 1)) }
+    label.onpointerup = () => { label.onpointermove = null }
+  })
+}
+
+const UNITS = { mm: 1, pt: 72 / 25.4, px: 96 / 25.4 }
+let unit = 'mm'
+document.getElementById('unit').onclick = (e) => {
+  const next = { mm: 'pt', pt: 'px', px: 'mm' }[unit]
+  for (const f of document.querySelectorAll('[data-lengths] .field')) {
+    const i = f.querySelector('input')
+    i.value = fmt(parseFloat(i.value) / UNITS[unit] * UNITS[next])
+    f.querySelector('.unit').textContent = next
+  }
+  unit = e.currentTarget.textContent = next
+}
+
+const menu = document.getElementById('styles')
+document.getElementById('style').onclick = (e) => { e.stopPropagation(); menu.toggleAttribute('data-open') }
+menu.onclick = (e) => {
+  const b = e.target.closest('button'), name = b?.querySelector('span')
+  if (name) document.getElementById('style').innerHTML = `<b>${name.textContent}</b><small>${b.querySelector('small').textContent} pt</small>`
+  menu.removeAttribute('data-open')
+}
+addEventListener('click', () => menu.removeAttribute('data-open'))
+
+let cols = 1
+const [less, more] = document.querySelectorAll('.stepper button')
+const setCols = (n) => { cols = Math.max(1, Math.min(6, n)); document.getElementById('cols').textContent = `${cols} col${cols > 1 ? 's' : ''}` }
+less.onclick = () => setCols(cols - 1)
+more.onclick = () => setCols(cols + 1)
+
+for (const seg of document.querySelectorAll('.seg')) seg.onclick = (e) => {
+  const b = e.target.closest('button')
+  if (b) seg.querySelectorAll('button').forEach((x) => x.setAttribute('aria-checked', x === b))
+}
+for (const sw of document.querySelectorAll('[role=switch]')) sw.onclick = () => sw.setAttribute('aria-checked', sw.getAttribute('aria-checked') !== 'true')
+</script>
+</body>
+</html>

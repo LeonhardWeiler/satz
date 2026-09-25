@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Satz – UI/UX-Review</title>
+<style>
+  :root { color-scheme: dark; --bg:#1e1e1e; --panel:#2c2c2c; --line:#3a3a3a; --fg:#e6e6e6; --dim:#a0a0a0; --bad:#f2555a; --warn:#f5a623; --ok:#4cc38a; --acc:#0d99ff; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.6 system-ui, sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 48px 24px 96px; }
+  h1 { font-size: 28px; margin: 0 0 4px; }
+  h2 { font-size: 19px; margin: 48px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+  h3 { font-size: 16px; margin: 0 0 6px; }
+  .dim { color: var(--dim); }
+  a { color: var(--acc); }
+  code, kbd { font: 13px ui-monospace, monospace; background: #00000055; padding: 1px 5px; border-radius: 4px; }
+  table { width:100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align:left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--dim); font-weight: 500; }
+  td:first-child { white-space: nowrap; font-weight: 500; }
+  .s { display:inline-block; min-width: 20px; font-weight: 600; }
+  .s.h { color: var(--bad); } .s.m { color: var(--warn); } .s.l { color: var(--dim); } .s.g { color: var(--ok); }
+  .shots { display:grid; grid-template-columns: repeat(auto-fill, minmax(230px,1fr)); gap: 10px; }
+  .shots figure { margin:0; } .shots img { width:100%; border:1px solid var(--line); border-radius:6px; display:block; }
+  .shots figcaption { font-size: 13px; color: var(--dim); }
+  .design { display:grid; grid-template-columns: 380px 1fr; gap: 20px; margin: 20px 0 32px; }
+  .design img { width:100%; border:1px solid var(--line); border-radius:6px; display:block; }
+  .design ul { margin: 6px 0; padding-left: 18px; }
+  .design li { margin: 2px 0; }
+  .tag { display:inline-block; font-size: 12px; padding: 1px 8px; border-radius: 99px; background:#ffffff14; color: var(--dim); margin-right: 6px; }
+  .rec { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--acc); border-radius: 8px; padding: 16px 18px; }
+  @media (max-width: 800px) { .design { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+<h1>Satz – UI/UX-Review und 6 Designvorschläge</h1>
+<p class="dim">Stand 2026-09-25, Commit 1ad76b4. Geprüft: <code>web/src/*.tsx</code>, <code>index.css</code>, <code>renderer.ts</code>, <code>keys.ts</code> und die laufende App (Playwright, 1440 × 900 und 880 × 700). Mockups liegen in <code>AGENT/ui-ux/</code>, sind statisches HTML ohne WASM; die Seite ist ein echtes Rendering der App als Bild.</p>
+
+<h2>1. Corporate Identity als Prüfmaßstab</h2>
+<table>
+<tr><th>Ziel</th><th>Woran es messbar ist</th></tr>
+<tr><td>Professionell</td><td>Konsistente Einheiten, Beschriftungen und Abstände; WCAG AA (4,5:1) für Text; keine sichtbaren Brüche (abgeschnittene Werte, leere Panels, Layoutfehler).</td></tr>
+<tr><td>Minimalistisch</td><td>Jedes Element trägt Information; nichts doppelt; Leere hat eine Aufgabe (Leerzustand erklärt, was zu tun ist).</td></tr>
+<tr><td>Smooth</td><td>Zustandswechsel mit 120–260 ms Übergang statt Sprung; Fokus bleibt erhalten; alles per Tastatur erreichbar; <code>prefers-reduced-motion</code> respektiert.</td></tr>
+<tr><td>Farbe sparsam</td><td>1 Akzent, nur für Auswahl, aktiven Zustand und Fokus. In einem Druckprogramm zusätzlich: Chrome neutral, weil jede Farbe im UI die Beurteilung der Druckfarben verfälscht.</td></tr>
+</table>
+
+<h2>2. Bestand: Urteil pro Bereich</h2>
+<p class="dim">Schwere: <span class="s h">H</span> verletzt die CI deutlich, <span class="s m">M</span> spürbar, <span class="s l">L</span> Feinschliff, <span class="s g">✓</span> passt.</p>
+<div class="shots">
+  <figure><img src="ui-ux/current/01-empty.jpg" alt=""><figcaption>Start, nichts ausgewählt</figcaption></figure>
+  <figure><img src="ui-ux/current/03-text.jpg" alt=""><figcaption>Text in Bearbeitung</figcaption></figure>
+  <figure><img src="ui-ux/current/04-picker.jpg" alt=""><figcaption>Farbwähler</figcaption></figure>
+  <figure><img src="ui-ux/current/07-context.jpg" alt=""><figcaption>Kontextmenü Seite</figcaption></figure>
+  <figure><img src="ui-ux/current/08-narrow.jpg" alt=""><figcaption>Fenster 880 px breit</figcaption></figure>
+</div>
+<table>
+<tr><th>Bereich</th><th>Ist</th><th>Abweichung von der CI</th><th></th></tr>
+<tr><td>Farben</td><td>Figma-UI3-Grautöne, Akzent <code>#0d99ff</code>.</td><td>Akzent an 9 Stellen: aktives Werkzeug (Vollfläche), Export-Button, Menü-Hover (Vollfläche), ausgewählte Ebene, aktuelle Seite, Checkbox, Ausrichtungsraster, Drop-Linie, Fokus. Die aktuelle Seite ist dauerhaft blau, obwohl sie nicht „ausgewählt“ ist. Zu viel Farbe für „sparsam“.</td><td><span class="s m">M</span></td></tr>
+<tr><td>Kontrast</td><td><code>--text-3</code> = Weiß 45 %.</td><td>Feldlabels und Einheiten auf <code>--input</code>: 3,75:1, auf Panel 4,1:1. Weiß auf <code>#0d99ff</code> (Export, aktives Werkzeug, Menü-Hover): 3,0:1. Alle unter AA.</td><td><span class="s h">H</span></td></tr>
+<tr><td>Schrift</td><td><code>font: 11px Inter, system-ui</code>.</td><td>Inter wird nirgends geladen; ohne lokale Installation fällt es auf die Systemschrift zurück (im Screenshot Noto Sans). Das Erscheinungsbild hängt damit vom Rechner ab: unprofessionell.</td><td><span class="s h">H</span></td></tr>
+<tr><td>Bewegung</td><td>0 <code>transition</code>/<code>animation</code> in <code>index.css</code>.</td><td>Popover, Menüs, Aufklappen, Werkzeugwechsel, Zoom-Sprünge (Shift 1) erscheinen hart. „Smooth“ ist derzeit nicht erfüllt.</td><td><span class="s h">H</span></td></tr>
+<tr><td>Panel-Aufbau</td><td>3 schwebende Karten links (Masters/Pages, Layers, Swatches), 1 rechts, 13 px Radius, Schatten.</td><td>Bei 900 px Höhe ist Swatches auf die Kopfzeile gequetscht; Masters ist aufgeklappt, aber leer. Vier Kartenränder plus Schatten wirken unruhiger als nötig; der Schatten erfüllt über dunklem Canvas kaum eine Aufgabe.</td><td><span class="s m">M</span></td></tr>
+<tr><td>Seiten und Master</td><td>Liste, bei Doppelseiten 2 Spalten.</td><td>Seite 1 steht allein in der rechten Spalte und wirkt wie ein Button. Keine Miniaturen, kein Leerzustand für Master, Master-Buchstabe grau ohne Erklärung. Masters hat Chevron, Pages nicht (inkonsistent).</td><td><span class="s m">M</span></td></tr>
+<tr><td>Ebenen</td><td>Baum mit Drag und Drop, Umbenennen per Doppelklick.</td><td>Solide. Es fehlen Sichtbar/Sperren beim Hover, Suche, Hover-Hervorhebung auf dem Canvas und Tastaturnavigation im Baum.</td><td><span class="s l">L</span></td></tr>
+<tr><td>Werkzeugleiste</td><td>Unten mittig, Formen im Dropdown.</td><td>Passt zu Figma UI3. Formen-Chevron nur 14 px breit (kleines Ziel); aktive Vollfläche ist die lauteste Farbfläche im UI.</td><td><span class="s l">L</span></td></tr>
+<tr><td>Properties</td><td>Abschnitte untereinander, Export oben rechts.</td><td>Kopf „Page“ und Abschnitt „Page“ doppelt. Selects ohne sichtbares Label („None“ = Master, „RGB“ = Farbmodus). Deckkraft-Feld ohne Label. „T R B L“ bei Insets kollidiert mit „R“ = Radius. Gutter zeigt „4.2:“ abgeschnitten. Nicht einklappbar.</td><td><span class="s m">M</span></td></tr>
+<tr><td>Zahlenfelder</td><td>Tippen, Enter, Escape.</td><td>Kein Pfeiltasten-Schritt, kein Ziehen am Label, keine Rechenausdrücke. Für ein Präzisionswerkzeug der größte Bedien-Rückstand im Panel.</td><td><span class="s m">M</span></td></tr>
+<tr><td>Farbwähler</td><td>Custom/Swatches, HSV, Hex, CMYK-Felder.</td><td>Sauber und klein. Kein Vergleich „Bildschirm/Druck“, kein Gesamtfarbauftrag, obwohl CMYK Kernfunktion ist.</td><td><span class="s l">L</span></td></tr>
+<tr><td>Menüs</td><td>Kontextmenü, Formenmenü.</td><td>Hover als blaue Vollfläche (laut, 3:1). Kontextmenü hat eine leere 16-px-Symbolspalte, dadurch schief eingerückt. Hintergrund <code>#1e1e1e</code> dunkler als die Panels, die es überlagert.</td><td><span class="s m">M</span></td></tr>
+<tr><td>Variablen-Dialog</td><td>Modaler Dialog, Leerzustand mit Text.</td><td>Gut: echter Leerzustand. Großflächig leer, aber das ist der richtige Zustand.</td><td><span class="s g">✓</span></td></tr>
+<tr><td>Export</td><td>Blauer Button, lädt sofort herunter.</td><td>Keine Rückmeldung, keine Voreinstellung, kein Preflight vor dem Export (laut TODO geplant). Der Button ist die auffälligste Fläche, obwohl er selten gebraucht wird.</td><td><span class="s m">M</span></td></tr>
+<tr><td>Leerzustände</td><td>Swatches, Masters leer.</td><td>Nur Überschrift und „+“, kein Hinweis, was das Panel tut. Für Erstnutzer (Portfolio-Publikum) ein Stolperstein.</td><td><span class="s m">M</span></td></tr>
+<tr><td>Schmale Fenster</td><td>Unter 900 px wird die linke Spalte 0 breit.</td><td>Ränder der versteckten Panels bleiben als Linien am linken Rand sichtbar; Werkzeugleiste liegt über der Seite; Zoom-Anzeige kollidiert mit dem Panel.</td><td><span class="s m">M</span></td></tr>
+<tr><td>Canvas</td><td>Hintergrund <code>#1e1e1e</code>, Beschnitt <code>#000</code>, Anschnitt <code>#ff3b30</code>.</td><td>Leerer Anschnitt wird in Canvasfarbe gezeigt, die Seite bekommt dadurch einen dunklen Rand; die schwarze Beschnittlinie verschwindet dort (1,3:1). Anschnitt in Signalrot liest sich als Fehler und ist die zweitlauteste Farbe. Canvas gleich dunkel wie das Chrome: Arbeitsfläche und UI trennen sich nicht.</td><td><span class="s m">M</span></td></tr>
+<tr><td>Canvas-Verhalten</td><td>Zoom, Pan, Hover, Alt-Duplizieren, Alt/Shift beim Skalieren.</td><td>Kein Einrasten an Seitenrand, Mitte oder anderen Objekten, keine Abstandsanzeige, keine Lineale/Hilfslinien. Zoom-Anzeige nicht klickbar. Für Satzarbeit die größte Lücke.</td><td><span class="s h">H</span></td></tr>
+<tr><td>Tastatur</td><td>Figma-Kürzel mit Ctrl.</td><td>Gute Basis. Es fehlen Seitenwechsel, Zoom auf Auswahl, Geschwister-Navigation, Kürzel-Übersicht. Buchstaben über <code>e.key</code>, Ziffern/Klammern über <code>e.code</code>: auf Colemak DH konsistent.</td><td><span class="s l">L</span></td></tr>
+</table>
+<p><b>Gesamt:</b> Professionell teilweise (Struktur gut, Kontrast/Schrift/Brüche nicht), minimalistisch teilweise (Dopplungen, leere Panels), smooth nein, Farbe teilweise.</p>
+
+<h2>3. Vorschläge für Canvas und Tastatur</h2>
+<table>
+<tr><th>Vorschlag</th><th>Warum</th></tr>
+<tr><td>Canvas heller als Chrome, z. B. <code>#2a2a2e</code></td><td>Arbeitsfläche trennt sich vom UI ohne Rahmen oder Schatten. Nur Hintergrundfarbe, Renderer sonst unverändert.</td></tr>
+<tr><td>Optional neutrales 50-%-Grau</td><td>Farbkritische Beurteilung (ISO-12646-Prinzip: neutrale Umgebung). Siehe Mockup E.</td></tr>
+<tr><td>Anschnitt gestrichelt in Akzent 40 %, Beschnittlinie weg</td><td>Die weiße Seite zeigt den Beschnitt selbst; Rot bleibt für Fehler frei.</td></tr>
+<tr><td>Leichter Seitenschatten, Seitennummer und Master-Buchstabe unter der Seite</td><td>Seite liest sich als Papier; Orientierung im Heft ohne Panel.</td></tr>
+<tr><td>Vorschaumodus <kbd>W</kbd></td><td>Blendet Anschnitt, Rahmenkanten und Hilfslinien aus, schneidet auf Beschnitt (InDesign-Standard).</td></tr>
+<tr><td>Einrasten und Abstände</td><td>Seitenrand, Mitte, Satzspiegel, andere Objekte; <kbd>Alt</kbd> beim Hover zeigt Abstände (Figma). Größte Canvas-Lücke.</td></tr>
+<tr><td>Lineale und Hilfslinien <kbd>Shift R</kbd></td><td>Grundwerkzeug im DTP; Hilfslinien aus dem Lineal ziehen, pro Master speicherbar.</td></tr>
+<tr><td>Maßetikett unter der Auswahl beim Ziehen</td><td>Rückmeldung ohne Blick ins Panel (Mockup C).</td></tr>
+<tr><td>Weicher Zoom 180 ms bei <kbd>Shift 1</kbd>/<kbd>Shift 2</kbd></td><td>Orientierung bleibt erhalten; erfüllt „smooth“.</td></tr>
+<tr><td>Zoom-Anzeige als Menü</td><td>Einpassen, 100 %, Auswahl, direkte Eingabe.</td></tr>
+<tr><td><kbd>Shift 2</kbd> Zoom auf Auswahl</td><td>Figma-Standard, fehlt.</td></tr>
+<tr><td><kbd>PgUp</kbd>/<kbd>PgDn</kbd>, <kbd>Home</kbd>/<kbd>End</kbd></td><td>Seiten/Druckbogen wechseln; bei 8 Seiten sonst nur per Maus.</td></tr>
+<tr><td><kbd>Tab</kbd>/<kbd>Shift Tab</kbd>, <kbd>Shift Enter</kbd></td><td>Nächstes/voriges Geschwister, Eltern wählen (Figma).</td></tr>
+<tr><td><kbd>Ctrl Shift H</kbd>, <kbd>Ctrl Shift L</kbd></td><td>Ausblenden, Sperren (Funktion fehlt noch).</td></tr>
+<tr><td><kbd>Alt A/D/W/S/H/V</kbd></td><td>Ausrichten links/rechts/oben/unten/Mitte (Figma).</td></tr>
+<tr><td><kbd>Ctrl K</kbd> Befehlspalette</td><td>Jede Funktion auffindbar ohne Menüleiste (Mockup C).</td></tr>
+<tr><td><kbd>Ctrl \</kbd> UI ausblenden, <kbd>?</kbd> Kürzel-Übersicht</td><td>Figma-Standard; Übersicht macht Kürzel lernbar (Mockup F).</td></tr>
+<tr><td>Zahlenfelder: <kbd>↑</kbd>/<kbd>↓</kbd> ±1, <kbd>Shift</kbd> ±10, <kbd>Alt</kbd> ±0,1, Label ziehen, <code>118/2</code></td><td>Präzision ohne Maus-Tipp-Wechsel (Mockup A).</td></tr>
+<tr><td>Proof <kbd>Ctrl Alt Y</kbd>, Gamut <kbd>Ctrl Alt Shift Y</kbd></td><td><kbd>Ctrl Y</kbd> ist in <code>keys.ts</code> bereits Redo, daher mit Alt.</td></tr>
+</table>
+
+<h2>4. Sechs Designs</h2>
+<p>Jedes Design hat einen anderen Fokusbereich und ein anderes Ziel; Schrift, Akzent, Radius und Dichte unterscheiden sich bewusst. Alle teilen: 1 Akzent, neutrale Grautöne, Übergänge 120–260 ms, <code>prefers-reduced-motion</code>, AA-Kontrast. A–C mit <b>frontend-design</b> (eigene Plan-/Review-Runde gegen die „AI-Default“-Liste, eigene Icons der App), D–F mit <b>design-taste-frontend</b> (Design Read, 3 Dials, Phosphor-Icons, Shape-Lock, keine Gedankenstriche). Hinweis: Der Taste-Skill ist für Landingpages gebaut; Regeln zu Hero, Bildern und Logo-Walls greifen hier nicht und wurden ausgelassen.</p>
+
+<div class="design">
+  <a href="ui-ux/a-satzspiegel.html"><img src="ui-ux/shots/a.jpg" alt="Mockup A"></a>
+  <div>
+    <h3>A · Satzspiegel <span class="tag">frontend-design</span><span class="tag">Fokus: Inspector</span></h3>
+    <p class="dim">Ziel: Präzision beim Setzen. Satz ist ein Satzprogramm; der Inspector soll sich wie ein Typometer anfühlen.</p>
+    <ul>
+      <li><b>Angedockte Panels mit Haarlinien statt Karten:</b> maximal Canvas, keine Schatten, ruhigste Kante.</li>
+      <li><b>Instrument Sans 12 px, Tabellenziffern:</b> schmal, technisch, bessere Lesbarkeit als 11 px.</li>
+      <li><b>Kobalt <code>#5a86ff</code> nur für Auswahl, Fokus, Schalter:</b> ruhiger als Figma-Blau, weiß-auf-Kobalt nur als Werkzeug-Icon.</li>
+      <li><b>Textstil als Specimen:</b> Stilname in der echten Schrift und relativen Größe; Stil erkennt man, statt ihn zu lesen.</li>
+      <li><b>Felder:</b> Label ziehen, Pfeiltasten, Rechnen, Einheit per Klick mm/pt/px. Laufweite in 1/1000 em (InDesign-Standard statt %).</li>
+      <li><b>Einklappbare Abschnitte mit Höhenanimation,</b> Einzug/Abstände gekoppelt mit Entkoppeln-Knopf, Grundlinienraster sichtbar als Muster.</li>
+      <li><b>Export als Rahmen-Button mit Kürzel:</b> selten gebraucht, darf nicht die lauteste Fläche sein.</li>
+    </ul>
+    <p>Bewertung: CI sehr gut getroffen, nah am Figma-UI3-Bestand. Größter Gewinn pro Aufwand.</p>
+  </div>
+</div>
+
+<div class="design">
+  <a href="ui-ux/b-druckbogen.html"><img src="ui-ux/shots/b.jpg" alt="Mockup B"></a>
+  <div>
+    <h3>B · Druckbogen <span class="tag">frontend-design</span><span class="tag">Fokus: Seiten, Master</span></h3>
+    <p class="dim">Ziel: das 8-seitige Heft als Ganzes sehen. Helles Thema wie Papier.</p>
+    <ul>
+      <li><b>Bogenleiste unten statt Seitenliste:</b> Miniaturen in Druckbögen, Master links davon; Master auf Bogen ziehen weist ihn zu.</li>
+      <li><b>Hell, kühl-neutral</b> (<code>#f3f3f4</code>, Arbeitsfläche <code>#dcdcdf</code>): Druckvorstufe denkt in Papier; kein Creme-Ton.</li>
+      <li><b>Magenta <code>#c2185b</code> als einziger Akzent:</b> Druckfarbe als Herkunft; nur Unterstrich des aktuellen Bogens, Fokus, Anschnitt.</li>
+      <li><b>Schibsted Grotesk:</b> Zeitungs-Grotesk, passt zum Druckthema.</li>
+      <li><b>Aktives Werkzeug schwarz statt Akzent:</b> Farbe bleibt für Dokumentbezug.</li>
+      <li><b>Verhalten:</b> <kbd>PgUp</kbd>/<kbd>PgDn</kbd>/<kbd>Home</kbd>/<kbd>End</kbd>, Überblendung beim Bogenwechsel, Seitenzahlen unter den Seiten.</li>
+    </ul>
+    <p>Bewertung: stark für Hefte, für das A2-Plakat verschenkt die Leiste 150 px. Weicht vom festgelegten dunklen Look ab.</p>
+  </div>
+</div>
+
+<div class="design">
+  <a href="ui-ux/c-stille.html"><img src="ui-ux/shots/c.jpg" alt="Mockup C"></a>
+  <div>
+    <h3>C · Stille <span class="tag">frontend-design</span><span class="tag">Fokus: Canvas, Befehle</span></h3>
+    <p class="dim">Ziel: Konzentration. Standardmäßig nur Seite, Werkzeugschiene und eine Kontextleiste über der Auswahl.</p>
+    <ul>
+      <li><b>Kontextleiste an der Auswahl:</b> die 4 häufigsten Eigenschaften dort, wo man hinschaut; „More“ öffnet den vollen Inspector.</li>
+      <li><b>Panels als Schubladen</b> (<kbd>Alt 1</kbd>, <kbd>Alt 8</kbd>), gleiten 260 ms über den Canvas statt ihn zu verkleinern.</li>
+      <li><b>Befehlspalette <kbd>Ctrl K</kbd>:</b> Suche über Befehle, Ebenen, Seiten mit Kürzeln daneben; lehrt Kürzel nebenbei.</li>
+      <li><b><kbd>Ctrl \</kbd> blendet alles aus</b> (Schiene gleitet weg).</li>
+      <li><b>Bernstein <code>#e6a23c</code> nur für Auswahl und aktives Werkzeug</b> (Strich statt Fläche); Figtree für einen weichen Ton.</li>
+      <li><b>Maßetikett unter der Auswahl.</b></li>
+    </ul>
+    <p>Bewertung: am „smoothesten“, aber viele Wege sind versteckt; für Erstnutzer schwerer. Weicht vom Figma-UI3-Layout ab.</p>
+  </div>
+</div>
+
+<div class="design">
+  <a href="ui-ux/d-praezision.html"><img src="ui-ux/shots/d.jpg" alt="Mockup D"></a>
+  <div>
+    <h3>D · Präzision <span class="tag">taste</span><span class="tag">Fokus: Ebenen, Navigation</span></h3>
+    <p class="dim">Design Read: Werkzeug-UI für Profis, Linear-artig nüchtern, Zinc und Geist. Dials: Variance 2, Motion 3, Density 7.</p>
+    <ul>
+      <li><b>Ebenenbaum mit Führungslinien,</b> Eltern der Auswahl leicht hinterlegt, Auswahl mit 2-px-Kante statt Vollfläche.</li>
+      <li><b>Suche <kbd>/</kbd> und Filter</b> (Text, Formen, Rahmen) mit Leerzustand.</li>
+      <li><b>Hover zeigt Sperren/Sichtbar,</b> gesetzte Zustände bleiben sichtbar; ausgeblendete Ebenen gedimmt.</li>
+      <li><b>Hover auf Zeile hebt das Objekt auf dem Canvas hervor.</b></li>
+      <li><b>Tastatur im Baum:</b> Pfeile, <kbd>Enter</kbd>, <kbd>Shift Enter</kbd>, <kbd>Tab</kbd>, <kbd>Ctrl R</kbd>, <kbd>Ctrl Shift H/L</kbd>.</li>
+      <li><b>Breadcrumb im Inspector</b> „Shapes › Masked › Stripes“, klickbar.</li>
+      <li><b>Smaragd <code>#3ecf8e</code>,</b> Geist Mono für alle Zahlen (Density 7), Radius 6 px überall.</li>
+    </ul>
+    <p>Bewertung: löst die Orientierung in tiefen Dokumenten; passt zum Figma-Layout. Grün als Auswahlfarbe ist ungewohnt.</p>
+  </div>
+</div>
+
+<div class="design">
+  <a href="ui-ux/e-proof.html"><img src="ui-ux/shots/e.jpg" alt="Mockup E"></a>
+  <div>
+    <h3>E · Proof <span class="tag">taste</span><span class="tag">Fokus: Farbe, Ausgabe</span></h3>
+    <p class="dim">Design Read: farbkritisches Druckwerkzeug, IBM-Plex-Präzision, monochrom. Dials: Variance 2, Motion 2, Density 6.</p>
+    <ul>
+      <li><b>Kein Akzent:</b> nur reine Grautöne (Chroma 0). Aktiv = invertiert (Weiß auf Grau). Die einzigen Farben sind Dokument und Druckfarben.</li>
+      <li><b>Auswahl als Doppelkontur weiß/schwarz:</b> sichtbar auf jeder Farbe, auch auf Blau.</li>
+      <li><b>Proof und Gamut-Warnung</b> in der Kopfzeile; außerhalb FOGRA51 schraffiert.</li>
+      <li><b>Umgebung umschaltbar</b> dunkel oder neutral 50 %.</li>
+      <li><b>CMYK-Regler mit Farbverlauf der Druckfarbe,</b> „Bildschirm | Druck“ nebeneinander, Gesamtfarbauftrag gegen 300 % (invertiert bei Überschreitung).</li>
+      <li><b>Separationen</b> mit Maximalwerten und Sonderfarbe; Swatches als Raster plus Liste mit CMYK-Werten.</li>
+      <li><b>Radius 2 px, IBM Plex Sans/Mono.</b></li>
+    </ul>
+    <p>Bewertung: fachlich das stärkste Argument („Farbe sparsam“ wird zur Funktion). Farbvorschau im Mockup ist naiv berechnet; echt übernimmt das moxcms.</p>
+  </div>
+</div>
+
+<div class="design">
+  <a href="ui-ux/f-erster-eindruck.html"><img src="ui-ux/shots/f.jpg" alt="Mockup F"></a>
+  <div>
+    <h3>F · Erster Eindruck <span class="tag">taste</span><span class="tag">Fokus: Erststart, Export</span></h3>
+    <p class="dim">Design Read: Redesign mit Erhalt, für Erstnutzer und Recruiter. Figma-UI3-Tokens bleiben, Inter wird geladen. Dials: Variance 3, Motion 4, Density 5.</p>
+    <ul>
+      <li><b>„New document“ beim Start:</b> Formate mit proportionalen Seitensymbolen (A2-Plakat, A5-Heft 8 Seiten, …), <kbd>Enter</kbd> erstellt, „Open example“ daneben.</li>
+      <li><b>Leerzustände</b> für Master und Swatches erklären den Zweck und bieten die nächste Aktion.</li>
+      <li><b>Export als Popover</b> mit Voreinstellung und Preflight-Liste; „Export anyway“, Fortschritt, Toast mit Dateiname.</li>
+      <li><b>Kürzel-Übersicht <kbd>?</kbd></b> in 3 Gruppen.</li>
+      <li><b>Duplikate entfernt:</b> Kopf zeigt Dokumentname statt „Page“, Masters/Pages ohne Chevron-Mix.</li>
+      <li><b>Kontrast angehoben:</b> <code>--text-3</code> 60 % statt 45 %.</li>
+    </ul>
+    <p>Bewertung: geringstes Risiko, passt exakt zum festgelegten Design. Allein nicht genug für „smooth“ und „Farbe sparsam“.</p>
+  </div>
+</div>
+
+<h2>5. Empfehlung</h2>
+<div class="rec">
+<p><b>F als Basis, dazu A-Felder, D-Baum und E-Farbe.</b> F behält Figma UI3 und dark (festgelegt) und behebt Schrift, Kontrast, Leerzustände, Export. Aus A kommen Zahlenfelder, einklappbare Abschnitte und Textstil-Specimen, aus D Baum-Tastatur, Hover-Hervorhebung und Breadcrumb, aus E neutrale Grautöne, Doppelkontur-Auswahl als Option und Proof/Gamut. Akzent bleibt Figma-Blau, aber nur als Kante/Tönung, nie als weiße Schrift auf Blau. B (hell) und C (versteckte Panels) nicht als Ganzes übernehmen: sie widersprechen dem festgelegten Layout; die Bogenleiste aus B lohnt sich später als einblendbare Ansicht für Hefte, die Befehlspalette aus C als Zusatz.</p>
+<p><b>Reihenfolge nach Wirkung:</b> 1. Inter laden, Kontrast AA, Akzent reduzieren. 2. Übergänge 120–260 ms. 3. Zahlenfelder. 4. Einrasten und Abstände auf dem Canvas. 5. Leerzustände und Export-Popover. 6. Baum-Tastatur, <kbd>Shift 2</kbd>, <kbd>PgUp</kbd>/<kbd>PgDn</kbd>. 7. Proof.</p>
+</div>
+
+<h2>6. Getestet</h2>
+<p>Bestand: App mit Vite und Playwright (Chromium, SwiftShader) gestartet, Rechteck und Text gezeichnet, Farbwähler, Formenmenü, Variablen, Kontextmenü, schmales Fenster geöffnet. Mockups: jedes in Chromium geöffnet, Kerninteraktion per Skript ausgelöst und per Screenshot geprüft (A Stil-Menü, Einklappen, Rechenausdruck; B <kbd>PgDn</kbd>; C Palette, Schubladen; D Hover, Baum; E Proof, Gamut, Umgebung; F Dialog, Export). Nicht getestet: Firefox, Screenreader, echte Tastatur mit Colemak DH, Mockups ohne Internet (Schriften und Phosphor kommen per CDN).</p>
+</main>
+</body>
+</html>

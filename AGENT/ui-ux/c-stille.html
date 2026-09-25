@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Satz mockup C: Stille</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: dark;
+  --canvas: #2a2a2e;
+  --chrome: #1b1b1e;
+  --raised: #26262a;
+  --line: #333338;
+  --text: #ececef;
+  --text-2: #a3a3ac;
+  --text-3: #8e8e97;
+  --accent: #e6a23c;
+  --ease: cubic-bezier(.22, .9, .24, 1);
+  font: 12.5px/17px Figtree, system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  background: var(--canvas);
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; overflow: hidden; -webkit-font-smoothing: antialiased; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+svg { display: block; }
+i[data-i] { display: grid; flex: none; place-items: center; }
+kbd { color: var(--text-3); font: inherit; }
+
+.stage { position: fixed; inset: 0; display: grid; place-items: center; }
+.sheet { position: relative; height: calc(100vh - 96px); aspect-ratio: 1056 / 1498; box-shadow: 0 2px 6px rgb(0 0 0 / .25), 0 24px 64px rgb(0 0 0 / .3); }
+.sheet img { display: block; width: 100%; height: 100%; }
+.sel { position: absolute; left: 28.8%; top: 9.7%; width: 22%; height: 15.7%; outline: 1.5px solid var(--accent); }
+.sel i { position: absolute; width: 8px; height: 8px; border: 1.5px solid var(--accent); border-radius: 2px; background: #fff; }
+.sel i:nth-child(1) { left: -4px; top: -4px; } .sel i:nth-child(2) { right: -4px; top: -4px; }
+.sel i:nth-child(3) { left: -4px; bottom: -4px; } .sel i:nth-child(4) { right: -4px; bottom: -4px; }
+.size { position: absolute; left: 50%; bottom: -26px; padding: 1px 6px; border-radius: 4px; background: var(--accent); color: #1b1b1e; font-size: 11px; font-weight: 600; white-space: nowrap; transform: translateX(-50%); }
+
+.chrome { transition: opacity .24s var(--ease), transform .24s var(--ease); }
+body[data-bare] .chrome { opacity: 0; pointer-events: none; }
+body[data-bare] .rail { transform: translate(-12px, -50%); }
+
+.crumb { position: fixed; top: 14px; left: 16px; display: flex; gap: 6px; color: var(--text-2); }
+.crumb b { color: var(--text); font-weight: 500; }
+.rail { position: fixed; top: 50%; left: 12px; display: grid; gap: 2px; padding: 4px; border: 1px solid var(--line); border-radius: 12px; background: var(--chrome); transform: translateY(-50%); }
+.rail hr { width: 20px; margin: 4px auto; border: 0; border-top: 1px solid var(--line); }
+.tool { position: relative; display: grid; place-items: center; width: 34px; height: 34px; border: 0; border-radius: 8px; background: none; color: var(--text-2); transition: background .12s, color .12s; }
+.tool:hover { background: var(--raised); color: var(--text); }
+.tool[aria-pressed=true] { color: var(--accent); background: var(--raised); }
+.tool[aria-pressed=true]::before { content: ''; position: absolute; left: -4px; top: 9px; bottom: 9px; width: 2px; border-radius: 1px; background: var(--accent); }
+.tool span { position: absolute; left: 44px; padding: 3px 8px; border-radius: 6px; background: var(--chrome); border: 1px solid var(--line); white-space: nowrap; opacity: 0; pointer-events: none; transform: translateX(-4px); transition: opacity .12s, transform .16s var(--ease); }
+.tool:hover span { opacity: 1; transform: none; transition-delay: .4s; }
+
+.context { position: fixed; display: flex; align-items: center; gap: 2px; padding: 4px; border: 1px solid var(--line); border-radius: 10px; background: var(--chrome); box-shadow: 0 8px 24px rgb(0 0 0 / .35); transform: translate(-50%, -100%); }
+.context .sep { width: 1px; height: 18px; margin: 0 4px; background: var(--line); }
+.cbtn { display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px; border: 0; border-radius: 6px; background: none; color: var(--text-2); white-space: nowrap; }
+.cbtn:hover { background: var(--raised); color: var(--text); }
+.chip { width: 14px; height: 14px; border-radius: 4px; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .15); }
+
+.zoom { position: fixed; right: 16px; bottom: 14px; height: 28px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--chrome); color: var(--text-2); }
+
+.drawer { position: fixed; top: 12px; bottom: 12px; width: 264px; padding: 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--chrome); box-shadow: 0 16px 48px rgb(0 0 0 / .4); overflow: auto; transition: transform .26s var(--ease), opacity .2s; }
+.drawer.l { left: 60px; top: 44px; transform: translateX(calc(-100% - 72px)); }
+.drawer.r { right: 12px; transform: translateX(calc(100% + 24px)); }
+.drawer[data-open] { transform: none; }
+.drawer h2 { display: flex; justify-content: space-between; margin: 4px 8px 8px; font-size: 12.5px; font-weight: 600; }
+.drawer h2 kbd { font-weight: 400; }
+.drawer li { display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 8px; border-radius: 6px; color: var(--text-2); list-style: none; }
+.drawer li:hover { background: var(--raised); }
+.drawer li[aria-selected=true] { color: var(--accent); }
+.drawer ul { margin: 0; padding: 0; }
+.drawer .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 0 8px 12px; }
+.drawer .f { display: flex; justify-content: space-between; height: 28px; padding: 0 8px; align-items: center; border-radius: 6px; background: var(--raised); color: var(--text-2); }
+.drawer .f b { color: var(--text); font-weight: 500; }
+.drawer h3 { margin: 8px 8px 6px; color: var(--text-2); font-size: 12px; font-weight: 500; }
+
+.scrim { position: fixed; inset: 0; background: rgb(10 10 12 / .35); opacity: 0; pointer-events: none; transition: opacity .18s; }
+.palette { position: fixed; top: 16vh; left: 50%; width: min(560px, calc(100vw - 32px)); border: 1px solid var(--line); border-radius: 14px; background: var(--chrome); box-shadow: 0 24px 80px rgb(0 0 0 / .5); opacity: 0; pointer-events: none; transform: translate(-50%, -8px) scale(.98); transition: opacity .16s, transform .22s var(--ease); }
+body[data-palette] .palette { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+body[data-palette] .scrim { opacity: 1; pointer-events: auto; }
+.palette input { width: 100%; height: 52px; padding: 0 18px; border: 0; border-bottom: 1px solid var(--line); background: none; font-size: 15px; outline: none; }
+.palette ul { max-height: 340px; margin: 0; padding: 6px; overflow: auto; list-style: none; }
+.palette li { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 12px; border-radius: 8px; color: var(--text-2); }
+.palette li span { flex: 1; }
+.palette li small { color: var(--text-3); }
+.palette li[aria-selected=true] { background: var(--raised); color: var(--text); }
+.palette li[aria-selected=true] kbd { color: var(--text-2); }
+.palette .empty { padding: 18px; color: var(--text-3); }
+
+.toast { position: fixed; bottom: 18px; left: 50%; padding: 8px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--chrome); opacity: 0; transform: translate(-50%, 8px); transition: opacity .18s, transform .24s var(--ease); }
+.toast[data-show] { opacity: 1; transform: translate(-50%, 0); }
+
+.note { position: fixed; left: 16px; bottom: 14px; max-width: 480px; margin: 0; color: var(--text-3); }
+.note b { color: var(--text-2); font-weight: 500; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<main class="stage" aria-label="Canvas">
+  <div class="sheet" id="sheet"><img src="page.jpg" alt="Page 1"><div class="sel" id="sel"><i></i><i></i><i></i><i></i><span class="size">32.1 × 31.4</span></div></div>
+</main>
+
+<div class="crumb chrome"><b>Booklet A5</b><span>/</span><span>Page 1 of 8</span></div>
+
+<nav class="rail chrome" role="toolbar" aria-label="Tools">
+  <button class="tool" aria-pressed="true" data-i="move" data-k="v"><span>Move <kbd>V</kbd></span></button>
+  <button class="tool" data-i="frame" data-k="f"><span>Frame <kbd>F</kbd></span></button>
+  <button class="tool" data-i="rect" data-k="r"><span>Rectangle <kbd>R</kbd></span></button>
+  <button class="tool" data-i="pen" data-k="p"><span>Pen <kbd>P</kbd></span></button>
+  <button class="tool" data-i="text" data-k="t"><span>Text <kbd>T</kbd></span></button>
+  <hr>
+  <button class="tool" data-i="layers" data-drawer="layers"><span>Layers <kbd>Alt 1</kbd></span></button>
+  <button class="tool" data-i="search" data-palette><span>Commands <kbd>Ctrl K</kbd></span></button>
+</nav>
+
+<div class="context chrome" id="context" role="toolbar" aria-label="Star">
+  <button class="cbtn" title="Fill"><span class="chip" style="background:#f7a21b"></span>Amber</button>
+  <button class="cbtn" title="Stroke"><span class="chip" style="background:#fff"></span>1 pt</button>
+  <span class="sep"></span>
+  <button class="cbtn" title="Opacity">100 %</button>
+  <button class="cbtn" title="Points">5 points</button>
+  <span class="sep"></span>
+  <button class="cbtn" data-drawer="inspect" title="All properties (Alt 8)">More</button>
+</div>
+
+<button class="zoom chrome" title="Shift 1 fit, Shift 2 selection, Shift 0 100 %">95 %</button>
+
+<aside class="drawer l" id="layers" aria-label="Layers">
+  <h2>Layers <kbd>Alt 1</kbd></h2>
+  <ul>
+    <li><i data-i="text"></i>Satz sets type in the browser</li>
+    <li><i data-i="group"></i>Shapes</li>
+    <li style="padding-left:24px"><i data-i="arrow"></i>Arrow</li>
+    <li style="padding-left:24px"><i data-i="rect"></i>Blurred tile</li>
+    <li style="padding-left:24px"><i data-i="polygon"></i>Triangle</li>
+    <li style="padding-left:24px" aria-selected="true"><i data-i="star"></i>Star</li>
+    <li style="padding-left:24px"><i data-i="ellipse"></i>Sun</li>
+    <li><i data-i="frame"></i>Frame</li>
+    <li><i data-i="rect"></i>Rectangle</li>
+  </ul>
+</aside>
+
+<aside class="drawer r" id="inspect" aria-label="Properties">
+  <h2>Star <kbd>Alt 8</kbd></h2>
+  <h3>Layout</h3>
+  <div class="grid"><div class="f">X <b>30.4</b></div><div class="f">Y <b>14.6</b></div><div class="f">W <b>32.1</b></div><div class="f">H <b>31.4</b></div><div class="f">Points <b>5</b></div><div class="f">Ratio <b>38 %</b></div></div>
+  <h3>Fill</h3>
+  <div class="grid"><div class="f" style="grid-column:1/-1"><span style="display:flex;gap:8px;align-items:center"><span class="chip" style="background:#f7a21b"></span>Linear</span><b>100 %</b></div></div>
+  <h3>Stroke</h3>
+  <div class="grid"><div class="f">White <b>1 pt</b></div><div class="f">Inside</div></div>
+  <h3>Effects</h3>
+  <div class="grid"><div class="f" style="grid-column:1/-1">Drop shadow <b>0, 4, 4</b></div></div>
+</aside>
+
+<div class="scrim" id="scrim"></div>
+<div class="palette" role="dialog" aria-label="Commands">
+  <input id="q" placeholder="Search commands, layers and pages" aria-label="Search commands" autocomplete="off">
+  <ul id="results" role="listbox"></ul>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<p class="note chrome"><b>C · Stille.</b> Ctrl K opens commands. Ctrl \ hides the interface. Alt 1 and Alt 8 slide in panels. V F R P T switch tools. Esc closes.</p>
+
+<script>
+const P = {
+  move: 'M7 4l11 6.5-4.8 1.3 2.9 5-1.7 1-2.9-5L7 16.4z', frame: 'M8 3v18M16 3v18M3 8h18M3 16h18', rect: 'M5.5 5.5h13v13h-13z',
+  ellipse: 'M12 5.5a6.5 6.5 0 1 0 0 13a6.5 6.5 0 1 0 0-13z', polygon: 'M12 5.5l7 12.5h-14z',
+  star: 'M12 4.5l2.2 4.8 5.3.6-3.9 3.6 1.1 5.2-4.7-2.7-4.7 2.7 1.1-5.2-3.9-3.6 5.3-.6z', arrow: 'M5.5 18.5l13-13M11 5.5h7.5v7.5',
+  pen: 'M12 4l5 8-3 7h-4l-3-7zM12 4v7M12 11m-1 0a1 1 0 1 0 2 0a1 1 0 1 0-2 0', text: 'M6 6h12M12 6v13M9.5 19h5', group: 'M5.5 5.5h13v13h-13z',
+  layers: 'M12 4l8 4-8 4-8-4zM4 12l8 4 8-4M4 16l8 4 8-4', search: 'M11 5a6 6 0 1 0 0 12a6 6 0 1 0 0-12zM15.5 15.5L20 20',
+  page: 'M6.5 3.5h8l3 3v14h-11z',
+}
+for (const el of document.querySelectorAll('[data-i]')) {
+  const n = el.dataset.i, s = el.classList.contains('tool') ? 20 : 16
+  el.insertAdjacentHTML('afterbegin', `<svg width="${s}" height="${s}" viewBox="0 0 24 24" aria-hidden="true"><path d="${P[n]}" fill="${n === 'move' ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="${n === 'move' ? 1 : 1.5}" stroke-linejoin="round" stroke-linecap="round" ${n === 'group' ? 'stroke-dasharray="2.5 2"' : ''}/></svg>`)
+}
+
+const body = document.body
+const context = document.getElementById('context')
+const place = () => {
+  const r = document.getElementById('sel').getBoundingClientRect()
+  context.style.left = `${r.left + r.width / 2}px`
+  context.style.top = `${r.top - 12}px`
+}
+place()
+addEventListener('resize', place)
+
+const tools = [...document.querySelectorAll('.tool[data-k]')]
+const pick = (t) => tools.forEach((b) => b.setAttribute('aria-pressed', b === t))
+tools.forEach((t) => t.onclick = () => pick(t))
+
+const toggle = (id, force) => document.getElementById(id).toggleAttribute('data-open', force)
+for (const b of document.querySelectorAll('[data-drawer]')) b.onclick = () => toggle(b.dataset.drawer)
+
+let toastTimer
+const toast = (text) => {
+  const t = document.getElementById('toast')
+  t.textContent = text
+  t.setAttribute('data-show', '')
+  clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => t.removeAttribute('data-show'), 1600)
+}
+
+const COMMANDS = [
+  ['Zoom to fit', 'Shift 1', 'View'], ['Zoom to selection', 'Shift 2', 'View'], ['Zoom to 100 %', 'Shift 0', 'View'],
+  ['Hide interface', 'Ctrl \\', 'View'], ['Show bleed and guides', 'W', 'View'], ['Group selection', 'Ctrl G', 'Arrange'],
+  ['Add auto layout', 'Shift A', 'Arrange'], ['Use as mask', 'Ctrl Alt M', 'Arrange'], ['Bring to front', 'Ctrl Shift ]', 'Arrange'],
+  ['Duplicate', 'Ctrl D', 'Edit'], ['Rename layer', 'Ctrl R', 'Edit'], ['Create text style', '', 'Text'],
+  ['Insert page number', 'Ctrl Alt Shift N', 'Text'], ['Export PDF', 'Ctrl Shift E', 'File'], ['Add page after this one', '', 'Pages'],
+  ['Go to page 4', '', 'Pages'], ['Select layer Sun', '', 'Layers'], ['Select layer Triangle', '', 'Layers'],
+]
+let hits = [], active = 0
+const results = document.getElementById('results'), q = document.getElementById('q')
+const render = () => {
+  const words = q.value.toLowerCase().split(/\s+/).filter(Boolean)
+  hits = COMMANDS.filter(([name, , kind]) => words.every((w) => `${name} ${kind}`.toLowerCase().includes(w)))
+  active = Math.min(active, Math.max(0, hits.length - 1))
+  results.innerHTML = hits.length
+    ? hits.map(([name, key, kind], i) => `<li role="option" aria-selected="${i === active}" data-n="${i}"><span>${name}</span><small>${kind}</small><kbd>${key}</kbd></li>`).join('')
+    : '<p class="empty">No command matches. Try "zoom", "page" or a layer name.</p>'
+}
+const openPalette = (open) => {
+  body.toggleAttribute('data-palette', open)
+  if (open) { q.value = ''; active = 0; render(); setTimeout(() => q.focus(), 10) } else q.blur()
+}
+const run = (i) => {
+  const c = hits[i]
+  if (!c) return
+  openPalette(false)
+  if (c[0] === 'Hide interface') body.toggleAttribute('data-bare')
+  else toast(c[0])
+}
+q.addEventListener('input', () => { active = 0; render() })
+q.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { active = (active + (e.key === 'ArrowDown' ? 1 : -1) + hits.length) % hits.length; render(); e.preventDefault() }
+  else if (e.key === 'Enter') run(active)
+})
+results.addEventListener('pointermove', (e) => { const li = e.target.closest('li'); if (li && +li.dataset.n !== active) { active = +li.dataset.n; render() } })
+results.addEventListener('click', (e) => { const li = e.target.closest('li'); if (li) run(+li.dataset.n) })
+document.querySelector('[data-palette]').onclick = () => openPalette(true)
+document.getElementById('scrim').onclick = () => openPalette(false)
+
+addEventListener('keydown', (e) => {
+  const mod = e.ctrlKey || e.metaKey
+  if (mod && e.key.toLowerCase() === 'k') { openPalette(!body.hasAttribute('data-palette')); e.preventDefault() }
+  else if (e.key === 'Escape') { openPalette(false); toggle('layers', false); toggle('inspect', false) }
+  else if (body.hasAttribute('data-palette')) return
+  else if (mod && e.key === '\\') { body.toggleAttribute('data-bare'); e.preventDefault() }
+  else if (e.altKey && e.code === 'Digit1') { toggle('layers'); e.preventDefault() }
+  else if (e.altKey && e.code === 'Digit8') { toggle('inspect'); e.preventDefault() }
+  else if (!mod && !e.altKey) { const t = tools.find((b) => b.dataset.k === e.key.toLowerCase()); if (t) pick(t) }
+})
+</script>
+</body>
+</html>

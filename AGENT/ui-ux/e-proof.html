@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Satz mockup E: Proof</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+<style>
+:root {
+  color-scheme: dark;
+  --chrome: #2b2b2b;
+  --panel: #323232;
+  --raised: #3b3b3b;
+  --line: #444444;
+  --text: #ededed;
+  --text-2: #b8b8b8;
+  --text-3: #a0a0a0;
+  --surround: #3a3a3a;
+  font: 12px/16px 'IBM Plex Sans', system-ui, sans-serif;
+  color: var(--text);
+  background: var(--chrome);
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; overflow: hidden; -webkit-font-smoothing: antialiased; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 1px solid var(--text); outline-offset: 1px; }
+.num, kbd { font-family: 'IBM Plex Mono', monospace; font-size: 11px; }
+.ph { font-size: 15px; }
+
+.app { display: grid; grid-template: 40px minmax(0, 1fr) / 240px minmax(0, 1fr) 264px; height: 100%; }
+.top { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-bottom: 1px solid var(--line); }
+.top b { font-weight: 500; }
+.top .spacer { flex: 1; }
+.toggle { display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border: 1px solid var(--line); border-radius: 2px; background: none; color: var(--text-2); transition: background .15s, color .15s; }
+.toggle:hover { color: var(--text); }
+.toggle[aria-pressed=true] { border-color: var(--text); background: var(--text); color: var(--chrome); }
+.toggle kbd { opacity: .7; }
+.export { height: 26px; padding: 0 12px; border: 0; border-radius: 2px; background: var(--text); color: var(--chrome); font-weight: 500; }
+
+aside { display: flex; flex-direction: column; min-height: 0; background: var(--panel); overflow: auto; }
+.left { border-right: 1px solid var(--line); }
+.right { border-left: 1px solid var(--line); }
+h2 { display: flex; align-items: center; justify-content: space-between; margin: 0; padding: 12px 12px 8px; font-size: 12px; font-weight: 600; }
+h2 .ph { color: var(--text-3); }
+h3 { margin: 8px 12px 6px; color: var(--text-3); font-size: 11px; font-weight: 500; }
+.tree { margin: 0; padding: 0 6px 8px; list-style: none; border-bottom: 1px solid var(--line); }
+.tree li { display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 6px; border-radius: 2px; color: var(--text-2); }
+.tree li[aria-selected=true] { background: var(--text); color: var(--chrome); }
+
+.chips { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; padding: 0 12px 8px; }
+.chip { position: relative; aspect-ratio: 1; border: 0; border-radius: 2px; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .12); }
+.chip[aria-selected=true] { outline: 1px solid var(--text); outline-offset: 2px; }
+.chip .ph { position: absolute; right: 2px; bottom: 2px; color: #fff; font-size: 11px; mix-blend-mode: difference; }
+.swlist { margin: 0; padding: 0 6px 12px; list-style: none; }
+.swlist li { display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 6px; border-radius: 2px; color: var(--text-2); }
+.swlist li:hover { background: var(--raised); }
+.swlist li span:nth-child(2) { flex: 1; }
+.swlist .dot { width: 14px; height: 14px; border-radius: 2px; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .12); }
+
+.stage { position: relative; display: grid; place-items: center; background: var(--surround); overflow: hidden; transition: background .3s; }
+.sheet { position: relative; height: calc(100vh - 140px); aspect-ratio: 1056 / 1498; }
+.sheet img { display: block; width: 100%; height: 100%; transition: filter .35s; }
+body[data-proof] .sheet img { filter: saturate(.8) contrast(.94) brightness(.98) sepia(.04); }
+.gamut { position: absolute; background: repeating-linear-gradient(45deg, #808080 0 3px, #9a9a9a 3px 6px); opacity: 0; transition: opacity .25s; }
+body[data-gamut] .gamut { opacity: .92; }
+.sel { position: absolute; left: 54%; top: 12.4%; width: 19%; height: 12.4%; outline: 1px solid #fff; box-shadow: 0 0 0 1px #000, inset 0 0 0 1px #000; }
+.sel i { position: absolute; width: 7px; height: 7px; background: #fff; box-shadow: 0 0 0 1px #000; }
+.sel i:nth-child(1) { left: -4px; top: -4px; } .sel i:nth-child(2) { right: -4px; top: -4px; }
+.sel i:nth-child(3) { left: -4px; bottom: -4px; } .sel i:nth-child(4) { right: -4px; bottom: -4px; }
+.readout { position: absolute; left: 12px; bottom: 10px; color: var(--text-2); }
+.surround { position: absolute; right: 12px; bottom: 10px; display: flex; gap: 4px; }
+.surround button { height: 24px; padding: 0 8px; border: 1px solid var(--line); border-radius: 2px; background: var(--chrome); color: var(--text-2); }
+.surround button[aria-pressed=true] { color: var(--text); border-color: var(--text-3); }
+
+.sec { display: grid; gap: 8px; padding: 0 12px 12px; border-bottom: 1px solid var(--line); }
+.fill { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border: 1px solid var(--line); border-radius: 2px; background: none; text-align: left; }
+.fill span:nth-child(2) { flex: 1; }
+.plates { margin: 0; padding: 0; list-style: none; }
+.plates li { display: flex; align-items: center; gap: 8px; height: 26px; color: var(--text-2); }
+.plates li span:nth-child(2) { flex: 1; }
+.plates button { display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 2px; background: none; color: var(--text-3); }
+.plates button:hover { background: var(--raised); color: var(--text); }
+.ink { width: 10px; height: 10px; border-radius: 1px; }
+.meta { display: flex; justify-content: space-between; color: var(--text-3); }
+
+.picker { position: fixed; top: 150px; right: 276px; width: 260px; border: 1px solid var(--line); border-radius: 2px; background: var(--panel); box-shadow: 0 16px 40px rgb(0 0 0 / .45); }
+.picker header { display: flex; align-items: center; border-bottom: 1px solid var(--line); }
+.picker header button { height: 34px; padding: 0 12px; border: 0; border-bottom: 1px solid transparent; background: none; color: var(--text-3); }
+.picker header button[aria-selected=true] { border-bottom-color: var(--text); color: var(--text); }
+.picker header .x { margin-left: auto; }
+.pbody { display: grid; gap: 10px; padding: 12px; }
+.compare { display: grid; grid-template-columns: 1fr 1fr; height: 44px; border-radius: 2px; overflow: hidden; }
+.compare div { display: flex; align-items: flex-end; padding: 4px 6px; color: #fff; font-size: 11px; text-shadow: 0 0 2px #000; }
+.slider { display: grid; grid-template-columns: 16px 1fr 44px; align-items: center; gap: 8px; }
+.slider label { color: var(--text-2); }
+.slider input[type=range] { width: 100%; height: 10px; margin: 0; border-radius: 1px; appearance: none; }
+.slider input[type=range]::-webkit-slider-thumb { width: 8px; height: 16px; border: 1px solid #000; border-radius: 1px; background: #fff; appearance: none; }
+.slider input[type=range]::-moz-range-thumb { width: 8px; height: 16px; border: 1px solid #000; border-radius: 1px; background: #fff; }
+.slider output { text-align: right; }
+.tac { display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; border: 1px solid var(--line); border-radius: 2px; }
+.tac[data-over] { border-color: var(--text); background: var(--text); color: var(--chrome); }
+.row2 { display: flex; gap: 6px; }
+.row2 button { flex: 1; height: 26px; border: 1px solid var(--line); border-radius: 2px; background: none; color: var(--text-2); }
+.row2 button:hover { color: var(--text); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <b>Booklet A5</b><span class="num" style="color:var(--text-3)">CMYK, FOGRA51</span>
+    <span class="spacer"></span>
+    <button class="toggle" id="proof" aria-pressed="false" title="Show colors as printed">Proof <kbd>Ctrl Alt Y</kbd></button>
+    <button class="toggle" id="gamut" aria-pressed="false" title="Mark colors the press cannot print">Gamut warning <kbd>Ctrl Alt Shift Y</kbd></button>
+    <span class="spacer"></span>
+    <button class="export">Export PDF</button>
+  </header>
+
+  <aside class="left" aria-label="Layers and swatches">
+    <h2>Layers</h2>
+    <ul class="tree">
+      <li><i class="ph ph-text-t"></i>Satz sets type in the browser</li>
+      <li><i class="ph ph-selection"></i>Shapes</li>
+      <li style="padding-left:24px"><i class="ph ph-star"></i>Star</li>
+      <li style="padding-left:24px" aria-selected="true"><i class="ph ph-triangle"></i>Triangle</li>
+      <li style="padding-left:24px"><i class="ph ph-circle"></i>Sun</li>
+      <li><i class="ph ph-hash"></i>Frame</li>
+    </ul>
+    <h2>Swatches <i class="ph ph-plus"></i></h2>
+    <div class="chips" id="chips"></div>
+    <ul class="swlist" id="swlist"></ul>
+  </aside>
+
+  <main class="stage" id="stage" aria-label="Canvas">
+    <div class="sheet">
+      <img src="page.jpg" alt="Page 1">
+      <div class="gamut" style="left:5.3%;top:26.7%;width:44.6%;height:7.6%;border-radius:50%"></div>
+      <div class="gamut" style="left:64.2%;top:85.8%;width:25.7%;height:7.3%"></div>
+      <div class="sel"><i></i><i></i><i></i><i></i></div>
+    </div>
+    <p class="readout num" id="readout">Triangle: C 30 M 80 Y 60 K 70, total 240 %</p>
+    <div class="surround" role="group" aria-label="Surround">
+      <button aria-pressed="true" data-g="#3a3a3a">Dark surround</button>
+      <button aria-pressed="false" data-g="#777777">Neutral 50 %</button>
+    </div>
+  </main>
+
+  <aside class="right" aria-label="Properties">
+    <h2>Triangle</h2>
+    <div class="sec">
+      <button class="fill" id="fillBtn"><span class="dot" id="fillDot" style="width:16px;height:16px;border-radius:2px"></span><span id="fillName">Night</span><span class="num">100 %</span></button>
+      <div class="meta"><span>Process color</span><span class="num">bound to swatch</span></div>
+    </div>
+    <h2>Separations</h2>
+    <div class="sec">
+      <ul class="plates">
+        <li><span class="ink" style="background:#00a3e0"></span><span>Cyan</span><span class="num">max 92 %</span><button title="Show only this plate"><i class="ph ph-eye"></i></button></li>
+        <li><span class="ink" style="background:#e5007e"></span><span>Magenta</span><span class="num">max 95 %</span><button><i class="ph ph-eye"></i></button></li>
+        <li><span class="ink" style="background:#ffe600"></span><span>Yellow</span><span class="num">max 100 %</span><button><i class="ph ph-eye"></i></button></li>
+        <li><span class="ink" style="background:#1d1d1b"></span><span>Black</span><span class="num">max 70 %</span><button><i class="ph ph-eye"></i></button></li>
+        <li><span class="ink" style="background:#9e1a2e"></span><span>HKS 43 K</span><span class="num">spot</span><button><i class="ph ph-eye"></i></button></li>
+      </ul>
+      <div class="meta"><span>Highest total ink</span><span class="num">287 % of 300 %</span></div>
+    </div>
+  </aside>
+</div>
+
+<div class="picker" id="picker" role="dialog" aria-label="Fill color">
+  <header role="tablist">
+    <button role="tab" aria-selected="true">CMYK</button><button role="tab" aria-selected="false">RGB</button><button role="tab" aria-selected="false">Swatches</button>
+    <button class="x" aria-label="Close" id="close"><i class="ph ph-x"></i></button>
+  </header>
+  <div class="pbody">
+    <div class="compare"><div id="screen">Screen</div><div id="print">As printed</div></div>
+    <div id="sliders"></div>
+    <div class="tac" id="tac"><span>Total ink</span><span class="num" id="tacv"></span></div>
+    <div class="row2"><button>Save as swatch</button><button>Make spot</button></div>
+  </div>
+</div>
+
+<script>
+const SWATCHES = [
+  ['Poster red', [0, 85, 90, 0]], ['Amber', [0, 35, 90, 0]], ['Night', [30, 80, 60, 70]], ['Paper', [0, 2, 6, 0]],
+  ['Cobalt', [85, 65, 0, 0]], ['Mist', [0, 15, 12, 0]], ['HKS 43 K', [0, 100, 70, 30], true],
+]
+const css = ([c, m, y, k]) => `rgb(${[c, m, y].map((v) => Math.round(255 * (1 - v / 100) * (1 - k / 100))).join(' ')})`
+const printed = ([c, m, y, k]) => `color-mix(in oklab, ${css([c, m, y, k])} 82%, rgb(128 120 118))`
+let current = 2
+
+document.getElementById('chips').innerHTML = SWATCHES.map(([n, v, spot], i) =>
+  `<button class="chip" data-s="${i}" title="${n}" aria-selected="${i === current}" style="background:${css(v)}">${spot ? '<i class="ph ph-circle-half"></i>' : ''}</button>`).join('')
+document.getElementById('swlist').innerHTML = SWATCHES.map(([n, v, spot], i) =>
+  `<li data-s="${i}"><span class="dot" style="background:${css(v)}"></span><span>${n}</span><span class="num">${spot ? 'spot' : v.join(' ')}</span></li>`).join('')
+
+const INKS = [['C', '#00a3e0'], ['M', '#e5007e'], ['Y', '#ffe600'], ['K', '#1d1d1b']]
+function show() {
+  const [name, v] = SWATCHES[current]
+  document.getElementById('sliders').innerHTML = INKS.map(([l, ink], i) =>
+    `<div class="slider"><label>${l}</label><input type="range" min="0" max="100" value="${v[i]}" data-k="${i}" aria-label="${l}" style="background:linear-gradient(to right,#fff,${ink})"><output class="num">${v[i]} %</output></div>`).join('')
+  update()
+}
+function update() {
+  const [name, v] = SWATCHES[current]
+  const total = v.reduce((a, b) => a + b, 0)
+  document.getElementById('screen').style.background = css(v)
+  document.getElementById('print').style.background = printed(v)
+  document.getElementById('tacv').textContent = `${total} % of 300 %`
+  document.getElementById('tac').toggleAttribute('data-over', total > 300)
+  document.getElementById('fillDot').style.background = css(v)
+  document.getElementById('fillName').textContent = name
+  document.getElementById('readout').textContent = `Triangle: C ${v[0]} M ${v[1]} Y ${v[2]} K ${v[3]}, total ${total} %`
+  document.querySelectorAll('.chip').forEach((c) => c.setAttribute('aria-selected', +c.dataset.s === current))
+}
+show()
+document.getElementById('sliders').addEventListener('input', (e) => {
+  const k = +e.target.dataset.k
+  SWATCHES[current][1][k] = +e.target.value
+  e.target.nextElementSibling.textContent = `${e.target.value} %`
+  update()
+})
+for (const el of ['chips', 'swlist']) document.getElementById(el).addEventListener('click', (e) => {
+  const t = e.target.closest('[data-s]')
+  if (t) { current = +t.dataset.s; show() }
+})
+const picker = document.getElementById('picker')
+document.getElementById('close').onclick = () => { picker.hidden = true }
+document.getElementById('fillBtn').onclick = () => { picker.hidden = !picker.hidden }
+
+const flip = (id, attr) => {
+  const b = document.getElementById(id), on = b.getAttribute('aria-pressed') !== 'true'
+  b.setAttribute('aria-pressed', on)
+  document.body.toggleAttribute(attr, on)
+}
+document.getElementById('proof').onclick = () => flip('proof', 'data-proof')
+document.getElementById('gamut').onclick = () => flip('gamut', 'data-gamut')
+addEventListener('keydown', (e) => {
+  if (!(e.ctrlKey || e.metaKey) || !e.altKey || e.code !== 'KeyY') return
+  e.shiftKey ? flip('gamut', 'data-gamut') : flip('proof', 'data-proof')
+  e.preventDefault()
+})
+document.querySelector('.surround').addEventListener('click', (e) => {
+  const b = e.target.closest('button')
+  if (!b) return
+  document.getElementById('stage').style.setProperty('--surround', b.dataset.g)
+  for (const x of e.currentTarget.children) x.setAttribute('aria-pressed', x === b)
+})
+</script>
+</body>
+</html>
