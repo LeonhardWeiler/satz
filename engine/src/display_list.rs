@@ -22,12 +22,18 @@ pub enum Op {
         paint: Paint,
         path: Vec<f32>,
     },
+    /// `text` is what the glyphs stand for, glyph `i` for `text[ranges[i]]`; only
+    /// the PDF uses it.
     GlyphRun {
         font: u32,
         size: f32,
         paint: Paint,
         glyphs: Vec<u16>,
         positions: Vec<f32>,
+        #[serde(skip)]
+        text: String,
+        #[serde(skip)]
+        ranges: Vec<std::ops::Range<usize>>,
     },
     Image {
         image: u32,
@@ -206,6 +212,7 @@ pub fn encode(ops: &[Op]) -> Vec<u32> {
                 paint: p,
                 glyphs,
                 positions,
+                ..
             } => {
                 out.extend([4, *font, size.to_bits()]);
                 paint(&mut out, p);
@@ -401,6 +408,8 @@ mod tests {
                 },
                 glyphs: vec![3, 65535, 42],
                 positions: vec![0.0, 0.0, 6.5, 0.0, 13.0, 0.0],
+                text: String::new(),
+                ranges: vec![],
             },
             Op::Image {
                 image: 2,

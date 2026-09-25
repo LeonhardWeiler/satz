@@ -81,9 +81,15 @@ async function expectCanvasMatchesPdf(page: Page) {
   return pdf
 }
 
-test('canvas matches the exported pdf', async ({ page }) => {
+test('canvas matches the exported pdf, whose text is the text of every line', async ({ page }) => {
   await open(page)
-  await expectCanvasMatchesPdf(page)
+  const pdf = await expectCanvasMatchesPdf(page)
+  const text = execFileSync('mutool', ['draw', '-q', '-F', 'text', '-o', '-', pdf]).toString()
+  expect(text.replace(/-\n/g, '').replace(/\s+/g, ' ')).toContain(
+    'Satz sets type in the browser. The engine shapes this paragraph with harfrust, breaks it into lines with the ' +
+      'Knuth-Plass algorithm and justifies every line but the last to the width of its frame. The canvas and the PDF ' +
+      'draw the same glyphs from the same font.',
+  )
 })
 
 test('draw, move, undo and redo a rectangle, then export it', async ({ page }) => {

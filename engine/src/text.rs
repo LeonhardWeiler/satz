@@ -196,13 +196,16 @@ impl Default for TextFrame {
     }
 }
 
-/// A glyph at (x, y) on its baseline, drawn with the attributes of `span`.
+/// A glyph at (x, y) on its baseline, drawn with the attributes of `span`, for the
+/// text from byte `cluster`, or a hyphen inserted there.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Glyph {
     pub id: u16,
     pub x: f32,
     pub y: f32,
     pub span: usize,
+    pub cluster: usize,
+    pub hyphen: bool,
 }
 
 /// Glyph runs of `text` set in `frame`; characters without a fill take `fills`.
@@ -226,10 +229,13 @@ pub fn draw(
         .collect();
     let mut ops = Vec::new();
     for line in lay_out(text, spans, frame, tf) {
+        let mut at = 0;
         for run in line.chunk_by(|a, b| {
             spans[a.span].attrs.size == spans[b.span].attrs.size
                 && span_paints[a.span] == span_paints[b.span]
         }) {
+            let (run_text, ranges) = source(text, &line, at..at + run.len());
+            at += run.len();
             for paint in &span_paints[run[0].span] {
                 ops.push(Op::GlyphRun {
                     font: 0,
@@ -237,11 +243,44 @@ pub fn draw(
                     paint: paint.clone(),
                     glyphs: run.iter().map(|g| g.id).collect(),
                     positions: run.iter().flat_map(|g| [g.x, g.y]).collect(),
+                    text: run_text.clone(),
+                    ranges: ranges.clone(),
                 });
             }
         }
     }
     ops
+}
+
+/// The text that the glyphs `run` of `line` stand for and each glyph's range in it:
+/// up to the next glyph's text or space, so a ligature stands for all its letters.
+/// Spaces have no glyph; PDF readers find them in the gaps.
+fn source(
+    text: &str,
+    line: &[Glyph],
+    run: std::ops::Range<usize>,
+) -> (String, Vec<std::ops::Range<usize>>) {
+    let mut out = String::new();
+    let mut ranges = Vec::new();
+    for k in run {
+        let g = &line[k];
+        let start = out.len();
+        if g.hyphen {
+            out.push('-');
+        } else if k == 0 || line[k - 1].hyphen || line[k - 1].cluster < g.cluster {
+            let next = line[k + 1..]
+                .iter()
+                .map(|n| n.cluster)
+                .find(|&n| n > g.cluster)
+                .unwrap_or(text.len());
+            let word = text[g.cluster..next]
+                .find(char::is_whitespace)
+                .map_or(next, |i| g.cluster + i);
+            out.push_str(&text[g.cluster..word]);
+        }
+        ranges.push(start..out.len());
+    }
+    (out, ranges)
 }
 
 /// The lines of `text` that fit in `frame`, each a list of glyphs.
@@ -381,7 +420,7 @@ fn rows(text: &str, spans: &[Span], cw: Option<f32>) -> (Vec<Row>, f32) {
                     width: hyphen_adv * a.size as f32,
                     cost: HYPHEN_COST,
                 });
-                glyphs.push(Some((hyphen, 0.0, 0.0, span)));
+                glyphs.push(Some((hyphen, 0.0, 0.0, span, cluster, true)));
                 clusters.push(cluster);
             }
             clusters.push(cluster);
@@ -399,6 +438,8 @@ fn rows(text: &str, spans: &[Span], cw: Option<f32>) -> (Vec<Row>, f32) {
                     pos.x_offset as f32 * scale,
                     pos.y_offset as f32 * scale,
                     span,
+                    cluster,
+                    false,
                 )));
             }
         }
@@ -484,12 +525,14 @@ fn rows(text: &str, spans: &[Span], cw: Option<f32>) -> (Vec<Row>, f32) {
                 {
                     stops.push((clusters[k], cx));
                 }
-                if let Some((id, dx, dy, span)) = glyphs[k] {
+                if let Some((id, dx, dy, span, cluster, hyphen)) = glyphs[k] {
                     line.push(Glyph {
                         id,
                         x: cx + dx,
                         y: -dy,
                         span,
+                        cluster,
+                        hyphen,
                     });
                 }
                 cx += spread(&items[k]);
@@ -1037,6 +1080,47 @@ mod tests {
         assert_eq!(index_at(&ls, 0.0, 0.0), 0);
         assert_eq!(index_at(&ls, 100.0, 25.0), 8);
         assert_eq!(index_at(&ls, 6.0, 100.0), 6);
+    }
+
+    fn texts(text: &str, a: Attrs, frame: [f32; 4]) -> Vec<String> {
+        let palette = Palette::default();
+        let modes = Modes::new();
+        let s = Scope {
+            palette: &palette,
+            modes: &modes,
+        };
+        let spans = one(text, a);
+        draw(
+            text,
+            &spans,
+            &[Fill::solid(0x000000ffu32)],
+            frame,
+            &TextFrame::default(),
+            &s,
+        )
+        .into_iter()
+        .map(|op| match op {
+            Op::GlyphRun { text, .. } => text,
+            _ => panic!("unexpected {op:?}"),
+        })
+        .collect()
+    }
+
+    #[test]
+    fn each_run_carries_the_text_of_its_glyphs_with_ligatures_and_hyphens() {
+        assert_eq!(
+            texts("Hi fine Hi", attrs(10.0), [0.0, 0.0, 30.0, 50.0]),
+            ["Hifine", "Hi"]
+        );
+        let de = Attrs {
+            hyphenate: true,
+            lang: Lang::De,
+            ..attrs(10.0)
+        };
+        assert_eq!(
+            texts("Silbentrennung", de, [0.0, 0.0, 45.0, 50.0]),
+            ["Silben-", "trennung"]
+        );
     }
 
     #[test]

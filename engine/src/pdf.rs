@@ -135,6 +135,8 @@ fn draw(s: &mut Surface, env: &Env, ops: &[Op]) {
                 paint,
                 glyphs,
                 positions,
+                text,
+                ranges,
                 ..
             } => {
                 let Some(&[x0, y0]) = positions.first_chunk() else {
@@ -153,7 +155,7 @@ fn draw(s: &mut Surface, env: &Env, ops: &[Op]) {
                             0.0,
                             (y0 - y) / size,
                             0.0,
-                            0..0,
+                            ranges.get(i).cloned().unwrap_or(0..0),
                             None,
                         )
                     })
@@ -163,7 +165,7 @@ fn draw(s: &mut Surface, env: &Env, ops: &[Op]) {
                     Point::from_xy(x0, y0),
                     &run,
                     env.font.clone(),
-                    "",
+                    text,
                     *size,
                     false,
                 );

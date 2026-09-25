@@ -446,6 +446,8 @@ mod tests {
             paint: BLACK,
             glyphs: vec![36],
             positions: vec![2.0, 18.0],
+            text: String::new(),
+            ranges: vec![],
         }];
         let px = rasterize(&ops, [0.0, 0.0, 20.0, 20.0], 72.0).unwrap();
         assert!(px.pixels().iter().any(|p| p.alpha() == 255));
@@ -464,6 +466,8 @@ mod tests {
                 paint: BLACK,
                 glyphs: vec![36],
                 positions: vec![20.0, 20.0],
+                text: String::new(),
+                ranges: vec![],
             },
         ];
         assert_eq!(extent(&ops), Some([1.0, 2.0, 29.0, 28.0]));
