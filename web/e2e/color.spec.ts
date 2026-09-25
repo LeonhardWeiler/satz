@@ -141,3 +141,15 @@ test('a spot swatch is made in the swatches panel, bound in the picker, tinted a
   const [r2, , b2] = (await pixels(page, x, y, 1, 1))[0]
   expect(b2 - r2).toBeGreaterThan(100)
 })
+
+test('arrow keys in the saturation area do not move the layer', async ({ page }) => {
+  await open(page)
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).last().click()
+  const x = page.getByRole('region', { name: 'Layout' }).getByTitle('X in mm').getByRole('textbox')
+  const before = await x.inputValue()
+  await page.getByRole('complementary', { name: 'Properties' }).getByRole('button', { name: 'Fill color' }).click()
+  const area = page.getByRole('dialog', { name: 'Fill color' }).getByRole('slider', { name: 'Saturation and brightness' })
+  await area.focus()
+  await area.press('ArrowRight')
+  await expect(x).toHaveValue(before)
+})

@@ -23,6 +23,7 @@ export function App({ ck, engine }: { ck: CanvasKit; engine: Engine }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === 'KeyE') exportPdf()
       else if (isTyping(e) || !handleKey(editor, e)) return
       e.preventDefault()

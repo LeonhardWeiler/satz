@@ -13,13 +13,6 @@ font helper, i18n.
 Found by the review on 2026-09-25 (IDs from `AGENT/project-health-report.html`), causes checked in
 the code, not reproduced in the browser.
 
-### B11. Arrow keys in the colour picker also move the selected layer (BUG-8)
-- Cause: the saturation area in `ColorPicker.tsx` is a `div role="slider"`; `step` only calls
-  `preventDefault`. `App.onKey` ignores `defaultPrevented` and `isTyping` only matches inputs, so
-  `handleKey` nudges the selection on every arrow press.
-- Fix: `if (e.defaultPrevented) return` at the top of `App.onKey`.
-- Test: e2e focuses the saturation area, presses ArrowRight, checks X is unchanged.
-
 ### B12. Engine traps on a large raster ppi (PERF-2)
 - Cause: `SetDocument` only requires `rasterPpi > 0`. At 800 ppi a page-sized A2 shadow needs
   ≈ 990 MB per buffer; the allocation traps the WASM engine and the app is dead.
