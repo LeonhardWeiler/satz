@@ -5016,6 +5016,55 @@ mod tests {
         assert_eq!(solid_colors(&d)[1], blue);
     }
 
+    #[test]
+    fn a_range_bound_to_a_colour_variable_takes_the_mode_of_the_page_it_shows_on() {
+        let (mut d, p1) = empty();
+        let p2 = add_page(&mut d, None);
+        let (c, _) = collection(&mut d, "Theme");
+        let dark = d
+            .apply(Command::AddMode {
+                collection: c.clone(),
+                name: "Dark".into(),
+            })
+            .unwrap()
+            .remove(0);
+        let ink = variable(&mut d, &c, "Ink", Value::Color(Color::Rgb(0xff0000ff))).unwrap();
+        set_value(&mut d, &ink, &dark, Value::Color(Color::Rgb(0x0000ffff))).unwrap();
+        let a = fixed_text(&mut d, &p1, [0.0, 0.0, 100.0, LEADING + 1.0]);
+        let b = fixed_text(&mut d, &p2, [0.0, 0.0, 100.0, 100.0]);
+        set_text(&mut d, &a, "Hi\nHo");
+        thread(&mut d, &a, &b).unwrap();
+        let red = TextProps {
+            fill: Some(var(&ink)),
+            ..TextProps::default()
+        };
+        format(&mut d, &a, Some([0, 5]), red).unwrap();
+        let m = add_master(&mut d);
+        let t = create(&mut d, &m, NewKind::Text, [0.0, 200.0, 0.0, 0.0]);
+        set_text(&mut d, &t, "Yo");
+        let red = TextProps {
+            fill: Some(var(&ink)),
+            ..TextProps::default()
+        };
+        format(&mut d, &t, Some([0, 2]), red).unwrap();
+        use_master(&mut d, &p2, Some(&m)).unwrap();
+        use_mode(&mut d, &p2, &c, Some(&dark));
+        let glyphs = |d: &Doc, p: &str| {
+            d.render(p)
+                .into_iter()
+                .filter_map(|o| match o {
+                    Op::GlyphRun {
+                        paint: Paint::Solid { color, .. },
+                        ..
+                    } => Some(color),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(glyphs(&d, &p1), [[1.0, 0.0, 0.0, 1.0]]);
+        assert_eq!(glyphs(&d, &p2), [[0.0, 0.0, 1.0, 1.0]; 2]);
+    }
+
     fn bind(d: &mut Doc, id: &str, prop: &str, variable: Option<&str>) -> Res<Vec<String>> {
         d.apply(Command::Bind {
             id: id.into(),
