@@ -2,13 +2,11 @@ import { useState, type DragEvent, type MouseEvent } from 'react'
 import type { Page } from './model'
 import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
+import { prefix } from './engine/engine'
 import { useEditor, type Editor } from './editor'
 import { Icon } from './icons'
 
 type Menu = { id: string; master: boolean; x: number; y: number }
-
-/** The letter a page shows for its master: the prefix of "A-Master", or the first letter. */
-export const prefix = (name: string) => (/^(\w{1,3})-/.exec(name)?.[1] ?? name.slice(0, 1)).toUpperCase()
 
 /**
  * Figma's pages list with InDesign's masters above the pages: the shown page or master

@@ -3531,7 +3531,7 @@ fn renumber(nodes: &mut [Node], number: &str) {
 
 /// The letters a master's page numbers show: the prefix of "A-Master", or the first
 /// letter, as the pages panel shows it.
-fn prefix(name: &str) -> String {
+pub fn prefix(name: &str) -> String {
     let head: String = name
         .chars()
         .take_while(|c| c.is_alphanumeric() || *c == '_')

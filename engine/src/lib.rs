@@ -126,6 +126,12 @@ impl Engine {
     }
 }
 
+/// The letters that the page numbers of the master `name` show.
+#[wasm_bindgen]
+pub fn prefix(name: &str) -> String {
+    doc::prefix(name)
+}
+
 /// Screen preview of a CMYK colour as 0xRRGGBB.
 #[wasm_bindgen]
 pub fn preview(c: f32, m: f32, y: f32, k: f32) -> u32 {

@@ -53,6 +53,18 @@ test('a master is made, applied to a page, overridden with ctrl+shift+click and 
   await expect(rects).toHaveCount(3)
 })
 
+test('a page shows the prefix of its master as its page numbers do, in any script', async ({ page }) => {
+  await open(page)
+  const pages = page.getByRole('navigation', { name: 'Pages' })
+  await pages.getByRole('button', { name: 'Add master' }).click()
+  await pages.getByRole('button', { name: 'A-Master', exact: true }).dblclick()
+  await pages.getByRole('textbox', { name: 'Master name' }).fill('ÄB-Master')
+  await pages.getByRole('textbox', { name: 'Master name' }).press('Enter')
+  await pages.getByRole('button', { name: 'Page 1', exact: true }).click()
+  await page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Master' }).selectOption('ÄB-Master')
+  await expect(pages.getByTitle('Master ÄB-Master')).toHaveText('ÄB')
+})
+
 test('left pages show the left page of a master spread and right pages its right page, and override it there', async ({ page }) => {
   await open(page)
   const pages = page.getByRole('navigation', { name: 'Pages' })
