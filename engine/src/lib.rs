@@ -44,13 +44,13 @@ impl Engine {
 
     /// Path from the topmost page child down to the deepest node at (x, y) in pt.
     /// `tolerance` in pt widens the hit area of outlines, e.g. for thin lines.
-    pub fn hit(&self, page: usize, x: f64, y: f64, tolerance: f64) -> Vec<String> {
+    pub fn hit(&self, page: &str, x: f64, y: f64, tolerance: f64) -> Vec<String> {
         self.doc.hit(page, x, y, tolerance)
     }
 
     /// The view is invalid after the next call into the engine.
     #[wasm_bindgen(js_name = displayList)]
-    pub fn display_list(&mut self, page: usize) -> Uint32Array {
+    pub fn display_list(&mut self, page: &str) -> Uint32Array {
         self.list = encode(&self.doc.render(page));
         unsafe { Uint32Array::view(&self.list) }
     }
@@ -101,7 +101,7 @@ impl Engine {
 
     pub fn pdf(&self) -> Vec<u8> {
         let snap = self.doc.snapshot();
-        let pages: Vec<_> = (0..snap.pages.len()).map(|i| self.doc.render(i)).collect();
+        let pages: Vec<_> = snap.pages.iter().map(|p| self.doc.render(&p.id)).collect();
         pdf::pdf(&pages, snap.raster_ppi as f32, snap.color_mode)
     }
 

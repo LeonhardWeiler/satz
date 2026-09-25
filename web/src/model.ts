@@ -84,7 +84,11 @@ export type Command =
   | { type: 'move'; ids: string[]; parent: string; index: number }
   | { type: 'order'; ids: string[]; to: 'forward' | 'backward' | 'front' | 'back' }
   | { type: 'duplicate' | 'copy'; ids: string[] }
-  | { type: 'paste'; above: string[] }
+  | { type: 'paste'; above: string[]; page?: string }
+  | { type: 'addPage'; after: string | null }
+  | { type: 'duplicatePage' | 'deletePage'; id: string }
+  | { type: 'setPage'; id: string; width?: number; height?: number; bleed?: number }
+  | { type: 'movePage'; id: string; index: number }
   | { type: 'setDocument'; rasterPpi?: number; colorMode?: ColorMode }
   | { type: 'addSwatch'; name: string; color: Color; spot: boolean }
   | { type: 'setSwatch'; id: string; name?: string; color?: Color; spot?: boolean }

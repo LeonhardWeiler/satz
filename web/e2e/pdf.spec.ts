@@ -19,7 +19,8 @@ function pageBox(xml: string, name: string) {
   return { l, b, r, t }
 }
 
-async function expectCanvasMatchesPdf(page: Page) {
+/** Compares the canvas with page `n` of the exported pdf. */
+async function expectCanvasMatchesPdf(page: Page, n = 1) {
   const canvas = (await page.getByLabel('Page canvas').boundingBox())!
   const dir = mkdtempSync(join(tmpdir(), 'satz-'))
   const pdf = join(dir, 'satz.pdf')
@@ -27,7 +28,7 @@ async function expectCanvasMatchesPdf(page: Page) {
   await page.getByRole('button', { name: 'Export PDF' }).click()
   await (await download).saveAs(pdf)
 
-  const boxes = execFileSync('mutool', ['pages', pdf]).toString()
+  const boxes = execFileSync('mutool', ['pages', pdf, String(n)]).toString()
   const bleedBox = pageBox(boxes, 'BleedBox')
   const trimBox = pageBox(boxes, 'TrimBox')
   const bleed = trimBox.l - bleedBox.l
@@ -43,7 +44,7 @@ async function expectCanvasMatchesPdf(page: Page) {
   const shot = PNG.sync.read(await page.screenshot({ clip: { x, y, width: w, height: h } }))
 
   const raster = join(dir, 'satz.png')
-  execFileSync('mutool', ['draw', '-q', '-O', '0', '-b', 'BleedBox', '-r', `${view.zoom * 72}`, '-o', raster, pdf])
+  execFileSync('mutool', ['draw', '-q', '-O', '0', '-b', 'BleedBox', '-r', `${view.zoom * 72}`, '-o', raster, pdf, String(n)])
   const ref = PNG.sync.read(readFileSync(raster))
   expect(Math.abs(ref.width - w)).toBeLessThanOrEqual(1)
   expect(Math.abs(ref.height - h)).toBeLessThanOrEqual(1)
@@ -304,4 +305,27 @@ test('formatted text matches the canvas', async ({ page }) => {
   const pdf = await expectCanvasMatchesPdf(page)
   const trace = execFileSync('mutool', ['draw', '-F', 'trace', '-o', '-', pdf]).toString()
   expect(trace.split('glyph="hyphen"').length - 1).toBeGreaterThan(1)
+})
+
+test('every page is exported and the second one matches the canvas', async ({ page }) => {
+  await open(page)
+  await page.getByRole('navigation', { name: 'Pages' }).getByRole('button', { name: 'Add page' }).click()
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  for (const [name, value] of [['W in mm', '120'], ['H in mm', '160'], ['Bleed in mm', '5']]) {
+    await panel.getByRole('textbox', { name }).fill(value)
+    await panel.getByRole('textbox', { name }).press('Enter')
+  }
+  const canvas = (await page.getByLabel('Page canvas').boundingBox())!
+  const at = (fx: number, fy: number) => [canvas.x + canvas.width * fx, canvas.y + canvas.height * fy] as const
+  await page.keyboard.press('o')
+  await page.mouse.move(...at(0.3, 0.3))
+  await page.mouse.down()
+  await page.mouse.move(...at(0.6, 0.5), { steps: 4 })
+  await page.mouse.up()
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Shift+1')
+  await page.mouse.move(1, 1)
+  const pdf = await expectCanvasMatchesPdf(page, 2)
+  expect(execFileSync('mutool', ['pages', pdf]).toString().match(/<page /g)).toHaveLength(2)
 })

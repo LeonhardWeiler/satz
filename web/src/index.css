@@ -853,7 +853,7 @@ span.swatch {
 .left {
   grid-area: 1 / 1;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 8px;
   min-height: 0;
 }
@@ -1144,4 +1144,33 @@ span.swatch {
   display: grid;
   align-content: start;
   gap: 8px;
+}
+
+.page-list {
+  max-height: 160px;
+}
+
+.page-name {
+  padding-left: 12px;
+}
+
+.page-name[aria-current='page'] {
+  font-weight: 600;
+}
+
+.layer:has(> .page-name[aria-current='page']) {
+  background: var(--selected);
+  color: var(--text);
+}
+
+.menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+}
+
+.menu-item:disabled {
+  color: var(--text-3);
+  background: none;
+  cursor: default;
 }

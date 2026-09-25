@@ -64,9 +64,9 @@ export class Renderer {
     this.chrome = this.paint.copy()
   }
 
-  draw(canvas: Canvas, view: View, dpr: number, overlay: Overlay) {
+  draw(canvas: Canvas, page: string, view: View, dpr: number, overlay: Overlay) {
     const { ck, chrome: paint } = this
-    const ops = decode(this.engine.displayList(0))
+    const ops = decode(this.engine.displayList(page))
     canvas.clear(ck.parseColorString(BACKGROUND))
     canvas.save()
     canvas.scale(dpr, dpr)
@@ -74,11 +74,11 @@ export class Renderer {
     canvas.scale(view.zoom, view.zoom)
     let bleedBox = ck.LTRBRect(0, 0, 0, 0)
     let trimBox = bleedBox
-    const page = ops[0]
-    if (page?.op === 'page') {
-      const b = page.bleed
-      trimBox = ck.LTRBRect(0, 0, page.width, page.height)
-      bleedBox = ck.LTRBRect(-b, -b, page.width + b, page.height + b)
+    const sheet = ops[0]
+    if (sheet?.op === 'page') {
+      const b = sheet.bleed
+      trimBox = ck.LTRBRect(0, 0, sheet.width, sheet.height)
+      bleedBox = ck.LTRBRect(-b, -b, sheet.width + b, sheet.height + b)
       paint.setStyle(ck.PaintStyle.Fill)
       paint.setColor(ck.WHITE)
       canvas.drawRect(trimBox, paint)

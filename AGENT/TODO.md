@@ -28,7 +28,7 @@ font helper, i18n.
 ## Breadth
 
 ### 11. Pages, masters, threading
-- Multiple pages, pages panel, master pages applied per page.
+- Master pages applied per page.
 - Frame threading across frames and pages; only fixed frames thread, the last
   frame of a chain may be auto height. Overset detection.
 

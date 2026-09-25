@@ -30,24 +30,30 @@ export class Editor {
   dragging = false
   /** The text layer edited in its frame, which is then the selection. */
   editing: Editing | null = null
+  /** The page shown on the canvas. */
+  pageId: string
   /** Typing into the edited text is one undo step until the caret moves. */
   private typing = false
   private listeners = new Set<() => void>()
 
   constructor(readonly engine: Engine) {
     this.snapshot = engine.snapshot()
+    this.pageId = this.snapshot.pages[0].id
     this.nodes = index(this.page.children)
   }
 
   get page() {
-    return this.snapshot.pages[0]
+    return this.snapshot.pages.find((p) => p.id === this.pageId) ?? this.snapshot.pages[0]
   }
 
   apply(cmd: Command): string[] {
+    const at = this.snapshot.pages.findIndex((p) => p.id === this.pageId)
     try {
       return this.engine.apply(cmd)
     } finally {
       this.snapshot = this.engine.snapshot()
+      const { pages } = this.snapshot
+      if (!pages.some((p) => p.id === this.pageId)) this.pageId = pages[Math.min(at, pages.length - 1)].id
       this.nodes = index(this.page.children)
       this.selection = this.selection.filter((id) => this.nodes.has(id))
       const n = this.editing && this.nodes.get(this.editing.id)?.node
@@ -66,6 +72,16 @@ export class Editor {
     if (patch.editing) patch = { selection: [patch.editing.id], ...patch }
     Object.assign(this, patch)
     this.emit()
+  }
+
+  /** Shows the page `id` with nothing selected. */
+  showPage(id: string) {
+    if (id === this.pageId) return
+    this.finishPen(false)
+    this.stopEditing()
+    this.pageId = id
+    this.nodes = index(this.page.children)
+    this.set({ selection: [] })
   }
 
   setTool(tool: Tool) {

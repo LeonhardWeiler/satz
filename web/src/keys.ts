@@ -28,7 +28,7 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
     editor.apply({ type: key === 'y' || e.shiftKey ? 'redo' : 'undo' })
   }
   else if (mod && key === 'a') editor.set({ selection: siblings })
-  else if (mod && key === 'v') editor.set({ selection: editor.apply({ type: 'paste', above: ids }) })
+  else if (mod && key === 'v') editor.set({ selection: editor.apply({ type: 'paste', above: ids, page: editor.page.id }) })
   else if (e.key === 'Escape') {
     if (editor.tool !== 'move') editor.setTool('move')
     else editor.set({ selection: one?.parent ? [one.parent.id] : [] })

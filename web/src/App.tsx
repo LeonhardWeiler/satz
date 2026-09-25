@@ -5,6 +5,7 @@ import { Canvas, isTyping } from './Canvas'
 import { Editor } from './editor'
 import { handleKey } from './keys'
 import { Layers } from './Layers'
+import { Pages } from './Pages'
 import { Properties } from './Properties'
 import { Swatches } from './Swatches'
 import { Toolbar } from './Toolbar'
@@ -36,6 +37,7 @@ export function App({ ck, engine }: { ck: CanvasKit; engine: Engine }) {
     <main className="app">
       <h1 className="sr-only">Satz</h1>
       <div className="left">
+        <Pages editor={editor} />
         <Layers editor={editor} />
         <Swatches editor={editor} />
       </div>

@@ -94,9 +94,15 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
       {!box && (
         <Section title="Page">
           <div className="grid">
-            <Field label="W" value={page.width / MM} unit="mm" readOnly />
-            <Field label="H" value={page.height / MM} unit="mm" readOnly />
-            <Field label="Bleed" value={page.bleed / MM} unit="mm" readOnly />
+            {(['width', 'height', 'bleed'] as const).map((k) => (
+              <Field
+                key={k}
+                label={k === 'bleed' ? 'Bleed' : k === 'width' ? 'W' : 'H'}
+                value={page[k] / MM}
+                unit="mm"
+                onCommit={(v) => editor.apply({ type: 'setPage', id: page.id, [k]: v * MM })}
+              />
+            ))}
             <Field
               label="Raster"
               value={rasterPpi}

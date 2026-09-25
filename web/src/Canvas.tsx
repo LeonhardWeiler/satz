@@ -63,6 +63,9 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     const canvas = ref.current!
     const renderer = new Renderer(ck, editor.engine)
     const view: View = { x: 0, y: 0, zoom: 1 }
+    /** The view of each page left for another, as Figma keeps it. */
+    const views = new Map<string, View>()
+    let shown = editor.page.id
     let surface: Surface | null = null
     let frame = 0
     let fitted = false
@@ -128,7 +131,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           })
           if (caretOn || ed.anchor !== ed.focus) text = editor.engine.textOverlay(ed.id, ed.anchor, ed.focus, 1 / view.zoom).slice()
         }
-        renderer.draw(surface.getCanvas(), view, canvas.width / canvas.clientWidth, {
+        renderer.draw(surface.getCanvas(), editor.page.id, view, canvas.width / canvas.clientWidth, {
           text,
           selection: editor.selection.length > 1 || ed || drag?.kind === 'draw' ? editor.selected() : [],
           hover: hovered,
@@ -179,7 +182,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       if (box.w && near(x, r, EDGE)) return 'e'
       return undefined
     }
-    const hit = (p: Point) => editor.engine.hit(0, p.x, p.y, HIT / view.zoom)
+    const hit = (p: Point) => editor.engine.hit(editor.page.id, p.x, p.y, HIT / view.zoom)
     const track = () => {
       if (!pointer || drag || editor.pen) return
       canvas.style.cursor = CURSORS[handleAt(pointer) ?? ''] ?? ''
@@ -504,6 +507,15 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     }
 
     const unsubscribe = editor.subscribe(() => {
+      if (editor.page.id !== shown) {
+        views.set(shown, { ...view })
+        shown = editor.page.id
+        const kept = views.get(shown)
+        if (kept) {
+          Object.assign(view, kept)
+          setZoom(view.zoom)
+        } else fit()
+      }
       wake()
       canvas.dataset.tool = editor.tool
       track()

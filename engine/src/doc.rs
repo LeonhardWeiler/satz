@@ -135,8 +135,37 @@ pub enum Command {
         raster_ppi: Option<f64>,
         color_mode: Option<ColorMode>,
     },
+    /// Pastes above the topmost of `above`, or else into the parent the layers were
+    /// copied from when that is on `page`, or else onto `page`.
     Paste {
         above: Vec<String>,
+        #[serde(default)]
+        page: Option<String>,
+    },
+    /// Adds an empty page after `after`, or at the end, of the size of that page or
+    /// the last one; returns its id.
+    AddPage {
+        after: Option<String>,
+    },
+    /// Adds a copy of a page with copies of its layers after it; returns its id.
+    DuplicatePage {
+        id: String,
+    },
+    /// Sets the trim size and bleed of a page in pt.
+    SetPage {
+        id: String,
+        width: Option<f64>,
+        height: Option<f64>,
+        bleed: Option<f64>,
+    },
+    /// Removes a page other than the last.
+    DeletePage {
+        id: String,
+    },
+    /// Moves a page to `index` among the pages.
+    MovePage {
+        id: String,
+        index: usize,
     },
     AddSwatch {
         name: String,
@@ -1452,8 +1481,9 @@ impl Doc {
                     .collect();
                 vec![]
             }
-            Command::Paste { above } => {
+            Command::Paste { above, page } => {
                 let above = self.sorted(&above)?.pop();
+                let page = page.map(|p| self.page(&p)).transpose()?;
                 let mut out = Vec::new();
                 for (i, (clip, from)) in self.clipboard.iter().enumerate() {
                     let (parent, index) = match above {
@@ -1463,13 +1493,12 @@ impl Doc {
                         ),
                         None => {
                             let p = from
-                                .filter(|&p| self.node(&p.to_string()).is_ok())
-                                .or_else(|| {
-                                    self.tree
-                                        .roots()
-                                        .into_iter()
-                                        .find(|&r| self.kind(r) == "page")
+                                .filter(|&p| {
+                                    self.node(&p.to_string()).is_ok()
+                                        && page.is_none_or(|g| self.root(p) == g)
                                 })
+                                .or(page)
+                                .or_else(|| self.pages().first().copied())
                                 .ok_or("no page")?;
                             (p.into(), self.children(p).len())
                         }
@@ -1477,6 +1506,72 @@ impl Doc {
                     out.push(self.paste(clip, parent, index)?.to_string());
                 }
                 out
+            }
+            Command::AddPage { after } => {
+                let pages = self.pages();
+                let like = match after {
+                    Some(a) => self.page(&a)?,
+                    None => *pages.last().ok_or("no page")?,
+                };
+                let p = self.tree.create(None).map_err(err)?;
+                self.tree.mov_after(p, like).map_err(err)?;
+                let (m, from) = (self.meta(p), self.meta(like));
+                m.insert("kind", "page").map_err(err)?;
+                for k in ["width", "height", "bleed"] {
+                    m.insert(k, num(&from, k)).map_err(err)?;
+                }
+                vec![p.to_string()]
+            }
+            Command::DuplicatePage { id } => {
+                let from = self.page(&id)?;
+                let p = self.tree.create(None).map_err(err)?;
+                self.tree.mov_after(p, from).map_err(err)?;
+                let m = self.meta(p);
+                for (k, v) in self.meta(from).get_value().into_map().unwrap().iter() {
+                    m.insert(k, v.clone()).map_err(err)?;
+                }
+                for (i, c) in self.children(from).into_iter().enumerate() {
+                    self.paste(&self.clip(c), p.into(), i)?;
+                }
+                vec![p.to_string()]
+            }
+            Command::SetPage {
+                id,
+                width,
+                height,
+                bleed,
+            } => {
+                let m = self.meta(self.page(&id)?);
+                for (k, v) in [("width", width), ("height", height), ("bleed", bleed)] {
+                    match v {
+                        Some(v) if !(v >= 0.0 && v.is_finite()) => {
+                            return Err(format!("{k} must not be negative"));
+                        }
+                        Some(v) => m.insert(k, v).map_err(err)?,
+                        None => {}
+                    }
+                }
+                vec![]
+            }
+            Command::DeletePage { id } => {
+                let p = self.page(&id)?;
+                if self.pages().len() == 1 {
+                    return Err("a document keeps one page".into());
+                }
+                self.remove(p)?;
+                vec![]
+            }
+            Command::MovePage { id, index } => {
+                let p = self.page(&id)?;
+                let others: Vec<_> = self.pages().into_iter().filter(|&o| o != p).collect();
+                match others.get(index) {
+                    Some(&o) => self.tree.mov_before(p, o).map_err(err)?,
+                    None => self
+                        .tree
+                        .mov_after(p, *others.last().ok_or("no other page")?)
+                        .map_err(err)?,
+                }
+                vec![]
             }
         };
         self.finish(out, history)
@@ -2062,9 +2157,10 @@ impl Doc {
             .unwrap_or_default()
     }
 
-    pub fn render(&self, page: usize) -> Vec<Op> {
+    /// The display list of the page `id`, empty when there is none.
+    pub fn render(&self, id: &str) -> Vec<Op> {
         let snap = self.snapshot();
-        let Some(p) = snap.pages.get(page) else {
+        let Some(p) = snap.pages.iter().find(|p| p.id == id) else {
             return Vec::new();
         };
         let mut ops = vec![Op::Page {
@@ -2076,9 +2172,9 @@ impl Doc {
         ops
     }
 
-    pub fn hit(&self, page: usize, x: f64, y: f64, tolerance: f64) -> Vec<String> {
+    pub fn hit(&self, page: &str, x: f64, y: f64, tolerance: f64) -> Vec<String> {
         let mut path = Vec::new();
-        if let Some(p) = self.snapshot().pages.get(page) {
+        if let Some(p) = self.snapshot().pages.iter().find(|p| p.id == page) {
             hit(&p.children, x, y, tolerance, &mut path);
         }
         path
@@ -2352,6 +2448,28 @@ impl Doc {
             }
         };
         self.tree.mov(id, trash).map_err(err)
+    }
+
+    /// The pages in order.
+    fn pages(&self) -> Vec<TreeID> {
+        let roots = self.tree.roots().into_iter();
+        roots.filter(|&r| self.kind(r) == "page").collect()
+    }
+
+    fn page(&self, id: &str) -> Res<TreeID> {
+        let t = TreeID::try_from(id).map_err(err)?;
+        match self.tree.parent(t) {
+            Some(TreeParentId::Root) if self.kind(t) == "page" => Ok(t),
+            _ => Err(format!("no page {id}")),
+        }
+    }
+
+    /// The page or other root that `id` is on.
+    fn root(&self, mut id: TreeID) -> TreeID {
+        while let Some(TreeParentId::Node(p)) = self.tree.parent(id) {
+            id = p;
+        }
+        id
     }
 
     fn node(&self, id: &str) -> Res<TreeID> {
@@ -2658,6 +2776,14 @@ mod tests {
 
     fn page(d: &Doc) -> Page {
         d.snapshot().pages.remove(0)
+    }
+
+    fn page_ops(d: &Doc) -> Vec<Op> {
+        d.render(&page(d).id)
+    }
+
+    fn hits(d: &Doc, x: f64, y: f64, tolerance: f64) -> Vec<String> {
+        d.hit(&page(d).id, x, y, tolerance)
     }
 
     fn create(d: &mut Doc, parent: &str, kind: NewKind, frame: [f64; 4]) -> String {
@@ -2996,6 +3122,7 @@ mod tests {
         let pasted = d
             .apply(Command::Paste {
                 above: vec![a.clone()],
+                page: None,
             })
             .unwrap();
         assert_eq!(pasted.len(), 2);
@@ -3006,7 +3133,12 @@ mod tests {
         );
         assert_eq!(children(&pg.children[2]).len(), 1);
         assert!(matches!(pg.children[3].kind, Kind::Text { .. }));
-        let again = d.apply(Command::Paste { above: vec![] }).unwrap();
+        let again = d
+            .apply(Command::Paste {
+                above: vec![],
+                page: None,
+            })
+            .unwrap();
         let pg = page(&d);
         assert_eq!(pg.children.last().unwrap().id, again[0]);
         assert_eq!(ids(children(&pg.children[0])), [again[1].clone()]);
@@ -3036,10 +3168,9 @@ mod tests {
         let (mut d, p) = empty();
         let a = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
         let b = create(&mut d, &p, NewKind::Rect, [5.0, 5.0, 10.0, 10.0]);
-        assert_eq!(d.hit(0, 7.0, 7.0, 0.0), [b]);
-        assert_eq!(d.hit(0, 2.0, 2.0, 0.0), [a]);
-        assert!(d.hit(0, 20.0, 2.0, 0.0).is_empty());
-        assert!(d.hit(1, 2.0, 2.0, 0.0).is_empty());
+        assert_eq!(hits(&d, 7.0, 7.0, 0.0), [b]);
+        assert_eq!(hits(&d, 2.0, 2.0, 0.0), [a]);
+        assert!(hits(&d, 20.0, 2.0, 0.0).is_empty());
     }
 
     #[test]
@@ -3055,8 +3186,8 @@ mod tests {
             })
             .unwrap()
             .remove(0);
-        assert_eq!(d.hit(0, 5.0, 5.0, 0.0), [f.clone(), g.clone(), a]);
-        assert_eq!(d.hit(0, 30.0, 30.0, 0.0), [f]);
+        assert_eq!(hits(&d, 5.0, 5.0, 0.0), [f.clone(), g.clone(), a]);
+        assert_eq!(hits(&d, 30.0, 30.0, 0.0), [f]);
     }
 
     #[test]
@@ -3064,8 +3195,8 @@ mod tests {
         let (mut d, p) = empty();
         let f = create(&mut d, &p, NewKind::Frame, [0.0, 0.0, 10.0, 10.0]);
         let a = create(&mut d, &f, NewKind::Rect, [5.0, 5.0, 20.0, 20.0]);
-        assert!(d.hit(0, 15.0, 15.0, 0.0).is_empty());
-        assert_eq!(d.hit(0, 8.0, 8.0, 0.0), [f.clone(), a.clone()]);
+        assert!(hits(&d, 15.0, 15.0, 0.0).is_empty());
+        assert_eq!(hits(&d, 8.0, 8.0, 0.0), [f.clone(), a.clone()]);
         d.apply(Command::Set {
             id: f.clone(),
             props: Props {
@@ -3074,7 +3205,7 @@ mod tests {
             },
         })
         .unwrap();
-        assert_eq!(d.hit(0, 15.0, 15.0, 0.0), [f, a]);
+        assert_eq!(hits(&d, 15.0, 15.0, 0.0), [f, a]);
     }
 
     #[test]
@@ -3148,7 +3279,7 @@ mod tests {
 
     #[test]
     fn render_emits_items_and_clips_frame_children() {
-        let ops = Doc::new().render(0);
+        let ops = page_ops(&Doc::new());
         assert!(matches!(ops[0], Op::Page { .. }));
         assert_eq!(ops.iter().filter(|o| **o == Op::EndItem).count(), 11);
         assert!(ops.iter().any(|o| matches!(o, Op::GlyphRun { .. })));
@@ -3161,7 +3292,7 @@ mod tests {
             ops.iter()
                 .any(|o| matches!(o, Op::PushLayer { blur, .. } if *blur > 0.0))
         );
-        assert!(Doc::new().render(9).is_empty());
+        assert!(Doc::new().render("9@9").is_empty());
     }
 
     fn set(d: &mut Doc, id: &str, props: Props) {
@@ -3176,8 +3307,8 @@ mod tests {
     fn shapes_are_hit_on_their_outline_not_their_box() {
         let (mut d, p) = empty();
         let e = create(&mut d, &p, NewKind::Ellipse, [0.0, 0.0, 10.0, 10.0]);
-        assert_eq!(d.hit(0, 5.0, 5.0, 0.0), [e]);
-        assert!(d.hit(0, 0.5, 0.5, 0.0).is_empty());
+        assert_eq!(hits(&d, 5.0, 5.0, 0.0), [e]);
+        assert!(hits(&d, 0.5, 0.5, 0.0).is_empty());
 
         let l = create(&mut d, &p, NewKind::Line, [0.0; 4]);
         d.apply(Command::SetPath {
@@ -3190,9 +3321,9 @@ mod tests {
             (frame(n), n.name.as_str()),
             ([10.0, 0.0, 10.0, 10.0], "Line")
         );
-        assert_eq!(d.hit(0, 15.0, 6.0, 0.5), [l]);
-        assert!(d.hit(0, 12.0, 8.0, 0.5).is_empty());
-        assert!(d.hit(0, 15.0, 6.0, 0.0).is_empty());
+        assert_eq!(hits(&d, 15.0, 6.0, 0.5), [l]);
+        assert!(hits(&d, 12.0, 8.0, 0.5).is_empty());
+        assert!(hits(&d, 15.0, 6.0, 0.0).is_empty());
     }
 
     #[test]
@@ -3209,7 +3340,7 @@ mod tests {
                 ..Props::default()
             },
         );
-        let ops = d.render(0);
+        let ops = page_ops(&d);
         assert!(matches!(ops[2], Op::PushClip { invert: false, .. }));
         assert!(matches!(ops[3], Op::StrokePath { width: 4.0, .. }));
         assert_eq!(ops[4], Op::PopClip);
@@ -3221,7 +3352,7 @@ mod tests {
                 ..Props::default()
             },
         );
-        assert!(matches!(d.render(0)[2], Op::PushClip { invert: true, .. }));
+        assert!(matches!(page_ops(&d)[2], Op::PushClip { invert: true, .. }));
     }
 
     #[test]
@@ -3229,7 +3360,7 @@ mod tests {
         let (mut d, p) = empty();
         create(&mut d, &p, NewKind::Arrow, [0.0, 0.0, 10.0, 0.0]);
         assert_eq!(page(&d).children[0].name, "Arrow");
-        let Op::StrokePath { path, .. } = &d.render(0)[2] else {
+        let Op::StrokePath { path, .. } = &page_ops(&d)[2] else {
             panic!("no stroke");
         };
         assert_eq!(path[..6], [MOVE, 0.0, 0.0, LINE, 10.0, 0.0]);
@@ -3244,7 +3375,7 @@ mod tests {
         let (mut d, p) = empty();
         let r = create(&mut d, &p, NewKind::Rect, [0.0; 4]);
         assert!(
-            !d.render(0)
+            !page_ops(&d)
                 .iter()
                 .any(|o| matches!(o, Op::PushLayer { .. }))
         );
@@ -3268,7 +3399,7 @@ mod tests {
                 ..Props::default()
             },
         );
-        let ops = d.render(0);
+        let ops = page_ops(&d);
         let Op::PushLayer {
             opacity,
             blur,
@@ -3296,7 +3427,7 @@ mod tests {
                 ..Props::default()
             },
         );
-        let ops = d.render(0);
+        let ops = page_ops(&d);
         let kinds: Vec<_> = ops[1..]
             .iter()
             .filter(|o| !matches!(o, Op::FillPath { .. } | Op::EndItem))
@@ -3361,8 +3492,8 @@ mod tests {
         let m = create(&mut d, &p, NewKind::Ellipse, [0.0, 0.0, 10.0, 10.0]);
         let above = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
         d.apply(Command::Mask { ids: vec![m] }).unwrap();
-        assert_eq!(d.hit(0, 5.0, 5.0, 0.0), [above]);
-        assert_eq!(d.hit(0, 0.5, 0.5, 0.0), [below]);
+        assert_eq!(hits(&d, 5.0, 5.0, 0.0), [above]);
+        assert_eq!(hits(&d, 0.5, 0.5, 0.0), [below]);
     }
 
     #[test]
@@ -3462,7 +3593,7 @@ mod tests {
         let Op::FillPath {
             paint: Paint::Linear { transform, stops },
             ..
-        } = &d.render(0)[2]
+        } = &page_ops(&d)[2]
         else {
             panic!("no gradient");
         };
@@ -3574,8 +3705,7 @@ mod tests {
                 ..Props::default()
             },
         );
-        let colors: Vec<[f32; 4]> = d
-            .render(0)
+        let colors: Vec<[f32; 4]> = page_ops(&d)
             .into_iter()
             .filter_map(|op| match op {
                 Op::FillPath {
@@ -3608,7 +3738,7 @@ mod tests {
     }
 
     fn solid_colors(d: &Doc) -> Vec<[f32; 4]> {
-        d.render(0)
+        page_ops(d)
             .into_iter()
             .filter_map(|op| match op {
                 Op::FillPath {
@@ -4521,8 +4651,7 @@ mod tests {
             ..TextProps::default()
         };
         format(&mut d, &t, Some([0, 2]), red).unwrap();
-        let colors: Vec<_> = d
-            .render(0)
+        let colors: Vec<_> = page_ops(&d)
             .into_iter()
             .filter_map(|op| match op {
                 Op::GlyphRun {
@@ -4690,7 +4819,7 @@ mod tests {
     }
 
     fn first_glyph(d: &Doc) -> [f32; 2] {
-        d.render(0)
+        page_ops(d)
             .into_iter()
             .find_map(|op| match op {
                 Op::GlyphRun { positions, .. } => Some([positions[0], positions[1]]),
@@ -4970,5 +5099,126 @@ mod tests {
         );
         d.apply(Command::Undo).unwrap();
         assert_eq!(node_sizing(&d, &f), sizing(Size::Hug, Size::Hug).unwrap());
+    }
+
+    fn add_page(d: &mut Doc, after: Option<&str>) -> String {
+        d.apply(Command::AddPage {
+            after: after.map(String::from),
+        })
+        .unwrap()
+        .remove(0)
+    }
+
+    fn page_ids(d: &Doc) -> Vec<String> {
+        d.snapshot().pages.into_iter().map(|p| p.id).collect()
+    }
+
+    #[test]
+    fn pages_are_added_after_a_page_with_its_size_and_moved_and_deleted_with_undo() {
+        let (mut d, p1) = empty();
+        d.apply(Command::SetPage {
+            id: p1.clone(),
+            width: Some(100.0),
+            height: Some(200.0),
+            bleed: Some(5.0),
+        })
+        .unwrap();
+        let p3 = add_page(&mut d, None);
+        let p2 = add_page(&mut d, Some(&p1));
+        assert_eq!(page_ids(&d), [&p1, &p2, &p3].map(String::clone));
+        let s = d.snapshot();
+        assert_eq!(
+            [s.pages[1].width, s.pages[1].height, s.pages[1].bleed],
+            [100.0, 200.0, 5.0]
+        );
+        assert!(s.pages[1].children.is_empty());
+        let r = create(&mut d, &p3, NewKind::Rect, [1.0, 2.0, 3.0, 4.0]);
+        d.apply(Command::MovePage {
+            id: p3.clone(),
+            index: 0,
+        })
+        .unwrap();
+        assert_eq!(page_ids(&d), [&p3, &p1, &p2].map(String::clone));
+        d.apply(Command::MovePage {
+            id: p3.clone(),
+            index: 9,
+        })
+        .unwrap();
+        assert_eq!(page_ids(&d), [&p1, &p2, &p3].map(String::clone));
+        d.apply(Command::DeletePage { id: p3.clone() }).unwrap();
+        assert_eq!(page_ids(&d), [&p1, &p2].map(String::clone));
+        assert!(
+            d.apply(Command::Delete {
+                ids: vec![r.clone()]
+            })
+            .is_err()
+        );
+        d.apply(Command::Undo).unwrap();
+        assert_eq!(page_ids(&d), [&p1, &p2, &p3].map(String::clone));
+        assert_eq!(
+            ids(&d.snapshot().pages[2].children),
+            std::slice::from_ref(&r)
+        );
+        d.apply(Command::DeletePage { id: p1.clone() }).unwrap();
+        d.apply(Command::DeletePage { id: p2.clone() }).unwrap();
+        assert!(d.apply(Command::DeletePage { id: p3.clone() }).is_err());
+        assert!(d.apply(Command::MovePage { id: r, index: 0 }).is_err());
+        assert!(
+            d.apply(Command::SetPage {
+                id: p3,
+                width: Some(-1.0),
+                height: None,
+                bleed: None,
+            })
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn a_duplicated_page_follows_its_original_with_copies_of_its_layers() {
+        let (mut d, p1) = empty();
+        let r = create(&mut d, &p1, NewKind::Rect, [1.0, 2.0, 3.0, 4.0]);
+        let p2 = d
+            .apply(Command::DuplicatePage { id: p1.clone() })
+            .unwrap()
+            .remove(0);
+        let s = d.snapshot();
+        assert_eq!(page_ids(&d), [p1, p2]);
+        assert_eq!(frame(&s.pages[1].children[0]), [1.0, 2.0, 3.0, 4.0]);
+        assert_ne!(s.pages[1].children[0].id, r);
+    }
+
+    #[test]
+    fn each_page_renders_and_hits_its_own_layers() {
+        let (mut d, p1) = empty();
+        let p2 = add_page(&mut d, None);
+        let a = create(&mut d, &p1, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
+        let b = create(&mut d, &p2, NewKind::Ellipse, [0.0, 0.0, 10.0, 10.0]);
+        assert_eq!(d.hit(&p1, 5.0, 5.0, 0.0), [a]);
+        assert_eq!(d.hit(&p2, 5.0, 5.0, 0.0), [b]);
+        let items = |p: &str| d.render(p).iter().filter(|o| **o == Op::EndItem).count();
+        assert_eq!((items(&p1), items(&p2)), (1, 1));
+        assert_ne!(d.render(&p1), d.render(&p2));
+    }
+
+    #[test]
+    fn paste_without_a_target_goes_into_the_source_parent_only_on_the_same_page() {
+        let (mut d, p1) = empty();
+        let p2 = add_page(&mut d, None);
+        let f = create(&mut d, &p1, NewKind::Frame, [0.0, 0.0, 9.0, 9.0]);
+        let r = create(&mut d, &f, NewKind::Rect, [1.0, 1.0, 2.0, 2.0]);
+        d.apply(Command::Copy { ids: vec![r] }).unwrap();
+        let paste = |d: &mut Doc, page: &str| {
+            d.apply(Command::Paste {
+                above: vec![],
+                page: Some(page.into()),
+            })
+            .unwrap()
+            .remove(0)
+        };
+        let on2 = paste(&mut d, &p2);
+        assert_eq!(ids(&d.snapshot().pages[1].children), [on2]);
+        let on1 = paste(&mut d, &p1);
+        assert_eq!(children(&d.snapshot().pages[0].children[0])[1].id, on1);
     }
 }

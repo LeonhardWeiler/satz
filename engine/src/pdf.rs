@@ -544,7 +544,12 @@ mod tests {
 
     fn default_pdf() -> String {
         let d = Doc::new();
-        String::from_utf8_lossy(&super::pdf(&[d.render(0)], 300.0, ColorMode::Rgb)).into_owned()
+        String::from_utf8_lossy(&super::pdf(
+            &[d.render(&d.snapshot().pages[0].id)],
+            300.0,
+            ColorMode::Rgb,
+        ))
+        .into_owned()
     }
 
     fn page_box(pdf: &str, name: &str) -> Vec<f32> {
