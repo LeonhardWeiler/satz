@@ -1,5 +1,15 @@
-import { useState, type ReactNode } from 'react'
+import { useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Icon } from './icons'
+
+/** Moves the focus from the event's target to the item before or after it for the keys `back` and `forth`. */
+export function roam(e: KeyboardEvent, items: Element[], back = ['ArrowUp'], forth = ['ArrowDown']) {
+  const i = items.indexOf(e.target as Element)
+  const d = back.includes(e.key) ? -1 : forth.includes(e.key) ? 1 : 0
+  if (i < 0 || !d) return false
+  e.preventDefault()
+  ;(items[i + d] as HTMLElement | undefined)?.focus()
+  return true
+}
 
 const round = (v: number, unit: string) => (unit === '%' ? Math.round(v) : Math.round(v * 100) / 100)
 

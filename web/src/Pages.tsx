@@ -1,7 +1,8 @@
-import { useState, type DragEvent, type MouseEvent } from 'react'
+import { useState, type DragEvent, type KeyboardEvent, type MouseEvent } from 'react'
 import type { Page } from './model'
-import { createPortal } from 'react-dom'
+import { createPortal, flushSync } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
+import { roam } from './controls'
 import { prefix } from './engine/engine'
 import { useEditor, type Editor } from './editor'
 import { Icon } from './icons'
@@ -37,6 +38,22 @@ export function Pages({ editor }: { editor: Editor }) {
   const openMenu = (e: MouseEvent, id: string, master: boolean) => {
     e.preventDefault()
     setMenu({ id, master, x: e.clientX, y: e.clientY })
+  }
+
+  const stop = (list: { id: string }[]) => (list.some((p) => p.id === current) ? current : list[0]?.id)
+  const back = ['ArrowUp', 'ArrowLeft']
+  const forth = ['ArrowDown', 'ArrowRight']
+  const onPagesKey = (e: KeyboardEvent<HTMLUListElement>) => {
+    const items = [...e.currentTarget.querySelectorAll('.page-name')]
+    if (!e.altKey) return roam(e, items, back, forth)
+    const i = items.indexOf(e.target as Element)
+    const to = i + (back.includes(e.key) ? -1 : forth.includes(e.key) ? 1 : NaN)
+    if (i < 0 || Number.isNaN(to)) return
+    e.preventDefault()
+    if (to < 0 || to >= pages.length) return
+    const id = pages[i].id
+    flushSync(() => editor.apply({ type: 'movePage', id, index: to }))
+    e.currentTarget.querySelector<HTMLElement>(`[data-id="${id}"]`)?.focus()
   }
 
   const over = (e: DragEvent, index: number) => {
@@ -83,6 +100,8 @@ export function Pages({ editor }: { editor: Editor }) {
         <button
           type="button"
           className="layer-name page-name"
+          data-id={p.id}
+          tabIndex={p.id === stop(pages) ? 0 : -1}
           aria-current={p.id === current ? 'page' : undefined}
           onClick={() => editor.showPage(p.id)}
           onContextMenu={(e) => openMenu(e, p.id, false)}
@@ -121,7 +140,7 @@ export function Pages({ editor }: { editor: Editor }) {
         </button>
       </header>
       {mastersOpen && masters.length > 0 && (
-        <ul className="tree page-list" aria-label="Masters">
+        <ul className="tree page-list" aria-label="Masters" onKeyDown={(e) => roam(e, [...e.currentTarget.querySelectorAll('.page-name')])}>
           {masters.map((m) => (
             <li key={m.id}>
               <div className="layer">
@@ -142,6 +161,7 @@ export function Pages({ editor }: { editor: Editor }) {
                   <button
                     type="button"
                     className="layer-name page-name"
+                    tabIndex={m.id === stop(masters) ? 0 : -1}
                     aria-current={m.id === current ? 'page' : undefined}
                     onClick={() => editor.showPage(m.id)}
                     onDoubleClick={() => setRenaming(m.id)}
@@ -161,7 +181,7 @@ export function Pages({ editor }: { editor: Editor }) {
           <Icon name="plus" size={16} />
         </button>
       </header>
-      <ul className="tree page-list" aria-label="Pages">
+      <ul className="tree page-list" aria-label="Pages" onKeyDown={onPagesKey}>
         {facing
           ? spreads.map((ids) => {
               const numbers = ids.map((id) => pages.findIndex((p) => p.id === id) + 1)

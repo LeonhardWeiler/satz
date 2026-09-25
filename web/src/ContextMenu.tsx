@@ -1,3 +1,4 @@
+import { roam } from './controls'
 import { Popover } from './Popover'
 
 /** A context menu at the pointer that closes on a pick, Escape or a click elsewhere. */
@@ -23,6 +24,7 @@ export function ContextMenu({
         onPointerDown={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           if (e.key === 'Escape') onClose()
+          else roam(e, [...e.currentTarget.querySelectorAll('[role=menuitem]:not(:disabled)')])
         }}
       >
         {items.map(([label, run, enabled], i) => (

@@ -1,4 +1,5 @@
-import { useState, type DragEvent, type ReactNode } from 'react'
+import { useState, type DragEvent, type KeyboardEvent, type ReactNode } from 'react'
+import { roam } from './controls'
 import { useEditor, type Editor } from './editor'
 import { Icon, KindIcon } from './icons'
 import type { Node } from './model'
@@ -28,6 +29,24 @@ export function Layers({ editor }: { editor: Editor }) {
   const rename = (id: string, name: string | null) => {
     if (name) editor.apply({ type: 'set', id, name })
     editor.set({ renaming: null })
+  }
+
+  const shown = (nodes: Node[]): Node[] =>
+    nodes.toReversed().flatMap((n) => [n, ...('children' in n && !collapsed.has(n.id) ? shown(n.children) : [])])
+  const stop = shown(page.children).find((n) => selection.includes(n.id))?.id ?? page.children.at(-1)?.id
+
+  const onKey = (e: KeyboardEvent<HTMLUListElement>) => {
+    const items = [...e.currentTarget.querySelectorAll('.layer-name')]
+    const item = (e.target as HTMLElement).closest<HTMLElement>('[role=treeitem]')
+    if (roam(e, items) || !item || !items.includes(e.target as Element)) return
+    const open = item.getAttribute('aria-expanded')
+    const focus = (el: Element | null | undefined) => (el as HTMLElement | null)?.focus()
+    if (e.key === 'ArrowRight' && open === 'false') toggle(item.dataset.id!)
+    else if (e.key === 'ArrowRight' && open === 'true') focus(item.querySelector('[role=group] .layer-name'))
+    else if (e.key === 'ArrowLeft' && open === 'true') toggle(item.dataset.id!)
+    else if (e.key === 'ArrowLeft') focus(item.parentElement?.closest('[role=treeitem]')?.querySelector('.layer-name'))
+    else return
+    e.preventDefault()
   }
 
   const dragged = (id?: string): boolean => id !== undefined && (dragging.includes(id) || dragged(editor.nodes.get(id)?.parent?.id))
@@ -72,6 +91,7 @@ export function Layers({ editor }: { editor: Editor }) {
         <li
           key={node.id}
           role="treeitem"
+          data-id={node.id}
           aria-level={level}
           aria-selected={selection.includes(node.id)}
           aria-expanded={kids ? open : undefined}
@@ -99,6 +119,7 @@ export function Layers({ editor }: { editor: Editor }) {
               <button
                 type="button"
                 className="chevron"
+                tabIndex={-1}
                 aria-label={open ? 'Collapse' : 'Expand'}
                 data-open={open || undefined}
                 onClick={() => toggle(node.id)}
@@ -131,6 +152,7 @@ export function Layers({ editor }: { editor: Editor }) {
               <button
                 type="button"
                 className="layer-name"
+                tabIndex={node.id === stop ? 0 : -1}
                 onClick={(e) => select(node.id, e.shiftKey || e.ctrlKey || e.metaKey)}
                 onDoubleClick={() => editor.set({ renaming: node.id })}
               >
@@ -148,7 +170,7 @@ export function Layers({ editor }: { editor: Editor }) {
       <header className="panel-header">
         <h2>Layers</h2>
       </header>
-      <ul role="tree" aria-label="Layers" aria-multiselectable="true" className="tree">
+      <ul role="tree" aria-label="Layers" aria-multiselectable="true" className="tree" onKeyDown={onKey}>
         {rows(page.children, 1)}
       </ul>
     </nav>
