@@ -3482,11 +3482,34 @@ fn reach(n: &Node) -> [f64; 4] {
     [n.x - m, n.y - m, n.w + 2.0 * m, n.h + 2.0 * m]
 }
 
-/// Sets the page number of the text layers among `nodes` to `number`.
+/// Sets the page number of the text layers among `nodes` to `number` and fits the
+/// hugging sides of each to it, as `Doc::fit` does.
 fn renumber(nodes: &mut [Node], number: &str) {
     for n in nodes {
+        let Sizing {
+            horizontal,
+            vertical,
+        } = n.layout.sizing;
         match &mut n.kind {
-            Kind::Text { frame, .. } => frame.number = number.into(),
+            Kind::Text {
+                text,
+                spans,
+                frame,
+                next,
+                from,
+                ..
+            } => {
+                frame.number = number.into();
+                if vertical == Size::Hug && next.is_none() {
+                    let auto_width = horizontal == Size::Hug;
+                    let w = (!auto_width).then_some(n.w as f32);
+                    let [w, h] = text::measure(text, spans, frame, w, *from);
+                    if auto_width {
+                        n.w = w.into();
+                    }
+                    n.h = h.into();
+                }
+            }
             Kind::Group { children } | Kind::Frame { children, .. } => renumber(children, number),
             Kind::Shape(_) => {}
         }
@@ -6669,6 +6692,24 @@ mod tests {
         })
         .unwrap();
         assert_eq!(run_texts(&d.render(&p1)), ["3"]);
+    }
+
+    #[test]
+    fn a_master_page_number_wider_than_the_prefix_refits_its_text_on_the_page() {
+        let (mut d, _) = empty();
+        let mut last = String::new();
+        for _ in 0..11 {
+            last = add_page(&mut d, None);
+        }
+        let m = add_master(&mut d);
+        let t = create(&mut d, &m, NewKind::Text, [0.0, 0.0, 0.0, 0.0]);
+        d.apply(Command::SetText {
+            id: t,
+            text: format!("Page {}", text::PAGE_NUMBER),
+        })
+        .unwrap();
+        use_master(&mut d, &last, Some(&m)).unwrap();
+        assert_eq!(run_texts(&d.render(&last)), ["Page12"]);
     }
 
     /// A fixed text frame on `page` at `frame`.
