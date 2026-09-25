@@ -97,7 +97,7 @@ export type Command =
   | { type: 'resetToMaster'; ids: string[] }
   | { type: 'thread'; from: string; to: string }
   | { type: 'unthread'; id: string }
-  | { type: 'setDocument'; rasterPpi?: number; colorMode?: ColorMode }
+  | { type: 'setDocument'; rasterPpi?: number; colorMode?: ColorMode; facingPages?: boolean }
   | { type: 'addSwatch'; name: string; color: Color; spot: boolean }
   | { type: 'setSwatch'; id: string; name?: string; color?: Color; spot?: boolean }
   | { type: 'deleteSwatch'; id: string }
@@ -156,7 +156,8 @@ export type Threaded = {
 
 /**
  * A page or a master: `name` is a master's, `master` the one a page draws under its
- * layers and `detached` the master layers it overrides.
+ * layers and `detached` the master layers it overrides; `side` is the side of its
+ * spread a page is on with facing pages.
  */
 export type Page = {
   id: string
@@ -164,6 +165,7 @@ export type Page = {
   width: number
   height: number
   bleed: number
+  side: 'left' | 'right' | null
   master: string | null
   detached: string[]
   modes: Modes
@@ -228,6 +230,9 @@ export type TextStyle = { id: string; name: string; bindings: Partial<Record<Bin
 export type Snapshot = Palette & {
   pages: Page[]
   masters: Page[]
+  facingPages: boolean
+  /** The ids of the pages of each spread from left to right. */
+  spreads: string[][]
   rasterPpi: number
   colorMode: ColorMode
   canUndo: boolean

@@ -1164,6 +1164,34 @@ span.swatch {
   padding-left: 12px;
 }
 
+/* A spread: its left page in the first column, its right page in the second. */
+.spread {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.spread > .layer[data-side='right'] {
+  grid-column: 2;
+}
+
+.layer[data-drop='before']::before,
+.layer[data-drop='after']::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  width: 2px;
+  background: var(--accent);
+}
+
+.layer[data-drop='before']::before {
+  left: -1px;
+}
+
+.layer[data-drop='after']::before {
+  right: -1px;
+}
+
 .page-name[aria-current='page'] {
   font-weight: 600;
 }

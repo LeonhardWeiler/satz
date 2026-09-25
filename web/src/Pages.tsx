@@ -1,4 +1,5 @@
 import { useState, type DragEvent, type MouseEvent } from 'react'
+import type { Page } from './model'
 import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
 import { useEditor, type Editor } from './editor'
@@ -11,17 +12,20 @@ export const prefix = (name: string) => (/^(\w{1,3})-/.exec(name)?.[1] ?? name.s
 
 /**
  * Figma's pages list with InDesign's masters above the pages: the shown page or master
- * is current, pages are dragged to reorder, both have a context menu.
+ * is current, pages are dragged to reorder, both have a context menu. With facing pages
+ * the pages sit in spreads, each on its side.
  */
 export function Pages({ editor }: { editor: Editor }) {
   const pages = useEditor(editor, (e) => e.snapshot.pages)
   const masters = useEditor(editor, (e) => e.snapshot.masters)
+  const spreads = useEditor(editor, (e) => e.snapshot.spreads)
+  const facing = useEditor(editor, (e) => e.snapshot.facingPages)
   const current = useEditor(editor, (e) => e.page.id)
   const [menu, setMenu] = useState<Menu | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [mastersOpen, setMastersOpen] = useState(true)
   const [dragging, setDragging] = useState<string | null>(null)
-  const [drop, setDrop] = useState<{ index: number; at: 'above' | 'below' } | null>(null)
+  const [drop, setDrop] = useState<{ index: number; at: 'before' | 'after' } | null>(null)
 
   const addPage = () => editor.showPage(editor.apply({ type: 'addPage', after: pages.some((p) => p.id === current) ? current : null })[0])
   const addMaster = () => {
@@ -41,17 +45,65 @@ export function Pages({ editor }: { editor: Editor }) {
     if (!dragging) return
     e.preventDefault()
     const r = e.currentTarget.getBoundingClientRect()
-    const at = e.clientY < r.top + r.height / 2 ? 'above' : 'below'
+    const before = facing ? e.clientX < r.left + r.width / 2 : e.clientY < r.top + r.height / 2
+    const at = before ? 'before' : 'after'
     if (drop?.index !== index || drop.at !== at) setDrop({ index, at })
   }
   const onDrop = (e: DragEvent) => {
     e.preventDefault()
     if (dragging && drop) {
       const from = pages.findIndex((p) => p.id === dragging)
-      const to = drop.index + (drop.at === 'below' ? 1 : 0)
+      const to = drop.index + (drop.at === 'after' ? 1 : 0)
       editor.apply({ type: 'movePage', id: dragging, index: to > from ? to - 1 : to })
     }
     setDrop(null)
+  }
+
+  const pageRow = (p: Page, i: number) => {
+    const master = masters.find((m) => m.id === p.master)
+    const at = drop?.index === i ? drop.at : undefined
+    return (
+      <div
+        key={p.id}
+        className="layer"
+        data-side={p.side ?? undefined}
+        data-drop={at && (facing ? at : at === 'before' ? 'above' : 'below')}
+        draggable
+        onDragStart={(e) => {
+          e.dataTransfer.effectAllowed = 'move'
+          e.dataTransfer.setData('text/plain', p.id)
+          setDragging(p.id)
+        }}
+        onDragOver={(e) => over(e, i)}
+        onDragLeave={() => setDrop(null)}
+        onDrop={onDrop}
+        onDragEnd={() => {
+          setDragging(null)
+          setDrop(null)
+        }}
+      >
+        <button
+          type="button"
+          className="layer-name page-name"
+          aria-current={p.id === current ? 'page' : undefined}
+          onClick={() => editor.showPage(p.id)}
+          onContextMenu={(e) => openMenu(e, p.id, false)}
+          onKeyDown={(e) => {
+            if ((e.key === 'Delete' || e.key === 'Backspace') && pages.length > 1) {
+              editor.apply({ type: 'deletePage', id: p.id })
+              e.preventDefault()
+            }
+          }}
+        >
+          Page {i + 1}
+        </button>
+        {master && (
+          <span className="master-badge" title={`Master ${master.name}`}>
+            {prefix(master.name)}
+          </span>
+        )}
+      </div>
+    )
   }
 
   return (
@@ -112,51 +164,18 @@ export function Pages({ editor }: { editor: Editor }) {
         </button>
       </header>
       <ul className="tree page-list" aria-label="Pages">
-        {pages.map((p, i) => {
-          const master = masters.find((m) => m.id === p.master)
-          return (
-            <li key={p.id}>
-              <div
-                className="layer"
-                data-drop={drop?.index === i ? drop.at : undefined}
-                draggable
-                onDragStart={(e) => {
-                  e.dataTransfer.effectAllowed = 'move'
-                  e.dataTransfer.setData('text/plain', p.id)
-                  setDragging(p.id)
-                }}
-                onDragOver={(e) => over(e, i)}
-                onDragLeave={() => setDrop(null)}
-                onDrop={onDrop}
-                onDragEnd={() => {
-                  setDragging(null)
-                  setDrop(null)
-                }}
-              >
-                <button
-                  type="button"
-                  className="layer-name page-name"
-                  aria-current={p.id === current ? 'page' : undefined}
-                  onClick={() => editor.showPage(p.id)}
-                  onContextMenu={(e) => openMenu(e, p.id, false)}
-                  onKeyDown={(e) => {
-                    if ((e.key === 'Delete' || e.key === 'Backspace') && pages.length > 1) {
-                      editor.apply({ type: 'deletePage', id: p.id })
-                      e.preventDefault()
-                    }
-                  }}
-                >
-                  Page {i + 1}
-                </button>
-                {master && (
-                  <span className="master-badge" title={`Master ${master.name}`}>
-                    {prefix(master.name)}
-                  </span>
-                )}
-              </div>
-            </li>
-          )
-        })}
+        {facing
+          ? spreads.map((ids) => {
+              const numbers = ids.map((id) => pages.findIndex((p) => p.id === id) + 1)
+              return (
+                <li key={ids.join()}>
+                  <div role="group" aria-label={`Spread ${numbers.join('–')}`} className="spread">
+                    {numbers.map((n) => pageRow(pages[n - 1], n - 1))}
+                  </div>
+                </li>
+              )
+            })
+          : pages.map((p, i) => <li key={p.id}>{pageRow(p, i)}</li>)}
       </ul>
       {menu &&
         createPortal(

@@ -134,6 +134,9 @@ pub enum Command {
     SetDocument {
         raster_ppi: Option<f64>,
         color_mode: Option<ColorMode>,
+        /// Pairs the pages into spreads, as in InDesign.
+        #[serde(default)]
+        facing_pages: Option<bool>,
     },
     /// Pastes above the topmost of `above`, or else into the parent the layers were
     /// copied from when that is on `page`, or else onto `page`.
@@ -446,6 +449,10 @@ pub enum Order {
 pub struct Snapshot {
     pub pages: Vec<Page>,
     pub masters: Vec<Page>,
+    pub facing_pages: bool,
+    /// The ids of the pages of each spread from left to right: with facing pages the
+    /// first page alone on the right, then pairs; else each page alone.
+    pub spreads: Vec<Vec<String>>,
     /// Resolution at which the PDF rasterizes shadows and blurs.
     pub raster_ppi: f64,
     pub color_mode: ColorMode,
@@ -464,10 +471,19 @@ pub struct Page {
     pub width: f64,
     pub height: f64,
     pub bleed: f64,
+    /// The side of its spread a page is on with facing pages.
+    pub side: Option<Side>,
     pub master: Option<String>,
     pub detached: Vec<String>,
     pub modes: Modes,
     pub children: Vec<Node>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Side {
+    Left,
+    Right,
 }
 
 #[derive(Debug, PartialEq, Serialize)]
@@ -618,6 +634,7 @@ impl Doc {
         d.apply(Command::SetDocument {
             raster_ppi: Some(300.0),
             color_mode: Some(ColorMode::Rgb),
+            facing_pages: Some(true),
         })
         .unwrap();
         let mut add = |parent: &str, kind, [x, y, w, h]: [f64; 4], props: Props| {
@@ -1320,8 +1337,12 @@ impl Doc {
             Command::SetDocument {
                 raster_ppi,
                 color_mode,
+                facing_pages,
             } => {
                 let m = self.doc.get_map("document");
+                if let Some(on) = facing_pages {
+                    m.insert("facingPages", on).map_err(err)?;
+                }
                 if let Some(ppi) = raster_ppi {
                     if !(72.0..=1200.0).contains(&ppi) {
                         return Err("raster ppi must be in 72..=1200".into());
@@ -2522,6 +2543,7 @@ impl Doc {
                 width: num(&m, "width"),
                 height: num(&m, "height"),
                 bleed: num(&m, "bleed"),
+                side: None,
                 master: self.master_of(p).map(|m| m.to_string()),
                 detached: serde_json::from_value(v["detached"].clone()).unwrap_or_default(),
                 children: self
@@ -2532,9 +2554,25 @@ impl Doc {
                 modes,
             }
         };
+        let facing_pages = self.facing_pages();
+        let mut pages: Vec<Page> = self.pages().into_iter().map(sheet).collect();
+        let spreads = spreads(pages.len(), facing_pages);
+        for s in &spreads {
+            for (k, &i) in s.iter().enumerate() {
+                pages[i].side = facing_pages.then_some(match (s.len(), i, k) {
+                    (1, 0, _) | (2, _, 1) => Side::Right,
+                    _ => Side::Left,
+                });
+            }
+        }
         Snapshot {
-            pages: self.pages().into_iter().map(sheet).collect(),
+            spreads: spreads
+                .iter()
+                .map(|s| s.iter().map(|&i| pages[i].id.clone()).collect())
+                .collect(),
+            pages,
             masters: self.masters().into_iter().map(sheet).collect(),
+            facing_pages,
             raster_ppi: num(&self.doc.get_map("document"), "rasterPpi"),
             color_mode: self.color_mode(),
             palette,
@@ -2624,6 +2662,10 @@ impl Doc {
 
     fn swatch(&self, id: &str) -> Res<(usize, Swatch)> {
         self.find("swatches", id)
+    }
+
+    fn facing_pages(&self) -> bool {
+        value(&self.doc.get_map("document"), "facingPages") == Some(LoroValue::Bool(true))
     }
 
     fn color_mode(&self) -> ColorMode {
@@ -3189,6 +3231,17 @@ impl Default for Doc {
 }
 
 /// Draws siblings; a mask masks the siblings above it.
+/// The indices of the pages of each spread among `n` pages, as `Snapshot::spreads`.
+fn spreads(n: usize, facing: bool) -> Vec<Vec<usize>> {
+    match facing {
+        false => (0..n).map(|i| vec![i]).collect(),
+        true => (0..n.min(1))
+            .map(|i| vec![i])
+            .chain((1..n).step_by(2).map(|i| (i..(i + 2).min(n)).collect()))
+            .collect(),
+    }
+}
+
 fn draw_all(nodes: &[Node], ops: &mut Vec<Op>, pal: &Palette) {
     for (i, n) in nodes.iter().enumerate() {
         if n.style.mask {
@@ -4291,6 +4344,7 @@ mod tests {
         Command::SetDocument {
             raster_ppi: Some(raster_ppi),
             color_mode: None,
+            facing_pages: None,
         }
     }
 
@@ -4298,6 +4352,7 @@ mod tests {
         d.apply(Command::SetDocument {
             raster_ppi: None,
             color_mode: Some(ColorMode::Cmyk),
+            facing_pages: None,
         })
         .unwrap();
     }
@@ -5836,6 +5891,48 @@ mod tests {
             })
             .is_err()
         );
+    }
+
+    fn facing(d: &mut Doc, on: bool) {
+        d.apply(Command::SetDocument {
+            raster_ppi: None,
+            color_mode: None,
+            facing_pages: Some(on),
+        })
+        .unwrap();
+    }
+
+    fn sides(d: &Doc) -> Vec<Option<Side>> {
+        d.snapshot().pages.iter().map(|p| p.side).collect()
+    }
+
+    #[test]
+    fn facing_pages_pair_the_pages_into_spreads_after_the_first_right_page() {
+        let (mut d, p1) = empty();
+        assert!(d.snapshot().facing_pages);
+        let p2 = add_page(&mut d, None);
+        assert_eq!(d.snapshot().spreads, [vec![p1.clone()], vec![p2.clone()]]);
+        assert_eq!(sides(&d), [Some(Side::Right), Some(Side::Left)]);
+        let p3 = add_page(&mut d, None);
+        let p4 = add_page(&mut d, None);
+        let s = d.snapshot();
+        assert_eq!(
+            s.spreads,
+            [
+                vec![p1.clone()],
+                vec![p2.clone(), p3.clone()],
+                vec![p4.clone()]
+            ]
+        );
+        use Side::{Left, Right};
+        assert_eq!(sides(&d), [Right, Left, Right, Left].map(Some));
+        facing(&mut d, false);
+        let s = d.snapshot();
+        assert!(!s.facing_pages);
+        assert_eq!(s.spreads, [p1, p2, p3, p4].map(|p| vec![p]));
+        assert_eq!(sides(&d), [None; 4]);
+        d.apply(Command::Undo).unwrap();
+        assert!(d.snapshot().facing_pages);
     }
 
     #[test]

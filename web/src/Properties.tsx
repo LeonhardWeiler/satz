@@ -30,6 +30,7 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
   const isPage = useEditor(editor, (e) => e.snapshot.pages.includes(e.page))
   const rasterPpi = useEditor(editor, (e) => e.snapshot.rasterPpi)
   const mode = useEditor(editor, (e) => e.snapshot.colorMode)
+  const facing = useEditor(editor, (e) => e.snapshot.facingPages)
   const snapshot = useEditor(editor, (e) => e.snapshot)
   const [variables, setVariables] = useState(false)
   const selection = useEditor(editor, (e) => e.selection)
@@ -126,6 +127,14 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
               />
             )}
           </div>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={facing}
+              onChange={(e) => editor.apply({ type: 'setDocument', facingPages: e.currentTarget.checked })}
+            />
+            Facing pages
+          </label>
           {isPage && page.detached.length > 0 && (
             <button type="button" className="button" onClick={() => editor.apply({ type: 'resetToMaster', ids: [page.id] })}>
               Reset overrides
