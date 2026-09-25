@@ -17,8 +17,9 @@ font helper, i18n.
   item. The PDF writer (`krilla`) consumes the same display list.
 - Text: `harfrust` shaping, `hypher` hyphenation, own Knuth-Plass. CanvasKit draws
   glyph IDs from the same font bytes.
-- Color: document is RGB or CMYK + spot colors. Screen preview via `moxcms` with
-  bundled PSO Coated v3 (FOGRA51).
+- Color: document is RGB or CMYK + spot colors. Screen preview via `moxcms` with a
+  bundled FOGRA51 profile built from the ICC registry data (`engine/icc/build`); the
+  ECI's PSO Coated v3 may not be redistributed.
 - UI: Figma UI3 layout, behavior and keybinds (Ctrl for Cmd), dark pro look,
   English, units mm by default (switchable), type sizes in pt.
 - Browsers: Chromium + Firefox; Safari best effort.
@@ -115,3 +116,8 @@ font helper, i18n.
 - Example A2 poster and 8-page A5 booklet in the repo, exported by a test and
   covered by the canvas-vs-PDF check.
 - README with screenshot and live link.
+
+## Later
+
+- Colour profiles: choose or upload a CMYK profile (e.g. PSO Coated v3) instead of the
+  built-in FOGRA51.

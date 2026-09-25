@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Builds FOGRA51.icc from the ICC registry's FOGRA51 characterization data.
+# The black generation approximates PSO Coated v3 (TAC 300 %, max. K 96 %).
+set -euo pipefail
+cd "$(dirname "$0")"
+tmp=$(mktemp -d)
+curl -sL -o "$tmp/FOGRA51.txt" https://www.color.org/chardata/FOGRA51.txt
+nix shell nixpkgs#argyllcms -c bash -c "
+  cd $tmp
+  txt2ti3 FOGRA51.txt fogra51
+  colprof -qm -kp 0 0.2 1.0 1.0 0.5 -l300 -L96 -D 'FOGRA51 (Satz)' \
+    -C 'Built with ArgyllCMS from FOGRA51.txt of the ICC characterization data registry' -O FOGRA51.icc fogra51
+"
+cp "$tmp/FOGRA51.icc" .

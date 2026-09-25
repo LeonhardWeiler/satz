@@ -1,3 +1,4 @@
+use crate::color::Color;
 use crate::display_list::{CLOSE, Op, Paint, Shadow, Stop};
 use crate::geom::arrow;
 use serde::{Deserialize, Serialize};
@@ -45,7 +46,7 @@ impl Default for Style {
 pub struct Fill {
     #[serde(rename = "type")]
     pub kind: FillKind,
-    pub color: u32,
+    pub color: Color,
     pub stops: Vec<FillStop>,
     pub transform: [f32; 6],
     pub visible: bool,
@@ -55,7 +56,7 @@ impl Default for Fill {
     fn default() -> Self {
         Fill {
             kind: FillKind::Solid,
-            color: 0x000000ff,
+            color: Color::Rgb(0x000000ff),
             stops: Vec::new(),
             transform: [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
             visible: true,
@@ -64,9 +65,9 @@ impl Default for Fill {
 }
 
 impl Fill {
-    pub fn solid(color: u32) -> Fill {
+    pub fn solid(color: impl Into<Color>) -> Fill {
         Fill {
-            color,
+            color: color.into(),
             ..Fill::default()
         }
     }
@@ -75,7 +76,7 @@ impl Fill {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FillStop {
     pub at: f32,
-    pub color: u32,
+    pub color: Color,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
@@ -96,7 +97,7 @@ pub struct Effect {
     pub x: f32,
     pub y: f32,
     pub radius: f32,
-    pub color: u32,
+    pub color: Color,
     pub visible: bool,
 }
 
@@ -107,7 +108,7 @@ impl Default for Effect {
             x: 0.0,
             y: 3.0,
             radius: 6.0,
-            color: 0x00000040,
+            color: Color::Rgb(0x00000040),
             visible: true,
         }
     }
@@ -167,10 +168,6 @@ pub enum Blend {
     Luminosity,
 }
 
-fn rgba(c: u32) -> [f32; 4] {
-    c.to_be_bytes().map(|v| v as f32 / 255.0)
-}
-
 fn paint(f: &Fill, [x, y, w, h]: [f32; 4]) -> Paint {
     let [a, b, c, d, e, g] = f.transform;
     let transform = [w * a, h * b, w * c, h * d, x + w * e, y + h * g];
@@ -179,12 +176,12 @@ fn paint(f: &Fill, [x, y, w, h]: [f32; 4]) -> Paint {
         .iter()
         .map(|s| Stop {
             at: s.at,
-            color: rgba(s.color),
+            color: s.color.rgba(),
         })
         .collect();
     match f.kind {
         FillKind::Solid => Paint::Solid {
-            color: rgba(f.color),
+            color: f.color.rgba(),
         },
         FillKind::Linear => Paint::Linear { transform, stops },
         FillKind::Radial => Paint::Radial { transform, stops },
@@ -255,7 +252,7 @@ impl Style {
             .map(|e| Shadow {
                 offset: [e.x, e.y],
                 blur: e.radius / 2.0,
-                color: rgba(e.color),
+                color: e.color.rgba(),
             })
             .collect();
         (self.opacity < 1.0 || self.blend != Blend::Normal || blur > 0.0 || !shadows.is_empty())

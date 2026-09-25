@@ -1,3 +1,4 @@
+use crate::color::{Color, ColorMode};
 use crate::display_list::{CLOSE, LINE, MOVE, Op, rect};
 use crate::geom::{Shape, bounds, contains, fit, near, outline};
 use crate::style::{
@@ -78,7 +79,8 @@ pub enum Command {
         ids: Vec<String>,
     },
     SetDocument {
-        raster_ppi: f64,
+        raster_ppi: Option<f64>,
+        color_mode: Option<ColorMode>,
     },
     Paste {
         above: Vec<String>,
@@ -162,6 +164,7 @@ pub struct Snapshot {
     pub pages: Vec<Page>,
     /// Resolution at which the PDF rasterizes shadows and blurs.
     pub raster_ppi: f64,
+    pub color_mode: ColorMode,
     pub can_undo: bool,
     pub can_redo: bool,
 }
@@ -213,7 +216,6 @@ struct Clip {
 type Res<T> = Result<T, String>;
 
 const MM: f64 = 72.0 / 25.4;
-const GRAY: u32 = 0xd9d9d9ff;
 const WHITE: u32 = 0xffffffff;
 const BLACK: u32 = 0x000000ff;
 const SAMPLE: &str = "Satz sets type in the browser. The engine shapes this paragraph \
@@ -239,7 +241,11 @@ impl Doc {
         m.insert("width", 148.0 * MM).unwrap();
         m.insert("height", 210.0 * MM).unwrap();
         m.insert("bleed", 3.0 * MM).unwrap();
-        d.apply(Command::SetDocument { raster_ppi: 300.0 }).unwrap();
+        d.apply(Command::SetDocument {
+            raster_ppi: Some(300.0),
+            color_mode: Some(ColorMode::Rgb),
+        })
+        .unwrap();
         let mut add = |parent: &str, kind, [x, y, w, h]: [f64; 4], props: Props| {
             let id = d
                 .apply(Command::Create {
@@ -297,7 +303,10 @@ impl Doc {
             transform,
             stops: stops
                 .iter()
-                .map(|&(at, color)| FillStop { at, color })
+                .map(|&(at, color)| FillStop {
+                    at,
+                    color: color.into(),
+                })
                 .collect(),
             ..Fill::default()
         };
@@ -319,7 +328,7 @@ impl Doc {
                     effects: Some(vec![Effect {
                         y: 2.0 * mm,
                         radius: 3.0 * mm,
-                        color: 0x00000066,
+                        color: Color::Rgb(0x00000066),
                         ..Effect::default()
                     }]),
                     ..named("Sun")
@@ -441,13 +450,14 @@ impl Doc {
                 let p = self.node(&parent)?;
                 let id = self.tree.create(p).map_err(err)?;
                 let m = self.meta(id);
+                let mode = self.color_mode();
                 let closed = Props {
-                    fills: Some(vec![Fill::solid(GRAY)]),
+                    fills: Some(vec![Fill::solid(Color::gray(mode))]),
                     stroke_align: Some(Align::Inside),
                     ..Props::default()
                 };
                 let open = |path: Vec<f32>| Props {
-                    strokes: Some(vec![Fill::solid(BLACK)]),
+                    strokes: Some(vec![Fill::solid(Color::black(mode))]),
                     arrow_end: Some(kind == NewKind::Arrow),
                     path: Some(path),
                     ..Props::default()
@@ -492,7 +502,7 @@ impl Doc {
                             "",
                             Props {
                                 size: Some(12.0),
-                                fills: Some(vec![Fill::solid(BLACK)]),
+                                fills: Some(vec![Fill::solid(Color::black(mode))]),
                                 ..Props::default()
                             },
                         )
@@ -501,7 +511,7 @@ impl Doc {
                         "frame",
                         "",
                         Props {
-                            fills: Some(vec![Fill::solid(WHITE)]),
+                            fills: Some(vec![Fill::solid(Color::white(mode))]),
                             clip: Some(true),
                             ..closed
                         },
@@ -655,14 +665,23 @@ impl Doc {
                 out.reverse();
                 out
             }
-            Command::SetDocument { raster_ppi } => {
-                if raster_ppi <= 0.0 {
-                    return Err("raster ppi must be positive".into());
+            Command::SetDocument {
+                raster_ppi,
+                color_mode,
+            } => {
+                let m = self.doc.get_map("document");
+                if let Some(ppi) = raster_ppi {
+                    if ppi <= 0.0 {
+                        return Err("raster ppi must be positive".into());
+                    }
+                    m.insert("rasterPpi", ppi).map_err(err)?;
                 }
-                self.doc
-                    .get_map("document")
-                    .insert("rasterPpi", raster_ppi)
-                    .map_err(err)?;
+                if let Some(mode) = color_mode {
+                    let mode: LoroValue =
+                        serde_json::from_value(serde_json::to_value(mode).map_err(err)?)
+                            .map_err(err)?;
+                    m.insert("colorMode", mode).map_err(err)?;
+                }
                 vec![]
             }
             Command::Copy { ids } => {
@@ -724,9 +743,16 @@ impl Doc {
         Snapshot {
             pages,
             raster_ppi: num(&self.doc.get_map("document"), "rasterPpi"),
+            color_mode: self.color_mode(),
             can_undo: self.undo.can_undo(),
             can_redo: self.undo.can_redo(),
         }
+    }
+
+    fn color_mode(&self) -> ColorMode {
+        value(&self.doc.get_map("document"), "colorMode")
+            .and_then(|v| serde_json::from_value(serde_json::to_value(v).ok()?).ok())
+            .unwrap_or_default()
     }
 
     pub fn render(&self, page: usize) -> Vec<Op> {
@@ -1224,7 +1250,7 @@ mod tests {
             ("Rectangle", [1.0, 2.0, 3.0, 4.0])
         );
         assert_eq!(n.kind, Kind::Shape(Shape::Rect { radius: 0.0 }));
-        assert_eq!(n.style.fills, [Fill::solid(GRAY)]);
+        assert_eq!(n.style.fills, [Fill::solid(0xd9d9d9ff)]);
         assert_eq!(n.style.stroke_align, Align::Inside);
         let f = &pg.children[1];
         assert!(matches!(f.kind, Kind::Frame { clip: true, .. }));
@@ -1932,7 +1958,7 @@ mod tests {
                     transform: [0.0, 1.0, -1.0, 0.0, 0.5, 0.0],
                     stops: vec![FillStop {
                         at: 0.0,
-                        color: WHITE,
+                        color: WHITE.into(),
                     }],
                     ..Fill::default()
                 }]),
@@ -1954,10 +1980,108 @@ mod tests {
     fn the_document_rasterizes_at_300_ppi_until_changed() {
         let mut d = Doc::new();
         assert_eq!(d.snapshot().raster_ppi, 300.0);
-        d.apply(Command::SetDocument { raster_ppi: 150.0 }).unwrap();
+        d.apply(ppi(150.0)).unwrap();
         assert_eq!(d.snapshot().raster_ppi, 150.0);
-        assert!(d.apply(Command::SetDocument { raster_ppi: 0.0 }).is_err());
+        assert!(d.apply(ppi(0.0)).is_err());
         d.apply(Command::Undo).unwrap();
         assert_eq!(d.snapshot().raster_ppi, 300.0);
+    }
+
+    fn ppi(raster_ppi: f64) -> Command {
+        Command::SetDocument {
+            raster_ppi: Some(raster_ppi),
+            color_mode: None,
+        }
+    }
+
+    fn cmyk(d: &mut Doc) {
+        d.apply(Command::SetDocument {
+            raster_ppi: None,
+            color_mode: Some(ColorMode::Cmyk),
+        })
+        .unwrap();
+    }
+
+    fn process(c: f32, m: f32, y: f32, k: f32) -> Color {
+        Color::Cmyk {
+            cmyk: [c, m, y, k],
+            alpha: 1.0,
+        }
+    }
+
+    #[test]
+    fn a_document_is_rgb_until_switched_to_cmyk_and_keeps_its_colours() {
+        let mut d = Doc::new();
+        assert_eq!(d.snapshot().color_mode, ColorMode::Rgb);
+        cmyk(&mut d);
+        let s = d.snapshot();
+        assert_eq!((s.color_mode, s.raster_ppi), (ColorMode::Cmyk, 300.0));
+        assert_eq!(
+            s.pages[0].children[0].style.fills,
+            [Fill::solid(0xe8452cff)]
+        );
+        d.apply(Command::Undo).unwrap();
+        assert_eq!(d.snapshot().color_mode, ColorMode::Rgb);
+    }
+
+    #[test]
+    fn new_layers_in_a_cmyk_document_get_process_gray_black_and_white() {
+        let (mut d, p) = empty();
+        cmyk(&mut d);
+        let r = create(&mut d, &p, NewKind::Rect, [0.0; 4]);
+        let t = create(&mut d, &p, NewKind::Text, [0.0; 4]);
+        let l = create(&mut d, &p, NewKind::Line, [0.0; 4]);
+        let f = create(&mut d, &p, NewKind::Frame, [0.0; 4]);
+        let pg = page(&d);
+        let style = |id: &str| {
+            pg.children
+                .iter()
+                .find(|n| n.id == id)
+                .unwrap()
+                .style
+                .clone()
+        };
+        assert_eq!(style(&r).fills, [Fill::solid(process(0.0, 0.0, 0.0, 0.15))]);
+        assert_eq!(style(&t).fills, [Fill::solid(process(0.0, 0.0, 0.0, 1.0))]);
+        assert_eq!(
+            style(&l).strokes,
+            [Fill::solid(process(0.0, 0.0, 0.0, 1.0))]
+        );
+        assert_eq!(style(&f).fills, [Fill::solid(process(0.0, 0.0, 0.0, 0.0))]);
+    }
+
+    #[test]
+    fn cmyk_colours_render_through_the_fogra51_preview() {
+        let (mut d, p) = empty();
+        let r = create(&mut d, &p, NewKind::Rect, [0.0; 4]);
+        let cyan = Color::Cmyk {
+            cmyk: [1.0, 0.0, 0.0, 0.0],
+            alpha: 0.5,
+        };
+        set(
+            &mut d,
+            &r,
+            Props {
+                fills: Some(vec![
+                    Fill::solid(process(0.0, 0.0, 0.0, 0.0)),
+                    Fill::solid(cyan),
+                ]),
+                ..Props::default()
+            },
+        );
+        let colors: Vec<[f32; 4]> = d
+            .render(0)
+            .into_iter()
+            .filter_map(|op| match op {
+                Op::FillPath {
+                    paint: Paint::Solid { color },
+                    ..
+                } => Some(color),
+                _ => None,
+            })
+            .collect();
+        let near = |a: [f32; 4], b: [f32; 4]| a.iter().zip(b).all(|(x, y)| (x - y).abs() < 0.03);
+        assert!(near(colors[0], [1.0; 4]), "{colors:?}");
+        assert!(near(colors[1], [0.0, 0.641, 0.896, 0.5]), "{colors:?}");
     }
 }
