@@ -1,4 +1,4 @@
-use crate::color::Color;
+use crate::color::{Color, Swatch};
 use crate::display_list::{CLOSE, Op, Paint, Shadow, Stop};
 use crate::geom::arrow;
 use serde::{Deserialize, Serialize};
@@ -168,7 +168,7 @@ pub enum Blend {
     Luminosity,
 }
 
-fn paint(f: &Fill, [x, y, w, h]: [f32; 4]) -> Paint {
+fn paint(f: &Fill, [x, y, w, h]: [f32; 4], swatches: &[Swatch]) -> Paint {
     let [a, b, c, d, e, g] = f.transform;
     let transform = [w * a, h * b, w * c, h * d, x + w * e, y + h * g];
     let stops = f
@@ -176,29 +176,33 @@ fn paint(f: &Fill, [x, y, w, h]: [f32; 4]) -> Paint {
         .iter()
         .map(|s| Stop {
             at: s.at,
-            color: s.color.rgba(),
+            color: s.color.rgba(swatches),
         })
         .collect();
     match f.kind {
         FillKind::Solid => Paint::Solid {
-            color: f.color.rgba(),
+            color: f.color.rgba(swatches),
         },
         FillKind::Linear => Paint::Linear { transform, stops },
         FillKind::Radial => Paint::Radial { transform, stops },
     }
 }
 
-pub fn paints(fills: &[Fill], frame: [f32; 4]) -> impl Iterator<Item = Paint> + '_ {
+pub fn paints<'a>(
+    fills: &'a [Fill],
+    frame: [f32; 4],
+    swatches: &'a [Swatch],
+) -> impl Iterator<Item = Paint> + 'a {
     fills
         .iter()
         .filter(|f| f.visible)
-        .map(move |f| paint(f, frame))
+        .map(move |f| paint(f, frame, swatches))
 }
 
 impl Style {
     /// Fill and stroke ops for `path`; closed paths honour the stroke alignment.
-    pub fn shape(&self, path: &[f32], frame: [f32; 4]) -> Vec<Op> {
-        let mut ops: Vec<Op> = paints(&self.fills, frame)
+    pub fn shape(&self, path: &[f32], frame: [f32; 4], swatches: &[Swatch]) -> Vec<Op> {
+        let mut ops: Vec<Op> = paints(&self.fills, frame, swatches)
             .map(|paint| Op::FillPath {
                 paint,
                 path: path.to_vec(),
@@ -218,7 +222,7 @@ impl Style {
                 }
             }
         }
-        for paint in paints(&self.strokes, frame) {
+        for paint in paints(&self.strokes, frame, swatches) {
             let stroke = Op::StrokePath {
                 paint,
                 width: self.stroke_weight * if align == Align::Center { 1.0 } else { 2.0 },
@@ -241,7 +245,7 @@ impl Style {
     }
 
     /// The layer that wraps a node's ops, if it needs one.
-    pub fn layer(&self) -> Option<Op> {
+    pub fn layer(&self, swatches: &[Swatch]) -> Option<Op> {
         let effects = || self.effects.iter().filter(|e| e.visible);
         let blur = effects()
             .filter(|e| e.kind == EffectKind::Blur)
@@ -252,7 +256,7 @@ impl Style {
             .map(|e| Shadow {
                 offset: [e.x, e.y],
                 blur: e.radius / 2.0,
-                color: e.color.rgba(),
+                color: e.color.rgba(swatches),
             })
             .collect();
         (self.opacity < 1.0 || self.blend != Blend::Normal || blur > 0.0 || !shadows.is_empty())

@@ -14,12 +14,41 @@ pub enum ColorMode {
 }
 
 /// A colour keeps its own space whatever the document's mode.
-/// RGB is 0xRRGGBBAA; CMYK components and alpha are 0..=1.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+/// RGB is 0xRRGGBBAA; CMYK components, tint and alpha are 0..=1.
+/// The tint of a swatch only applies to spot colours.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Color {
     Rgb(u32),
-    Cmyk { cmyk: [f32; 4], alpha: f32 },
+    Cmyk {
+        cmyk: [f32; 4],
+        alpha: f32,
+    },
+    Swatch {
+        swatch: String,
+        tint: f32,
+        alpha: f32,
+    },
+}
+
+/// A spot colour's `color` is its CMYK alternate.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Swatch {
+    pub id: String,
+    pub name: String,
+    pub color: Color,
+    pub spot: bool,
+}
+
+impl Swatch {
+    pub fn check(&self) -> Result<(), String> {
+        self.color.check()?;
+        match (&self.color, self.spot) {
+            (Color::Swatch { .. }, _) => Err("a swatch cannot use a swatch".into()),
+            (Color::Rgb(_), true) => Err("a spot colour needs a CMYK alternate".into()),
+            _ => Ok(()),
+        }
+    }
 }
 
 impl From<u32> for Color {
@@ -29,6 +58,17 @@ impl From<u32> for Color {
 }
 
 impl Color {
+    pub fn check(&self) -> Result<(), String> {
+        let unit = |v: &f32| (0.0..=1.0).contains(v);
+        let ok = match self {
+            Color::Rgb(_) => true,
+            Color::Cmyk { cmyk, alpha } => cmyk.iter().chain([alpha]).all(unit),
+            Color::Swatch { tint, alpha, .. } => unit(tint) && unit(alpha),
+        };
+        ok.then_some(())
+            .ok_or_else(|| "colour values must be in 0..=1".into())
+    }
+
     /// Black, white and light gray in the document's mode.
     pub fn black(mode: ColorMode) -> Color {
         Color::of(mode, 0x000000ff, 1.0)
@@ -52,14 +92,49 @@ impl Color {
         }
     }
 
+    /// The process colour a swatch stands for; missing swatches are transparent.
+    pub fn resolve(&self, swatches: &[Swatch]) -> Color {
+        let Color::Swatch {
+            swatch,
+            tint,
+            alpha,
+        } = self
+        else {
+            return self.clone();
+        };
+        match swatches.iter().find(|s| s.id == *swatch) {
+            Some(Swatch {
+                color: Color::Cmyk { cmyk, alpha: a },
+                spot: true,
+                ..
+            }) => Color::Cmyk {
+                cmyk: cmyk.map(|v| v * tint),
+                alpha: a * alpha,
+            },
+            Some(s) => match s.color {
+                Color::Rgb(c) => {
+                    let a = ((c & 0xff) as f32 * alpha).round() as u32;
+                    Color::Rgb(c & !0xff | a)
+                }
+                Color::Cmyk { cmyk, alpha: a } => Color::Cmyk {
+                    cmyk,
+                    alpha: a * alpha,
+                },
+                Color::Swatch { .. } => Color::Rgb(0),
+            },
+            None => Color::Rgb(0),
+        }
+    }
+
     /// Screen colour; CMYK is previewed through FOGRA51.
-    pub fn rgba(&self) -> [f32; 4] {
-        match *self {
+    pub fn rgba(&self, swatches: &[Swatch]) -> [f32; 4] {
+        match self.resolve(swatches) {
             Color::Rgb(c) => c.to_be_bytes().map(|v| v as f32 / 255.0),
             Color::Cmyk { cmyk, alpha } => {
                 let [r, g, b] = to_rgb(cmyk);
                 [r, g, b, alpha]
             }
+            Color::Swatch { .. } => [0.0; 4],
         }
     }
 }

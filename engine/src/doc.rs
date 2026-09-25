@@ -1,4 +1,4 @@
-use crate::color::{Color, ColorMode};
+use crate::color::{Color, ColorMode, Swatch};
 use crate::display_list::{CLOSE, LINE, MOVE, Op, rect};
 use crate::geom::{Shape, bounds, contains, fit, near, outline};
 use crate::style::{
@@ -85,6 +85,21 @@ pub enum Command {
     Paste {
         above: Vec<String>,
     },
+    AddSwatch {
+        name: String,
+        color: Color,
+        spot: bool,
+    },
+    SetSwatch {
+        id: String,
+        name: Option<String>,
+        color: Option<Color>,
+        spot: Option<bool>,
+    },
+    /// Removes a swatch; what uses it keeps the colour it stood for.
+    DeleteSwatch {
+        id: String,
+    },
     Undo,
     Redo,
     BeginUndoGroup,
@@ -130,6 +145,13 @@ impl Props {
         within(f(self.opacity), 0.0, 1.0, "opacity")?;
         for e in self.effects.iter().flatten() {
             within(Some(e.radius.into()), 0.0, f64::MAX, "blur")?;
+            e.color.check()?;
+        }
+        for f in self.fills.iter().chain(&self.strokes).flatten() {
+            f.color.check()?;
+            for s in &f.stops {
+                s.color.check()?;
+            }
         }
         Ok(())
     }
@@ -165,6 +187,7 @@ pub struct Snapshot {
     /// Resolution at which the PDF rasterizes shadows and blurs.
     pub raster_ppi: f64,
     pub color_mode: ColorMode,
+    pub swatches: Vec<Swatch>,
     pub can_undo: bool,
     pub can_redo: bool,
 }
@@ -677,11 +700,69 @@ impl Doc {
                     m.insert("rasterPpi", ppi).map_err(err)?;
                 }
                 if let Some(mode) = color_mode {
-                    let mode: LoroValue =
-                        serde_json::from_value(serde_json::to_value(mode).map_err(err)?)
-                            .map_err(err)?;
-                    m.insert("colorMode", mode).map_err(err)?;
+                    m.insert("colorMode", loro(mode)?).map_err(err)?;
                 }
+                vec![]
+            }
+            Command::AddSwatch { name, color, spot } => {
+                let id = format!("{}@{}", self.doc.len_ops(), self.doc.peer_id());
+                let swatch = Swatch {
+                    id: id.clone(),
+                    name,
+                    color,
+                    spot,
+                };
+                swatch.check()?;
+                let list = self.doc.get_list("swatches");
+                let m = list
+                    .insert_container(list.len(), LoroMap::new())
+                    .map_err(err)?;
+                for (k, v) in loro(swatch)?.into_map().unwrap().iter() {
+                    m.insert(k, v.clone()).map_err(err)?;
+                }
+                vec![id]
+            }
+            Command::SetSwatch {
+                id,
+                name,
+                color,
+                spot,
+            } => {
+                let (i, mut swatch) = self.swatch(&id)?;
+                swatch.name = name.unwrap_or(swatch.name);
+                swatch.color = color.unwrap_or(swatch.color);
+                swatch.spot = spot.unwrap_or(swatch.spot);
+                swatch.check()?;
+                let m = self
+                    .doc
+                    .get_list("swatches")
+                    .get(i)
+                    .and_then(|v| v.into_container().ok())
+                    .and_then(|c| c.into_map().ok())
+                    .ok_or("no swatch map")?;
+                for (k, v) in loro(swatch)?.into_map().unwrap().iter() {
+                    m.insert(k, v.clone()).map_err(err)?;
+                }
+                vec![]
+            }
+            Command::DeleteSwatch { id } => {
+                let (i, _) = self.swatch(&id)?;
+                let swatches = self.swatches();
+                let mut all = Vec::new();
+                for r in self.tree.roots() {
+                    self.walk(r, &mut all);
+                }
+                for n in all {
+                    let m = self.meta(n);
+                    for key in ["fills", "strokes", "effects"] {
+                        let Some(v) = value(&m, key) else { continue };
+                        let mut v = serde_json::to_value(v).map_err(err)?;
+                        if detach(&mut v, &id, &swatches) {
+                            m.insert(key, loro(v)?).map_err(err)?;
+                        }
+                    }
+                }
+                self.doc.get_list("swatches").delete(i, 1).map_err(err)?;
                 vec![]
             }
             Command::Copy { ids } => {
@@ -744,9 +825,25 @@ impl Doc {
             pages,
             raster_ppi: num(&self.doc.get_map("document"), "rasterPpi"),
             color_mode: self.color_mode(),
+            swatches: self.swatches(),
             can_undo: self.undo.can_undo(),
             can_redo: self.undo.can_redo(),
         }
+    }
+
+    fn swatches(&self) -> Vec<Swatch> {
+        serde_json::to_value(self.doc.get_list("swatches").get_deep_value())
+            .ok()
+            .and_then(|v| serde_json::from_value(v).ok())
+            .unwrap_or_default()
+    }
+
+    fn swatch(&self, id: &str) -> Res<(usize, Swatch)> {
+        self.swatches()
+            .into_iter()
+            .enumerate()
+            .find(|(_, s)| s.id == id)
+            .ok_or_else(|| format!("no swatch {id}"))
     }
 
     fn color_mode(&self) -> ColorMode {
@@ -765,7 +862,7 @@ impl Doc {
             height: p.height as f32,
             bleed: p.bleed as f32,
         }];
-        draw_all(&p.children, &mut ops);
+        draw_all(&p.children, &mut ops, &snap.swatches);
         ops
     }
 
@@ -840,8 +937,7 @@ impl Doc {
             return Err("props are not a map".into());
         };
         for (k, v) in props.into_iter().filter(|(_, v)| !v.is_null()) {
-            let v: LoroValue = serde_json::from_value(v).map_err(err)?;
-            m.insert(&k, v).map_err(err)?;
+            m.insert(&k, loro(v)?).map_err(err)?;
         }
         Ok(())
     }
@@ -1036,21 +1132,21 @@ impl Default for Doc {
 }
 
 /// Draws siblings; a mask masks the siblings above it.
-fn draw_all(nodes: &[Node], ops: &mut Vec<Op>) {
+fn draw_all(nodes: &[Node], ops: &mut Vec<Op>, sw: &[Swatch]) {
     for (i, n) in nodes.iter().enumerate() {
         if n.style.mask {
             ops.push(Op::BeginMask);
-            draw(n, ops);
+            draw(n, ops, sw);
             ops.push(Op::EndMask);
-            draw_all(&nodes[i + 1..], ops);
+            draw_all(&nodes[i + 1..], ops, sw);
             ops.push(Op::PopMask);
             return;
         }
-        draw(n, ops);
+        draw(n, ops, sw);
     }
 }
 
-fn draw(n: &Node, ops: &mut Vec<Op>) {
+fn draw(n: &Node, ops: &mut Vec<Op>, sw: &[Swatch]) {
     let frame = [n.x, n.y, n.w, n.h].map(|v| v as f32);
     let item = |ops: &mut Vec<Op>, body: Vec<Op>| {
         if body.is_empty() {
@@ -1063,29 +1159,29 @@ fn draw(n: &Node, ops: &mut Vec<Op>) {
         ops.extend(body);
         ops.push(Op::EndItem);
     };
-    let layer = n.style.layer();
+    let layer = n.style.layer(sw);
     let wrapped = layer.is_some();
     ops.extend(layer);
     match &n.kind {
-        Kind::Shape(s) => item(ops, n.style.shape(&outline(s, frame), frame)),
+        Kind::Shape(s) => item(ops, n.style.shape(&outline(s, frame), frame, sw)),
         Kind::Text { text, size } => item(
             ops,
-            paints(&n.style.fills, frame)
+            paints(&n.style.fills, frame, sw)
                 .flat_map(|p| layout(text, *size as f32, frame, &p))
                 .collect(),
         ),
-        Kind::Group { children } => draw_all(children, ops),
+        Kind::Group { children } => draw_all(children, ops, sw),
         Kind::Frame { clip, children } => {
             let r = rect(frame[0], frame[1], frame[2], frame[3]);
-            item(ops, n.style.shape(&r, frame));
+            item(ops, n.style.shape(&r, frame, sw));
             if !*clip {
-                draw_all(children, ops);
+                draw_all(children, ops, sw);
             } else if n.w > 0.0 && n.h > 0.0 {
                 ops.push(Op::PushClip {
                     path: r,
                     invert: false,
                 });
-                draw_all(children, ops);
+                draw_all(children, ops, sw);
                 ops.push(Op::PopClip);
             }
         }
@@ -1154,6 +1250,28 @@ fn union(boxes: impl Iterator<Item = [f64; 4]>) -> [f64; 4] {
         return [0.0; 4];
     }
     [b[0], b[1], b[2] - b[0], b[3] - b[1]]
+}
+
+fn loro(v: impl Serialize) -> Res<LoroValue> {
+    serde_json::from_value(serde_json::to_value(v).map_err(err)?).map_err(err)
+}
+
+/// Replaces colours that use swatch `id` in `v` by what the swatch stands for.
+fn detach(v: &mut serde_json::Value, id: &str, swatches: &[Swatch]) -> bool {
+    match v {
+        serde_json::Value::Object(o) if o.get("swatch").and_then(|s| s.as_str()) == Some(id) => {
+            let Ok(c) = serde_json::from_value::<Color>(v.clone()) else {
+                return false;
+            };
+            *v = serde_json::to_value(c.resolve(swatches)).unwrap();
+            true
+        }
+        serde_json::Value::Object(o) => o
+            .values_mut()
+            .fold(false, |d, v| detach(v, id, swatches) | d),
+        serde_json::Value::Array(a) => a.iter_mut().fold(false, |d, v| detach(v, id, swatches) | d),
+        _ => false,
+    }
 }
 
 fn err(e: impl Display) -> String {
@@ -2083,5 +2201,164 @@ mod tests {
         let near = |a: [f32; 4], b: [f32; 4]| a.iter().zip(b).all(|(x, y)| (x - y).abs() < 0.03);
         assert!(near(colors[0], [1.0; 4]), "{colors:?}");
         assert!(near(colors[1], [0.0, 0.641, 0.896, 0.5]), "{colors:?}");
+    }
+
+    fn swatch(d: &mut Doc, name: &str, color: Color, spot: bool) -> Res<String> {
+        d.apply(Command::AddSwatch {
+            name: name.into(),
+            color,
+            spot,
+        })
+        .map(|mut ids| ids.remove(0))
+    }
+
+    fn bound(id: &str, tint: f32) -> Color {
+        Color::Swatch {
+            swatch: id.into(),
+            tint,
+            alpha: 1.0,
+        }
+    }
+
+    fn solid_colors(d: &Doc) -> Vec<[f32; 4]> {
+        d.render(0)
+            .into_iter()
+            .filter_map(|op| match op {
+                Op::FillPath {
+                    paint: Paint::Solid { color },
+                    ..
+                } => Some(color),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn near(a: [f32; 4], b: [f32; 4]) -> bool {
+        a.iter().zip(b).all(|(x, y)| (x - y).abs() < 0.05)
+    }
+
+    #[test]
+    fn swatches_are_added_renamed_and_deleted_with_undo() {
+        let mut d = Doc::new();
+        assert_eq!(d.snapshot().swatches, []);
+        let id = swatch(&mut d, "Red", Color::Rgb(0xff0000ff), false).unwrap();
+        d.apply(Command::SetSwatch {
+            id: id.clone(),
+            name: Some("Signal".into()),
+            color: None,
+            spot: None,
+        })
+        .unwrap();
+        assert_eq!(
+            d.snapshot().swatches,
+            [Swatch {
+                id: id.clone(),
+                name: "Signal".into(),
+                color: Color::Rgb(0xff0000ff),
+                spot: false,
+            }]
+        );
+        d.apply(Command::DeleteSwatch { id: id.clone() }).unwrap();
+        assert_eq!(d.snapshot().swatches, []);
+        d.apply(Command::Undo).unwrap();
+        assert_eq!(d.snapshot().swatches[0].id, id);
+    }
+
+    #[test]
+    fn a_fill_bound_to_a_swatch_follows_the_swatch() {
+        let (mut d, p) = empty();
+        let id = swatch(&mut d, "Red", Color::Rgb(0xff0000ff), false).unwrap();
+        let r = create(&mut d, &p, NewKind::Rect, [0.0; 4]);
+        set(
+            &mut d,
+            &r,
+            Props {
+                fills: Some(vec![Fill::solid(bound(&id, 1.0))]),
+                ..Props::default()
+            },
+        );
+        assert_eq!(solid_colors(&d), [[1.0, 0.0, 0.0, 1.0]]);
+        d.apply(Command::SetSwatch {
+            id,
+            name: None,
+            color: Some(Color::Rgb(0x0000ffff)),
+            spot: None,
+        })
+        .unwrap();
+        assert_eq!(solid_colors(&d), [[0.0, 0.0, 1.0, 1.0]]);
+    }
+
+    #[test]
+    fn spot_swatches_have_a_cmyk_alternate_and_render_their_tint() {
+        let (mut d, p) = empty();
+        assert!(swatch(&mut d, "HKS 57", Color::Rgb(0xff00ffff), true).is_err());
+        let id = swatch(&mut d, "HKS 57", process(0.0, 1.0, 0.0, 0.0), true).unwrap();
+        let r = create(&mut d, &p, NewKind::Rect, [0.0; 4]);
+        set(
+            &mut d,
+            &r,
+            Props {
+                fills: Some(vec![
+                    Fill::solid(bound(&id, 1.0)),
+                    Fill::solid(bound(&id, 0.0)),
+                ]),
+                ..Props::default()
+            },
+        );
+        let c = solid_colors(&d);
+        assert!(near(c[0], [0.907, 0.0, 0.501, 1.0]), "{c:?}");
+        assert!(near(c[1], [1.0; 4]), "{c:?}");
+    }
+
+    #[test]
+    fn deleting_a_swatch_detaches_what_uses_it() {
+        let (mut d, p) = empty();
+        let red = swatch(&mut d, "Red", Color::Rgb(0xff0000ff), false).unwrap();
+        let spot = swatch(&mut d, "HKS 57", process(0.0, 1.0, 0.0, 0.2), true).unwrap();
+        let r = create(&mut d, &p, NewKind::Rect, [0.0; 4]);
+        set(
+            &mut d,
+            &r,
+            Props {
+                fills: Some(vec![Fill::solid(Color::Swatch {
+                    swatch: red.clone(),
+                    tint: 1.0,
+                    alpha: 0.5,
+                })]),
+                strokes: Some(vec![Fill::solid(bound(&spot, 0.5))]),
+                ..Props::default()
+            },
+        );
+        d.apply(Command::DeleteSwatch { id: red }).unwrap();
+        d.apply(Command::DeleteSwatch { id: spot }).unwrap();
+        let style = &page(&d).children[0].style;
+        assert_eq!(style.fills, [Fill::solid(0xff000080)]);
+        assert_eq!(
+            style.strokes,
+            [Fill::solid(Color::Cmyk {
+                cmyk: [0.0, 0.5, 0.0, 0.1],
+                alpha: 1.0
+            })]
+        );
+    }
+
+    #[test]
+    fn colours_out_of_range_are_rejected() {
+        let (mut d, p) = empty();
+        let r = create(&mut d, &p, NewKind::Rect, [0.0; 4]);
+        let fill = |c| Props {
+            fills: Some(vec![Fill::solid(c)]),
+            ..Props::default()
+        };
+        let set = |d: &mut Doc, props| {
+            d.apply(Command::Set {
+                id: r.clone(),
+                props,
+            })
+        };
+        assert!(set(&mut d, fill(process(0.0, 1.5, 0.0, 0.0))).is_err());
+        assert!(set(&mut d, fill(bound("x", -0.5))).is_err());
+        assert!(swatch(&mut d, "X", process(0.0, 0.0, 0.0, 2.0), false).is_err());
+        assert!(set(&mut d, fill(process(0.0, 1.0, 0.0, 0.0))).is_ok());
     }
 }
