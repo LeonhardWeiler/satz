@@ -41,12 +41,12 @@
 <body>
 <main>
 <h1>Satz – project health report</h1>
-<p class="meta">2026-09-25 · branch <code>main</code> · commit <code>b381bf1</code> · browser DTP (Rust/WASM engine, CanvasKit renderer, React UI, krilla PDF)</p>
+<p class="meta">2026-09-25 · branch <code>claude/vigilant-goodall-wo7pbp</code> · commit <code>79a329b</code> · browser DTP (Rust/WASM engine, CanvasKit renderer, React UI, krilla PDF)</p>
 
 <div class="counters">
   <div class="counter"><b>0</b><span>Critical</span></div>
-  <div class="counter"><b>2</b><span>High</span></div>
-  <div class="counter"><b>5</b><span>Medium</span></div>
+  <div class="counter"><b>1</b><span>High</span></div>
+  <div class="counter"><b>6</b><span>Medium</span></div>
   <div class="counter"><b>13</b><span>Low</span></div>
   <div class="counter"><b>2</b><span>Info</span></div>
   <div class="counter"><b>22</b><span>Total</span></div>
@@ -57,15 +57,14 @@
   <li><a href="#open">Open findings</a>
     <ol>
       <li><a href="#PERF-1">PERF-1 Quadratic text layout</a></li>
-      <li><a href="#BUG-10">BUG-10 Space wraps auto-width text</a></li>
-      <li><a href="#BUG-12">BUG-12 Duplicates break threads</a></li>
+      <li><a href="#BUG-15">BUG-15 Page number lost from 10</a></li>
+      <li><a href="#BUG-16">BUG-16 Split master unthreads</a></li>
+      <li><a href="#BUG-17">BUG-17 Joined master drops story</a></li>
       <li><a href="#TEST-3">TEST-3 Tests stay tiny</a></li>
       <li><a href="#TEST-2">TEST-2 Flaky e2e under load</a></li>
-      <li><a href="#BUG-11">BUG-11 Boxes can reach 0 size</a></li>
       <li><a href="#UX-1">UX-1 Blank screen while loading</a></li>
-      <li><a href="#BUG-13">BUG-13 Master–page threads</a></li>
       <li><a href="#BUG-14">BUG-14 Story in head's modes</a></li>
-      <li><a href="#UX-8">UX-8 Failed thread is silent</a></li>
+      <li><a href="#UX-8">UX-8 Refused thread is silent</a></li>
       <li><a href="#PERF-2">PERF-2 Export on main thread</a></li>
       <li><a href="#TEST-4">TEST-4 Scenario tests, weak asserts</a></li>
       <li><a href="#TEST-5">TEST-5 Hidden test order</a></li>
@@ -76,6 +75,7 @@
       <li><a href="#ARCH-1">ARCH-1 Canvas pointer logic</a></li>
       <li><a href="#SEC-1">SEC-1 Actions not pinned</a></li>
       <li><a href="#DOC-1">DOC-1 No CLAUDE.md</a></li>
+      <li><a href="#UX-9">UX-9 No favicon</a></li>
       <li><a href="#UX-5">UX-5 Start zoom 127 %</a></li>
       <li><a href="#PRINT-2">PRINT-2 Rasterised spot colours</a></li>
     </ol>
@@ -91,38 +91,45 @@
 <article class="card high" id="PERF-1">
   <header><span class="id">PERF-1</span><span class="badge high">high</span><h3>Threaded text is laid out many times per event, growing with frames × story</h3></header>
   <p class="file"><code>engine/src/doc.rs</code> <code>flows</code>, <code>flow</code>, <code>holding</code>, <code>prev_of</code>, <code>snapshot</code>, <code>render</code>, <code>master_layers</code>, <code>hit</code>; <code>engine/src/text.rs</code> <code>rows</code>; <code>web/src/editor.ts</code> <code>follow</code></p>
-  <p><code>flow</code> calls <code>text::overflow</code> per frame, and <code>rows</code> shapes and breaks the whole rest of the story each time, not just what fits. <code>snapshot</code> runs <code>flows</code> over every story, <code>render</code> builds a full snapshot and <code>master_layers</code> runs <code>flows</code> again, <code>hit</code> builds another snapshot on every hover, <code>caret</code>/<code>textLine</code> run <code>flow</code> twice, <code>textOverlay</code> once per frame, and <code>Editor.follow</code> calls <code>textFrame</code> after every <code>apply</code> and <code>set</code>. Each text node in the snapshot carries a copy of the whole story and its spans. <code>prev_of</code> walks every node of the document per call.</p>
-  <p>Measured in Node on the built WASM, one fixed A5 text frame per page, threaded (the same shape as the M1 booklet):</p>
+  <p><code>flow</code> calls <code>text::overflow</code> per frame, and <code>rows</code> shapes and breaks the whole rest of the story each time, not just what fits. <code>snapshot</code> runs <code>flows</code> over every story, <code>render</code> and <code>print</code> (once per PDF page) build a full snapshot and <code>master_layers</code> runs <code>flows</code> again, <code>hit</code> builds another snapshot on every hover, <code>caret</code>/<code>textLine</code> run <code>flow</code> twice, <code>textOverlay</code> once per frame, and <code>Editor.follow</code> calls <code>textFrame</code> after every <code>apply</code> and <code>set</code>. Each text node in the snapshot carries a copy of the whole story and its spans. <code>prev_of</code> walks every node of the document per call.</p>
+  <p>Measured in Node on the WASM built with <code>wasm-pack --no-opt</code>, one fixed A5 text frame per page, threaded (the same shape as the M1 booklet):</p>
   <table>
     <tr><td></td><td>1 page, 5 k chars</td><td>4 pages, 20 k</td><td>8 pages, 41 k</td></tr>
-    <tr><td><code>snapshot</code></td><td>9 ms</td><td>75 ms</td><td>255 ms (342 kB JSON)</td></tr>
-    <tr><td><code>displayList</code></td><td>13 ms</td><td>116 ms</td><td>289 ms</td></tr>
-    <tr><td><code>hit</code></td><td>7 ms</td><td>117 ms</td><td>250 ms</td></tr>
-    <tr><td><code>caret</code> / <code>textOverlay</code></td><td>16 ms</td><td>≈ 320 ms</td><td>≈ 536 ms</td></tr>
-    <tr><td><code>pdf</code></td><td>156 ms</td><td>762 ms</td><td>2 658 ms</td></tr>
+    <tr><td><code>snapshot</code></td><td>11 ms</td><td>91 ms</td><td>273 ms</td></tr>
+    <tr><td><code>displayList</code></td><td>20 ms</td><td>99 ms</td><td>324 ms</td></tr>
+    <tr><td><code>hit</code></td><td>7 ms</td><td>75 ms</td><td>282 ms</td></tr>
+    <tr><td><code>caret</code></td><td>17 ms</td><td>146 ms</td><td>546 ms</td></tr>
+    <tr><td><code>pdf</code></td><td>174 ms</td><td>584 ms</td><td>2 846 ms</td></tr>
   </table>
   <p>A typed character triggers snapshot, display list, caret, overlay and <code>textFrame</code>: well over 1.5 s on 8 pages. The M1 booklet is not editable at this speed.</p>
   <p class="rec">Compute the flows once per command in <code>finish</code> and keep them on <code>Doc</code>; <code>render</code>, <code>hit</code>, <code>caret</code> and the overlay read that cache. Stop <code>rows</code> at the frame's capacity so each frame shapes only its own lines. Put the story text and spans once per story into the snapshot; frames carry <code>start</code>/<code>end</code>. Add an engine test that builds the 8-page threaded booklet and asserts a time budget for <code>apply</code> + <code>render</code> + <code>caret</code>, so the regression shows in <code>./check</code>.</p>
 </article>
 
-<article class="card high" id="BUG-10">
-  <header><span class="id">BUG-10</span><span class="badge high">high</span><h3>A trailing space wraps auto-width text onto a new line</h3></header>
-  <p class="file"><code>engine/src/text.rs</code> <code>rows</code> (<code>natural</code>), <code>measure</code>; <code>engine/src/linebreak.rs</code> <code>break_lines</code></p>
-  <p>Typing in a text with auto width: after a space the caret jumps to a new line as if Enter was pressed; the next letter brings it back. <code>natural</code> still sums items only up to the last <code>Box</code>, so the hugged width leaves out the trailing space, while <code>break_lines</code> counts that <code>Glue</code> on the last line: "Hello␣" is one space wider than the frame, the breaker breaks at the glue and adds an empty line. The frame grows by one line until the next letter.</p>
-  <p class="rec">Sum <code>natural</code> over all items of the paragraph instead of up to the last <code>Box</code>. Add a <code>measure</code> test with <code>"Hello "</code> expecting one line and an e2e test typing a space in an auto-width text.</p>
+<article class="card medium" id="BUG-15">
+  <header><span class="id">BUG-15</span><span class="badge medium">medium</span><h3>A page number wider than the master's prefix disappears from auto-size master text</h3></header>
+  <p class="file"><code>engine/src/doc.rs</code> <code>master_layers</code>, <code>renumber</code>, <code>fit</code></p>
+  <p>A master text is fitted and flowed once on the master, where the marker shows the prefix ("A"). <code>renumber</code> then only swaps the number for each page, keeping the master's size. From page 10 on, "Page 12" is wider than the hugged "Page A": the line breaks, the second line does not fit the hugged height, and the number is not drawn at all (<code>render</code> of page 12 yields the run "Page"). Folios in the M1 booklet vanish as soon as it has 10 pages.</p>
+  <p class="rec">In <code>renumber</code>, measure the hugging sides of an unthreaded text again with the page's number (<code>text::measure</code>, as <code>fit</code> does). Add an engine test with a master "Page #" on page 12.</p>
 </article>
 
-<article class="card medium" id="BUG-12">
-  <header><span class="id">BUG-12</span><span class="badge medium">medium</span><h3>Duplicating a page or several threaded frames breaks the thread and repeats the story</h3></header>
-  <p class="file"><code>engine/src/doc.rs</code> <code>clip</code>, <code>paste</code>, <code>Command::DuplicatePage</code>, <code>Command::Duplicate</code></p>
-  <p><code>clip</code> gives every frame of a thread the whole story, and <code>paste</code> drops <code>next</code>. Duplicating a page whose frames a → b are threaded yields two unthreaded copies that each start at the beginning of the story, so the new page shows the same opening twice and both are overset. The same happens for Ctrl+D on both frames. The engine test <code>a_copy_of_a_threaded_frame_holds_its_whole_story_and_no_thread</code> covers only one copied frame; InDesign keeps the thread between copied frames.</p>
-  <p class="rec">When a command copies several frames of one thread, give the story to the first copy only and relink <code>next</code> among the copies (map old id → new id after pasting). Add engine tests for <code>DuplicatePage</code> and <code>Duplicate</code> with a thread inside the copied set.</p>
+<article class="card medium" id="BUG-16">
+  <header><span class="id">BUG-16</span><span class="badge medium">medium</span><h3>Turning facing pages on unthreads the left-page copies of a master's threaded frames</h3></header>
+  <p class="file"><code>engine/src/doc.rs</code> <code>split_masters</code></p>
+  <p><code>split_masters</code> copies each master layer with <code>paste(clip(..))</code> one by one and never calls <code>rethread</code>. For a thread a → b on a one-page master, the left copies a′ and b′ are unthreaded and each holds the whole story: every left page shows the opening twice and both frames are overset.</p>
+  <p class="rec">Collect the clips and copies and call <code>rethread</code> once per master, as <code>Duplicate</code> does.</p>
+</article>
+
+<article class="card medium" id="BUG-17">
+  <header><span class="id">BUG-17</span><span class="badge medium">medium</span><h3>Turning facing pages off loses the story of a thread that starts on the left master page</h3></header>
+  <p class="file"><code>engine/src/doc.rs</code> <code>join_masters</code></p>
+  <p><code>join_masters</code> moves the layers of the left master page to the trash with <code>remove</code> and skips <code>unlink_all</code>, which <code>Delete</code> and <code>DeletePage</code> use. When a left-page frame heads a thread into the right page, the right frame becomes a head with an empty own text: the story is gone until undo.</p>
+  <p class="rec">Call <code>unlink_all</code> before <code>remove</code>, so the story moves on to the next frame.</p>
 </article>
 
 <article class="card medium" id="TEST-3">
   <header><span class="id">TEST-3</span><span class="badge medium">medium</span><h3>Tests use tiny documents and miss combinations of pages, masters and threads</h3></header>
   <p class="file"><code>engine/src/doc.rs</code> tests; <code>engine/src/text.rs</code> tests; <code>web/e2e/thread.spec.ts</code>, <code>masters.spec.ts</code>, <code>pages.spec.ts</code></p>
-  <p>Engine thread tests use stories like <code>"Hi\nHi\nHi\nHi"</code> in 2–3 frames; the e2e story has 230 characters. No test builds anything near the M1 booklet, which is why PERF-1 went unnoticed through 5 feature commits. Each feature is tested alone: nothing duplicates a page with a thread (BUG-12), threads between a master and a page (BUG-13), deletes a page or master holding a thread head, or gives threaded frames different modes (BUG-14). Engine modules <code>layout.rs</code>, <code>style.rs</code> and <code>variable.rs</code> have no tests of their own and are covered only through <code>doc.rs</code>.</p>
+  <p>Engine thread tests use stories like <code>"Hi\nHi\nHi\nHi"</code> in 2–3 frames; the e2e story has 230 characters. No test builds anything near the M1 booklet, which is why PERF-1 went unnoticed through 5 feature commits. Each feature is tested alone, and the bugs of this review sit exactly where features meet: page numbers with more than one digit on a master text (BUG-15), threads on a master when facing pages switch (BUG-16, BUG-17), threaded frames in different modes (BUG-14). Nothing deletes a page or master holding a thread head. Engine modules <code>layout.rs</code>, <code>style.rs</code> and <code>variable.rs</code> have no tests of their own and are covered only through <code>doc.rs</code>.</p>
   <p class="rec">Add one fixture that builds the 8-page A5 booklet (master with page number area, one story threaded through all pages, a variable mode per page) and reuse it for a timing test (PERF-1), a PDF text-extraction check and the cross-feature cases above. The M1 example booklet (TODO item 16) can become this fixture.</p>
 </article>
 
@@ -133,25 +140,11 @@
   <p class="rec">Expose a frame counter on the canvas (e.g. <code>data-frame</code>) and wait for it to change instead of <code>waitForTimeout</code>; limit workers in CI (<code>workers: process.env.CI ? 2 : undefined</code>).</p>
 </article>
 
-<article class="card medium" id="BUG-11">
-  <header><span class="id">BUG-11</span><span class="badge medium">medium</span><h3>Rectangles, ellipses, frames and text boxes can be set to width or height 0</h3></header>
-  <p class="file"><code>engine/src/doc.rs</code> <code>resize</code>; <code>web/src/Canvas.tsx</code> <code>handleAt</code>, resize and draw drags; <code>web/src/Properties.tsx</code></p>
-  <p><code>resize</code> only rejects negative sizes. Typing 0 into H, dragging a handle onto the opposite edge, or a purely horizontal draw drag gives a box of height 0: invisible, a frame clips all children away, <code>handleAt</code> hides the n/s handles, and group resize uses the scale fallback 1. Only the H field brings it back. A fixed text frame of height 0 in a thread pushes its whole share on to the next frame.</p>
-  <p class="rec">In <code>resize</code> clamp <code>w</code> and <code>h</code> to 0.01 mm for every kind whose bounds are not derived from a path; lines, arrows and pen paths keep 0. Add engine tests for both groups and an e2e test typing 0 into H.</p>
-</article>
-
 <article class="card medium" id="UX-1">
   <header><span class="id">UX-1</span><span class="badge medium">medium</span><h3>Blank screen while ≈ 5.7 MB of WASM load, and on load failure</h3></header>
   <p class="file"><code>web/src/main.tsx</code>, <code>web/index.html</code></p>
   <p>Build output: <code>engine_bg.wasm</code> 2.7 MB gzip, <code>canvaskit.wasm</code> 3.0 MB gzip. Nothing is rendered until both are initialised; if the fetch or init fails, the top-level <code>await</code> rejects and the page stays empty. This is the first impression of the live portfolio build.</p>
   <p class="rec">Static loading text in <code>index.html</code>; catch the init promise and render the same notice style as the WebGL message.</p>
-</article>
-
-<article class="card low" id="BUG-13">
-  <header><span class="id">BUG-13</span><span class="badge low">low</span><h3>A master frame can thread into a page frame</h3></header>
-  <p class="file"><code>engine/src/doc.rs</code> <code>Command::Thread</code></p>
-  <p><code>Thread</code> checks kind and existing links, not where the frames live. A master text frame threaded into a frame on page 3 shows the story's opening on every page using that master, and its rest only on page 3; overriding the master frame on a page copies the whole story (BUG-12), and switching page 3 to another master leaves a thread into a layer it no longer shows. InDesign allows threads within masters or within document pages, not between them.</p>
-  <p class="rec">Reject <code>Thread</code> when one frame is on a master and the other is not (compare <code>kind</code> of <code>root(a)</code> and <code>root(b)</code>); add the case to <code>only_fixed_frames_thread_and_the_last_may_be_auto_height</code>.</p>
 </article>
 
 <article class="card low" id="BUG-14">
@@ -162,9 +155,9 @@
 </article>
 
 <article class="card low" id="UX-8">
-  <header><span class="id">UX-8</span><span class="badge low">low</span><h3>Threading into an already threaded frame fails silently</h3></header>
+  <header><span class="id">UX-8</span><span class="badge low">low</span><h3>A refused thread fails silently</h3></header>
   <p class="file"><code>web/src/Canvas.tsx</code> <code>onPointerDown</code> (threading branch), <code>onPointerUp</code></p>
-  <p>With a loaded out-port, clicking a text frame that already has a previous or next frame makes <code>thread</code> throw; the error goes to <code>console.warn</code>, the threading cursor ends and the frame gets selected as if it had worked. Nothing tells the user why the text did not flow.</p>
+  <p>With a loaded out-port, clicking a text frame that already has a previous or next frame makes <code>thread</code> throw, as does a frame on a master threaded with one on a page; the error goes to <code>console.warn</code>, the threading cursor ends and the frame gets selected as if it had worked; a frame drawn from the port stays behind unthreaded. Nothing tells the user why the text did not flow.</p>
   <p class="rec">Show a not-allowed cursor over frames that cannot take the thread while threading, and keep threading active after a refused click.</p>
 </article>
 
@@ -220,7 +213,7 @@
 <article class="card low" id="ARCH-1">
   <header><span class="id">ARCH-1</span><span class="badge low">low</span><h3>All pointer logic lives in one untested effect</h3></header>
   <p class="file"><code>web/src/Canvas.tsx</code></p>
-  <p>Handle detection, line ends, resize maths, marquee, drawing, pen, ports and threading sit in one <code>useEffect</code> in a 713-line file (600 in the last review). None of it has unit tests, unlike <code>select.ts</code> and <code>pen.ts</code>; only e2e covers it.</p>
+  <p>Handle detection, line ends, resize maths, marquee, drawing, pen, ports and threading sit in one <code>useEffect</code> in a 777-line file (713 in the last review), now also with spread offsets. None of it has unit tests, unlike <code>select.ts</code> and <code>pen.ts</code>; only e2e covers it.</p>
   <p class="rec">Move <code>handleAt</code>, <code>portAt</code> and the resize computation into a pure module with vitest cases.</p>
 </article>
 
@@ -236,6 +229,13 @@
   <p class="file">repo root</p>
   <p>Non-obvious rules live only in code and TODO: the display list contract between <code>display_list.rs</code> and <code>displayList.ts</code>, the <code>wasm-bindgen</code> pin that must match the flake's CLI, the trash root for undo, the story held by a thread's first frame with <code>next</code> links, master layers drawn under pages with <code>detached</code>/<code>overrideOf</code>, colours keeping their own space, the FOGRA51 build in <code>engine/icc/build</code>, the order in which <code>./check</code> produces test fixtures.</p>
   <p class="rec">Run <code>/init</code> and keep it to those points plus <code>./check</code>.</p>
+</article>
+
+<article class="card low" id="UX-9">
+  <header><span class="id">UX-9</span><span class="badge low">low</span><h3>No favicon: every load logs a 404</h3></header>
+  <p class="file"><code>web/index.html</code></p>
+  <p>The page declares no icon, so the browser requests <code>/favicon.ico</code>, gets a 404 in the console on every load and shows a blank tab icon.</p>
+  <p class="rec">Add a small inline SVG icon as a <code>data:</code> URL in <code>&lt;link rel="icon"&gt;</code>.</p>
 </article>
 
 <article class="card info" id="UX-5">
@@ -254,8 +254,8 @@
 
 <h2 id="strong">2. What is already strong</h2>
 <ul class="plain">
-  <li><span class="badge good">gate</span> <code>./check</code> covers fmt, clippy <code>-D warnings</code>, 128 cargo tests, wasm build, <code>tsc</code>, eslint, 10 vitest tests, build, 52 Playwright tests; all green in this run (flakes under repeat see TEST-2). CI runs the same script in <code>nix develop</code>.</li>
-  <li><span class="badge good">test</span> Pixel diff of the live canvas against the exported PDF rasterised by MuPDF, in RGB and CMYK, now per page: a resized second page, a master under a page, and threaded text across pages, which is also read back from the PDF as one story.</li>
+  <li><span class="badge good">gate</span> <code>./check</code> covers fmt, clippy <code>-D warnings</code>, 142 cargo tests, wasm build, <code>tsc</code>, eslint, 10 vitest tests, build, 61 Playwright tests; all green in CI (locally only the CMYK comparison differs with MuPDF 1.23 outside the flake; flakes under repeat see TEST-2). CI runs the same script in <code>nix develop</code>.</li>
+  <li><span class="badge good">test</span> Pixel diff of the live canvas against the exported PDF rasterised by MuPDF, in RGB and CMYK, now per page: a resized second page, a master under a page, threaded text across pages, which is also read back from the PDF as one story, a layer across the spine on both pages of its spread, and the two sides of a master spread.</li>
   <li><span class="badge good">test</span> Engine tests read as specifications (<code>deleting_a_threaded_frame_keeps_its_story_in_the_rest_of_the_thread</code>) and check undo with stable ids after structural commands; text tests cover overflow into the next frame including a hyphenated break.</li>
   <li><span class="badge good">test</span> Every bug from earlier manual rounds has an e2e regression test; e2e locates elements by role and accessible name, which also keeps the labels honest.</li>
   <li><span class="badge good">engine</span> Props and colours are range-checked before the first mutation; the UI keeps no clamps of its own. Page and master commands refuse deleting the last page and duplicate master names.</li>
