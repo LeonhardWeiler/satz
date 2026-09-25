@@ -32,12 +32,14 @@ export class Editor {
   }
 
   apply(cmd: Command): string[] {
-    const ids = this.engine.apply(cmd)
-    this.snapshot = this.engine.snapshot()
-    this.nodes = index(this.page.children)
-    this.selection = this.selection.filter((id) => this.nodes.has(id))
-    this.emit()
-    return ids
+    try {
+      return this.engine.apply(cmd)
+    } finally {
+      this.snapshot = this.engine.snapshot()
+      this.nodes = index(this.page.children)
+      this.selection = this.selection.filter((id) => this.nodes.has(id))
+      this.emit()
+    }
   }
 
   set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'pen'>>) {

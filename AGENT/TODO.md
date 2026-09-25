@@ -13,15 +13,6 @@ font helper, i18n.
 Found by the review on 2026-09-25 (IDs from `AGENT/project-health-report.html`), causes checked in
 the code, not reproduced in the browser.
 
-### B14. Dropping a layer into its own descendant throws (BUG-5, ROB-1)
-- Cause: `Layers.tsx` `over` only rejects the dragged rows. Dropping an expanded group on one of
-  its children sends a cyclic `move`; Loro rejects it after earlier ids may have moved, `apply`
-  returns before `commit`, and `Editor.apply` throws before it re-reads the snapshot. The drop
-  indicator stays visible.
-- Fix: `over` rejects targets inside a dragged subtree; `Command::Move` checks ancestry for all ids
-  before the first `mov_to`; `Editor.apply` re-reads the snapshot in `finally`.
-- Test: cargo test for the cyclic move leaving the tree unchanged; e2e drags a group onto its child.
-
 ### B15. Text content and swatch name are stale after undo (BUG-6)
 - Cause: the text `textarea` in `Properties.tsx` and the name input in `Swatches.tsx` are
   uncontrolled and keyed on the id only. After Ctrl+Z they show the newer value; the textarea

@@ -625,6 +625,13 @@ impl Doc {
                     return Err("not a container".into());
                 }
                 let ids = self.sorted(&ids)?;
+                let mut up = Some(p);
+                while let Some(n) = up {
+                    if ids.contains(&n) {
+                        return Err("cannot move a layer into itself".into());
+                    }
+                    up = self.tree.parent(n).and_then(parent_node);
+                }
                 let olds: Vec<_> = ids.iter().map(|&id| self.tree.parent(id)).collect();
                 let others = self
                     .children(p)
@@ -1545,6 +1552,28 @@ mod tests {
             index: 0,
         };
         assert!(d.apply(into_leaf).is_err());
+    }
+
+    #[test]
+    fn a_move_into_a_moved_subtree_changes_nothing() {
+        let (mut d, p) = empty();
+        let a = create(&mut d, &p, NewKind::Rect, [0.0; 4]);
+        let f = create(&mut d, &p, NewKind::Frame, [0.0; 4]);
+        let g = d
+            .apply(Command::Group {
+                ids: vec![f.clone()],
+                frame: false,
+            })
+            .unwrap()
+            .remove(0);
+        let before = d.snapshot();
+        let cyclic = Command::Move {
+            ids: vec![a, g],
+            parent: f,
+            index: 0,
+        };
+        assert!(d.apply(cyclic).is_err());
+        assert_eq!(d.snapshot(), before);
     }
 
     #[test]

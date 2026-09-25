@@ -194,3 +194,20 @@ test('mixed values fit their fields', async ({ page }) => {
     expect(await input.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
   }
 })
+
+test('dropping a group onto its own child changes nothing', async ({ page }) => {
+  const errors: Error[] = []
+  page.on('pageerror', (e) => errors.push(e))
+  await open(page)
+  const layers = page.getByRole('tree', { name: 'Layers' })
+  await layers.getByRole('button', { name: 'Sun' }).click()
+  await page.keyboard.press('Control+g')
+  const group = layers.getByRole('button', { name: 'Group', exact: true })
+  const sun = layers.getByRole('button', { name: 'Sun' })
+  const item = layers.getByRole('treeitem', { name: 'Sun' })
+  const level = (await item.getAttribute('aria-level'))!
+  await group.dragTo(sun)
+  await expect(item).toHaveAttribute('aria-level', level)
+  await expect(layers.locator('[data-drop]')).toHaveCount(0)
+  expect(errors).toEqual([])
+})

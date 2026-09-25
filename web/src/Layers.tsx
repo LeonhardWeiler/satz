@@ -30,8 +30,10 @@ export function Layers({ editor }: { editor: Editor }) {
     editor.set({ renaming: null })
   }
 
+  const dragged = (id?: string): boolean => id !== undefined && (dragging.includes(id) || dragged(editor.nodes.get(id)?.parent?.id))
+
   const over = (e: DragEvent, node: Node) => {
-    if (!dragging.length || dragging.includes(node.id)) return
+    if (!dragging.length || dragged(node.id)) return
     e.preventDefault()
     const r = e.currentTarget.getBoundingClientRect()
     const f = (e.clientY - r.top) / r.height
