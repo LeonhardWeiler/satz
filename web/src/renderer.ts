@@ -16,8 +16,8 @@ export type Overlay = {
   /** Where dragged layers land in an auto layout frame. */
   insert?: [{ x: number; y: number }, { x: number; y: number }]
   pen?: { anchors: { x: number; y: number; hx: number; hy: number }[]; cursor?: { x: number; y: number } } | null
-  /** Display list of the caret or selection in the text being edited, in page space. */
-  text?: Uint32Array
+  /** Display lists of the caret or selection in the text being edited, each in the space of a page at `x`. */
+  text?: { ops: Uint32Array; x: number }[]
   /** In- and out-ports of a text frame in screen space: empty, threaded, or holding overset text. */
   ports?: { x: number; y: number; state: 'empty' | 'threaded' | 'overset' }[]
   /** Lines in screen space from each frame of a thread to the next. */
@@ -30,16 +30,17 @@ const PORT = 10
 /** Path verbs of CanvasKit's path commands. */
 const [MOVE, LINE, CLOSE] = [0, 1, 5]
 
-export function fitView(
-  page: { width: number; height: number; bleed: number },
-  width: number,
-  height: number,
-): View {
-  const zoom = Math.min(
-    (width - 2 * FIT_PADDING) / (page.width + 2 * page.bleed),
-    (height - 2 * FIT_PADDING) / (page.height + 2 * page.bleed),
-  )
-  return { x: (width - page.width * zoom) / 2, y: (height - page.height * zoom) / 2, zoom }
+/** A page on the canvas: its trim size and bleed, and the x of its left edge on its spread. */
+export type Sheet = { x: number; width: number; height: number; bleed: number }
+
+/** The view that fits the pages of a spread, aligned at the top, into `width` × `height` px. */
+export function fitView(sheets: Sheet[], width: number, height: number): View {
+  const left = Math.min(...sheets.map((s) => s.x))
+  const w = Math.max(...sheets.map((s) => s.x + s.width)) - left
+  const h = Math.max(...sheets.map((s) => s.height))
+  const bleed = Math.max(...sheets.map((s) => s.bleed))
+  const zoom = Math.min((width - 2 * FIT_PADDING) / (w + 2 * bleed), (height - 2 * FIT_PADDING) / (h + 2 * bleed))
+  return { x: (width - w * zoom) / 2 - left * zoom, y: (height - h * zoom) / 2, zoom }
 }
 
 const BACKGROUND = '#1e1e1e'
@@ -71,39 +72,66 @@ export class Renderer {
     this.chrome = this.paint.copy()
   }
 
-  draw(canvas: Canvas, page: string, view: View, dpr: number, overlay: Overlay) {
+  /**
+   * Draws the display list of each page of `lists` at its x on the spread, over the
+   * pages `sheets`, clipped to their bleed together: a layer across the spine shows on
+   * both pages, and the bleed runs around the spread's outer edges.
+   */
+  draw(canvas: Canvas, lists: { id: string; x: number }[], sheets: Sheet[], view: View, dpr: number, overlay: Overlay) {
     const { ck, chrome: paint } = this
-    const ops = decode(this.engine.displayList(page))
     canvas.clear(ck.parseColorString(BACKGROUND))
     canvas.save()
     canvas.scale(dpr, dpr)
     canvas.translate(view.x, view.y)
     canvas.scale(view.zoom, view.zoom)
-    let bleedBox = ck.LTRBRect(0, 0, 0, 0)
-    let trimBox = bleedBox
-    const sheet = ops[0]
-    if (sheet?.op === 'page') {
-      const b = sheet.bleed
-      trimBox = ck.LTRBRect(0, 0, sheet.width, sheet.height)
-      bleedBox = ck.LTRBRect(-b, -b, sheet.width + b, sheet.height + b)
-      paint.setStyle(ck.PaintStyle.Fill)
-      paint.setColor(ck.WHITE)
-      canvas.drawRect(trimBox, paint)
+    const trims = sheets.map((s) => ck.XYWHRect(s.x, 0, s.width, s.height))
+    const bleeds = sheets.map((s) => ck.LTRBRect(s.x - s.bleed, -s.bleed, s.x + s.width + s.bleed, s.height + s.bleed))
+    const box = ([l, t, r, b]: Float32Array) => ck.Path.MakeFromCmds([MOVE, l, t, LINE, r, t, LINE, r, b, LINE, l, b, CLOSE])!
+    let bleed = box(bleeds[0])
+    for (const r of bleeds.slice(1)) {
+      const b = box(r)
+      const u = ck.Path.MakeFromOp(bleed, b, ck.PathOp.Union)
+      b.delete()
+      if (u) {
+        bleed.delete()
+        bleed = u
+      }
+    }
+    const bounds = bleed.getBounds()
+    paint.setStyle(ck.PaintStyle.Fill)
+    paint.setColor(ck.WHITE)
+    for (const r of trims) canvas.drawRect(r, paint)
+    canvas.save()
+    canvas.clipPath(bleed, ck.ClipOp.Intersect, true)
+    const live = new Set<number>()
+    for (const { id, x } of lists) {
+      const ops = decode(this.engine.displayList(id))
+      for (const op of ops) {
+        if (op.op === 'beginItem') live.add(op.item)
+        else if (op.op === 'pushLayer') live.add(op.hash)
+      }
       canvas.save()
-      canvas.clipRect(bleedBox, ck.ClipOp.Intersect, true)
-      this.drawOps(canvas, ops, 1, ops.length, bleedBox)
+      canvas.translate(x, 0)
+      const local = ck.LTRBRect(bounds[0] - x, bounds[1], bounds[2] - x, bounds[3])
+      this.drawOps(canvas, ops, ops[0]?.op === 'page' ? 1 : 0, ops.length, local)
       canvas.restore()
     }
-    for (const op of overlay.text ? decode(overlay.text) : []) this.drawOp(canvas, op)
+    canvas.restore()
+    for (const { ops, x } of overlay.text ?? []) {
+      canvas.save()
+      canvas.translate(x, 0)
+      for (const op of decode(ops)) this.drawOp(canvas, op)
+      canvas.restore()
+    }
     paint.setStyle(ck.PaintStyle.Stroke)
     paint.setStrokeWidth(0)
     paint.setColor(ck.parseColorString(TRIM))
-    canvas.drawRect(trimBox, paint)
+    for (const r of trims) canvas.drawRect(r, paint)
     paint.setColor(ck.parseColorString(BLEED))
-    canvas.drawRect(bleedBox, paint)
+    canvas.drawPath(bleed, paint)
+    bleed.delete()
     canvas.restore()
     this.drawOverlay(canvas, view, dpr, overlay)
-    const live = new Set(ops.flatMap((op) => (op.op === 'beginItem' ? op.item : op.op === 'pushLayer' ? op.hash : [])))
     for (const cache of [this.pictures, this.layers]) {
       for (const [key, { picture }] of cache) {
         if (live.has(key)) continue

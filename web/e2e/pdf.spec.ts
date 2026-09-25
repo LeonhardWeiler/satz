@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
 import { PNG } from 'pngjs'
-import { fitView } from '../src/renderer'
-import { STORY, frameOnNewPage, open, port, screen } from './util'
+import { fitView, type Sheet } from '../src/renderer'
+import { PAIR, STORY, drag, frameOnNewPage, open, port, screen } from './util'
 
 const EDGE = 4
 const BLOCK = 4
@@ -19,8 +19,16 @@ function pageBox(xml: string, name: string) {
   return { l, b, r, t }
 }
 
-/** Compares the canvas with page `n` of the exported pdf. */
-async function expectCanvasMatchesPdf(page: Page, n = 1) {
+/** Trim size and bleed of page `n` of `pdf`. */
+function sheet(pdf: string, n: number) {
+  const boxes = execFileSync('mutool', ['pages', pdf, String(n)]).toString()
+  const bleedBox = pageBox(boxes, 'BleedBox')
+  const trimBox = pageBox(boxes, 'TrimBox')
+  return { x: 0, width: trimBox.r - trimBox.l, height: trimBox.t - trimBox.b, bleed: trimBox.l - bleedBox.l }
+}
+
+/** Compares the canvas with page `n` of the exported pdf, which the canvas shows in the spread of the pages `spread`. */
+async function expectCanvasMatchesPdf(page: Page, n = 1, spread = [n]) {
   const canvas = (await page.getByLabel('Page canvas').boundingBox())!
   const dir = mkdtempSync(join(tmpdir(), 'satz-'))
   const pdf = join(dir, 'satz.pdf')
@@ -28,15 +36,12 @@ async function expectCanvasMatchesPdf(page: Page, n = 1) {
   await page.getByRole('button', { name: 'Export PDF' }).click()
   await (await download).saveAs(pdf)
 
-  const boxes = execFileSync('mutool', ['pages', pdf, String(n)]).toString()
-  const bleedBox = pageBox(boxes, 'BleedBox')
-  const trimBox = pageBox(boxes, 'TrimBox')
-  const bleed = trimBox.l - bleedBox.l
-  const width = trimBox.r - trimBox.l
-  const height = trimBox.t - trimBox.b
-  const view = fitView({ width, height, bleed }, canvas.width, canvas.height)
+  const sheets: Sheet[] = spread.map((k) => sheet(pdf, k))
+  if (sheets.length === 2) sheets[0].x = -sheets[0].width
+  const { x: left, width, height, bleed } = sheets[spread.indexOf(n)]
+  const view = fitView(sheets, canvas.width, canvas.height)
 
-  const x = Math.round(canvas.x + view.x - bleed * view.zoom)
+  const x = Math.round(canvas.x + view.x + (left - bleed) * view.zoom)
   const y = Math.round(canvas.y + view.y - bleed * view.zoom)
   const w = Math.round((width + 2 * bleed) * view.zoom)
   const h = Math.round((height + 2 * bleed) * view.zoom)
@@ -348,18 +353,34 @@ test('a master drawn under a page matches the canvas', async ({ page }) => {
 })
 
 test('text threaded across two pages matches the canvas and reads as one story', async ({ page }) => {
-  await open(page)
+  await open(page, 2000)
   const a = [20, 20, 70, 50]
   await frameOnNewPage(page, a)
   await page.keyboard.type(STORY)
   await page.keyboard.press('Escape')
   await page.mouse.click(...(await port(page, a, true)))
   await page.getByRole('navigation', { name: 'Pages' }).getByRole('button', { name: 'Add page' }).click()
-  await page.mouse.click(...(await screen(page, 30, 100)))
+  await page.mouse.click(...(await screen(page, 30, 100, PAIR, 1)))
   await page.keyboard.press('Escape')
   await page.keyboard.press('Escape')
   await page.mouse.move(1, 1)
-  const pdf = await expectCanvasMatchesPdf(page, 3)
+  const pdf = await expectCanvasMatchesPdf(page, 3, [2, 3])
   const text = execFileSync('mutool', ['draw', '-q', '-F', 'text', '-o', '-', pdf, '2-3']).toString()
   expect(text.replace(/\s+/g, ' ')).toContain(STORY)
+})
+
+test('a layer across the spine prints on both pages of its spread and matches the canvas', async ({ page }) => {
+  await open(page, 2000)
+  const pages = page.getByRole('navigation', { name: 'Pages' })
+  await pages.getByRole('button', { name: 'Add page' }).click()
+  await pages.getByRole('button', { name: 'Add page' }).click()
+  await page.keyboard.press('o')
+  await drag(page, await screen(page, 110, 60, PAIR, 0), await screen(page, 40, 110, PAIR, 1))
+  await pages.getByRole('button', { name: 'Page 2', exact: true }).click()
+  await expect(page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Ellipse', exact: true })).toHaveCount(1)
+  await page.keyboard.press('Escape')
+  await page.mouse.move(1, 1)
+  const pdf = await expectCanvasMatchesPdf(page, 3, [2, 3])
+  const trace = execFileSync('mutool', ['draw', '-F', 'trace', '-o', '-', pdf, '2-3']).toString()
+  expect(trace.match(/<fill_path/g)).toHaveLength(2)
 })

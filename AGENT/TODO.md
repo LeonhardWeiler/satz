@@ -28,14 +28,12 @@ font helper, i18n.
 ## Breadth
 
 ### 11. Spreads
-- With facing pages the canvas shows the spread of the page side by side at the
-  spine, as the pages panel lists them: page 1 alone on the right, then 2–3, 4–5
-  and so on. Pages of different heights align at the top.
 - Masters in a document with facing pages are spreads with a left and a right
   page; a page shows the side it is on, so page numbers and mirrored layouts sit
   on the outer edge. Without facing pages a master is one page.
-- Layers move freely across the spine; one that crosses it prints on both pages.
-  The PDF stays single pages with trim and bleed each.
+- Current page number, as in InDesign: a marker in text that shows the number of
+  the page it is on, on a master its prefix, so that a master sets the page numbers
+  of its pages.
 
 ### 12. Fonts
 - Upload, bundled font, Local Font Access (Chromium).

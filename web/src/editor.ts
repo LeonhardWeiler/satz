@@ -32,7 +32,7 @@ export class Editor {
   editing: Editing | null = null
   /** The text frame whose out-port was clicked, to thread into the next one clicked. */
   threading: string | null = null
-  /** The page shown on the canvas. */
+  /** The current page or master, shown on the canvas in its spread. */
   pageId: string
   /** Typing into the edited text is one undo step until the caret moves. */
   private typing = false
@@ -41,13 +41,39 @@ export class Editor {
   constructor(readonly engine: Engine) {
     this.snapshot = engine.snapshot()
     this.pageId = this.snapshot.pages[0].id
-    this.nodes = index(this.page.children)
+    this.nodes = this.index()
   }
 
-  /** The page or master shown on the canvas. */
+  /** The current page or master. */
   get page() {
     const { pages, masters } = this.snapshot
     return pages.find((p) => p.id === this.pageId) ?? masters.find((p) => p.id === this.pageId) ?? pages[0]
+  }
+
+  /** The pages of the current page's spread from left to right, or the current master. */
+  get spread(): Page[] {
+    const { pages, spreads } = this.snapshot
+    const ids = spreads.find((s) => s.includes(this.pageId))
+    return ids ? ids.map((id) => pages.find((p) => p.id === id)!) : [this.page]
+  }
+
+  /** How far the page of the layer `id` sits right of the spine on its spread. */
+  dx(id: string) {
+    return this.nodes.get(id)?.page?.x ?? 0
+  }
+
+  /** The layers of the current spread. */
+  private index() {
+    const out = new Map<string, Entry>()
+    for (const p of this.spread) index(p.children, undefined, out, p)
+    return out
+  }
+
+  /** Makes the page of the selection current when it is all on another page of the spread. */
+  private settle() {
+    const pages = new Set(this.selection.map((id) => this.nodes.get(id)?.page?.id))
+    const [only] = pages
+    if (pages.size === 1 && only && only !== this.pageId) this.pageId = only
   }
 
   /** The master a page draws under its layers. */
@@ -65,7 +91,7 @@ export class Editor {
       if (!pages.some((p) => p.id === this.pageId) && !masters.some((p) => p.id === this.pageId)) {
         this.pageId = pages[Math.max(0, Math.min(at, pages.length - 1))].id
       }
-      this.nodes = index(this.page.children)
+      this.nodes = this.index()
       this.selection = this.selection.filter((id) => this.nodes.has(id))
       const n = this.editing && this.nodes.get(this.editing.id)?.node
       if (this.editing) {
@@ -74,6 +100,7 @@ export class Editor {
         this.editing = len < 0 ? null : { ...this.editing, anchor: Math.min(anchor, len), focus: Math.min(focus, len) }
       }
       this.follow()
+      this.settle()
       this.emit()
     }
   }
@@ -84,13 +111,14 @@ export class Editor {
     if (patch.editing) patch = { selection: [patch.editing.id], ...patch }
     Object.assign(this, patch)
     this.follow()
+    this.settle()
     this.emit()
   }
 
   /** The layer `id` on any page or master, and the page it is on. */
   lookup(id: string) {
     for (const page of [...this.snapshot.pages, ...this.snapshot.masters]) {
-      const entry = index(page.children).get(id)
+      const entry = index(page.children, undefined, undefined, page).get(id)
       if (entry) return { ...entry, page }
     }
     return undefined
@@ -110,7 +138,7 @@ export class Editor {
     const found = this.lookup(frame)
     if (!found) return
     this.pageId = found.page.id
-    this.nodes = index(found.page.children)
+    this.nodes = this.index()
     this.editing = { ...e, id: frame }
     this.selection = [frame]
   }
@@ -121,7 +149,7 @@ export class Editor {
     this.finishPen(false)
     this.stopEditing()
     this.pageId = id
-    this.nodes = index(this.page.children)
+    this.nodes = this.index()
     this.set({ selection: [] })
   }
 

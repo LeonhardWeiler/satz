@@ -22,7 +22,8 @@ test('layers with shadows are recorded again only when their content changes', a
   const surface = ck.MakeSurface(300, 400)!
   const draw = () => {
     recorded = 0
-    renderer.draw(surface.getCanvas(), (engine.snapshot() as Snapshot).pages[0].id, { x: 0, y: 0, zoom: 0.5 }, 1, { selection: [] })
+    const [page] = (engine.snapshot() as Snapshot).pages
+    renderer.draw(surface.getCanvas(), [page], [page], { x: 0, y: 0, zoom: 0.5 }, 1, { selection: [] })
     return recorded
   }
   const shapes = () => ((engine.snapshot() as Snapshot).pages[0].children[3] as Extract<Node, { kind: 'group' }>).children

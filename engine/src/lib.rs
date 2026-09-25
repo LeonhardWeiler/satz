@@ -117,7 +117,7 @@ impl Engine {
 
     pub fn pdf(&self) -> Vec<u8> {
         let snap = self.doc.snapshot();
-        let pages: Vec<_> = snap.pages.iter().map(|p| self.doc.render(&p.id)).collect();
+        let pages: Vec<_> = snap.pages.iter().map(|p| self.doc.print(&p.id)).collect();
         pdf::pdf(&pages, snap.raster_ppi as f32, snap.color_mode)
     }
 

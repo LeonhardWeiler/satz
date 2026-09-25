@@ -121,6 +121,63 @@ pub fn rect(x: f32, y: f32, w: f32, h: f32) -> Vec<f32> {
     ]
 }
 
+/// `ops` moved by (dx, dy).
+pub fn shift(mut ops: Vec<Op>, dx: f32, dy: f32) -> Vec<Op> {
+    if dx == 0.0 && dy == 0.0 {
+        return ops;
+    }
+    let path = |p: &mut Vec<f32>| {
+        let mut i = 0;
+        while i < p.len() {
+            let n = match p[i] {
+                MOVE | LINE => 1,
+                CUBIC => 3,
+                _ => 0,
+            };
+            for k in 0..n {
+                p[i + 1 + 2 * k] += dx;
+                p[i + 2 + 2 * k] += dy;
+            }
+            i += 1 + 2 * n;
+        }
+    };
+    let paint = |p: &mut Paint| {
+        if let Paint::Linear { transform, .. } | Paint::Radial { transform, .. } = p {
+            transform[4] += dx;
+            transform[5] += dy;
+        }
+    };
+    for op in &mut ops {
+        match op {
+            Op::FillPath { paint: pt, path: p }
+            | Op::StrokePath {
+                paint: pt, path: p, ..
+            } => {
+                paint(pt);
+                path(p);
+            }
+            Op::PushClip { path: p, .. } => path(p),
+            Op::GlyphRun {
+                paint: pt,
+                positions,
+                ..
+            } => {
+                paint(pt);
+                for xy in positions.chunks_mut(2) {
+                    xy[0] += dx;
+                    xy[1] += dy;
+                }
+            }
+            Op::Image { rect, .. } => {
+                rect[0] += dx;
+                rect[1] += dy;
+            }
+            _ => {}
+        }
+    }
+    ops
+}
+
 fn floats(out: &mut Vec<u32>, v: &[f32]) {
     out.extend(v.iter().map(|f| f.to_bits()));
 }
@@ -276,6 +333,64 @@ pub fn encode(ops: &[Op]) -> Vec<u32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shift_moves_curves_glyphs_gradients_and_images() {
+        let linear = Paint::Linear {
+            transform: [1.0, 0.0, 0.0, 1.0, 2.0, 3.0],
+            stops: Vec::new(),
+        };
+        let ops = shift(
+            vec![
+                Op::StrokePath {
+                    paint: linear.clone(),
+                    width: 1.0,
+                    cap: 0,
+                    join: 0,
+                    path: vec![MOVE, 0.0, 0.0, CUBIC, 1.0, 1.0, 2.0, 2.0, 3.0, 3.0, CLOSE],
+                },
+                Op::GlyphRun {
+                    font: 0,
+                    size: 1.0,
+                    paint: linear,
+                    glyphs: vec![1, 2],
+                    positions: vec![0.0, 0.0, 5.0, 0.0],
+                    text: String::new(),
+                    ranges: Vec::new(),
+                },
+                Op::Image {
+                    image: 0,
+                    rect: [1.0, 1.0, 4.0, 4.0],
+                },
+            ],
+            10.0,
+            1.0,
+        );
+        let Op::StrokePath { path, paint, .. } = &ops[0] else {
+            panic!()
+        };
+        assert_eq!(
+            path,
+            &[
+                MOVE, 10.0, 1.0, CUBIC, 11.0, 2.0, 12.0, 3.0, 13.0, 4.0, CLOSE
+            ]
+        );
+        let Paint::Linear { transform, .. } = paint else {
+            panic!()
+        };
+        assert_eq!(transform[4..], [12.0, 4.0]);
+        let Op::GlyphRun { positions, .. } = &ops[1] else {
+            panic!()
+        };
+        assert_eq!(positions, &[10.0, 1.0, 15.0, 1.0]);
+        assert!(matches!(
+            ops[2],
+            Op::Image {
+                rect: [11.0, 2.0, 4.0, 4.0],
+                ..
+            }
+        ));
+    }
 
     #[test]
     fn item_hash_follows_item_content() {

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CanvasKit, Surface } from 'canvaskit-wasm'
 import { MM, bounds, ends, insertion, useEditor, type Editor, type Point, type Tool } from './editor'
-import type { Container, Node, TextNode } from './model'
+import type { Container, NewKind, Node, Page, TextNode } from './model'
 import { penPath } from './pen'
 import { Renderer, fitView, HANDLE, type Box, type View } from './renderer'
 import { pick } from './select'
@@ -37,7 +37,7 @@ type Drag =
   | { kind: 'resize'; start: Point; handle: string; box: Box; frames: Node[] }
   | { kind: 'end'; start: Point; id: string; ends: [Point, Point]; index: number }
   | { kind: 'marquee'; start: Point; end: Point; base: string[] }
-  | { kind: 'draw'; start: Point; id: string; moved: boolean; tool: keyof typeof DEFAULT_SIZE; thread?: string }
+  | { kind: 'draw'; start: Point; id: string; dx: number; moved: boolean; tool: keyof typeof DEFAULT_SIZE; thread?: string }
   | { kind: 'pen'; start: Point }
   | { kind: 'text' }
 
@@ -66,9 +66,10 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     const canvas = ref.current!
     const renderer = new Renderer(ck, editor.engine)
     const view: View = { x: 0, y: 0, zoom: 1 }
-    /** The view of each page left for another, as Figma keeps it. */
+    /** The view of each spread left for another, as Figma keeps it for pages. */
     const views = new Map<string, View>()
-    let shown = editor.page.id
+    const spreadKey = () => editor.spread.map((p) => p.id).join()
+    let shown = spreadKey()
     let surface: Surface | null = null
     let frame = 0
     let fitted = false
@@ -91,10 +92,31 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     }
     wake()
 
+    /** A point in the space of the spread, whose spine is at x 0. */
     const toDoc = (e: { offsetX: number; offsetY: number }): Point => ({
       x: (e.offsetX - view.x) / view.zoom,
       y: (e.offsetY - view.y) / view.zoom,
     })
+    /** A layer where it sits on the spread. */
+    const placed = <T extends Node>(n: T): T => ({ ...n, x: n.x + editor.dx(n.id) })
+    /** The page of the spread under `p`, or the nearest. */
+    const pageAt = (p: Point) => {
+      const away = (q: Page) => Math.max(q.x - p.x, p.x - q.x - q.width, 0)
+      return editor.spread.reduce((a, b) => (away(b) < away(a) ? b : a))
+    }
+    /** The path of layers at `p` on the topmost page of the spread that has one there. */
+    const hit = (p: Point) => {
+      for (const page of [...editor.spread].reverse()) {
+        const path = editor.engine.hit(page.id, p.x - page.x, p.y, HIT / view.zoom)
+        if (path.length) return { page, path }
+      }
+      return { page: pageAt(p), path: [] as string[] }
+    }
+    /** The layer that a click at `p` picks. */
+    const pickAt = (p: Point, mode: 'click' | 'double' | 'deep') => {
+      const { page, path } = hit(p)
+      return pick(page.children, path, editor.selection, mode)
+    }
     const rect = (a: Point, b: Point): Box => ({
       x: Math.min(a.x, b.x),
       y: Math.min(a.y, b.y),
@@ -112,10 +134,13 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       if (n.sizing.horizontal === 'hug' && n.sizing.vertical === 'hug' && !n.prev && !n.next) return undefined
       return { node: n, ...portsOf(n) }
     }
-    const portsOf = (n: Node) => ({
+    const portsOf = (layer: Node) => {
+      const n = placed(layer)
+      return {
       in: { x: view.x + n.x * view.zoom, y: view.y + n.y * view.zoom + Math.min(PORT_INSET, (n.h * view.zoom) / 2) },
       out: { x: view.x + (n.x + n.w) * view.zoom, y: view.y + (n.y + n.h) * view.zoom - Math.min(PORT_INSET, (n.h * view.zoom) / 2) },
-    })
+      }
+    }
     const portAt = (e: { offsetX: number; offsetY: number }) => {
       const p = ports()
       const near = (q: Point) => Math.abs(q.x - e.offsetX) <= PORT / 2 + 1 && Math.abs(q.y - e.offsetY) <= PORT / 2 + 1
@@ -123,7 +148,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     }
     /** Box handles of the selection, or the ends of a single selected line. */
     const handles = () => {
-      const nodes = editor.selected()
+      const nodes = editor.selected().map(placed)
       if (editor.tool !== 'move' || !nodes.length || editor.editing) return {}
       const line = nodes.length === 1 ? ends(nodes[0]) : undefined
       return line ? { line } : { box: bounds(nodes) }
@@ -155,7 +180,8 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         frame = 0
         if (!surface) return
         const { box, line } = drag?.kind === 'marquee' ? {} : handles()
-        const hovered = hover && !editor.selection.includes(hover) ? editor.nodes.get(hover)?.node : undefined
+        const over = hover && !editor.selection.includes(hover) ? editor.nodes.get(hover)?.node : undefined
+        const hovered = over && placed(over)
         const marquee =
           drag?.kind === 'marquee'
             ? rect(
@@ -164,27 +190,36 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
               )
             : undefined
         const ed = editor.editing
-        let text: Uint32Array | undefined
+        let text: { ops: Uint32Array; x: number }[] | undefined
         if (ed) {
-          const [x, top, bottom] = editor.engine.caret(ed.id, ed.focus)
+          const [cx, top, bottom] = editor.engine.caret(ed.id, ed.focus)
+          const x = cx + editor.dx(ed.id)
           Object.assign(area.current?.style ?? {}, {
             left: `${view.x + x * view.zoom}px`,
             top: `${view.y + top * view.zoom}px`,
             height: `${(bottom - top) * view.zoom}px`,
           })
           if (caretOn || ed.anchor !== ed.focus) {
-            text = editor.engine.textOverlay(ed.id, ed.anchor, ed.focus, 1 / view.zoom, editor.page.id).slice()
+            text = editor.spread.map((p) => ({
+              ops: editor.engine.textOverlay(ed.id, ed.anchor, ed.focus, 1 / view.zoom, p.id).slice(),
+              x: p.x,
+            }))
           }
         }
-        renderer.draw(surface.getCanvas(), editor.page.id, view, canvas.width / canvas.clientWidth, {
+        const spread = editor.spread
+        const pen = editor.pen
+        const penDx = pen ? editor.dx(pen.id) : 0
+        const flowDx = drag?.kind === 'move' && drag.flow ? editor.dx(drag.flow.id) : 0
+        const insert = drag?.kind === 'move' ? drag.to?.line.map((q) => ({ x: q.x + flowDx, y: q.y })) : undefined
+        renderer.draw(surface.getCanvas(), spread.map((p) => ({ id: p.id, x: p.x })), spread, view, canvas.width / canvas.clientWidth, {
           text,
-          selection: editor.selection.length > 1 || ed || drag?.kind === 'draw' ? editor.selected() : [],
+          selection: editor.selection.length > 1 || ed || drag?.kind === 'draw' ? editor.selected().map(placed) : [],
           hover: hovered,
           marquee,
           handles: box,
           ends: line,
-          pen: editor.pen && { anchors: editor.pen.anchors, cursor: drag ? undefined : cursor },
-          insert: drag?.kind === 'move' ? drag.to?.line : undefined,
+          pen: pen && { anchors: pen.anchors.map((a) => ({ ...a, x: a.x + penDx })), cursor: drag ? undefined : cursor },
+          insert: insert as [Point, Point] | undefined,
           ...threadOverlay(),
         })
         surface.flush()
@@ -199,7 +234,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       redraw()
     }
     const fit = () => {
-      Object.assign(view, fitView(editor.page, canvas.clientWidth, canvas.clientHeight))
+      Object.assign(view, fitView(editor.spread, canvas.clientWidth, canvas.clientHeight))
       setZoom(view.zoom)
       redraw()
     }
@@ -228,12 +263,11 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       if (box.w && near(x, r, EDGE)) return 'e'
       return undefined
     }
-    const hit = (p: Point) => editor.engine.hit(editor.page.id, p.x, p.y, HIT / view.zoom)
     const track = () => {
       if (!pointer || drag || editor.pen) return
       canvas.style.cursor = portAt(pointer) ? 'pointer' : (CURSORS[handleAt(pointer) ?? ''] ?? '')
       const mode = pointer.ctrlKey ? 'deep' : 'click'
-      const id = editor.tool === 'move' ? pick(editor.page.children, hit(toDoc(pointer)), editor.selection, mode) : undefined
+      const id = editor.tool === 'move' ? pickAt(toDoc(pointer), mode) : undefined
       if (id !== hover) {
         hover = id
         redraw()
@@ -274,8 +308,10 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     const inEdited = (p: Point) => {
       const n = editor.editing && editor.nodes.get(editor.editing.id)?.node
       if (n?.kind !== 'text') return undefined
-      const inside = (f: Node): f is TextNode =>
-        f.kind === 'text' && f.story === n.story && p.x >= f.x && p.x <= f.x + f.w && p.y >= f.y && p.y <= f.y + f.h
+      const inside = (f: Node): f is TextNode => {
+        const x = f.x + editor.dx(f.id)
+        return f.kind === 'text' && f.story === n.story && p.x >= x && p.x <= x + f.w && p.y >= f.y && p.y <= f.y + f.h
+      }
       return inside(n) ? n : [...editor.nodes.values()].map((e) => e.node).find(inside)
     }
     const onPointerDown = (e: PointerEvent) => {
@@ -286,7 +322,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         e.preventDefault()
         editor.dragging = true
         canvas.setPointerCapture(e.pointerId)
-        const i = editor.engine.textIndex(edited.id, p.x, p.y)
+        const i = editor.engine.textIndex(edited.id, p.x - editor.dx(edited.id), p.y)
         select(editor, e.shiftKey ? editor.editing!.anchor : i, i)
         drag = { kind: 'text' }
         return
@@ -301,40 +337,52 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         canvas.dataset.panning = ''
         return
       }
-      const parent = () => hit(p).findLast((id) => editor.nodes.get(id)?.node.kind === 'frame') ?? editor.page.id
+      /** The frame or page under `p` that a new layer goes into, and how far its page sits right of the spine. */
+      const target = () => {
+        const h = hit(p)
+        const frame = h.path.findLast((id) => editor.nodes.get(id)?.node.kind === 'frame')
+        const page = frame ? h.page : pageAt(p)
+        return { parent: frame ?? page.id, dx: page.x }
+      }
+      const create = (kind: NewKind) => {
+        const { parent, dx } = target()
+        const [id] = editor.apply({ type: 'create', parent, kind, x: p.x - dx, y: p.y, w: 0, h: 0 })
+        return { id, dx }
+      }
       if (editor.threading) {
         // A loaded out-port threads into the text frame clicked, or a new one drawn.
         const from = editor.threading
         if (portAt(e)) return
-        const target = hit(p).findLast((id) => editor.nodes.get(id)?.node.kind === 'text')
-        if (target === from) return
-        if (target) {
+        const to = hit(p).path.findLast((id) => editor.nodes.get(id)?.node.kind === 'text')
+        if (to === from) return
+        if (to) {
           try {
-            editor.apply({ type: 'thread', from, to: target })
+            editor.apply({ type: 'thread', from, to })
           } catch (err) {
             console.warn(err)
           }
-          editor.set({ threading: null, selection: [target] })
+          editor.set({ threading: null, selection: [to] })
           return
         }
         editor.apply({ type: 'beginUndoGroup' })
-        const [id] = editor.apply({ type: 'create', parent: parent(), kind: 'text', x: p.x, y: p.y, w: 0, h: 0 })
-        drag = { kind: 'draw', start: p, id, moved: false, tool: 'text', thread: from }
+        const { id, dx } = create('text')
+        drag = { kind: 'draw', start: p, id, dx, moved: false, tool: 'text', thread: from }
         editor.set({ selection: [id] })
         return
       }
       if (editor.tool === 'pen') {
         const pen = editor.pen
-        const anchor = { x: p.x, y: p.y, hx: 0, hy: 0 }
         drag = { kind: 'pen', start: p }
         if (!pen) {
           editor.apply({ type: 'beginUndoGroup' })
-          const [id] = editor.apply({ type: 'create', parent: parent(), kind: 'path', x: p.x, y: p.y, w: 0, h: 0 })
-          editor.set({ pen: { id, anchors: [anchor] }, selection: [] })
+          const { id, dx } = create('path')
+          editor.set({ pen: { id, anchors: [{ x: p.x - dx, y: p.y, hx: 0, hy: 0 }] }, selection: [] })
           return
         }
+        // Anchors are in the space of the path's page.
+        const anchor = { x: p.x - editor.dx(pen.id), y: p.y, hx: 0, hy: 0 }
         const first = pen.anchors[0]
-        if (pen.anchors.length > 1 && Math.hypot(first.x - p.x, first.y - p.y) * view.zoom <= HANDLE) {
+        if (pen.anchors.length > 1 && Math.hypot(first.x - anchor.x, first.y - anchor.y) * view.zoom <= HANDLE) {
           drag = null
           editor.finishPen(true)
           return
@@ -347,17 +395,18 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       if (editor.tool !== 'move') {
         const tool = editor.tool
         editor.apply({ type: 'beginUndoGroup' })
-        const [id] = editor.apply({ type: 'create', parent: parent(), kind: tool, x: p.x, y: p.y, w: 0, h: 0 })
-        drag = { kind: 'draw', start: p, id, moved: false, tool }
+        const { id, dx } = create(tool)
+        drag = { kind: 'draw', start: p, id, dx, moved: false, tool }
         editor.set({ selection: [id] })
         return
       }
       // Ctrl+Shift+click on a master layer that no page layer covers overrides it, as in InDesign.
-      const master = (e.ctrlKey || e.metaKey) && e.shiftKey && !hit(p).length
-        ? editor.engine.masterHit(editor.page.id, p.x, p.y, HIT / view.zoom)
+      const under = pageAt(p)
+      const master = (e.ctrlKey || e.metaKey) && e.shiftKey && !hit(p).path.length
+        ? editor.engine.masterHit(under.id, p.x - under.x, p.y, HIT / view.zoom)
         : undefined
       if (master) {
-        editor.set({ selection: editor.apply({ type: 'override', page: editor.page.id, id: master }) })
+        editor.set({ selection: editor.apply({ type: 'override', page: under.id, id: master }) })
         return
       }
       const port = portAt(e)
@@ -367,7 +416,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         return
       }
       const handle = handleAt(e)
-      const line = handle?.startsWith('end') && ends(editor.selected()[0])
+      const line = handle?.startsWith('end') && ends(placed(editor.selected()[0]))
       if (line) {
         drag = { kind: 'end', start: p, id: editor.selection[0], ends: line, index: Number(handle!.slice(3)) }
         editor.apply({ type: 'beginUndoGroup' })
@@ -375,12 +424,11 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       }
       if (handle) {
         const frames = editor.selected()
-        drag = { kind: 'resize', start: p, handle, box: bounds(frames), frames }
+        drag = { kind: 'resize', start: p, handle, box: bounds(frames.map(placed)), frames }
         editor.apply({ type: 'beginUndoGroup' })
         return
       }
-      const mode = e.ctrlKey || e.metaKey ? 'deep' : 'click'
-      const id = pick(editor.page.children, hit(p), editor.selection, mode)
+      const id = pickAt(p, e.ctrlKey || e.metaKey ? 'deep' : 'click')
       const sel = editor.selection
       if (!id) {
         drag = { kind: 'marquee', start: p, end: p, base: e.shiftKey ? sel : [] }
@@ -409,7 +457,8 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       if (!drag) return track()
       if (drag.kind === 'text') {
         const ed = editor.editing
-        if (ed) select(editor, ed.anchor, editor.engine.textIndex(inEdited(p)?.id ?? ed.id, p.x, p.y))
+        const id = inEdited(p)?.id ?? ed?.id
+        if (ed && id) select(editor, ed.anchor, editor.engine.textIndex(id, p.x - editor.dx(id), p.y))
       } else if (drag.kind === 'pan') {
         view.x += e.clientX - drag.last.x
         view.y += e.clientY - drag.last.y
@@ -418,7 +467,8 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       } else if (drag.kind === 'marquee') {
         drag.end = p
         const m = rect(drag.start, p)
-        const inside = editor.page.children
+        const inside = editor.spread
+          .flatMap((page) => page.children.map((n) => ({ ...n, x: n.x + page.x })))
           .filter((n) => n.x < m.x + m.w && n.x + n.w > m.x && n.y < m.y + m.h && n.y + n.h > m.y)
           .map((n) => n.id)
         editor.set({ selection: [...new Set([...drag.base, ...inside])] })
@@ -436,7 +486,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         let dy = p.y - drag.start.y
         if (drag.tool === 'line' || drag.tool === 'arrow') {
           if (e.shiftKey) [dx, dy] = snap45(dx, dy)
-          const { x, y } = drag.start
+          const [x, y] = [drag.start.x - drag.dx, drag.start.y]
           editor.apply({ type: 'setPath', id: drag.id, path: [0, x, y, 1, x + dx, y + dy] })
           return
         }
@@ -447,7 +497,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         }
         const a = e.altKey ? { x: drag.start.x - dx, y: drag.start.y - dy } : drag.start
         const r = rect(a, { x: drag.start.x + dx, y: drag.start.y + dy })
-        editor.apply({ type: 'setFrame', id: drag.id, ...r })
+        editor.apply({ type: 'setFrame', id: drag.id, ...r, x: r.x - drag.dx })
       } else if (drag.kind === 'move') {
         let dx = p.x - drag.start.x
         let dy = p.y - drag.start.y
@@ -461,7 +511,8 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           }
         }
         if (drag.flow) {
-          drag.to = insertion(drag.flow, drag.frames.map((n) => n.id), p)
+          const local = { x: p.x - editor.dx(drag.flow.id), y: p.y }
+          drag.to = insertion(drag.flow, drag.frames.map((n) => n.id), local)
           redraw()
           return
         }
@@ -478,7 +529,8 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         if (e.shiftKey) [dx, dy] = snap45(dx, dy)
         const moved = { x: fixed.x + dx, y: fixed.y + dy }
         const [a, b] = drag.index ? [fixed, moved] : [moved, fixed]
-        editor.apply({ type: 'setPath', id: drag.id, path: [0, a.x, a.y, 1, b.x, b.y] })
+        const off = editor.dx(drag.id)
+        editor.apply({ type: 'setPath', id: drag.id, path: [0, a.x - off, a.y, 1, b.x - off, b.y] })
       } else if (drag.kind === 'resize') {
         const { box, handle } = drag
         const dx = p.x - drag.start.x
@@ -505,17 +557,18 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         const sx = box.w ? (r - l) / box.w : 1
         const sy = box.h ? (b - t) / box.h : 1
         for (const n of drag.frames) {
-          const x1 = l + (n.x - box.x) * sx
+          const off = editor.dx(n.id)
+          const x1 = l + (n.x + off - box.x) * sx
           const y1 = t + (n.y - box.y) * sy
           const f = rect({ x: x1, y: y1 }, { x: x1 + n.w * sx, y: y1 + n.h * sy })
-          editor.apply({ type: 'setFrame', id: n.id, ...f, ignoreConstraints: e.ctrlKey || e.metaKey })
+          editor.apply({ type: 'setFrame', id: n.id, ...f, x: f.x - off, ignoreConstraints: e.ctrlKey || e.metaKey })
         }
       }
     }
     const onPointerUp = (e: PointerEvent) => {
       if (drag?.kind === 'draw' && drag.thread) {
         const from = editor.lookup(drag.thread)?.node
-        if (!drag.moved && from) editor.apply({ type: 'setFrame', id: drag.id, x: drag.start.x, y: drag.start.y, w: from.w, h: from.h })
+        if (!drag.moved && from) editor.apply({ type: 'setFrame', id: drag.id, x: drag.start.x - drag.dx, y: drag.start.y, w: from.w, h: from.h })
         try {
           editor.apply({ type: 'thread', from: drag.thread, to: drag.id })
         } catch (err) {
@@ -525,7 +578,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       } else if (drag?.kind === 'draw') {
         if (drag.tool !== 'text' && !drag.moved) {
           const [w, h] = DEFAULT_SIZE[drag.tool]
-          editor.apply({ type: 'setFrame', id: drag.id, x: drag.start.x, y: drag.start.y, w: w * MM, h: h * MM })
+          editor.apply({ type: 'setFrame', id: drag.id, x: drag.start.x - drag.dx, y: drag.start.y, w: w * MM, h: h * MM })
         }
         editor.setTool('move')
         const n = editor.nodes.get(drag.id)?.node
@@ -533,12 +586,23 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       }
       if (drag?.kind === 'move' && drag.flow && drag.to) {
         editor.apply({ type: 'move', ids: drag.frames.map((n) => n.id), parent: drag.flow.id, index: drag.to.index })
+      } else if (drag?.kind === 'move' && drag.active) {
+        // A layer dragged across the spine goes to the page its centre is on.
+        const moves = new Map<Page, string[]>()
+        for (const { id } of drag.frames) {
+          const entry = editor.nodes.get(id)
+          if (!entry || entry.parent) continue
+          const n = placed(entry.node)
+          const to = pageAt({ x: n.x + n.w / 2, y: n.y + n.h / 2 })
+          if (to.id !== entry.page?.id) moves.set(to, [...(moves.get(to) ?? []), id])
+        }
+        for (const [to, ids] of moves) editor.apply({ type: 'move', ids, parent: to.id, index: to.children.length })
       }
       if (drag?.kind === 'draw' || drag?.kind === 'resize' || drag?.kind === 'end' || (drag?.kind === 'move' && drag.active)) {
         editor.apply({ type: 'endUndoGroup' })
       }
       if (drag?.kind === 'move' && !drag.active && !e.shiftKey) {
-        const id = pick(editor.page.children, hit(toDoc(e)), editor.selection, e.ctrlKey || e.metaKey ? 'deep' : 'click')
+        const id = pickAt(toDoc(e), e.ctrlKey || e.metaKey ? 'deep' : 'click')
         if (id && editor.selection.length > 1) editor.set({ selection: [id] })
       }
       drag = null
@@ -560,14 +624,14 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const p = toDoc(e)
       const edited = inEdited(p)
       if (edited) {
-        const [a, b] = wordAt(edited.text, editor.engine.textIndex(edited.id, p.x, p.y))
+        const [a, b] = wordAt(edited.text, editor.engine.textIndex(edited.id, p.x - editor.dx(edited.id), p.y))
         select(editor, a, b)
         return
       }
-      const id = pick(editor.page.children, hit(p), editor.selection, 'double')
+      const id = pickAt(p, 'double')
       const n = id && editor.nodes.get(id)?.node
       if (n && n.kind === 'text' && editor.selection.includes(id)) {
-        const i = editor.engine.textIndex(n.id, p.x, p.y)
+        const i = editor.engine.textIndex(n.id, p.x - editor.dx(n.id), p.y)
         editor.set({ editing: { id: n.id, anchor: i, focus: i } })
       } else if (id) editor.set({ selection: [id] })
     }
@@ -608,9 +672,9 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     }
 
     const unsubscribe = editor.subscribe(() => {
-      if (editor.page.id !== shown) {
+      if (spreadKey() !== shown) {
         views.set(shown, { ...view })
-        shown = editor.page.id
+        shown = spreadKey()
         const kept = views.get(shown)
         if (kept) {
           Object.assign(view, kept)

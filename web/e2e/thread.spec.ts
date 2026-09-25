@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { STORY, frameOnNewPage, open, pixels, port, screen } from './util'
+import { PAIR, STORY, frameOnNewPage, open, pixels, port, screen } from './util'
 
 const overset = async (page: Page, at: [number, number]) =>
   (await pixels(page, at[0] - 4, at[1] - 4, 9, 9)).some(([r, g, b]) => r > 200 && g < 110 && b < 110)
@@ -32,19 +32,19 @@ test('text threads from the out-port into a clicked frame and a new one, across 
   await expect(panel.getByRole('radio', { name: 'Auto width' })).toBeDisabled()
   await expect(panel.getByRole('radio', { name: 'Auto height' })).toBeEnabled()
 
-  await frameOnNewPage(page, a)
+  // Page 3 shows beside page 2 in their spread.
+  await frameOnNewPage(page, a, PAIR, 1)
   await page.keyboard.type('Tail')
   await page.keyboard.press('Escape')
   await page.keyboard.press('Escape')
-  await pages.getByRole('button', { name: 'Page 2', exact: true }).click()
-  await page.mouse.click(...(await screen(page, 100, 30)))
+  await page.mouse.click(...(await screen(page, 100, 30, PAIR, 0)))
+  await expect(pages.getByRole('button', { name: 'Page 2', exact: true })).toHaveAttribute('aria-current', 'page')
   await expect(title).toHaveText(second)
-  await page.mouse.click(...(await port(page, b, true)))
-  await pages.getByRole('button', { name: 'Page 3', exact: true }).click()
-  await page.mouse.click(...(await screen(page, 40, 30)))
+  await page.mouse.click(...(await port(page, b, true, PAIR, 0)))
+  await page.mouse.click(...(await screen(page, 40, 30, PAIR, 1)))
   await expect(title).not.toHaveText('Text')
 
-  await page.mouse.dblclick(...(await screen(page, 40, 25)))
+  await page.mouse.dblclick(...(await screen(page, 40, 25, PAIR, 1)))
   await expect(page.getByRole('textbox', { name: 'Text editor' })).toBeFocused()
   await page.keyboard.press('Control+Home')
   await expect(pages.getByRole('button', { name: 'Page 2', exact: true })).toHaveAttribute('aria-current', 'page')
@@ -53,8 +53,8 @@ test('text threads from the out-port into a clicked frame and a new one, across 
   await page.keyboard.press('Escape')
   await page.keyboard.press('Escape')
 
-  await page.mouse.click(...(await screen(page, 100, 30)))
-  await page.mouse.dblclick(...(await port(page, b, true)))
+  await page.mouse.click(...(await screen(page, 100, 30, PAIR, 0)))
+  await page.mouse.dblclick(...(await port(page, b, true, PAIR, 0)))
   await pages.getByRole('button', { name: 'Page 3', exact: true }).click()
   await expect(layers.getByRole('button', { name: 'Text', exact: true })).toBeVisible()
   await page.keyboard.press('Control+z')

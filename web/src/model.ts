@@ -166,6 +166,8 @@ export type Page = {
   height: number
   bleed: number
   side: 'left' | 'right' | null
+  /** Where the page's left edge sits on its spread, whose spine is at 0. */
+  x: number
   master: string | null
   detached: string[]
   modes: Modes

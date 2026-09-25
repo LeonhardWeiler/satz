@@ -1,6 +1,6 @@
 use crate::color::Ink;
 use crate::color::{Color, ColorMode, Swatch};
-use crate::display_list::{CLOSE, LINE, MOVE, Op, Paint, rect};
+use crate::display_list::{CLOSE, LINE, MOVE, Op, Paint, rect, shift};
 use crate::geom::{Shape, bounds, contains, fit, near, outline};
 use crate::layout::{Align3, Direction, Layout, MainAlign, Size, Sizing, arrange};
 use crate::style::{
@@ -473,6 +473,8 @@ pub struct Page {
     pub bleed: f64,
     /// The side of its spread a page is on with facing pages.
     pub side: Option<Side>,
+    /// Where the page's left edge sits on its spread, whose spine is at 0.
+    pub x: f64,
     pub master: Option<String>,
     pub detached: Vec<String>,
     pub modes: Modes,
@@ -541,6 +543,14 @@ pub enum Kind {
         clip: bool,
         children: Vec<Node>,
     },
+}
+
+/// Where a page sits on its spread; see `Doc::places`.
+struct Place {
+    id: TreeID,
+    spread: usize,
+    side: Option<Side>,
+    x: f64,
 }
 
 /// Where the story of a thread, from the frame `head`, flows through a frame: the
@@ -1267,6 +1277,15 @@ impl Doc {
                     up = self.tree.parent(n).and_then(parent_node);
                 }
                 let olds: Vec<_> = ids.iter().map(|&id| self.tree.parent(id)).collect();
+                let places = self.places();
+                let place = |id: TreeID| places.iter().find(|q| q.id == self.root(id));
+                let dxs: Vec<f64> = ids
+                    .iter()
+                    .map(|&id| match (place(id), place(p)) {
+                        (Some(a), Some(b)) if a.spread == b.spread => a.x - b.x,
+                        _ => 0.0,
+                    })
+                    .collect();
                 let others = self
                     .children(p)
                     .into_iter()
@@ -1276,6 +1295,10 @@ impl Doc {
                     self.tree
                         .mov_to(id, p, index.min(others) + i)
                         .map_err(err)?;
+                }
+                for (&id, dx) in ids.iter().zip(dxs).filter(|(_, dx)| *dx != 0.0) {
+                    let [x, y, w, h] = self.bounds(id);
+                    self.set_frame(id, [x + dx, y, w, h])?;
                 }
                 for p in olds {
                     self.prune(p)?;
@@ -2544,6 +2567,7 @@ impl Doc {
                 height: num(&m, "height"),
                 bleed: num(&m, "bleed"),
                 side: None,
+                x: 0.0,
                 master: self.master_of(p).map(|m| m.to_string()),
                 detached: serde_json::from_value(v["detached"].clone()).unwrap_or_default(),
                 children: self
@@ -2556,15 +2580,11 @@ impl Doc {
         };
         let facing_pages = self.facing_pages();
         let mut pages: Vec<Page> = self.pages().into_iter().map(sheet).collect();
-        let spreads = spreads(pages.len(), facing_pages);
-        for s in &spreads {
-            for (k, &i) in s.iter().enumerate() {
-                pages[i].side = facing_pages.then_some(match (s.len(), i, k) {
-                    (1, 0, _) | (2, _, 1) => Side::Right,
-                    _ => Side::Left,
-                });
-            }
+        let places = self.places();
+        for (p, place) in pages.iter_mut().zip(&places) {
+            (p.side, p.x) = (place.side, place.x);
         }
+        let spreads = spreads(pages.len(), facing_pages);
         Snapshot {
             spreads: spreads
                 .iter()
@@ -2664,6 +2684,36 @@ impl Doc {
         self.find("swatches", id)
     }
 
+    /// Where each page sits: its spread, its side and the x of its left edge on the
+    /// spread, whose spine is at 0.
+    fn places(&self) -> Vec<Place> {
+        let pages = self.pages();
+        let facing = self.facing_pages();
+        let mut out: Vec<Place> = pages
+            .iter()
+            .map(|&id| Place {
+                id,
+                spread: 0,
+                side: None,
+                x: 0.0,
+            })
+            .collect();
+        for (k, s) in spreads(pages.len(), facing).iter().enumerate() {
+            for (j, &i) in s.iter().enumerate() {
+                let side = facing.then_some(match (s.len(), i, j) {
+                    (1, 0, _) | (2, _, 1) => Side::Right,
+                    _ => Side::Left,
+                });
+                out[i].spread = k;
+                out[i].side = side;
+                if side == Some(Side::Left) {
+                    out[i].x = -num(&self.meta(pages[i]), "width");
+                }
+            }
+        }
+        out
+    }
+
     fn facing_pages(&self) -> bool {
         value(&self.doc.get_map("document"), "facingPages") == Some(LoroValue::Bool(true))
     }
@@ -2681,21 +2731,39 @@ impl Doc {
         let Some(p) = sheets().find(|p| p.id == id) else {
             return Vec::new();
         };
-        let mut ops = vec![Op::Page {
-            width: p.width as f32,
-            height: p.height as f32,
-            bleed: p.bleed as f32,
-        }];
+        let mut ops = vec![page_op(p)];
+        self.draw_sheet(&snap, p, &mut ops);
+        ops
+    }
+
+    /// The display list of the page `id` as it prints: with the layers of the other
+    /// page of its spread, so that one across the spine prints on both.
+    pub fn print(&self, id: &str) -> Vec<Op> {
+        let snap = self.snapshot();
+        let Some(p) = snap.pages.iter().find(|p| p.id == id) else {
+            return self.render(id);
+        };
+        let mut ops = vec![page_op(p)];
+        let spread = snap.spreads.iter().find(|s| s.contains(&p.id));
+        for q in spread.into_iter().flatten() {
+            let q = snap.pages.iter().find(|o| o.id == *q).unwrap();
+            let mut own = Vec::new();
+            self.draw_sheet(&snap, q, &mut own);
+            ops.extend(shift(own, (q.x - p.x) as f32, 0.0));
+        }
+        ops
+    }
+
+    /// The master layers a page shows and its own layers.
+    fn draw_sheet(&self, snap: &Snapshot, p: &Page, ops: &mut Vec<Op>) {
         if let Some(m) = p
             .master
             .as_ref()
-            .and_then(|m| sheets().find(|s| s.id == *m))
+            .and_then(|m| snap.masters.iter().find(|s| s.id == *m))
         {
-            let shown: Vec<Node> = self.master_layers(m, p);
-            draw_all(&shown, &mut ops, &snap.palette);
+            draw_all(&self.master_layers(m, p), ops, &snap.palette);
         }
-        draw_all(&p.children, &mut ops, &snap.palette);
-        ops
+        draw_all(&p.children, ops, &snap.palette);
     }
 
     /// The layers of the master `m` that the page `p` shows, in its modes.
@@ -3231,6 +3299,14 @@ impl Default for Doc {
 }
 
 /// Draws siblings; a mask masks the siblings above it.
+fn page_op(p: &Page) -> Op {
+    Op::Page {
+        width: p.width as f32,
+        height: p.height as f32,
+        bleed: p.bleed as f32,
+    }
+}
+
 /// The indices of the pages of each spread among `n` pages, as `Snapshot::spreads`.
 fn spreads(n: usize, facing: bool) -> Vec<Vec<usize>> {
     match facing {
@@ -5933,6 +6009,96 @@ mod tests {
         assert_eq!(sides(&d), [None; 4]);
         d.apply(Command::Undo).unwrap();
         assert!(d.snapshot().facing_pages);
+    }
+
+    fn set_width(d: &mut Doc, id: &str, width: f64) {
+        d.apply(Command::SetPage {
+            id: id.into(),
+            width: Some(width),
+            height: None,
+            bleed: None,
+        })
+        .unwrap();
+    }
+
+    /// The least and greatest x of each path filled in `ops`.
+    fn filled_x(ops: &[Op]) -> Vec<[f32; 2]> {
+        ops.iter()
+            .filter_map(|o| match o {
+                Op::FillPath { path, .. } => {
+                    let mut xs = Vec::new();
+                    let mut i = 0;
+                    while i < path.len() {
+                        let n = if path[i] == CLOSE { 0 } else { 1 };
+                        xs.extend((0..n).map(|_| path[i + 1]));
+                        i += 1 + 2 * n;
+                    }
+                    let min = xs.iter().copied().fold(f32::MAX, f32::min);
+                    Some([min, xs.iter().copied().fold(f32::MIN, f32::max)])
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn the_pages_of_a_spread_sit_left_and_right_of_the_spine() {
+        let (mut d, p1) = empty();
+        let p2 = add_page(&mut d, None);
+        let p3 = add_page(&mut d, None);
+        set_width(&mut d, &p2, 100.0);
+        set_width(&mut d, &p3, 120.0);
+        let xs = |d: &Doc| d.snapshot().pages.iter().map(|p| p.x).collect::<Vec<_>>();
+        assert_eq!(xs(&d), [0.0, -100.0, 0.0]);
+        facing(&mut d, false);
+        assert_eq!(xs(&d), [0.0; 3]);
+        let _ = p1;
+    }
+
+    #[test]
+    fn a_layer_across_the_spine_prints_on_both_pages_of_its_spread() {
+        let (mut d, p1) = empty();
+        let p2 = add_page(&mut d, None);
+        let p3 = add_page(&mut d, None);
+        set_width(&mut d, &p2, 100.0);
+        create(&mut d, &p2, NewKind::Rect, [90.0, 0.0, 20.0, 10.0]);
+        create(&mut d, &p3, NewKind::Rect, [5.0, 0.0, 10.0, 10.0]);
+        create(&mut d, &p1, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
+        assert_eq!(filled_x(&d.render(&p3)), [[5.0, 15.0]]);
+        assert_eq!(filled_x(&d.print(&p2)), [[90.0, 110.0], [105.0, 115.0]]);
+        assert_eq!(filled_x(&d.print(&p3)), [[-10.0, 10.0], [5.0, 15.0]]);
+        assert_eq!(filled_x(&d.print(&p1)), [[0.0, 10.0]]);
+    }
+
+    #[test]
+    fn a_layer_moved_onto_the_other_page_of_its_spread_keeps_its_place_on_the_spread() {
+        let (mut d, p1) = empty();
+        let p2 = add_page(&mut d, None);
+        let p3 = add_page(&mut d, None);
+        set_width(&mut d, &p2, 100.0);
+        let g = create(&mut d, &p2, NewKind::Frame, [95.0, 5.0, 20.0, 10.0]);
+        let r = create(&mut d, &g, NewKind::Rect, [96.0, 6.0, 2.0, 2.0]);
+        let mv = |d: &mut Doc, to: &str| {
+            d.apply(Command::Move {
+                ids: vec![g.clone()],
+                parent: to.into(),
+                index: 0,
+            })
+            .unwrap()
+        };
+        mv(&mut d, &p3);
+        let s = d.snapshot();
+        assert_eq!(frame(&s.pages[2].children[0]), [-5.0, 5.0, 20.0, 10.0]);
+        assert_eq!(
+            frame(&children(&s.pages[2].children[0])[0]),
+            [-4.0, 6.0, 2.0, 2.0]
+        );
+        mv(&mut d, &p1);
+        assert_eq!(
+            frame(&d.snapshot().pages[0].children[0]),
+            [-5.0, 5.0, 20.0, 10.0]
+        );
+        let _ = r;
     }
 
     #[test]

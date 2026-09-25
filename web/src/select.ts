@@ -1,11 +1,12 @@
-import type { Container, Node } from './model'
+import type { Container, Node, Page } from './model'
 
-export type Entry = { node: Node; parent?: Container }
+/** A layer, the layer it is in, and the page it is on. */
+export type Entry = { node: Node; parent?: Container; page?: Page }
 
-export function index(nodes: Node[], parent?: Container, out = new Map<string, Entry>()) {
+export function index(nodes: Node[], parent?: Container, out = new Map<string, Entry>(), page?: Page) {
   for (const node of nodes) {
-    out.set(node.id, { node, parent })
-    if ('children' in node) index(node.children, node, out)
+    out.set(node.id, { node, parent, page })
+    if ('children' in node) index(node.children, node, out, page)
   }
   return out
 }
