@@ -5,6 +5,7 @@ import type { Node, Style } from './model'
 const style: Style = {
   fills: [], strokes: [], strokeWeight: 1, strokeAlign: 'inside', join: 'miter', cap: 'none',
   arrowStart: false, arrowEnd: false, opacity: 1, blend: 'normal', effects: [], mask: false,
+  constraints: { horizontal: 'min', vertical: 'min' },
 }
 const base = (id: string) => ({ id, name: id, x: 0, y: 0, w: 1, h: 1, modes: {}, activeModes: {}, bindings: {}, ...style })
 const rect = (id: string): Node => ({ ...base(id), kind: 'shape', shape: 'rect', radius: 0 })

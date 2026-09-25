@@ -19,6 +19,7 @@ pub struct Style {
     pub blend: Blend,
     pub effects: Vec<Effect>,
     pub mask: bool,
+    pub constraints: Constraints,
 }
 
 impl Default for Style {
@@ -36,8 +37,29 @@ impl Default for Style {
             blend: Blend::Normal,
             effects: Vec::new(),
             mask: false,
+            constraints: Constraints::default(),
         }
     }
+}
+
+/// How a frame's child follows the frame on resize: pinned to the start (left,
+/// top), the end, both, the centre, or scaled.
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Constraint {
+    #[default]
+    Min,
+    Max,
+    Stretch,
+    Center,
+    Scale,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Constraints {
+    pub horizontal: Constraint,
+    pub vertical: Constraint,
 }
 
 /// A fill or stroke paint. Gradients map their unit space into the node's

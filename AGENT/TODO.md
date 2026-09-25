@@ -71,7 +71,6 @@ font helper, i18n.
   setting (default 300 ppi); everything else stays vector.
 
 ### 9. Variables and constraints
-- Constraints for children on container resize.
 - Auto layout (direction, gap, padding, hug/fill/fixed).
 
 ### 10. Rich text

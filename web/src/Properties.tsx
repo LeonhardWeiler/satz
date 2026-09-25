@@ -3,7 +3,7 @@ import { Field, Section, Select } from './controls'
 import { useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { MM, bounds, ends, scopeOf, useEditor, type Editor } from './editor'
-import type { Bindable as Prop, Blend, Command, Fill, Node, Props, Style } from './model'
+import type { Bindable as Prop, Blend, Constraint, Command, Fill, Node, Props, Style } from './model'
 import { EffectList, PaintList } from './Paints'
 import { Bindable, ModeSelects, Variables } from './Variables'
 
@@ -18,6 +18,8 @@ const JOINS: Record<Style['join'], string> = { miter: 'Miter join', round: 'Roun
 const CAPS: Record<Style['cap'], string> = { none: 'No cap', round: 'Round cap', square: 'Square cap' }
 const ENDS = { none: 'None', arrow: 'Line arrow' } as const
 const MODES: Record<ColorMode, string> = { rgb: 'RGB', cmyk: 'CMYK' }
+const HORIZONTAL: Record<Constraint, string> = { min: 'Left', max: 'Right', stretch: 'Left & right', center: 'Center', scale: 'Scale' }
+const VERTICAL: Record<Constraint, string> = { min: 'Top', max: 'Bottom', stretch: 'Top & bottom', center: 'Center', scale: 'Scale' }
 const solid = (color: Color): Fill => ({ type: 'solid', color, stops: [], transform: [1, 0, 0, 1, 0, 0], visible: true })
 
 export function Properties({ editor, onExport }: { editor: Editor; onExport: () => void }) {
@@ -143,6 +145,19 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
               <Field label="Ratio" title="Star ratio in %" unit="%" value={one.ratio * 100} onCommit={(v) => set({ ratio: v / 100 })} />
             )}
           </div>
+          {one && editor.nodes.get(one.id)?.parent?.kind === 'frame' && (
+            <div className="grid">
+              {(['horizontal', 'vertical'] as const).map((axis) => (
+                <Select
+                  key={axis}
+                  label={`${axis === 'horizontal' ? 'Horizontal' : 'Vertical'} constraint`}
+                  value={one.constraints[axis]}
+                  options={axis === 'horizontal' ? HORIZONTAL : VERTICAL}
+                  onChange={(k) => set({ constraints: { ...one.constraints, [axis]: k } })}
+                />
+              ))}
+            </div>
+          )}
           {one?.kind === 'frame' && (
             <label className="check">
               <input

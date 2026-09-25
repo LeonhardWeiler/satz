@@ -27,7 +27,11 @@ export type Style = {
   blend: Blend
   effects: Effect[]
   mask: boolean
+  constraints: { horizontal: Constraint; vertical: Constraint }
 }
+
+/** How a frame's child follows the frame on resize: pinned to the start, the end, both, the centre, or scaled. */
+export type Constraint = 'min' | 'max' | 'stretch' | 'center' | 'scale'
 
 export type Shape =
   | { shape: 'rect'; radius: number }

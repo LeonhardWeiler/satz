@@ -2,7 +2,8 @@ use crate::color::{Color, ColorMode, Swatch};
 use crate::display_list::{CLOSE, LINE, MOVE, Op, rect};
 use crate::geom::{Shape, bounds, contains, fit, near, outline};
 use crate::style::{
-    Align, Blend, Cap, Effect, EffectKind, Fill, FillKind, FillStop, Join, Style, paints,
+    Align, Blend, Cap, Constraint, Constraints, Effect, EffectKind, Fill, FillKind, FillStop, Join,
+    Style, paints,
 };
 use crate::text::layout;
 use crate::variable::{Collection, Mode, Modes, Palette, Scope, Value, Variable};
@@ -176,6 +177,7 @@ pub struct Props {
     pub ratio: Option<f32>,
     pub path: Option<Vec<f32>>,
     pub fills: Option<Vec<Fill>>,
+    pub constraints: Option<Constraints>,
     pub strokes: Option<Vec<Fill>>,
     pub stroke_weight: Option<f32>,
     pub stroke_align: Option<Align>,
@@ -1157,6 +1159,12 @@ impl Doc {
         })
     }
 
+    fn constraints(&self, id: TreeID) -> Constraints {
+        value(&self.meta(id), "constraints")
+            .and_then(|v| serde_json::from_value(serde_json::to_value(v).ok()?).ok())
+            .unwrap_or_default()
+    }
+
     fn bindings(&self, id: TreeID) -> BTreeMap<String, String> {
         value(&self.meta(id), "bindings")
             .and_then(|v| serde_json::from_value(serde_json::to_value(v).ok()?).ok())
@@ -1413,7 +1421,10 @@ impl Doc {
             "frame" => {
                 for c in self.children(id) {
                     let [cx, cy, cw, ch] = self.bounds(c);
-                    self.set_frame(c, [cx + x - ox, cy + y - oy, cw, ch])?;
+                    let k = self.constraints(c);
+                    let [nx, nw] = constrain(k.horizontal, [cx, cw], [ox, ow], [x, w]);
+                    let [ny, nh] = constrain(k.vertical, [cy, ch], [oy, oh], [y, h]);
+                    self.set_frame(c, [nx, ny, nw, nh])?;
                 }
             }
             _ => {}
@@ -1681,6 +1692,23 @@ fn hit(nodes: &[Node], x: f64, y: f64, tolerance: f64, path: &mut Vec<String>) -
         path.pop();
     }
     false
+}
+
+/// Start and size on one axis of a child at `c` in a parent that moves from `p` to `n`.
+fn constrain(
+    k: Constraint,
+    [c0, cs]: [f64; 2],
+    [p0, ps]: [f64; 2],
+    [n0, ns]: [f64; 2],
+) -> [f64; 2] {
+    match k {
+        Constraint::Min => [n0 + c0 - p0, cs],
+        Constraint::Max => [n0 + ns - (p0 + ps - c0), cs],
+        Constraint::Stretch => [n0 + c0 - p0, (cs + ns - ps).max(0.0)],
+        Constraint::Center => [n0 + ns / 2.0 - (p0 + ps / 2.0 - c0), cs],
+        Constraint::Scale if ps > 0.0 => [n0 + (c0 - p0) * ns / ps, cs * ns / ps],
+        Constraint::Scale => [n0 + c0 - p0, cs],
+    }
 }
 
 fn parent_node(p: TreeParentId) -> Option<TreeID> {
@@ -3149,6 +3177,97 @@ mod tests {
         assert_eq!(
             s.pages[0].children[0].style.fills,
             [Fill::solid(process(0.0, 1.0, 0.0, 0.0))]
+        );
+    }
+
+    #[test]
+    fn children_follow_their_constraints_when_the_frame_resizes() {
+        use Constraint::*;
+        let (mut d, p) = empty();
+        let f = create(&mut d, &p, NewKind::Frame, [0.0, 0.0, 100.0, 100.0]);
+        let cases = [
+            (Min, Max, [10.0, 20.0, 30.0, 40.0], [10.0, 60.0, 30.0, 40.0]),
+            (
+                Max,
+                Min,
+                [10.0, 20.0, 30.0, 40.0],
+                [110.0, 20.0, 30.0, 40.0],
+            ),
+            (
+                Stretch,
+                Stretch,
+                [10.0, 20.0, 30.0, 40.0],
+                [10.0, 20.0, 130.0, 80.0],
+            ),
+            (
+                Center,
+                Center,
+                [40.0, 40.0, 20.0, 20.0],
+                [90.0, 60.0, 20.0, 20.0],
+            ),
+            (
+                Scale,
+                Scale,
+                [10.0, 20.0, 30.0, 40.0],
+                [20.0, 28.0, 60.0, 56.0],
+            ),
+        ];
+        let ids: Vec<_> = cases
+            .iter()
+            .map(|&(h, v, rect, _)| {
+                let r = create(&mut d, &f, NewKind::Rect, rect);
+                set(
+                    &mut d,
+                    &r,
+                    Props {
+                        constraints: Some(Constraints {
+                            horizontal: h,
+                            vertical: v,
+                        }),
+                        ..Props::default()
+                    },
+                );
+                r
+            })
+            .collect();
+        let g = d
+            .apply(Command::Group {
+                ids: vec![ids[0].clone()],
+                frame: false,
+            })
+            .unwrap()
+            .remove(0);
+        set(
+            &mut d,
+            &g,
+            Props {
+                constraints: Some(Constraints {
+                    horizontal: Max,
+                    vertical: Min,
+                }),
+                ..Props::default()
+            },
+        );
+        d.apply(Command::SetFrame {
+            id: f,
+            x: 0.0,
+            y: 0.0,
+            w: 200.0,
+            h: 140.0,
+        })
+        .unwrap();
+        let pg = page(&d);
+        let kids = children(&pg.children[0]);
+        assert_eq!(frame(&children(&kids[0])[0]), [110.0, 20.0, 30.0, 40.0]);
+        for (n, case) in kids[1..].iter().zip(&cases[1..]) {
+            assert_eq!(frame(n), case.3, "{:?}", (case.0, case.1));
+        }
+        assert_eq!(
+            kids[0].style.constraints,
+            Constraints {
+                horizontal: Max,
+                vertical: Min
+            }
         );
     }
 }
