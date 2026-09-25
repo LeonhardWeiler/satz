@@ -7181,4 +7181,211 @@ mod tests {
         assert_eq!(flow(&d, &pasted[0]).4, Some(pasted[1].clone()));
         assert_eq!(flow(&d, &pasted[1]).1, 3);
     }
+
+    /// The M1 booklet: 8 facing A5 pages on a master spread with a page number at the
+    /// outer foot of each side, one story of 41 k characters threaded through a frame
+    /// on every page, coloured by a variable that each page shows in a mode of its own.
+    struct Booklet {
+        d: Doc,
+        pages: Vec<String>,
+        master: String,
+        frames: Vec<String>,
+        story: String,
+        /// The story's colour on each page.
+        inks: Vec<[f32; 4]>,
+    }
+
+    fn booklet() -> Booklet {
+        let (mut d, first) = empty();
+        let mut pages = vec![first];
+        for _ in 1..8 {
+            pages.push(add_page(&mut d, None));
+        }
+        let (w, h) = (148.0 * MM, 210.0 * MM);
+        let master = add_master(&mut d);
+        for x in [-w + 12.0 * MM, w - 15.0 * MM] {
+            let t = create(&mut d, &master, NewKind::Text, [x, h - 12.0 * MM, 0.0, 0.0]);
+            set_text(&mut d, &t, &text::PAGE_NUMBER.to_string());
+        }
+        let (c, first_mode) = collection(&mut d, "Tone");
+        let mut modes = vec![first_mode];
+        for i in 1..8 {
+            let name = format!("Page {}", i + 1);
+            let add = Command::AddMode {
+                collection: c.clone(),
+                name,
+            };
+            modes.push(d.apply(add).unwrap().remove(0));
+        }
+        let rgb: Vec<u32> = (0..8).map(|i| (i * 30) << 24 | 0xff).collect();
+        let ink = variable(&mut d, &c, "Ink", Value::Color(Color::Rgb(rgb[0]))).unwrap();
+        let mut frames = Vec::new();
+        for ((p, m), &c0) in pages.iter().zip(&modes).zip(&rgb) {
+            set_value(&mut d, &ink, m, Value::Color(Color::Rgb(c0))).unwrap();
+            use_master(&mut d, p, Some(&master)).unwrap();
+            use_mode(&mut d, p, &c, Some(m));
+            let frame = [15.0 * MM, 15.0 * MM, w - 30.0 * MM, h - 35.0 * MM];
+            frames.push(fixed_text(&mut d, p, frame));
+        }
+        let story = (1..=143)
+            .map(|i| format!("{i}. {SAMPLE}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        set_text(&mut d, &frames[0], &story);
+        let props = TextProps {
+            fill: Some(var(&ink)),
+            hyphenate: Some(false),
+            ..TextProps::default()
+        };
+        format(&mut d, &frames[0], Some([0, story.len()]), props).unwrap();
+        for f in frames.windows(2) {
+            thread(&mut d, &f[0], &f[1]).unwrap();
+        }
+        let inks = rgb
+            .iter()
+            .map(|c| Color::Rgb(*c).rgba(&scope_none()))
+            .collect();
+        Booklet {
+            d,
+            pages,
+            master,
+            frames,
+            story,
+            inks,
+        }
+    }
+
+    fn scope_none() -> Scope<'static> {
+        static PALETTE: std::sync::LazyLock<Palette> = std::sync::LazyLock::new(Palette::default);
+        static MODES: std::sync::LazyLock<Modes> = std::sync::LazyLock::new(Modes::new);
+        Scope {
+            palette: &PALETTE,
+            modes: &MODES,
+        }
+    }
+
+    #[test]
+    fn the_booklet_numbers_each_page_at_its_outer_foot() {
+        let b = booklet();
+        for (i, p) in b.pages.iter().enumerate() {
+            let number = (i + 1).to_string();
+            let x =
+                b.d.render(p)
+                    .into_iter()
+                    .find_map(|o| match o {
+                        Op::GlyphRun {
+                            text, positions, ..
+                        } if text == number => Some(positions[0]),
+                        _ => None,
+                    })
+                    .unwrap_or_else(|| panic!("no number on page {number}"));
+            let outer = if i % 2 == 0 {
+                x > 100.0 * MM as f32
+            } else {
+                x < 50.0 * MM as f32
+            };
+            assert!(outer, "page {number} has its number at {x}");
+        }
+    }
+
+    #[test]
+    fn the_booklet_story_runs_on_through_every_page() {
+        let b = booklet();
+        let mut at = 0;
+        for f in &b.frames {
+            let (text, start, end, ..) = flow(&b.d, f);
+            assert_eq!(text, b.story);
+            assert_eq!(start, at);
+            assert!(end > start + 1000, "{f} sets {start}..{end}");
+            at = end;
+        }
+        assert!(flow(&b.d, b.frames.last().unwrap()).5);
+    }
+
+    #[test]
+    fn each_booklet_page_colours_the_story_in_its_own_mode() {
+        let b = booklet();
+        for (p, ink) in b.pages.iter().zip(&b.inks) {
+            let colors: Vec<[f32; 4]> =
+                b.d.render(p)
+                    .into_iter()
+                    .filter_map(|o| match o {
+                        Op::GlyphRun {
+                            paint: Paint::Solid { color, .. },
+                            text,
+                            ..
+                        } if text.len() > 3 => Some(color),
+                        _ => None,
+                    })
+                    .collect();
+            assert!(!colors.is_empty());
+            assert!(colors.iter().all(|c| c == ink), "{p}: {colors:?}");
+        }
+    }
+
+    #[test]
+    fn deleting_the_page_with_the_head_of_the_booklet_story_hands_it_to_the_next_frame() {
+        let mut b = booklet();
+        b.d.apply(Command::DeletePage {
+            id: b.pages[0].clone(),
+        })
+        .unwrap();
+        let (text, start, _, prev, next, _) = flow(&b.d, &b.frames[1]);
+        assert_eq!((text, start, prev), (b.story.clone(), 0, None));
+        assert_eq!(next.as_ref(), Some(&b.frames[2]));
+        b.d.apply(Command::Undo).unwrap();
+        assert_eq!(flow(&b.d, &b.frames[1]).3.as_ref(), Some(&b.frames[0]));
+        assert_eq!(flow(&b.d, &b.frames[0]).0, b.story);
+    }
+
+    #[test]
+    fn deleting_a_master_whose_frame_heads_a_thread_takes_it_off_the_pages_until_undone() {
+        let mut b = booklet();
+        let left = fixed_text(&mut b.d, &b.master, [-100.0, 20.0, 60.0, LEADING + 1.0]);
+        let right = fixed_text(&mut b.d, &b.master, [40.0, 20.0, 60.0, 300.0]);
+        set_text(&mut b.d, &left, "Running\nhead");
+        thread(&mut b.d, &left, &right).unwrap();
+        b.d.apply(Command::DeleteMaster {
+            id: b.master.clone(),
+        })
+        .unwrap();
+        let s = b.d.snapshot();
+        assert!(s.masters.is_empty());
+        assert!(s.pages.iter().all(|p| p.master.is_none()));
+        assert!(!run_texts(&b.d.render(&b.pages[1])).contains(&"2".to_string()));
+        b.d.apply(Command::Undo).unwrap();
+        assert_eq!(flow(&b.d, &right).3, Some(left));
+        assert!(run_texts(&b.d.render(&b.pages[1])).contains(&"2".to_string()));
+    }
+
+    #[test]
+    fn the_booklet_pdf_reads_as_one_story_with_a_number_on_every_page() {
+        let b = booklet();
+        let pages: Vec<Vec<Op>> = b.pages.iter().map(|p| b.d.print(p)).collect();
+        let path = std::env::temp_dir().join(format!("satz-booklet-{}.pdf", std::process::id()));
+        std::fs::write(&path, crate::pdf::pdf(&pages, 300.0, ColorMode::Rgb)).unwrap();
+        let mut read = String::new();
+        for i in 1..=8 {
+            let out = std::process::Command::new("mutool")
+                .args(["draw", "-q", "-F", "text", "-o", "-"])
+                .arg(&path)
+                .arg(i.to_string())
+                .output()
+                .expect("mutool runs");
+            let text = String::from_utf8(out.stdout).unwrap();
+            let lines: Vec<&str> = text.lines().map(str::trim).collect();
+            assert!(
+                lines.contains(&i.to_string().as_str()),
+                "page {i}: {lines:?}"
+            );
+            let own: Vec<&str> = lines.into_iter().filter(|l| *l != i.to_string()).collect();
+            read.push_str(&own.join(" "));
+            read.push(' ');
+        }
+        std::fs::remove_file(&path).unwrap();
+        let words = |s: &str| s.split_whitespace().collect::<Vec<_>>().join(" ");
+        let (read, story) = (words(&read), words(&b.story));
+        assert!(read.len() > 10_000, "{}", read.len());
+        assert!(story.starts_with(&read), "{}", &read[..200]);
+    }
 }

@@ -150,3 +150,80 @@ pub fn arrange(
         .collect();
     (size, boxes)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn row(align_main: MainAlign, align_cross: Align3) -> Layout {
+        Layout {
+            direction: Direction::Horizontal,
+            gap: 10.0,
+            align_main,
+            align_cross,
+            ..Layout::default()
+        }
+    }
+
+    const PAD: [[f64; 2]; 2] = [[5.0, 5.0], [2.0, 2.0]];
+
+    #[test]
+    fn a_hugging_frame_fits_its_children_gaps_and_padding() {
+        let l = row(MainAlign::Start, Align3::Start);
+        let kids = [([20.0, 8.0], [false; 2]), ([30.0, 12.0], [false; 2])];
+        let (size, boxes) = arrange(&l, PAD, [0.0; 2], [true; 2], &kids);
+        assert_eq!(size, [70.0, 16.0]);
+        assert_eq!(
+            boxes,
+            [[[5.0, 20.0], [2.0, 8.0]], [[35.0, 30.0], [2.0, 12.0]]]
+        );
+    }
+
+    #[test]
+    fn filling_children_share_the_free_space_and_fill_the_cross_axis() {
+        let l = row(MainAlign::Start, Align3::Start);
+        let kids = [
+            ([20.0, 8.0], [false; 2]),
+            ([0.0, 0.0], [true; 2]),
+            ([0.0, 0.0], [true, false]),
+        ];
+        let (_, boxes) = arrange(&l, PAD, [110.0, 30.0], [false; 2], &kids);
+        assert_eq!(boxes[1], [[35.0, 30.0], [2.0, 26.0]]);
+        assert_eq!(boxes[2], [[75.0, 30.0], [2.0, 0.0]]);
+    }
+
+    #[test]
+    fn free_space_goes_by_the_alignment_on_both_axes() {
+        let kids = [([20.0, 8.0], [false; 2]), ([30.0, 12.0], [false; 2])];
+        let at = |main, cross| {
+            let (_, b) = arrange(&row(main, cross), PAD, [110.0, 30.0], [false; 2], &kids);
+            b.iter().map(|b| [b[0][0], b[1][0]]).collect::<Vec<_>>()
+        };
+        assert_eq!(
+            at(MainAlign::Center, Align3::Center),
+            [[25.0, 11.0], [55.0, 9.0]]
+        );
+        assert_eq!(
+            at(MainAlign::End, Align3::End),
+            [[45.0, 20.0], [75.0, 16.0]]
+        );
+        assert_eq!(
+            at(MainAlign::SpaceBetween, Align3::Start),
+            [[5.0, 2.0], [75.0, 2.0]]
+        );
+    }
+
+    #[test]
+    fn the_main_axis_comes_first_with_its_padding() {
+        let l = Layout {
+            direction: Direction::Vertical,
+            padding_top: 1.0,
+            padding_bottom: 2.0,
+            padding_left: 3.0,
+            padding_right: 4.0,
+            ..Layout::default()
+        };
+        assert_eq!(l.axes(), Some((false, [[1.0, 2.0], [3.0, 4.0]])));
+        assert_eq!(Layout::default().axes(), None);
+    }
+}

@@ -294,3 +294,90 @@ impl Style {
             })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::variable::{Modes, Palette};
+
+    fn scope<T>(f: impl FnOnce(&Scope) -> T) -> T {
+        let (palette, modes) = (Palette::default(), Modes::new());
+        f(&Scope {
+            palette: &palette,
+            modes: &modes,
+        })
+    }
+
+    const SQUARE: [f32; 11] = [0.0, 0.0, 0.0, 1.0, 10.0, 0.0, 1.0, 10.0, 10.0, CLOSE, 0.0];
+
+    #[test]
+    fn a_gradient_maps_its_unit_box_into_the_frame() {
+        let f = Fill {
+            kind: FillKind::Linear,
+            transform: [1.0, 0.0, 0.0, 1.0, 0.5, 0.0],
+            ..Fill::solid(Color::Rgb(0xff))
+        };
+        match scope(|s| paint(&f, [10.0, 20.0, 100.0, 50.0], s)) {
+            Paint::Linear { transform, .. } => {
+                assert_eq!(transform, [100.0, 0.0, 0.0, 50.0, 60.0, 20.0])
+            }
+            p => panic!("{p:?}"),
+        }
+    }
+
+    #[test]
+    fn hidden_fills_paint_nothing() {
+        let fills = [Fill {
+            visible: false,
+            ..Fill::solid(Color::Rgb(0xff))
+        }];
+        assert_eq!(scope(|s| paints(&fills, [0.0; 4], s).count()), 0);
+    }
+
+    #[test]
+    fn inside_and_outside_strokes_clip_to_the_shape_at_twice_the_width_but_open_paths_stroke_centred()
+     {
+        let style = Style {
+            strokes: vec![Fill::solid(Color::Rgb(0xff))],
+            stroke_align: Align::Outside,
+            stroke_weight: 2.0,
+            ..Style::default()
+        };
+        let ops = scope(|s| style.shape(&SQUARE, [0.0; 4], s));
+        assert!(matches!(
+            ops[..],
+            [
+                Op::PushClip { invert: true, .. },
+                Op::StrokePath { width: 4.0, .. },
+                Op::PopClip
+            ]
+        ));
+        let open = scope(|s| style.shape(&SQUARE[..9], [0.0; 4], s));
+        assert!(matches!(open[..], [Op::StrokePath { width: 2.0, .. }]));
+    }
+
+    #[test]
+    fn a_layer_wraps_a_node_only_for_opacity_blend_or_visible_effects() {
+        assert_eq!(scope(|s| Style::default().layer(s)), None);
+        let hidden = Style {
+            effects: vec![Effect {
+                visible: false,
+                ..Effect::default()
+            }],
+            ..Style::default()
+        };
+        assert_eq!(scope(|s| hidden.layer(s)), None);
+        let blurred = Style {
+            effects: vec![Effect {
+                kind: EffectKind::Blur,
+                radius: 8.0,
+                ..Effect::default()
+            }],
+            ..Style::default()
+        };
+        assert!(matches!(
+            scope(|s| blurred.layer(s)),
+            Some(Op::PushLayer { blur: 4.0, .. })
+        ));
+    }
+}

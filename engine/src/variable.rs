@@ -82,3 +82,61 @@ impl Value {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn palette() -> Palette {
+        let mode = |id: &str| Mode {
+            id: id.into(),
+            name: id.into(),
+        };
+        Palette {
+            collections: vec![Collection {
+                id: "c".into(),
+                name: "Theme".into(),
+                modes: vec![mode("light"), mode("dark")],
+            }],
+            variables: vec![Variable {
+                id: "v".into(),
+                collection: "c".into(),
+                name: "Gap".into(),
+                values: [("light", 1.0), ("dark", 2.0)]
+                    .map(|(m, v)| (m.to_string(), Value::Number(v)))
+                    .into(),
+            }],
+            ..Palette::default()
+        }
+    }
+
+    #[test]
+    fn a_variable_takes_the_chosen_mode_of_its_collection_or_else_the_first() {
+        let palette = palette();
+        let value = |modes: &[(&str, &str)]| {
+            let modes: Modes = modes.iter().map(|&(c, m)| (c.into(), m.into())).collect();
+            Scope {
+                palette: &palette,
+                modes: &modes,
+            }
+            .value("v")
+            .cloned()
+        };
+        assert_eq!(value(&[("c", "dark")]), Some(Value::Number(2.0)));
+        assert_eq!(value(&[]), Some(Value::Number(1.0)));
+        assert_eq!(value(&[("c", "gone")]), Some(Value::Number(1.0)));
+        let none = Modes::new();
+        let s = Scope {
+            palette: &palette,
+            modes: &none,
+        };
+        assert_eq!(s.value("other"), None);
+    }
+
+    #[test]
+    fn values_are_of_one_kind_when_both_are_colours_or_numbers() {
+        let c = Value::Color(Color::Rgb(0xff));
+        assert!(c.same_kind(&Value::Color(Color::Rgb(0))));
+        assert!(!c.same_kind(&Value::Number(0.0)));
+    }
+}
