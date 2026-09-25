@@ -41,7 +41,7 @@
 <body>
 <main>
 <h1>Satz – project health report</h1>
-<p class="meta">2026-09-25 · branch <code>main</code> · commit <code>14a7228</code> · browser DTP (Rust/WASM engine, CanvasKit renderer, React UI, krilla PDF)</p>
+<p class="meta">2026-09-25 · branch <code>main</code> · commit <code>af503b0</code> · browser DTP (Rust/WASM engine, CanvasKit renderer, React UI, krilla PDF)</p>
 
 <div class="counters">
   <div class="counter"><b>0</b><span>Critical</span></div>
@@ -95,10 +95,10 @@
 </article>
 
 <article class="card low" id="TEST-1">
-  <header><span class="id">TEST-1</span><span class="badge low">low</span><h3>E2E runs Chromium only; layer reordering is untested</h3></header>
-  <p class="file"><code>web/playwright.config.ts</code>, <code>web/e2e/</code></p>
-  <p>Only Chromium (SwiftShader) runs, although Firefox is a settled target browser. The only layers drag test drops a group onto its own child and expects nothing to happen; no test reorders layers or moves one into a group by drag. Page reordering has a test.</p>
-  <p class="rec">Add a layers drag-and-drop test (reorder, into a group); add a Firefox project once its WebGL path works in CI.</p>
+  <header><span class="id">TEST-1</span><span class="badge low">low</span><h3>E2E runs Chromium only; layer reordering, File System Access and Local Font Access are untested</h3></header>
+  <p class="file"><code>web/playwright.config.ts</code>, <code>web/e2e/</code>, <code>web/src/file.ts</code></p>
+  <p>Only Chromium (SwiftShader) runs, although Firefox is a settled target browser. The only layers drag test drops a group onto its own child and expects nothing to happen; no test reorders layers or moves one into a group by drag. Page reordering has a test. <code>file.spec.ts</code> removes the file pickers and so tests saving and opening the way Firefox does (download and file input); saving into the same file with <code>showSaveFilePicker</code>, the stored handle after a reload, and finding missing fonts with <code>queryLocalFonts</code> run in no test, because both need a native dialog or a permission.</p>
+  <p class="rec">Add a layers drag-and-drop test (reorder, into a group); stub the pickers and <code>queryLocalFonts</code> with handles whose structured clone IndexedDB accepts; add a Firefox project once its WebGL path works in CI.</p>
 </article>
 
 <article class="card low" id="SEC-1">
@@ -124,7 +124,7 @@
 
 <h2 id="strong">2. What is already strong</h2>
 <ul class="plain">
-  <li><span class="badge good">gate</span> <code>./check</code> covers fmt, clippy <code>-D warnings</code>, 170 cargo tests, wasm build, <code>tsc</code>, eslint, 17 vitest tests, build, 76 Playwright tests (locally only the CMYK comparison differs with MuPDF 1.23 outside the flake). E2E helpers wait for the drawn frame, not a fixed delay. CI runs the same script in <code>nix develop</code>, started by hand.</li>
+  <li><span class="badge good">gate</span> <code>./check</code> covers fmt, clippy <code>-D warnings</code>, 176 cargo tests, wasm build, <code>tsc</code>, eslint, 18 vitest tests, build, 84 Playwright tests (locally only the CMYK comparison differs with MuPDF 1.23 outside the flake). E2E helpers wait for the drawn frame, not a fixed delay. CI runs the same script in <code>nix develop</code>, started by hand.</li>
   <li><span class="badge good">test</span> Pixel diff of the live canvas against the exported PDF rasterised by MuPDF, in RGB and CMYK, now per page: a resized second page, a master under a page, threaded text across pages, which is also read back from the PDF as one story, a layer across the spine on both pages of its spread, and the two sides of a master spread.</li>
   <li><span class="badge good">test</span> Engine tests read as specifications (<code>deleting_a_threaded_frame_keeps_its_story_in_the_rest_of_the_thread</code>) and check undo with stable ids after structural commands; text tests cover overflow into the next frame including a hyphenated break.</li>
   <li><span class="badge good">test</span> Every bug from earlier manual rounds has an e2e regression test; e2e locates elements by role and accessible name, which also keeps the labels honest.</li>
@@ -142,7 +142,8 @@
   <tr><td>UI</td><td>Figma UI3 layout, behaviour and shortcuts (Ctrl for Cmd), dark, English, mm by default. Mask rule follows Figma. Start view fits the page.</td></tr>
   <tr><td>Colour</td><td>RGB or CMYK per document plus spot colours (name, CMYK alternate, tint). Switching mode converts nothing; colours keep their own space. Preview through a built-in FOGRA51 profile; PSO Coated v3 may not be redistributed. User profiles later.</td></tr>
   <tr><td>Text weight</td><td>Canvas text is not thickened to match PDF viewers (TODO B8 closed).</td></tr>
-  <tr><td>Hosting</td><td>Static on GitHub Pages, no backend; persistence in IndexedDB and <code>.satz</code> files (TODO item 14).</td></tr>
+  <tr><td>Hosting</td><td>Static on GitHub Pages, no backend. One document autosaved to IndexedDB; <code>.satz</code> files hold its Loro snapshot without history, saved into the same file in Chromium and downloaded in Firefox.</td></tr>
+  <tr><td>Fonts</td><td>A font library per browser in IndexedDB, not in the document or <code>.satz</code>; text refers to a font by name and hash. A missing font falls back to the bundled Source Serif 4 and is pink on the canvas only. TTF and OTF; the font picker comes later.</td></tr>
   <tr><td>Browsers</td><td>Chromium and Firefox; Safari best effort.</td></tr>
   <tr><td>Scope</td><td>M1 excludes PDF/X, components, realtime collaboration, Figma import, font helper, i18n.</td></tr>
 </table>
