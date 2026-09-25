@@ -2,6 +2,9 @@ import type { Canvas, CanvasKit, Font, Paint, Rect, SkPicture, Typeface } from '
 import type { Engine } from './engine/engine'
 import { close, decode, type Op, type Paint as Fill } from './displayList'
 
+/** Marks the font of a glyph run whose own font is missing, drawn in the bundled one. */
+const MISSING = 2 ** 31
+
 type Cache = Map<number, { hash: number; picture: SkPicture }>
 
 export type View = { x: number; y: number; zoom: number }
@@ -322,6 +325,16 @@ export class Renderer {
   private drawOp(canvas: Canvas, op: Op) {
     if (op.op !== 'fillPath' && op.op !== 'strokePath' && op.op !== 'glyphRun') return
     const { ck, paint } = this
+    if (op.op === 'glyphRun' && op.font >= MISSING) {
+      const font = this.font(op.font, op.size)
+      const widths = font.getGlyphWidths(op.glyphs)
+      const { ascent, descent } = font.getMetrics()
+      const [x, y] = op.positions
+      const last = op.glyphs.length - 1
+      paint.setStyle(ck.PaintStyle.Fill)
+      paint.setColor(ck.Color(255, 64, 160, 0.6))
+      canvas.drawRect(ck.LTRBRect(x, y + ascent, op.positions[2 * last] + widths[last], y + descent), paint)
+    }
     const shader = this.setPaint(op.paint)
     if (op.op === 'glyphRun') canvas.drawGlyphs(op.glyphs, op.positions, 0, 0, this.font(op.font, op.size), paint)
     else {

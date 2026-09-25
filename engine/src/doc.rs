@@ -8,7 +8,8 @@ use crate::style::{
     Style,
 };
 use crate::text::{
-    self, Attrs, Lang, PARAGRAPH, STYLED, Span, TextAlign, TextFrame, TextStyle, VerticalAlign,
+    self, Attrs, Lang, PARAGRAPH, STYLED, Span, TextAlign, TextFrame, TextStyle, Typeface,
+    VerticalAlign,
 };
 use crate::variable::{Collection, Mode, Modes, Palette, Scope, Value, Variable};
 use loro::{
@@ -393,6 +394,7 @@ pub struct TextProps {
     pub text_align: Option<TextAlign>,
     pub hyphenate: Option<bool>,
     pub lang: Option<Lang>,
+    pub font: Option<Typeface>,
 }
 
 impl TextProps {
@@ -462,8 +464,19 @@ pub struct Snapshot {
     pub color_mode: ColorMode,
     #[serde(flatten)]
     pub palette: Palette,
+    /// The fonts text can be set in, the bundled one first.
+    pub fonts: Vec<Typeface>,
+    pub missing_fonts: Vec<MissingFont>,
     pub can_undo: bool,
     pub can_redo: bool,
+}
+
+/// A font that text is set in but that is not there, and the stories by their first
+/// frame that use it.
+#[derive(Debug, PartialEq, Serialize)]
+pub struct MissingFont {
+    pub font: Typeface,
+    pub stories: Vec<String>,
 }
 
 /// A page or a master; `name` is a master's, `master` the one a page uses and
@@ -615,7 +628,7 @@ const BINDABLE: [&str; 11] = [
     "paddingLeft",
 ];
 /// The keys of a text layer that belong to its story and move with it.
-const STORY: [&str; 10] = [
+const STORY: [&str; 11] = [
     "size",
     "lineHeight",
     "letterSpacing",
@@ -626,6 +639,7 @@ const STORY: [&str; 10] = [
     "hyphenate",
     "lang",
     "fills",
+    "font",
 ];
 /// Figma's selection blue at 30 %.
 const SELECTION: [f32; 4] = [0.051, 0.6, 1.0, 0.3];
@@ -880,6 +894,14 @@ impl Doc {
         self.doc
             .export(ExportMode::shallow_snapshot(&now))
             .expect("export")
+    }
+
+    /// Adds a font to those text can be set in and sets the text again.
+    pub fn add_font(&mut self, bytes: &[u8]) -> Res<Typeface> {
+        let face = text::add_font(bytes)?;
+        self.flows.replace(None);
+        self.finish(vec![], false)?;
+        Ok(face)
     }
 
     pub fn version(&self) -> String {
@@ -2646,11 +2668,29 @@ impl Doc {
             (p.side, p.x) = (place.side, place.x);
         }
         let spreads = spreads(pages.len(), facing_pages);
-        let stories = flows
+        let stories: BTreeMap<_, _> = flows
             .values()
             .map(|f| (f.head.to_string(), f.story.clone()))
             .collect();
+        let mut missing_fonts: Vec<MissingFont> = Vec::new();
+        for (id, story) in &stories {
+            for font in story.spans.iter().filter_map(|s| s.attrs.font.as_ref()) {
+                if text::font_id(&Some(font.clone())) & text::MISSING == 0 {
+                    continue;
+                }
+                match missing_fonts.iter_mut().find(|m| m.font.hash == font.hash) {
+                    Some(m) if m.stories.last() == Some(id) => {}
+                    Some(m) => m.stories.push(id.clone()),
+                    None => missing_fonts.push(MissingFont {
+                        font: font.clone(),
+                        stories: vec![id.clone()],
+                    }),
+                }
+            }
+        }
         Snapshot {
+            fonts: text::fonts(),
+            missing_fonts,
             stories,
             spreads: spreads
                 .iter()
@@ -7521,5 +7561,106 @@ mod tests {
         let other = LoroDoc::new();
         other.get_map("x").insert("a", 1).unwrap();
         assert!(Doc::load(&other.export(ExportMode::Snapshot).unwrap()).is_err());
+    }
+
+    const MONO: &[u8] = include_bytes!("../fonts/DMMono-Regular.ttf");
+
+    fn runs(d: &Doc) -> Vec<(u32, Vec<u16>, Vec<f32>)> {
+        page_ops(d)
+            .into_iter()
+            .filter_map(|op| match op {
+                Op::GlyphRun {
+                    font,
+                    glyphs,
+                    positions,
+                    ..
+                } => Some((font, glyphs, positions)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn in_font(face: Typeface) -> TextProps {
+        TextProps {
+            font: Some(face),
+            ..TextProps::default()
+        }
+    }
+
+    #[test]
+    fn a_font_is_added_once_by_its_name_and_hash() {
+        let face = text::add_font(MONO).unwrap();
+        assert_eq!(face.name, "DM Mono Regular");
+        assert_eq!(face.hash.len(), 16);
+        assert_eq!(text::add_font(MONO).unwrap(), face);
+        assert!(text::add_font(b"not a font").is_err());
+        assert!(text::add_font(b"wOF2 compressed").is_err());
+    }
+
+    #[test]
+    fn text_in_an_added_font_is_shaped_and_drawn_in_it() {
+        let (mut d, _) = empty();
+        let t = text(&mut d, "Hello world");
+        let plain = runs(&d);
+        let face = text::add_font(MONO).unwrap();
+        format(&mut d, &t, Some([0, 5]), in_font(face)).unwrap();
+        let r = runs(&d);
+        assert_eq!(r.len(), 2);
+        let (font, glyphs, xy) = &r[0];
+        assert!(*font > 0 && font & text::MISSING == 0);
+        assert_ne!(glyphs, &plain[0].1[..5]);
+        let steps: Vec<f32> = xy.chunks(2).map(|p| p[0]).collect();
+        let steps: Vec<f32> = steps.windows(2).map(|w| w[1] - w[0]).collect();
+        assert!(
+            steps.iter().all(|s| (s - steps[0]).abs() < 0.01),
+            "{steps:?}"
+        );
+        assert_eq!(r[1].0, 0);
+        assert!(d.snapshot().missing_fonts.is_empty());
+        assert!(
+            String::from_utf8_lossy(&d.pdf())
+                .matches("/FontFile")
+                .count()
+                >= 2
+        );
+    }
+
+    #[test]
+    fn a_missing_font_falls_back_to_the_bundled_one_and_is_reported() {
+        let (mut d, _) = empty();
+        let t = text(&mut d, "Hello world");
+        let plain = runs(&d);
+        let gone = Typeface {
+            name: "Gone Sans Bold".into(),
+            hash: "0123456789abcdef".into(),
+        };
+        format(&mut d, &t, None, in_font(gone.clone())).unwrap();
+        let r = runs(&d);
+        assert_eq!(r.len(), 1);
+        assert_eq!(r[0].0, text::MISSING);
+        assert_eq!((&r[0].1, &r[0].2), (&plain[0].1, &plain[0].2));
+        assert_eq!(
+            d.snapshot().missing_fonts,
+            [MissingFont {
+                font: gone,
+                stories: vec![t]
+            }]
+        );
+        assert!(d.pdf().starts_with(b"%PDF"));
+    }
+
+    #[test]
+    fn a_missing_font_once_added_sets_its_text() {
+        let (mut d, _) = empty();
+        let t = text(&mut d, "Hello world");
+        let mono = Typeface {
+            name: "DM Mono Regular".into(),
+            hash: "c7ad9b42c84d5685".into(),
+        };
+        format(&mut d, &t, None, in_font(mono.clone())).unwrap();
+        assert_eq!(runs(&d)[0].0, text::MISSING);
+        assert_eq!(d.add_font(MONO).unwrap(), mono);
+        assert!(runs(&d)[0].0 & text::MISSING == 0);
+        assert!(d.snapshot().missing_fonts.is_empty());
     }
 }

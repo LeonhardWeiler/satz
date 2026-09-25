@@ -208,7 +208,11 @@ export type Attrs = {
   textAlign: 'left' | 'center' | 'right' | 'justify'
   hyphenate: boolean
   lang: 'en' | 'de'
+  /** `null` is the bundled font. */
+  font: Typeface | null
 }
+/** A font by its full name and a hash of its bytes. */
+export type Typeface = { name: string; hash: string }
 export type TextProps = Partial<Attrs>
 /**
  * How a text layer sets its text: insets and gutter in pt, columns of equal width, and
@@ -240,6 +244,10 @@ export type Snapshot = Palette & {
   stories: Record<string, Story>
   rasterPpi: number
   colorMode: ColorMode
+  /** The fonts text can be set in, the bundled one first. */
+  fonts: Typeface[]
+  /** Fonts text is set in that are not there, with the stories that use them by their first frame. */
+  missingFonts: { font: Typeface; stories: string[] }[]
   canUndo: boolean
   canRedo: boolean
 }

@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import type { Engine } from './engine/engine'
-import type { Command, Container, Modes, Node, Page, Palette, Scope, Snapshot, TextNode } from './model'
+import type { Command, Container, Modes, Node, Page, Palette, Scope, Snapshot, TextNode, Typeface } from './model'
 import type { Handle } from './file'
 import { penPath, type Anchor } from './pen'
 import type { Sheet } from './renderer'
@@ -119,9 +119,18 @@ export class Editor {
   }
 
   apply(cmd: Command): string[] {
+    return this.change(() => this.engine.apply(cmd))
+  }
+
+  /** Adds a TrueType or OpenType font, which sets the text in it again. */
+  addFont(bytes: Uint8Array): Typeface {
+    return this.change(() => this.engine.addFont(bytes))
+  }
+
+  private change<T>(f: () => T): T {
     const at = this.snapshot.pages.findIndex((p) => p.id === this.pageId)
     try {
-      return this.engine.apply(cmd)
+      return f()
     } finally {
       this.snapshot = this.engine.snapshot()
       const { pages, masters } = this.snapshot

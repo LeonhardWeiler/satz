@@ -833,6 +833,20 @@ span.swatch {
   }
 }
 
+.fonts {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fonts li {
+  padding: 4px 0;
+}
+
+.fonts .missing {
+  color: #ff5fb0;
+}
+
 .status {
   z-index: 1;
   grid-area: 1 / 2;

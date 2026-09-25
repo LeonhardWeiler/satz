@@ -27,11 +27,6 @@ font helper, i18n.
 
 ## Breadth
 
-### 12. Fonts
-- Upload, bundled font, Local Font Access (Chromium).
-- Fonts referenced by name + hash; missing fonts fall back to the bundled font,
-  highlighted pink, reported by preflight.
-
 ### 13. Images
 - Place PNG/JPEG; fit/fill, crop by moving content; effective ppi.
 - Per document, chosen at creation: embed or link. Linking uses File System
@@ -51,6 +46,10 @@ font helper, i18n.
 
 ## Later
 
+- Font picker as in Figma (family and style), with local fonts (Local Font Access)
+  in the list; a font in text styles. Today fonts are added by upload, and Local
+  Font Access only finds missing ones.
+- WOFF2 fonts.
 - Colour profiles: choose or upload a CMYK profile (e.g. PSO Coated v3) instead of the
   built-in FOGRA51.
 - Auto layout: drag layers into and out of an auto layout frame on the canvas.

@@ -1,5 +1,6 @@
-import { Engine } from './engine/engine'
+import { Engine, typeface } from './engine/engine'
 import type { Editor } from './editor'
+import type { Typeface } from './model'
 
 export type Handle = FileSystemFileHandle & { requestPermission(o: { mode: 'readwrite' }): Promise<PermissionState> }
 export type Saved = { bytes: Uint8Array; name: string; handle: Handle | null; dirty: boolean }
@@ -12,24 +13,30 @@ const pickers = window as {
 
 let db: Promise<IDBDatabase> | undefined
 
-async function files() {
+/** The autosaved document under 'doc', or the added fonts by hash. */
+async function store(name: 'files' | 'fonts') {
   db ??= new Promise((done, fail) => {
-    const r = indexedDB.open('satz', 1)
-    r.onupgradeneeded = () => r.result.createObjectStore('files')
+    const r = indexedDB.open('satz', 2)
+    r.onupgradeneeded = () => {
+      for (const s of ['files', 'fonts']) if (!r.result.objectStoreNames.contains(s)) r.result.createObjectStore(s)
+    }
     r.onsuccess = () => done(r.result)
     r.onerror = () => fail(r.error)
   })
-  return (await db).transaction('files', 'readwrite').objectStore('files')
+  return (await db).transaction(name, 'readwrite').objectStore(name)
 }
 
-/** The document autosaved last. */
-export async function stored() {
-  const r = (await files()).get('doc')
-  return new Promise<Saved | undefined>((done, fail) => {
+const result = <T,>(r: IDBRequest<T>) =>
+  new Promise<T>((done, fail) => {
     r.onsuccess = () => done(r.result)
     r.onerror = () => fail(r.error)
   })
-}
+
+/** The document autosaved last. */
+export const stored = async () => result<Saved | undefined>((await store('files')).get('doc'))
+
+/** The fonts added in this browser. */
+export const storedFonts = async () => result<Uint8Array[]>((await store('fonts')).getAll())
 
 /** Autosaves the document a second after it last changed and when the page is hidden. */
 export function autosave(editor: Editor) {
@@ -41,7 +48,7 @@ export function autosave(editor: Editor) {
     if (state() === last) return
     last = state()
     const { name, handle } = editor.file
-    ;(await files()).put({ bytes: editor.engine.save(), name, handle, dirty: editor.dirty } satisfies Saved, 'doc')
+    ;(await store('files')).put({ bytes: editor.engine.save(), name, handle, dirty: editor.dirty } satisfies Saved, 'doc')
   }
   const later = () => {
     clearTimeout(timer)
@@ -106,6 +113,52 @@ export async function open(editor: Editor, say: (message: string) => void) {
   input.accept = '.satz'
   input.onchange = () => input.files?.[0] && load(input.files[0], null)
   input.click()
+}
+
+async function keep(editor: Editor, bytes: Uint8Array) {
+  const face = editor.addFont(bytes)
+  await result((await store('fonts')).put(bytes, face.hash))
+}
+
+/** Asks for TrueType and OpenType files and adds them to the fonts. */
+export function addFonts(editor: Editor, say: (message: string) => void) {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = '.ttf,.otf'
+  input.multiple = true
+  input.onchange = async () => {
+    for (const file of input.files ?? []) {
+      try {
+        await keep(editor, new Uint8Array(await file.arrayBuffer()))
+      } catch (e) {
+        say(`Could not add ${file.name}: ${(e as Error).message}. Choose a .ttf or .otf file.`)
+      }
+    }
+  }
+  input.click()
+}
+
+type LocalFont = { fullName: string; blob(): Promise<Blob> }
+const local = window as { queryLocalFonts?: () => Promise<LocalFont[]> }
+export const canFindFonts = !!local.queryLocalFonts
+
+/** Adds the missing fonts that this computer has, by Local Font Access. */
+export async function findFonts(editor: Editor, say: (message: string) => void) {
+  const missing: Typeface[] = editor.snapshot.missingFonts.map((m) => m.font)
+  let all: LocalFont[]
+  try {
+    all = await local.queryLocalFonts!()
+  } catch (e) {
+    return say(`Could not read the fonts on this computer: ${(e as Error).message}. Allow access to local fonts, or add them with Add font.`)
+  }
+  let found = 0
+  for (const f of all.filter((f) => missing.some((m) => m.name === f.fullName))) {
+    const bytes = new Uint8Array(await (await f.blob()).arrayBuffer())
+    if (!missing.some((m) => m.hash === (typeface(bytes) as Typeface).hash)) continue
+    await keep(editor, bytes)
+    found++
+  }
+  say(`Found ${found} of ${missing.length} missing fonts on this computer.${found < missing.length ? ' Add the others with Add font.' : ''}`)
 }
 
 /** Starts over with the sample document. */

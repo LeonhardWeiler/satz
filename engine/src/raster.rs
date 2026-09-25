@@ -1,6 +1,6 @@
 use crate::display_list::{CLOSE, CUBIC, LINE, MOVE, Op, Paint as ListPaint, close};
 use crate::geom;
-use crate::text::FONT;
+use crate::text::font_bytes;
 use skrifa::instance::{LocationRef, Size};
 use skrifa::outline::{DrawSettings, OutlinePen};
 use skrifa::{FontRef, GlyphId, MetadataProvider};
@@ -163,6 +163,7 @@ fn render(px: &mut Pixmap, ops: &[Op], t: Transform, clip: Option<&Mask>) {
                 }
             }
             Op::GlyphRun {
+                font,
                 size,
                 paint,
                 glyphs,
@@ -170,7 +171,7 @@ fn render(px: &mut Pixmap, ops: &[Op], t: Transform, clip: Option<&Mask>) {
                 ..
             } => {
                 if let (Some(p), Some(paint)) =
-                    (glyph_path(*size, glyphs, positions), convert(paint))
+                    (glyph_path(*font, *size, glyphs, positions), convert(paint))
                 {
                     px.fill_path(&p, &paint, FillRule::Winding, t, clip);
                 }
@@ -354,8 +355,9 @@ impl OutlinePen for Pen<'_> {
     }
 }
 
-fn glyph_path(size: f32, glyphs: &[u16], positions: &[f32]) -> Option<Path> {
-    let font = FontRef::new(FONT).ok()?;
+fn glyph_path(font: u32, size: f32, glyphs: &[u16], positions: &[f32]) -> Option<Path> {
+    let bytes = font_bytes(font);
+    let font = FontRef::new(&bytes).ok()?;
     let outlines = font.outline_glyphs();
     let mut pb = PathBuilder::new();
     for (g, p) in glyphs.iter().zip(positions.chunks(2)) {

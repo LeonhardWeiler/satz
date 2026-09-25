@@ -3,6 +3,7 @@ import { Field, Section, Select } from './controls'
 import { useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { MM, bounds, ends, scopeOf, useEditor, type Editor } from './editor'
+import { addFonts, canFindFonts, findFonts } from './file'
 import type { Bindable as Prop, Blend, Constraint, Command, Fill, Node, Props, Size, Style } from './model'
 import { AutoLayout } from './AutoLayout'
 import { EffectList, PaintList } from './Paints'
@@ -25,13 +26,14 @@ const SIZES: Record<Size, string> = { fixed: 'Fixed', hug: 'Hug', fill: 'Fill' }
 const VERTICAL: Record<Constraint, string> = { min: 'Top', max: 'Bottom', stretch: 'Top & bottom', center: 'Center', scale: 'Scale' }
 const solid = (color: Color): Fill => ({ type: 'solid', color, stops: [], transform: [1, 0, 0, 1, 0, 0], visible: true })
 
-export function Properties({ editor, onExport }: { editor: Editor; onExport: () => void }) {
+export function Properties({ editor, onExport, say }: { editor: Editor; onExport: () => void; say: (message: string) => void }) {
   const page = useEditor(editor, (e) => e.page)
   const isPage = useEditor(editor, (e) => e.snapshot.pages.includes(e.page))
   const rasterPpi = useEditor(editor, (e) => e.snapshot.rasterPpi)
   const mode = useEditor(editor, (e) => e.snapshot.colorMode)
   const facing = useEditor(editor, (e) => e.snapshot.facingPages)
   const snapshot = useEditor(editor, (e) => e.snapshot)
+  const { fonts, missingFonts } = snapshot
   const [variables, setVariables] = useState(false)
   const selection = useEditor(editor, (e) => e.selection)
   const nodes = selection.flatMap((id) => editor.nodes.get(id)?.node ?? [])
@@ -138,6 +140,25 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
           {isPage && page.detached.length > 0 && (
             <button type="button" className="button" onClick={() => editor.apply({ type: 'resetToMaster', ids: [page.id] })}>
               Reset overrides
+            </button>
+          )}
+        </Section>
+      )}
+      {!box && (
+        <Section title="Fonts" onAdd={() => addFonts(editor, say)}>
+          <ul className="fonts">
+            {fonts.map((f) => (
+              <li key={f.hash}>{f.name}</li>
+            ))}
+            {missingFonts.map(({ font }) => (
+              <li key={font.hash} className="missing" title="Missing: its text is set in Source Serif 4">
+                {font.name}
+              </li>
+            ))}
+          </ul>
+          {canFindFonts && missingFonts.length > 0 && (
+            <button type="button" className="button" onClick={() => findFonts(editor, say)}>
+              Find missing fonts on this computer
             </button>
           )}
         </Section>

@@ -1,7 +1,7 @@
 use crate::color::{ColorMode, Ink};
 use crate::display_list::{CLOSE, CUBIC, LINE, MOVE, Op, Paint, Shadow, Stop as ListStop, close};
 use crate::raster::{blur, extent, rasterize, tint};
-use crate::text::FONT;
+use crate::text::{MISSING, font_bytes, fonts};
 use krilla::Document;
 use krilla::blend::BlendMode;
 use krilla::color::separation::{SeparationColorant, SeparationSpace};
@@ -25,7 +25,9 @@ const MARK_WIDTH: f32 = 0.25;
 
 /// Shadows and blurs are rasterized at `ppi` in the colour mode `mode`; everything else stays vector.
 pub fn pdf(pages: &[Vec<Op>], ppi: f32, mode: ColorMode) -> Vec<u8> {
-    let font = Font::new(FONT.into(), 0).unwrap();
+    let fonts: Vec<Font> = (0..fonts().len() as u32)
+        .map(|i| Font::new(font_bytes(i).to_vec().into(), 0).unwrap())
+        .collect();
     let mut doc = Document::new();
     for ops in pages {
         let Some(&Op::Page {
@@ -54,7 +56,7 @@ pub fn pdf(pages: &[Vec<Op>], ppi: f32, mode: ColorMode) -> Vec<u8> {
             &FillRule::NonZero,
         );
         let env = Env {
-            font: &font,
+            fonts: &fonts,
             ppi,
             cmyk: mode == ColorMode::Cmyk,
             page: [-bleed, -bleed, width + 2.0 * bleed, height + 2.0 * bleed],
@@ -89,7 +91,7 @@ const BLENDS: [BlendMode; 16] = [
 ];
 
 struct Env<'a> {
-    font: &'a Font,
+    fonts: &'a [Font],
     ppi: f32,
     cmyk: bool,
     page: [f32; 4],
@@ -131,13 +133,13 @@ fn draw(s: &mut Surface, env: &Env, ops: &[Op]) {
                 }
             }
             Op::GlyphRun {
+                font,
                 size,
                 paint,
                 glyphs,
                 positions,
                 text,
                 ranges,
-                ..
             } => {
                 let Some(&[x0, y0]) = positions.first_chunk() else {
                     i += 1;
@@ -164,7 +166,7 @@ fn draw(s: &mut Surface, env: &Env, ops: &[Op]) {
                 s.draw_glyphs(
                     Point::from_xy(x0, y0),
                     &run,
-                    env.font.clone(),
+                    env.fonts[(font & !MISSING) as usize].clone(),
                     text,
                     *size,
                     false,

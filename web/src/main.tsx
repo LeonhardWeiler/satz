@@ -5,7 +5,7 @@ import canvaskitWasm from 'canvaskit-wasm/bin/canvaskit.wasm?url'
 import init, { Engine } from './engine/engine'
 import { App } from './App'
 import { Editor } from './editor'
-import { stored } from './file'
+import { stored, storedFonts } from './file'
 import './index.css'
 
 const root = createRoot(document.getElementById('root')!)
@@ -25,12 +25,15 @@ if (!document.createElement('canvas').getContext('webgl2')) {
   )
 } else {
   try {
-    const [ck, , saved] = await Promise.all([
+    const [ck, , saved, fonts] = await Promise.all([
       CanvasKitInit({ locateFile: () => canvaskitWasm }),
       init(),
       stored().catch(() => undefined),
+      storedFonts().catch(() => []),
     ])
-    const editor = new Editor(new Engine())
+    const engine = new Engine()
+    for (const bytes of fonts) engine.addFont(bytes)
+    const editor = new Editor(engine)
     let failed = ''
     try {
       if (saved) editor.load(saved.bytes, { name: saved.name, handle: saved.handle }, saved.dirty)

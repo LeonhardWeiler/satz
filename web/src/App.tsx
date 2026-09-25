@@ -57,7 +57,7 @@ export function App({ ck, editor, notice = '' }: { ck: CanvasKit; editor: Editor
         <Swatches editor={editor} />
       </div>
       <Canvas ck={ck} editor={editor} />
-      <Properties editor={editor} onExport={exportPdf} />
+      <Properties editor={editor} onExport={exportPdf} say={say} />
       <Toolbar editor={editor} />
       <p className="status" role="status">
         {status}

@@ -7,9 +7,76 @@ use harfrust::{FontRef, ShapeOptions, ShaperData, UnicodeBuffer};
 use read_fonts::TableProvider;
 use serde::{Deserialize, Serialize};
 use serde_json::Map;
+use skrifa::MetadataProvider;
+use skrifa::string::StringId;
+use std::cell::RefCell;
 use std::collections::BTreeMap;
+use std::rc::Rc;
 
 pub const FONT: &[u8] = include_bytes!("../fonts/SourceSerif4-Regular.ttf");
+/// Marks the font of a glyph run whose own font is missing, drawn in the bundled one.
+pub const MISSING: u32 = 1 << 31;
+
+/// A font by its full name and a hash of its bytes.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Typeface {
+    pub name: String,
+    pub hash: String,
+}
+
+thread_local! {
+    /// The fonts text can be set in by id, the bundled one first.
+    static FONTS: RefCell<Vec<(Typeface, Rc<[u8]>)>> =
+        RefCell::new(vec![(typeface(FONT).unwrap(), FONT.into())]);
+}
+
+pub fn typeface(bytes: &[u8]) -> Result<Typeface, String> {
+    let bad = || "not a TrueType or OpenType font".to_string();
+    FontRef::new(bytes)
+        .and_then(|f| f.cmap())
+        .map_err(|_| bad())?;
+    let name = skrifa::FontRef::new(bytes)
+        .map_err(|_| bad())?
+        .localized_strings(StringId::FULL_NAME)
+        .english_or_first()
+        .ok_or_else(bad)?
+        .to_string();
+    let hash = bytes.iter().fold(0xcbf29ce484222325u64, |h, &b| {
+        (h ^ b as u64).wrapping_mul(0x100000001b3)
+    });
+    Ok(Typeface {
+        name,
+        hash: format!("{hash:016x}"),
+    })
+}
+
+/// Adds the font `bytes` to those text can be set in, unless it is there already.
+pub fn add_font(bytes: &[u8]) -> Result<Typeface, String> {
+    let face = typeface(bytes)?;
+    FONTS.with_borrow_mut(|f| {
+        if !f.iter().any(|(t, _)| t.hash == face.hash) {
+            f.push((face.clone(), bytes.into()));
+        }
+    });
+    Ok(face)
+}
+
+/// The id of the font `face`, or the bundled one's marked `MISSING` when it is not there.
+pub fn font_id(face: &Option<Typeface>) -> u32 {
+    let Some(face) = face else { return 0 };
+    FONTS
+        .with_borrow(|f| f.iter().position(|(t, _)| t.hash == face.hash))
+        .map_or(MISSING, |i| i as u32)
+}
+
+pub fn font_bytes(id: u32) -> Rc<[u8]> {
+    FONTS.with_borrow(|f| f.get((id & !MISSING) as usize).unwrap_or(&f[0]).1.clone())
+}
+
+/// The fonts text can be set in.
+pub fn fonts() -> Vec<Typeface> {
+    FONTS.with_borrow(|f| f.iter().map(|(t, _)| t.clone()).collect())
+}
 
 /// The keys of `Attrs` a text style sets.
 pub const STYLED: [&str; 4] = ["size", "lineHeight", "letterSpacing", "paragraphSpacing"];
@@ -62,6 +129,8 @@ pub struct Attrs {
     pub text_align: TextAlign,
     pub hyphenate: bool,
     pub lang: Lang,
+    /// `None` is the bundled font.
+    pub font: Option<Typeface>,
 }
 
 impl Default for Attrs {
@@ -76,6 +145,7 @@ impl Default for Attrs {
             text_align: TextAlign::Left,
             hyphenate: false,
             lang: Lang::En,
+            font: None,
         }
     }
 }
@@ -226,6 +296,7 @@ pub fn draw(
     s: &Scope,
     from: usize,
 ) -> Vec<Op> {
+    let fonts: Vec<u32> = spans.iter().map(|s| font_id(&s.attrs.font)).collect();
     let span_paints: Vec<Vec<Paint>> = spans
         .iter()
         .map(|sp| match &sp.attrs.fill {
@@ -242,12 +313,13 @@ pub fn draw(
         for run in line.chunk_by(|a, b| {
             spans[a.span].attrs.size == spans[b.span].attrs.size
                 && span_paints[a.span] == span_paints[b.span]
+                && fonts[a.span] == fonts[b.span]
         }) {
             let (run_text, ranges) = source(text, &line, at..at + run.len(), &tf.number);
             at += run.len();
             for paint in &span_paints[run[0].span] {
                 ops.push(Op::GlyphRun {
-                    font: 0,
+                    font: fonts[run[0].span],
                     size: spans[run[0].span].attrs.size as f32,
                     paint: paint.clone(),
                     glyphs: run.iter().map(|g| g.id).collect(),
@@ -406,6 +478,16 @@ fn columns([x, y, w, h]: [f32; 4], tf: &TextFrame) -> ([f32; 4], f32) {
     ([x + left, y + top, iw, ih], cw)
 }
 
+/// Metrics of a font in em, and its hyphen.
+struct Metrics {
+    upem: f32,
+    ascent: f32,
+    descent: f32,
+    gap: f32,
+    hyphen: u16,
+    hyphen_adv: f32,
+}
+
 /// A shaped paragraph: its items, glyphs and clusters, attributes, first byte and
 /// natural width.
 type Para = (
@@ -429,22 +511,39 @@ fn rows(
     number: &str,
     room: f32,
 ) -> (Vec<Row>, f32) {
-    let font = FontRef::new(FONT).unwrap();
-    let upem = font.head().unwrap().units_per_em() as f32;
-    let hhea = font.hhea().unwrap();
-    let ascent = hhea.ascender().to_i16() as f32 / upem;
-    let descent = -hhea.descender().to_i16() as f32 / upem;
-    let gap = hhea.line_gap().to_i16() as f32 / upem;
-    let data = ShaperData::new(&font);
-    let shaper = data.shaper(&font).build();
-    let mut buf = UnicodeBuffer::new();
-    buf.push_str("-");
-    buf.guess_segment_properties();
-    let dash = shaper.shape(buf, ShapeOptions::new());
-    let (hyphen, hyphen_adv) = (
-        dash.glyph_infos()[0].glyph_id as u16,
-        dash.glyph_positions()[0].x_advance as f32 / upem,
-    );
+    let ids: Vec<u32> = spans.iter().map(|s| font_id(&s.attrs.font)).collect();
+    let mut used = ids.clone();
+    used.sort_unstable();
+    used.dedup();
+    let slot: Vec<usize> = ids.iter().map(|i| used.binary_search(i).unwrap()).collect();
+    let bytes: Vec<_> = used.iter().map(|&i| font_bytes(i)).collect();
+    let fonts: Vec<_> = bytes.iter().map(|b| FontRef::new(b).unwrap()).collect();
+    let data: Vec<_> = fonts.iter().map(ShaperData::new).collect();
+    let shapers: Vec<_> = fonts
+        .iter()
+        .zip(&data)
+        .map(|(f, d)| d.shaper(f).build())
+        .collect();
+    let metrics: Vec<Metrics> = fonts
+        .iter()
+        .zip(&shapers)
+        .map(|(font, shaper)| {
+            let upem = font.head().unwrap().units_per_em() as f32;
+            let hhea = font.hhea().unwrap();
+            let mut buf = UnicodeBuffer::new();
+            buf.push_str("-");
+            buf.guess_segment_properties();
+            let dash = shaper.shape(buf, ShapeOptions::new());
+            Metrics {
+                upem,
+                ascent: hhea.ascender().to_i16() as f32 / upem,
+                descent: -hhea.descender().to_i16() as f32 / upem,
+                gap: hhea.line_gap().to_i16() as f32 / upem,
+                hyphen: dash.glyph_infos()[0].glyph_id as u16,
+                hyphen_adv: dash.glyph_positions()[0].x_advance as f32 / upem,
+            }
+        })
+        .collect();
 
     let mut ends = Vec::with_capacity(spans.len());
     let mut chars = text.chars();
@@ -459,7 +558,9 @@ fn rows(
         ends.push(at);
     }
     let span_at = |byte: usize| ends.partition_point(|&e| e <= byte).min(spans.len() - 1);
-    let vertical = |a: &Attrs| {
+    let vertical = |span: usize| {
+        let (a, m) = (&spans[span].attrs, &metrics[slot[span]]);
+        let (ascent, descent, gap) = (m.ascent, m.descent, m.gap);
         let s = a.size as f32;
         let l = match a.line_height as f32 {
             0.0 => (ascent + descent + gap) * s,
@@ -504,11 +605,11 @@ fn rows(
                     .filter_map(|k| glyphs[k].map(|g| g.3))
                     .collect();
                 let (above, below) = if spans_here.is_empty() {
-                    vertical(&spans[span_at(start)].attrs)
+                    vertical(span_at(start))
                 } else {
                     spans_here
                         .iter()
-                        .map(|&s| vertical(&spans[s].attrs))
+                        .map(|&s| vertical(s))
                         .fold((0.0f32, 0.0f32), |(a, b), (c, d)| (a.max(c), b.max(d)))
                 };
                 let mut cx = match first.text_align {
@@ -571,15 +672,29 @@ fn rows(
             continue;
         }
         let first = &spans[span_at(start)].attrs;
-        let mut buf = UnicodeBuffer::new();
-        for (i, c) in para.char_indices() {
-            match c {
-                PAGE_NUMBER => number.chars().for_each(|d| buf.add(d, i as u32)),
-                c => buf.add(c, i as u32),
+        let mut shaped = Vec::new();
+        let mut chars = para.char_indices().peekable();
+        while let Some(&(i, _)) = chars.peek() {
+            let k = slot[span_at(start + i)];
+            let mut buf = UnicodeBuffer::new();
+            while let Some((i, c)) = chars.next_if(|&(i, _)| slot[span_at(start + i)] == k) {
+                match c {
+                    PAGE_NUMBER => number.chars().for_each(|d| buf.add(d, i as u32)),
+                    c => buf.add(c, i as u32),
+                }
             }
+            buf.guess_segment_properties();
+            let out = shapers[k].shape(buf, ShapeOptions::new());
+            shaped.extend(out.glyph_infos().iter().zip(out.glyph_positions()).map(
+                |(info, pos)| {
+                    let scale = 1.0 / metrics[k].upem;
+                    let cluster = info.cluster as usize;
+                    let [adv, dx, dy] =
+                        [pos.x_advance, pos.x_offset, pos.y_offset].map(|v| v as f32 * scale);
+                    (cluster, info.glyph_id as u16, adv, dx, dy)
+                },
+            ));
         }
-        buf.guess_segment_properties();
-        let shaped = shaper.shape(buf, ShapeOptions::new());
         let breaks = if first.hyphenate {
             syllables(para, first.lang)
         } else {
@@ -588,22 +703,22 @@ fn rows(
         let mut items = Vec::new();
         let mut glyphs = Vec::new();
         let mut clusters = Vec::new();
-        for (info, pos) in shaped.glyph_infos().iter().zip(shaped.glyph_positions()) {
-            let cluster = start + info.cluster as usize;
+        for &(at, id, adv, dx, dy) in &shaped {
+            let cluster = start + at;
             let span = span_at(cluster);
-            let a = &spans[span].attrs;
-            let scale = a.size as f32 / upem;
-            let adv = pos.x_advance as f32 * scale + (a.size * a.letter_spacing / 100.0) as f32;
-            if breaks.binary_search(&(info.cluster as usize)).is_ok() {
+            let (a, m) = (&spans[span].attrs, &metrics[slot[span]]);
+            let size = a.size as f32;
+            let adv = adv * size + (a.size * a.letter_spacing / 100.0) as f32;
+            if breaks.binary_search(&at).is_ok() {
                 items.push(Item::Penalty {
-                    width: hyphen_adv * a.size as f32,
+                    width: m.hyphen_adv * size,
                     cost: HYPHEN_COST,
                 });
-                glyphs.push(Some((hyphen, 0.0, 0.0, span, cluster, true)));
+                glyphs.push(Some((m.hyphen, 0.0, 0.0, span, cluster, true)));
                 clusters.push(cluster);
             }
             clusters.push(cluster);
-            if para[info.cluster as usize..].starts_with(' ') {
+            if para[at..].starts_with(' ') {
                 items.push(Item::Glue {
                     width: adv,
                     stretch: adv / 2.0,
@@ -612,14 +727,7 @@ fn rows(
                 glyphs.push(None);
             } else {
                 items.push(Item::Box(adv));
-                glyphs.push(Some((
-                    info.glyph_id as u16,
-                    pos.x_offset as f32 * scale,
-                    pos.y_offset as f32 * scale,
-                    span,
-                    cluster,
-                    false,
-                )));
+                glyphs.push(Some((id, dx * size, dy * size, span, cluster, false)));
             }
         }
         let natural: f32 = items

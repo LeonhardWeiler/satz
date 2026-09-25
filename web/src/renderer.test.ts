@@ -71,3 +71,24 @@ test('text in several sizes shares one typeface per font, freed with the rendere
   expect(freed).toBe(1)
   ck.Typeface.MakeTypefaceFromData = make
 })
+
+test('text in a missing font is highlighted pink', async () => {
+  const ck = await CanvasKitInit()
+  initSync({ module: readFileSync(new URL('engine/engine_bg.wasm', import.meta.url)) })
+  const engine = new Engine()
+  const renderer = new Renderer(ck, engine)
+  const surface = ck.MakeSurface(300, 400)!
+  const [page] = (engine.snapshot() as Snapshot).pages
+  const text = page.children.find((n) => n.kind === 'text')!
+  const pink = () => {
+    renderer.draw(surface.getCanvas(), [page], [page], { x: 0, y: 0, zoom: 0.5 }, 1, { selection: [] })
+    const px = surface.getCanvas().readPixels(0, 0, { width: 300, height: 400, colorType: ck.ColorType.RGBA_8888, alphaType: ck.AlphaType.Unpremul, colorSpace: ck.ColorSpace.SRGB })!
+    let n = 0
+    for (let i = 0; i < px.length; i += 4) if (px[i] > 220 && px[i + 1] < 150 && px[i + 2] > 120) n++
+    return n
+  }
+  const before = pink()
+  engine.apply({ type: 'format', id: text.id, range: null, font: { name: 'Gone Sans', hash: '0123456789abcdef' } })
+  expect(pink()).toBeGreaterThan(before + 500)
+  renderer.delete()
+})

@@ -134,9 +134,23 @@ impl Engine {
         self.doc.version()
     }
 
-    pub fn font(&self, _id: u32) -> Uint8Array {
-        unsafe { Uint8Array::view(text::FONT) }
+    pub fn font(&self, id: u32) -> Uint8Array {
+        Uint8Array::from(&text::font_bytes(id)[..])
     }
+
+    /// Adds a TrueType or OpenType font and returns its name and hash.
+    #[wasm_bindgen(js_name = addFont)]
+    pub fn add_font(&mut self, bytes: &[u8]) -> Result<JsValue, JsError> {
+        let face = self.doc.add_font(bytes).map_err(|e| JsError::new(&e))?;
+        Ok(serde_wasm_bindgen::to_value(&face)?)
+    }
+}
+
+/// The name and hash of the font `bytes`.
+#[wasm_bindgen]
+pub fn typeface(bytes: &[u8]) -> Result<JsValue, JsError> {
+    let face = text::typeface(bytes).map_err(|e| JsError::new(&e))?;
+    Ok(serde_wasm_bindgen::to_value(&face)?)
 }
 
 /// The letters that the page numbers of the master `name` show.
