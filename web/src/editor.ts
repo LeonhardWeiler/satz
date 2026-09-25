@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import type { Engine } from './engine/engine'
-import type { Command, Container, Modes, Node, Page, Palette, Scope, Snapshot } from './model'
+import type { Command, Container, Modes, Node, Page, Palette, Scope, Snapshot, TextNode } from './model'
 import { penPath, type Anchor } from './pen'
 import type { Sheet } from './renderer'
 import { index, type Entry } from './select'
@@ -106,7 +106,7 @@ export class Editor {
       this.selection = this.selection.filter((id) => this.nodes.has(id))
       const n = this.editing && this.nodes.get(this.editing.id)?.node
       if (this.editing) {
-        const len = n?.kind === 'text' ? n.text.length : -1
+        const len = n?.kind === 'text' ? this.storyOf(n).text.length : -1
         const { anchor, focus } = this.editing
         this.editing = len < 0 ? null : { ...this.editing, anchor: Math.min(anchor, len), focus: Math.min(focus, len) }
       }
@@ -124,6 +124,10 @@ export class Editor {
     this.follow()
     this.settle()
     this.emit()
+  }
+
+  storyOf(n: TextNode) {
+    return this.snapshot.stories[n.story]
   }
 
   /** The layer `id` on any page or master, and the page it is on. */
@@ -189,7 +193,7 @@ export class Editor {
     this.endTyping()
     this.editing = null
     const n = this.nodes.get(e.id)?.node
-    if (n?.kind === 'text' && !n.text && !n.prev && !n.next) this.apply({ type: 'delete', ids: [e.id] })
+    if (n?.kind === 'text' && !this.storyOf(n).text && !n.prev && !n.next) this.apply({ type: 'delete', ids: [e.id] })
     this.emit()
   }
 

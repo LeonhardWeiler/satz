@@ -519,7 +519,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         }
         editor.setTool('move')
         const n = editor.nodes.get(drag.id)?.node
-        if (n?.kind === 'text') editor.set({ editing: { id: n.id, anchor: 0, focus: n.text.length } })
+        if (n?.kind === 'text') editor.set({ editing: { id: n.id, anchor: 0, focus: editor.storyOf(n).text.length } })
       }
       if (drag?.kind === 'move' && drag.flow && drag.to) {
         editor.apply({ type: 'move', ids: drag.frames.map((n) => n.id), parent: drag.flow.id, index: drag.to.index })
@@ -561,7 +561,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const p = toDoc(e)
       const edited = inEdited(p)
       if (edited) {
-        const [a, b] = wordAt(edited.text, editor.engine.textIndex(edited.id, p.x - editor.dx(edited.id), p.y))
+        const [a, b] = wordAt(editor.storyOf(edited).text, editor.engine.textIndex(edited.id, p.x - editor.dx(edited.id), p.y))
         select(editor, a, b)
         return
       }
@@ -575,7 +575,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     /** A triple click in the edited text selects all of it. */
     const onClick = (e: MouseEvent) => {
       const edited = e.detail >= 3 && editor.tool === 'move' ? inEdited(toDoc(e)) : undefined
-      if (edited) select(editor, 0, edited.text.length)
+      if (edited) select(editor, 0, editor.storyOf(edited).text.length)
     }
     const onLeave = () => {
       pointer = undefined

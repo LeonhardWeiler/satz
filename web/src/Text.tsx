@@ -42,8 +42,9 @@ const STYLED: [Styled, string, string, string, string?][] = [
 /** Text style, type and alignment of a text layer. */
 export function TextSection({ editor, node }: { editor: Editor; node: TextNode }) {
   const styles = useEditor(editor, (e) => e.snapshot.textStyles)
+  const spans = useEditor(editor, (e) => e.snapshot.stories[node.story])?.spans ?? []
   const same = <T,>(get: (a: Attrs) => T): T | null => {
-    const values = node.spans.map(get)
+    const values = spans.map(get)
     return values.every((v) => v === values[0]) ? values[0] : null
   }
   const edited = useEditor(editor, (e) => (e.editing?.id === node.id && e.editing.anchor !== e.editing.focus ? e.editing : null))
@@ -54,7 +55,7 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
   const options: Record<string, string> = { '': 'No style', ...Object.fromEntries(styles.map((s) => [s.id, s.name])) }
   if (style === null) options.mixed = 'Mixed'
   const create = () => {
-    const a = node.spans[0]
+    const a = spans[0]
     const [id] = editor.apply({
       type: 'addTextStyle',
       name: nextName('Text style', styles.map((s) => s.name)),

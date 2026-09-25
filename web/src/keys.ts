@@ -39,7 +39,7 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
     editor.apply({ type: 'copy', ids })
     if (key === 'x') editor.apply({ type: 'delete', ids })
   } else if (e.key === 'Enter' && !mod && one?.node.kind === 'text' && ids.length === 1) {
-    editor.set({ editing: { id: one.node.id, anchor: 0, focus: one.node.text.length } })
+    editor.set({ editing: { id: one.node.id, anchor: 0, focus: editor.storyOf(one.node).text.length } })
   } else if (e.key === 'Enter' && !mod) {
     const kids = editor.selected().flatMap((n) => ('children' in n ? n.children.map((c) => c.id) : []))
     if (kids.length) editor.set({ selection: kids })

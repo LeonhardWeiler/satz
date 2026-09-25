@@ -138,14 +138,15 @@ export type Node = {
 export type Container = Extract<Node, { children: Node[] }>
 export type TextNode = Extract<Node, { kind: 'text' }>
 
+/** The text of a thread and its runs of equal attributes. */
+export type Story = { text: string; spans: Span[] }
+
 /**
- * A text layer in its thread: `text` and `spans` are the story of the thread, whose
- * first frame is `story`; the layer sets it from `start` to `end` in UTF-16, and is
- * `overset` when it is the last frame and text is left.
+ * A text layer in its thread, whose story is held by its first frame `story`; the
+ * layer sets it from `start` to `end` in UTF-16, and is `overset` when it is the last
+ * frame and text is left.
  */
 export type Threaded = {
-  text: string
-  spans: Span[]
   story: string
   start: number
   end: number
@@ -235,6 +236,8 @@ export type Snapshot = Palette & {
   facingPages: boolean
   /** The ids of the pages of each spread from left to right. */
   spreads: string[][]
+  /** The story of each thread by its first frame. */
+  stories: Record<string, Story>
   rasterPpi: number
   colorMode: ColorMode
   canUndo: boolean

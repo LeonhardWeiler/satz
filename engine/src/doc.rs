@@ -16,9 +16,11 @@ use loro::{
     TreeID, TreeParentId, UndoManager, UpdateOptions, ValueOrContainer,
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Display;
 use std::ops::Range;
+use std::rc::Rc;
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Deserialize)]
@@ -453,6 +455,8 @@ pub struct Snapshot {
     /// The ids of the pages of each spread from left to right: with facing pages the
     /// first page alone on the right, then pairs; else each page alone.
     pub spreads: Vec<Vec<String>>,
+    /// The story of each thread by its first frame.
+    pub stories: BTreeMap<String, Rc<Story>>,
     /// Resolution at which the PDF rasterizes shadows and blurs.
     pub raster_ppi: f64,
     pub color_mode: ColorMode,
@@ -479,6 +483,13 @@ pub struct Page {
     pub detached: Vec<String>,
     pub modes: Modes,
     pub children: Vec<Node>,
+}
+
+/// The text of a thread and its runs of equal attributes.
+#[derive(Debug, PartialEq, Serialize)]
+pub struct Story {
+    pub text: String,
+    pub spans: Vec<Span>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
@@ -519,12 +530,12 @@ pub struct Node {
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Kind {
     Shape(Shape),
-    /// `text` and `spans` are the story of the thread, whose first frame is `story`;
-    /// the layer sets it from `start` up to `end` in UTF-16, and `overset` when it is
-    /// the last frame and text is left.
+    /// `content` is the story of the thread, whose first frame is `story`; the layer
+    /// sets it from `start` up to `end` in UTF-16, and `overset` when it is the last
+    /// frame and text is left.
     Text {
-        text: String,
-        spans: Vec<Span>,
+        #[serde(skip)]
+        content: Rc<Story>,
         #[serde(flatten)]
         frame: TextFrame,
         story: String,
@@ -558,9 +569,11 @@ struct Place {
 /// bytes `start..end`, its neighbours, and text left over at the end of the thread.
 struct Flow {
     head: TreeID,
-    story: std::rc::Rc<(String, Vec<Span>)>,
+    story: Rc<Story>,
     start: usize,
     end: usize,
+    /// Where the text left over for the next frame starts.
+    rest: Option<usize>,
     prev: Option<TreeID>,
     next: Option<TreeID>,
     overset: bool,
@@ -571,6 +584,8 @@ pub struct Doc {
     tree: LoroTree,
     undo: UndoManager,
     clipboard: Vec<(Clip, Option<TreeID>)>,
+    /// The flows through all text layers, from the end of the last command on.
+    flows: RefCell<Option<Rc<HashMap<TreeID, Flow>>>>,
 }
 
 struct Clip {
@@ -635,6 +650,7 @@ impl Doc {
             tree,
             undo,
             clipboard: Vec::new(),
+            flows: RefCell::new(None),
         };
         let page = d.tree.create(None).unwrap();
         let m = d.meta(page);
@@ -857,6 +873,7 @@ impl Doc {
     }
 
     pub fn apply(&mut self, cmd: Command) -> Res<Vec<String>> {
+        self.flows.take();
         let history = matches!(cmd, Command::Undo | Command::Redo);
         let out = match cmd {
             Command::Create {
@@ -1917,22 +1934,18 @@ impl Doc {
             }
         }
         self.doc.commit();
+        self.flows.replace(Some(Rc::new(self.flow_all())));
         Ok(out)
     }
 
-    /// The story of the text layer `id` and the lines of it set in its frame.
-    fn text_lines(&self, id: &str) -> Res<(String, Vec<text::Line>)> {
-        let n = self.node(id)?;
-        self.frame_lines(n)
-    }
-
-    fn frame_lines(&self, n: TreeID) -> Res<(String, Vec<text::Line>)> {
-        let (t, spans, flows) = self.flow(self.story(n))?;
-        let from = flows.iter().find(|f| f.0 == n).map_or(0, |f| f.1);
+    /// The story of the text layer `n` and the lines of it set in its frame.
+    fn frame_lines(&self, n: TreeID) -> Res<(Rc<Story>, Vec<text::Line>)> {
+        let flows = self.flows();
+        let f = flows.get(&n).ok_or("not a text node")?;
         let tf = self.text_frame_of(n);
         let frame = self.bounds(n).map(|v| v as f32);
-        let lines = text::lines(&t, &spans, frame, &tf, from);
-        Ok((t, lines))
+        let lines = text::lines(&f.story.text, &f.story.spans, frame, &tf, f.start);
+        Ok((f.story.clone(), lines))
     }
 
     /// The story of the thread starting at `head`, its spans, and each frame with the
@@ -1966,13 +1979,17 @@ impl Doc {
     /// The frame of the thread of `n` that holds the byte `at`: the last one that
     /// gets text and starts at or before it.
     fn holding(&self, n: TreeID, at: usize) -> Res<TreeID> {
-        let (_, _, flows) = self.flow(self.story(n))?;
-        let mut holder = flows[0].0;
-        for (i, &(f, start, _)) in flows.iter().enumerate() {
-            let gets_text = i == 0 || flows[i - 1].2.is_some();
-            if gets_text && start <= at {
-                holder = f;
+        let flows = self.flows();
+        let mut f = flows.get(&n).ok_or("not a text node")?.head;
+        let mut holder = f;
+        while let Some(flow) = flows.get(&f) {
+            let Some(next) = flow.next.filter(|_| flow.rest.is_some()) else {
+                break;
+            };
+            if flows[&next].start <= at {
+                holder = next;
             }
+            f = next;
         }
         Ok(holder)
     }
@@ -1990,23 +2007,19 @@ impl Doc {
         let n = self.node(id)?;
         let t = self.text(n)?.to_string();
         let at = byte_of(&t, index)?;
-        let (t, lines) = self.frame_lines(self.holding(n, at)?)?;
-        Ok(text::caret(&t, &lines, at).map(f64::from))
+        let (story, lines) = self.frame_lines(self.holding(n, at)?)?;
+        Ok(text::caret(&story.text, &lines, at).map(f64::from))
     }
 
     /// The UTF-16 index of the character boundary in the frame `id` nearest (x, y).
     pub fn text_index(&self, id: &str, x: f64, y: f64) -> Res<usize> {
-        let (t, lines) = self.text_lines(id)?;
+        let n = self.node(id)?;
+        let (story, lines) = self.frame_lines(n)?;
         let at = match lines.is_empty() {
-            true => self
-                .flow(self.story(self.node(id)?))?
-                .2
-                .iter()
-                .find(|f| f.0.to_string() == id)
-                .map_or(0, |f| f.1),
+            true => self.flows()[&n].start,
             false => text::index_at(&lines, x as f32, y as f32),
         };
-        Ok(utf16_of(&t, at))
+        Ok(utf16_of(&story.text, at))
     }
 
     /// UTF-16 start and end of the line of the text `id` that holds `index`.
@@ -2014,9 +2027,9 @@ impl Doc {
         let n = self.node(id)?;
         let t = self.text(n)?.to_string();
         let at = byte_of(&t, index)?;
-        let (t, lines) = self.frame_lines(self.holding(n, at)?)?;
+        let (story, lines) = self.frame_lines(self.holding(n, at)?)?;
         Ok(match lines.get(text::line_of(&lines, at)) {
-            Some(l) => [l.start, l.end].map(|b| utf16_of(&t, b)),
+            Some(l) => [l.start, l.end].map(|b| utf16_of(&story.text, b)),
             None => [index; 2],
         })
     }
@@ -2046,8 +2059,8 @@ impl Doc {
             if self.root(f) != page {
                 return Ok(Vec::new());
             }
-            let (t, lines) = self.frame_lines(f)?;
-            let [x, top, bottom] = text::caret(&t, &lines, a);
+            let (story, lines) = self.frame_lines(f)?;
+            let [x, top, bottom] = text::caret(&story.text, &lines, a);
             return Ok(vec![Op::FillPath {
                 paint: solid([0.0, 0.0, 0.0, 1.0]),
                 path: rect(x - caret_width / 2.0, top, caret_width, bottom - top),
@@ -2058,14 +2071,15 @@ impl Doc {
             if self.root(f) != page {
                 continue;
             }
-            let (t, lines) = self.frame_lines(f)?;
+            let (story, lines) = self.frame_lines(f)?;
+            let t = &story.text;
             ops.extend(
                 lines
                     .iter()
                     .filter(|l| a <= l.end && b > l.start || a == l.start && b >= l.start)
                     .map(|l| {
-                        let x0 = text::x_at(&t, l, a.max(l.start));
-                        let mut x1 = text::x_at(&t, l, b.min(l.end));
+                        let x0 = text::x_at(t, l, a.max(l.start));
+                        let mut x1 = text::x_at(t, l, b.min(l.end));
                         if b > l.end {
                             x1 = x1.max(x0 + (l.bottom - l.top) / 4.0);
                         }
@@ -2095,6 +2109,9 @@ impl Doc {
 
     /// The text layer that `id` follows in its thread.
     fn prev_of(&self, id: TreeID) -> Option<TreeID> {
+        if let Some(flows) = &*self.flows.borrow() {
+            return flows.get(&id).and_then(|f| f.prev);
+        }
         let mut all = Vec::new();
         for r in self.pages().into_iter().chain(self.masters()) {
             self.walk(r, &mut all);
@@ -2518,7 +2535,15 @@ impl Doc {
     }
 
     /// How the story of every thread flows through its frames.
-    fn flows(&self) -> HashMap<TreeID, Flow> {
+    /// The flows through all text layers, kept since the last command.
+    fn flows(&self) -> Rc<HashMap<TreeID, Flow>> {
+        match &*self.flows.borrow() {
+            Some(f) => f.clone(),
+            None => Rc::new(self.flow_all()),
+        }
+    }
+
+    fn flow_all(&self) -> HashMap<TreeID, Flow> {
         let mut all = Vec::new();
         for r in self.pages().into_iter().chain(self.masters()) {
             self.walk(r, &mut all);
@@ -2538,7 +2563,7 @@ impl Doc {
             let Ok((text, spans, frames)) = self.flow(head) else {
                 continue;
             };
-            let story = std::rc::Rc::new((text, spans));
+            let story = Rc::new(Story { text, spans });
             for (i, &(f, start, next)) in frames.iter().enumerate() {
                 out.insert(
                     f,
@@ -2546,7 +2571,8 @@ impl Doc {
                         head,
                         story: story.clone(),
                         start,
-                        end: next.unwrap_or(story.0.len()),
+                        end: next.unwrap_or(story.text.len()),
+                        rest: next,
                         prev: i.checked_sub(1).map(|j| frames[j].0),
                         next: frames.get(i + 1).map(|n| n.0),
                         overset: i + 1 == frames.len() && next.is_some(),
@@ -2589,7 +2615,12 @@ impl Doc {
             (p.side, p.x) = (place.side, place.x);
         }
         let spreads = spreads(pages.len(), facing_pages);
+        let stories = flows
+            .values()
+            .map(|f| (f.head.to_string(), f.story.clone()))
+            .collect();
         Snapshot {
+            stories,
             spreads: spreads
                 .iter()
                 .map(|s| s.iter().map(|&i| pages[i].id.clone()).collect())
@@ -2818,13 +2849,16 @@ impl Doc {
         ops
     }
 
-    /// The display list of the page `id` as it prints: with the layers of the other
-    /// page of its spread, so that one across the spine prints on both.
-    pub fn print(&self, id: &str) -> Vec<Op> {
+    /// The document as a PDF, every page from one snapshot.
+    pub fn pdf(&self) -> Vec<u8> {
         let snap = self.snapshot();
-        let Some(p) = snap.pages.iter().find(|p| p.id == id) else {
-            return self.render(id);
-        };
+        let pages: Vec<_> = snap.pages.iter().map(|p| self.print(&snap, p)).collect();
+        crate::pdf::pdf(&pages, snap.raster_ppi as f32, snap.color_mode)
+    }
+
+    /// The display list of the page `p` as it prints: with the layers of the other
+    /// page of its spread, so that one across the spine prints on both.
+    fn print(&self, snap: &Snapshot, p: &Page) -> Vec<Op> {
         let mut ops = vec![page_op(p)];
         let spread = snap.spreads.iter().find(|s| s.contains(&p.id));
         for q in spread.into_iter().flatten() {
@@ -2834,7 +2868,7 @@ impl Doc {
             let window =
                 (q.id != p.id).then_some([-b - dx, -b, p.width + 2.0 * b, p.height + 2.0 * b]);
             let mut own = Vec::new();
-            self.draw_sheet(&snap, q, window, &mut own);
+            self.draw_sheet(snap, q, window, &mut own);
             ops.extend(shift(own, dx as f32, 0.0));
         }
         ops
@@ -2985,10 +3019,9 @@ impl Doc {
         let kind = match self.kind(id).as_str() {
             "text" => match flows.get(&id) {
                 Some(f) => {
-                    let (text, spans) = &*f.story;
+                    let text = &f.story.text;
                     Kind::Text {
-                        text: text.clone(),
-                        spans: spans.clone(),
+                        content: f.story.clone(),
                         frame: self.text_frame_of(id),
                         story: f.head.to_string(),
                         start: utf16_of(text, f.start),
@@ -3000,15 +3033,17 @@ impl Doc {
                     }
                 }
                 None => Kind::Text {
-                    text: v["text"].as_str().unwrap_or_default().into(),
-                    spans: self.spans(
-                        id,
-                        &v,
-                        &Scope {
-                            palette,
-                            modes: &active_modes,
-                        },
-                    ),
+                    content: Rc::new(Story {
+                        text: v["text"].as_str().unwrap_or_default().into(),
+                        spans: self.spans(
+                            id,
+                            &v,
+                            &Scope {
+                                palette,
+                                modes: &active_modes,
+                            },
+                        ),
+                    }),
                     frame: self.text_frame_of(id),
                     story: id.to_string(),
                     start: 0,
@@ -3044,8 +3079,10 @@ impl Doc {
                 }
                 Kind::Shape(Shape::Path { path }) if path.len() == 6 => "Line".into(),
                 Kind::Shape(Shape::Path { .. }) => "Vector".into(),
-                Kind::Text { text, from, .. } if text[*from..].is_empty() => "Text".into(),
-                Kind::Text { text, from, .. } => text[*from..]
+                Kind::Text { content, from, .. } if content.text[*from..].is_empty() => {
+                    "Text".into()
+                }
+                Kind::Text { content, from, .. } => content.text[*from..]
                     .chars()
                     .take(40)
                     .map(|c| if c == text::PAGE_NUMBER { '#' } else { c })
@@ -3505,8 +3542,7 @@ fn renumber(nodes: &mut [Node], number: &str) {
         } = n.layout.sizing;
         match &mut n.kind {
             Kind::Text {
-                text,
-                spans,
+                content,
                 frame,
                 next,
                 from,
@@ -3516,7 +3552,7 @@ fn renumber(nodes: &mut [Node], number: &str) {
                 if vertical == Size::Hug && next.is_none() {
                     let auto_width = horizontal == Size::Hug;
                     let w = (!auto_width).then_some(n.w as f32);
-                    let [w, h] = text::measure(text, spans, frame, w, *from);
+                    let [w, h] = text::measure(&content.text, &content.spans, frame, w, *from);
                     if auto_width {
                         n.w = w.into();
                     }
@@ -3601,14 +3637,21 @@ fn draw(n: &Node, ops: &mut Vec<Op>, pal: &Palette) {
     match &n.kind {
         Kind::Shape(shape) => item(ops, n.style.shape(&outline(shape, frame), frame, s)),
         Kind::Text {
-            text,
-            spans,
+            content,
             frame: tf,
             from,
             ..
         } => item(
             ops,
-            text::draw(text, spans, &n.style.fills, frame, tf, s, *from),
+            text::draw(
+                &content.text,
+                &content.spans,
+                &n.style.fills,
+                frame,
+                tf,
+                s,
+                *from,
+            ),
         ),
         Kind::Group { children } => draw_all(children, ops, pal),
         Kind::Frame { clip, children } => {
@@ -3866,7 +3909,7 @@ mod tests {
         assert_eq!(p.children[0].kind, Kind::Shape(Shape::Rect { radius: 0.0 }));
         assert_eq!(p.children[0].style.fills, [Fill::solid(0xe8452cff)]);
         assert!(
-            matches!(&p.children[1].kind, Kind::Text { spans, .. } if spans[0].attrs.size == 14.0)
+            matches!(&p.children[1].kind, Kind::Text { content, .. } if content.spans[0].attrs.size == 14.0)
         );
         assert!(
             matches!(&p.children[2].kind, Kind::Frame { clip: true, children, .. } if children.len() == 1)
@@ -4134,9 +4177,7 @@ mod tests {
         let (orig, dup) = (&pg.children[0], &pg.children[1]);
         assert_ne!(children(orig)[0].id, children(dup)[0].id);
         let text = |n: &Node| match &n.kind {
-            Kind::Text {
-                text, spans, frame, ..
-            } => (text.clone(), spans.clone(), frame.clone()),
+            Kind::Text { content, frame, .. } => (content.clone(), frame.clone()),
             k => panic!("not text: {k:?}"),
         };
         assert_eq!(text(&children(dup)[0]), text(&children(orig)[0]));
@@ -4192,7 +4233,9 @@ mod tests {
             text: "Hallo".into(),
         })
         .unwrap();
-        assert!(matches!(&page(&d).children[1].kind, Kind::Text { text, .. } if text == "Hallo"));
+        assert!(
+            matches!(&page(&d).children[1].kind, Kind::Text { content, .. } if content.text == "Hallo")
+        );
         assert!(
             d.apply(Command::SetText {
                 id: page(&d).children[0].id.clone(),
@@ -5669,7 +5712,7 @@ mod tests {
 
     fn spans(d: &Doc) -> Vec<Span> {
         match page(d).children.pop().unwrap().kind {
-            Kind::Text { spans, .. } => spans,
+            Kind::Text { content, .. } => content.spans.clone(),
             k => panic!("not text: {k:?}"),
         }
     }
@@ -6007,7 +6050,9 @@ mod tests {
         let (mut d, p) = empty();
         let t = create(&mut d, &p, NewKind::Text, [10.0, 20.0, 0.0, 0.0]);
         assert_eq!(node_sizing(&d, &t), sizing(Size::Hug, Size::Hug).unwrap());
-        assert!(matches!(&page(&d).children[0].kind, Kind::Text { text, .. } if text.is_empty()));
+        assert!(
+            matches!(&page(&d).children[0].kind, Kind::Text { content, .. } if content.text.is_empty())
+        );
         assert_eq!(page(&d).children[0].name, "Text");
         assert_eq!(frames(&d, &t)[0][..3], [10.0, 20.0, 0.0]);
         assert!(close(frames(&d, &t)[0][3], LEADING));
@@ -6134,7 +6179,9 @@ mod tests {
         assert_eq!(lens_and(&d, |a| a.size), [(6, 20.0), (6, 12.0)]);
         edit(&mut d, &t, [0, 1], "J").unwrap();
         edit(&mut d, &t, [6, 12], "").unwrap();
-        assert!(matches!(&page(&d).children[0].kind, Kind::Text { text, .. } if text == "Jello!"));
+        assert!(
+            matches!(&page(&d).children[0].kind, Kind::Text { content, .. } if content.text == "Jello!")
+        );
         assert!(edit(&mut d, &t, [3, 9], "x").is_err());
         assert!(edit(&mut d, &t, [4, 3], "x").is_err());
     }
@@ -6365,12 +6412,11 @@ mod tests {
         create(&mut d, &p3, NewKind::Rect, [50.0, 0.0, 10.0, 10.0]);
         create(&mut d, &p1, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
         assert_eq!(filled_x(&d.render(&p3)), [[5.0, 15.0], [50.0, 60.0]]);
-        assert_eq!(filled_x(&d.print(&p2)), [[90.0, 110.0], [105.0, 115.0]]);
-        assert_eq!(
-            filled_x(&d.print(&p3)),
-            [[-10.0, 10.0], [5.0, 15.0], [50.0, 60.0]]
-        );
-        assert_eq!(filled_x(&d.print(&p1)), [[0.0, 10.0]]);
+        let snap = d.snapshot();
+        let print = |i: usize| filled_x(&d.print(&snap, &snap.pages[i]));
+        assert_eq!(print(1), [[90.0, 110.0], [105.0, 115.0]]);
+        assert_eq!(print(2), [[-10.0, 10.0], [5.0, 15.0], [50.0, 60.0]]);
+        assert_eq!(print(0), [[0.0, 10.0]]);
     }
 
     #[test]
@@ -6800,7 +6846,7 @@ mod tests {
         let n = all.into_iter().find(|n| n.id == id).unwrap();
         match &n.kind {
             Kind::Text {
-                text,
+                content,
                 story,
                 start,
                 end,
@@ -6811,7 +6857,7 @@ mod tests {
             } => {
                 assert!(story == id || prev.is_some(), "{story} heads {id}");
                 (
-                    text.clone(),
+                    content.text.clone(),
                     *start,
                     *end,
                     prev.clone(),
@@ -7361,9 +7407,8 @@ mod tests {
     #[test]
     fn the_booklet_pdf_reads_as_one_story_with_a_number_on_every_page() {
         let b = booklet();
-        let pages: Vec<Vec<Op>> = b.pages.iter().map(|p| b.d.print(p)).collect();
         let path = std::env::temp_dir().join(format!("satz-booklet-{}.pdf", std::process::id()));
-        std::fs::write(&path, crate::pdf::pdf(&pages, 300.0, ColorMode::Rgb)).unwrap();
+        std::fs::write(&path, b.d.pdf()).unwrap();
         let mut read = String::new();
         for i in 1..=8 {
             let out = std::process::Command::new("mutool")
@@ -7387,5 +7432,25 @@ mod tests {
         let (read, story) = (words(&read), words(&b.story));
         assert!(read.len() > 10_000, "{}", read.len());
         assert!(story.starts_with(&read), "{}", &read[..200]);
+    }
+
+    #[test]
+    fn a_key_typed_into_the_booklet_story_is_set_and_drawn_within_budget() {
+        let mut b = booklet();
+        let (d, frame) = (&mut b.d, &b.frames[4]);
+        let at = flow(d, frame).1 + 10;
+        let spread = [&b.pages[3], &b.pages[4]];
+        let start = std::time::Instant::now();
+        edit(d, frame, [at, at], "X").unwrap();
+        d.snapshot();
+        let shown = d.text_frame(frame, at + 1).unwrap();
+        for p in spread {
+            d.render(p);
+            d.text_overlay(&shown, at + 1, at + 1, 1.0, p).unwrap();
+        }
+        d.caret(&shown, at + 1).unwrap();
+        let took = start.elapsed();
+        eprintln!("typing took {took:?}");
+        assert!(took.as_millis() < 1000, "typing took {took:?}");
     }
 }

@@ -15,7 +15,7 @@ krilla = { version = "0.8.2", default-features = false, features = ["raster-imag
 loro = "1.16.2"
 moxcms = { version = "0.9.1", default-features = false, features = ["lut"] }
 read-fonts = "0.43.3"
-serde = { version = "1.0.229", features = ["derive"] }
+serde = { version = "1.0.229", features = ["derive", "rc"] }
 serde-wasm-bindgen = "0.6.5"
 serde_json = "1.0.151"
 skrifa = "0.42.1"

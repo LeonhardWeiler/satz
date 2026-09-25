@@ -10,7 +10,7 @@ const words = new Intl.Segmenter(undefined, { granularity: 'word' })
 
 export function textOf(editor: Editor) {
   const n = editor.editing && editor.nodes.get(editor.editing.id)?.node
-  return n?.kind === 'text' ? n.text : ''
+  return n?.kind === 'text' ? editor.storyOf(n).text : ''
 }
 
 export function range(e: Editing): [number, number] {
