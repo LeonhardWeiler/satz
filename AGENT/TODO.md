@@ -13,12 +13,6 @@ font helper, i18n.
 Found by the review on 2026-09-25 (IDs from `AGENT/project-health-report.html`), causes checked in
 the code, not reproduced in the browser.
 
-### B12. Engine traps on a large raster ppi (PERF-2)
-- Cause: `SetDocument` only requires `rasterPpi > 0`. At 800 ppi a page-sized A2 shadow needs
-  ≈ 990 MB per buffer; the allocation traps the WASM engine and the app is dead.
-- Fix: range check 72..=1200 in `SetDocument` like the props in `Props::check`.
-- Test: cargo test rejects 0, 71 and 1201 and keeps the old value.
-
 ### B13. Spot swatches may share a name with different alternates (PRINT-1)
 - Cause: `Swatch::check` does not look at other swatches; `Swatches.tsx` names new swatches
   `Swatch {len + 1}`, which repeats after a delete. The PDF then has one Separation name with

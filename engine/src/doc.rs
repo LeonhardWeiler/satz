@@ -694,8 +694,8 @@ impl Doc {
             } => {
                 let m = self.doc.get_map("document");
                 if let Some(ppi) = raster_ppi {
-                    if ppi <= 0.0 {
-                        return Err("raster ppi must be positive".into());
+                    if !(72.0..=1200.0).contains(&ppi) {
+                        return Err("raster ppi must be in 72..=1200".into());
                     }
                     m.insert("rasterPpi", ppi).map_err(err)?;
                 }
@@ -2103,6 +2103,17 @@ mod tests {
         assert!(d.apply(ppi(0.0)).is_err());
         d.apply(Command::Undo).unwrap();
         assert_eq!(d.snapshot().raster_ppi, 300.0);
+    }
+
+    #[test]
+    fn the_raster_ppi_stays_within_72_to_1200() {
+        let mut d = Doc::new();
+        for bad in [0.0, 71.0, 1201.0] {
+            assert!(d.apply(ppi(bad)).is_err());
+            assert_eq!(d.snapshot().raster_ppi, 300.0);
+        }
+        d.apply(ppi(1200.0)).unwrap();
+        assert_eq!(d.snapshot().raster_ppi, 1200.0);
     }
 
     fn ppi(raster_ppi: f64) -> Command {
