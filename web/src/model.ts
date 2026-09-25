@@ -153,6 +153,8 @@ export type Attrs = {
   fill: Color | null
   textStyle: string
   textAlign: 'left' | 'center' | 'right' | 'justify'
+  hyphenate: boolean
+  lang: 'en' | 'de'
 }
 export type TextProps = Partial<Attrs>
 /** `len` characters in UTF-16 code units that share their attributes. */

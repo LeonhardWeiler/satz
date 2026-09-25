@@ -13,6 +13,7 @@ const ALIGNS = [
   ['right', 'Align right', 'alignRight'],
   ['justify', 'Justify', 'alignJustify'],
 ] as const
+const LANGS = { en: 'English', de: 'German' } as const
 /** Styled attributes: title, label, unit and the text shown for 0. */
 const STYLED: [Styled, string, string, string, string?][] = [
   ['size', 'Font size', 'Size', 'pt'],
@@ -45,6 +46,10 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
     format({ textStyle: id })
   }
   const align = same((a) => a.textAlign)
+  const hyphenate = same((a) => a.hyphenate)
+  const lang = same((a) => a.lang)
+  const langs: Record<string, string> = { ...LANGS }
+  if (lang === null) langs.mixed = 'Mixed'
 
   return (
     <Section title="Text">
@@ -89,6 +94,25 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
             <Icon name={icon} size={16} />
           </button>
         ))}
+      </div>
+      <div className="row">
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={hyphenate === true}
+            ref={(el) => {
+              if (el) el.indeterminate = hyphenate === null
+            }}
+            onChange={(e) => format({ hyphenate: e.currentTarget.checked })}
+          />
+          Hyphenate
+        </label>
+        <Select
+          label="Hyphenation language"
+          value={lang ?? 'mixed'}
+          options={langs}
+          onChange={(l) => l !== 'mixed' && format({ lang: l as Attrs['lang'] })}
+        />
       </div>
       <textarea
         className="content"

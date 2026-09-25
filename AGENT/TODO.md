@@ -28,8 +28,6 @@ font helper, i18n.
 ## Breadth
 
 ### 10. Rich text
-- Hyphenation with `hypher` in the Knuth-Plass line breaker, per paragraph on/off
-  and language.
 - Text frame model: insets, columns + gutter, vertical alignment, baseline grid.
 - Figma resize modes (auto width, auto height, fixed).
 - In-frame editing: engine draws caret and selection, hidden textarea for

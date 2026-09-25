@@ -6,7 +6,7 @@ use crate::style::{
     Align, Blend, Cap, Constraint, Constraints, Effect, EffectKind, Fill, FillKind, FillStop, Join,
     Style,
 };
-use crate::text::{self, Attrs, PARAGRAPH, STYLED, Span, TextAlign, TextStyle};
+use crate::text::{self, Attrs, Lang, PARAGRAPH, STYLED, Span, TextAlign, TextStyle};
 use crate::variable::{Collection, Mode, Modes, Palette, Scope, Value, Variable};
 use loro::{
     Container, ExpandType, LoroDoc, LoroMap, LoroText, LoroTree, LoroValue, StyleConfig, TextDelta,
@@ -285,6 +285,8 @@ pub struct TextProps {
     pub fill: Option<Color>,
     pub text_style: Option<String>,
     pub text_align: Option<TextAlign>,
+    pub hyphenate: Option<bool>,
+    pub lang: Option<Lang>,
 }
 
 impl TextProps {
@@ -647,6 +649,7 @@ impl Doc {
             props: TextProps {
                 size: Some(14.0),
                 text_align: Some(TextAlign::Justify),
+                hyphenate: Some(true),
                 ..TextProps::default()
             },
         })
@@ -1950,6 +1953,8 @@ impl Doc {
                 let a = Attrs {
                     text_align: p.text_align,
                     paragraph_spacing: p.paragraph_spacing,
+                    hyphenate: p.hyphenate,
+                    lang: p.lang,
                     ..attrs.clone()
                 };
                 let len = piece.encode_utf16().count();
@@ -4230,6 +4235,8 @@ mod tests {
         let centred = TextProps {
             text_align: Some(TextAlign::Center),
             paragraph_spacing: Some(6.0),
+            hyphenate: Some(true),
+            lang: Some(Lang::De),
             ..TextProps::default()
         };
         format(&mut d, &t, Some([4, 4]), centred).unwrap();
@@ -4244,6 +4251,8 @@ mod tests {
             ]
         );
         assert_eq!(s[1].attrs.paragraph_spacing, 6.0);
+        assert_eq!((s[1].attrs.hyphenate, s[1].attrs.lang), (true, Lang::De));
+        assert_eq!((s[2].attrs.hyphenate, s[2].attrs.lang), (false, Lang::En));
     }
 
     #[test]

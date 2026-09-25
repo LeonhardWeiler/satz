@@ -43,7 +43,7 @@ function snap45(dx: number, dy: number) {
 }
 
 export function isTyping(e: Event) {
-  return e.target instanceof HTMLElement && e.target.closest('input, textarea, select, [contenteditable]') !== null
+  return e.target instanceof HTMLElement && e.target.closest('input:not([type=checkbox]), textarea, select, [contenteditable]') !== null
 }
 
 export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {

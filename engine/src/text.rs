@@ -14,8 +14,10 @@ pub const FONT: &[u8] = include_bytes!("../fonts/SourceSerif4-Regular.ttf");
 /// The keys of `Attrs` a text style sets.
 pub const STYLED: [&str; 4] = ["size", "lineHeight", "letterSpacing", "paragraphSpacing"];
 /// The keys of `Attrs` that hold for a whole paragraph, taken from its first character.
-pub const PARAGRAPH: [&str; 2] = ["textAlign", "paragraphSpacing"];
+pub const PARAGRAPH: [&str; 4] = ["textAlign", "paragraphSpacing", "hyphenate", "lang"];
 
+/// TeX's \hyphenpenalty.
+const HYPHEN_COST: f32 = 50.0;
 const FILL: Item = Item::Glue {
     width: 0.0,
     stretch: 1e6,
@@ -36,6 +38,15 @@ pub enum TextAlign {
     Justify,
 }
 
+/// A language that hyphenation knows.
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Lang {
+    #[default]
+    En,
+    De,
+}
+
 /// What a character looks like. Sizes and spacing are in pt, `letter_spacing` in % of
 /// the size; `line_height` 0 is auto, the font's ascent plus descent. `fill` replaces
 /// the layer's fills; `text_style` "" means none.
@@ -49,6 +60,8 @@ pub struct Attrs {
     pub fill: Option<Color>,
     pub text_style: String,
     pub text_align: TextAlign,
+    pub hyphenate: bool,
+    pub lang: Lang,
 }
 
 impl Default for Attrs {
@@ -61,6 +74,8 @@ impl Default for Attrs {
             fill: None,
             text_style: String::new(),
             text_align: TextAlign::Left,
+            hyphenate: false,
+            lang: Lang::En,
         }
     }
 }
@@ -102,6 +117,40 @@ impl TextStyle {
                 (k.into(), bound.or(own[k].as_f64()).unwrap_or(0.0).into())
             })
             .collect()
+    }
+}
+
+/// Byte offsets in `para` where `lang` allows a hyphen, ascending.
+fn syllables(para: &str, lang: Lang) -> Vec<usize> {
+    let lang = match lang {
+        Lang::En => hypher::Lang::English,
+        Lang::De => hypher::Lang::German,
+    };
+    let mut out = Vec::new();
+    let mut rest = para;
+    while let Some(i) = rest.find(char::is_alphabetic) {
+        let word_start = para.len() - rest.len() + i;
+        let word = &rest[i..];
+        let len = word
+            .find(|c: char| !c.is_alphabetic())
+            .unwrap_or(word.len());
+        let mut at = word_start;
+        let mut parts = hypher::hyphenate(&word[..len], lang).peekable();
+        while let Some(s) = parts.next() {
+            at += s.len();
+            if parts.peek().is_some() {
+                out.push(at);
+            }
+        }
+        rest = &word[len..];
+    }
+    out
+}
+
+fn hyphen_width(it: &Item) -> f32 {
+    match *it {
+        Item::Penalty { width, .. } => width,
+        _ => 0.0,
     }
 }
 
@@ -156,6 +205,14 @@ pub fn lay_out(text: &str, spans: &[Span], [x, y, w, h]: [f32; 4]) -> Vec<Vec<Gl
     let gap = hhea.line_gap().to_i16() as f32 / upem;
     let data = ShaperData::new(&font);
     let shaper = data.shaper(&font).build();
+    let mut buf = UnicodeBuffer::new();
+    buf.push_str("-");
+    buf.guess_segment_properties();
+    let dash = shaper.shape(buf, ShapeOptions::new());
+    let (hyphen, hyphen_adv) = (
+        dash.glyph_infos()[0].glyph_id as u16,
+        dash.glyph_positions()[0].x_advance as f32 / upem,
+    );
 
     let mut ends = Vec::with_capacity(spans.len());
     let mut chars = text.chars();
@@ -189,6 +246,11 @@ pub fn lay_out(text: &str, spans: &[Span], [x, y, w, h]: [f32; 4]) -> Vec<Vec<Gl
         buf.push_str(para);
         buf.guess_segment_properties();
         let shaped = shaper.shape(buf, ShapeOptions::new());
+        let breaks = if first.hyphenate {
+            syllables(para, first.lang)
+        } else {
+            Vec::new()
+        };
         let mut items = Vec::new();
         let mut glyphs = Vec::new();
         for (info, pos) in shaped.glyph_infos().iter().zip(shaped.glyph_positions()) {
@@ -196,6 +258,13 @@ pub fn lay_out(text: &str, spans: &[Span], [x, y, w, h]: [f32; 4]) -> Vec<Vec<Gl
             let a = &spans[span].attrs;
             let scale = a.size as f32 / upem;
             let adv = pos.x_advance as f32 * scale + (a.size * a.letter_spacing / 100.0) as f32;
+            if breaks.binary_search(&(info.cluster as usize)).is_ok() {
+                items.push(Item::Penalty {
+                    width: hyphen_adv * a.size as f32,
+                    cost: HYPHEN_COST,
+                });
+                glyphs.push(Some((hyphen, 0.0, 0.0, span)));
+            }
             if para[info.cluster as usize..].starts_with(' ') {
                 items.push(Item::Glue {
                     width: adv,
@@ -235,8 +304,18 @@ pub fn lay_out(text: &str, spans: &[Span], [x, y, w, h]: [f32; 4]) -> Vec<Vec<Gl
                 } => width + r * if r < 0.0 { shrink } else { stretch },
                 Item::Penalty { .. } => 0.0,
             };
-            let used: f32 = items[from..end].iter().map(spread).sum();
-            let spans_here: Vec<usize> = glyphs[from..end].iter().flatten().map(|g| g.3).collect();
+            let hyphenated = matches!(items[end], Item::Penalty { width, .. } if width > 0.0);
+            let last = if hyphenated { end + 1 } else { end };
+            let used: f32 = items[from..end].iter().map(spread).sum::<f32>()
+                + if hyphenated {
+                    hyphen_width(&items[end])
+                } else {
+                    0.0
+                };
+            let spans_here: Vec<usize> = (from..last)
+                .filter(|&k| matches!(items[k], Item::Box(_)) || k == end)
+                .filter_map(|k| glyphs[k].map(|g| g.3))
+                .collect();
             let (above, below) = if spans_here.is_empty() {
                 vertical(&spans[span_at(start)].attrs)
             } else {
@@ -255,7 +334,10 @@ pub fn lay_out(text: &str, spans: &[Span], [x, y, w, h]: [f32; 4]) -> Vec<Vec<Gl
                 _ => 0.0,
             };
             let mut line = Vec::new();
-            for k in from..end {
+            for k in from..last {
+                if matches!(items[k], Item::Penalty { .. }) && k != end {
+                    continue;
+                }
                 if let Some((id, dx, dy, span)) = glyphs[k] {
                     line.push(Glyph {
                         id,
@@ -283,6 +365,7 @@ mod tests {
 
     const H: u16 = 9;
     const I: u16 = 36;
+    const HYPHEN: u16 = 502;
     const ASCENT: f32 = 10.36;
     const AUTO: f32 = 13.71;
 
@@ -454,5 +537,34 @@ mod tests {
         assert_eq!((r[0].0, r[1].0), (20.0, 10.0));
         assert_close(&r[0].2, &[0.0, 20.72]);
         assert_close(&r[1].2, &[15.76, 20.72]);
+    }
+
+    #[test]
+    fn hyphenation_breaks_a_long_word_at_a_syllable_and_sets_a_hyphen() {
+        let de = Attrs {
+            hyphenate: true,
+            lang: Lang::De,
+            ..attrs(10.0)
+        };
+        let r = plain("Silbentrennung", de, [0.0, 0.0, 45.0, 50.0]);
+        assert_eq!(r.len(), 2);
+        assert_eq!(r[0].0.last(), Some(&HYPHEN));
+        let off = plain("Silbentrennung", attrs(10.0), [0.0, 0.0, 45.0, 50.0]);
+        assert_eq!(off.len(), 1);
+        assert!(!off[0].0.contains(&HYPHEN));
+    }
+
+    #[test]
+    fn english_hyphenates_other_syllables_than_german() {
+        let lang = |lang| Attrs {
+            hyphenate: true,
+            lang,
+            ..attrs(10.0)
+        };
+        let frame = [0.0, 0.0, 38.0, 50.0];
+        let en = plain("hyphenation", lang(Lang::En), frame);
+        let de = plain("hyphenation", lang(Lang::De), frame);
+        assert_eq!(en[0].0.last(), Some(&HYPHEN));
+        assert_ne!(en[0].0.len(), de[0].0.len());
     }
 }

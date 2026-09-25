@@ -34,3 +34,18 @@ test('type attributes and a text style are set in the text section and edited on
   await expect(panel.getByRole('combobox', { name: 'Text style' }).locator('option:checked')).toHaveText('No style')
   await expect(field('Font size in pt')).toHaveValue('9')
 })
+
+test('hyphenation is switched per paragraph with its language', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
+  const hyphenate = panel.getByRole('checkbox', { name: 'Hyphenate' })
+  const lang = panel.getByRole('combobox', { name: 'Hyphenation language' })
+  await expect(hyphenate).toBeChecked()
+  await expect(lang).toHaveValue('en')
+  await lang.selectOption('German')
+  await hyphenate.uncheck()
+  await page.keyboard.press('Control+z')
+  await expect(hyphenate).toBeChecked()
+  await expect(lang).toHaveValue('de')
+})

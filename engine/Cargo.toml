@@ -9,6 +9,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 harfrust = "0.13.3"
+hypher = { version = "0.1.8", default-features = false, features = ["english", "german"] }
 js-sys = "=0.3.104"
 krilla = { version = "0.8.2", default-features = false, features = ["raster-images"] }
 loro = "1.16.2"
