@@ -1814,6 +1814,19 @@ impl Doc {
             .into_iter()
             .filter(|&c| !self.layout(c).absolute)
             .collect();
+        if flow.is_empty() {
+            // With nothing left to hug, a frame keeps its size instead of shrinking
+            // to its padding.
+            let fixed = |s| if s == Size::Hug { Size::Fixed } else { s };
+            let sizing = Sizing {
+                horizontal: fixed(l.sizing.horizontal),
+                vertical: fixed(l.sizing.vertical),
+            };
+            if sizing != l.sizing {
+                self.meta(id).insert("sizing", loro(sizing)?).map_err(err)?;
+            }
+            return Ok(());
+        }
         let axes = |[x, y, w, h]: [f64; 4]| {
             if horizontal {
                 [[x, w], [y, h]]
@@ -4931,5 +4944,30 @@ mod tests {
         assert!((caret[0][1] - x2 as f32 + 0.25).abs() < 0.01, "{caret:?}");
         assert_eq!(fills(d.text_overlay(&t, 1, 4, 0.5).unwrap()).len(), 2);
         assert!(d.caret(&t, 9).is_err());
+    }
+
+    #[test]
+    fn a_hugging_frame_whose_last_child_is_deleted_keeps_its_size_as_fixed() {
+        let (mut d, p) = empty();
+        let f = create(&mut d, &p, NewKind::Frame, [0.0, 0.0, 1.0, 1.0]);
+        let r = create(&mut d, &f, NewKind::Rect, [0.0, 0.0, 30.0, 20.0]);
+        auto(
+            &mut d,
+            &f,
+            Props {
+                padding_left: Some(5.0),
+                sizing: sizing(Size::Hug, Size::Hug),
+                ..Props::default()
+            },
+        );
+        assert_eq!(frames(&d, &f)[0], [0.0, 0.0, 35.0, 20.0]);
+        d.apply(Command::Delete { ids: vec![r] }).unwrap();
+        assert_eq!(frames(&d, &f), [[0.0, 0.0, 35.0, 20.0]]);
+        assert_eq!(
+            node_sizing(&d, &f),
+            sizing(Size::Fixed, Size::Fixed).unwrap()
+        );
+        d.apply(Command::Undo).unwrap();
+        assert_eq!(node_sizing(&d, &f), sizing(Size::Hug, Size::Hug).unwrap());
     }
 }
