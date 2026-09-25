@@ -65,6 +65,7 @@ export class Editor {
 
   /** Makes the pointer gesture that starts now one undo step. */
   gesture = () => {
+    this.finishPen(false)
     this.apply({ type: 'beginUndoGroup' })
     window.addEventListener('pointerup', () => this.apply({ type: 'endUndoGroup' }), { once: true })
   }

@@ -225,3 +225,17 @@ test('undo restores the text content and blur does not redo it', async ({ page }
   await text.blur()
   await expect(text).toHaveValue(old)
 })
+
+test('clicking a panel while drawing with the pen keeps the path one undo step', async ({ page }) => {
+  await open(page)
+  const items = page.getByRole('tree', { name: 'Layers' }).getByRole('treeitem')
+  const count = await items.count()
+  await page.keyboard.press('p')
+  await page.mouse.click(...(await screen(page, 120, 100)))
+  await page.mouse.click(...(await screen(page, 140, 120)))
+  await page.getByRole('complementary', { name: 'Properties' }).getByRole('heading', { level: 2 }).click()
+  await page.mouse.click(...(await screen(page, 120, 140)))
+  await expect(items).toHaveCount(count + 1)
+  await page.keyboard.press('Control+z')
+  await expect(items).toHaveCount(count)
+})

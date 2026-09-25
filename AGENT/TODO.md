@@ -13,11 +13,6 @@ font helper, i18n.
 Found by the review on 2026-09-25 (IDs from `AGENT/project-health-report.html`), causes checked in
 the code, not reproduced in the browser.
 
-### B16. Clicking a panel while drawing with the pen splits the path's undo step (BUG-9)
-- Cause: `Editor.gesture` sends `beginUndoGroup`, which ends every open group, including the pen's.
-- Fix: `gesture` calls `finishPen(false)` first, as undo already does.
-- Test: e2e draws two anchors, clicks the properties panel, undoes once, the path is gone.
-
 ### B17. Colour picker stays put when the properties panel scrolls (UX-6)
 - Cause: `Popover` re-places only on window resize and its own size change.
 - Fix: also listen to `scroll` with capture in the same effect.
