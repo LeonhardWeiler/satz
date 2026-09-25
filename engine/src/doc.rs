@@ -1278,15 +1278,9 @@ impl Doc {
                     up = self.tree.parent(n).and_then(parent_node);
                 }
                 let olds: Vec<_> = ids.iter().map(|&id| self.tree.parent(id)).collect();
-                let places = self.places();
-                let place = |id: TreeID| places.iter().find(|q| q.id == self.root(id));
-                let dxs: Vec<f64> = ids
-                    .iter()
-                    .map(|&id| match (place(id), place(p)) {
-                        (Some(a), Some(b)) if a.spread == b.spread => a.x - b.x,
-                        _ => 0.0,
-                    })
-                    .collect();
+                for &id in &ids {
+                    self.onto(id, p)?;
+                }
                 let others = self
                     .children(p)
                     .into_iter()
@@ -1296,10 +1290,6 @@ impl Doc {
                     self.tree
                         .mov_to(id, p, index.min(others) + i)
                         .map_err(err)?;
-                }
-                for (&id, dx) in ids.iter().zip(dxs).filter(|(_, dx)| *dx != 0.0) {
-                    let [x, y, w, h] = self.bounds(id);
-                    self.set_frame(id, [x + dx, y, w, h])?;
                 }
                 for p in olds {
                     self.prune(p)?;
@@ -3202,11 +3192,29 @@ impl Doc {
         }
     }
 
+    /// Moves the layer `id` to where it keeps its place on the spread once it is on
+    /// the page of `to`.
+    fn onto(&self, id: TreeID, to: TreeID) -> Res<()> {
+        let places = self.places();
+        let place = |n: TreeID| places.iter().find(|q| q.id == self.root(n));
+        if let (Some(a), Some(b)) = (place(id), place(to))
+            && a.spread == b.spread
+            && a.x != b.x
+        {
+            let [x, y, w, h] = self.bounds(id);
+            self.set_frame(id, [x + a.x - b.x, y, w, h])?;
+        }
+        Ok(())
+    }
+
     /// Wraps `ids`, in document order, in a group or frame at the place of the topmost.
     fn group(&self, ids: &[TreeID], frame: bool) -> Res<TreeID> {
         let top = *ids.last().ok_or("nothing to group")?;
         let parent = self.tree.parent(top).ok_or("no parent")?;
         let index = self.index(top) + 1;
+        for &id in ids {
+            self.onto(id, top)?;
+        }
         let bounds = union(ids.iter().map(|&id| self.bounds(id)));
         let g = self.tree.create_at(parent, index).map_err(err)?;
         let m = self.meta(g);
@@ -7055,6 +7063,29 @@ mod tests {
         thread(&mut d, &left, &right).unwrap();
         facing(&mut d, false);
         assert_eq!(flow(&d, &right).0, "Hi\nHo");
+    }
+
+    #[test]
+    fn grouping_layers_across_the_spine_keeps_them_in_place() {
+        let (mut d, _) = empty();
+        let left = add_page(&mut d, None);
+        let right = add_page(&mut d, None);
+        let a = create(&mut d, &left, NewKind::Rect, [10.0, 0.0, 10.0, 10.0]);
+        let b = create(&mut d, &right, NewKind::Rect, [10.0, 0.0, 10.0, 10.0]);
+        let shift = d.snapshot().pages[1].x;
+        for frame in [false, true] {
+            let g = d
+                .apply(Command::Group {
+                    ids: vec![a.clone(), b.clone()],
+                    frame,
+                })
+                .unwrap()
+                .remove(0);
+            let [x, ..] = d.bounds(d.node(&a).unwrap());
+            assert_eq!(x, 10.0 + shift, "{frame}");
+            assert_eq!(d.bounds(d.node(&g).unwrap())[0], 10.0 + shift);
+            d.apply(Command::Undo).unwrap();
+        }
     }
 
     #[test]
