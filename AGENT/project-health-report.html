@@ -41,39 +41,28 @@
 <body>
 <main>
 <h1>Satz – project health report</h1>
-<p class="meta">2026-09-25 · branch <code>claude/vigilant-goodall-wo7pbp</code> · commit <code>3046249</code> · browser DTP (Rust/WASM engine, CanvasKit renderer, React UI, krilla PDF)</p>
+<p class="meta">2026-09-25 · branch <code>main</code> · commit <code>14a7228</code> · browser DTP (Rust/WASM engine, CanvasKit renderer, React UI, krilla PDF)</p>
 
 <div class="counters">
   <div class="counter"><b>0</b><span>Critical</span></div>
-  <div class="counter"><b>1</b><span>High</span></div>
-  <div class="counter"><b>3</b><span>Medium</span></div>
-  <div class="counter"><b>12</b><span>Low</span></div>
-  <div class="counter"><b>2</b><span>Info</span></div>
-  <div class="counter"><b>18</b><span>Total</span></div>
+  <div class="counter"><b>0</b><span>High</span></div>
+  <div class="counter"><b>0</b><span>Medium</span></div>
+  <div class="counter"><b>7</b><span>Low</span></div>
+  <div class="counter"><b>0</b><span>Info</span></div>
+  <div class="counter"><b>7</b><span>Total</span></div>
 </div>
 
 <nav aria-label="Contents">
 <ol>
   <li><a href="#open">Open findings</a>
     <ol>
-      <li><a href="#PERF-1">PERF-1 Quadratic text layout</a></li>
-      <li><a href="#TEST-3">TEST-3 Tests stay tiny</a></li>
-      <li><a href="#TEST-2">TEST-2 Flaky e2e under load</a></li>
-      <li><a href="#UX-1">UX-1 Blank screen while loading</a></li>
       <li><a href="#UX-8">UX-8 Refused thread is silent</a></li>
       <li><a href="#PERF-2">PERF-2 Export on main thread</a></li>
-      <li><a href="#TEST-4">TEST-4 Scenario tests, weak asserts</a></li>
       <li><a href="#TEST-5">TEST-5 Hidden test order</a></li>
       <li><a href="#TEST-1">TEST-1 Gaps in e2e coverage</a></li>
-      <li><a href="#UX-7">UX-7 Swatch click does nothing</a></li>
-      <li><a href="#A11Y-1">A11Y-1 Lists without keyboard</a></li>
-      <li><a href="#MEM-1">MEM-1 Font copy per size</a></li>
-      <li><a href="#ARCH-1">ARCH-1 Canvas pointer logic</a></li>
       <li><a href="#SEC-1">SEC-1 Actions not pinned</a></li>
       <li><a href="#DOC-1">DOC-1 No CLAUDE.md</a></li>
       <li><a href="#UX-9">UX-9 No favicon</a></li>
-      <li><a href="#UX-5">UX-5 Start zoom 127 %</a></li>
-      <li><a href="#PRINT-2">PRINT-2 Rasterised spot colours</a></li>
     </ol>
   </li>
   <li><a href="#strong">What is already strong</a></li>
@@ -83,44 +72,6 @@
 </nav>
 
 <h2 id="open">1. Open findings</h2>
-
-<article class="card high" id="PERF-1">
-  <header><span class="id">PERF-1</span><span class="badge high">high</span><h3>Threaded text is laid out many times per event, growing with frames × story</h3></header>
-  <p class="file"><code>engine/src/doc.rs</code> <code>flows</code>, <code>flow</code>, <code>holding</code>, <code>prev_of</code>, <code>snapshot</code>, <code>render</code>, <code>master_layers</code>, <code>hit</code>; <code>engine/src/text.rs</code> <code>rows</code>; <code>web/src/editor.ts</code> <code>follow</code></p>
-  <p><code>flow</code> calls <code>text::overflow</code> per frame, and <code>rows</code> shapes and breaks the whole rest of the story each time, not just what fits. <code>snapshot</code> runs <code>flows</code> over every story, <code>render</code> and <code>print</code> (once per PDF page) build a full snapshot and <code>master_layers</code> runs <code>flows</code> again, <code>hit</code> builds another snapshot on every hover, <code>caret</code>/<code>textLine</code> run <code>flow</code> twice, <code>textOverlay</code> once per frame, and <code>Editor.follow</code> calls <code>textFrame</code> after every <code>apply</code> and <code>set</code>. Each text node in the snapshot carries a copy of the whole story and its spans. <code>prev_of</code> walks every node of the document per call.</p>
-  <p>Measured in Node on the WASM built with <code>wasm-pack --no-opt</code>, one fixed A5 text frame per page, threaded (the same shape as the M1 booklet):</p>
-  <table>
-    <tr><td></td><td>1 page, 5 k chars</td><td>4 pages, 20 k</td><td>8 pages, 41 k</td></tr>
-    <tr><td><code>snapshot</code></td><td>11 ms</td><td>91 ms</td><td>273 ms</td></tr>
-    <tr><td><code>displayList</code></td><td>20 ms</td><td>99 ms</td><td>324 ms</td></tr>
-    <tr><td><code>hit</code></td><td>7 ms</td><td>75 ms</td><td>282 ms</td></tr>
-    <tr><td><code>caret</code></td><td>17 ms</td><td>146 ms</td><td>546 ms</td></tr>
-    <tr><td><code>pdf</code></td><td>174 ms</td><td>584 ms</td><td>2 846 ms</td></tr>
-  </table>
-  <p>A typed character triggers snapshot, display list, caret, overlay and <code>textFrame</code>: well over 1.5 s on 8 pages. The M1 booklet is not editable at this speed.</p>
-  <p class="rec">Compute the flows once per command in <code>finish</code> and keep them on <code>Doc</code>; <code>render</code>, <code>hit</code>, <code>caret</code> and the overlay read that cache. Stop <code>rows</code> at the frame's capacity so each frame shapes only its own lines. Put the story text and spans once per story into the snapshot; frames carry <code>start</code>/<code>end</code>. Add an engine test that builds the 8-page threaded booklet and asserts a time budget for <code>apply</code> + <code>render</code> + <code>caret</code>, so the regression shows in <code>./check</code>.</p>
-</article>
-
-<article class="card medium" id="TEST-3">
-  <header><span class="id">TEST-3</span><span class="badge medium">medium</span><h3>Tests use tiny documents and miss combinations of pages, masters and threads</h3></header>
-  <p class="file"><code>engine/src/doc.rs</code> tests; <code>engine/src/text.rs</code> tests; <code>web/e2e/thread.spec.ts</code>, <code>masters.spec.ts</code>, <code>pages.spec.ts</code></p>
-  <p>Engine thread tests use stories like <code>"Hi\nHi\nHi\nHi"</code> in 2–3 frames; the e2e story has 230 characters. No test builds anything near the M1 booklet, which is why PERF-1 went unnoticed through 5 feature commits. Each feature is tested alone, and the bugs of the last rounds sat exactly where features meet: page numbers with two digits on a master text, threads on a master when facing pages switch, grouping across the spine. Each got a regression test after the fact. Nothing deletes a page or master holding a thread head. Engine modules <code>layout.rs</code>, <code>style.rs</code> and <code>variable.rs</code> have no tests of their own and are covered only through <code>doc.rs</code>.</p>
-  <p class="rec">Add one fixture that builds the 8-page A5 booklet (master with page number area, one story threaded through all pages, a variable mode per page) and reuse it for a timing test (PERF-1), a PDF text-extraction check and the cross-feature cases above. The M1 example booklet (TODO item 16) can become this fixture.</p>
-</article>
-
-<article class="card medium" id="TEST-2">
-  <header><span class="id">TEST-2</span><span class="badge medium">medium</span><h3>E2E tests time out at random under full load</h3></header>
-  <p class="file"><code>web/e2e/util.ts</code> <code>pixels</code>; <code>web/e2e/variables.spec.ts</code>; <code>web/e2e/pdf.spec.ts</code> <code>expectCanvasMatchesPdf</code>; <code>web/playwright.config.ts</code></p>
-  <p><code>./check</code> passed 52 of 52 in this review. A second run with <code>--repeat-each=2</code> failed 2 of 104: "a fill bound to a colour variable follows the mode of its frame and page" (<code>selectOption</code>) and "draw shapes and a closed pen path, then export them" (<code>page.screenshot</code>), both at the 30 s timeout. 8 workers share SwiftShader; <code>pixels</code>, the PDF comparison and the variables test wait a fixed 100 ms instead of for a drawn frame. <code>pixels</code> is now also used by the thread and master tests. A flaky gate fails CI deploys at random.</p>
-  <p class="rec">Expose a frame counter on the canvas (e.g. <code>data-frame</code>) and wait for it to change instead of <code>waitForTimeout</code>; limit workers in CI (<code>workers: process.env.CI ? 2 : undefined</code>).</p>
-</article>
-
-<article class="card medium" id="UX-1">
-  <header><span class="id">UX-1</span><span class="badge medium">medium</span><h3>Blank screen while ≈ 5.7 MB of WASM load, and on load failure</h3></header>
-  <p class="file"><code>web/src/main.tsx</code>, <code>web/index.html</code></p>
-  <p>Build output: <code>engine_bg.wasm</code> 2.7 MB gzip, <code>canvaskit.wasm</code> 3.0 MB gzip. Nothing is rendered until both are initialised; if the fetch or init fails, the top-level <code>await</code> rejects and the page stays empty. This is the first impression of the live portfolio build.</p>
-  <p class="rec">Static loading text in <code>index.html</code>; catch the init promise and render the same notice style as the WebGL message.</p>
-</article>
 
 <article class="card low" id="UX-8">
   <header><span class="id">UX-8</span><span class="badge low">low</span><h3>A refused thread fails silently</h3></header>
@@ -132,15 +83,8 @@
 <article class="card low" id="PERF-2">
   <header><span class="id">PERF-2</span><span class="badge low">low</span><h3>PDF export blocks the UI without feedback</h3></header>
   <p class="file"><code>web/src/App.tsx</code> <code>exportPdf</code>; <code>engine/src/lib.rs</code> <code>pdf</code></p>
-  <p>Export runs synchronously on the main thread. <code>pdf</code> calls <code>render</code> per page, and each builds a full snapshot of all pages, so the cost grows with pages² (2.7 s for the threaded 8-page booklet, see PERF-1). The tab freezes without any sign of progress.</p>
-  <p class="rec">Render all pages from one snapshot (fixed with PERF-1); show a busy state before the call; later move export into a Worker.</p>
-</article>
-
-<article class="card low" id="TEST-4">
-  <header><span class="id">TEST-4</span><span class="badge low">low</span><h3>Long scenario tests with weak or fixed-size assertions</h3></header>
-  <p class="file"><code>web/e2e/thread.spec.ts</code>, <code>masters.spec.ts</code>, <code>web/e2e/util.ts</code> <code>screen</code>; <code>engine/src/doc.rs</code> <code>threaded_frames_set_one_story_that_flows_on_across_frames_and_pages</code></p>
-  <p>The thread e2e test runs ≈ 50 steps (thread by click, by drawing, across pages, caret follow, typing, unthread, undo) and the engine thread test ≈ 25 assertions; the first failure hides everything after it and does not say which feature broke. Some checks prove little: <code>expect(title).not.toHaveText('Text')</code> passes for any other title, overset is only checked to be on and never to go off after threading, the master colour check samples one pixel. <code>screen()</code> hard-codes an A5 page, so tests on resized pages fall back to canvas fractions.</p>
-  <p class="rec">Split the scenarios into one test per behaviour (click, draw, cross-page, caret, unthread) sharing a setup helper; assert positive values (expected title, overset off after threading); let <code>screen()</code> read the current page size from the Properties panel or the snapshot.</p>
+  <p>Export runs synchronously on the main thread. All pages now print from one snapshot: 42 ms for the threaded 8-page booklet (Node, WASM without <code>wasm-opt</code>). Shadows and blurs rasterised at 300 ppi and, later, images are not measured; a slow export freezes the tab without any sign of progress.</p>
+  <p class="rec">Show a busy state before the call; move export into a Worker once images land.</p>
 </article>
 
 <article class="card low" id="TEST-5">
@@ -155,34 +99,6 @@
   <p class="file"><code>web/playwright.config.ts</code>, <code>web/e2e/</code></p>
   <p>Only Chromium (SwiftShader) runs, although Firefox is a settled target browser. The only layers drag test drops a group onto its own child and expects nothing to happen; no test reorders layers or moves one into a group by drag. Page reordering has a test.</p>
   <p class="rec">Add a layers drag-and-drop test (reorder, into a group); add a Firefox project once its WebGL path works in CI.</p>
-</article>
-
-<article class="card low" id="UX-7">
-  <header><span class="id">UX-7</span><span class="badge low">low</span><h3>A click on a swatch in the Swatches panel does nothing</h3></header>
-  <p class="file"><code>web/src/Swatches.tsx</code> (<code>onPick={() =&gt; {}}</code>)</p>
-  <p>Rows look and announce as selectable options, but a single click neither selects nor applies; editing needs a double-click, which is not discoverable. InDesign applies the swatch to the selection on click.</p>
-  <p class="rec">Click applies the swatch to the selection's fill (or opens the editor when nothing is selected); double-click edits.</p>
-</article>
-
-<article class="card low" id="A11Y-1">
-  <header><span class="id">A11Y-1</span><span class="badge low">low</span><h3>Layers and pages lists and the context menu lack keyboard behaviour</h3></header>
-  <p class="file"><code>web/src/Layers.tsx</code>, <code>web/src/Pages.tsx</code>, <code>web/src/ContextMenu.tsx</code></p>
-  <p><code>role="tree"</code>/<code>treeitem</code> in Layers promise arrow-key navigation, but every row is a separate tab stop. Pages reorder by drag only. The context menu has <code>role="menu"</code> but no arrow-key movement between its items.</p>
-  <p class="rec">Roving tabindex with arrow keys on both lists; Alt+Up/Down moves a page; Up/Down moves through the context menu.</p>
-</article>
-
-<article class="card low" id="MEM-1">
-  <header><span class="id">MEM-1</span><span class="badge low">low</span><h3>A new typeface per text size, never freed</h3></header>
-  <p class="file"><code>web/src/renderer.ts</code> <code>font</code></p>
-  <p><code>font()</code> copies the 262 kB font file into a new <code>Typeface</code> for every distinct size and deletes neither typeface nor unused fonts until unmount.</p>
-  <p class="rec">One typeface per font id; <code>Font</code> objects per size are cheap.</p>
-</article>
-
-<article class="card low" id="ARCH-1">
-  <header><span class="id">ARCH-1</span><span class="badge low">low</span><h3>All pointer logic lives in one untested effect</h3></header>
-  <p class="file"><code>web/src/Canvas.tsx</code></p>
-  <p>Handle detection, line ends, resize maths, marquee, drawing, pen, ports and threading sit in one <code>useEffect</code> in a 777-line file (713 in the last review), now also with spread offsets. None of it has unit tests, unlike <code>select.ts</code> and <code>pen.ts</code>; only e2e covers it.</p>
-  <p class="rec">Move <code>handleAt</code>, <code>portAt</code> and the resize computation into a pure module with vitest cases.</p>
 </article>
 
 <article class="card low" id="SEC-1">
@@ -206,23 +122,9 @@
   <p class="rec">Add a small inline SVG icon as a <code>data:</code> URL in <code>&lt;link rel="icon"&gt;</code>.</p>
 </article>
 
-<article class="card info" id="UX-5">
-  <header><span class="id">UX-5</span><span class="badge info">info</span><h3>Start zoom shows 127 %</h3></header>
-  <p class="file"><code>web/src/renderer.ts</code> <code>fitView</code></p>
-  <p>The page is zoomed to fit the window; 127 % is the fit value for the A5 page at that window size. This matches Figma. Shift+0 gives 100 %.</p>
-  <p class="rec">Keep fit; recorded under Deliberately decided (UI: start view fits the page).</p>
-</article>
-
-<article class="card info" id="PRINT-2">
-  <header><span class="id">PRINT-2</span><span class="badge info">info</span><h3>Blurred and shadowed spot colours print as process</h3></header>
-  <p class="file"><code>engine/src/pdf.rs</code> <code>raster</code></p>
-  <p>Shadows and blurs of CMYK documents become one CMYK image; spot inks are converted through their alternate, so that part of the artwork is missing from the spot plate. Expected for rasterised effects, but the user gets no hint.</p>
-  <p class="rec">Report it in preflight (TODO item 15) next to RGB content in CMYK documents.</p>
-</article>
-
 <h2 id="strong">2. What is already strong</h2>
 <ul class="plain">
-  <li><span class="badge good">gate</span> <code>./check</code> covers fmt, clippy <code>-D warnings</code>, 147 cargo tests, wasm build, <code>tsc</code>, eslint, 10 vitest tests, build, 62 Playwright tests; all green in CI (locally only the CMYK comparison differs with MuPDF 1.23 outside the flake; flakes under repeat see TEST-2). CI runs the same script in <code>nix develop</code>.</li>
+  <li><span class="badge good">gate</span> <code>./check</code> covers fmt, clippy <code>-D warnings</code>, 170 cargo tests, wasm build, <code>tsc</code>, eslint, 17 vitest tests, build, 76 Playwright tests (locally only the CMYK comparison differs with MuPDF 1.23 outside the flake). E2E helpers wait for the drawn frame, not a fixed delay. CI runs the same script in <code>nix develop</code>, started by hand.</li>
   <li><span class="badge good">test</span> Pixel diff of the live canvas against the exported PDF rasterised by MuPDF, in RGB and CMYK, now per page: a resized second page, a master under a page, threaded text across pages, which is also read back from the PDF as one story, a layer across the spine on both pages of its spread, and the two sides of a master spread.</li>
   <li><span class="badge good">test</span> Engine tests read as specifications (<code>deleting_a_threaded_frame_keeps_its_story_in_the_rest_of_the_thread</code>) and check undo with stable ids after structural commands; text tests cover overflow into the next frame including a hyphenated break.</li>
   <li><span class="badge good">test</span> Every bug from earlier manual rounds has an e2e regression test; e2e locates elements by role and accessible name, which also keeps the labels honest.</li>
@@ -230,7 +132,7 @@
   <li><span class="badge good">design</span> One display list feeds canvas and PDF; item and layer hashes make picture caching cheap, and stale pictures are evicted each frame.</li>
   <li><span class="badge good">text</span> Rich text on Loro, hypher hyphenation, own Knuth-Plass, columns, insets and baseline grid; threads across pages with an overset marker on the out-port; the caret follows the story into the next frame and page.</li>
   <li><span class="badge good">build</span> Toolchain fully in <code>flake.nix</code>; <code>wasm-bindgen</code> pinned to the CLI version in the flake; 3 runtime web dependencies; CI with <code>contents: read</code> by default.</li>
-  <li><span class="badge good">a11y</span> Labelled controls, <code>:focus-visible</code> styles, dialog and tab roles in the picker, <code>aria-current</code> on the shown page, WebGL 2 notice with e2e test.</li>
+  <li><span class="badge good">a11y</span> Labelled controls, <code>:focus-visible</code> styles, dialog and tab roles in the picker, <code>aria-current</code> on the shown page; layers and pages lists are one tab stop each with arrow keys, the context menu moves with arrows; a loading screen, a WebGL 2 notice and a start-failure notice, each with an e2e test.</li>
 </ul>
 
 <h2 id="decided">3. Deliberately decided</h2>
