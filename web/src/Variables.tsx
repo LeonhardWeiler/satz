@@ -243,7 +243,7 @@ export function Bindable({
   const snapshot = useEditor(editor, (e) => e.snapshot)
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-  const bound = editor.nodes.get(id)?.node.bindings[prop]
+  const bound = (snapshot.textStyles.find((s) => s.id === id)?.bindings ?? editor.nodes.get(id)?.node.bindings)?.[prop]
   const variable = snapshot.variables.find((v) => v.id === bound)
   const numbers = snapshot.variables.filter((v) => 'number' in Object.values(v.values)[0])
   const bind = (variable: string | null) => {

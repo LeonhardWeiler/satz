@@ -4,17 +4,18 @@ use crate::geom::{Shape, bounds, contains, fit, near, outline};
 use crate::layout::{Align3, Direction, Layout, MainAlign, Size, Sizing, arrange};
 use crate::style::{
     Align, Blend, Cap, Constraint, Constraints, Effect, EffectKind, Fill, FillKind, FillStop, Join,
-    Style, paints,
+    Style,
 };
-use crate::text::layout;
+use crate::text::{self, Attrs, PARAGRAPH, STYLED, Span, TextAlign, TextStyle};
 use crate::variable::{Collection, Mode, Modes, Palette, Scope, Value, Variable};
 use loro::{
-    Container, LoroDoc, LoroMap, LoroText, LoroTree, LoroValue, TreeID, TreeParentId, UndoManager,
-    UpdateOptions, ValueOrContainer,
+    Container, ExpandType, LoroDoc, LoroMap, LoroText, LoroTree, LoroValue, StyleConfig, TextDelta,
+    TreeID, TreeParentId, UndoManager, UpdateOptions, ValueOrContainer,
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::collections::BTreeMap;
 use std::fmt::Display;
+use std::ops::Range;
 
 #[derive(Debug, Deserialize)]
 #[serde(
@@ -45,6 +46,34 @@ pub enum Command {
     SetText {
         id: String,
         text: String,
+    },
+    /// Sets text attributes on a range in UTF-16 code units, or on the whole text.
+    /// Paragraph attributes cover the whole paragraphs the range touches; setting a
+    /// styled attribute detaches the text style there.
+    Format {
+        id: String,
+        range: Option<[usize; 2]>,
+        #[serde(flatten)]
+        props: TextProps,
+    },
+    AddTextStyle {
+        name: String,
+        size: f64,
+        line_height: f64,
+        letter_spacing: f64,
+        paragraph_spacing: f64,
+    },
+    SetTextStyle {
+        id: String,
+        name: Option<String>,
+        size: Option<f64>,
+        line_height: Option<f64>,
+        letter_spacing: Option<f64>,
+        paragraph_spacing: Option<f64>,
+    },
+    /// Removes a text style; text using it keeps its values.
+    DeleteTextStyle {
+        id: String,
     },
     Set {
         id: String,
@@ -157,7 +186,8 @@ pub enum Command {
         mode: Option<String>,
         value: Option<Value>,
     },
-    /// Binds a number property to a number variable, or unbinds it; see `BINDABLE`.
+    /// Binds a number property of a layer or text style to a number variable, or
+    /// unbinds it; see `BINDABLE` and `text::STYLED`.
     Bind {
         id: String,
         prop: String,
@@ -180,7 +210,6 @@ pub enum Command {
 #[serde(rename_all = "camelCase")]
 pub struct Props {
     pub name: Option<String>,
-    pub size: Option<f64>,
     pub clip: Option<bool>,
     pub radius: Option<f32>,
     pub count: Option<u32>,
@@ -218,7 +247,6 @@ impl Props {
             _ => Ok(()),
         };
         let f = |v: Option<f32>| v.map(f64::from);
-        within(self.size, 0.1, f64::MAX, "text size")?;
         within(f(self.stroke_weight), 0.0, f64::MAX, "stroke weight")?;
         within(f(self.radius), 0.0, f64::MAX, "radius")?;
         within(self.count.map(f64::from), 3.0, 60.0, "count")?;
@@ -244,6 +272,47 @@ impl Props {
         }
         Ok(())
     }
+}
+
+/// See `text::Attrs`.
+#[derive(Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextProps {
+    pub size: Option<f64>,
+    pub line_height: Option<f64>,
+    pub letter_spacing: Option<f64>,
+    pub paragraph_spacing: Option<f64>,
+    pub fill: Option<Color>,
+    pub text_style: Option<String>,
+    pub text_align: Option<TextAlign>,
+}
+
+impl TextProps {
+    fn check(&self) -> Res<()> {
+        check_text(
+            self.size,
+            self.line_height,
+            self.letter_spacing,
+            self.paragraph_spacing,
+        )?;
+        self.fill.as_ref().map_or(Ok(()), Color::check)
+    }
+}
+
+fn check_text(
+    size: Option<f64>,
+    line_height: Option<f64>,
+    letter_spacing: Option<f64>,
+    paragraph_spacing: Option<f64>,
+) -> Res<()> {
+    let within = |v: Option<f64>, lo: f64, what: &str| match v {
+        Some(v) if !(v >= lo && v.is_finite()) => Err(format!("{what} must be at least {lo}")),
+        _ => Ok(()),
+    };
+    within(size, 0.1, "text size")?;
+    within(line_height, 0.0, "line height")?;
+    within(letter_spacing, -100.0, "letter spacing")?;
+    within(paragraph_spacing, 0.0, "paragraph spacing")
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
@@ -319,7 +388,7 @@ pub struct Node {
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Kind {
     Shape(Shape),
-    Text { text: String, size: f64 },
+    Text { text: String, spans: Vec<Span> },
     Group { children: Vec<Node> },
     Frame { clip: bool, children: Vec<Node> },
 }
@@ -333,14 +402,17 @@ pub struct Doc {
 
 struct Clip {
     meta: LoroValue,
+    text: Vec<TextDelta>,
     children: Vec<Clip>,
 }
 
 type Res<T> = Result<T, String>;
 
 const MM: f64 = 72.0 / 25.4;
-/// Properties a number variable can bind to; lengths count in mm, opacity in %.
-const BINDABLE: [&str; 10] = [
+/// Properties a number variable can bind to; lengths count in mm, opacity in %,
+/// text size in pt.
+const BINDABLE: [&str; 11] = [
+    "size",
     "w",
     "h",
     "radius",
@@ -362,6 +434,9 @@ the same glyphs from the same font.";
 impl Doc {
     pub fn new() -> Doc {
         let doc = LoroDoc::new();
+        doc.config_default_text_style(Some(StyleConfig {
+            expand: ExpandType::After,
+        }));
         let tree = doc.get_tree("nodes");
         tree.enable_fractional_index(0);
         let undo = UndoManager::new(&doc);
@@ -416,10 +491,7 @@ impl Doc {
             &page,
             NewKind::Text,
             [15.0, 95.0, 118.0, 70.0],
-            Props {
-                size: Some(14.0),
-                ..Props::default()
-            },
+            Props::default(),
         );
         let frame = add(
             &page,
@@ -565,8 +637,18 @@ impl Doc {
         let masked = group(masked.to_vec(), "Masked");
         group([shapes.to_vec(), vec![masked]].concat(), "Shapes");
         d.apply(Command::SetText {
-            id: text,
+            id: text.clone(),
             text: SAMPLE.into(),
+        })
+        .unwrap();
+        d.apply(Command::Format {
+            id: text,
+            range: None,
+            props: TextProps {
+                size: Some(14.0),
+                text_align: Some(TextAlign::Justify),
+                ..TextProps::default()
+            },
         })
         .unwrap();
         d.undo = UndoManager::new(&d.doc);
@@ -634,11 +716,11 @@ impl Doc {
                             .map_err(err)?
                             .insert(0, "Text")
                             .map_err(err)?;
+                        m.insert("size", 12.0).map_err(err)?;
                         (
                             "text",
                             "",
                             Props {
-                                size: Some(12.0),
                                 fills: Some(vec![Fill::solid(Color::black(mode))]),
                                 ..Props::default()
                             },
@@ -690,11 +772,128 @@ impl Doc {
                 vec![]
             }
             Command::SetText { id, text } => {
-                let t = container(&self.meta(self.node(&id)?), "text")
-                    .and_then(|c| c.into_text().ok())
-                    .ok_or("not a text node")?;
-                t.update(&text, UpdateOptions::default())
+                self.text(self.node(&id)?)?
+                    .update(&text, UpdateOptions::default())
                     .map_err(|e| format!("{e:?}"))?;
+                vec![]
+            }
+            Command::Format { id, range, props } => {
+                let n = self.node(&id)?;
+                let t = self.text(n)?;
+                props.check()?;
+                let len = t.len_utf16();
+                let range = match range {
+                    Some([a, b]) if a <= b && b <= len => Some(a..b),
+                    Some(_) => return Err("range outside the text".into()),
+                    None => None,
+                };
+                if let Some(s) = props.text_style.as_deref().filter(|s| !s.is_empty()) {
+                    self.find::<TextStyle>("textStyles", s)?;
+                }
+                let serde_json::Value::Object(set) = serde_json::to_value(&props).map_err(err)?
+                else {
+                    return Err("props are not a map".into());
+                };
+                let set: Vec<_> = set.into_iter().filter(|(_, v)| !v.is_null()).collect();
+                if props.text_style.is_none()
+                    && set.iter().any(|(k, _)| STYLED.contains(&k.as_str()))
+                {
+                    self.detach(n, range.clone(), |_| true)?;
+                }
+                let text = t.to_string();
+                let m = self.meta(n);
+                for (k, v) in &set {
+                    let cleared: &[&str] = if k == "textStyle" { &STYLED } else { &[] };
+                    let r = match &range {
+                        Some(r) if PARAGRAPH.contains(&k.as_str()) => Some(paragraphs(&text, r)),
+                        r => r.clone(),
+                    };
+                    match r {
+                        Some(r) if r.is_empty() => {}
+                        Some(r) => {
+                            t.mark_utf16(r.clone(), k, loro(v)?).map_err(err)?;
+                            for c in cleared {
+                                t.unmark_utf16(r.clone(), c).map_err(err)?;
+                            }
+                        }
+                        None => {
+                            if k == "fill" {
+                                let c = props.fill.clone().unwrap();
+                                m.insert("fills", loro(vec![Fill::solid(c)])?)
+                                    .map_err(err)?;
+                            } else {
+                                m.insert(k, loro(v)?).map_err(err)?;
+                            }
+                            for c in [k.as_str()].iter().chain(cleared) {
+                                if len > 0 {
+                                    t.unmark_utf16(0..len, c).map_err(err)?;
+                                }
+                            }
+                        }
+                    }
+                }
+                if range.is_none() {
+                    self.unbind(n, |p| set.iter().any(|(k, _)| k == p))?;
+                }
+                vec![]
+            }
+            Command::AddTextStyle {
+                name,
+                size,
+                line_height,
+                letter_spacing,
+                paragraph_spacing,
+            } => {
+                let id = self.new_id();
+                self.put_text_style(
+                    None,
+                    TextStyle {
+                        id: id.clone(),
+                        name,
+                        size,
+                        line_height,
+                        letter_spacing,
+                        paragraph_spacing,
+                        bindings: BTreeMap::new(),
+                    },
+                )?;
+                vec![id]
+            }
+            Command::SetTextStyle {
+                id,
+                name,
+                size,
+                line_height,
+                letter_spacing,
+                paragraph_spacing,
+            } => {
+                let (i, mut s) = self.find::<TextStyle>("textStyles", &id)?;
+                s.name = name.unwrap_or(s.name);
+                for (k, v, to) in [
+                    ("size", size, &mut s.size),
+                    ("lineHeight", line_height, &mut s.line_height),
+                    ("letterSpacing", letter_spacing, &mut s.letter_spacing),
+                    (
+                        "paragraphSpacing",
+                        paragraph_spacing,
+                        &mut s.paragraph_spacing,
+                    ),
+                ] {
+                    if let Some(v) = v {
+                        *to = v;
+                        s.bindings.remove(k);
+                    }
+                }
+                self.put_text_style(Some(i), s)?;
+                vec![]
+            }
+            Command::DeleteTextStyle { id } => {
+                let (i, _) = self.find::<TextStyle>("textStyles", &id)?;
+                self.each(|n, _| match self.kind(n).as_str() {
+                    "text" => self.detach(n, None, |s| s == id),
+                    _ => Ok(()),
+                })?;
+                self.doc.get_list("textStyles").delete(i, 1).map_err(err)?;
                 vec![]
             }
             Command::Set { id, props } => {
@@ -1100,23 +1299,39 @@ impl Doc {
                 vec![]
             }
             Command::Bind { id, prop, variable } => {
+                if let Some(v) = &variable {
+                    let (_, var) = self.find::<Variable>("variables", v)?;
+                    if !var.values.values().all(|v| matches!(v, Value::Number(_))) {
+                        return Err("only number variables bind to numbers".into());
+                    }
+                }
+                if let Ok((i, mut s)) = self.find::<TextStyle>("textStyles", &id) {
+                    if !STYLED.contains(&prop.as_str()) {
+                        return Err(format!("{prop} cannot be bound"));
+                    }
+                    match variable {
+                        Some(v) => s.bindings.insert(prop, v),
+                        None => s.bindings.remove(&prop),
+                    };
+                    self.put("textStyles", Some(i), s)?;
+                    return self.finish(vec![], false);
+                }
                 let n = self.node(&id)?;
                 if !BINDABLE.contains(&prop.as_str()) {
                     return Err(format!("{prop} cannot be bound"));
                 }
-                let mut bindings = self.bindings(n);
-                match variable {
-                    Some(v) => {
-                        let (_, var) = self.find::<Variable>("variables", &v)?;
-                        if !var.values.values().all(|v| matches!(v, Value::Number(_))) {
-                            return Err("only number variables bind to numbers".into());
-                        }
-                        bindings.insert(prop, v);
-                    }
-                    None => {
-                        bindings.remove(&prop);
+                if prop == "size" && variable.is_some() {
+                    let t = self.text(n)?;
+                    self.detach(n, None, |_| true)?;
+                    if t.len_utf16() > 0 {
+                        t.unmark_utf16(0..t.len_utf16(), "size").map_err(err)?;
                     }
                 }
+                let mut bindings = self.bindings(n);
+                match variable {
+                    Some(v) => bindings.insert(prop, v),
+                    None => bindings.remove(&prop),
+                };
                 self.meta(n)
                     .insert("bindings", loro(bindings)?)
                     .map_err(err)?;
@@ -1173,6 +1388,10 @@ impl Doc {
                 out
             }
         };
+        self.finish(out, history)
+    }
+
+    fn finish(&self, out: Vec<String>, history: bool) -> Res<Vec<String>> {
         let palette = self.palette();
         for p in self.tree.roots() {
             if !history && self.kind(p) == "page" {
@@ -1182,6 +1401,104 @@ impl Doc {
         }
         self.doc.commit();
         Ok(out)
+    }
+
+    fn text(&self, id: TreeID) -> Res<LoroText> {
+        container(&self.meta(id), "text")
+            .and_then(|c| c.into_text().ok())
+            .ok_or_else(|| "not a text node".into())
+    }
+
+    /// Replaces the text styles for which `only` holds in `range` of `id`, or in all
+    /// of it, by the values they stand for.
+    fn detach(
+        &self,
+        id: TreeID,
+        range: Option<Range<usize>>,
+        only: impl Fn(&str) -> bool,
+    ) -> Res<()> {
+        let t = self.text(id)?;
+        let m = self.meta(id);
+        let palette = self.palette();
+        let modes = self.active_modes(id);
+        let s = Scope {
+            palette: &palette,
+            modes: &modes,
+        };
+        let find = |id: &str| palette.text_styles.iter().find(|t| t.id == id && only(id));
+        let own = value(&m, "textStyle")
+            .and_then(|v| v.into_string().ok())
+            .map(|s| s.to_string())
+            .unwrap_or_default();
+        if range.is_none()
+            && let Some(st) = find(&own)
+        {
+            for (k, v) in st.values(&s) {
+                m.insert(&k, loro(v)?).map_err(err)?;
+            }
+            m.insert("textStyle", "").map_err(err)?;
+        }
+        let r = range.clone().unwrap_or(0..t.len_utf16());
+        let mut at = 0;
+        for d in t.to_delta() {
+            let TextDelta::Insert { insert, attributes } = d else {
+                continue;
+            };
+            let (a, b) = (at, at + insert.encode_utf16().count());
+            at = b;
+            let (lo, hi) = (a.max(r.start), b.min(r.end));
+            if lo >= hi {
+                continue;
+            }
+            let marks = attributes.unwrap_or_default();
+            let mine = match marks.get("textStyle") {
+                Some(LoroValue::String(s)) => s.to_string(),
+                _ if range.is_some() => own.clone(),
+                _ => continue,
+            };
+            let Some(st) = find(&mine) else { continue };
+            for (k, v) in st.values(&s) {
+                if !marks.contains_key(&k) {
+                    t.mark_utf16(lo..hi, &k, loro(v)?).map_err(err)?;
+                }
+            }
+            t.mark_utf16(lo..hi, "textStyle", "").map_err(err)?;
+        }
+        Ok(())
+    }
+
+    fn put_text_style(&self, i: Option<usize>, s: TextStyle) -> Res<()> {
+        check_text(
+            Some(s.size),
+            Some(s.line_height),
+            Some(s.letter_spacing),
+            Some(s.paragraph_spacing),
+        )?;
+        let taken = self
+            .list::<TextStyle>("textStyles")
+            .iter()
+            .any(|o| o.id != s.id && o.name == s.name);
+        if taken {
+            return Err(format!("a text style named {} exists", s.name));
+        }
+        self.put("textStyles", i, s)
+    }
+
+    /// The modes `id` resolves variables in, its own and inherited.
+    fn active_modes(&self, id: TreeID) -> Modes {
+        let mut chain = vec![id];
+        while let Some(p) = self
+            .tree
+            .parent(*chain.last().unwrap())
+            .and_then(parent_node)
+        {
+            chain.push(p);
+        }
+        let mut modes = Modes::new();
+        for n in chain.into_iter().rev() {
+            modes.extend(self.modes(n));
+        }
+        modes
     }
 
     /// Writes the values of bound variables into `id` and its subtree.
@@ -1201,6 +1518,7 @@ impl Doc {
             };
             let v = match prop.as_str() {
                 "opacity" => (v / 100.0).clamp(0.0, 1.0),
+                "size" => v.max(0.1),
                 _ => v.max(0.0) * MM,
             };
             match prop.as_str() {
@@ -1266,6 +1584,21 @@ impl Doc {
             let bindings = self.bindings(n);
             self.unbind(n, |p| bindings[p] == id)
         })?;
+        let palette = self.palette();
+        let first = Scope {
+            palette: &palette,
+            modes: &Modes::new(),
+        };
+        for (j, s) in palette.text_styles.iter().enumerate() {
+            if !s.bindings.values().any(|v| v == id) {
+                continue;
+            }
+            let mut v = serde_json::to_value(s).map_err(err)?;
+            v.as_object_mut().unwrap().extend(s.values(&first));
+            let mut s: TextStyle = serde_json::from_value(v).map_err(err)?;
+            s.bindings.retain(|_, v| v != id);
+            self.put("textStyles", Some(j), s)?;
+        }
         self.doc.get_list("variables").delete(i, 1).map_err(err)
     }
 
@@ -1374,6 +1707,7 @@ impl Doc {
     }
 
     pub fn snapshot(&self) -> Snapshot {
+        let palette = self.palette();
         let pages = self
             .tree
             .roots()
@@ -1390,7 +1724,7 @@ impl Doc {
                     children: self
                         .children(p)
                         .into_iter()
-                        .map(|c| self.snap(c, &modes))
+                        .map(|c| self.snap(c, &modes, &palette))
                         .collect(),
                     modes,
                 }
@@ -1400,7 +1734,7 @@ impl Doc {
             pages,
             raster_ppi: num(&self.doc.get_map("document"), "rasterPpi"),
             color_mode: self.color_mode(),
-            palette: self.palette(),
+            palette,
             can_undo: self.undo.can_undo(),
             can_redo: self.undo.can_redo(),
         }
@@ -1415,6 +1749,7 @@ impl Doc {
             swatches: self.swatches(),
             collections: self.list("collections"),
             variables: self.list("variables"),
+            text_styles: self.list("textStyles"),
         }
     }
 
@@ -1516,7 +1851,7 @@ impl Doc {
         path
     }
 
-    fn snap(&self, id: TreeID, inherited: &Modes) -> Node {
+    fn snap(&self, id: TreeID, inherited: &Modes, palette: &Palette) -> Node {
         let m = self.meta(id);
         let v = serde_json::to_value(m.get_deep_value()).unwrap_or_default();
         let modes = self.modes(id);
@@ -1525,13 +1860,20 @@ impl Doc {
         let children = || {
             self.children(id)
                 .into_iter()
-                .map(|c| self.snap(c, &active_modes))
+                .map(|c| self.snap(c, &active_modes, palette))
                 .collect()
         };
         let kind = match self.kind(id).as_str() {
             "text" => Kind::Text {
                 text: v["text"].as_str().unwrap_or_default().into(),
-                size: num(&m, "size"),
+                spans: self.spans(
+                    id,
+                    &v,
+                    &Scope {
+                        palette,
+                        modes: &active_modes,
+                    },
+                ),
             },
             "group" => Kind::Group {
                 children: children(),
@@ -1577,6 +1919,56 @@ impl Doc {
             style,
             kind,
         }
+    }
+
+    /// The text of `id` in runs of equal attributes: the layer's, under those of its
+    /// text style, under the marks; paragraph attributes from each paragraph's start.
+    fn spans(&self, id: TreeID, node: &serde_json::Value, s: &Scope) -> Vec<Span> {
+        let resolve = |marks: serde_json::Map<String, serde_json::Value>| -> Attrs {
+            let mut m = node.as_object().cloned().unwrap_or_default();
+            let style = marks.get("textStyle").or(m.get("textStyle"));
+            let style = style.and_then(|v| v.as_str()).unwrap_or_default();
+            if let Some(st) = s.palette.text_styles.iter().find(|t| t.id == style) {
+                m.extend(st.values(s));
+            }
+            m.extend(marks);
+            serde_json::from_value(serde_json::Value::Object(m)).unwrap_or_default()
+        };
+        let mut out: Vec<Span> = Vec::new();
+        let mut para: Option<Attrs> = None;
+        for d in self.text(id).map(|t| t.to_delta()).unwrap_or_default() {
+            let TextDelta::Insert { insert, attributes } = d else {
+                continue;
+            };
+            let marks = serde_json::to_value(attributes.unwrap_or_default())
+                .ok()
+                .and_then(|v| v.as_object().cloned())
+                .unwrap_or_default();
+            let attrs = resolve(marks);
+            for piece in insert.split_inclusive('\n') {
+                let p = para.get_or_insert_with(|| attrs.clone());
+                let a = Attrs {
+                    text_align: p.text_align,
+                    paragraph_spacing: p.paragraph_spacing,
+                    ..attrs.clone()
+                };
+                let len = piece.encode_utf16().count();
+                match out.last_mut() {
+                    Some(l) if l.attrs == a => l.len += len,
+                    _ => out.push(Span { len, attrs: a }),
+                }
+                if piece.ends_with('\n') {
+                    para = None;
+                }
+            }
+        }
+        if out.is_empty() {
+            out.push(Span {
+                len: 0,
+                attrs: resolve(Default::default()),
+            });
+        }
+        out
     }
 
     fn set(&self, id: TreeID, props: Props) -> Res<()> {
@@ -1667,6 +2059,7 @@ impl Doc {
     fn clip(&self, id: TreeID) -> Clip {
         Clip {
             meta: self.meta(id).get_deep_value(),
+            text: self.text(id).map(|t| t.to_delta()).unwrap_or_default(),
             children: self
                 .children(id)
                 .into_iter()
@@ -1680,10 +2073,10 @@ impl Doc {
         let to = self.meta(new);
         for (k, v) in clip.meta.clone().into_map().unwrap().iter() {
             match (k.as_str(), v) {
-                ("text", LoroValue::String(t)) => to
+                ("text", LoroValue::String(_)) => to
                     .insert_container(k, LoroText::new())
                     .map_err(err)?
-                    .insert(0, t)
+                    .apply_delta(&clip.text)
                     .map_err(err)?,
                 _ => to.insert(k, v.clone()).map_err(err)?,
             }
@@ -1824,12 +2217,7 @@ fn draw(n: &Node, ops: &mut Vec<Op>, pal: &Palette) {
     ops.extend(layer);
     match &n.kind {
         Kind::Shape(shape) => item(ops, n.style.shape(&outline(shape, frame), frame, s)),
-        Kind::Text { text, size } => item(
-            ops,
-            paints(&n.style.fills, frame, s)
-                .flat_map(|p| layout(text, *size as f32, frame, &p))
-                .collect(),
-        ),
+        Kind::Text { text, spans } => item(ops, text::draw(text, spans, &n.style.fills, frame, s)),
         Kind::Group { children } => draw_all(children, ops, pal),
         Kind::Frame { clip, children } => {
             let r = rect(frame[0], frame[1], frame[2], frame[3]);
@@ -1904,6 +2292,29 @@ fn constrain(
         Constraint::Scale if ps > 0.0 => [n0 + (c0 - p0) * ns / ps, cs * ns / ps],
         Constraint::Scale => [n0 + c0 - p0, cs],
     }
+}
+
+/// The UTF-16 range of the paragraphs that `r` touches in `text`.
+fn paragraphs(text: &str, r: &Range<usize>) -> Range<usize> {
+    let breaks: Vec<usize> = text
+        .encode_utf16()
+        .enumerate()
+        .filter(|&(_, c)| c == '\n' as u16)
+        .map(|(i, _)| i + 1)
+        .collect();
+    let last = if r.end > r.start { r.end - 1 } else { r.end };
+    let start = breaks
+        .iter()
+        .rev()
+        .find(|&&b| b <= r.start)
+        .copied()
+        .unwrap_or(0);
+    let end = breaks
+        .iter()
+        .find(|&&b| b > last)
+        .copied()
+        .unwrap_or(text.encode_utf16().count());
+    start..end
 }
 
 fn parent_node(p: TreeParentId) -> Option<TreeID> {
@@ -2033,7 +2444,9 @@ mod tests {
         assert!((p.bleed - 8.50).abs() < 0.01);
         assert_eq!(p.children[0].kind, Kind::Shape(Shape::Rect { radius: 0.0 }));
         assert_eq!(p.children[0].style.fills, [Fill::solid(0xe8452cff)]);
-        assert!(matches!(p.children[1].kind, Kind::Text { size: 14.0, .. }));
+        assert!(
+            matches!(&p.children[1].kind, Kind::Text { spans, .. } if spans[0].attrs.size == 14.0)
+        );
         assert!(
             matches!(&p.children[2].kind, Kind::Frame { clip: true, children, .. } if children.len() == 1)
         );
@@ -2346,13 +2759,7 @@ mod tests {
             text: "Hallo".into(),
         })
         .unwrap();
-        assert_eq!(
-            page(&d).children[1].kind,
-            Kind::Text {
-                text: "Hallo".into(),
-                size: 14.0
-            }
-        );
+        assert!(matches!(&page(&d).children[1].kind, Kind::Text { text, .. } if text == "Hallo"));
         assert!(
             d.apply(Command::SetText {
                 id: page(&d).children[0].id.clone(),
@@ -2752,12 +3159,8 @@ mod tests {
             let what = format!("{props:?}");
             assert!(set(&mut d, &r, props).is_err(), "{what}");
         }
-        let size = |s| Props {
-            size: Some(s),
-            ..Props::default()
-        };
-        assert!(set(&mut d, &t, size(0.09)).is_err());
-        set(&mut d, &t, size(0.1)).unwrap();
+        assert!(format(&mut d, &t, None, sized(0.09)).is_err());
+        format(&mut d, &t, None, sized(0.1)).unwrap();
         let set_frame = |d: &mut Doc, w, h| {
             d.apply(Command::SetFrame {
                 id: r.clone(),
@@ -3756,5 +4159,267 @@ mod tests {
         })
         .unwrap();
         assert_eq!(frames(&d, &f)[1], [10.0, 10.0, 10.0, 10.0]);
+    }
+
+    fn text(d: &mut Doc, content: &str) -> String {
+        let p = page(d).id;
+        let t = create(d, &p, NewKind::Text, [0.0, 0.0, 400.0, 400.0]);
+        d.apply(Command::SetText {
+            id: t.clone(),
+            text: content.into(),
+        })
+        .unwrap();
+        t
+    }
+
+    fn format(
+        d: &mut Doc,
+        id: &str,
+        range: Option<[usize; 2]>,
+        props: TextProps,
+    ) -> Res<Vec<String>> {
+        d.apply(Command::Format {
+            id: id.into(),
+            range,
+            props,
+        })
+    }
+
+    fn spans(d: &Doc) -> Vec<Span> {
+        match page(d).children.pop().unwrap().kind {
+            Kind::Text { spans, .. } => spans,
+            k => panic!("not text: {k:?}"),
+        }
+    }
+
+    fn lens_and(d: &Doc, f: impl Fn(&Attrs) -> f64) -> Vec<(usize, f64)> {
+        spans(d).iter().map(|s| (s.len, f(&s.attrs))).collect()
+    }
+
+    fn sized(size: f64) -> TextProps {
+        TextProps {
+            size: Some(size),
+            ..TextProps::default()
+        }
+    }
+
+    #[test]
+    fn format_marks_a_range_and_formatting_the_whole_text_replaces_the_marks() {
+        let (mut d, _) = empty();
+        let t = text(&mut d, "Hello world");
+        format(&mut d, &t, Some([0, 5]), sized(20.0)).unwrap();
+        assert_eq!(lens_and(&d, |a| a.size), [(5, 20.0), (6, 12.0)]);
+        d.apply(Command::SetText {
+            id: t.clone(),
+            text: "Hello, world".into(),
+        })
+        .unwrap();
+        assert_eq!(lens_and(&d, |a| a.size), [(6, 20.0), (6, 12.0)]);
+        format(&mut d, &t, None, sized(9.0)).unwrap();
+        assert_eq!(lens_and(&d, |a| a.size), [(12, 9.0)]);
+        d.apply(Command::Undo).unwrap();
+        assert_eq!(lens_and(&d, |a| a.size), [(6, 20.0), (6, 12.0)]);
+        assert!(format(&mut d, &t, None, sized(0.0)).is_err());
+        assert!(format(&mut d, &t, Some([3, 99]), sized(9.0)).is_err());
+    }
+
+    #[test]
+    fn paragraph_attributes_cover_the_whole_paragraphs_of_a_range() {
+        let (mut d, _) = empty();
+        let t = text(&mut d, "ab\ncd\nef");
+        let centred = TextProps {
+            text_align: Some(TextAlign::Center),
+            paragraph_spacing: Some(6.0),
+            ..TextProps::default()
+        };
+        format(&mut d, &t, Some([4, 4]), centred).unwrap();
+        let s = spans(&d);
+        let aligns: Vec<_> = s.iter().map(|s| (s.len, s.attrs.text_align)).collect();
+        assert_eq!(
+            aligns,
+            [
+                (3, TextAlign::Left),
+                (3, TextAlign::Center),
+                (2, TextAlign::Left)
+            ]
+        );
+        assert_eq!(s[1].attrs.paragraph_spacing, 6.0);
+    }
+
+    #[test]
+    fn a_range_colour_draws_its_glyphs_in_that_colour_and_the_rest_in_the_fills() {
+        let (mut d, _) = empty();
+        let t = text(&mut d, "Hi there");
+        let red = TextProps {
+            fill: Some(Color::Rgb(0xff0000ff)),
+            ..TextProps::default()
+        };
+        format(&mut d, &t, Some([0, 2]), red).unwrap();
+        let colors: Vec<_> = d
+            .render(0)
+            .into_iter()
+            .filter_map(|op| match op {
+                Op::GlyphRun {
+                    paint: Paint::Solid { color, .. },
+                    glyphs,
+                    ..
+                } => Some((glyphs.len(), color)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            colors,
+            [(2, [1.0, 0.0, 0.0, 1.0]), (5, [0.0, 0.0, 0.0, 1.0])]
+        );
+    }
+
+    fn style(d: &mut Doc, name: &str, size: f64) -> String {
+        d.apply(Command::AddTextStyle {
+            name: name.into(),
+            size,
+            line_height: 14.0,
+            letter_spacing: 0.0,
+            paragraph_spacing: 4.0,
+        })
+        .unwrap()
+        .remove(0)
+    }
+
+    #[test]
+    fn a_text_style_sets_its_values_where_applied_and_follows_changes_and_variables() {
+        let (mut d, p) = empty();
+        let t = text(&mut d, "Hello world");
+        let body = style(&mut d, "Body", 10.0);
+        let styled = |id: &str| TextProps {
+            text_style: Some(id.into()),
+            ..TextProps::default()
+        };
+        format(&mut d, &t, Some([0, 5]), styled(&body)).unwrap();
+        let s = spans(&d);
+        assert_eq!(
+            (s[0].len, s[0].attrs.size, s[0].attrs.line_height),
+            (5, 10.0, 14.0)
+        );
+        assert_eq!(s[0].attrs.text_style, body);
+        assert_eq!(s[1].attrs.text_style, "");
+
+        d.apply(Command::SetTextStyle {
+            id: body.clone(),
+            name: None,
+            size: Some(11.0),
+            line_height: None,
+            letter_spacing: None,
+            paragraph_spacing: None,
+        })
+        .unwrap();
+        assert_eq!(lens_and(&d, |a| a.size), [(5, 11.0), (6, 12.0)]);
+
+        let (c, _) = collection(&mut d, "Type");
+        let big = d
+            .apply(Command::AddMode {
+                collection: c.clone(),
+                name: "Big".into(),
+            })
+            .unwrap()
+            .remove(0);
+        let v = variable(&mut d, &c, "Body size", Value::Number(8.0)).unwrap();
+        set_value(&mut d, &v, &big, Value::Number(16.0)).unwrap();
+        bind(&mut d, &body, "size", Some(&v)).unwrap();
+        assert_eq!(lens_and(&d, |a| a.size), [(5, 8.0), (6, 12.0)]);
+        use_mode(&mut d, &p, &c, Some(&big));
+        assert_eq!(lens_and(&d, |a| a.size), [(5, 16.0), (6, 12.0)]);
+        assert!(bind(&mut d, &body, "w", Some(&v)).is_err());
+
+        format(&mut d, &t, Some([0, 2]), sized(30.0)).unwrap();
+        let s = spans(&d);
+        let got: Vec<_> = s
+            .iter()
+            .map(|s| {
+                (
+                    s.len,
+                    s.attrs.size,
+                    s.attrs.line_height,
+                    s.attrs.text_style.clone(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            got,
+            [
+                (2, 30.0, 14.0, String::new()),
+                (3, 16.0, 14.0, body.clone()),
+                (6, 12.0, 0.0, String::new())
+            ]
+        );
+
+        d.apply(Command::DeleteTextStyle { id: body.clone() })
+            .unwrap();
+        let got: Vec<_> = spans(&d)
+            .iter()
+            .map(|s| (s.len, s.attrs.size, s.attrs.text_style.clone()))
+            .collect();
+        assert_eq!(
+            got,
+            [
+                (2, 30.0, String::new()),
+                (3, 16.0, String::new()),
+                (6, 12.0, String::new())
+            ]
+        );
+        assert!(d.snapshot().palette.text_styles.is_empty());
+    }
+
+    #[test]
+    fn a_style_applied_to_the_whole_text_also_holds_for_text_typed_into_it() {
+        let (mut d, _) = empty();
+        let t = text(&mut d, "Hi");
+        let head = style(&mut d, "Head", 24.0);
+        format(
+            &mut d,
+            &t,
+            None,
+            TextProps {
+                text_style: Some(head.clone()),
+                ..TextProps::default()
+            },
+        )
+        .unwrap();
+        d.apply(Command::SetText {
+            id: t.clone(),
+            text: String::new(),
+        })
+        .unwrap();
+        d.apply(Command::SetText {
+            id: t.clone(),
+            text: "New".into(),
+        })
+        .unwrap();
+        assert_eq!(lens_and(&d, |a| a.size), [(3, 24.0)]);
+        format(&mut d, &t, None, sized(9.0)).unwrap();
+        let s = spans(&d);
+        assert_eq!((s[0].attrs.size, s[0].attrs.line_height), (9.0, 14.0));
+        assert_eq!(s[0].attrs.text_style, "");
+    }
+
+    #[test]
+    fn text_size_binds_to_a_number_variable_in_pt() {
+        let (mut d, _) = empty();
+        let t = text(&mut d, "Hi there");
+        format(&mut d, &t, Some([0, 2]), sized(20.0)).unwrap();
+        let (c, _) = collection(&mut d, "Type");
+        let v = variable(&mut d, &c, "Size", Value::Number(18.0)).unwrap();
+        bind(&mut d, &t, "size", Some(&v)).unwrap();
+        assert_eq!(lens_and(&d, |a| a.size), [(8, 18.0)]);
+        format(&mut d, &t, None, sized(9.0)).unwrap();
+        assert!(page(&d).children[0].bindings.is_empty());
+    }
+
+    #[test]
+    fn copies_keep_their_character_attributes() {
+        let (mut d, _) = empty();
+        let t = text(&mut d, "Hi there");
+        format(&mut d, &t, Some([0, 2]), sized(20.0)).unwrap();
+        d.apply(Command::Duplicate { ids: vec![t] }).unwrap();
+        assert_eq!(lens_and(&d, |a| a.size), [(2, 20.0), (6, 12.0)]);
     }
 }

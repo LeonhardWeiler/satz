@@ -277,3 +277,17 @@ test('an auto layout frame with a colour variable in a second mode matches the c
   await page.mouse.move(1, 1)
   await expectCanvasMatchesPdf(page)
 })
+
+test('formatted text matches the canvas', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
+  for (const [name, value] of [['Font size in pt', '13'], ['Line height in pt', '21'], ['Letter spacing in %', '4'], ['Paragraph spacing in pt', '8']]) {
+    await panel.getByRole('textbox', { name }).fill(value)
+    await panel.getByRole('textbox', { name }).press('Enter')
+  }
+  await panel.getByRole('radio', { name: 'Align right' }).click()
+  await page.keyboard.press('Escape')
+  await page.mouse.move(1, 1)
+  await expectCanvasMatchesPdf(page)
+})

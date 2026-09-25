@@ -143,12 +143,12 @@ test('typed values round to two decimals and out-of-range values are rejected', 
   await expect(field('X in mm')).toHaveValue('10')
 
   await layers.getByRole('button', { name: /^Satz sets type/ }).click()
-  await type('Size in pt', '0.05')
-  await expect(field('Size in pt')).toHaveValue('14')
+  await type('Font size in pt', '0.05')
+  await expect(field('Font size in pt')).toHaveValue('14')
   await type('Opacity', '150')
   await expect(field('Opacity')).toHaveValue('100')
   await page.keyboard.press('Control+z')
-  await expect(field('Size in pt')).toHaveValue('14')
+  await expect(field('Font size in pt')).toHaveValue('14')
   await expect(layers.getByRole('button', { name: 'Rectangle', exact: true })).toHaveCount(2)
 })
 

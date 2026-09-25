@@ -1,4 +1,5 @@
 use crate::color::{Color, Swatch};
+use crate::text::TextStyle;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -34,13 +35,14 @@ pub struct Variable {
     pub values: BTreeMap<String, Value>,
 }
 
-/// What colours and bound numbers refer to.
+/// What colours, bound numbers and styled text refer to.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
-#[serde(default)]
+#[serde(rename_all = "camelCase", default)]
 pub struct Palette {
     pub swatches: Vec<Swatch>,
     pub collections: Vec<Collection>,
     pub variables: Vec<Variable>,
+    pub text_styles: Vec<TextStyle>,
 }
 
 /// A palette seen from a node with its modes.

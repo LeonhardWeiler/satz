@@ -9,6 +9,7 @@ export function Field({
   unit,
   onCommit,
   readOnly,
+  zero,
   title = `${label} in ${unit}`,
 }: {
   label: string
@@ -16,11 +17,13 @@ export function Field({
   unit: string
   onCommit?: (v: number) => void
   readOnly?: boolean
+  /** Shown for 0 and accepted as input for it, e.g. "Auto". */
+  zero?: string
   title?: string
 }) {
   const [draft, setDraft] = useState<string | null>(null)
   const commit = () => {
-    const v = parseFloat(draft ?? '')
+    const v = zero && draft?.trim().toLowerCase() === zero.toLowerCase() ? 0 : parseFloat(draft ?? '')
     setDraft(null)
     if (draft === null || !Number.isFinite(v)) return
     try {
@@ -39,7 +42,7 @@ export function Field({
         autoComplete="off"
         spellCheck={false}
         readOnly={readOnly}
-        value={draft ?? (value === null ? 'Mixed' : String(round(value, unit)))}
+        value={draft ?? (value === null ? 'Mixed' : value === 0 && zero ? zero : String(round(value, unit)))}
         onChange={(e) => setDraft(e.currentTarget.value)}
         onFocus={(e) => e.currentTarget.select()}
         onBlur={commit}
@@ -51,7 +54,7 @@ export function Field({
           }
         }}
       />
-      {(value !== null || draft !== null) && <span className="field-unit">{unit}</span>}
+      {((value !== null && !(value === 0 && zero)) || draft !== null) && <span className="field-unit">{unit}</span>}
     </label>
   )
 }

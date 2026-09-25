@@ -6,6 +6,7 @@ import { MM, bounds, ends, scopeOf, useEditor, type Editor } from './editor'
 import type { Bindable as Prop, Blend, Constraint, Command, Fill, Node, Props, Size, Style } from './model'
 import { AutoLayout } from './AutoLayout'
 import { EffectList, PaintList } from './Paints'
+import { TextSection, TextStyles } from './Text'
 import { Bindable, ModeSelects, Variables } from './Variables'
 
 const BLENDS: Record<Blend, string> = {
@@ -120,6 +121,7 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
           {variables && createPortal(<Variables editor={editor} onClose={() => setVariables(false)} />, document.body)}
         </Section>
       )}
+      {!box && <TextStyles editor={editor} />}
       {box && (
         <Section title="Layout">
           <div className="grid">
@@ -271,28 +273,7 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
         </PaintList>
       )}
       {one && <EffectList effects={one.effects} mode={mode} scope={scope} onChange={(effects) => set({ effects })} />}
-      {one?.kind === 'text' && (
-        <Section title="Text">
-          <div className="grid">
-            <Field
-              label="Size"
-              value={one.size}
-              unit="pt"
-              onCommit={(size) => editor.apply({ type: 'set', id: one.id, size })}
-            />
-          </div>
-          <textarea
-            className="content"
-            aria-label="Text content"
-            rows={6}
-            defaultValue={one.text}
-            key={`${one.id} ${one.text}`}
-            onBlur={(e) => {
-              if (e.currentTarget.value !== one.text) editor.apply({ type: 'setText', id: one.id, text: e.currentTarget.value })
-            }}
-          />
-        </Section>
-      )}
+      {one?.kind === 'text' && <TextSection editor={editor} node={one} />}
     </aside>
   )
 }

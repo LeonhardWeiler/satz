@@ -28,7 +28,6 @@ font helper, i18n.
 ## Breadth
 
 ### 10. Rich text
-- Character and paragraph attributes on Loro rich text; text styles.
 - Hyphenation with `hypher` in the Knuth-Plass line breaker, per paragraph on/off
   and language.
 - Text frame model: insets, columns + gutter, vertical alignment, baseline grid.

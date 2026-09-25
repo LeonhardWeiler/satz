@@ -59,7 +59,7 @@ export type Layout = {
   absolute: boolean
 }
 
-export type Props = Partial<Style> & Partial<Layout> & { name?: string; size?: number; clip?: boolean; radius?: number; count?: number; ratio?: number }
+export type Props = Partial<Style> & Partial<Layout> & { name?: string; clip?: boolean; radius?: number; count?: number; ratio?: number }
 
 export type NewKind = 'rect' | 'ellipse' | 'polygon' | 'star' | 'line' | 'arrow' | 'path' | 'text' | 'frame'
 
@@ -68,6 +68,10 @@ export type Command =
   | { type: 'setFrame'; id: string; x: number; y: number; w: number; h: number; ignoreConstraints?: boolean }
   | { type: 'autoLayout'; ids: string[] }
   | { type: 'setText'; id: string; text: string }
+  | ({ type: 'format'; id: string; range: [number, number] | null } & TextProps)
+  | { type: 'addTextStyle'; name: string; size: number; lineHeight: number; letterSpacing: number; paragraphSpacing: number }
+  | ({ type: 'setTextStyle'; id: string; name?: string } & Partial<Pick<TextStyle, Styled>>)
+  | { type: 'deleteTextStyle'; id: string }
   | ({ type: 'set'; id: string } & Props)
   | { type: 'setPath'; id: string; path: number[] }
   | { type: 'delete'; ids: string[] }
@@ -109,7 +113,7 @@ export type Node = {
   Layout &
   (
     | ({ kind: 'shape' } & Shape)
-    | { kind: 'text'; text: string; size: number }
+    | { kind: 'text'; text: string; spans: Span[] }
     | { kind: 'group'; children: Node[] }
     | { kind: 'frame'; clip: boolean; children: Node[] }
   )
@@ -127,13 +131,34 @@ export type Collection = { id: string; name: string; modes: { id: string; name: 
 export type Value = { color: Color } | { number: number }
 /** One value per mode of its collection, all of one kind. */
 export type Variable = { id: string; collection: string; name: string; values: Record<string, Value> }
-export type Palette = { swatches: Swatch[]; collections: Collection[]; variables: Variable[] }
+export type Palette = { swatches: Swatch[]; collections: Collection[]; variables: Variable[]; textStyles: TextStyle[] }
 /** A palette seen from a layer with its modes. */
-export type Scope = Palette & { modes: Modes }
-/** Lengths count in mm, opacity in %. */
+export type Scope = Omit<Palette, 'textStyles'> & { modes: Modes }
+/** Lengths count in mm, opacity and letter spacing in %, type in pt. */
 export type Bindable =
   | 'w' | 'h' | 'radius' | 'strokeWeight' | 'opacity'
   | 'gap' | 'paddingTop' | 'paddingRight' | 'paddingBottom' | 'paddingLeft'
+  | Styled
+
+/**
+ * What a character looks like. Sizes and spacing in pt, letter spacing in % of the size;
+ * line height 0 is auto. `fill` replaces the layer's fills; `textStyle` '' means none.
+ * Paragraph attributes come from each paragraph's first character.
+ */
+export type Attrs = {
+  size: number
+  lineHeight: number
+  letterSpacing: number
+  paragraphSpacing: number
+  fill: Color | null
+  textStyle: string
+  textAlign: 'left' | 'center' | 'right' | 'justify'
+}
+export type TextProps = Partial<Attrs>
+/** `len` characters in UTF-16 code units that share their attributes. */
+export type Span = Attrs & { len: number }
+export type Styled = 'size' | 'lineHeight' | 'letterSpacing' | 'paragraphSpacing'
+export type TextStyle = { id: string; name: string; bindings: Partial<Record<Bindable, string>> } & Record<Styled, number>
 
 export type Snapshot = Palette & {
   pages: Page[]
