@@ -28,7 +28,6 @@ font helper, i18n.
 ## Breadth
 
 ### 11. Pages, masters, threading
-- Master pages applied per page.
 - Frame threading across frames and pages; only fixed frames thread, the last
   frame of a chain may be auto height. Overset detection.
 
@@ -68,3 +67,5 @@ font helper, i18n.
   concurrent edits of one variable merge.
 - Performance of `settle` and `lay_out`, which walk the whole tree after every
   command.
+- Masters based on other masters; overriding layers nested in a master's groups
+  and frames.

@@ -48,6 +48,12 @@ impl Engine {
         self.doc.hit(page, x, y, tolerance)
     }
 
+    /// The layer of the page's master at (x, y) in pt that the page shows.
+    #[wasm_bindgen(js_name = masterHit)]
+    pub fn master_hit(&self, page: &str, x: f64, y: f64, tolerance: f64) -> Option<String> {
+        self.doc.master_hit(page, x, y, tolerance)
+    }
+
     /// The view is invalid after the next call into the engine.
     #[wasm_bindgen(js_name = displayList)]
     pub fn display_list(&mut self, page: &str) -> Uint32Array {

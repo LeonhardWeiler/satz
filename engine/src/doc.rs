@@ -167,6 +167,35 @@ pub enum Command {
         id: String,
         index: usize,
     },
+    /// Adds a master of the size of the page `like` or the first page, named with
+    /// the next free letter; returns its id.
+    AddMaster {
+        like: Option<String>,
+    },
+    SetMaster {
+        id: String,
+        name: String,
+    },
+    /// Removes a master; its pages keep their own layers.
+    DeleteMaster {
+        id: String,
+    },
+    /// Draws the master under the layers of a page, or none.
+    UseMaster {
+        page: String,
+        master: Option<String>,
+    },
+    /// Copies a layer of a page's master onto the page, below its own layers, and
+    /// hides the master's on that page; returns the copy.
+    Override {
+        page: String,
+        id: String,
+    },
+    /// Removes overriding copies, or all of a page's, and shows the master layers
+    /// they stood for again.
+    ResetToMaster {
+        ids: Vec<String>,
+    },
     AddSwatch {
         name: String,
         color: Color,
@@ -405,6 +434,7 @@ pub enum Order {
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
     pub pages: Vec<Page>,
+    pub masters: Vec<Page>,
     /// Resolution at which the PDF rasterizes shadows and blurs.
     pub raster_ppi: f64,
     pub color_mode: ColorMode,
@@ -414,12 +444,17 @@ pub struct Snapshot {
     pub can_redo: bool,
 }
 
+/// A page or a master; `name` is a master's, `master` the one a page uses and
+/// `detached` its master layers it overrides.
 #[derive(Debug, PartialEq, Serialize)]
 pub struct Page {
     pub id: String,
+    pub name: String,
     pub width: f64,
     pub height: f64,
     pub bleed: f64,
+    pub master: Option<String>,
+    pub detached: Vec<String>,
     pub modes: Modes,
     pub children: Vec<Node>,
 }
@@ -439,6 +474,9 @@ pub struct Node {
     pub active_modes: Modes,
     /// Number variables by property.
     pub bindings: BTreeMap<String, String>,
+    /// The master layer this page layer overrides.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub override_of: Option<String>,
     #[serde(flatten)]
     pub style: Style,
     #[serde(flatten)]
@@ -1140,7 +1178,7 @@ impl Doc {
             }
             Command::Move { ids, parent, index } => {
                 let p = self.node(&parent)?;
-                if !matches!(self.kind(p).as_str(), "page" | "group" | "frame") {
+                if !matches!(self.kind(p).as_str(), "page" | "master" | "group" | "frame") {
                     return Err("not a container".into());
                 }
                 let ids = self.sorted(&ids)?;
@@ -1209,6 +1247,7 @@ impl Doc {
                 for id in self.sorted(&ids)?.into_iter().rev() {
                     let parent = self.tree.parent(id).ok_or("no parent")?;
                     let copy = self.paste(&self.clip(id), parent, self.index(id) + 1)?;
+                    self.meta(copy).delete("overrideOf").map_err(err)?;
                     out.push(copy.to_string());
                 }
                 out.reverse();
@@ -1483,7 +1522,7 @@ impl Doc {
             }
             Command::Paste { above, page } => {
                 let above = self.sorted(&above)?.pop();
-                let page = page.map(|p| self.page(&p)).transpose()?;
+                let page = page.map(|p| self.sheet(&p)).transpose()?;
                 let mut out = Vec::new();
                 for (i, (clip, from)) in self.clipboard.iter().enumerate() {
                     let (parent, index) = match above {
@@ -1503,7 +1542,9 @@ impl Doc {
                             (p.into(), self.children(p).len())
                         }
                     };
-                    out.push(self.paste(clip, parent, index)?.to_string());
+                    let copy = self.paste(clip, parent, index)?;
+                    self.meta(copy).delete("overrideOf").map_err(err)?;
+                    out.push(copy.to_string());
                 }
                 out
             }
@@ -1519,6 +1560,9 @@ impl Doc {
                 m.insert("kind", "page").map_err(err)?;
                 for k in ["width", "height", "bleed"] {
                     m.insert(k, num(&from, k)).map_err(err)?;
+                }
+                if let Some(master) = value(&from, "master") {
+                    m.insert("master", master).map_err(err)?;
                 }
                 vec![p.to_string()]
             }
@@ -1541,7 +1585,7 @@ impl Doc {
                 height,
                 bleed,
             } => {
-                let m = self.meta(self.page(&id)?);
+                let m = self.meta(self.sheet(&id)?);
                 for (k, v) in [("width", width), ("height", height), ("bleed", bleed)] {
                     match v {
                         Some(v) if !(v >= 0.0 && v.is_finite()) => {
@@ -1573,6 +1617,109 @@ impl Doc {
                 }
                 vec![]
             }
+            Command::AddMaster { like } => {
+                let like = match like {
+                    Some(l) => self.sheet(&l)?,
+                    None => *self.pages().first().ok_or("no page")?,
+                };
+                let names: Vec<String> = self.masters().into_iter().map(|m| self.name(m)).collect();
+                let name = ('A'..='Z')
+                    .map(|c| format!("{c}-Master"))
+                    .find(|n| !names.contains(n))
+                    .ok_or("no free master name")?;
+                let p = self.tree.create(None).map_err(err)?;
+                let (m, from) = (self.meta(p), self.meta(like));
+                m.insert("kind", "master").map_err(err)?;
+                m.insert("name", name).map_err(err)?;
+                for k in ["width", "height", "bleed"] {
+                    m.insert(k, num(&from, k)).map_err(err)?;
+                }
+                vec![p.to_string()]
+            }
+            Command::SetMaster { id, name } => {
+                let m = self.master(&id)?;
+                if self
+                    .masters()
+                    .into_iter()
+                    .any(|o| o != m && self.name(o) == name)
+                {
+                    return Err(format!("a master named {name} exists"));
+                }
+                self.meta(m).insert("name", name).map_err(err)?;
+                vec![]
+            }
+            Command::DeleteMaster { id } => {
+                let m = self.master(&id)?;
+                for p in self.pages() {
+                    if self.master_of(p) == Some(m) {
+                        self.meta(p).delete("master").map_err(err)?;
+                    }
+                }
+                self.remove(m)?;
+                vec![]
+            }
+            Command::UseMaster { page, master } => {
+                let p = self.meta(self.page(&page)?);
+                match master {
+                    Some(m) => p
+                        .insert("master", self.master(&m)?.to_string())
+                        .map_err(err)?,
+                    None => p.delete("master").map_err(err)?,
+                }
+                vec![]
+            }
+            Command::Override { page, id } => {
+                let p = self.page(&page)?;
+                let item = self.node(&id)?;
+                let master = self.master_of(p).ok_or("the page has no master")?;
+                if self.tree.parent(item) != Some(master.into()) {
+                    return Err("not a layer of the page's master".into());
+                }
+                let mut detached = self.detached(p);
+                if detached.contains(&id) {
+                    return Err("already overridden".into());
+                }
+                let copy = self.paste(&self.clip(item), p.into(), 0)?;
+                self.meta(copy)
+                    .insert("overrideOf", id.clone())
+                    .map_err(err)?;
+                detached.push(id);
+                self.meta(p)
+                    .insert("detached", loro(detached)?)
+                    .map_err(err)?;
+                vec![copy.to_string()]
+            }
+            Command::ResetToMaster { ids } => {
+                for id in ids {
+                    if let Ok(p) = self.page(&id) {
+                        let copies: Vec<TreeID> = self
+                            .children(p)
+                            .into_iter()
+                            .filter(|&c| value(&self.meta(c), "overrideOf").is_some())
+                            .collect();
+                        for c in copies {
+                            self.remove(c)?;
+                        }
+                        self.meta(p).delete("detached").map_err(err)?;
+                        continue;
+                    }
+                    let c = self.node(&id)?;
+                    let Some(of) = value(&self.meta(c), "overrideOf")
+                        .and_then(|v| v.into_string().ok())
+                        .map(|s| s.to_string())
+                    else {
+                        return Err(format!("{id} overrides no master layer"));
+                    };
+                    let p = self.root(c);
+                    self.remove(c)?;
+                    let mut detached = self.detached(p);
+                    detached.retain(|d| *d != of);
+                    self.meta(p)
+                        .insert("detached", loro(detached)?)
+                        .map_err(err)?;
+                }
+                vec![]
+            }
         };
         self.finish(out, history)
     }
@@ -1580,7 +1727,7 @@ impl Doc {
     fn finish(&self, out: Vec<String>, history: bool) -> Res<Vec<String>> {
         let palette = self.palette();
         for p in self.tree.roots() {
-            if !history && self.kind(p) == "page" {
+            if !history && matches!(self.kind(p).as_str(), "page" | "master") {
                 self.settle(p, &Modes::new(), &palette)?;
                 self.lay_out(p, &palette)?;
             }
@@ -2036,30 +2183,29 @@ impl Doc {
 
     pub fn snapshot(&self) -> Snapshot {
         let palette = self.palette();
-        let pages = self
-            .tree
-            .roots()
-            .into_iter()
-            .filter(|&p| self.kind(p) == "page")
-            .map(|p| {
-                let m = self.meta(p);
-                let modes = self.modes(p);
-                Page {
-                    id: p.to_string(),
-                    width: num(&m, "width"),
-                    height: num(&m, "height"),
-                    bleed: num(&m, "bleed"),
-                    children: self
-                        .children(p)
-                        .into_iter()
-                        .map(|c| self.snap(c, &modes, &palette))
-                        .collect(),
-                    modes,
-                }
-            })
-            .collect();
+        let sheet = |p: TreeID| {
+            let m = self.meta(p);
+            let v = serde_json::to_value(m.get_value()).unwrap_or_default();
+            let modes = self.modes(p);
+            Page {
+                id: p.to_string(),
+                name: v["name"].as_str().unwrap_or_default().into(),
+                width: num(&m, "width"),
+                height: num(&m, "height"),
+                bleed: num(&m, "bleed"),
+                master: self.master_of(p).map(|m| m.to_string()),
+                detached: serde_json::from_value(v["detached"].clone()).unwrap_or_default(),
+                children: self
+                    .children(p)
+                    .into_iter()
+                    .map(|c| self.snap(c, &modes, &palette))
+                    .collect(),
+                modes,
+            }
+        };
         Snapshot {
-            pages,
+            pages: self.pages().into_iter().map(sheet).collect(),
+            masters: self.masters().into_iter().map(sheet).collect(),
             raster_ppi: num(&self.doc.get_map("document"), "rasterPpi"),
             color_mode: self.color_mode(),
             palette,
@@ -2160,7 +2306,8 @@ impl Doc {
     /// The display list of the page `id`, empty when there is none.
     pub fn render(&self, id: &str) -> Vec<Op> {
         let snap = self.snapshot();
-        let Some(p) = snap.pages.iter().find(|p| p.id == id) else {
+        let sheets = || snap.pages.iter().chain(&snap.masters);
+        let Some(p) = sheets().find(|p| p.id == id) else {
             return Vec::new();
         };
         let mut ops = vec![Op::Page {
@@ -2168,13 +2315,55 @@ impl Doc {
             height: p.height as f32,
             bleed: p.bleed as f32,
         }];
+        if let Some(m) = p
+            .master
+            .as_ref()
+            .and_then(|m| sheets().find(|s| s.id == *m))
+        {
+            let shown: Vec<Node> = self.master_layers(m, p);
+            draw_all(&shown, &mut ops, &snap.palette);
+        }
         draw_all(&p.children, &mut ops, &snap.palette);
         ops
     }
 
+    /// The layers of the master `m` that the page `p` shows, in its modes.
+    fn master_layers(&self, m: &Page, p: &Page) -> Vec<Node> {
+        let palette = self.palette();
+        let mut modes = m.modes.clone();
+        modes.extend(p.modes.clone());
+        let Ok(id) = self.sheet(&m.id) else {
+            return Vec::new();
+        };
+        self.children(id)
+            .into_iter()
+            .filter(|c| !p.detached.contains(&c.to_string()))
+            .map(|c| self.snap(c, &modes, &palette))
+            .collect()
+    }
+
+    /// The layer of the master of the page `page` at (x, y) that the page shows.
+    pub fn master_hit(&self, page: &str, x: f64, y: f64, tolerance: f64) -> Option<String> {
+        let snap = self.snapshot();
+        let p = snap.pages.iter().find(|p| p.id == page)?;
+        let m = snap
+            .masters
+            .iter()
+            .find(|m| Some(&m.id) == p.master.as_ref())?;
+        let mut path = Vec::new();
+        hit(&self.master_layers(m, p), x, y, tolerance, &mut path);
+        path.into_iter().next()
+    }
+
     pub fn hit(&self, page: &str, x: f64, y: f64, tolerance: f64) -> Vec<String> {
         let mut path = Vec::new();
-        if let Some(p) = self.snapshot().pages.iter().find(|p| p.id == page) {
+        let snap = self.snapshot();
+        if let Some(p) = snap
+            .pages
+            .iter()
+            .chain(&snap.masters)
+            .find(|p| p.id == page)
+        {
             hit(&p.children, x, y, tolerance, &mut path);
         }
         path
@@ -2246,6 +2435,7 @@ impl Doc {
             modes,
             active_modes,
             bindings: self.bindings(id),
+            override_of: v["overrideOf"].as_str().map(String::from),
             layout: serde_json::from_value(v.clone()).unwrap_or_default(),
             style,
             kind,
@@ -2456,12 +2646,42 @@ impl Doc {
         roots.filter(|&r| self.kind(r) == "page").collect()
     }
 
+    fn masters(&self) -> Vec<TreeID> {
+        let roots = self.tree.roots().into_iter();
+        roots.filter(|&r| self.kind(r) == "master").collect()
+    }
+
     fn page(&self, id: &str) -> Res<TreeID> {
+        self.root_of_kind(id, "page")
+    }
+
+    fn master(&self, id: &str) -> Res<TreeID> {
+        self.root_of_kind(id, "master")
+    }
+
+    /// A page or a master.
+    fn sheet(&self, id: &str) -> Res<TreeID> {
+        self.page(id).or_else(|_| self.master(id))
+    }
+
+    fn root_of_kind(&self, id: &str, kind: &str) -> Res<TreeID> {
         let t = TreeID::try_from(id).map_err(err)?;
         match self.tree.parent(t) {
-            Some(TreeParentId::Root) if self.kind(t) == "page" => Ok(t),
-            _ => Err(format!("no page {id}")),
+            Some(TreeParentId::Root) if self.kind(t) == kind => Ok(t),
+            _ => Err(format!("no {kind} {id}")),
         }
+    }
+
+    /// The master the page `p` uses, if it is still there.
+    fn master_of(&self, p: TreeID) -> Option<TreeID> {
+        let v = value(&self.meta(p), "master")?;
+        self.master(&v.into_string().ok()?).ok()
+    }
+
+    fn detached(&self, p: TreeID) -> Vec<String> {
+        value(&self.meta(p), "detached")
+            .and_then(|v| serde_json::from_value(serde_json::to_value(v).ok()?).ok())
+            .unwrap_or_default()
     }
 
     /// The page or other root that `id` is on.
@@ -2478,7 +2698,7 @@ impl Doc {
         while self.tree.contains(root) && self.tree.is_node_deleted(&root) == Ok(false) {
             match self.tree.parent(root) {
                 Some(TreeParentId::Node(p)) => root = p,
-                _ if self.kind(root) == "page" => return Ok(t),
+                _ if matches!(self.kind(root).as_str(), "page" | "master") => return Ok(t),
                 _ => break,
             }
         }
@@ -2519,6 +2739,13 @@ impl Doc {
 
     fn meta(&self, id: TreeID) -> LoroMap {
         self.tree.get_meta(id).unwrap()
+    }
+
+    fn name(&self, id: TreeID) -> String {
+        value(&self.meta(id), "name")
+            .and_then(|v| v.into_string().ok())
+            .map(|s| s.to_string())
+            .unwrap_or_default()
     }
 
     fn kind(&self, id: TreeID) -> String {
@@ -5220,5 +5447,149 @@ mod tests {
         assert_eq!(ids(&d.snapshot().pages[1].children), [on2]);
         let on1 = paste(&mut d, &p1);
         assert_eq!(children(&d.snapshot().pages[0].children[0])[1].id, on1);
+    }
+
+    fn add_master(d: &mut Doc) -> String {
+        d.apply(Command::AddMaster { like: None })
+            .unwrap()
+            .remove(0)
+    }
+
+    fn use_master(d: &mut Doc, page: &str, master: Option<&str>) -> Res<Vec<String>> {
+        d.apply(Command::UseMaster {
+            page: page.into(),
+            master: master.map(String::from),
+        })
+    }
+
+    fn items(ops: &[Op]) -> Vec<u32> {
+        ops.iter()
+            .filter_map(|o| match o {
+                Op::BeginItem { item } => Some(*item),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_master_draws_under_the_layers_of_the_pages_that_use_it_and_is_not_hit_there() {
+        let (mut d, p1) = empty();
+        let p2 = add_page(&mut d, None);
+        let m = add_master(&mut d);
+        let s = d.snapshot();
+        assert_eq!(s.masters.len(), 1);
+        assert_eq!(s.masters[0].name, "A-Master");
+        assert_eq!(s.masters[0].width, s.pages[0].width);
+        let under = create(&mut d, &m, NewKind::Rect, [0.0, 0.0, 20.0, 20.0]);
+        let over = create(&mut d, &p1, NewKind::Ellipse, [5.0, 5.0, 5.0, 5.0]);
+        use_master(&mut d, &p1, Some(&m)).unwrap();
+        assert_eq!(d.snapshot().pages[0].master.as_deref(), Some(m.as_str()));
+        let on = page_ops(&d);
+        assert_eq!(items(&on).len(), 2);
+        assert_eq!(items(&d.render(&m)), items(&on)[..1]);
+        assert!(items(&d.render(&p2)).is_empty());
+        assert!(hits(&d, 15.0, 15.0, 0.0).is_empty());
+        assert_eq!(hits(&d, 7.0, 7.0, 0.0), [over]);
+        assert_eq!(d.hit(&m, 15.0, 15.0, 0.0), std::slice::from_ref(&under));
+        assert_eq!(d.master_hit(&p1, 15.0, 15.0, 0.0), Some(under.clone()));
+        assert_eq!(d.master_hit(&p2, 15.0, 15.0, 0.0), None);
+        assert!(use_master(&mut d, &p1, Some(&p2)).is_err());
+        assert_eq!(d.apply(Command::AddMaster { like: None }).unwrap().len(), 1);
+        assert_eq!(d.snapshot().masters[1].name, "B-Master");
+        d.apply(Command::SetMaster {
+            id: m.clone(),
+            name: "Body".into(),
+        })
+        .unwrap();
+        assert_eq!(d.snapshot().masters[0].name, "Body");
+        assert!(
+            d.apply(Command::SetMaster {
+                id: m.clone(),
+                name: "B-Master".into(),
+            })
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn new_pages_take_the_master_of_the_page_before_and_a_deleted_master_leaves_its_pages() {
+        let (mut d, p1) = empty();
+        let m = add_master(&mut d);
+        use_master(&mut d, &p1, Some(&m)).unwrap();
+        add_page(&mut d, Some(&p1));
+        let dup = d
+            .apply(Command::DuplicatePage { id: p1.clone() })
+            .unwrap()
+            .remove(0);
+        let masters = |d: &Doc| -> Vec<Option<String>> {
+            d.snapshot().pages.into_iter().map(|p| p.master).collect()
+        };
+        assert_eq!(
+            masters(&d),
+            [Some(m.clone()), Some(m.clone()), Some(m.clone())]
+        );
+        assert_eq!(page_ids(&d)[1], dup);
+        d.apply(Command::DeleteMaster { id: m.clone() }).unwrap();
+        assert!(d.snapshot().masters.is_empty());
+        assert_eq!(masters(&d), [None, None, None]);
+        d.apply(Command::Undo).unwrap();
+        assert_eq!(masters(&d)[0], Some(m));
+    }
+
+    #[test]
+    fn an_overridden_master_layer_becomes_a_page_layer_until_reset_to_the_master() {
+        let (mut d, p1) = empty();
+        let p2 = add_page(&mut d, None);
+        let m = add_master(&mut d);
+        let r = create(&mut d, &m, NewKind::Rect, [0.0, 0.0, 20.0, 20.0]);
+        let top = create(&mut d, &p1, NewKind::Ellipse, [50.0, 50.0, 5.0, 5.0]);
+        for p in [&p1, &p2] {
+            use_master(&mut d, p, Some(&m)).unwrap();
+        }
+        let copy = d
+            .apply(Command::Override {
+                page: p1.clone(),
+                id: r.clone(),
+            })
+            .unwrap()
+            .remove(0);
+        let pg = page(&d);
+        assert_eq!(ids(&pg.children), [copy.clone(), top.clone()]);
+        assert_eq!(pg.children[0].override_of.as_deref(), Some(r.as_str()));
+        assert_eq!(frame(&pg.children[0]), [0.0, 0.0, 20.0, 20.0]);
+        assert_eq!(pg.detached, std::slice::from_ref(&r));
+        assert_eq!(items(&page_ops(&d)).len(), 2);
+        assert_eq!(hits(&d, 15.0, 15.0, 0.0), std::slice::from_ref(&copy));
+        assert_eq!(d.master_hit(&p1, 15.0, 15.0, 0.0), None);
+        assert_eq!(items(&d.render(&p2)).len(), 1);
+        assert!(
+            d.apply(Command::Override {
+                page: p1.clone(),
+                id: top.clone(),
+            })
+            .is_err()
+        );
+        d.apply(Command::Delete {
+            ids: vec![copy.clone()],
+        })
+        .unwrap();
+        assert_eq!(items(&page_ops(&d)).len(), 1);
+        d.apply(Command::ResetToMaster {
+            ids: vec![p1.clone()],
+        })
+        .unwrap();
+        assert!(page(&d).detached.is_empty());
+        assert_eq!(items(&page_ops(&d)).len(), 2);
+        let copy = d
+            .apply(Command::Override {
+                page: p1.clone(),
+                id: r.clone(),
+            })
+            .unwrap()
+            .remove(0);
+        d.apply(Command::ResetToMaster { ids: vec![copy] }).unwrap();
+        let pg = page(&d);
+        assert_eq!((ids(&pg.children), pg.detached.len()), (vec![top], 0));
+        assert_eq!(d.master_hit(&p1, 15.0, 15.0, 0.0), Some(r));
     }
 }

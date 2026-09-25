@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import type { Engine } from './engine/engine'
-import type { Command, Container, Modes, Node, Palette, Scope, Snapshot } from './model'
+import type { Command, Container, Modes, Node, Page, Palette, Scope, Snapshot } from './model'
 import { penPath, type Anchor } from './pen'
 import { index, type Entry } from './select'
 import type { Editing } from './textEdit'
@@ -42,8 +42,15 @@ export class Editor {
     this.nodes = index(this.page.children)
   }
 
+  /** The page or master shown on the canvas. */
   get page() {
-    return this.snapshot.pages.find((p) => p.id === this.pageId) ?? this.snapshot.pages[0]
+    const { pages, masters } = this.snapshot
+    return pages.find((p) => p.id === this.pageId) ?? masters.find((p) => p.id === this.pageId) ?? pages[0]
+  }
+
+  /** The master a page draws under its layers. */
+  masterOf(page: Page) {
+    return this.snapshot.masters.find((m) => m.id === page.master)
   }
 
   apply(cmd: Command): string[] {
@@ -52,8 +59,10 @@ export class Editor {
       return this.engine.apply(cmd)
     } finally {
       this.snapshot = this.engine.snapshot()
-      const { pages } = this.snapshot
-      if (!pages.some((p) => p.id === this.pageId)) this.pageId = pages[Math.min(at, pages.length - 1)].id
+      const { pages, masters } = this.snapshot
+      if (!pages.some((p) => p.id === this.pageId) && !masters.some((p) => p.id === this.pageId)) {
+        this.pageId = pages[Math.max(0, Math.min(at, pages.length - 1))].id
+      }
       this.nodes = index(this.page.children)
       this.selection = this.selection.filter((id) => this.nodes.has(id))
       const n = this.editing && this.nodes.get(this.editing.id)?.node

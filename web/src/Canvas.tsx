@@ -282,6 +282,14 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         editor.set({ selection: [id] })
         return
       }
+      // Ctrl+Shift+click on a master layer that no page layer covers overrides it, as in InDesign.
+      const master = (e.ctrlKey || e.metaKey) && e.shiftKey && !hit(p).length
+        ? editor.engine.masterHit(editor.page.id, p.x, p.y, HIT / view.zoom)
+        : undefined
+      if (master) {
+        editor.set({ selection: editor.apply({ type: 'override', page: editor.page.id, id: master }) })
+        return
+      }
       const handle = handleAt(e)
       const line = handle?.startsWith('end') && ends(editor.selected()[0])
       if (line) {

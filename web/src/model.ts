@@ -89,6 +89,12 @@ export type Command =
   | { type: 'duplicatePage' | 'deletePage'; id: string }
   | { type: 'setPage'; id: string; width?: number; height?: number; bleed?: number }
   | { type: 'movePage'; id: string; index: number }
+  | { type: 'addMaster'; like: string | null }
+  | { type: 'setMaster'; id: string; name: string }
+  | { type: 'deleteMaster'; id: string }
+  | { type: 'useMaster'; page: string; master: string | null }
+  | { type: 'override'; page: string; id: string }
+  | { type: 'resetToMaster'; ids: string[] }
   | { type: 'setDocument'; rasterPpi?: number; colorMode?: ColorMode }
   | { type: 'addSwatch'; name: string; color: Color; spot: boolean }
   | { type: 'setSwatch'; id: string; name?: string; color?: Color; spot?: boolean }
@@ -116,6 +122,8 @@ export type Node = {
   modes: Modes
   activeModes: Modes
   bindings: Partial<Record<Bindable, string>>
+  /** The master layer this page layer overrides. */
+  overrideOf?: string
 } & Style &
   Layout &
   (
@@ -127,7 +135,21 @@ export type Node = {
 
 export type Container = Extract<Node, { children: Node[] }>
 
-export type Page = { id: string; width: number; height: number; bleed: number; modes: Modes; children: Node[] }
+/**
+ * A page or a master: `name` is a master's, `master` the one a page draws under its
+ * layers and `detached` the master layers it overrides.
+ */
+export type Page = {
+  id: string
+  name: string
+  width: number
+  height: number
+  bleed: number
+  master: string | null
+  detached: string[]
+  modes: Modes
+  children: Node[]
+}
 
 /** A spot colour's `color` is its CMYK alternate. */
 export type Swatch = { id: string; name: string; color: Color; spot: boolean }
@@ -186,6 +208,7 @@ export type TextStyle = { id: string; name: string; bindings: Partial<Record<Bin
 
 export type Snapshot = Palette & {
   pages: Page[]
+  masters: Page[]
   rasterPpi: number
   colorMode: ColorMode
   canUndo: boolean

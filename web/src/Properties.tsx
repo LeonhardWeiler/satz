@@ -27,6 +27,7 @@ const solid = (color: Color): Fill => ({ type: 'solid', color, stops: [], transf
 
 export function Properties({ editor, onExport }: { editor: Editor; onExport: () => void }) {
   const page = useEditor(editor, (e) => e.page)
+  const isPage = useEditor(editor, (e) => e.snapshot.pages.includes(e.page))
   const rasterPpi = useEditor(editor, (e) => e.snapshot.rasterPpi)
   const mode = useEditor(editor, (e) => e.snapshot.colorMode)
   const snapshot = useEditor(editor, (e) => e.snapshot)
@@ -86,13 +87,13 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
       onPointerDown={editor.gesture}
     >
       <header className="panel-header">
-        <h2>{one ? one.name : nodes.length ? `${nodes.length} layers` : 'Page'}</h2>
+        <h2>{one ? one.name : nodes.length ? `${nodes.length} layers` : isPage ? 'Page' : page.name}</h2>
         <button type="button" className="primary" onClick={onExport} title="Export PDF (Ctrl+Shift+E)">
           Export PDF
         </button>
       </header>
       {!box && (
-        <Section title="Page">
+        <Section title={isPage ? 'Page' : 'Master'}>
           <div className="grid">
             {(['width', 'height', 'bleed'] as const).map((k) => (
               <Field
@@ -116,7 +117,27 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
               onChange={(colorMode) => editor.apply({ type: 'setDocument', colorMode })}
             />
             <ModeSelects editor={editor} id={page.id} own={page.modes} inherited={{}} />
+            {isPage && (
+              <Select
+                label="Master"
+                value={page.master ?? ''}
+                options={{ '': 'None', ...Object.fromEntries(snapshot.masters.map((m) => [m.id, m.name])) }}
+                onChange={(m) => editor.apply({ type: 'useMaster', page: page.id, master: m || null })}
+              />
+            )}
           </div>
+          {isPage && page.detached.length > 0 && (
+            <button type="button" className="button" onClick={() => editor.apply({ type: 'resetToMaster', ids: [page.id] })}>
+              Reset overrides
+            </button>
+          )}
+        </Section>
+      )}
+      {one?.overrideOf && (
+        <Section title="Master">
+          <button type="button" className="button" onClick={() => editor.apply({ type: 'resetToMaster', ids: [one.id] })}>
+            Reset to master
+          </button>
         </Section>
       )}
       {!box && (

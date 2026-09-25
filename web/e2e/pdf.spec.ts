@@ -329,3 +329,20 @@ test('every page is exported and the second one matches the canvas', async ({ pa
   const pdf = await expectCanvasMatchesPdf(page, 2)
   expect(execFileSync('mutool', ['pages', pdf]).toString().match(/<page /g)).toHaveLength(2)
 })
+
+test('a master drawn under a page matches the canvas', async ({ page }) => {
+  await open(page)
+  const pages = page.getByRole('navigation', { name: 'Pages' })
+  await pages.getByRole('button', { name: 'Add master' }).click()
+  const canvas = (await page.getByLabel('Page canvas').boundingBox())!
+  const at = (fx: number, fy: number) => [canvas.x + canvas.width * fx, canvas.y + canvas.height * fy] as const
+  await page.keyboard.press('o')
+  await page.mouse.move(...at(0.2, 0.7))
+  await page.mouse.down()
+  await page.mouse.move(...at(0.8, 0.95), { steps: 4 })
+  await page.mouse.up()
+  await pages.getByRole('button', { name: 'Page 1', exact: true }).click()
+  await page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Master' }).selectOption('A-Master')
+  await page.mouse.move(1, 1)
+  await expectCanvasMatchesPdf(page)
+})
