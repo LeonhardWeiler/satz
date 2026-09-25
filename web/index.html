@@ -6,9 +6,65 @@
     <meta name="color-scheme" content="dark" />
     <meta name="theme-color" content="#1e1e1e" />
     <title>Satz</title>
+    <style>
+      @font-face {
+        font-family: 'Source Serif 4';
+        src: url('../engine/fonts/SourceSerif4-Regular.ttf') format('truetype');
+        font-display: optional;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        background: #1e1e1e;
+      }
+      .loading {
+        display: grid;
+        place-content: center;
+        justify-items: center;
+        gap: 20px;
+        height: 100%;
+      }
+      .loading h1 {
+        margin: 0;
+        color: #fff;
+        font: 400 56px/1 'Source Serif 4', Georgia, 'Times New Roman', serif;
+      }
+      .loading .bar {
+        width: 160px;
+        height: 4px;
+        border-radius: 2px;
+        overflow: hidden;
+        background: rgb(255 255 255 / 0.12);
+      }
+      .loading .bar::after {
+        content: '';
+        display: block;
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #c8c8c8, #fff);
+        transform: translateX(-100%);
+        animation: fill 30s cubic-bezier(0.05, 0.7, 0.1, 1) forwards;
+      }
+      @keyframes fill {
+        to {
+          transform: translateX(-4%);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .loading .bar::after {
+          animation: none;
+        }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <main class="loading">
+        <h1>Satz</h1>
+        <div class="bar" role="progressbar" aria-label="Loading Satz"></div>
+      </main>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

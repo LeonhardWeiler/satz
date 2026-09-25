@@ -4,4 +4,5 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   base: '/satz/',
   plugins: [react()],
+  server: { fs: { allow: ['..'] } },
 })
