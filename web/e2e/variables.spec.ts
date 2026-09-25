@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { open, pixels, screen } from './util'
+import { PNG } from 'pngjs'
+import { open, screen } from './util'
 
 const near = ([r, g, b]: number[], [R, G, B]: number[]) => Math.max(Math.abs(r - R), Math.abs(g - G), Math.abs(b - B)) <= 24
 
@@ -81,25 +82,33 @@ test('a fill bound to a colour variable follows the mode of its frame and page',
   await bind(rects.last())
   await bind(rects.first())
   await expect(panel.getByText('Color 1')).toBeVisible()
-  const color = async (x: number, y: number) => {
-    const [sx, sy] = await screen(page, x, y)
-    return (await pixels(page, sx, sy, 1, 1))[0]
+  /** Colours of the top rectangle and of the one in the frame, from one screenshot. */
+  const colors = async () => {
+    const points = [await screen(page, 74, 7), await screen(page, 100, 185)]
+    await page.waitForTimeout(100)
+    const png = PNG.sync.read(await page.screenshot())
+    return points.map(([x, y]) => {
+      const i = (Math.round(y) * png.width + Math.round(x)) * 4
+      return [png.data[i], png.data[i + 1], png.data[i + 2]]
+    })
   }
-  expect(near(await color(74, 7), [255, 0, 0])).toBe(true)
-  expect(near(await color(100, 185), [255, 0, 0])).toBe(true)
+  const expectColors = async (top: number[], inFrame: number[]) => {
+    const [a, b] = await colors()
+    expect(near(a, top) && near(b, inFrame), `${a} ${b}`).toBe(true)
+  }
+  const [red, blue] = [[255, 0, 0], [0, 0, 255]]
+  await expectColors(red, red)
 
   await page.keyboard.press('Escape')
   await page.keyboard.press('Escape')
   await panel.getByRole('combobox', { name: 'Collection 1 mode' }).selectOption('Mode 2')
-  expect(near(await color(74, 7), [0, 0, 255])).toBe(true)
-  expect(near(await color(100, 185), [0, 0, 255])).toBe(true)
+  await expectColors(blue, blue)
 
   await layers.getByRole('button', { name: 'Frame', exact: true }).click()
   const frameMode = panel.getByRole('combobox', { name: 'Collection 1 mode' })
   await expect(frameMode.getByRole('option', { selected: true })).toHaveText('Auto (Mode 2)')
   await frameMode.selectOption('Mode 1')
-  expect(near(await color(74, 7), [0, 0, 255])).toBe(true)
-  expect(near(await color(100, 185), [255, 0, 0])).toBe(true)
+  await expectColors(blue, red)
 })
 
 test('a number variable binds to width and detaches with the value of the current mode', async ({ page }) => {
