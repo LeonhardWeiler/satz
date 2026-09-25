@@ -1,6 +1,7 @@
 use crate::color::{Color, ColorMode, Swatch};
 use crate::display_list::{CLOSE, LINE, MOVE, Op, rect};
 use crate::geom::{Shape, bounds, contains, fit, near, outline};
+use crate::layout::{Align3, Direction, Layout, MainAlign, Size, Sizing, arrange};
 use crate::style::{
     Align, Blend, Cap, Constraint, Constraints, Effect, EffectKind, Fill, FillKind, FillStop, Join,
     Style, paints,
@@ -30,12 +31,16 @@ pub enum Command {
         w: f64,
         h: f64,
     },
+    /// Moves and resizes a layer; a frame's children follow their constraints
+    /// unless `ignore_constraints`.
     SetFrame {
         id: String,
         x: f64,
         y: f64,
         w: f64,
         h: f64,
+        #[serde(default)]
+        ignore_constraints: bool,
     },
     SetText {
         id: String,
@@ -64,6 +69,11 @@ pub enum Command {
     /// Toggles one layer's mask flag, or wraps several layers in a mask group
     /// whose lowest layer masks the others.
     Mask {
+        ids: Vec<String>,
+    },
+    /// Adds auto layout to one frame, or wraps layers in a new auto layout frame;
+    /// direction, gap and padding follow the current arrangement.
+    AutoLayout {
         ids: Vec<String>,
     },
     Move {
@@ -189,6 +199,16 @@ pub struct Props {
     pub blend: Option<Blend>,
     pub effects: Option<Vec<Effect>>,
     pub mask: Option<bool>,
+    pub direction: Option<Direction>,
+    pub gap: Option<f64>,
+    pub padding_top: Option<f64>,
+    pub padding_right: Option<f64>,
+    pub padding_bottom: Option<f64>,
+    pub padding_left: Option<f64>,
+    pub align_main: Option<MainAlign>,
+    pub align_cross: Option<Align3>,
+    pub sizing: Option<Sizing>,
+    pub absolute: Option<bool>,
 }
 
 impl Props {
@@ -204,6 +224,14 @@ impl Props {
         within(self.count.map(f64::from), 3.0, 60.0, "count")?;
         within(f(self.ratio), 0.01, 1.0, "ratio")?;
         within(f(self.opacity), 0.0, 1.0, "opacity")?;
+        for p in [
+            self.padding_top,
+            self.padding_right,
+            self.padding_bottom,
+            self.padding_left,
+        ] {
+            within(p, 0.0, f64::MAX, "padding")?;
+        }
         for e in self.effects.iter().flatten() {
             within(Some(e.radius.into()), 0.0, f64::MAX, "blur")?;
             e.color.check()?;
@@ -282,6 +310,8 @@ pub struct Node {
     #[serde(flatten)]
     pub style: Style,
     #[serde(flatten)]
+    pub layout: Layout,
+    #[serde(flatten)]
     pub kind: Kind,
 }
 
@@ -310,7 +340,18 @@ type Res<T> = Result<T, String>;
 
 const MM: f64 = 72.0 / 25.4;
 /// Properties a number variable can bind to; lengths count in mm, opacity in %.
-const BINDABLE: [&str; 5] = ["w", "h", "radius", "strokeWeight", "opacity"];
+const BINDABLE: [&str; 10] = [
+    "w",
+    "h",
+    "radius",
+    "strokeWeight",
+    "opacity",
+    "gap",
+    "paddingTop",
+    "paddingRight",
+    "paddingBottom",
+    "paddingLeft",
+];
 const WHITE: u32 = 0xffffffff;
 const BLACK: u32 = 0x000000ff;
 const SAMPLE: &str = "Satz sets type in the browser. The engine shapes this paragraph \
@@ -533,6 +574,7 @@ impl Doc {
     }
 
     pub fn apply(&mut self, cmd: Command) -> Res<Vec<String>> {
+        let history = matches!(cmd, Command::Undo | Command::Redo);
         let out = match cmd {
             Command::Create {
                 parent,
@@ -620,11 +662,31 @@ impl Doc {
                 self.set_frame(id, [x, y, w, h])?;
                 vec![id.to_string()]
             }
-            Command::SetFrame { id, x, y, w, h } => {
+            Command::SetFrame {
+                id,
+                x,
+                y,
+                w,
+                h,
+                ignore_constraints,
+            } => {
                 let id = self.node(&id)?;
                 let [.., ow, oh] = self.bounds(id);
                 self.unbind(id, |p| p == "w" && w != ow || p == "h" && h != oh)?;
-                self.set_frame(id, [x, y, w, h])?;
+                let old = self.layout(id).sizing;
+                let mut sizing = old;
+                for (size, changed) in [
+                    (&mut sizing.horizontal, w != ow),
+                    (&mut sizing.vertical, h != oh),
+                ] {
+                    if changed {
+                        *size = Size::Fixed;
+                    }
+                }
+                if sizing != old {
+                    self.meta(id).insert("sizing", loro(sizing)?).map_err(err)?;
+                }
+                self.resize(id, [x, y, w, h], !ignore_constraints)?;
                 vec![]
             }
             Command::SetText { id, text } => {
@@ -696,6 +758,66 @@ impl Doc {
                     self.meta(lowest).insert("mask", true).map_err(err)?;
                     vec![g.to_string()]
                 }
+            }
+            Command::AutoLayout { ids } => {
+                let ids = self.sorted(&ids)?;
+                let single = match ids[..] {
+                    [f] => self.kind(f) == "frame" && self.layout(f).direction == Direction::None,
+                    _ => false,
+                };
+                let f = if single {
+                    ids[0]
+                } else {
+                    self.group(&ids, true)?
+                };
+                let mut kids: Vec<_> = self
+                    .children(f)
+                    .into_iter()
+                    .map(|c| (c, self.bounds(c)))
+                    .collect();
+                let spread = |a: usize| {
+                    let centers = kids.iter().map(|(_, b)| b[a] + b[a + 2] / 2.0);
+                    centers.clone().fold(f64::MIN, f64::max) - centers.fold(f64::MAX, f64::min)
+                };
+                let horizontal = spread(0) >= spread(1);
+                let a = if horizontal { 0 } else { 1 };
+                kids.sort_by(|p, q| p.1[a].total_cmp(&q.1[a]));
+                for (i, &(c, _)) in kids.iter().enumerate() {
+                    self.tree.mov_to(c, f, i).map_err(err)?;
+                }
+                let gaps: Vec<f64> = kids
+                    .windows(2)
+                    .map(|w| w[1].1[a] - w[0].1[a] - w[0].1[a + 2])
+                    .collect();
+                let gap = (gaps.iter().sum::<f64>() / gaps.len().max(1) as f64).max(0.0);
+                let [x, y, w, h] = self.bounds(f);
+                let [cx, cy, cw, ch] = union(kids.iter().map(|k| k.1));
+                let [top, right, bottom, left] = if single && !kids.is_empty() {
+                    [cy - y, x + w - cx - cw, y + h - cy - ch, cx - x].map(|v| v.max(0.0))
+                } else {
+                    [0.0; 4]
+                };
+                self.set(
+                    f,
+                    Props {
+                        direction: Some(if horizontal {
+                            Direction::Horizontal
+                        } else {
+                            Direction::Vertical
+                        }),
+                        gap: Some(gap),
+                        padding_top: Some(top),
+                        padding_right: Some(right),
+                        padding_bottom: Some(bottom),
+                        padding_left: Some(left),
+                        sizing: Some(Sizing {
+                            horizontal: Size::Hug,
+                            vertical: Size::Hug,
+                        }),
+                        ..Props::default()
+                    },
+                )?;
+                vec![f.to_string()]
             }
             Command::Move { ids, parent, index } => {
                 let p = self.node(&parent)?;
@@ -1053,8 +1175,9 @@ impl Doc {
         };
         let palette = self.palette();
         for p in self.tree.roots() {
-            if self.kind(p) == "page" {
+            if !history && self.kind(p) == "page" {
                 self.settle(p, &Modes::new(), &palette)?;
+                self.lay_out(p)?;
             }
         }
         self.doc.commit();
@@ -1157,6 +1280,73 @@ impl Doc {
             }
             Ok(())
         })
+    }
+
+    fn layout(&self, id: TreeID) -> Layout {
+        serde_json::to_value(self.meta(id).get_deep_value())
+            .ok()
+            .and_then(|v| serde_json::from_value(v).ok())
+            .unwrap_or_default()
+    }
+
+    /// Lays out the auto layout frames in `id`'s subtree, innermost first.
+    fn lay_out(&self, id: TreeID) -> Res<()> {
+        let kids = self.children(id);
+        for &c in &kids {
+            self.lay_out(c)?;
+        }
+        let l = self.layout(id);
+        let Some((horizontal, pad)) = l.axes().filter(|_| self.kind(id) == "frame") else {
+            return Ok(());
+        };
+        let flow: Vec<TreeID> = kids
+            .into_iter()
+            .filter(|&c| !self.layout(c).absolute)
+            .collect();
+        let axes = |[x, y, w, h]: [f64; 4]| {
+            if horizontal {
+                [[x, w], [y, h]]
+            } else {
+                [[y, h], [x, w]]
+            }
+        };
+        let unaxes = |[[m0, ms], [c0, cs]]: [[f64; 2]; 2]| {
+            if horizontal {
+                [m0, c0, ms, cs]
+            } else {
+                [c0, m0, cs, ms]
+            }
+        };
+        let old = self.bounds(id);
+        let [[m0, ms], [c0, cs]] = axes(old);
+        let fill = |c: TreeID| {
+            let cl = self.layout(c);
+            [horizontal, !horizontal].map(|a| cl.size(a) == Size::Fill)
+        };
+        let children: Vec<_> = flow
+            .iter()
+            .map(|&c| {
+                let [[_, a], [_, b]] = axes(self.bounds(c));
+                ([a, b], fill(c))
+            })
+            .collect();
+        let hug = [horizontal, !horizontal].map(|a| l.size(a) == Size::Hug);
+        let (size, boxes) = arrange(&l, pad, [ms, cs], hug, &children);
+        let frame = unaxes([[m0, size[0]], [c0, size[1]]]);
+        if frame != old {
+            self.set_frame(id, frame)?;
+        }
+        for (c, [[a0, a], [b0, b]]) in flow.into_iter().zip(boxes) {
+            let old = self.bounds(c);
+            let new = unaxes([[m0 + a0, a], [c0 + b0, b]]);
+            if new != old {
+                self.set_frame(c, new)?;
+                if new[2..] != old[2..] {
+                    self.lay_out(c)?;
+                }
+            }
+        }
+        Ok(())
     }
 
     fn constraints(&self, id: TreeID) -> Constraints {
@@ -1383,6 +1573,7 @@ impl Doc {
             modes,
             active_modes,
             bindings: self.bindings(id),
+            layout: serde_json::from_value(v.clone()).unwrap_or_default(),
             style,
             kind,
         }
@@ -1400,7 +1591,11 @@ impl Doc {
         Ok(())
     }
 
-    fn set_frame(&self, id: TreeID, [x, y, w, h]: [f64; 4]) -> Res<()> {
+    fn set_frame(&self, id: TreeID, frame: [f64; 4]) -> Res<()> {
+        self.resize(id, frame, true)
+    }
+
+    fn resize(&self, id: TreeID, [x, y, w, h]: [f64; 4], follow: bool) -> Res<()> {
         if !(w >= 0.0 && h >= 0.0) {
             return Err("width and height must not be negative".into());
         }
@@ -1418,7 +1613,7 @@ impl Doc {
                 }
                 return Ok(());
             }
-            "frame" => {
+            "frame" if follow => {
                 for c in self.children(id) {
                     let [cx, cy, cw, ch] = self.bounds(c);
                     let k = self.constraints(c);
@@ -1937,6 +2132,7 @@ mod tests {
             y: 0.0,
             w: 40.0,
             h: 20.0,
+            ignore_constraints: false,
         })
         .unwrap();
         let pg = page(&d);
@@ -1957,6 +2153,7 @@ mod tests {
             y: 5.0,
             w: 10.0,
             h: 10.0,
+            ignore_constraints: false,
         })
         .unwrap();
         let pg = page(&d);
@@ -2241,6 +2438,7 @@ mod tests {
                 y: 0.0,
                 w: 1.0,
                 h: 1.0,
+                ignore_constraints: false,
             })
             .unwrap();
         }
@@ -2567,6 +2765,7 @@ mod tests {
                 y: 0.0,
                 w,
                 h,
+                ignore_constraints: false,
             })
         };
         assert!(set_frame(&mut d, -1.0, 1.0).is_err());
@@ -3048,6 +3247,7 @@ mod tests {
             y: 5.0,
             w: 3.0,
             h: 1.0,
+            ignore_constraints: false,
         })
         .unwrap();
         set_value(&mut d, &size, &big, Value::Number(30.0)).unwrap();
@@ -3254,6 +3454,7 @@ mod tests {
             y: 0.0,
             w: 200.0,
             h: 140.0,
+            ignore_constraints: false,
         })
         .unwrap();
         let pg = page(&d);
@@ -3269,5 +3470,291 @@ mod tests {
                 vertical: Min
             }
         );
+    }
+
+    fn auto(d: &mut Doc, id: &str, props: Props) {
+        set(
+            d,
+            id,
+            Props {
+                direction: Some(Direction::Horizontal),
+                ..props
+            },
+        );
+    }
+
+    fn frames(d: &Doc, id: &str) -> Vec<[f64; 4]> {
+        fn find<'a>(nodes: &'a [Node], id: &str) -> Option<&'a Node> {
+            nodes
+                .iter()
+                .find_map(|n| (n.id == id).then_some(n).or_else(|| find(children(n), id)))
+        }
+        let pg = page(d);
+        let f = find(&pg.children, id).unwrap();
+        [frame(f)]
+            .into_iter()
+            .chain(children(f).iter().map(frame))
+            .collect()
+    }
+
+    fn sizing(horizontal: Size, vertical: Size) -> Option<Sizing> {
+        Some(Sizing {
+            horizontal,
+            vertical,
+        })
+    }
+
+    #[test]
+    fn a_hugging_auto_layout_frame_stacks_its_children_with_gap_and_padding() {
+        let (mut d, p) = empty();
+        let f = create(&mut d, &p, NewKind::Frame, [100.0, 100.0, 1.0, 1.0]);
+        for s in [10.0, 20.0, 30.0] {
+            create(&mut d, &f, NewKind::Rect, [0.0, 0.0, s, s]);
+        }
+        auto(
+            &mut d,
+            &f,
+            Props {
+                gap: Some(5.0),
+                padding_top: Some(10.0),
+                padding_right: Some(10.0),
+                padding_bottom: Some(10.0),
+                padding_left: Some(10.0),
+                align_cross: Some(Align3::Center),
+                sizing: sizing(Size::Hug, Size::Hug),
+                ..Props::default()
+            },
+        );
+        assert_eq!(
+            frames(&d, &f),
+            [
+                [100.0, 100.0, 90.0, 50.0],
+                [110.0, 120.0, 10.0, 10.0],
+                [125.0, 115.0, 20.0, 20.0],
+                [150.0, 110.0, 30.0, 30.0],
+            ]
+        );
+        set(
+            &mut d,
+            &f,
+            Props {
+                direction: Some(Direction::Vertical),
+                align_cross: Some(Align3::End),
+                ..Props::default()
+            },
+        );
+        assert_eq!(
+            frames(&d, &f),
+            [
+                [100.0, 100.0, 50.0, 90.0],
+                [130.0, 110.0, 10.0, 10.0],
+                [120.0, 125.0, 20.0, 20.0],
+                [110.0, 150.0, 30.0, 30.0],
+            ]
+        );
+    }
+
+    #[test]
+    fn fill_children_share_the_free_space_and_absolute_ones_keep_their_place() {
+        let (mut d, p) = empty();
+        let f = create(&mut d, &p, NewKind::Frame, [0.0, 0.0, 200.0, 50.0]);
+        let _a = create(&mut d, &f, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
+        let b = create(&mut d, &f, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
+        create(&mut d, &f, NewKind::Rect, [0.0, 0.0, 30.0, 10.0]);
+        let x = create(&mut d, &f, NewKind::Ellipse, [70.0, 30.0, 5.0, 5.0]);
+        set(
+            &mut d,
+            &b,
+            Props {
+                sizing: sizing(Size::Fill, Size::Fill),
+                ..Props::default()
+            },
+        );
+        set(
+            &mut d,
+            &x,
+            Props {
+                absolute: Some(true),
+                ..Props::default()
+            },
+        );
+        auto(
+            &mut d,
+            &f,
+            Props {
+                gap: Some(5.0),
+                ..Props::default()
+            },
+        );
+        assert_eq!(
+            frames(&d, &f),
+            [
+                [0.0, 0.0, 200.0, 50.0],
+                [0.0, 0.0, 10.0, 10.0],
+                [15.0, 0.0, 150.0, 50.0],
+                [170.0, 0.0, 30.0, 10.0],
+                [70.0, 30.0, 5.0, 5.0],
+            ]
+        );
+        d.apply(Command::SetFrame {
+            id: b.clone(),
+            x: 15.0,
+            y: 0.0,
+            w: 10.0,
+            h: 10.0,
+            ignore_constraints: false,
+        })
+        .unwrap();
+        set(
+            &mut d,
+            &f,
+            Props {
+                align_main: Some(MainAlign::SpaceBetween),
+                ..Props::default()
+            },
+        );
+        assert_eq!(
+            frames(&d, &f)[1..4],
+            [
+                [0.0, 0.0, 10.0, 10.0],
+                [85.0, 0.0, 10.0, 10.0],
+                [170.0, 0.0, 30.0, 10.0]
+            ]
+        );
+    }
+
+    #[test]
+    fn nested_hug_frames_grow_their_parents_and_resizing_a_hug_axis_makes_it_fixed() {
+        let (mut d, p) = empty();
+        let outer = create(&mut d, &p, NewKind::Frame, [0.0, 0.0, 1.0, 1.0]);
+        let inner = create(&mut d, &outer, NewKind::Frame, [0.0, 0.0, 1.0, 1.0]);
+        create(&mut d, &inner, NewKind::Rect, [0.0, 0.0, 10.0, 20.0]);
+        create(&mut d, &inner, NewKind::Rect, [0.0, 0.0, 10.0, 20.0]);
+        let hug = Props {
+            sizing: sizing(Size::Hug, Size::Hug),
+            padding_left: Some(1.0),
+            ..Props::default()
+        };
+        auto(&mut d, &inner, hug);
+        auto(
+            &mut d,
+            &outer,
+            Props {
+                sizing: sizing(Size::Hug, Size::Hug),
+                padding_left: Some(1.0),
+                ..Props::default()
+            },
+        );
+        assert_eq!(frames(&d, &outer)[0], [0.0, 0.0, 22.0, 20.0]);
+        let (c, _) = collection(&mut d, "Space");
+        let gap = variable(&mut d, &c, "Gap", Value::Number(10.0)).unwrap();
+        bind(&mut d, &inner, "gap", Some(&gap)).unwrap();
+        assert_eq!(frames(&d, &outer)[0][2], 22.0 + 10.0 * MM);
+        d.apply(Command::SetFrame {
+            id: inner.clone(),
+            x: 1.0,
+            y: 0.0,
+            w: 50.0,
+            h: 20.0,
+            ignore_constraints: false,
+        })
+        .unwrap();
+        assert_eq!(frames(&d, &outer)[0], [0.0, 0.0, 51.0, 20.0]);
+        let pg = page(&d);
+        let n = &children(&pg.children[0])[0];
+        assert_eq!(
+            n.layout.sizing,
+            Sizing {
+                horizontal: Size::Fixed,
+                vertical: Size::Hug
+            }
+        );
+    }
+
+    #[test]
+    fn shift_a_wraps_layers_in_a_hugging_auto_layout_frame_ordered_by_position() {
+        let (mut d, p) = empty();
+        let a = create(&mut d, &p, NewKind::Rect, [50.0, 0.0, 10.0, 10.0]);
+        let b = create(&mut d, &p, NewKind::Rect, [0.0, 5.0, 10.0, 10.0]);
+        let f = d
+            .apply(Command::AutoLayout {
+                ids: vec![a.clone(), b.clone()],
+            })
+            .unwrap()
+            .remove(0);
+        let pg = page(&d);
+        let n = &pg.children[0];
+        assert_eq!(
+            (n.id.clone(), n.layout.direction),
+            (f.clone(), Direction::Horizontal)
+        );
+        assert_eq!(ids(children(n)), [b, a]);
+        assert_eq!(n.layout.gap, 40.0);
+        assert_eq!(
+            frames(&d, &f),
+            [
+                [0.0, 0.0, 60.0, 10.0],
+                [0.0, 0.0, 10.0, 10.0],
+                [50.0, 0.0, 10.0, 10.0]
+            ]
+        );
+
+        let g = create(&mut d, &p, NewKind::Frame, [100.0, 100.0, 100.0, 100.0]);
+        create(&mut d, &g, NewKind::Rect, [110.0, 150.0, 20.0, 10.0]);
+        create(&mut d, &g, NewKind::Rect, [110.0, 120.0, 30.0, 10.0]);
+        assert_eq!(
+            d.apply(Command::AutoLayout {
+                ids: vec![g.clone()]
+            })
+            .unwrap(),
+            std::slice::from_ref(&g)
+        );
+        let l = &page(&d).children[1].layout;
+        assert_eq!((l.direction, l.gap), (Direction::Vertical, 20.0));
+        assert_eq!(
+            [
+                l.padding_top,
+                l.padding_right,
+                l.padding_bottom,
+                l.padding_left
+            ],
+            [20.0, 60.0, 40.0, 10.0]
+        );
+        assert_eq!(
+            frames(&d, &g),
+            [
+                [100.0, 100.0, 100.0, 100.0],
+                [110.0, 120.0, 30.0, 10.0],
+                [110.0, 150.0, 20.0, 10.0]
+            ]
+        );
+    }
+
+    #[test]
+    fn resizing_a_frame_without_constraints_leaves_its_children_in_place() {
+        let (mut d, p) = empty();
+        let f = create(&mut d, &p, NewKind::Frame, [0.0, 0.0, 100.0, 100.0]);
+        let r = create(&mut d, &f, NewKind::Rect, [10.0, 10.0, 10.0, 10.0]);
+        set(
+            &mut d,
+            &r,
+            Props {
+                constraints: Some(Constraints {
+                    horizontal: Constraint::Scale,
+                    vertical: Constraint::Max,
+                }),
+                ..Props::default()
+            },
+        );
+        d.apply(Command::SetFrame {
+            id: f.clone(),
+            x: -50.0,
+            y: 0.0,
+            w: 150.0,
+            h: 50.0,
+            ignore_constraints: true,
+        })
+        .unwrap();
+        assert_eq!(frames(&d, &f)[1], [10.0, 10.0, 10.0, 10.0]);
     }
 }

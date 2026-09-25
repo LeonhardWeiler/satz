@@ -2,6 +2,7 @@ mod color;
 mod display_list;
 mod doc;
 mod geom;
+mod layout;
 mod linebreak;
 mod pdf;
 mod raster;
