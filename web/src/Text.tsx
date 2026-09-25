@@ -1,8 +1,8 @@
 import { Fragment } from 'react'
 import { Field, NameInput, nextName, Section, Select } from './controls'
-import { useEditor, type Editor } from './editor'
+import { MM, useEditor, type Editor } from './editor'
 import { Icon } from './icons'
-import type { Attrs, Node, Styled, TextProps, TextStyle } from './model'
+import type { Attrs, Node, Props, Styled, TextProps, TextStyle } from './model'
 import { Bindable } from './Variables'
 
 type TextNode = Extract<Node, { kind: 'text' }>
@@ -12,6 +12,17 @@ const ALIGNS = [
   ['center', 'Align center', 'alignCenter'],
   ['right', 'Align right', 'alignRight'],
   ['justify', 'Justify', 'alignJustify'],
+] as const
+const INSETS = [
+  ['insetTop', 'Top inset', 'T'],
+  ['insetRight', 'Right inset', 'R'],
+  ['insetBottom', 'Bottom inset', 'B'],
+  ['insetLeft', 'Left inset', 'L'],
+] as const
+const VERTICAL = [
+  ['top', 'Align top', 'alignTop'],
+  ['center', 'Align middle', 'alignMiddle'],
+  ['bottom', 'Align bottom', 'alignBottom'],
 ] as const
 const LANGS = { en: 'English', de: 'German' } as const
 /** Styled attributes: title, label, unit and the text shown for 0. */
@@ -171,5 +182,37 @@ function StyleRow({ editor, style }: { editor: Editor; style: TextStyle }) {
         ))}
       </div>
     </div>
+  )
+}
+
+/** Insets, columns, vertical alignment and baseline grid of a text layer. */
+export function TextFrameSection({ node, set }: { node: TextNode; set: (p: Props) => void }) {
+  return (
+    <Section title="Text frame">
+      <div className="grid">
+        {INSETS.map(([prop, title, label]) => (
+          <Field key={prop} label={label} title={`${title} in mm`} unit="mm" value={node[prop] / MM} onCommit={(v) => set({ [prop]: v * MM })} />
+        ))}
+        <Field label="Cols" title="Columns" unit="" value={node.columns} onCommit={(v) => set({ columns: Math.round(v) })} />
+        <Field label="Gutter" title="Gutter in mm" unit="mm" value={node.gutter / MM} onCommit={(v) => set({ gutter: v * MM })} />
+        <Field label="Grid" title="Baseline grid in pt" unit="pt" zero="Off" value={node.baselineGrid} onCommit={(baselineGrid) => set({ baselineGrid })} />
+        <Field label="Start" title="Baseline grid start in pt" unit="pt" value={node.baselineStart} onCommit={(baselineStart) => set({ baselineStart })} />
+      </div>
+      <div role="radiogroup" aria-label="Vertical align" className="segmented">
+        {VERTICAL.map(([value, title, icon]) => (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={node.verticalAlign === value}
+            aria-label={title}
+            title={title}
+            onClick={() => set({ verticalAlign: value })}
+          >
+            <Icon name={icon} size={16} />
+          </button>
+        ))}
+      </div>
+    </Section>
   )
 }

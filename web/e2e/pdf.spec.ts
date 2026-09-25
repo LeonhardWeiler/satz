@@ -282,12 +282,17 @@ test('formatted text matches the canvas', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
-  for (const [name, value] of [['W in mm', '70'], ['Font size in pt', '13'], ['Line height in pt', '21'], ['Letter spacing in %', '4'], ['Paragraph spacing in pt', '8']]) {
+  for (const [name, value] of [['W in mm', '110'], ['Font size in pt', '13'], ['Line height in pt', '21'], ['Letter spacing in %', '4'], ['Paragraph spacing in pt', '8']]) {
     await panel.getByRole('textbox', { name }).fill(value)
     await panel.getByRole('textbox', { name }).press('Enter')
   }
   await panel.getByRole('radio', { name: 'Align right' }).click()
   await panel.getByRole('combobox', { name: 'Hyphenation language' }).selectOption('German')
+  for (const [name, value] of [['Top inset in mm', '3'], ['Columns', '2'], ['Gutter in mm', '4'], ['Baseline grid in pt', '21']]) {
+    await panel.getByRole('textbox', { name }).fill(value)
+    await panel.getByRole('textbox', { name }).press('Enter')
+  }
+  await panel.getByRole('radio', { name: 'Align middle' }).click()
   await page.keyboard.press('Escape')
   await page.mouse.move(1, 1)
   const pdf = await expectCanvasMatchesPdf(page)

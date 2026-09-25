@@ -6,7 +6,7 @@ import { MM, bounds, ends, scopeOf, useEditor, type Editor } from './editor'
 import type { Bindable as Prop, Blend, Constraint, Command, Fill, Node, Props, Size, Style } from './model'
 import { AutoLayout } from './AutoLayout'
 import { EffectList, PaintList } from './Paints'
-import { TextSection, TextStyles } from './Text'
+import { TextFrameSection, TextSection, TextStyles } from './Text'
 import { Bindable, ModeSelects, Variables } from './Variables'
 
 const BLENDS: Record<Blend, string> = {
@@ -274,6 +274,7 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
       )}
       {one && <EffectList effects={one.effects} mode={mode} scope={scope} onChange={(effects) => set({ effects })} />}
       {one?.kind === 'text' && <TextSection editor={editor} node={one} />}
+      {one?.kind === 'text' && <TextFrameSection node={one} set={set} />}
     </aside>
   )
 }

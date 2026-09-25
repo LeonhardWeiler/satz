@@ -154,6 +154,48 @@ fn hyphen_width(it: &Item) -> f32 {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum VerticalAlign {
+    #[default]
+    Top,
+    Center,
+    Bottom,
+}
+
+/// How a text layer sets its text: insets and gutter in pt, columns of equal width,
+/// and baselines on a grid of `baseline_grid` pt from `baseline_start` below the top
+/// inset; a grid of 0 is off.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct TextFrame {
+    pub inset_top: f64,
+    pub inset_right: f64,
+    pub inset_bottom: f64,
+    pub inset_left: f64,
+    pub columns: u32,
+    pub gutter: f64,
+    pub vertical_align: VerticalAlign,
+    pub baseline_grid: f64,
+    pub baseline_start: f64,
+}
+
+impl Default for TextFrame {
+    fn default() -> Self {
+        TextFrame {
+            inset_top: 0.0,
+            inset_right: 0.0,
+            inset_bottom: 0.0,
+            inset_left: 0.0,
+            columns: 1,
+            gutter: 12.0,
+            vertical_align: VerticalAlign::Top,
+            baseline_grid: 0.0,
+            baseline_start: 0.0,
+        }
+    }
+}
+
 /// A glyph at (x, y) on its baseline, drawn with the attributes of `span`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Glyph {
@@ -164,7 +206,14 @@ pub struct Glyph {
 }
 
 /// Glyph runs of `text` set in `frame`; characters without a fill take `fills`.
-pub fn draw(text: &str, spans: &[Span], fills: &[Fill], frame: [f32; 4], s: &Scope) -> Vec<Op> {
+pub fn draw(
+    text: &str,
+    spans: &[Span],
+    fills: &[Fill],
+    frame: [f32; 4],
+    tf: &TextFrame,
+    s: &Scope,
+) -> Vec<Op> {
     let span_paints: Vec<Vec<Paint>> = spans
         .iter()
         .map(|sp| match &sp.attrs.fill {
@@ -176,7 +225,7 @@ pub fn draw(text: &str, spans: &[Span], fills: &[Fill], frame: [f32; 4], s: &Sco
         })
         .collect();
     let mut ops = Vec::new();
-    for line in lay_out(text, spans, frame) {
+    for line in lay_out(text, spans, frame, tf) {
         for run in line.chunk_by(|a, b| {
             spans[a.span].attrs.size == spans[b.span].attrs.size
                 && span_paints[a.span] == span_paints[b.span]
@@ -196,7 +245,22 @@ pub fn draw(text: &str, spans: &[Span], fills: &[Fill], frame: [f32; 4], s: &Sco
 }
 
 /// The lines of `text` that fit in `frame`, each a list of glyphs.
-pub fn lay_out(text: &str, spans: &[Span], [x, y, w, h]: [f32; 4]) -> Vec<Vec<Glyph>> {
+pub fn lay_out(
+    text: &str,
+    spans: &[Span],
+    [x, y, w, h]: [f32; 4],
+    tf: &TextFrame,
+) -> Vec<Vec<Glyph>> {
+    let [top_in, right_in, bottom_in, left_in] =
+        [tf.inset_top, tf.inset_right, tf.inset_bottom, tf.inset_left].map(|v| v as f32);
+    let (ix, iy) = (x + left_in, y + top_in);
+    let (iw, ih) = (
+        (w - left_in - right_in).max(0.0),
+        (h - top_in - bottom_in).max(0.0),
+    );
+    let n = tf.columns.max(1);
+    let gutter = tf.gutter as f32;
+    let cw = ((iw - (n - 1) as f32 * gutter) / n as f32).max(0.0);
     let font = FontRef::new(FONT).unwrap();
     let upem = font.head().unwrap().units_per_em() as f32;
     let hhea = font.hhea().unwrap();
@@ -237,8 +301,7 @@ pub fn lay_out(text: &str, spans: &[Span], [x, y, w, h]: [f32; 4]) -> Vec<Vec<Gl
         (above, l - above)
     };
 
-    let mut lines = Vec::new();
-    let mut top = y;
+    let mut rows: Vec<Row> = Vec::new();
     let mut start = 0;
     for para in text.split('\n') {
         let first = &spans[span_at(start)].attrs;
@@ -286,7 +349,7 @@ pub fn lay_out(text: &str, spans: &[Span], [x, y, w, h]: [f32; 4]) -> Vec<Vec<Gl
         glyphs.extend([None, None]);
 
         let mut from = 0;
-        for (end, r) in break_lines(&items, w) {
+        for (end, r) in break_lines(&items, cw) {
             while from < end && !matches!(items[from], Item::Box(_)) {
                 from += 1;
             }
@@ -324,13 +387,9 @@ pub fn lay_out(text: &str, spans: &[Span], [x, y, w, h]: [f32; 4]) -> Vec<Vec<Gl
                     .map(|&s| vertical(&spans[s].attrs))
                     .fold((0.0f32, 0.0f32), |(a, b), (c, d)| (a.max(c), b.max(d)))
             };
-            if top + above + below > y + h + 0.01 {
-                return lines;
-            }
-            let baseline = top + above;
-            let mut cx = x + match first.text_align {
-                TextAlign::Center => (w - used) / 2.0,
-                TextAlign::Right => w - used,
+            let mut cx = match first.text_align {
+                TextAlign::Center => (cw - used) / 2.0,
+                TextAlign::Right => cw - used,
                 _ => 0.0,
             };
             let mut line = Vec::new();
@@ -342,20 +401,89 @@ pub fn lay_out(text: &str, spans: &[Span], [x, y, w, h]: [f32; 4]) -> Vec<Vec<Gl
                     line.push(Glyph {
                         id,
                         x: cx + dx,
-                        y: baseline - dy,
+                        y: -dy,
                         span,
                     });
                 }
                 cx += spread(&items[k]);
             }
-            lines.push(line);
-            top = baseline + below;
+            rows.push(Row {
+                glyphs: line,
+                above,
+                below,
+                after: 0.0,
+            });
             from = end + 1;
         }
-        top += first.paragraph_spacing as f32;
+        if let Some(r) = rows.last_mut() {
+            r.after = first.paragraph_spacing as f32;
+        }
         start += para.len() + 1;
     }
+
+    let (grid, grid_top) = (tf.baseline_grid as f32, iy + tf.baseline_start as f32);
+    let snap = |b: f32| match grid {
+        0.0 => b,
+        g => grid_top + ((b - grid_top - 0.001) / g).ceil().max(0.0) * g,
+    };
+    let bottom = iy + ih + 0.01;
+    let mut lines: Vec<Vec<Glyph>> = Vec::new();
+    let mut columns: Vec<(usize, f32)> = Vec::new();
+    let (mut col, mut top) = (0, iy);
+    for row in rows {
+        let mut baseline = snap(top + row.above);
+        if baseline + row.below > bottom {
+            col += 1;
+            if col >= n {
+                break;
+            }
+            baseline = snap(iy + row.above);
+            if baseline + row.below > bottom {
+                break;
+            }
+        }
+        if columns.len() <= col as usize {
+            columns.push((lines.len(), 0.0));
+        }
+        let cx = ix + col as f32 * (cw + gutter);
+        lines.push(
+            row.glyphs
+                .into_iter()
+                .map(|g| Glyph {
+                    x: cx + g.x,
+                    y: baseline + g.y,
+                    ..g
+                })
+                .collect(),
+        );
+        columns[col as usize].1 = baseline + row.below;
+        top = baseline + row.below + row.after;
+    }
+    let k = match tf.vertical_align {
+        VerticalAlign::Top => 0.0,
+        VerticalAlign::Center => 0.5,
+        VerticalAlign::Bottom => 1.0,
+    };
+    for (c, &(first, end)) in columns.iter().enumerate() {
+        let last = columns.get(c + 1).map_or(lines.len(), |n| n.0);
+        let mut shift = (iy + ih - end) * k;
+        if grid > 0.0 {
+            shift = (shift / grid).floor() * grid;
+        }
+        for g in lines[first..last].iter_mut().flatten() {
+            g.y += shift;
+        }
+    }
     lines
+}
+
+/// A line with glyphs relative to its column's left edge and baseline, the space
+/// it needs above and below the baseline, and the paragraph spacing after it.
+struct Row {
+    glyphs: Vec<Glyph>,
+    above: f32,
+    below: f32,
+    after: f32,
 }
 
 #[cfg(test)]
@@ -384,13 +512,22 @@ mod tests {
     }
 
     fn runs(text: &str, spans: &[Span], frame: [f32; 4]) -> Vec<(f32, Vec<u16>, Vec<f32>)> {
+        framed(text, spans, frame, &TextFrame::default())
+    }
+
+    fn framed(
+        text: &str,
+        spans: &[Span],
+        frame: [f32; 4],
+        tf: &TextFrame,
+    ) -> Vec<(f32, Vec<u16>, Vec<f32>)> {
         let palette = Palette::default();
         let modes = Modes::new();
         let s = Scope {
             palette: &palette,
             modes: &modes,
         };
-        draw(text, spans, &[Fill::solid(0x000000ffu32)], frame, &s)
+        draw(text, spans, &[Fill::solid(0x000000ffu32)], frame, tf, &s)
             .into_iter()
             .map(|op| match op {
                 Op::GlyphRun {
@@ -566,5 +703,88 @@ mod tests {
         let de = plain("hyphenation", lang(Lang::De), frame);
         assert_eq!(en[0].0.last(), Some(&HYPHEN));
         assert_ne!(en[0].0.len(), de[0].0.len());
+    }
+
+    fn baselines(text: &str, frame: [f32; 4], tf: TextFrame) -> Vec<[f32; 2]> {
+        framed(text, &one(text, attrs(10.0)), frame, &tf)
+            .iter()
+            .map(|r| [r.2[0], r.2[1]])
+            .collect()
+    }
+
+    #[test]
+    fn insets_move_the_text_in_from_the_frame_edges() {
+        let tf = TextFrame {
+            inset_top: 3.0,
+            inset_left: 5.0,
+            inset_right: 70.0,
+            ..TextFrame::default()
+        };
+        let b = baselines("Hi Hi Hi", [0.0, 0.0, 100.0, 50.0], tf);
+        assert_eq!(b.len(), 2);
+        assert_close(&b[0], &[5.0, 3.0 + ASCENT]);
+    }
+
+    #[test]
+    fn text_flows_into_the_next_column_when_one_is_full() {
+        let tf = TextFrame {
+            columns: 2,
+            gutter: 10.0,
+            ..TextFrame::default()
+        };
+        let b = baselines("Hi\nHi\nHi", [0.0, 0.0, 100.0, 30.0], tf);
+        assert_eq!(b.len(), 3);
+        assert_close(&b[1], &[0.0, ASCENT + AUTO]);
+        assert_close(&b[2], &[55.0, ASCENT]);
+    }
+
+    #[test]
+    fn vertical_alignment_moves_the_lines_down_in_the_frame() {
+        let at = |vertical_align| {
+            let tf = TextFrame {
+                vertical_align,
+                ..TextFrame::default()
+            };
+            baselines("Hi", [0.0, 0.0, 100.0, 50.0], tf)[0][1]
+        };
+        assert_close(
+            &[at(VerticalAlign::Center), at(VerticalAlign::Bottom)],
+            &[28.5, 46.65],
+        );
+    }
+
+    #[test]
+    fn a_baseline_grid_moves_each_baseline_down_to_the_next_grid_line() {
+        let tf = TextFrame {
+            inset_top: 2.0,
+            baseline_grid: 15.0,
+            baseline_start: 1.0,
+            ..TextFrame::default()
+        };
+        let b = baselines("Hi\nHi", [0.0, 0.0, 100.0, 50.0], tf);
+        assert_close(&[b[0][1], b[1][1]], &[18.0, 33.0]);
+    }
+
+    #[test]
+    fn a_narrow_column_spreads_its_looseness_instead_of_one_very_loose_line() {
+        let t = "Satz sets type in the browser. The engine shapes this paragraph with \
+                 harfrust, breaks it into lines with the Knuth-Plass algorithm and \
+                 justifies every line but the last to the width of its frame.";
+        let a = Attrs {
+            letter_spacing: 4.0,
+            text_align: TextAlign::Justify,
+            hyphenate: true,
+            lang: Lang::De,
+            ..attrs(13.0)
+        };
+        let lines = lay_out(
+            t,
+            &one(t, a),
+            [0.0, 0.0, 150.0, 1000.0],
+            &TextFrame::default(),
+        );
+        let counts: Vec<usize> = lines.iter().map(Vec::len).collect();
+        let shortest = counts[..counts.len() - 1].iter().min().unwrap();
+        assert!(*shortest >= 14, "{counts:?}");
     }
 }

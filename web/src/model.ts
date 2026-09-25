@@ -59,7 +59,7 @@ export type Layout = {
   absolute: boolean
 }
 
-export type Props = Partial<Style> & Partial<Layout> & { name?: string; clip?: boolean; radius?: number; count?: number; ratio?: number }
+export type Props = Partial<Style> & Partial<Layout> & Partial<TextFrame> & { name?: string; clip?: boolean; radius?: number; count?: number; ratio?: number }
 
 export type NewKind = 'rect' | 'ellipse' | 'polygon' | 'star' | 'line' | 'arrow' | 'path' | 'text' | 'frame'
 
@@ -113,7 +113,7 @@ export type Node = {
   Layout &
   (
     | ({ kind: 'shape' } & Shape)
-    | { kind: 'text'; text: string; spans: Span[] }
+    | ({ kind: 'text'; text: string; spans: Span[] } & TextFrame)
     | { kind: 'group'; children: Node[] }
     | { kind: 'frame'; clip: boolean; children: Node[] }
   )
@@ -157,6 +157,21 @@ export type Attrs = {
   lang: 'en' | 'de'
 }
 export type TextProps = Partial<Attrs>
+/**
+ * How a text layer sets its text: insets and gutter in pt, columns of equal width, and
+ * baselines on a grid of `baselineGrid` pt from `baselineStart` below the top inset; 0 is off.
+ */
+export type TextFrame = {
+  insetTop: number
+  insetRight: number
+  insetBottom: number
+  insetLeft: number
+  columns: number
+  gutter: number
+  verticalAlign: 'top' | 'center' | 'bottom'
+  baselineGrid: number
+  baselineStart: number
+}
 /** `len` characters in UTF-16 code units that share their attributes. */
 export type Span = Attrs & { len: number }
 export type Styled = 'size' | 'lineHeight' | 'letterSpacing' | 'paragraphSpacing'

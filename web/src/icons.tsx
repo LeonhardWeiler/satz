@@ -30,6 +30,9 @@ const PATHS = {
   alignCenter: 'M5 6h14M7.5 10h9M5 14h14M7.5 18h9',
   alignRight: 'M5 6h14M10 10h9M5 14h14M10 18h9',
   alignJustify: 'M5 6h14M5 10h14M5 14h14M5 18h9',
+  alignTop: 'M5 5h14M12 8v11M8.5 11.5L12 8l3.5 3.5',
+  alignMiddle: 'M5 12h14M12 4v5M12 15v5M9.5 6.5L12 9l2.5-2.5M9.5 17.5L12 15l2.5 2.5',
+  alignBottom: 'M5 19h14M12 5v11M8.5 12.5L12 16l3.5-3.5',
   eyeOff: 'M3.5 12s3-5.5 8.5-5.5 8.5 5.5 8.5 5.5-3 5.5-8.5 5.5S3.5 12 3.5 12zM5 19L19 5',
 } as const
 

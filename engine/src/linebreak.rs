@@ -13,8 +13,8 @@ pub enum Item {
 }
 
 const LINE_PENALTY: f64 = 10.0;
-const INF_BAD: f64 = 10000.0;
-const OVERFULL: f64 = 1e12;
+const INF_BAD: f64 = 1e10;
+const OVERFULL: f64 = 1e24;
 
 pub fn break_lines(items: &[Item], width: f32) -> Vec<(usize, f32)> {
     let mut sum = vec![[0.0f64; 3]; items.len() + 1];

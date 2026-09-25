@@ -6,7 +6,9 @@ use crate::style::{
     Align, Blend, Cap, Constraint, Constraints, Effect, EffectKind, Fill, FillKind, FillStop, Join,
     Style,
 };
-use crate::text::{self, Attrs, Lang, PARAGRAPH, STYLED, Span, TextAlign, TextStyle};
+use crate::text::{
+    self, Attrs, Lang, PARAGRAPH, STYLED, Span, TextAlign, TextFrame, TextStyle, VerticalAlign,
+};
 use crate::variable::{Collection, Mode, Modes, Palette, Scope, Value, Variable};
 use loro::{
     Container, ExpandType, LoroDoc, LoroMap, LoroText, LoroTree, LoroValue, StyleConfig, TextDelta,
@@ -17,6 +19,7 @@ use std::collections::BTreeMap;
 use std::fmt::Display;
 use std::ops::Range;
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Deserialize)]
 #[serde(
     tag = "type",
@@ -238,6 +241,15 @@ pub struct Props {
     pub align_cross: Option<Align3>,
     pub sizing: Option<Sizing>,
     pub absolute: Option<bool>,
+    pub inset_top: Option<f64>,
+    pub inset_right: Option<f64>,
+    pub inset_bottom: Option<f64>,
+    pub inset_left: Option<f64>,
+    pub columns: Option<u32>,
+    pub gutter: Option<f64>,
+    pub vertical_align: Option<VerticalAlign>,
+    pub baseline_grid: Option<f64>,
+    pub baseline_start: Option<f64>,
 }
 
 impl Props {
@@ -260,6 +272,18 @@ impl Props {
         ] {
             within(p, 0.0, f64::MAX, "padding")?;
         }
+        for p in [
+            self.inset_top,
+            self.inset_right,
+            self.inset_bottom,
+            self.inset_left,
+        ] {
+            within(p, 0.0, f64::MAX, "inset")?;
+        }
+        within(self.columns.map(f64::from), 1.0, 20.0, "columns")?;
+        within(self.gutter, 0.0, f64::MAX, "gutter")?;
+        within(self.baseline_grid, 0.0, f64::MAX, "baseline grid")?;
+        within(self.baseline_start, 0.0, f64::MAX, "baseline start")?;
         for e in self.effects.iter().flatten() {
             within(Some(e.radius.into()), 0.0, f64::MAX, "blur")?;
             e.color.check()?;
@@ -390,9 +414,19 @@ pub struct Node {
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Kind {
     Shape(Shape),
-    Text { text: String, spans: Vec<Span> },
-    Group { children: Vec<Node> },
-    Frame { clip: bool, children: Vec<Node> },
+    Text {
+        text: String,
+        spans: Vec<Span>,
+        #[serde(flatten)]
+        frame: TextFrame,
+    },
+    Group {
+        children: Vec<Node>,
+    },
+    Frame {
+        clip: bool,
+        children: Vec<Node>,
+    },
 }
 
 pub struct Doc {
@@ -1877,6 +1911,7 @@ impl Doc {
                         modes: &active_modes,
                     },
                 ),
+                frame: serde_json::from_value(v.clone()).unwrap_or_default(),
             },
             "group" => Kind::Group {
                 children: children(),
@@ -2222,7 +2257,11 @@ fn draw(n: &Node, ops: &mut Vec<Op>, pal: &Palette) {
     ops.extend(layer);
     match &n.kind {
         Kind::Shape(shape) => item(ops, n.style.shape(&outline(shape, frame), frame, s)),
-        Kind::Text { text, spans } => item(ops, text::draw(text, spans, &n.style.fills, frame, s)),
+        Kind::Text {
+            text,
+            spans,
+            frame: tf,
+        } => item(ops, text::draw(text, spans, &n.style.fills, frame, tf, s)),
         Kind::Group { children } => draw_all(children, ops, pal),
         Kind::Frame { clip, children } => {
             let r = rect(frame[0], frame[1], frame[2], frame[3]);
@@ -4430,5 +4469,61 @@ mod tests {
         format(&mut d, &t, Some([0, 2]), sized(20.0)).unwrap();
         d.apply(Command::Duplicate { ids: vec![t] }).unwrap();
         assert_eq!(lens_and(&d, |a| a.size), [(2, 20.0), (6, 12.0)]);
+    }
+
+    fn first_glyph(d: &Doc) -> [f32; 2] {
+        d.render(0)
+            .into_iter()
+            .find_map(|op| match op {
+                Op::GlyphRun { positions, .. } => Some([positions[0], positions[1]]),
+                _ => None,
+            })
+            .unwrap()
+    }
+
+    #[test]
+    fn a_text_layer_sets_its_text_inside_its_insets_and_rejects_bad_frames() {
+        let (mut d, _) = empty();
+        let t = text(&mut d, "Hi");
+        let [x0, y0] = first_glyph(&d);
+        set(
+            &mut d,
+            &t,
+            Props {
+                inset_left: Some(4.0),
+                inset_top: Some(6.0),
+                columns: Some(3),
+                vertical_align: Some(VerticalAlign::Top),
+                ..Props::default()
+            },
+        );
+        let [x1, y1] = first_glyph(&d);
+        assert!((x1 - x0 - 4.0).abs() < 1e-4 && (y1 - y0 - 6.0).abs() < 1e-4);
+        let Kind::Text { frame, .. } = page(&d).children.pop().unwrap().kind else {
+            panic!("not text");
+        };
+        assert_eq!(frame.columns, 3);
+        for bad in [
+            Props {
+                columns: Some(0),
+                ..Props::default()
+            },
+            Props {
+                inset_right: Some(-1.0),
+                ..Props::default()
+            },
+            Props {
+                baseline_grid: Some(-2.0),
+                ..Props::default()
+            },
+        ] {
+            assert!(
+                d.apply(Command::Set {
+                    id: t.clone(),
+                    props: bad
+                })
+                .is_err()
+            );
+        }
     }
 }
