@@ -43,3 +43,31 @@ test('layers with shadows are recorded again only when their content changes', a
   apply({ type: 'set', id: triangle.id, opacity: 0.5 })
   expect(draw()).toBe(1)
 })
+
+test('text in several sizes shares one typeface per font, freed with the renderer', async () => {
+  const ck = await CanvasKitInit()
+  initSync({ module: readFileSync(new URL('engine/engine_bg.wasm', import.meta.url)) })
+  const engine = new Engine()
+  const typefaces: { delete: () => void }[] = []
+  let freed = 0
+  const make = ck.Typeface.MakeTypefaceFromData
+  ck.Typeface.MakeTypefaceFromData = (data) => {
+    const t = make(data)!
+    const free = t.delete.bind(t)
+    t.delete = () => (freed++, free())
+    typefaces.push(t)
+    return t
+  }
+  const renderer = new Renderer(ck, engine)
+  const surface = ck.MakeSurface(300, 400)!
+  const [page] = (engine.snapshot() as Snapshot).pages
+  const text = page.children.find((n) => n.kind === 'text')!
+  for (const size of [12, 24]) {
+    engine.apply({ type: 'format', id: text.id, range: null, size })
+    renderer.draw(surface.getCanvas(), [page], [page], { x: 0, y: 0, zoom: 0.5 }, 1, { selection: [] })
+  }
+  expect(typefaces).toHaveLength(1)
+  renderer.delete()
+  expect(freed).toBe(1)
+  ck.Typeface.MakeTypefaceFromData = make
+})

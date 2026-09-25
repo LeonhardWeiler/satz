@@ -1,4 +1,4 @@
-import type { Canvas, CanvasKit, Font, Paint, Rect, SkPicture } from 'canvaskit-wasm'
+import type { Canvas, CanvasKit, Font, Paint, Rect, SkPicture, Typeface } from 'canvaskit-wasm'
 import type { Engine } from './engine/engine'
 import { close, decode, type Op, type Paint as Fill } from './displayList'
 
@@ -58,6 +58,7 @@ export class Renderer {
   /** Item pictures by item id, and pictures of layers with shadows by layer hash. */
   private pictures: Cache = new Map()
   private layers: Cache = new Map()
+  private typefaces = new Map<number, Typeface>()
   private fonts = new Map<string, Font>()
   /** Paint for display-list content; `chrome` draws the page, guides and overlay. */
   private paint: Paint
@@ -365,7 +366,11 @@ export class Renderer {
     const key = `${id}/${size}`
     let font = this.fonts.get(key)
     if (!font) {
-      const typeface = this.ck.Typeface.MakeTypefaceFromData(this.engine.font(id).slice().buffer)
+      let typeface = this.typefaces.get(id)
+      if (!typeface) {
+        typeface = this.ck.Typeface.MakeTypefaceFromData(this.engine.font(id).slice().buffer)!
+        this.typefaces.set(id, typeface)
+      }
       font = new this.ck.Font(typeface, size)
       font.setHinting(this.ck.FontHinting.None)
       font.setSubpixel(true)
@@ -379,6 +384,7 @@ export class Renderer {
   delete() {
     for (const { picture } of [...this.pictures.values(), ...this.layers.values()]) picture.delete()
     for (const font of this.fonts.values()) font.delete()
+    for (const typeface of this.typefaces.values()) typeface.delete()
     this.paint.delete()
     this.chrome.delete()
   }
