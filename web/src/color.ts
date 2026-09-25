@@ -1,19 +1,26 @@
 import { neutral as engineNeutral, preview, resolve as engineResolve, toCmyk } from './engine/engine'
-import type { Swatch } from './model'
+import type { Scope } from './model'
 
 export type ColorMode = 'rgb' | 'cmyk'
-/** RGB is 0xRRGGBBAA; CMYK components, tint and alpha are 0..1. A swatch's tint only applies to spot colours. */
-export type Color = number | { cmyk: number[]; alpha: number } | { swatch: string; tint: number; alpha: number }
-export type Process = Exclude<Color, { swatch: string }>
+/**
+ * RGB is 0xRRGGBBAA; CMYK components, tint and alpha are 0..1. A swatch's tint only applies to spot colours;
+ * alpha multiplies what a swatch or variable holds.
+ */
+export type Color =
+  | number
+  | { cmyk: number[]; alpha: number }
+  | { swatch: string; tint: number; alpha: number }
+  | { variable: string; alpha: number }
+export type Process = number | { cmyk: number[]; alpha: number }
 export type Hsv = [h: number, s: number, v: number]
 
-/** The process colour a swatch stands for. */
-export const resolve = (c: Color, swatches: Swatch[]): Process =>
-  typeof c === 'object' && 'swatch' in c ? engineResolve(c, swatches) : c
+/** The process colour a swatch or variable stands for. */
+export const resolve = (c: Color, scope: Scope): Process =>
+  typeof c === 'object' && !('cmyk' in c) ? engineResolve(c, scope) : c
 
 /** Screen colour as 0xRRGGBB. */
-export function rgb(c: Color, swatches: Swatch[]) {
-  const p = resolve(c, swatches)
+export function rgb(c: Color, scope: Scope) {
+  const p = resolve(c, scope)
   return typeof p === 'number' ? p >>> 8 : preview(p.cmyk[0], p.cmyk[1], p.cmyk[2], p.cmyk[3])
 }
 
@@ -24,9 +31,9 @@ export function withAlpha(c: Color, percent: number): Color {
   return typeof c === 'number' ? ((c & ~0xff) | Math.round(a * 255)) >>> 0 : { ...c, alpha: a }
 }
 
-export function css(c: Color, swatches: Swatch[]) {
-  const p = resolve(c, swatches)
-  return `#${rgb(p, swatches).toString(16).padStart(6, '0')}${Math.round(alpha(p) * 2.55).toString(16).padStart(2, '0')}`
+export function css(c: Color, scope: Scope) {
+  const p = resolve(c, scope)
+  return `#${rgb(p, scope).toString(16).padStart(6, '0')}${Math.round(alpha(p) * 2.55).toString(16).padStart(2, '0')}`
 }
 
 /** `rgb` in the document's mode, with the alpha of `like`. */

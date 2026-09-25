@@ -71,7 +71,6 @@ font helper, i18n.
   setting (default 300 ppi); everything else stays vector.
 
 ### 9. Variables and constraints
-- Figma variables (color, number, modes) bound to properties.
 - Constraints for children on container resize.
 - Auto layout (direction, gap, padding, hug/fill/fixed).
 

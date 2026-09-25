@@ -58,9 +58,30 @@ export type Command =
   | { type: 'addSwatch'; name: string; color: Color; spot: boolean }
   | { type: 'setSwatch'; id: string; name?: string; color?: Color; spot?: boolean }
   | { type: 'deleteSwatch'; id: string }
+  | { type: 'addCollection'; name: string }
+  | { type: 'setCollection'; id: string; name: string }
+  | { type: 'deleteCollection'; id: string }
+  | { type: 'addMode'; collection: string; name: string }
+  | { type: 'setMode'; collection: string; id: string; name: string }
+  | { type: 'deleteMode'; collection: string; id: string }
+  | { type: 'addVariable'; collection: string; name: string; value: Value }
+  | { type: 'setVariable'; id: string; name?: string; mode?: string; value?: Value }
+  | { type: 'deleteVariable'; id: string }
+  | { type: 'useMode'; id: string; collection: string; mode: string | null }
+  | { type: 'bind'; id: string; prop: Bindable; variable: string | null }
   | { type: 'undo' | 'redo' | 'beginUndoGroup' | 'endUndoGroup' }
 
-export type Node = { id: string; name: string; x: number; y: number; w: number; h: number } & Style &
+export type Node = {
+  id: string
+  name: string
+  x: number
+  y: number
+  w: number
+  h: number
+  modes: Modes
+  activeModes: Modes
+  bindings: Partial<Record<Bindable, string>>
+} & Style &
   (
     | ({ kind: 'shape' } & Shape)
     | { kind: 'text'; text: string; size: number }
@@ -70,16 +91,27 @@ export type Node = { id: string; name: string; x: number; y: number; w: number; 
 
 export type Container = Extract<Node, { children: Node[] }>
 
-export type Page = { id: string; width: number; height: number; bleed: number; children: Node[] }
+export type Page = { id: string; width: number; height: number; bleed: number; modes: Modes; children: Node[] }
 
 /** A spot colour's `color` is its CMYK alternate. */
 export type Swatch = { id: string; name: string; color: Color; spot: boolean }
 
-export type Snapshot = {
+/** Chosen mode per collection; collections not listed use their first mode. */
+export type Modes = Record<string, string>
+export type Collection = { id: string; name: string; modes: { id: string; name: string }[] }
+export type Value = { color: Color } | { number: number }
+/** One value per mode of its collection, all of one kind. */
+export type Variable = { id: string; collection: string; name: string; values: Record<string, Value> }
+export type Palette = { swatches: Swatch[]; collections: Collection[]; variables: Variable[] }
+/** A palette seen from a layer with its modes. */
+export type Scope = Palette & { modes: Modes }
+/** Lengths count in mm, opacity in %. */
+export type Bindable = 'w' | 'h' | 'radius' | 'strokeWeight' | 'opacity'
+
+export type Snapshot = Palette & {
   pages: Page[]
   rasterPpi: number
   colorMode: ColorMode
-  swatches: Swatch[]
   canUndo: boolean
   canRedo: boolean
 }

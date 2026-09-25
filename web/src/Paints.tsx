@@ -3,7 +3,7 @@ import { ColorPicker } from './ColorPicker'
 import { alpha, css, neutral, withAlpha, type ColorMode } from './color'
 import { Field, RowActions, Section, Select } from './controls'
 import { MM } from './editor'
-import type { Effect, Fill, Swatch } from './model'
+import type { Effect, Fill, Scope } from './model'
 
 const TYPES = { solid: 'Solid', linear: 'Linear', radial: 'Radial' } as const
 const EFFECTS = { dropShadow: 'Drop shadow', blur: 'Layer blur' } as const
@@ -31,8 +31,8 @@ function retype(p: Fill, type: Fill['type']): Fill {
 
 const replace = <T,>(list: T[], i: number, item: T) => list.map((v, j) => (j === i ? item : v))
 
-function gradient(p: Fill, swatches: Swatch[]) {
-  const stops = p.stops.map((s) => `${css(s.color, swatches)} ${s.at * 100}%`)
+function gradient(p: Fill, scope: Scope) {
+  const stops = p.stops.map((s) => `${css(s.color, scope)} ${s.at * 100}%`)
   const shape = p.type === 'linear' ? `linear-gradient(${angle(p.transform) + 90}deg` : 'radial-gradient(circle'
   return `${shape}, ${stops.join(', ')})`
 }
@@ -42,14 +42,14 @@ export function PaintList({
   paints,
   added,
   mode,
-  swatches,
+  scope,
   onChange,
   children,
 }: {
   title: 'Fill' | 'Stroke'
   paints: Fill[]
   mode: ColorMode
-  swatches: Swatch[]
+  scope: Scope
   added: Fill
   onChange: (paints: Fill[]) => void
   children?: ReactNode
@@ -66,7 +66,9 @@ export function PaintList({
               const set = (next: Fill) => onChange(replace(paints, i, next))
               const c = p.color
               const bound = p.type === 'solid' && typeof c === 'object' && 'swatch' in c ? c : null
-              const swatch = bound && swatches.find((s) => s.id === bound.swatch)
+              const swatch = bound && scope.swatches.find((s) => s.id === bound.swatch)
+              const boundVar = p.type === 'solid' && typeof c === 'object' && 'variable' in c ? c : null
+              const variable = boundVar && scope.variables.find((v) => v.id === boundVar.variable)
               return (
                 <li key={i} className="paint" data-hidden={!p.visible || undefined}>
                   <div className="row">
@@ -75,12 +77,12 @@ export function PaintList({
                         label={`${title} color`}
                         color={p.color}
                         mode={mode}
-                        swatches={swatches}
+                        scope={scope}
                         bindable
                         onChange={(color) => set({ ...p, color })}
                       />
                     ) : (
-                      <span className="swatch" aria-hidden="true" style={{ background: gradient(p, swatches) }} />
+                      <span className="swatch" aria-hidden="true" style={{ background: gradient(p, scope) }} />
                     )}
                     {bound ? (
                       <>
@@ -98,6 +100,10 @@ export function PaintList({
                           }}
                         />
                       </>
+                    ) : boundVar ? (
+                      <span className="bound-name" title={variable ? variable.name : 'Missing variable'}>
+                        {variable ? variable.name : 'Missing variable'}
+                      </span>
                     ) : (
                       <Select label={`${title} type`} value={p.type} options={TYPES} onChange={(t) => set(retype(p, t))} />
                     )}
@@ -131,7 +137,7 @@ export function PaintList({
                         const stop = (next: Partial<typeof s>) => set({ ...p, stops: replace(p.stops, k, { ...s, ...next }) })
                         return (
                           <div key={k} className="row">
-                            <ColorPicker label={`Stop ${k + 1} color`} color={s.color} mode={mode} swatches={swatches} onChange={(color) => stop({ color })} />
+                            <ColorPicker label={`Stop ${k + 1} color`} color={s.color} mode={mode} scope={scope} onChange={(color) => stop({ color })} />
                             <Field
                               label=""
                               title={`Stop ${k + 1} position`}
@@ -164,12 +170,12 @@ export function PaintList({
 export function EffectList({
   effects,
   mode,
-  swatches,
+  scope,
   onChange,
 }: {
   effects: Effect[]
   mode: ColorMode
-  swatches: Swatch[]
+  scope: Scope
   onChange: (effects: Effect[]) => void
 }) {
   return (
@@ -210,7 +216,7 @@ export function EffectList({
                   />
                   {e.type === 'dropShadow' && (
                     <div className="row">
-                      <ColorPicker label="Shadow color" color={e.color} mode={mode} swatches={swatches} onChange={(color) => set({ color })} />
+                      <ColorPicker label="Shadow color" color={e.color} mode={mode} scope={scope} onChange={(color) => set({ color })} />
                       <Field
                         label=""
                         title="Shadow opacity"

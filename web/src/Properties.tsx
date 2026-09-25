@@ -1,8 +1,11 @@
 import { neutral, type Color, type ColorMode } from './color'
 import { Field, Section, Select } from './controls'
-import { MM, bounds, ends, useEditor, type Editor } from './editor'
-import type { Blend, Command, Fill, Node, Props, Style } from './model'
+import { useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
+import { MM, bounds, ends, scopeOf, useEditor, type Editor } from './editor'
+import type { Bindable as Prop, Blend, Command, Fill, Node, Props, Style } from './model'
 import { EffectList, PaintList } from './Paints'
+import { Bindable, ModeSelects, Variables } from './Variables'
 
 const BLENDS: Record<Blend, string> = {
   normal: 'Normal', multiply: 'Multiply', screen: 'Screen', overlay: 'Overlay', darken: 'Darken',
@@ -21,7 +24,8 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
   const page = useEditor(editor, (e) => e.page)
   const rasterPpi = useEditor(editor, (e) => e.snapshot.rasterPpi)
   const mode = useEditor(editor, (e) => e.snapshot.colorMode)
-  const swatches = useEditor(editor, (e) => e.snapshot.swatches)
+  const snapshot = useEditor(editor, (e) => e.snapshot)
+  const [variables, setVariables] = useState(false)
   const selection = useEditor(editor, (e) => e.selection)
   const nodes = selection.flatMap((id) => editor.nodes.get(id)?.node ?? [])
 
@@ -44,7 +48,16 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
     each((n) => ({ type: 'setFrame', id: n.id, x: n.x, y: n.y, w: n.w, h: n.h, [key]: v * MM }))
 
   const one = nodes.length === 1 ? nodes[0] : undefined
+  const scope = scopeOf(snapshot, one?.activeModes)
   const box = nodes.length ? bounds(nodes) : undefined
+  const bindable = (prop: Prop, title: string, label: string, field: ReactNode) =>
+    one ? (
+      <Bindable editor={editor} id={one.id} prop={prop} title={title} label={label}>
+        {field}
+      </Bindable>
+    ) : (
+      field
+    )
   const set = (props: Props) => one && editor.apply({ type: 'set', id: one.id, ...props })
   const open = one?.kind === 'shape' && one.shape === 'path' && !one.path.includes(5)
   const line = one && ends(one)
@@ -87,7 +100,16 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
               options={MODES}
               onChange={(colorMode) => editor.apply({ type: 'setDocument', colorMode })}
             />
+            <ModeSelects editor={editor} id={page.id} own={page.modes} inherited={{}} />
           </div>
+        </Section>
+      )}
+      {!box && (
+        <Section title="Variables">
+          <button type="button" className="button" onClick={() => setVariables(true)}>
+            Local variables
+          </button>
+          {variables && createPortal(<Variables editor={editor} onClose={() => setVariables(false)} />, document.body)}
         </Section>
       )}
       {box && (
@@ -102,12 +124,17 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
               </>
             ) : (
               <>
-                <Field label="W" value={same((n) => n.w / MM)} unit="mm" onCommit={frame('w')} />
-                <Field label="H" value={same((n) => n.h / MM)} unit="mm" onCommit={frame('h')} />
+                {bindable('w', 'W in mm', 'W', <Field label="W" value={same((n) => n.w / MM)} unit="mm" onCommit={frame('w')} />)}
+                {bindable('h', 'H in mm', 'H', <Field label="H" value={same((n) => n.h / MM)} unit="mm" onCommit={frame('h')} />)}
               </>
             )}
             {one?.kind === 'shape' && one.shape === 'rect' && (
-              <Field label="R" title="Corner radius in mm" unit="mm" value={one.radius / MM} onCommit={(v) => set({ radius: v * MM })} />
+              bindable(
+                'radius',
+                'Corner radius in mm',
+                'R',
+                <Field label="R" title="Corner radius in mm" unit="mm" value={one.radius / MM} onCommit={(v) => set({ radius: v * MM })} />,
+              )
             )}
             {one?.kind === 'shape' && (one.shape === 'polygon' || one.shape === 'star') && (
               <Field label="N" title="Count" unit="" value={one.count} onCommit={(v) => set({ count: Math.round(v) })} />
@@ -131,14 +158,16 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
       {one && (
         <Section title="Layer">
           <div className="grid">
-            <Field
-              label=""
-              title="Opacity"
-              unit="%"
-              value={one.opacity * 100}
-              onCommit={(v) => set({ opacity: v / 100 })}
-            />
+            {bindable(
+              'opacity',
+              'Opacity',
+              '',
+              <Field label="" title="Opacity" unit="%" value={one.opacity * 100} onCommit={(v) => set({ opacity: v / 100 })} />,
+            )}
             <Select label="Blend mode" value={one.blend} options={BLENDS} onChange={(blend) => set({ blend })} />
+            {one.kind === 'frame' && (
+              <ModeSelects editor={editor} id={one.id} own={one.modes} inherited={editor.nodes.get(one.id)?.parent?.activeModes ?? page.modes} />
+            )}
           </div>
           <label className="check">
             <input type="checkbox" checked={one.mask} onChange={(e) => set({ mask: e.currentTarget.checked })} />
@@ -164,14 +193,19 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
           paints={one.fills}
           added={solid(neutral(one.kind === 'text' ? 'black' : 'gray', mode))}
           mode={mode}
-          swatches={swatches}
+          scope={scope}
           onChange={(fills) => set({ fills })} />
       )}
       {one && (one.kind === 'shape' || one.kind === 'frame') && (
-        <PaintList title="Stroke" paints={one.strokes} added={solid(neutral('black', mode))} mode={mode} swatches={swatches} onChange={(strokes) => set({ strokes })}>
+        <PaintList title="Stroke" paints={one.strokes} added={solid(neutral('black', mode))} mode={mode} scope={scope} onChange={(strokes) => set({ strokes })}>
           {one.strokes.length > 0 && (
             <div className="grid">
-              <Field label="" title="Stroke weight" unit="pt" value={one.strokeWeight} onCommit={(v) => set({ strokeWeight: v })} />
+              {bindable(
+                'strokeWeight',
+                'Stroke weight',
+                '',
+                <Field label="" title="Stroke weight" unit="pt" value={one.strokeWeight} onCommit={(v) => set({ strokeWeight: v })} />,
+              )}
               {!open && <Select label="Stroke position" value={one.strokeAlign} options={ALIGNS} onChange={(strokeAlign) => set({ strokeAlign })} />}
               <Select label="Stroke join" value={one.join} options={JOINS} onChange={(join) => set({ join })} />
               {open && (
@@ -195,7 +229,7 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
           )}
         </PaintList>
       )}
-      {one && <EffectList effects={one.effects} mode={mode} swatches={swatches} onChange={(effects) => set({ effects })} />}
+      {one && <EffectList effects={one.effects} mode={mode} scope={scope} onChange={(effects) => set({ effects })} />}
       {one?.kind === 'text' && (
         <Section title="Text">
           <div className="grid">

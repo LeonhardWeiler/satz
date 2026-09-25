@@ -2,21 +2,24 @@ import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { fromRgb, neutral, resolve, rgb, type Color } from './color'
 import { Picker, SwatchOption } from './ColorPicker'
-import { useEditor, type Editor } from './editor'
+import { NameInput, nextName } from './controls'
+import { scopeOf, useEditor, type Editor } from './editor'
 import { Icon } from './icons'
 
 export function Swatches({ editor }: { editor: Editor }) {
-  const swatches = useEditor(editor, (e) => e.snapshot.swatches)
+  const snapshot = useEditor(editor, (e) => e.snapshot)
+  const swatches = snapshot.swatches
   const mode = useEditor(editor, (e) => e.snapshot.colorMode)
   const [editing, setEditing] = useState<string | null>(null)
   const list = useRef<HTMLDivElement>(null)
   const swatch = swatches.find((s) => s.id === editing)
 
   const add = () => {
-    const fill = editor.selected()[0]?.fills.find((f) => f.type === 'solid')
-    const color = fill ? resolve(fill.color, swatches) : neutral('black', mode)
-    const n = Math.max(0, ...swatches.map((s) => Number(/^Swatch (\d+)$/.exec(s.name)?.[1] ?? 0))) + 1
-    setEditing(editor.apply({ type: 'addSwatch', name: `Swatch ${n}`, color, spot: false })[0])
+    const node = editor.selected()[0]
+    const fill = node?.fills.find((f) => f.type === 'solid')
+    const color = fill ? resolve(fill.color, scopeOf(snapshot, node.activeModes)) : neutral('black', mode)
+    const name = nextName('Swatch', swatches.map((s) => s.name))
+    setEditing(editor.apply({ type: 'addSwatch', name, color, spot: false })[0])
   }
   const set = (patch: { name?: string; color?: Color; spot?: boolean }) =>
     editing && editor.apply({ type: 'setSwatch', id: editing, ...patch })
@@ -58,7 +61,7 @@ export function Swatches({ editor }: { editor: Editor }) {
             title="Edit swatch"
             color={swatch.color}
             mode={swatch.spot ? 'cmyk' : mode}
-            swatches={swatches}
+            scope={scopeOf(snapshot)}
             onChange={(color) => set({ color })}
             onClose={() => setEditing(null)}
             footer={
@@ -76,21 +79,7 @@ export function Swatches({ editor }: { editor: Editor }) {
           >
             <label className="field">
               <span className="field-label">Name</span>
-              <input
-                key={swatch.name}
-                name="swatch-name"
-                aria-label="Name"
-                autoComplete="off"
-                spellCheck={false}
-                defaultValue={swatch.name}
-                onBlur={(e) => {
-                  const name = e.currentTarget.value.trim()
-                  if (name && name !== swatch.name) set({ name })
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') e.currentTarget.blur()
-                }}
-              />
+              <NameInput label="Name" value={swatch.name} onCommit={(name) => set({ name })} />
             </label>
             <label className="check">
               <input
@@ -99,7 +88,7 @@ export function Swatches({ editor }: { editor: Editor }) {
                 onChange={(e) => {
                   const spot = e.currentTarget.checked
                   const c = swatch.color
-                  set({ spot, color: spot && typeof c === 'number' ? fromRgb(rgb(c, swatches), c, 'cmyk') : c })
+                  set({ spot, color: spot && typeof c === 'number' ? fromRgb(rgb(c, scopeOf(snapshot)), c, 'cmyk') : c })
                 }}
               />
               Spot color

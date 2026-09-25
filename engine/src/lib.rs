@@ -89,17 +89,22 @@ pub fn neutral(name: &str, mode: JsValue) -> Result<JsValue, JsError> {
     Ok(serde_wasm_bindgen::to_value(&color)?)
 }
 
-/// `color` with swatches replaced by what they stand for.
+/// `color` with swatches and variables replaced by what they stand for in `scope`,
+/// a palette with `modes`.
 #[wasm_bindgen]
-pub fn resolve(color: JsValue, swatches: JsValue) -> Result<JsValue, JsError> {
+pub fn resolve(color: JsValue, scope: JsValue) -> Result<JsValue, JsError> {
+    #[derive(serde::Deserialize)]
+    struct Owned {
+        #[serde(flatten)]
+        palette: variable::Palette,
+        #[serde(default)]
+        modes: variable::Modes,
+    }
     let color: color::Color = serde_wasm_bindgen::from_value(color)?;
-    let palette = variable::Palette {
-        swatches: serde_wasm_bindgen::from_value(swatches)?,
-        ..Default::default()
-    };
+    let s: Owned = serde_wasm_bindgen::from_value(scope)?;
     let scope = variable::Scope {
-        palette: &palette,
-        modes: &Default::default(),
+        palette: &s.palette,
+        modes: &s.modes,
     };
     let ser = serde_wasm_bindgen::Serializer::json_compatible();
     Ok(color.resolve(&scope).serialize(&ser)?)

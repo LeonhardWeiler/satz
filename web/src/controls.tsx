@@ -56,6 +56,33 @@ export function Field({
   )
 }
 
+/** A text input that commits a changed, non-empty value on blur or Enter. */
+export function NameInput({ label, value, onCommit }: { label: string; value: string; onCommit: (v: string) => void }) {
+  return (
+    <input
+      key={value}
+      className="name-input"
+      name={label.toLowerCase().replaceAll(' ', '-')}
+      aria-label={label}
+      autoComplete="off"
+      spellCheck={false}
+      defaultValue={value}
+      onBlur={(e) => {
+        const v = e.currentTarget.value.trim()
+        if (v && v !== value) onCommit(v)
+        else e.currentTarget.value = value
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur()
+      }}
+    />
+  )
+}
+
+/** The next free `prefix n` among `names`. */
+export const nextName = (prefix: string, names: string[]) =>
+  `${prefix} ${Math.max(0, ...names.map((n) => (n.startsWith(`${prefix} `) ? Number(n.slice(prefix.length + 1)) || 0 : 0))) + 1}`
+
 export function Select<T extends string>({
   label,
   value,

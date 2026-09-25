@@ -846,3 +846,208 @@ span.swatch {
   gap: 8px;
   min-height: 0;
 }
+
+.name-input {
+  width: 100%;
+  min-width: 0;
+  height: 24px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: none;
+  font: inherit;
+  color: inherit;
+  outline: none;
+}
+
+.name-input:hover {
+  border-color: var(--border);
+}
+
+.name-input:focus {
+  border-color: var(--accent);
+}
+
+.field .name-input {
+  border: 0;
+}
+
+.variables {
+  width: min(720px, calc(100vw - 32px));
+  height: min(480px, calc(100vh - 32px));
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 2px 12px rgb(0 0 0 / 0.5);
+}
+
+.variables[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.variables::backdrop {
+  background: rgb(0 0 0 / 0.4);
+}
+
+.variables-body {
+  display: grid;
+  flex: 1;
+  grid-template-columns: 180px minmax(0, 1fr);
+  min-height: 0;
+}
+
+.collections {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  padding: 8px;
+  border-right: 1px solid var(--border);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.collections .section-header {
+  padding-left: 8px;
+}
+
+.collection {
+  height: 24px;
+  padding: 0 8px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--text-2);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.collection:hover {
+  background: var(--hover);
+}
+
+.collection[aria-current='true'] {
+  background: var(--selected);
+  color: var(--text);
+}
+
+.variables-main {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 16px 16px;
+}
+
+.variables-body > .empty {
+  padding: 16px;
+}
+
+.variables-table {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.variables-table table {
+  border-collapse: collapse;
+}
+
+.variables-table th,
+.variables-table td {
+  min-width: 140px;
+  padding: 4px;
+  border-bottom: 1px solid var(--border);
+  font-weight: normal;
+  text-align: left;
+}
+
+.variables-table th:last-child,
+.variables-table td:last-child {
+  min-width: 0;
+}
+
+.variables-table thead th {
+  color: var(--text-3);
+}
+
+.create-variable {
+  display: flex;
+}
+
+.create-variable .button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 4px;
+}
+
+.swatch-list h3 {
+  margin: 8px 0 4px;
+  padding: 0 8px;
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.swatch-group {
+  display: grid;
+  gap: 2px;
+}
+
+.bindable {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.bind-button {
+  position: absolute;
+  top: 0;
+  right: 0;
+  opacity: 0;
+}
+
+.bindable:hover .bind-button,
+.bind-button:focus-visible,
+.bind-button[aria-expanded='true'] {
+  opacity: 1;
+}
+
+.pill {
+  flex: 1;
+  min-width: 0;
+  height: 18px;
+  margin-left: 4px;
+  padding: 0 6px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 4px;
+  background: var(--border);
+  color: var(--text);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.bindable .field .icon-button {
+  width: 22px;
+  height: 22px;
+}
+
+.variables-main > .row > .button {
+  flex: none;
+  white-space: nowrap;
+}
+
+.pill:hover {
+  background: var(--text-3);
+}

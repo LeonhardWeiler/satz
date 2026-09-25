@@ -24,25 +24,27 @@ import {
 } from './color'
 import { Field } from './controls'
 import { Icon } from './icons'
-import type { Swatch } from './model'
+import type { Scope, Swatch } from './model'
 import { Popover, type Anchor } from './Popover'
 
 const hex = (rgb: number) => rgb.toString(16).padStart(6, '0').toUpperCase()
 const clamp = (v: number) => Math.min(1, Math.max(0, v))
 const INKS = ['Cyan', 'Magenta', 'Yellow', 'Black']
 
-type Props = { label: string; color: Color; mode: ColorMode; swatches: Swatch[]; onChange: (c: Color) => void }
+type Props = { label: string; color: Color; mode: ColorMode; scope: Scope; onChange: (c: Color) => void }
 
 /** Colour chip with a transparency checkerboard. */
-export function Chip({ color, swatches }: { color: Color; swatches: Swatch[] }) {
-  return <span className="chip" style={{ '--color': css(color, swatches) } as CSSProperties} />
+export function Chip({ color, scope }: { color: Color; scope: Scope }) {
+  return <span className="chip" style={{ '--color': css(color, scope) } as CSSProperties} />
 }
+
+export const NO_SCOPE: Scope = { swatches: [], collections: [], variables: [], modes: {} }
 
 export function SwatchOption({ swatch, selected, onPick }: { swatch: Swatch; selected: boolean; onPick: () => void }) {
   const kind = swatch.spot ? 'Spot color' : `Process color (${typeof swatch.color === 'number' ? 'RGB' : 'CMYK'})`
   return (
     <button type="button" role="option" aria-selected={selected} className="swatch-option" title={`${swatch.name} · ${kind}`} onClick={onPick}>
-      <Chip color={swatch.color} swatches={[]} />
+      <Chip color={swatch.color} scope={NO_SCOPE} />
       <span className="swatch-name">{swatch.name}</span>
       <Icon name={swatch.spot ? 'spot' : 'process'} size={16} />
     </button>
@@ -51,7 +53,7 @@ export function SwatchOption({ swatch, selected, onPick }: { swatch: Swatch; sel
 
 /** A swatch button that opens the picker; `bindable` adds the swatches tab. */
 export function ColorPicker({ bindable, ...props }: Props & { bindable?: boolean }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState<Element | null>(null)
   const button = useRef<HTMLButtonElement>(null)
   return (
     <>
@@ -62,10 +64,13 @@ export function ColorPicker({ bindable, ...props }: Props & { bindable?: boolean
         aria-label={props.label}
         title={props.label}
         aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
+        aria-expanded={!!open}
+        onClick={(e) => {
+          const into = e.currentTarget.closest('dialog') ?? document.body
+          setOpen((o) => (o ? null : into))
+        }}
       >
-        <Chip color={props.color} swatches={props.swatches} />
+        <Chip color={props.color} scope={props.scope} />
       </button>
       {open &&
         createPortal(
@@ -73,18 +78,18 @@ export function ColorPicker({ bindable, ...props }: Props & { bindable?: boolean
             {...props}
             anchor={() => {
               const b = button.current!.getBoundingClientRect()
-              const panel = button.current!.closest('.panel')!.getBoundingClientRect()
+              const panel = button.current!.closest('.panel')?.getBoundingClientRect() ?? b
               return new DOMRect(panel.x, b.y, panel.width, b.height)
             }}
             side="left"
             owner={button}
             tabs={bindable}
             onClose={(refocus) => {
-              setOpen(false)
+              setOpen(null)
               if (refocus) button.current?.focus()
             }}
           />,
-          document.body,
+          open,
         )}
     </>
   )
@@ -97,7 +102,7 @@ export function Picker({
   label,
   color,
   mode,
-  swatches,
+  scope,
   tabs,
   title = 'Custom',
   children,
@@ -115,12 +120,13 @@ export function Picker({
   onClose: (refocus: boolean) => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
-  const bound = typeof color === 'object' && 'swatch' in color ? color.swatch : null
+  const bound = typeof color === 'object' ? ('swatch' in color ? color.swatch : 'variable' in color ? color.variable : null) : null
   const [tab, setTab] = useState<'custom' | 'swatches'>(bound ? 'swatches' : 'custom')
-  const process = resolve(color, swatches)
-  const rgb = screen(process, swatches)
+  const process = resolve(color, scope)
+  const rgb = screen(process, scope)
   const [state, setState] = useState(() => ({ color, hsv: toHsv(rgb) }))
-  if (state.color !== color) setState({ color, hsv: rgb === screen(state.color, swatches) ? state.hsv : toHsv(rgb) })
+  if (state.color !== color) setState({ color, hsv: rgb === screen(state.color, scope) ? state.hsv : toHsv(rgb) })
+  const colors = scope.variables.filter((v) => 'color' in Object.values(v.values)[0])
   const [h, s, v] = state.hsv
 
   const set = (hsv: Hsv) => {
@@ -139,6 +145,7 @@ export function Picker({
     }
     const key = (e: globalThis.KeyboardEvent) => {
       if (e.key !== 'Escape') return
+      e.preventDefault()
       e.stopPropagation()
       onClose(true)
     }
@@ -197,8 +204,35 @@ export function Picker({
       {children}
       {tab === 'swatches' ? (
         <div role="listbox" aria-label="Swatches" className="swatch-list">
-          {swatches.length === 0 && <p className="empty">No swatches yet. Add them in the Swatches panel.</p>}
-          {swatches.map((sw) => (
+          {scope.swatches.length + colors.length === 0 && (
+            <p className="empty">No swatches or colour variables yet. Add them in the Swatches panel or under Local variables.</p>
+          )}
+          {scope.collections.map((c) => {
+            const vars = colors.filter((v) => v.collection === c.id)
+            return (
+              vars.length > 0 && (
+                <div key={c.id} role="group" aria-label={c.name} className="swatch-group">
+                  <h3>{c.name}</h3>
+                  {vars.map((v) => (
+                    <button
+                      key={v.id}
+                      type="button"
+                      role="option"
+                      aria-selected={v.id === bound}
+                      className="swatch-option"
+                      title={`${c.name} / ${v.name}`}
+                      onClick={() => onChange({ variable: v.id, alpha: 1 })}
+                    >
+                      <Chip color={{ variable: v.id, alpha: 1 }} scope={scope} />
+                      <span className="swatch-name">{v.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )
+            )
+          })}
+          {colors.length > 0 && scope.swatches.length > 0 && <h3>Swatches</h3>}
+          {scope.swatches.map((sw) => (
             <SwatchOption
               key={sw.id}
               swatch={sw}

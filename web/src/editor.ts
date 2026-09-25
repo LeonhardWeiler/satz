@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import type { Engine } from './engine/engine'
-import type { Command, Node, Snapshot } from './model'
+import type { Command, Modes, Node, Palette, Scope, Snapshot } from './model'
 import { penPath, type Anchor } from './pen'
 import { index, type Entry } from './select'
 
@@ -9,6 +9,13 @@ export type Tool = 'move' | 'frame' | 'text' | 'pen' | Shape
 export type Pen = { id: string; anchors: Anchor[] }
 
 export const MM = 72 / 25.4
+
+export const scopeOf = ({ swatches, collections, variables }: Palette, modes: Modes = {}): Scope => ({
+  swatches,
+  collections,
+  variables,
+  modes,
+})
 
 export class Editor {
   snapshot: Snapshot

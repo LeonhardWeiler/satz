@@ -6,7 +6,7 @@ const style: Style = {
   fills: [], strokes: [], strokeWeight: 1, strokeAlign: 'inside', join: 'miter', cap: 'none',
   arrowStart: false, arrowEnd: false, opacity: 1, blend: 'normal', effects: [], mask: false,
 }
-const base = (id: string) => ({ id, name: id, x: 0, y: 0, w: 1, h: 1, ...style })
+const base = (id: string) => ({ id, name: id, x: 0, y: 0, w: 1, h: 1, modes: {}, activeModes: {}, bindings: {}, ...style })
 const rect = (id: string): Node => ({ ...base(id), kind: 'shape', shape: 'rect', radius: 0 })
 const group = (id: string, children: Node[]): Node => ({ ...base(id), kind: 'group', children })
 const frame = (id: string, children: Node[]): Node => ({ ...base(id), kind: 'frame', clip: true, children })
