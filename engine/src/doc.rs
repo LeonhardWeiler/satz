@@ -6823,22 +6823,41 @@ mod tests {
         }
     }
 
-    #[test]
-    fn threaded_frames_set_one_story_that_flows_on_across_frames_and_pages() {
+    /// Page 1 with frame `a` of two lines holding "Hi\nHi\nHi\nHi", threaded into the
+    /// large frame `b` on page 2: (doc, page 1, page 2, a, b).
+    fn two_pages() -> (Doc, String, String, String, String) {
         let (mut d, p1) = empty();
         let p2 = add_page(&mut d, None);
         let a = fixed_text(&mut d, &p1, [0.0, 0.0, 100.0, 2.0 * LEADING + 1.0]);
         let b = fixed_text(&mut d, &p2, [10.0, 10.0, 100.0, 300.0]);
         set_text(&mut d, &a, "Hi\nHi\nHi\nHi");
-        assert!(flow(&d, &a).5);
         thread(&mut d, &a, &b).unwrap();
+        (d, p1, p2, a, b)
+    }
+
+    #[test]
+    fn a_frame_with_more_text_than_fits_is_overset() {
+        let (mut d, p1) = empty();
+        let a = fixed_text(&mut d, &p1, [0.0, 0.0, 100.0, 2.0 * LEADING + 1.0]);
+        set_text(&mut d, &a, "Hi\nHi\nHi\nHi");
+        assert!(flow(&d, &a).5);
+    }
+
+    #[test]
+    fn threaded_frames_share_one_story_and_each_sets_its_part() {
+        let (d, _, _, a, b) = two_pages();
         let story = "Hi\nHi\nHi\nHi".to_string();
         assert_eq!(
             flow(&d, &a),
             (story.clone(), 0, 6, None, Some(b.clone()), false)
         );
-        assert_eq!(flow(&d, &b), (story, 6, 11, Some(a.clone()), None, false));
-        let runs = |d: &Doc, p: &str| {
+        assert_eq!(flow(&d, &b), (story, 6, 11, Some(a), None, false));
+    }
+
+    #[test]
+    fn each_page_draws_the_lines_of_its_frames_of_a_thread() {
+        let (d, p1, p2, _, _) = two_pages();
+        let runs = |p: &str| {
             d.render(p)
                 .into_iter()
                 .filter_map(|o| match o {
@@ -6847,10 +6866,15 @@ mod tests {
                 })
                 .collect::<Vec<_>>()
         };
-        assert_eq!(runs(&d, &p1).len(), 2);
-        let on2 = runs(&d, &p2);
+        assert_eq!(runs(&p1).len(), 2);
+        let on2 = runs(&p2);
         assert_eq!(on2.len(), 2);
         assert!(on2[0] > 10.0 && on2[0] < 10.0 + LEADING as f32, "{on2:?}");
+    }
+
+    #[test]
+    fn text_typed_into_a_later_frame_goes_into_the_story_and_the_caret_finds_its_frame() {
+        let (mut d, _, _, a, b) = two_pages();
         edit(&mut d, &b, [7, 7], "X").unwrap();
         assert_eq!(flow(&d, &a).0, "Hi\nHi\nHXi\nHi");
         assert_eq!(d.text_frame(&a, 8).unwrap(), b);
@@ -6860,10 +6884,26 @@ mod tests {
         assert!(close(top, 10.0), "{top}");
         assert_eq!(d.text_index(&b, 11.0, 11.0).unwrap(), 6);
         assert_eq!(d.text_line(&a, 7).unwrap(), [6, 9]);
-        let overlay = |d: &Doc, page: &str| d.text_overlay(&a, 1, 8, 0.5, page).unwrap().len();
-        assert_eq!((overlay(&d, &p1), overlay(&d, &p2)), (2, 1));
+    }
+
+    #[test]
+    fn a_selection_across_threaded_frames_shows_on_each_page() {
+        let (d, p1, p2, a, _) = two_pages();
+        let overlay = |page: &str| d.text_overlay(&a, 1, 8, 0.5, page).unwrap().len();
+        assert_eq!((overlay(&p1), overlay(&p2)), (2, 1));
+    }
+
+    #[test]
+    fn the_last_frame_of_a_thread_is_overset_when_the_story_does_not_fit() {
+        let (mut d, _, _, a, b) = two_pages();
         set_frame(&mut d, &b, [10.0, 10.0, 100.0, LEADING + 1.0]);
         assert!(flow(&d, &b).5);
+        assert!(!flow(&d, &a).5);
+    }
+
+    #[test]
+    fn unthreading_takes_the_story_back_into_the_first_frame_and_undo_threads_again() {
+        let (mut d, _, _, a, b) = two_pages();
         d.apply(Command::Unthread { id: a.clone() }).unwrap();
         assert_eq!(flow(&d, &a).4, None);
         assert!(flow(&d, &a).5);

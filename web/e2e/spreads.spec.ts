@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { PAIR, colors, drag, open, screen } from './util'
+import { colors, drag, open, screen } from './util'
 
 const gray = ([r, g, b]: number[]) => [r, g, b].every((c) => Math.abs(c - 0xd9) < 8)
 
@@ -11,7 +11,7 @@ test('a spread shows its pages at the spine, and layers are drawn, selected and 
   const title = panel.getByRole('heading', { level: 2 })
   const x = panel.getByRole('region', { name: 'Layout' }).getByTitle('X in mm').getByRole('textbox')
   const row = (n: number) => pages.getByRole('button', { name: `Page ${n}`, exact: true })
-  const at = (i: number, px: number, py: number) => screen(page, px, py, PAIR, i)
+  const at = (i: number, px: number, py: number) => screen(page, px, py, i)
   await pages.getByRole('button', { name: 'Add page' }).click()
   await pages.getByRole('button', { name: 'Add page' }).click()
   await expect(row(3)).toHaveAttribute('aria-current', 'page')

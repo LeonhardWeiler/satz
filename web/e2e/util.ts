@@ -3,9 +3,6 @@ import { PNG } from 'pngjs'
 import { fitView, type Sheet } from '../src/renderer'
 
 export const MM = 72 / 25.4
-const A5 = { x: 0, width: 148 * MM, height: 210 * MM, bleed: 3 * MM }
-/** A spread of two sample pages; a page alone sits where the sample page does. */
-export const PAIR: Sheet[] = [{ ...A5, x: -A5.width }, A5]
 
 /** Opens the app; a spread fits at the zoom of a single page in a window 2000 px wide. */
 export async function open(page: Page, width = 1400) {
@@ -14,12 +11,17 @@ export async function open(page: Page, width = 1400) {
   await expect(page.getByLabel('Zoom')).not.toHaveText('0%')
 }
 
-/** Screen position of a point in mm on the sample page, or on page `i` of the fitted spread `spread`. */
-export async function screen(page: Page, x: number, y: number, spread: Sheet[] = [A5], i = 0) {
-  const canvas = (await page.getByLabel('Page canvas').boundingBox())!
-  const view = fitView(spread, canvas.width, canvas.height)
-  const sx = spread[i].x + x * MM
-  return [canvas.x + view.x + sx * view.zoom, canvas.y + view.y + y * MM * view.zoom] as const
+/**
+ * Screen position of a point in mm on page `i` of the fitted spread the canvas shows,
+ * by default the right or only one.
+ */
+export async function screen(page: Page, x: number, y: number, i?: number) {
+  const canvas = page.getByLabel('Page canvas')
+  const box = (await canvas.boundingBox())!
+  const sheets: Sheet[] = JSON.parse((await canvas.getAttribute('data-sheets'))!)
+  const view = fitView(sheets, box.width, box.height)
+  const sx = sheets[i ?? sheets.length - 1].x + x * MM
+  return [box.x + view.x + sx * view.zoom, box.y + view.y + y * MM * view.zoom] as const
 }
 
 export async function drag(page: Page, from: readonly [number, number], to: readonly [number, number]) {
@@ -57,16 +59,16 @@ export const STORY =
   'Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore ' +
   'et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum.'
 
-/** Screen position of the out-port of a text frame from (x0, y0) to (x1, y1) in mm, or its in-port, on page `i` of `spread`. */
-export async function port(page: Page, [x0, y0, x1, y1]: number[], out: boolean, spread?: Sheet[], i?: number) {
-  const [l, t] = await screen(page, x0, y0, spread, i)
-  const [r, b] = await screen(page, x1, y1, spread, i)
+/** Screen position of the out-port of a text frame from (x0, y0) to (x1, y1) in mm, or its in-port, on page `i` of the spread. */
+export async function port(page: Page, [x0, y0, x1, y1]: number[], out: boolean, i?: number) {
+  const [l, t] = await screen(page, x0, y0, i)
+  const [r, b] = await screen(page, x1, y1, i)
   return (out ? [r, b - 16] : [l, t + 16]) as [number, number]
 }
 
-/** Adds a page, shown as page `i` of `spread`, and draws a fixed text frame from (x0, y0) to (x1, y1) in mm on it. */
-export async function frameOnNewPage(page: Page, box: number[], spread?: Sheet[], i?: number) {
+/** Adds a page and draws a fixed text frame from (x0, y0) to (x1, y1) in mm on it. */
+export async function frameOnNewPage(page: Page, box: number[]) {
   await page.getByRole('navigation', { name: 'Pages' }).getByRole('button', { name: 'Add page' }).click()
   await page.keyboard.press('t')
-  await drag(page, await screen(page, box[0], box[1], spread, i), await screen(page, box[2], box[3], spread, i))
+  await drag(page, await screen(page, box[0], box[1]), await screen(page, box[2], box[3]))
 }

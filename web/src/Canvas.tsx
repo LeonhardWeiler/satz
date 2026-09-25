@@ -159,6 +159,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     }
 
     const redraw = () => {
+      canvas.dataset.sheets = JSON.stringify(editor.sheets.map(({ x, width, height, bleed }) => ({ x, width, height, bleed })))
       if (frame) return
       frame = requestAnimationFrame(() => {
         frame = 0
