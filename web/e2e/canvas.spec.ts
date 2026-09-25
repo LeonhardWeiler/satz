@@ -239,3 +239,11 @@ test('clicking a panel while drawing with the pen keeps the path one undo step',
   await page.keyboard.press('Control+z')
   await expect(items).toHaveCount(count)
 })
+
+test('space activates a focused layer button', async ({ page }) => {
+  await open(page)
+  const sun = page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Sun' })
+  await sun.focus()
+  await page.keyboard.press('Space')
+  await expect(page.getByRole('complementary', { name: 'Properties' }).getByRole('heading', { level: 2 })).toHaveText('Sun')
+})

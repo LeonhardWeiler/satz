@@ -8,17 +8,6 @@ that match the canvas.
 Out of scope for M1: PDF/X, components, realtime collaboration, Figma import,
 font helper, i18n.
 
-## Bugs
-
-Found by the review on 2026-09-25 (IDs from `AGENT/project-health-report.html`), causes checked in
-the code, not reproduced in the browser.
-
-### B18. Space cannot activate focused buttons (A11Y-2)
-- Cause: `Canvas.tsx` `onKey` prevents Space on keydown and keyup for any target that is not an
-  input.
-- Fix: take Space for panning only when the target is the canvas or the body.
-- Test: e2e focuses a layer row button, presses Space, the layer is selected.
-
 ## Settled design
 
 - Engine (Rust → WASM) owns the Loro doc, layout and undo. React sends commands and

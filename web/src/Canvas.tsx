@@ -401,7 +401,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         pointer.ctrlKey = e.type === 'keydown'
         track()
       }
-      if (e.code === 'Space') {
+      if (e.code === 'Space' && (e.target === canvas || e.target === document.body)) {
         space = e.type === 'keydown'
         canvas.toggleAttribute('data-space', space)
         e.preventDefault()
