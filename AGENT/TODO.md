@@ -70,9 +70,6 @@ font helper, i18n.
 - Drop shadow, blur, masks. PDF rasterizes shadow and blur at the document
   setting (default 300 ppi); everything else stays vector.
 
-### 9. Variables and constraints
-- Auto layout (direction, gap, padding, hug/fill/fixed).
-
 ### 10. Rich text
 - Character and paragraph attributes on Loro rich text; text styles.
 - Text frame model: insets, columns + gutter, vertical alignment, baseline grid.

@@ -1051,3 +1051,86 @@ span.swatch {
 .pill:hover {
   background: var(--text-3);
 }
+
+.segmented {
+  display: flex;
+  flex: 1;
+  padding: 2px;
+  border-radius: 5px;
+  background: var(--input);
+}
+
+.segmented button {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  height: 20px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.segmented button:hover {
+  color: var(--text);
+}
+
+.segmented button[aria-checked='true'] {
+  background: var(--hover);
+  color: var(--text);
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.auto-layout {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.align-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  height: 72px;
+  padding: 4px;
+  box-sizing: border-box;
+  border-radius: 5px;
+  background: var(--input);
+}
+
+.align-grid button {
+  position: relative;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  cursor: pointer;
+}
+
+.align-grid button::after {
+  position: absolute;
+  inset: 50%;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--text-3);
+  content: '';
+  transform: translate(-50%, -50%);
+}
+
+.align-grid button:hover::after {
+  background: var(--text-2);
+}
+
+.align-grid button[aria-checked='true']::after {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.auto-layout-gap {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}

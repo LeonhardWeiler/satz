@@ -3,7 +3,8 @@ import { Field, Section, Select } from './controls'
 import { useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { MM, bounds, ends, scopeOf, useEditor, type Editor } from './editor'
-import type { Bindable as Prop, Blend, Constraint, Command, Fill, Node, Props, Style } from './model'
+import type { Bindable as Prop, Blend, Constraint, Command, Fill, Node, Props, Size, Style } from './model'
+import { AutoLayout } from './AutoLayout'
 import { EffectList, PaintList } from './Paints'
 import { Bindable, ModeSelects, Variables } from './Variables'
 
@@ -19,6 +20,7 @@ const CAPS: Record<Style['cap'], string> = { none: 'No cap', round: 'Round cap',
 const ENDS = { none: 'None', arrow: 'Line arrow' } as const
 const MODES: Record<ColorMode, string> = { rgb: 'RGB', cmyk: 'CMYK' }
 const HORIZONTAL: Record<Constraint, string> = { min: 'Left', max: 'Right', stretch: 'Left & right', center: 'Center', scale: 'Scale' }
+const SIZES: Record<Size, string> = { fixed: 'Fixed', hug: 'Hug', fill: 'Fill' }
 const VERTICAL: Record<Constraint, string> = { min: 'Top', max: 'Bottom', stretch: 'Top & bottom', center: 'Center', scale: 'Scale' }
 const solid = (color: Color): Fill => ({ type: 'solid', color, stops: [], transform: [1, 0, 0, 1, 0, 0], visible: true })
 
@@ -51,6 +53,10 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
 
   const one = nodes.length === 1 ? nodes[0] : undefined
   const scope = scopeOf(snapshot, one?.activeModes)
+  const parent = one && editor.nodes.get(one.id)?.parent
+  const flows = !!one && parent?.kind === 'frame' && parent.direction !== 'none' && !one.absolute
+  const hugs = one?.kind === 'frame' && one.direction !== 'none'
+  const sizes = Object.fromEntries(Object.entries(SIZES).filter(([s]) => s === 'fixed' || (s === 'hug' ? hugs : flows))) as Record<Size, string>
   const box = nodes.length ? bounds(nodes) : undefined
   const bindable = (prop: Prop, title: string, label: string, field: ReactNode) =>
     one ? (
@@ -145,7 +151,26 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
               <Field label="Ratio" title="Star ratio in %" unit="%" value={one.ratio * 100} onCommit={(v) => set({ ratio: v / 100 })} />
             )}
           </div>
-          {one && editor.nodes.get(one.id)?.parent?.kind === 'frame' && (
+          {one && (hugs || flows) && (
+            <div className="grid">
+              {(['horizontal', 'vertical'] as const).map((axis) => (
+                <Select
+                  key={axis}
+                  label={`${axis === 'horizontal' ? 'Width' : 'Height'} sizing`}
+                  value={one.sizing[axis]}
+                  options={sizes}
+                  onChange={(s) => set({ sizing: { ...one.sizing, [axis]: s } })}
+                />
+              ))}
+            </div>
+          )}
+          {one && parent?.kind === 'frame' && parent.direction !== 'none' && (
+            <label className="check">
+              <input type="checkbox" checked={one.absolute} onChange={(e) => set({ absolute: e.currentTarget.checked })} />
+              Absolute position
+            </label>
+          )}
+          {one && parent?.kind === 'frame' && !flows && (
             <div className="grid">
               {(['horizontal', 'vertical'] as const).map((axis) => (
                 <Select
@@ -170,6 +195,7 @@ export function Properties({ editor, onExport }: { editor: Editor; onExport: () 
           )}
         </Section>
       )}
+      {one?.kind === 'frame' && <AutoLayout editor={editor} node={one} set={set} />}
       {one && (
         <Section title="Layer">
           <div className="grid">

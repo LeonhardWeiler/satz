@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CanvasKit, Surface } from 'canvaskit-wasm'
-import { MM, bounds, ends, type Editor, type Point, type Tool } from './editor'
-import type { Node } from './model'
+import { MM, bounds, ends, insertion, type Editor, type Point, type Tool } from './editor'
+import type { Container, Node } from './model'
 import { penPath } from './pen'
 import { Renderer, fitView, HANDLE, type Box, type View } from './renderer'
 import { pick } from './select'
@@ -28,7 +28,7 @@ const DEFAULT_SIZE: Record<Exclude<Tool, 'move' | 'pen'>, [number, number]> = {
 type Pointer = { offsetX: number; offsetY: number; ctrlKey: boolean }
 type Drag =
   | { kind: 'pan'; last: Point }
-  | { kind: 'move'; start: Point; frames: Node[]; active: boolean }
+  | { kind: 'move'; start: Point; frames: Node[]; active: boolean; flow?: Container; to?: ReturnType<typeof insertion> }
   | { kind: 'resize'; start: Point; handle: string; box: Box; frames: Node[] }
   | { kind: 'end'; start: Point; id: string; ends: [Point, Point]; index: number }
   | { kind: 'marquee'; start: Point; end: Point; base: string[] }
@@ -103,6 +103,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           handles: box,
           ends: line,
           pen: editor.pen && { anchors: editor.pen.anchors, cursor: drag ? undefined : cursor },
+          insert: drag?.kind === 'move' ? drag.to?.line : undefined,
         })
         surface.flush()
       })
@@ -255,7 +256,11 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         return
       }
       if (!sel.includes(id)) editor.set({ selection: [id] })
-      drag = { kind: 'move', start: p, frames: editor.selected(), active: false }
+      const frames = editor.selected()
+      const parents = new Set(frames.map((n) => editor.nodes.get(n.id)?.parent))
+      const [flow] = parents
+      const inFlow = parents.size === 1 && flow?.kind === 'frame' && flow.direction !== 'none' && frames.every((n) => !n.absolute)
+      drag = { kind: 'move', start: p, frames, active: false, flow: inFlow ? flow : undefined }
     }
     const onPointerMove = (e: PointerEvent) => {
       const p = toDoc(e)
@@ -316,6 +321,11 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
             drag.frames = editor.selected()
           }
         }
+        if (drag.flow) {
+          drag.to = insertion(drag.flow, drag.frames.map((n) => n.id), p)
+          redraw()
+          return
+        }
         if (e.shiftKey) {
           if (Math.abs(dx) > Math.abs(dy)) dy = 0
           else dx = 0
@@ -359,7 +369,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           const x1 = l + (n.x - box.x) * sx
           const y1 = t + (n.y - box.y) * sy
           const f = rect({ x: x1, y: y1 }, { x: x1 + n.w * sx, y: y1 + n.h * sy })
-          editor.apply({ type: 'setFrame', id: n.id, ...f })
+          editor.apply({ type: 'setFrame', id: n.id, ...f, ignoreConstraints: e.ctrlKey || e.metaKey })
         }
       }
     }
@@ -370,6 +380,9 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           editor.apply({ type: 'setFrame', id: drag.id, x: drag.start.x, y: drag.start.y, w: w * MM, h: h * MM })
         }
         editor.setTool('move')
+      }
+      if (drag?.kind === 'move' && drag.flow && drag.to) {
+        editor.apply({ type: 'move', ids: drag.frames.map((n) => n.id), parent: drag.flow.id, index: drag.to.index })
       }
       if (drag?.kind === 'draw' || drag?.kind === 'resize' || drag?.kind === 'end' || (drag?.kind === 'move' && drag.active)) {
         editor.apply({ type: 'endUndoGroup' })

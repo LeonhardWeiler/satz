@@ -1,13 +1,17 @@
 import { expect, test } from 'vitest'
 import { pick } from './select'
-import type { Node, Style } from './model'
+import type { Layout, Node, Style } from './model'
 
 const style: Style = {
   fills: [], strokes: [], strokeWeight: 1, strokeAlign: 'inside', join: 'miter', cap: 'none',
   arrowStart: false, arrowEnd: false, opacity: 1, blend: 'normal', effects: [], mask: false,
   constraints: { horizontal: 'min', vertical: 'min' },
 }
-const base = (id: string) => ({ id, name: id, x: 0, y: 0, w: 1, h: 1, modes: {}, activeModes: {}, bindings: {}, ...style })
+const layout: Layout = {
+  direction: 'none', gap: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0,
+  alignMain: 'start', alignCross: 'start', sizing: { horizontal: 'fixed', vertical: 'fixed' }, absolute: false,
+}
+const base = (id: string) => ({ id, name: id, x: 0, y: 0, w: 1, h: 1, modes: {}, activeModes: {}, bindings: {}, ...style, ...layout })
 const rect = (id: string): Node => ({ ...base(id), kind: 'shape', shape: 'rect', radius: 0 })
 const group = (id: string, children: Node[]): Node => ({ ...base(id), kind: 'group', children })
 const frame = (id: string, children: Node[]): Node => ({ ...base(id), kind: 'frame', clip: true, children })

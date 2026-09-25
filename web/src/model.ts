@@ -40,13 +40,33 @@ export type Shape =
   | { shape: 'star'; count: number; ratio: number }
   | { shape: 'path'; path: number[] }
 
-export type Props = Partial<Style> & { name?: string; size?: number; clip?: boolean; radius?: number; count?: number; ratio?: number }
+export type Direction = 'none' | 'horizontal' | 'vertical'
+/** Hug only applies to auto layout frames, fill only inside them. */
+export type Size = 'fixed' | 'hug' | 'fill'
+
+/** Figma auto layout of a frame and how a layer sits in one. */
+export type Layout = {
+  direction: Direction
+  gap: number
+  paddingTop: number
+  paddingRight: number
+  paddingBottom: number
+  paddingLeft: number
+  alignMain: 'start' | 'center' | 'end' | 'spaceBetween'
+  alignCross: 'start' | 'center' | 'end'
+  sizing: { horizontal: Size; vertical: Size }
+  /** Left out of its parent's auto layout. */
+  absolute: boolean
+}
+
+export type Props = Partial<Style> & Partial<Layout> & { name?: string; size?: number; clip?: boolean; radius?: number; count?: number; ratio?: number }
 
 export type NewKind = 'rect' | 'ellipse' | 'polygon' | 'star' | 'line' | 'arrow' | 'path' | 'text' | 'frame'
 
 export type Command =
   | { type: 'create'; parent: string; kind: NewKind; x: number; y: number; w: number; h: number }
-  | { type: 'setFrame'; id: string; x: number; y: number; w: number; h: number }
+  | { type: 'setFrame'; id: string; x: number; y: number; w: number; h: number; ignoreConstraints?: boolean }
+  | { type: 'autoLayout'; ids: string[] }
   | { type: 'setText'; id: string; text: string }
   | ({ type: 'set'; id: string } & Props)
   | { type: 'setPath'; id: string; path: number[] }
@@ -86,6 +106,7 @@ export type Node = {
   activeModes: Modes
   bindings: Partial<Record<Bindable, string>>
 } & Style &
+  Layout &
   (
     | ({ kind: 'shape' } & Shape)
     | { kind: 'text'; text: string; size: number }
@@ -110,7 +131,9 @@ export type Palette = { swatches: Swatch[]; collections: Collection[]; variables
 /** A palette seen from a layer with its modes. */
 export type Scope = Palette & { modes: Modes }
 /** Lengths count in mm, opacity in %. */
-export type Bindable = 'w' | 'h' | 'radius' | 'strokeWeight' | 'opacity'
+export type Bindable =
+  | 'w' | 'h' | 'radius' | 'strokeWeight' | 'opacity'
+  | 'gap' | 'paddingTop' | 'paddingRight' | 'paddingBottom' | 'paddingLeft'
 
 export type Snapshot = Palette & {
   pages: Page[]

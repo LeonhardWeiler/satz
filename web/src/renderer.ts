@@ -13,6 +13,8 @@ export type Overlay = {
   handles?: Box
   /** Ends of a selected line, shown instead of box handles. */
   ends?: { x: number; y: number }[]
+  /** Where dragged layers land in an auto layout frame. */
+  insert?: [{ x: number; y: number }, { x: number; y: number }]
   pen?: { anchors: { x: number; y: number; hx: number; hy: number }[]; cursor?: { x: number; y: number } } | null
 }
 
@@ -101,7 +103,7 @@ export class Renderer {
     }
   }
 
-  private drawOverlay(canvas: Canvas, view: View, dpr: number, { selection, hover, marquee, handles, ends, pen }: Overlay) {
+  private drawOverlay(canvas: Canvas, view: View, dpr: number, { selection, hover, marquee, handles, ends, pen, insert }: Overlay) {
     const { ck, chrome: paint } = this
     const screen = (b: Box) =>
       ck.XYWHRect(
@@ -153,6 +155,11 @@ export class Renderer {
       const [a, b] = ends
       canvas.drawLine(...at(a.x, a.y), ...at(b.x, b.y), paint)
       for (const e of ends) square(...at(e.x, e.y), HANDLE)
+    }
+    if (insert) {
+      paint.setStrokeWidth(2)
+      canvas.drawLine(...at(insert[0].x, insert[0].y), ...at(insert[1].x, insert[1].y), paint)
+      paint.setStrokeWidth(1)
     }
     if (handles) {
       const r = screen(handles)

@@ -15,6 +15,8 @@ const PATHS = {
   group: 'M5.5 5.5h13v13h-13z',
   mask: 'M5.5 5.5h13v13h-13zM12 8.5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 1 0 0-7z',
   masked: 'M8.5 4.5v9h8',
+  down: 'M12 5v14M7 14l5 5 5-5',
+  right: 'M5 12h14M14 7l5 5-5 5',
   chevron: 'M9 7l5 5-5 5',
   spot: 'M12 6a6 6 0 1 0 0 12a6 6 0 1 0 0-12zM12 11a1 1 0 1 0 0 2a1 1 0 1 0 0-2z',
   process: 'M6 6h12v12h-12zM12 6v12M6 12h12',

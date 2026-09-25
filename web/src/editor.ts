@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import type { Engine } from './engine/engine'
-import type { Command, Modes, Node, Palette, Scope, Snapshot } from './model'
+import type { Command, Container, Modes, Node, Palette, Scope, Snapshot } from './model'
 import { penPath, type Anchor } from './pen'
 import { index, type Entry } from './select'
 
@@ -113,4 +113,26 @@ export function bounds(nodes: { x: number; y: number; w: number; h: number }[]) 
   const w = Math.max(...nodes.map((n) => n.x + n.w)) - x
   const h = Math.max(...nodes.map((n) => n.y + n.h)) - y
   return { x, y, w, h }
+}
+
+/**
+ * Where layers `ids` dragged to `p` land among the other children of the auto layout
+ * frame `parent`: the index for a move and the insertion line.
+ */
+export function insertion(parent: Container, ids: string[], p: Point) {
+  const horizontal = parent.kind === 'frame' && parent.direction === 'horizontal'
+  const others = parent.children.filter((n) => !ids.includes(n.id))
+  const flow = others.filter((n) => !n.absolute)
+  const main = (n: Node) => (horizontal ? n.x + n.w / 2 : n.y + n.h / 2)
+  const next = flow.find((n) => main(n) > (horizontal ? p.x : p.y))
+  const index = next ? others.indexOf(next) : others.length
+  const prev = flow[(next ? flow.indexOf(next) : flow.length) - 1]
+  const at = next && prev ? (horizontal ? (prev.x + prev.w + next.x) / 2 : (prev.y + prev.h + next.y) / 2)
+    : next ? (horizontal ? next.x : next.y)
+    : prev ? (horizontal ? prev.x + prev.w : prev.y + prev.h)
+    : horizontal ? parent.x : parent.y
+  const line: [Point, Point] = horizontal
+    ? [{ x: at, y: parent.y }, { x: at, y: parent.y + parent.h }]
+    : [{ x: parent.x, y: at }, { x: parent.x + parent.w, y: at }]
+  return { index, line }
 }
