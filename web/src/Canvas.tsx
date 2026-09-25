@@ -3,17 +3,14 @@ import type { CanvasKit, Surface } from 'canvaskit-wasm'
 import { MM, bounds, ends, insertion, useEditor, type Editor, type Point, type Tool } from './editor'
 import type { Container, NewKind, Node, Page, TextNode } from './model'
 import { penPath } from './pen'
+import { handleAt, portAt, portsOf, rect, resized } from './handles'
 import { Renderer, fitView, HANDLE, type Box, type View } from './renderer'
 import { pick } from './select'
 import { handleTextKey, insert, range, select, textOf, wordAt } from './textEdit'
 
 const PX_PER_PT = 96 / 72
 const DRAG = 3
-const EDGE = 4
 const HIT = 4
-/** Distance in px of a text frame's in- and out-port from its top and bottom corner. */
-const PORT_INSET = 16
-const PORT = 10
 const CURSORS: Record<string, string> = {
   nw: 'nwse-resize',
   se: 'nwse-resize',
@@ -117,12 +114,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const { page, path } = hit(p)
       return pick(page.children, path, editor.selection, mode)
     }
-    const rect = (a: Point, b: Point): Box => ({
-      x: Math.min(a.x, b.x),
-      y: Math.min(a.y, b.y),
-      w: Math.abs(a.x - b.x),
-      h: Math.abs(a.y - b.y),
-    })
     /**
      * The in- and out-port in screen space of a single selected text frame that can
      * thread, as in InDesign: on its left edge below the top and its right edge above
@@ -132,19 +123,12 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const [n] = editor.selected()
       if (editor.tool !== 'move' || editor.selection.length !== 1 || editor.editing || n?.kind !== 'text') return undefined
       if (n.sizing.horizontal === 'hug' && n.sizing.vertical === 'hug' && !n.prev && !n.next) return undefined
-      return { node: n, ...portsOf(n) }
+      return { node: n, ...portsOf(view, placed(n)) }
     }
-    const portsOf = (layer: Node) => {
-      const n = placed(layer)
-      return {
-      in: { x: view.x + n.x * view.zoom, y: view.y + n.y * view.zoom + Math.min(PORT_INSET, (n.h * view.zoom) / 2) },
-      out: { x: view.x + (n.x + n.w) * view.zoom, y: view.y + (n.y + n.h) * view.zoom - Math.min(PORT_INSET, (n.h * view.zoom) / 2) },
-      }
-    }
-    const portAt = (e: { offsetX: number; offsetY: number }) => {
+    const portUnder = (e: Pointer) => {
       const p = ports()
-      const near = (q: Point) => Math.abs(q.x - e.offsetX) <= PORT / 2 + 1 && Math.abs(q.y - e.offsetY) <= PORT / 2 + 1
-      return !p ? undefined : near(p.out) ? { side: 'out' as const, node: p.node } : near(p.in) ? { side: 'in' as const, node: p.node } : undefined
+      const side = p && portAt(p, e.offsetX, e.offsetY)
+      return side && { side, node: p.node }
     }
     /** Box handles of the selection, or the ends of a single selected line. */
     const handles = () => {
@@ -163,7 +147,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const frames = [...editor.nodes.values()].flatMap(({ node }) => (node.kind === 'text' && node.story === n.story ? [node] : []))
       const lines = frames.flatMap((f) => {
         const next = f.next && frames.find((g) => g.id === f.next)
-        return next ? [[portsOf(f).out, portsOf(next).in] as [Point, Point]] : []
+        return next ? [[portsOf(view, placed(f)).out, portsOf(view, placed(next)).in] as [Point, Point]] : []
       })
       return {
         ports: [
@@ -239,33 +223,10 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       redraw()
     }
 
-    const handleAt = (e: Pointer) => {
-      const { box, line } = handles()
-      const { offsetX: x, offsetY: y } = e
-      if (line) {
-        const i = line.findIndex((p) => Math.hypot(view.x + p.x * view.zoom - x, view.y + p.y * view.zoom - y) <= HANDLE / 2 + 1)
-        return i < 0 ? undefined : `end${i}`
-      }
-      if (!box) return undefined
-      const l = view.x + box.x * view.zoom
-      const t = view.y + box.y * view.zoom
-      const r = l + box.w * view.zoom
-      const b = t + box.h * view.zoom
-      const near = (v: number, a: number, d: number) => Math.abs(v - a) <= d
-      const within = (v: number, a: number, c: number) => v >= a - EDGE && v <= c + EDGE
-      const v = !box.h ? '' : near(y, t, HANDLE / 2) ? 'n' : near(y, b, HANDLE / 2) ? 's' : ''
-      const h = !box.w ? '' : near(x, l, HANDLE / 2) ? 'w' : near(x, r, HANDLE / 2) ? 'e' : ''
-      if (v && h) return v + h
-      if (!within(x, l, r) || !within(y, t, b)) return undefined
-      if (box.h && near(y, t, EDGE)) return 'n'
-      if (box.h && near(y, b, EDGE)) return 's'
-      if (box.w && near(x, l, EDGE)) return 'w'
-      if (box.w && near(x, r, EDGE)) return 'e'
-      return undefined
-    }
+    const handleUnder = (e: Pointer) => handleAt(view, e.offsetX, e.offsetY, handles())
     const track = () => {
       if (!pointer || drag || editor.pen) return
-      canvas.style.cursor = portAt(pointer) ? 'pointer' : (CURSORS[handleAt(pointer) ?? ''] ?? '')
+      canvas.style.cursor = portUnder(pointer) ? 'pointer' : (CURSORS[handleUnder(pointer) ?? ''] ?? '')
       const mode = pointer.ctrlKey ? 'deep' : 'click'
       const id = editor.tool === 'move' ? pickAt(toDoc(pointer), mode) : undefined
       if (id !== hover) {
@@ -352,7 +313,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       if (editor.threading) {
         // A loaded out-port threads into the text frame clicked, or a new one drawn.
         const from = editor.threading
-        if (portAt(e)) return
+        if (portUnder(e)) return
         const to = hit(p).path.findLast((id) => editor.nodes.get(id)?.node.kind === 'text')
         if (to === from) return
         if (to) {
@@ -409,13 +370,13 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         editor.set({ selection: editor.apply({ type: 'override', page: under.id, id: master }) })
         return
       }
-      const port = portAt(e)
+      const port = portUnder(e)
       if (port) {
         if (port.side === 'out') editor.set({ threading: port.node.id })
         drag = null
         return
       }
-      const handle = handleAt(e)
+      const handle = handleUnder(e)
       const line = handle?.startsWith('end') && ends(placed(editor.selected()[0]))
       if (line) {
         drag = { kind: 'end', start: p, id: editor.selection[0], ends: line, index: Number(handle!.slice(3)) }
@@ -532,37 +493,12 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         const off = editor.dx(drag.id)
         editor.apply({ type: 'setPath', id: drag.id, path: [0, a.x - off, a.y, 1, b.x - off, b.y] })
       } else if (drag.kind === 'resize') {
-        const { box, handle } = drag
-        const dx = p.x - drag.start.x
-        const dy = p.y - drag.start.y
-        let l = box.x + (handle.includes('w') ? dx : 0)
-        let r = box.x + box.w + (handle.includes('e') ? dx : 0)
-        let t = box.y + (handle.includes('n') ? dy : 0)
-        let b = box.y + box.h + (handle.includes('s') ? dy : 0)
-        if (e.altKey) {
-          if (handle.includes('w')) r = box.x + box.w - dx
-          if (handle.includes('e')) l = box.x - dx
-          if (handle.includes('n')) b = box.y + box.h - dy
-          if (handle.includes('s')) t = box.y - dy
-        }
-        if (e.shiftKey && box.w && box.h) {
-          const s = Math.max(Math.abs((r - l) / box.w), Math.abs((b - t) / box.h))
-          const cx = handle.includes('w') ? r : handle.includes('e') ? l : (l + r) / 2
-          const cy = handle.includes('n') ? b : handle.includes('s') ? t : (t + b) / 2
-          const w = box.w * s * Math.sign(r - l || 1)
-          const h = box.h * s * Math.sign(b - t || 1)
-          ;[l, r] = handle.includes('w') ? [cx - w, cx] : handle.includes('e') ? [cx, cx + w] : [cx - w / 2, cx + w / 2]
-          ;[t, b] = handle.includes('n') ? [cy - h, cy] : handle.includes('s') ? [cy, cy + h] : [cy - h / 2, cy + h / 2]
-        }
-        const sx = box.w ? (r - l) / box.w : 1
-        const sy = box.h ? (b - t) / box.h : 1
-        for (const n of drag.frames) {
-          const off = editor.dx(n.id)
-          const x1 = l + (n.x + off - box.x) * sx
-          const y1 = t + (n.y - box.y) * sy
-          const f = rect({ x: x1, y: y1 }, { x: x1 + n.w * sx, y: y1 + n.h * sy })
-          editor.apply({ type: 'setFrame', id: n.id, ...f, x: f.x - off, ignoreConstraints: e.ctrlKey || e.metaKey })
-        }
+        const d = { x: p.x - drag.start.x, y: p.y - drag.start.y }
+        const boxes = resized(drag.box, drag.handle, d, e, drag.frames.map(placed))
+        drag.frames.forEach((n, i) => {
+          const f = boxes[i]
+          editor.apply({ type: 'setFrame', id: n.id, ...f, x: f.x - editor.dx(n.id), ignoreConstraints: e.ctrlKey || e.metaKey })
+        })
       }
     }
     const onPointerUp = (e: PointerEvent) => {
@@ -613,7 +549,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     }
     const onDoubleClick = (e: MouseEvent) => {
       if (editor.tool !== 'move') return
-      const port = portAt(e)
+      const port = portUnder(e)
       if (port) {
         // Double-clicking a port breaks the thread there.
         const id = port.side === 'out' ? port.node.id : port.node.prev
