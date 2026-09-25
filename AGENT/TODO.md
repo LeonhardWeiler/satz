@@ -27,6 +27,18 @@ font helper, i18n.
 
 ## Breadth
 
+### 11. Spreads
+- Facing pages, as in InDesign: a document setting, on by default, off for a
+  poster. With facing pages the canvas shows spreads side by side at the spine and
+  the pages panel lists them as spreads: page 1 alone on the right, then 2–3, 4–5
+  and so on, so the last page stands alone on the left when the page count is even
+  and ends a spread when it is odd.
+- Masters in a document with facing pages are spreads with a left and a right
+  page; a page shows the side it is on, so page numbers and mirrored layouts sit
+  on the outer edge. Without facing pages a master is one page.
+- Layers move freely across the spine; one that crosses it prints on both pages.
+  The PDF stays single pages with trim and bleed each.
+
 ### 12. Fonts
 - Upload, bundled font, Local Font Access (Chromium).
 - Fonts referenced by name + hash; missing fonts fall back to the bundled font,
