@@ -2,6 +2,8 @@ import type { Canvas, CanvasKit, Font, Paint, Rect, SkPicture } from 'canvaskit-
 import type { Engine } from './engine/engine'
 import { close, decode, type Op, type Paint as Fill } from './displayList'
 
+type Cache = Map<number, { hash: number; picture: SkPicture }>
+
 export type View = { x: number; y: number; zoom: number }
 export type Box = { x: number; y: number; w: number; h: number }
 export type Overlay = {
@@ -41,7 +43,9 @@ const CAPS = ['Butt', 'Round', 'Square'] as const
 const JOINS = ['Miter', 'Round', 'Bevel'] as const
 
 export class Renderer {
-  private pictures = new Map<number, { hash: number; picture: SkPicture }>()
+  /** Item pictures by item id, and pictures of layers with shadows by layer hash. */
+  private pictures: Cache = new Map()
+  private layers: Cache = new Map()
   private fonts = new Map<string, Font>()
   /** Paint for display-list content; `chrome` draws the page, guides and overlay. */
   private paint: Paint
@@ -87,6 +91,14 @@ export class Renderer {
     canvas.drawRect(bleedBox, paint)
     canvas.restore()
     this.drawOverlay(canvas, view, dpr, overlay)
+    const live = new Set(ops.flatMap((op) => (op.op === 'beginItem' ? op.item : op.op === 'pushLayer' ? op.hash : [])))
+    for (const cache of [this.pictures, this.layers]) {
+      for (const [key, { picture }] of cache) {
+        if (live.has(key)) continue
+        picture.delete()
+        cache.delete(key)
+      }
+    }
   }
 
   private drawOverlay(canvas: Canvas, view: View, dpr: number, { selection, hover, marquee, handles, ends, pen }: Overlay) {
@@ -156,13 +168,7 @@ export class Renderer {
       const op = ops[i]
       if (op.op === 'beginItem') {
         const end = close(ops, i)
-        let cached = this.pictures.get(op.item)
-        if (cached?.hash !== op.hash) {
-          cached?.picture.delete()
-          cached = { hash: op.hash, picture: this.record(ops, i + 1, end, bounds) }
-          this.pictures.set(op.item, cached)
-        }
-        canvas.drawPicture(cached.picture)
+        canvas.drawPicture(this.cached(this.pictures, op.item, op.hash, () => this.record(ops, i + 1, end, bounds)))
         i = end
       } else if (op.op === 'pushClip') {
         const end = close(ops, i)
@@ -184,7 +190,7 @@ export class Renderer {
           canvas.saveLayer(layer)
           this.drawOps(canvas, ops, i + 1, end, bounds)
         } else {
-          const picture = this.record(ops, i + 1, end, bounds)
+          const picture = this.cached(this.layers, op.hash, op.hash, () => this.record(ops, i + 1, end, bounds))
           canvas.saveLayer(layer)
           for (const s of op.shadows) {
             const p = new ck.Paint()
@@ -202,7 +208,6 @@ export class Renderer {
           canvas.drawPicture(picture)
           canvas.restore()
           p.delete()
-          picture.delete()
         }
         canvas.restore()
         blur?.delete()
@@ -223,6 +228,17 @@ export class Renderer {
         i = end
       } else this.drawOp(canvas, op)
     }
+  }
+
+  /** The picture cached under `key`, recorded again when `hash` changes. */
+  private cached(cache: Cache, key: number, hash: number, record: () => SkPicture) {
+    let entry = cache.get(key)
+    if (entry?.hash !== hash) {
+      entry?.picture.delete()
+      entry = { hash, picture: record() }
+      cache.set(key, entry)
+    }
+    return entry.picture
   }
 
   private record(ops: Op[], from: number, to: number, bounds: Rect) {
@@ -292,7 +308,7 @@ export class Renderer {
   }
 
   delete() {
-    for (const { picture } of this.pictures.values()) picture.delete()
+    for (const { picture } of [...this.pictures.values(), ...this.layers.values()]) picture.delete()
     for (const font of this.fonts.values()) font.delete()
     this.paint.delete()
     this.chrome.delete()

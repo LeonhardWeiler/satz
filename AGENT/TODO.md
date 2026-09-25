@@ -25,10 +25,6 @@ Found by hand on 2026-09-24 (notes in AGENT/bugs.md), causes checked in the code
   whether to thicken the preview (e.g. CanvasKit subpixel edging) or leave it; if not, fix the
   glyph run in `pdf.rs`.
 
-### B10. Layers with shadows are re-recorded on every frame (found while checking)
-- Cause: `renderer.ts` records a new SkPicture for each shadowed layer on every redraw.
-- Fix: cache layer pictures like items, keyed by the hashes of the items inside.
-
 ## Settled design
 
 - Engine (Rust → WASM) owns the Loro doc, layout and undo. React sends commands and

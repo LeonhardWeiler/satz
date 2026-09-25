@@ -21,7 +21,7 @@ export type Op =
   | { op: 'pushClip'; path: Float32Array; invert: boolean }
   | { op: 'popClip' }
   | { op: 'strokePath'; paint: Paint; width: number; cap: number; join: number; path: Float32Array }
-  | { op: 'pushLayer'; opacity: number; blend: number; blur: number; shadows: Shadow[] }
+  | { op: 'pushLayer'; hash: number; opacity: number; blend: number; blur: number; shadows: Shadow[] }
   | { op: 'popLayer' | 'beginMask' | 'endMask' | 'popMask' }
 
 const SIMPLE = { 2: 'endItem', 7: 'popClip', 10: 'popLayer', 11: 'beginMask', 12: 'endMask', 13: 'popMask' } as const
@@ -97,18 +97,19 @@ export function decode(words: Uint32Array): Op[] {
         break
       }
       case 9: {
-        const [opacity] = f32(i, 1)
-        const blend = words[i + 1]
-        const [blur] = f32(i + 2, 1)
-        const n = words[i + 3]
-        i += 4
+        const hash = words[i]
+        const [opacity] = f32(i + 1, 1)
+        const blend = words[i + 2]
+        const [blur] = f32(i + 3, 1)
+        const n = words[i + 4]
+        i += 5
         const shadows = Array.from({ length: n }, (_, k) => ({
           offset: f32(i + 7 * k, 2),
           blur: f32(i + 7 * k + 2, 1)[0],
           color: f32(i + 7 * k + 3, 4),
         }))
         i += 7 * n
-        ops.push({ op: 'pushLayer', opacity, blend, blur, shadows })
+        ops.push({ op: 'pushLayer', hash, opacity, blend, blur, shadows })
         break
       }
       default:

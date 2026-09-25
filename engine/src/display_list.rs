@@ -157,6 +157,14 @@ pub fn close(ops: &[Op], at: usize) -> usize {
     ops.len()
 }
 
+/// Writes the hash of the words since the innermost open item or layer into the word before them.
+fn seal(out: &mut [u32], open: &mut Vec<usize>) {
+    let start = open.pop().expect("close without open");
+    out[start - 1] = out[start..]
+        .iter()
+        .fold(0x811c9dc5, |h, w| (h ^ w).wrapping_mul(0x01000193));
+}
+
 pub fn encode(ops: &[Op]) -> Vec<u32> {
     let mut out = Vec::new();
     let mut open = Vec::new();
@@ -175,10 +183,7 @@ pub fn encode(ops: &[Op]) -> Vec<u32> {
                 open.push(out.len());
             }
             Op::EndItem => {
-                let start = open.pop().expect("EndItem without BeginItem");
-                out[start - 1] = out[start..]
-                    .iter()
-                    .fold(0x811c9dc5, |h, w| (h ^ w).wrapping_mul(0x01000193));
+                seal(&mut out, &mut open);
                 out.push(2);
             }
             Op::FillPath { paint: p, path } => {
@@ -231,7 +236,9 @@ pub fn encode(ops: &[Op]) -> Vec<u32> {
                 blur,
                 shadows,
             } => {
-                out.extend([9, opacity.to_bits(), *blend, blur.to_bits()]);
+                out.extend([9, 0]);
+                open.push(out.len());
+                out.extend([opacity.to_bits(), *blend, blur.to_bits()]);
                 out.push(shadows.len() as u32);
                 for s in shadows {
                     floats(&mut out, &s.offset);
@@ -239,7 +246,10 @@ pub fn encode(ops: &[Op]) -> Vec<u32> {
                     floats(&mut out, &s.color);
                 }
             }
-            Op::PopLayer => out.push(10),
+            Op::PopLayer => {
+                seal(&mut out, &mut open);
+                out.push(10);
+            }
             Op::BeginMask => out.push(11),
             Op::EndMask => out.push(12),
             Op::PopMask => out.push(13),
@@ -266,6 +276,30 @@ mod tests {
         };
         assert_eq!(hash([1.0; 4]), hash([1.0; 4]));
         assert_ne!(hash([1.0; 4]), hash([0.5; 4]));
+    }
+
+    #[test]
+    fn layer_hash_follows_everything_inside_the_layer() {
+        let hash = |opacity| {
+            encode(&[
+                Op::PushLayer {
+                    opacity: 1.0,
+                    blend: 0,
+                    blur: 0.0,
+                    shadows: vec![],
+                },
+                Op::PushLayer {
+                    opacity,
+                    blend: 0,
+                    blur: 0.0,
+                    shadows: vec![],
+                },
+                Op::PopLayer,
+                Op::PopLayer,
+            ])[1]
+        };
+        assert_eq!(hash(0.5), hash(0.5));
+        assert_ne!(hash(0.5), hash(0.25));
     }
 
     #[test]
