@@ -41,35 +41,30 @@
 <body>
 <main>
 <h1>Satz – project health report</h1>
-<p class="meta">2026-09-25 · branch <code>main</code> · commit <code>dedd20a</code> · browser DTP (Rust/WASM engine, CanvasKit renderer, React UI, krilla PDF)</p>
+<p class="meta">2026-09-25 · branch <code>main</code> · commit <code>b60db80</code> · browser DTP (Rust/WASM engine, CanvasKit renderer, React UI, krilla PDF)</p>
 
 <div class="counters">
   <div class="counter"><b>0</b><span>Critical</span></div>
-  <div class="counter"><b>0</b><span>High</span></div>
-  <div class="counter"><b>9</b><span>Medium</span></div>
-  <div class="counter"><b>9</b><span>Low</span></div>
+  <div class="counter"><b>1</b><span>High</span></div>
+  <div class="counter"><b>4</b><span>Medium</span></div>
+  <div class="counter"><b>8</b><span>Low</span></div>
   <div class="counter"><b>2</b><span>Info</span></div>
-  <div class="counter"><b>20</b><span>Total</span></div>
+  <div class="counter"><b>15</b><span>Total</span></div>
 </div>
 
 <nav aria-label="Contents">
 <ol>
   <li><a href="#open">Open findings</a>
     <ol>
-      <li><a href="#BUG-8">BUG-8 Picker arrows nudge the layer</a></li>
-      <li><a href="#PRINT-1">PRINT-1 Duplicate spot names</a></li>
-      <li><a href="#BUG-5">BUG-5 Layer drop into own descendant</a></li>
-      <li><a href="#BUG-6">BUG-6 Stale text and swatch name</a></li>
-      <li><a href="#ROB-1">ROB-1 Commands not atomic</a></li>
+      <li><a href="#BUG-10">BUG-10 Space wraps auto-width text</a></li>
+      <li><a href="#BUG-11">BUG-11 Boxes can reach 0 size</a></li>
+      <li><a href="#TEST-2">TEST-2 Flaky variables e2e</a></li>
       <li><a href="#PERF-1">PERF-1 Full snapshot per event</a></li>
-      <li><a href="#PERF-2">PERF-2 Export on main thread</a></li>
       <li><a href="#UX-1">UX-1 Blank screen while loading</a></li>
+      <li><a href="#PERF-2">PERF-2 Export on main thread</a></li>
       <li><a href="#TEST-1">TEST-1 Gaps in e2e coverage</a></li>
-      <li><a href="#BUG-9">BUG-9 Panel click splits the pen</a></li>
-      <li><a href="#UX-6">UX-6 Picker ignores panel scroll</a></li>
       <li><a href="#UX-7">UX-7 Swatch click does nothing</a></li>
       <li><a href="#A11Y-1">A11Y-1 Layers keyboard</a></li>
-      <li><a href="#A11Y-2">A11Y-2 Space blocked on buttons</a></li>
       <li><a href="#MEM-1">MEM-1 Font copy per size</a></li>
       <li><a href="#ARCH-1">ARCH-1 Canvas pointer logic</a></li>
       <li><a href="#SEC-1">SEC-1 Actions not pinned</a></li>
@@ -86,81 +81,53 @@
 
 <h2 id="open">1. Open findings</h2>
 
-<article class="card medium" id="BUG-8">
-  <header><span class="id">BUG-8</span><span class="badge medium">medium</span><h3>Arrow keys in the colour picker also move the selected layer</h3></header>
-  <p class="file"><code>web/src/ColorPicker.tsx</code> <code>step</code>; <code>web/src/App.tsx</code> <code>onKey</code>; <code>web/src/Canvas.tsx</code> <code>isTyping</code></p>
-  <p>The saturation area is a focusable <code>div role="slider"</code>. <code>step</code> only calls <code>preventDefault</code>; the window listener in <code>App</code> does not check <code>defaultPrevented</code>, and <code>isTyping</code> only matches inputs, so every arrow press changes the colour and nudges the selection by 1 mm (10 mm with Shift) in the same undo history.</p>
-  <p class="rec">Skip handled events in <code>App.onKey</code> (<code>if (e.defaultPrevented) return</code>); covers every widget that consumes its own keys.</p>
+<article class="card high" id="BUG-10">
+  <header><span class="id">BUG-10</span><span class="badge high">high</span><h3>A trailing space wraps auto-width text onto a new line</h3></header>
+  <p class="file"><code>engine/src/text.rs</code> <code>rows</code> (<code>natural</code>), <code>measure</code>; <code>engine/src/linebreak.rs</code> <code>break_lines</code></p>
+  <p>Typing in a text with auto width (hug on both axes): after a space the caret jumps to a new line as if Enter was pressed; the next letter brings it back. <code>natural</code> sums items only up to the last <code>Box</code>, so the hugged width leaves out the trailing space. The space is still a <code>Glue</code> item before <code>FILL</code>/<code>FORCE</code>, and <code>break_lines</code> counts it on the last line: the line "Hello␣" is one space wider than the frame (r = −3, overfull), so the breaker breaks at that glue and adds an empty line holding only the end of the paragraph. The caret after the space sits on that empty line; the frame height grows by one line. With the next letter the space is inside the content again and everything fits on one line.</p>
+  <p class="rec">Let the hugged width include trailing spaces: sum <code>natural</code> over all items of the paragraph instead of up to the last <code>Box</code>. The frame grows with each space and the caret stays on the line, as in Figma. Add a <code>measure</code> test with <code>"Hello "</code> expecting one line, and an e2e test typing a space in an auto-width text.</p>
 </article>
 
-<article class="card medium" id="PRINT-1">
-  <header><span class="id">PRINT-1</span><span class="badge medium">medium</span><h3>Spot swatches may share a name with different alternates</h3></header>
-  <p class="file"><code>engine/src/color.rs</code> <code>Swatch::check</code>; <code>engine/src/pdf.rs</code> <code>color</code>; <code>web/src/Swatches.tsx</code> <code>add</code></p>
-  <p>Names are not unique; the default name <code>Swatch {n+1}</code> repeats after a delete. The PDF writes one <code>Separation</code> per use with the swatch's name, so two spot swatches called the same with different CMYK alternates produce one plate name with conflicting alternates. Which one the RIP uses is undefined.</p>
-  <p class="rec">Reject a spot name already used by another swatch in <code>AddSwatch</code>/<code>SetSwatch</code>, and derive the default name from the highest existing number.</p>
+<article class="card medium" id="BUG-11">
+  <header><span class="id">BUG-11</span><span class="badge medium">medium</span><h3>Rectangles, ellipses, frames and text boxes can be set to width or height 0</h3></header>
+  <p class="file"><code>engine/src/doc.rs</code> <code>resize</code>; <code>web/src/Canvas.tsx</code> <code>handleAt</code>, resize and draw drags; <code>web/src/Properties.tsx</code> <code>frame</code></p>
+  <p><code>resize</code> only rejects negative sizes, for every kind. Typing 0 into H (or W), dragging a handle onto the opposite edge, or drawing a rectangle with a purely horizontal drag gives a box of height 0. Such a box is invisible, a frame clips all its children away, and it cannot be grown back on the canvas: <code>handleAt</code> hides the n/s handles when <code>box.h</code> is 0 (the rule meant for lines), and group/multi-selection resize uses the scale fallback 1 for that axis. Only the H field brings it back. Size 0 only makes sense on the flat axis of lines, arrows and straight pen paths.</p>
+  <p class="rec">Enforce a minimum size in the engine, in one place: in <code>resize</code> clamp <code>w</code> and <code>h</code> to 0.01 mm for every kind whose bounds are not derived from a path (rectangle, ellipse, polygon, star, frame, text, image); lines, arrows and pen paths keep 0. The canvas and the fields then need no rules of their own; the draw drag produces the minimum instead of 0. Add engine tests for both groups and an e2e test typing 0 into H.</p>
 </article>
 
-<article class="card medium" id="BUG-5">
-  <header><span class="id">BUG-5</span><span class="badge medium">medium</span><h3>Dropping a layer into its own descendant throws</h3></header>
-  <p class="file"><code>web/src/Layers.tsx</code> <code>over</code>, <code>onDrop</code>; <code>engine/src/doc.rs</code> <code>Command::Move</code></p>
-  <p><code>over</code> only rejects the dragged rows themselves. Dragging an expanded group onto one of its children (into, above or below) sends a <code>move</code> whose target parent is inside the moved node; Loro rejects the cyclic move, the <code>JsError</code> escapes the drop handler and the drop indicator stays visible.</p>
-  <p class="rec">Reject targets inside a dragged subtree in <code>over</code>, and check ancestry in <code>Command::Move</code> before the first <code>mov_to</code>.</p>
-</article>
-
-<article class="card medium" id="BUG-6">
-  <header><span class="id">BUG-6</span><span class="badge medium">medium</span><h3>Text content and swatch name are stale after undo and re-apply the undone value</h3></header>
-  <p class="file"><code>web/src/Properties.tsx</code> (Text textarea); <code>web/src/Swatches.tsx</code> (Name input)</p>
-  <p>Both are uncontrolled with <code>defaultValue</code> and keyed on the id only. After Ctrl+Z restores an older value, the box still shows the newer one; the textarea compares against the restored text on blur and sends <code>setText</code> again, silently redoing the edit.</p>
-  <p class="rec">Key both on id and value, or keep a draft like <code>Field</code> does.</p>
-</article>
-
-<article class="card medium" id="ROB-1">
-  <header><span class="id">ROB-1</span><span class="badge medium">medium</span><h3>Commands are not atomic and engine errors leave the UI stale</h3></header>
-  <p class="file"><code>engine/src/doc.rs</code> <code>apply</code>; <code>web/src/editor.ts</code> <code>apply</code></p>
-  <p>Props are now checked before mutation, but <code>Move</code>, <code>Ungroup</code> and <code>Order</code> still loop over several ids and return <code>Err</code> after partial mutation without <code>commit</code>, so half-done ops land in the next command's transaction. <code>Editor.apply</code> throws before it re-reads the snapshot, so the UI shows a state the engine no longer has (BUG-5 is one way in).</p>
-  <p class="rec">Validate all inputs before the first mutation in each command; in <code>Editor.apply</code> re-read the snapshot in a <code>finally</code>.</p>
+<article class="card medium" id="TEST-2">
+  <header><span class="id">TEST-2</span><span class="badge medium">medium</span><h3>A variables e2e test times out under full load</h3></header>
+  <p class="file"><code>web/e2e/variables.spec.ts</code> "a fill bound to a colour variable follows the mode of its frame and page"; <code>web/playwright.config.ts</code></p>
+  <p>In this review <code>./check</code> failed: this test exceeded the 30 s timeout while 44 others passed. Run alone it passed 3 of 3 times in ≈ 7 s. It opens the picker twice, switches modes three times and takes screenshots after a fixed <code>waitForTimeout(100)</code>; with all workers on SwiftShader in parallel that is too slow or races the redraw. A flaky gate fails CI deploys at random and teaches to ignore red runs.</p>
+  <p class="rec">Replace the fixed wait with a poll (<code>expect.poll</code> on the sampled colours), split the test into one per mode switch, and limit workers in CI (<code>workers: process.env.CI ? 2 : undefined</code>) if SwiftShader stays the bottleneck.</p>
 </article>
 
 <article class="card medium" id="PERF-1">
   <header><span class="id">PERF-1</span><span class="badge medium">medium</span><h3>Full snapshot and full text layout on every event</h3></header>
   <p class="file"><code>engine/src/doc.rs</code> <code>render</code>, <code>hit</code>; <code>web/src/editor.ts</code>; <code>web/src/Canvas.tsx</code></p>
-  <p>Each <code>setFrame</code> of a drag serialises the whole document to JS (once per selected node), <code>render</code> builds it again for the display list and reshapes and re-breaks every text item per frame, and every hover <code>pointermove</code> calls <code>hit</code>, which builds another full snapshot. <code>Engine.pdf</code> builds one snapshot per page. Fine for the demo page; it will not hold for the 8-page booklet with threaded text.</p>
+  <p>Each <code>setFrame</code> of a drag and each typed character while editing text serialises the whole document to JS (once per selected node), <code>render</code> builds it again for the display list and reshapes and re-breaks every text item per frame, and every hover <code>pointermove</code> calls <code>hit</code>, which builds another full snapshot. <code>Engine.pdf</code> builds one snapshot per page. Every command also runs <code>settle</code> and <code>lay_out</code> over the whole tree (noted under Later in TODO). Fine for the demo page; it will not hold for the 8-page booklet with threaded text.</p>
   <p class="rec">Cache text layout per node keyed by text, size and frame; render and hit test from one cached tree that commands invalidate; one <code>setFrames</code> command for multi-node drags.</p>
 </article>
 
-<article class="card medium" id="PERF-2">
-  <header><span class="id">PERF-2</span><span class="badge medium">medium</span><h3>PDF export blocks the UI; raster ppi has no upper bound</h3></header>
-  <p class="file"><code>web/src/App.tsx</code> <code>exportPdf</code>; <code>engine/src/doc.rs</code> <code>SetDocument</code>; <code>engine/src/pdf.rs</code> <code>raster</code></p>
-  <p>Export runs synchronously on the main thread without feedback. <code>rasterPpi</code> only has to be positive: at 800 ppi a page-sized A2 shadow is ≈ 13 229 × 18 709 px (≈ 990 MB per buffer, two planes plus a recoloured copy in CMYK), which exceeds the WASM heap and traps the engine; the app is then dead with no message and, without persistence, the work is lost.</p>
-  <p class="rec">Limit <code>rasterPpi</code> in <code>SetDocument</code> (e.g. 72..=1200) like the other props; show progress, later move export into a Worker.</p>
-</article>
-
 <article class="card medium" id="UX-1">
-  <header><span class="id">UX-1</span><span class="badge medium">medium</span><h3>Blank screen while ≈ 5.4 MB of WASM load, and on load failure</h3></header>
+  <header><span class="id">UX-1</span><span class="badge medium">medium</span><h3>Blank screen while ≈ 5.7 MB of WASM load, and on load failure</h3></header>
   <p class="file"><code>web/src/main.tsx</code>, <code>web/index.html</code></p>
-  <p>Build output: <code>engine_bg.wasm</code> 2.4 MB gzip (was 2.1, the FOGRA51 profile is embedded), <code>canvaskit.wasm</code> 3.0 MB gzip. Nothing is rendered until both are initialised; if the fetch or init fails, the top-level <code>await</code> rejects and the page stays empty. This is the first impression of the live portfolio build.</p>
+  <p>Build output: <code>engine_bg.wasm</code> 2.7 MB gzip (was 2.4; hyphenation patterns and text styles grew it), <code>canvaskit.wasm</code> 3.0 MB gzip. Nothing is rendered until both are initialised; if the fetch or init fails, the top-level <code>await</code> rejects and the page stays empty. This is the first impression of the live portfolio build.</p>
   <p class="rec">Static loading text in <code>index.html</code>; catch the init promise and render the same notice style as the WebGL message.</p>
 </article>
 
-<article class="card medium" id="TEST-1">
-  <header><span class="id">TEST-1</span><span class="badge medium">medium</span><h3>E2E runs Chromium only and skips the layers panel</h3></header>
+<article class="card low" id="PERF-2">
+  <header><span class="id">PERF-2</span><span class="badge low">low</span><h3>PDF export blocks the UI without feedback</h3></header>
+  <p class="file"><code>web/src/App.tsx</code> <code>exportPdf</code></p>
+  <p><code>rasterPpi</code> is now limited to 72..=1200. Export still runs synchronously on the main thread; with shadows at high ppi on an A2 page the tab freezes for seconds with no sign that anything is happening.</p>
+  <p class="rec">Show a busy state before the call; later move export into a Worker.</p>
+</article>
+
+<article class="card low" id="TEST-1">
+  <header><span class="id">TEST-1</span><span class="badge low">low</span><h3>E2E runs Chromium only and skips layer drag-and-drop</h3></header>
   <p class="file"><code>web/playwright.config.ts</code>, <code>web/e2e/</code></p>
-  <p>Only Chromium (SwiftShader) runs, although Firefox is a settled target browser. No test drags, drops or renames in the layers panel, which is how BUG-5 went unnoticed.</p>
-  <p class="rec">Add a layers drag-and-drop test with the BUG-5 case; add a Firefox project once its WebGL path works in CI.</p>
-</article>
-
-<article class="card low" id="BUG-9">
-  <header><span class="id">BUG-9</span><span class="badge low">low</span><h3>Clicking a panel while drawing with the pen splits the path's undo step</h3></header>
-  <p class="file"><code>web/src/editor.ts</code> <code>gesture</code>; <code>engine/src/doc.rs</code> <code>BeginUndoGroup</code></p>
-  <p>The pen keeps an undo group open until the path is finished. A pointerdown in Properties or Swatches sends <code>beginUndoGroup</code>, which ends every open group first, so the rest of the path lands in separate undo steps and Ctrl+Z afterwards removes only the last anchors.</p>
-  <p class="rec">Finish the pen in <code>gesture</code> (as undo already does), or skip the gesture group while <code>editor.pen</code> is set.</p>
-</article>
-
-<article class="card low" id="UX-6">
-  <header><span class="id">UX-6</span><span class="badge low">low</span><h3>Colour picker stays put when the properties panel scrolls</h3></header>
-  <p class="file"><code>web/src/Popover.tsx</code></p>
-  <p><code>.properties</code> scrolls (<code>overflow: auto</code>); <code>Popover</code> re-places only on window resize and its own size change, so scrolling with the wheel detaches the picker from its row.</p>
-  <p class="rec">Also re-place on <code>scroll</code> (capture) in the same effect.</p>
+  <p>Only Chromium (SwiftShader) runs, although Firefox is a settled target browser. Layers are clicked and renamed in tests, but no test drags a row, so reordering and moving into groups rely on the engine test for the subtree check alone.</p>
+  <p class="rec">Add a layers drag-and-drop test (reorder, into a group, onto its own child); add a Firefox project once its WebGL path works in CI.</p>
 </article>
 
 <article class="card low" id="UX-7">
@@ -177,13 +144,6 @@
   <p class="rec">Roving tabindex with Up/Down/Left/Right on the tree; the existing <code>[</code>/<code>]</code> shortcuts already cover reordering.</p>
 </article>
 
-<article class="card low" id="A11Y-2">
-  <header><span class="id">A11Y-2</span><span class="badge low">low</span><h3>Space cannot activate focused buttons</h3></header>
-  <p class="file"><code>web/src/Canvas.tsx</code> <code>onKey</code></p>
-  <p>The window-wide Space handler for panning calls <code>preventDefault</code> on keydown and keyup unless an input has focus, so layer rows, add/remove, eye and tab buttons react only to Enter.</p>
-  <p class="rec">Only take Space when the target is the canvas or the body.</p>
-</article>
-
 <article class="card low" id="MEM-1">
   <header><span class="id">MEM-1</span><span class="badge low">low</span><h3>A new typeface per text size, never freed</h3></header>
   <p class="file"><code>web/src/renderer.ts</code> <code>font</code></p>
@@ -194,7 +154,7 @@
 <article class="card low" id="ARCH-1">
   <header><span class="id">ARCH-1</span><span class="badge low">low</span><h3>All pointer logic lives in one untested effect</h3></header>
   <p class="file"><code>web/src/Canvas.tsx</code></p>
-  <p>Handle detection, line ends, resize maths, marquee, drawing and pen sit in a single ≈ 400-line <code>useEffect</code>. None of it has unit tests, unlike <code>select.ts</code> and <code>pen.ts</code>; only e2e covers it.</p>
+  <p>Handle detection, line ends, resize maths, marquee, drawing and pen sit in a single ≈ 400-line <code>useEffect</code> in a 600-line file. None of it has unit tests, unlike <code>select.ts</code> and <code>pen.ts</code>; only e2e covers it.</p>
   <p class="rec">Move <code>handleAt</code> and the resize computation into a pure module with vitest cases.</p>
 </article>
 
@@ -214,9 +174,9 @@
 
 <article class="card info" id="UX-5">
   <header><span class="id">UX-5</span><span class="badge info">info</span><h3>Start zoom shows 127 %</h3></header>
-  <p class="file"><code>web/src/renderer.ts</code> <code>fitView</code> (bugs.md 16, not answered in TODO)</p>
+  <p class="file"><code>web/src/renderer.ts</code> <code>fitView</code></p>
   <p>The page is zoomed to fit the window; 127 % is the fit value for the A5 page at that window size. This matches Figma. Shift+0 gives 100 %.</p>
-  <p class="rec">Keep fit; note the answer to bugs.md 16 so it is not reported again.</p>
+  <p class="rec">Keep fit; the answer is recorded under Deliberately decided (UI: start view fits the page).</p>
 </article>
 
 <article class="card info" id="PRINT-2">
@@ -228,12 +188,13 @@
 
 <h2 id="strong">2. What is already strong</h2>
 <ul class="plain">
-  <li><span class="badge good">gate</span> <code>./check</code> passes: fmt, clippy <code>-D warnings</code>, 68 cargo tests, wasm build, <code>tsc</code>, eslint, 10 vitest tests, build, 20 Playwright tests. CI runs the same script in <code>nix develop</code>.</li>
+  <li><span class="badge good">gate</span> <code>./check</code> covers fmt, clippy <code>-D warnings</code>, 114 cargo tests, wasm build, <code>tsc</code>, eslint, 10 vitest tests, build, 45 Playwright tests; all green in this run except TEST-2. CI runs the same script in <code>nix develop</code>.</li>
   <li><span class="badge good">test</span> Pixel diff of the live canvas against the exported PDF rasterised by MuPDF, in RGB and CMYK, plus a trace check for <code>DeviceCMYK</code> and <code>Separation</code> colours.</li>
-  <li><span class="badge good">test</span> Every bug from the manual test round has an e2e regression test: chrome paint, line ends, section spacing, mask groups, Ctrl hover, cursor after keyboard edits, value limits, pen undo, picker placement.</li>
+  <li><span class="badge good">test</span> Every bug from the manual test round has an e2e regression test: chrome paint, line ends, section spacing, mask groups, Ctrl hover, cursor after keyboard edits, value limits, pen undo, picker placement; the fixes from the last review (picker keys, spot names, subtree moves, undo in text and swatch name, pen gesture, popover scroll, Space on buttons) came with tests.</li>
   <li><span class="badge good">engine</span> Props and colours are range-checked before the first mutation; the UI keeps no clamps of its own.</li>
   <li><span class="badge good">design</span> One display list feeds canvas and PDF; item and layer hashes make picture caching cheap, and stale pictures are evicted each frame.</li>
   <li><span class="badge good">colour</span> FOGRA51 profile built reproducibly from ICC-registry data (<code>engine/icc/build</code>); swatch delete detaches bound paints in one command.</li>
+  <li><span class="badge good">text</span> Rich text on Loro with character and paragraph attributes, hypher hyphenation, own Knuth-Plass, columns, insets and baseline grid; in-frame editing with engine-drawn caret and a hidden textarea for IME; PDF glyph runs carry their text.</li>
   <li><span class="badge good">undo</span> Loro undo with stable ids via a trash root; tests cover structure and text restore.</li>
   <li><span class="badge good">build</span> Toolchain fully in <code>flake.nix</code>; <code>wasm-bindgen</code> pinned to the CLI version in the flake; 3 runtime web dependencies; CI with <code>contents: read</code> by default.</li>
   <li><span class="badge good">a11y</span> Labelled controls, <code>:focus-visible</code> styles, dialog and tab roles in the picker, focus returns to the swatch button on Escape, WebGL 2 notice with e2e test.</li>
