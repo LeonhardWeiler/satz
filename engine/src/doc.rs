@@ -3813,13 +3813,19 @@ fn preflight(snap: &Snapshot) -> Vec<Issue> {
 fn visit(n: &Node, p: &Page, trim: Option<[f64; 2]>, snap: &Snapshot, out: &mut Vec<Issue>) {
     let mut problems = Vec::new();
     let s = &n.style;
-    let mut colors: Vec<&Color> = s
-        .fills
-        .iter()
-        .chain(&s.strokes)
-        .filter(|f| f.visible)
-        .flat_map(|f| std::iter::once(&f.color).chain(f.stops.iter().map(|s| &s.color)))
-        .chain(s.effects.iter().filter(|e| e.visible).map(|e| &e.color))
+    let paints = || s.fills.iter().chain(&s.strokes).filter(|f| f.visible);
+    let mut colors: Vec<&Color> = paints()
+        .flat_map(|f| match f.kind {
+            FillKind::Solid => vec![&f.color],
+            FillKind::Linear | FillKind::Radial => f.stops.iter().map(|s| &s.color).collect(),
+            FillKind::Image => vec![],
+        })
+        .chain(
+            s.effects
+                .iter()
+                .filter(|e| e.visible && e.kind == EffectKind::DropShadow)
+                .map(|e| &e.color),
+        )
         .collect();
     let mut children: &[Node] = &[];
     match &n.kind {
@@ -3863,7 +3869,10 @@ fn visit(n: &Node, p: &Page, trim: Option<[f64; 2]>, snap: &Snapshot, out: &mut 
         palette: &snap.palette,
         modes: &n.active_modes,
     };
-    if snap.color_mode == ColorMode::Cmyk && colors.iter().any(|c| c.ink(&scope) == Ink::Rgb) {
+    let image = paints().any(|f| f.kind == FillKind::Image);
+    if snap.color_mode == ColorMode::Cmyk
+        && (image || colors.iter().any(|c| c.ink(&scope) == Ink::Rgb))
+    {
         problems.push(Problem::Rgb);
     }
     if let Some(ppi) = n.ppi.filter(|&ppi| ppi < PRINT_PPI - 0.5) {
@@ -7978,7 +7987,25 @@ mod tests {
                 (t.clone(), font),
             ]
         );
+        let inks = |kind| Props {
+            fills: Some(vec![Fill {
+                kind,
+                stops: vec![FillStop {
+                    at: 0.0,
+                    color: process(0.0, 0.0, 0.0, 1.0),
+                }],
+                ..Fill::default()
+            }]),
+            effects: Some(vec![Effect {
+                kind: EffectKind::Blur,
+                ..Effect::default()
+            }]),
+            ..Props::default()
+        };
+        let gradient = create(&mut d, &p, NewKind::Rect, [20.0, 150.0, 20.0, 20.0]);
+        set(&mut d, &gradient, inks(FillKind::Linear));
         cmyk(&mut d);
+        assert!(!problems(&d).contains(&(gradient, Problem::Rgb)));
         let rgb: Vec<_> = problems(&d)
             .into_iter()
             .filter(|i| i.1 == Problem::Rgb)
