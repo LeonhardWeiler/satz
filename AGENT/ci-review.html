@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Satz – CI-Review</title>
+<style>
+  :root { color-scheme: dark; --bg:#1e1e1e; --panel:#2c2c2c; --line:#3a3a3a; --fg:#e6e6e6; --dim:#9a9a9a; --ok:#4cc38a; --warn:#f5a623; --bad:#f2555a; --acc:#0d99ff; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.6 system-ui, sans-serif; }
+  main { max-width: 960px; margin: 0 auto; padding: 48px 24px 96px; }
+  h1 { font-size: 28px; margin: 0 0 4px; }
+  h2 { font-size: 19px; margin: 48px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+  h3 { font-size: 16px; margin: 0 0 6px; }
+  .dim { color: var(--dim); }
+  code { font: 13px ui-monospace, monospace; background: #00000055; padding: 1px 5px; border-radius: 4px; }
+  pre { font: 13px/1.5 ui-monospace, monospace; background: #00000055; padding: 10px 12px; border-radius: 6px; overflow-x: auto; }
+  .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap: 12px; margin: 20px 0; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+  .tile b { display:block; font-size: 22px; font-variant-numeric: tabular-nums; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: 8px; padding: 16px 18px; margin: 14px 0; }
+  .card.high { border-left-color: var(--bad); }
+  .card.mid { border-left-color: var(--warn); }
+  .card.low { border-left-color: var(--dim); }
+  .card.good { border-left-color: var(--ok); }
+  .tag { display:inline-block; font-size: 12px; padding: 1px 8px; border-radius: 99px; margin-right: 6px; vertical-align: 2px; }
+  .tag.high { background:#f2555a33; color: var(--bad); }
+  .tag.mid { background:#f5a62333; color: var(--warn); }
+  .tag.low { background:#9a9a9a33; color: var(--dim); }
+  .tag.good { background:#4cc38a33; color: var(--ok); }
+  table { width:100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin: 8px 0; }
+  th, td { text-align:left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--dim); font-weight: 500; }
+  td.n { text-align: right; }
+  .fix { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
+  .fix > b { color: var(--acc); }
+</style>
+</head>
+<body>
+<main>
+<h1>Satz – CI-Review</h1>
+<p class="dim">Stand <code>d7e3477</code>, Run <code>36243448242</code> (main, 26.09.2026). Keine Code-Änderung, nur Analyse.</p>
+
+<div class="grid">
+  <div class="tile"><span class="dim">CI heute</span><b>11:50 min</b></div>
+  <div class="tile"><span class="dim">davon Playwright</span><b>5:14 min</b></div>
+  <div class="tile"><span class="dim">davon Rust kalt kompilieren</span><b>3:16 min</b></div>
+  <div class="tile"><span class="dim">nach allen Maßnahmen (Schätzung)</span><b>≈ 5:30 min</b></div>
+</div>
+
+<h2>Wie gemessen wurde</h2>
+<ul>
+  <li>Log-Zeitstempel des letzten grünen Runs (11:50) und der 14 Runs davor (8:23 → 12:00, wachsend mit der Zahl der Tests). Der rote Run <code>36239430504</code> war ein echter Canvas-vs-PDF-Fehler (behoben in <code>62c3a8a</code>), kein CI-Problem.</li>
+  <li>Lokal in einem sauberen Worktree auf <code>d7e3477</code>, 16 Kerne. Der CI-Runner (öffentliches Repo, <code>ubuntu-latest</code>) hat 4 vCPUs; dafür lief Playwright mit <code>taskset -c 0-3</code>. Die Simulation ist ≈1,3× schneller als der echte Runner (245 s statt 314 s).</li>
+  <li>CPU-Verbrauch pro Prozesstyp über <code>ps</code>-Stichproben während der Tests.</li>
+  <li>Nicht gemessen: der geänderte Workflow auf GitHub selbst. Alle Werte „nachher“ für CI sind aus den lokalen Faktoren hochgerechnet.</li>
+</ul>
+
+<h2>Wo die Zeit hingeht</h2>
+<p>Alles läuft seriell in einem Step <code>nix develop -c ./check</code>.</p>
+<table>
+  <tr><th>Phase</th><th class="n">CI</th><th>Ursache</th></tr>
+  <tr><td>Runner, Checkout, Nix installieren</td><td class="n">8 s</td><td>–</td></tr>
+  <tr><td>Dev-Shell laden (429 Pfade von cache.nixos.org)</td><td class="n">54 s</td><td>4,5 GiB Closure, #4</td></tr>
+  <tr><td><code>cargo clippy</code></td><td class="n">35 s</td><td>kalt, kein Cache, #2</td></tr>
+  <tr><td><code>cargo test</code> bauen</td><td class="n">59 s</td><td>kalt, kein Cache, #2</td></tr>
+  <tr><td><code>cargo test</code> ausführen</td><td class="n">74 s</td><td>Debug-Build, 1 Test allein 72 s, #3</td></tr>
+  <tr><td><code>wasm-pack build</code> (release, LTO, wasm-opt)</td><td class="n">122 s</td><td>kalt, kein Cache, #2</td></tr>
+  <tr><td>pnpm install, tsc, eslint, vitest, vite build</td><td class="n">15 s</td><td>–</td></tr>
+  <tr><td><code>playwright test</code> (89 Tests, 2 Worker)</td><td class="n">314 s</td><td>CPU-gebunden durch Swiftshader, #1</td></tr>
+  <tr><td>Pages-Artefakt + Deploy</td><td class="n">17 s</td><td>–</td></tr>
+</table>
+
+<h2>1. Playwright ist CPU-gebunden – mehr Worker helfen nicht</h2>
+<div class="card high">
+  <span class="tag high">46 % der Laufzeit</span>
+  <p>Die Suite verbraucht ≈1230 CPU-Sekunden, ≈14 pro Test. 83 % davon im GPU-Prozess: Swiftshader rendert WebGL (CanvasKit) in Software. Renderer/WASM ≈ 5 %, Node ≈ 2 %. Die App ist nicht schuld: kein Dauer-Render-Loop, <code>antialias</code> ist aus, der Seitenstart kostet ≈0,6 s. Die Tests sind gleichmäßig (Ø 2,3 s, kein Ausreißer); <code>pdf.spec.ts</code> allein ist 21 % der Zeit.</p>
+  <table>
+    <tr><th>auf 4 Kernen (simuliert)</th><th class="n">Laufzeit</th><th>Ergebnis</th></tr>
+    <tr><td>2 Worker (heute)</td><td class="n">245 s</td><td>89 grün</td></tr>
+    <tr><td>4 Worker</td><td class="n">246 s</td><td>2 Timeouts</td></tr>
+    <tr><td>2 Worker, <code>--disable-gpu-compositing</code></td><td class="n">230 s</td><td>89 grün, −6 %, im Rauschen</td></tr>
+  </table>
+  <p>Auf einem Runner ist die CPU also voll. Schneller wird es nur mit mehr Kernen, d. h. mehr Runnern.</p>
+  <div class="fix"><b>Lösung:</b> e2e in 3 Shards auf eigenen Runnern (Matrix) und <code>fullyParallel: true</code> in <code>playwright.config.ts</code>, damit nicht ganze Dateien wie <code>pdf.spec.ts</code> an einem Shard hängen. Lokal mit <code>--fully-parallel</code> alle 89 grün; Shards auf 4 Kernen: 95 s / 79 s / 124 s.
+  <br><b>Gewinn:</b> 5:14 → ≈ 2:40 (längster Shard inkl. ≈40 s Setup), auf dem kritischen Pfad ≈ −2:30. Mehr Tests skalieren über die Zahl der Shards an einer Stelle.</div>
+</div>
+
+<h2>2. Kein Rust-Cache: jeder Run kompiliert alle Crates dreimal kalt</h2>
+<div class="card high">
+  <span class="tag high">3:16 min</span>
+  <p>clippy (check-Profil), Tests (test-Profil) und wasm (release, LTO) bauen jeweils alle Abhängigkeiten (loro, krilla, harfrust, tiny-skia …) neu. Lokal: wasm kalt 51 s, mit gecachten Abhängigkeiten nach einer Engine-Änderung 13 s (davon 7 s wasm-opt).</p>
+  <div class="fix"><b>Lösung:</b> <code>actions/cache@v6</code> auf <code>~/.cargo/registry</code>, <code>~/.cargo/git</code> und <code>target</code>, Key <code>cargo-${{ hashFiles('Cargo.lock', 'flake.lock') }}</code> ohne <code>restore-keys</code>, dazu <code>CARGO_INCREMENTAL: 0</code>. Der Cache wird einmal pro Lockfile- bzw. Toolchain-Stand geschrieben und wächst nicht; nur die Engine selbst wird jedes Mal gebaut.
+  <br><b>Gewinn:</b> ≈ 3:16 → ≈ 1:10 inkl. ≈20 s Cache-Restore (Schätzung aus lokalem Faktor ≈4 für wasm).</div>
+</div>
+
+<h2>3. Rust-Tests laufen unoptimiert</h2>
+<div class="card high">
+  <span class="tag high">74 s → ≈6 s</span>
+  <p><code>a_placed_image_fills_a_rectangle_at_300_ppi_or_smaller_to_fit_its_page</code> kodiert und dekodiert ein Bild mit 60000 × 3000 px im Debug-Build: 72 s in CI, 48 s lokal. <code>a_saved_booklet_loads_as_it_was_without_undo_history</code> braucht weitere ≈20 s. Nur Abhängigkeiten optimieren (<code>[profile.dev.package."*"]</code>) reicht nicht: 17 s, weil die Arbeit in der Engine selbst steckt.</p>
+  <div class="fix"><b>Lösung:</b> in <code>Cargo.toml</code>
+<pre>[profile.test]
+opt-level = 1</pre>
+  Gilt nur für <code>cargo test</code>; <code>cargo build</code> und wasm bleiben gleich. Lokal gemessen: alle Tests 51 s → 4 s, inkrementeller Test-Build nach einer Engine-Änderung 2,3 s → 5,9 s.
+  <br><b>Gewinn:</b> ≈ −68 s in CI, lokal ≈ −47 s pro <code>./check</code>. Kein Test entfällt, keine Testdaten ändern sich.</div>
+</div>
+
+<h2>4. Dev-Shell lädt 2,4 GiB, die nie benutzt werden</h2>
+<div class="card mid">
+  <span class="tag mid">54 s → ≈25 s</span>
+  <p><code>playwright-driver.browsers</code> bringt Firefox (1,0 GiB), WebKit (1,1 GiB, mit GStreamer/PipeWire) und das volle Chromium (0,7 GiB) mit; gebraucht wird nur <code>chromium-headless-shell</code>. <code>rust-bin…default</code> enthält <code>rust-docs</code> (0,7 GiB). Mit Shards zahlt jeder Runner diesen Download.</p>
+  <div class="fix"><b>Lösung:</b> in <code>flake.nix</code>
+<pre>rust = pkgs.rust-bin.stable.latest.minimal.override {
+  extensions = [ "clippy" "rustfmt" "rust-src" "rust-analyzer" ];
+  targets = [ "wasm32-unknown-unknown" ];
+};
+…
+PLAYWRIGHT_BROWSERS_PATH = pkgs.playwright-driver.browsers.override {
+  withChromium = false;
+  withFirefox = false;
+  withWebkit = false;
+};</pre>
+  Lokal gemessen: Closure 4,5 → 2,1 GiB; <code>cargo fmt</code>, <code>clippy</code> und e2e laufen damit grün.
+  <br><b>Gewinn:</b> ≈ −30 s pro Job (Schätzung, proportional zur Downloadgröße), bei 4 Jobs ≈ −2 min Runner-Zeit.</div>
+</div>
+
+<h2>5. Alles in einem seriellen Step</h2>
+<div class="card mid">
+  <span class="tag mid">Fehler erst nach ≈11 min</span>
+  <p>Ein e2e-Fehler zeigt sich erst am Ende, die GitHub-Oberfläche zeigt keine Zeiten pro Phase, und nichts läuft parallel. Die Kette selbst muss zusammenbleiben: <code>tsc</code> braucht die Typen aus <code>wasm-pack</code>, <code>vitest</code> braucht <code>web/src/testdata/</code> aus <code>cargo test</code>. Nur e2e ist abtrennbar; es braucht allein <code>web/dist</code>.</p>
+  <div class="fix"><b>Lösung:</b> <code>check</code> bleibt die eine Stelle für alle Schritte und bekommt eine Stufe als Argument: ohne Argument alles wie heute, <code>build</code> alles bis <code>pnpm build</code>, <code>e2e</code> nur <code>pnpm install</code> und <code>pnpm e2e</code> mit den restlichen Argumenten.
+<pre>jobs:
+  build:
+    env: { CARGO_INCREMENTAL: 0 }
+    steps:
+      - checkout, install-nix-action, actions/cache (siehe #2)
+      - run: nix develop -c ./check build
+      - uses: actions/upload-artifact@v7   # name: dist, path: web/dist
+      - uses: actions/upload-pages-artifact@v5
+  e2e:
+    needs: build
+    strategy: { matrix: { shard: [1, 2, 3] } }
+    steps:
+      - checkout, install-nix-action
+      - uses: actions/download-artifact@v8   # name: dist, path: web/dist
+      - run: nix develop -c ./check e2e --shard=${{ matrix.shard }}/3
+  deploy:
+    needs: e2e
+    …</pre>
+  <b>Gewinn:</b> kritischer Pfad ≈ build 2:30 + längster Shard 2:40 + Deploy 0:15 ≈ 5:30 statt 11:50. Rust- und Lint-Fehler zeigen sich nach ≈2 min.</div>
+</div>
+
+<h2>6. CI läuft nur von Hand</h2>
+<div class="card low">
+  <span class="tag low">kein Tempo, aber Risiko</span>
+  <p>Seit <code>1d614a7</code> nur <code>workflow_dispatch</code>: Commits auf main werden weder geprüft noch deployt, bis jemand den Run startet.</p>
+  <div class="fix"><b>Lösung:</b> nach #1–#5 wieder <code>push: branches: [main]</code> mit <code>concurrency: { group: ci-${{ github.ref }}, cancel-in-progress: true }</code>, damit schnelle Folge-Commits ältere Runs abbrechen statt sich zu stauen.</div>
+</div>
+
+<h2>7. Gemessen und verworfen</h2>
+<table>
+  <tr><th>Idee</th><th>Ergebnis</th></tr>
+  <tr><td>4 statt 2 Playwright-Worker</td><td>246 s statt 245 s, 2 Timeouts</td></tr>
+  <tr><td><code>--disable-gpu-compositing</code></td><td>−6 %, im Rauschen, ändert den Compositing-Pfad der Canvas-Screenshots</td></tr>
+  <tr><td>Nix-Store in den Actions-Cache</td><td>2,1 GiB Restore ist nicht schneller als cache.nixos.org</td></tr>
+  <tr><td>pnpm-Store cachen</td><td><code>pnpm install</code> dauert 2 s</td></tr>
+  <tr><td>wasm-opt in CI weglassen</td><td>spart ≈19 s, testet aber ein anderes Artefakt als das deployte</td></tr>
+  <tr><td>Größerer Runner</td><td>kostenpflichtig; Shards erreichen dasselbe kostenlos</td></tr>
+</table>
+
+<h2>8. Reihenfolge</h2>
+<table>
+  <tr><th>#</th><th>Maßnahme</th><th>Aufwand</th><th class="n">CI danach (Schätzung)</th></tr>
+  <tr><td>3</td><td><code>[profile.test] opt-level = 1</code></td><td>2 Zeilen</td><td class="n">≈ 10:40</td></tr>
+  <tr><td>4</td><td>Dev-Shell abspecken</td><td>6 Zeilen</td><td class="n">≈ 10:10</td></tr>
+  <tr><td>2</td><td>Cargo-Cache</td><td>1 Step</td><td class="n">≈ 8:00</td></tr>
+  <tr><td>1 + 5</td><td>Stufen in <code>check</code>, e2e-Shards, <code>fullyParallel</code></td><td>Workflow + 5 Zeilen Script</td><td class="n">≈ 5:30</td></tr>
+  <tr><td>6</td><td>Push-Trigger mit <code>concurrency</code></td><td>5 Zeilen</td><td class="n">–</td></tr>
+</table>
+</main>
+</body>
+</html>
