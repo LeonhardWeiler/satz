@@ -108,10 +108,18 @@ export async function open(editor: Editor, say: (message: string) => void) {
     const [handle] = await pickers.showOpenFilePicker({ types: TYPES })
     return load(await handle.getFile(), handle)
   }
-  const input = document.createElement('input')
-  input.type = 'file'
-  input.accept = '.satz'
-  input.onchange = () => input.files?.[0] && load(input.files[0], null)
+  pick('.satz', false, ([file]) => file && load(file, null))
+}
+
+/** One file input for every picker, held so that it is not collected before it fires `change`. */
+const input = document.createElement('input')
+input.type = 'file'
+
+function pick(accept: string, multiple: boolean, picked: (files: File[]) => void) {
+  input.accept = accept
+  input.multiple = multiple
+  input.value = ''
+  input.onchange = () => picked([...(input.files ?? [])])
   input.click()
 }
 
@@ -122,38 +130,28 @@ async function keep(editor: Editor, bytes: Uint8Array) {
 
 /** Asks for TrueType and OpenType files and adds them to the fonts. */
 export function addFonts(editor: Editor, say: (message: string) => void) {
-  const input = document.createElement('input')
-  input.type = 'file'
-  input.accept = '.ttf,.otf'
-  input.multiple = true
-  input.onchange = async () => {
-    for (const file of input.files ?? []) {
+  pick('.ttf,.otf', true, async (files) => {
+    for (const file of files) {
       try {
         await keep(editor, new Uint8Array(await file.arrayBuffer()))
       } catch (e) {
         say(`Could not add ${file.name}: ${(e as Error).message}. Choose a .ttf or .otf file.`)
       }
     }
-  }
-  input.click()
+  })
 }
 
 /** Asks for PNG and JPEG files and places each on the current page. */
 export function placeImages(editor: Editor, say: (message: string) => void) {
-  const input = document.createElement('input')
-  input.type = 'file'
-  input.accept = '.png,.jpg,.jpeg'
-  input.multiple = true
-  input.onchange = async () => {
-    for (const file of input.files ?? []) {
+  pick('.png,.jpg,.jpeg', true, async (files) => {
+    for (const file of files) {
       try {
         editor.placeImage(new Uint8Array(await file.arrayBuffer()), file.name)
       } catch (e) {
         say(`Could not place ${file.name}: ${(e as Error).message}. Choose a PNG or JPEG file.`)
       }
     }
-  }
-  input.click()
+  })
 }
 
 type LocalFont = { fullName: string; blob(): Promise<Blob> }
