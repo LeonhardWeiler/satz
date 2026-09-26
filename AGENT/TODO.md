@@ -32,14 +32,8 @@ font helper, i18n.
   their bytes in the Loro map `images`; see `Doc::add_image` and `PlaceImage`.
 - Fit/fill, and crop by moving the image inside its layer: both set the fill's
   `transform`, which maps the image's unit square into the layer.
-- Per document, chosen at creation: embed or link. Linking uses File System
-  Access (Chromium); Firefox shows the option disabled with a hint. Missing
-  links reported by preflight with relink.
 - Images no layer uses any more stay in the document; `save` could leave them
   out, since a saved file has no undo history.
-
-### 15. Preflight
-- Missing links, with images (13).
 
 ### 16. Ship
 - Example A2 poster and 8-page A5 booklet in the repo, exported by a test and
@@ -47,6 +41,11 @@ font helper, i18n.
 - README with screenshot and live link.
 
 ## Later
+
+- Linked images: per document, chosen at creation, embed or link. Linking uses
+  File System Access (Chromium) with handles in IndexedDB, so links need a click
+  per session and are missing on other computers; Firefox shows the option
+  disabled with a hint. Preflight reports missing links with relink.
 
 - Font picker as in Figma (family and style), with local fonts (Local Font Access)
   in the list; a font in text styles. Today fonts are added by upload, and Local
