@@ -12,6 +12,8 @@ const BLOCK = 4
 const BACKGROUND = 0x1e
 const MAX_DIFF = 48
 const MAX_SHARE = 0.0005
+// Skia boosts the contrast of light text on a dark ground, which MuPDF does not.
+const MAX_SHARE_DARK = 0.005
 
 function pageBox(xml: string, name: string) {
   const m = xml.match(new RegExp(`<${name} l="([\\d.]+)" b="([\\d.]+)" r="([\\d.]+)" t="([\\d.]+)"`))!
@@ -27,14 +29,22 @@ function sheet(pdf: string, n: number) {
   return { x: 0, width: trimBox.r - trimBox.l, height: trimBox.t - trimBox.b, bleed: trimBox.l - bleedBox.l }
 }
 
-/** Compares the canvas with page `n` of the exported pdf, which the canvas shows in the spread of the pages `spread`. */
-async function expectCanvasMatchesPdf(page: Page, n = 1, spread = [n]) {
-  const canvas = (await page.getByLabel('Page canvas').boundingBox())!
-  const dir = mkdtempSync(join(tmpdir(), 'satz-'))
-  const pdf = join(dir, 'satz.pdf')
+async function exportPdf(page: Page) {
+  const pdf = join(mkdtempSync(join(tmpdir(), 'satz-')), 'satz.pdf')
   const download = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Export PDF' }).click()
   await (await download).saveAs(pdf)
+  return pdf
+}
+
+/**
+ * Compares the canvas with page `n` of the exported pdf, which the canvas shows in the spread of the pages `spread`;
+ * exports it unless given `pdf`.
+ */
+async function expectCanvasMatchesPdf(page: Page, n = 1, spread = [n], pdf?: string, maxShare = MAX_SHARE) {
+  const canvas = (await page.getByLabel('Page canvas').boundingBox())!
+  pdf ??= await exportPdf(page)
+  const dir = mkdtempSync(join(tmpdir(), 'satz-'))
 
   const sheets: Sheet[] = spread.map((k) => sheet(pdf, k))
   if (sheets.length === 2) sheets[0].x = -sheets[0].width
@@ -84,7 +94,7 @@ async function expectCanvasMatchesPdf(page: Page, n = 1, spread = [n]) {
       if (d > MAX_DIFF) differing++
     }
   }
-  expect(differing / compared).toBeLessThan(MAX_SHARE)
+  expect(differing / compared).toBeLessThan(maxShare)
   return pdf
 }
 
@@ -411,4 +421,31 @@ test('the pages of a spread show their sides of a master spread and match the ca
   }
   await page.mouse.move(1, 1)
   await expectCanvasMatchesPdf(page, 2, [2, 3])
+})
+
+/** Opens the example `name` from the repo, by the file input that Firefox uses. */
+async function openExample(page: Page, name: string) {
+  await page.addInitScript(() => delete (window as { showOpenFilePicker?: unknown }).showOpenFilePicker)
+  await open(page, 2000)
+  const chooser = page.waitForEvent('filechooser')
+  await page.keyboard.press('Control+o')
+  await (await chooser).setFiles(join(import.meta.dirname, '../../examples', name))
+  await expect(page).toHaveTitle(`${name} — Satz`)
+  await page.mouse.move(1, 1)
+}
+
+test('the example poster exports as the canvas shows it', async ({ page }) => {
+  await openExample(page, 'poster.satz')
+  await expectCanvasMatchesPdf(page, 1, [1], undefined, MAX_SHARE_DARK)
+})
+
+test('every page of the example booklet exports as the canvas shows it', async ({ page }) => {
+  await openExample(page, 'booklet.satz')
+  const pdf = await exportPdf(page)
+  expect(execFileSync('mutool', ['pages', pdf]).toString().match(/<page /g)).toHaveLength(8)
+  for (const spread of [[1], [2, 3], [4, 5], [6, 7], [8]]) {
+    await page.getByRole('navigation', { name: 'Pages' }).getByRole('button', { name: `Page ${spread[0]}`, exact: true }).click()
+    await page.mouse.move(1, 1)
+    for (const n of spread) await expectCanvasMatchesPdf(page, n, spread, pdf, MAX_SHARE_DARK)
+  }
 })
