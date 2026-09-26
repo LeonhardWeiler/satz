@@ -1,6 +1,8 @@
 mod color;
 mod display_list;
 mod doc;
+#[cfg(test)]
+mod examples;
 mod geom;
 mod image;
 mod layout;
