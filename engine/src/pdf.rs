@@ -8,7 +8,7 @@ use krilla::blend::BlendMode;
 use krilla::color::separation::{SeparationColorant, SeparationSpace};
 use krilla::color::{cmyk, rgb, separation};
 use krilla::geom::{Path, PathBuilder, Point, Rect, Size, Transform};
-use krilla::image::{BitsPerComponent, CustomImage, Image, ImageColorspace};
+use krilla::image::Image;
 use krilla::mask::{Mask, MaskType};
 use krilla::num::NormalizedF32;
 use krilla::page::PageSettings;
@@ -17,6 +17,8 @@ use krilla::paint::{
 };
 use krilla::surface::Surface;
 use krilla::text::{Font, GlyphId, KrillaGlyph};
+use std::rc::Rc;
+use tiny_skia::{IntSize, Pixmap};
 
 const MM: f32 = 72.0 / 25.4;
 const MARK_SPACE: f32 = 10.0 * MM;
@@ -174,7 +176,7 @@ fn draw(s: &mut Surface, env: &Env, ops: &[Op]) {
                 );
             }
             Op::Image { image, transform } => {
-                if let Some(img) = image::pdf(*image) {
+                if let Some(img) = image::pdf(*image, env.cmyk) {
                     let [a, b, c, d, e, f] = *transform;
                     s.push_transform(&Transform::from_row(a, b, c, d, e, f));
                     s.draw_image(img, Size::from_wh(1.0, 1.0).unwrap());
@@ -263,8 +265,9 @@ fn raster(
     if l >= r || t >= b {
         return;
     }
-    let plane = |ops: &[Op], tint_with: Option<[f32; 4]>| {
-        let mut px = rasterize(ops, [l - offset[0], t - offset[1], r - l, b - t], env.ppi)?;
+    let plane = |ops: &[Op], images: &dyn Fn(u32) -> Option<Rc<Pixmap>>, tint_with| {
+        let rect = [l - offset[0], t - offset[1], r - l, b - t];
+        let mut px = rasterize(ops, rect, env.ppi, images)?;
         if let Some(c) = tint_with {
             tint(&mut px, c);
         }
@@ -277,7 +280,12 @@ fn raster(
                 let [a, b, c] = pick(ink.cmyk(rgba));
                 [a, b, c, rgba[3]]
             };
-            plane(&recolor(ops, &to), shadow.map(|s| to(&s.color, &s.ink)))
+            let images = |id| image::cmyk(id).and_then(|c| plate(&c, pick)).map(Rc::new);
+            plane(
+                &recolor(ops, &to),
+                &images,
+                shadow.map(|s| to(&s.color, &s.ink)),
+            )
         };
         let (Some(cmy), Some(k)) = (plate(|c| [c[0], c[1], c[2]]), plate(|c| [c[3], 0.0, 0.0]))
         else {
@@ -285,7 +293,7 @@ fn raster(
         };
         let size = (cmy.width(), cmy.height());
         let (cmy, k) = (cmy.take_demultiplied(), k.take_demultiplied());
-        let image = CmykImage {
+        let image = image::Cmyk {
             color: cmy
                 .chunks(4)
                 .zip(k.chunks(4))
@@ -296,7 +304,7 @@ fn raster(
         };
         Image::from_custom(image, true).unwrap()
     } else {
-        let Some(px) = plane(ops, shadow.map(|s| s.color)) else {
+        let Some(px) = plane(ops, &image::pixmap, shadow.map(|s| s.color)) else {
             return;
         };
         let (w, h) = (px.width(), px.height());
@@ -341,37 +349,19 @@ fn recolor(ops: &[Op], f: &impl Fn(&[f32; 4], &Ink) -> [f32; 4]) -> Vec<Op> {
         .collect()
 }
 
-#[derive(Hash, Clone)]
-struct CmykImage {
-    color: Vec<u8>,
-    alpha: Vec<u8>,
-    size: (u32, u32),
-}
-
-impl CustomImage for CmykImage {
-    fn color_channel(&self) -> &[u8] {
-        &self.color
-    }
-
-    fn alpha_channel(&self) -> Option<&[u8]> {
-        Some(&self.alpha)
-    }
-
-    fn bits_per_component(&self) -> BitsPerComponent {
-        BitsPerComponent::Eight
-    }
-
-    fn size(&self) -> (u32, u32) {
-        self.size
-    }
-
-    fn icc_profile(&self) -> Option<&[u8]> {
-        None
-    }
-
-    fn color_space(&self) -> ImageColorspace {
-        ImageColorspace::Cmyk
-    }
+/// The CMYK pixels `c` with the channels `pick` takes as RGB, premultiplied.
+fn plate(c: &image::Cmyk, pick: fn([f32; 4]) -> [f32; 3]) -> Option<Pixmap> {
+    let data = c
+        .color
+        .chunks(4)
+        .zip(c.alpha.iter())
+        .flat_map(|(p, &a)| {
+            let [x, y, z] = pick([p[0], p[1], p[2], p[3]].map(|v| v as f32 / 255.0));
+            let a = a as f32 / 255.0;
+            [x, y, z].map(|v| byte(v * a)).into_iter().chain([byte(a)])
+        })
+        .collect();
+    Pixmap::from_vec(data, IntSize::from_wh(c.size.0, c.size.1)?)
 }
 
 fn crop_marks(s: &mut Surface, w: f32, h: f32) {
@@ -746,5 +736,44 @@ mod tests {
         assert!(cmyk.contains("/ColorSpace/DeviceCMYK"), "{cmyk}");
         let rgb = image_dict(ColorMode::Rgb);
         assert!(rgb.contains("/ColorSpace/DeviceRGB"), "{rgb}");
+    }
+
+    fn red_image() -> Vec<Op> {
+        let hash = crate::image::register(crate::image::tests::png(4, 4).into())
+            .unwrap()
+            .hash;
+        vec![
+            Op::Page {
+                width: 100.0,
+                height: 100.0,
+                bleed: 0.0,
+            },
+            Op::Image {
+                image: crate::image::id(&hash).unwrap(),
+                transform: [10.0, 0.0, 0.0, 10.0, 10.0, 10.0],
+            },
+        ]
+    }
+
+    #[test]
+    fn images_in_a_cmyk_document_are_separated() {
+        let pdf =
+            |mode| String::from_utf8_lossy(&super::pdf(&[red_image()], 72.0, mode)).into_owned();
+        assert!(pdf(ColorMode::Cmyk).contains("/ColorSpace/DeviceCMYK"));
+        assert!(!pdf(ColorMode::Cmyk).contains("/DeviceRGB"));
+        assert!(pdf(ColorMode::Rgb).contains("/DeviceRGB"));
+    }
+
+    #[test]
+    fn a_blurred_image_rasterizes_its_cmyk_plates() {
+        let ops = red_image();
+        let cmy = |id| {
+            crate::image::cmyk(id)
+                .and_then(|c| super::plate(&c, |c| [c[0], c[1], c[2]]))
+                .map(std::rc::Rc::new)
+        };
+        let px = crate::raster::rasterize(&ops[1..], [10.0, 10.0, 10.0, 10.0], 72.0, &cmy).unwrap();
+        let p = px.pixel(5, 5).unwrap();
+        assert!(p.red() < 20 && p.green() > 200 && p.blue() > 200, "{p:?}");
     }
 }

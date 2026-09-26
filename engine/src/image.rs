@@ -1,10 +1,13 @@
+use crate::color::separate_pixels;
 use crate::content_hash;
 use krilla::Data;
+use krilla::image::{BitsPerComponent, CustomImage, ImageColorspace};
 use loro::LoroBinaryValue;
 use serde::Serialize;
 use std::cell::RefCell;
 use std::io::Cursor;
 use std::rc::Rc;
+use std::sync::Arc;
 use tiny_skia::{IntSize, Pixmap};
 use zune_core::colorspace::ColorSpace;
 use zune_core::options::DecoderOptions;
@@ -28,8 +31,43 @@ struct Entry {
     info: ImageInfo,
     format: Format,
     bytes: LoroBinaryValue,
-    /// Decoded on first use by `pixmap`; `None` when the file does not decode.
+    /// Decoded on first use by `pixmap` and `cmyk`; `None` when the file does not decode.
     pixels: RefCell<Option<Option<Rc<Pixmap>>>>,
+    cmyk: RefCell<Option<Option<Cmyk>>>,
+}
+
+/// CMYK pixels and their alpha, 8 bits each, as the PDF of a CMYK document takes them.
+#[derive(Hash, Clone)]
+pub struct Cmyk {
+    pub color: Arc<[u8]>,
+    pub alpha: Arc<[u8]>,
+    pub size: (u32, u32),
+}
+
+impl CustomImage for Cmyk {
+    fn color_channel(&self) -> &[u8] {
+        &self.color
+    }
+
+    fn alpha_channel(&self) -> Option<&[u8]> {
+        Some(&self.alpha)
+    }
+
+    fn bits_per_component(&self) -> BitsPerComponent {
+        BitsPerComponent::Eight
+    }
+
+    fn size(&self) -> (u32, u32) {
+        self.size
+    }
+
+    fn icc_profile(&self) -> Option<&[u8]> {
+        None
+    }
+
+    fn color_space(&self) -> ImageColorspace {
+        ImageColorspace::Cmyk
+    }
 }
 
 thread_local! {
@@ -87,6 +125,7 @@ pub fn register(bytes: LoroBinaryValue) -> Result<ImageInfo, String> {
             format,
             bytes,
             pixels: RefCell::new(None),
+            cmyk: RefCell::new(None),
         }))
     });
     Ok(info)
@@ -120,8 +159,12 @@ pub fn bytes(id: u32) -> LoroBinaryValue {
     entry(id).map(|e| e.bytes.clone()).unwrap_or_default()
 }
 
-/// The image `id` for the PDF, which embeds a JPEG as it is.
-pub fn pdf(id: u32) -> Option<krilla::image::Image> {
+/// The image `id` for the PDF, which embeds a JPEG as it is, or separates it
+/// through FOGRA51 for a CMYK document.
+pub fn pdf(id: u32, cmyk: bool) -> Option<krilla::image::Image> {
+    if cmyk {
+        return krilla::image::Image::from_custom(self::cmyk(id)?, true).ok();
+    }
     let e = entry(id)?;
     pdf_image(e.format, &e.bytes).ok()
 }
@@ -131,12 +174,39 @@ pub fn pixmap(id: u32) -> Option<Rc<Pixmap>> {
     let e = entry(id)?;
     let mut pixels = e.pixels.borrow_mut();
     pixels
-        .get_or_insert_with(|| decode(e.format, &e.bytes).map(Rc::new))
+        .get_or_insert_with(|| {
+            let (rgba, w, h) = decode(e.format, &e.bytes)?;
+            let premultiplied = rgba
+                .chunks(4)
+                .flat_map(|p| {
+                    let a = p[3] as u32;
+                    let m = |c: u8| ((c as u32 * a + 127) / 255) as u8;
+                    [m(p[0]), m(p[1]), m(p[2]), p[3]]
+                })
+                .collect();
+            Pixmap::from_vec(premultiplied, IntSize::from_wh(w, h)?).map(Rc::new)
+        })
         .clone()
 }
 
-fn decode(format: Format, bytes: &[u8]) -> Option<Pixmap> {
-    let (rgba, w, h) = match format {
+/// The pixels of the image `id` separated through FOGRA51.
+pub fn cmyk(id: u32) -> Option<Cmyk> {
+    let e = entry(id)?;
+    let mut cmyk = e.cmyk.borrow_mut();
+    cmyk.get_or_insert_with(|| {
+        let (rgba, w, h) = decode(e.format, &e.bytes)?;
+        Some(Cmyk {
+            color: separate_pixels(&rgba).into(),
+            alpha: rgba.chunks(4).map(|p| p[3]).collect(),
+            size: (w, h),
+        })
+    })
+    .clone()
+}
+
+/// The pixels of a PNG or JPEG file as RGBA, not premultiplied, and its size.
+fn decode(format: Format, bytes: &[u8]) -> Option<(Vec<u8>, u32, u32)> {
+    Some(match format {
         Format::Png => {
             let mut decoder = png::Decoder::new(Cursor::new(bytes));
             decoder.set_transformations(png::Transformations::normalize_to_color8());
@@ -165,16 +235,7 @@ fn decode(format: Format, bytes: &[u8]) -> Option<Pixmap> {
             let (w, h) = decoder.dimensions()?;
             (rgba, w as u32, h as u32)
         }
-    };
-    let premultiplied = rgba
-        .chunks(4)
-        .flat_map(|p| {
-            let a = p[3] as u32;
-            let m = |c: u8| ((c as u32 * a + 127) / 255) as u8;
-            [m(p[0]), m(p[1]), m(p[2]), p[3]]
-        })
-        .collect();
-    Pixmap::from_vec(premultiplied, IntSize::from_wh(w, h)?)
+    })
 }
 
 #[cfg(test)]

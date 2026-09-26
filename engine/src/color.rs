@@ -1,5 +1,8 @@
 use crate::variable::{Scope, Value};
-use moxcms::{ColorProfile, Layout, RenderingIntent, TransformF32Executor, TransformOptions};
+use moxcms::{
+    ColorProfile, Layout, RenderingIntent, Transform8BitExecutor, TransformF32Executor,
+    TransformOptions,
+};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, OnceLock};
 
@@ -219,17 +222,20 @@ impl Color {
     }
 }
 
+fn options() -> TransformOptions {
+    TransformOptions {
+        rendering_intent: RenderingIntent::RelativeColorimetric,
+        ..TransformOptions::default()
+    }
+}
+
 fn transform(
     from: &ColorProfile,
     from_layout: Layout,
     to: &ColorProfile,
     to_layout: Layout,
 ) -> Arc<TransformF32Executor> {
-    let options = TransformOptions {
-        rendering_intent: RenderingIntent::RelativeColorimetric,
-        ..TransformOptions::default()
-    };
-    from.create_transform_f32(from_layout, to, to_layout, options)
+    from.create_transform_f32(from_layout, to, to_layout, options())
         .unwrap()
 }
 
@@ -280,6 +286,20 @@ pub fn to_cmyk(rgb: [f32; 3]) -> [f32; 4] {
     cmyk.map(|v| v.clamp(0.0, 1.0))
 }
 
+/// CMYK bytes of the RGBA bytes `rgba`, whose alpha is left out.
+pub fn separate_pixels(rgba: &[u8]) -> Vec<u8> {
+    static T: OnceLock<Arc<Transform8BitExecutor>> = OnceLock::new();
+    let t = T.get_or_init(|| {
+        ColorProfile::new_srgb()
+            .create_transform_8bit(Layout::Rgb, &fogra51(), Layout::Rgba, options())
+            .unwrap()
+    });
+    let rgb: Vec<u8> = rgba.chunks(4).flat_map(|p| [p[0], p[1], p[2]]).collect();
+    let mut cmyk = vec![0; rgb.len() / 3 * 4];
+    t.transform(&rgb, &mut cmyk).unwrap();
+    cmyk
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -291,5 +311,19 @@ mod tests {
         assert_eq!(separate(0xd9d9d9), [0.0, 0.0, 0.0, 0.15]);
         let [c, m, y, _] = separate(0xff0000);
         assert!(c < 0.05 && m > 0.9 && y > 0.9);
+    }
+
+    #[test]
+    fn pixels_separate_as_single_colours_do() {
+        let cmyk = separate_pixels(&[255, 0, 0, 255, 0, 0, 0, 0]);
+        let red = separate(0xff0000).map(|v| (v * 255.0).round() as i32);
+        assert!(
+            cmyk[..4]
+                .iter()
+                .zip(red)
+                .all(|(&a, b)| (a as i32 - b).abs() <= 2),
+            "{cmyk:?} vs {red:?}"
+        );
+        assert!(cmyk[7] > 200);
     }
 }

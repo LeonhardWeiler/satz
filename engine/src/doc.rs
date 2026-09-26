@@ -8016,6 +8016,14 @@ mod tests {
         let (id, hash) = place(&mut d, &p, 600, 300);
         set_frame(&mut d, &id, [20.0, 100.0, 288.0, 72.0]);
         assert_eq!(problems(&d), [(id.clone(), Problem::LowPpi { ppi: 150.0 })]);
+        cmyk(&mut d);
+        assert_eq!(
+            problems(&d),
+            [
+                (id.clone(), Problem::Rgb),
+                (id.clone(), Problem::LowPpi { ppi: 150.0 })
+            ]
+        );
         set(
             &mut d,
             &id,

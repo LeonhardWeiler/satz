@@ -35,9 +35,6 @@ font helper, i18n.
 - Per document, chosen at creation: embed or link. Linking uses File System
   Access (Chromium); Firefox shows the option disabled with a hint. Missing
   links reported by preflight with relink.
-- RGB images in CMYK documents: preflight reports them and the PDF converts
-  them. Today they export as RGB, and a layer blur on an image in a CMYK
-  document takes the image's RGB values for CMY (`pdf::raster`).
 - Images no layer uses any more stay in the document; `save` could leave them
   out, since a saved file has no undo history.
 

@@ -1,10 +1,10 @@
 use crate::display_list::{CLOSE, CUBIC, LINE, MOVE, Op, Paint as ListPaint, close};
 use crate::geom;
-use crate::image;
 use crate::text::font_bytes;
 use skrifa::instance::{LocationRef, Size};
 use skrifa::outline::{DrawSettings, OutlinePen};
 use skrifa::{FontRef, GlyphId, MetadataProvider};
+use std::rc::Rc;
 use tiny_skia::{
     BlendMode, Color, FillRule, FilterQuality, GradientStop, LineCap, LineJoin, LinearGradient,
     Mask, MaskType, Paint, Path, PathBuilder, Pixmap, PixmapPaint, Point, RadialGradient, Shader,
@@ -30,15 +30,18 @@ const BLENDS: [BlendMode; 16] = [
     BlendMode::Luminosity,
 ];
 
+pub type Images<'a> = &'a dyn Fn(u32) -> Option<Rc<Pixmap>>;
+
 /// Renders `ops` into a pixmap that covers `rect` in pt at `ppi`.
-pub fn rasterize(ops: &[Op], [x, y, w, h]: [f32; 4], ppi: f32) -> Option<Pixmap> {
+/// `images` gives the pixels of an image by its id.
+pub fn rasterize(ops: &[Op], [x, y, w, h]: [f32; 4], ppi: f32, images: Images) -> Option<Pixmap> {
     let scale = ppi / 72.0;
     let mut px = Pixmap::new(
         (w * scale).ceil().max(1.0) as u32,
         (h * scale).ceil().max(1.0) as u32,
     )?;
     let t = Transform::from_scale(scale, scale).pre_translate(-x, -y);
-    render(&mut px, ops, t, None);
+    render(&mut px, ops, t, None, images);
     Some(px)
 }
 
@@ -155,7 +158,7 @@ pub fn tint(px: &mut Pixmap, color: [f32; 4]) {
     }
 }
 
-fn render(px: &mut Pixmap, ops: &[Op], t: Transform, clip: Option<&Mask>) {
+fn render(px: &mut Pixmap, ops: &[Op], t: Transform, clip: Option<&Mask>, images: Images) {
     let mut i = 0;
     while i < ops.len() {
         match &ops[i] {
@@ -198,7 +201,7 @@ fn render(px: &mut Pixmap, ops: &[Op], t: Transform, clip: Option<&Mask>) {
                 }
             }
             Op::Image { image, transform } => {
-                if let Some(pm) = image::pixmap(*image) {
+                if let Some(pm) = images(*image) {
                     let [a, b, c, d, e, f] = *transform;
                     let to = t
                         .pre_concat(Transform::from_row(a, b, c, d, e, f))
@@ -222,7 +225,7 @@ fn render(px: &mut Pixmap, ops: &[Op], t: Transform, clip: Option<&Mask>) {
                     } else {
                         m.intersect_path(&p, FillRule::Winding, true, t);
                     }
-                    render(px, &ops[i + 1..end], t, Some(&m));
+                    render(px, &ops[i + 1..end], t, Some(&m), images);
                 }
                 i = end;
             }
@@ -235,7 +238,7 @@ fn render(px: &mut Pixmap, ops: &[Op], t: Transform, clip: Option<&Mask>) {
                 let end = close(ops, i);
                 let scale = t.sx;
                 let mut content = layer(px);
-                render(&mut content, &ops[i + 1..end], t, None);
+                render(&mut content, &ops[i + 1..end], t, None, images);
                 let mut out = layer(px);
                 for s in shadows {
                     let mut shadow = content.clone();
@@ -272,9 +275,9 @@ fn render(px: &mut Pixmap, ops: &[Op], t: Transform, clip: Option<&Mask>) {
                 let mid = close(ops, i);
                 let end = close(ops, mid);
                 let mut alpha = layer(px);
-                render(&mut alpha, &ops[i + 1..mid], t, None);
+                render(&mut alpha, &ops[i + 1..mid], t, None, images);
                 let mut content = layer(px);
-                render(&mut content, &ops[mid + 1..end], t, None);
+                render(&mut content, &ops[mid + 1..end], t, None, images);
                 let mut m = Mask::from_pixmap(alpha.as_ref(), MaskType::Alpha);
                 if let Some(c) = clip {
                     multiply(&mut m, c);
@@ -411,6 +414,7 @@ fn glyph_path(font: u32, size: f32, glyphs: &[u16], positions: &[f32]) -> Option
 mod tests {
     use super::*;
     use crate::display_list::{Shadow, rect};
+    use crate::image;
 
     const BLACK: ListPaint = ListPaint::Solid {
         color: [0.0, 0.0, 0.0, 1.0],
@@ -427,7 +431,7 @@ mod tests {
             paint: BLACK,
             path: rect(1.0, 1.0, 2.0, 2.0),
         }];
-        let px = rasterize(&ops, [0.0, 0.0, 4.0, 4.0], 144.0).unwrap();
+        let px = rasterize(&ops, [0.0, 0.0, 4.0, 4.0], 144.0, &image::pixmap).unwrap();
         assert_eq!((px.width(), px.height()), (8, 8));
         assert_eq!(alpha(&px, 3, 3), 255);
         assert_eq!(alpha(&px, 1, 1), 0);
@@ -442,7 +446,7 @@ mod tests {
             transform: [2.0, 0.0, 0.0, 2.0, 1.0, 1.0],
         }];
         assert_eq!(extent(&ops), Some([1.0, 1.0, 2.0, 2.0]));
-        let px = rasterize(&ops, [0.0, 0.0, 4.0, 4.0], 144.0).unwrap();
+        let px = rasterize(&ops, [0.0, 0.0, 4.0, 4.0], 144.0, &image::pixmap).unwrap();
         assert_eq!(px.pixel(4, 4).unwrap().red(), 255);
         assert_eq!(alpha(&px, 4, 4), 255);
         assert_eq!(alpha(&px, 1, 1), 0);
@@ -454,7 +458,7 @@ mod tests {
             paint: BLACK,
             path: rect(10.0, 10.0, 2.0, 2.0),
         }];
-        let mut px = rasterize(&ops, [0.0, 0.0, 22.0, 22.0], 72.0).unwrap();
+        let mut px = rasterize(&ops, [0.0, 0.0, 22.0, 22.0], 72.0, &image::pixmap).unwrap();
         let sum = |px: &Pixmap| px.pixels().iter().map(|p| p.alpha() as u32).sum::<u32>();
         let before = sum(&px);
         blur(&mut px, 2.0);
@@ -483,7 +487,7 @@ mod tests {
             },
             Op::PopLayer,
         ];
-        let px = rasterize(&ops, [0.0, 0.0, 8.0, 4.0], 72.0).unwrap();
+        let px = rasterize(&ops, [0.0, 0.0, 8.0, 4.0], 72.0, &image::pixmap).unwrap();
         let p = px.pixel(6, 2).unwrap();
         assert_eq!((p.red(), p.alpha()), (255, 255));
         assert_eq!(px.pixel(2, 2).unwrap().red(), 0);
@@ -500,7 +504,7 @@ mod tests {
             text: String::new(),
             ranges: vec![],
         }];
-        let px = rasterize(&ops, [0.0, 0.0, 20.0, 20.0], 72.0).unwrap();
+        let px = rasterize(&ops, [0.0, 0.0, 20.0, 20.0], 72.0, &image::pixmap).unwrap();
         assert!(px.pixels().iter().any(|p| p.alpha() == 255));
     }
 
