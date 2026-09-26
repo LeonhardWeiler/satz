@@ -46,7 +46,8 @@ async function expectCanvasMatchesPdf(page: Page, n = 1, spread = [n]) {
   const w = Math.round((width + 2 * bleed) * view.zoom)
   const h = Math.round((height + 2 * bleed) * view.zoom)
   await drawn(page)
-  const shot = PNG.sync.read(await page.screenshot({ clip: { x, y, width: w, height: h } }))
+  // The export may leave a message, such as the preflight warning, over the canvas.
+  const shot = PNG.sync.read(await page.screenshot({ clip: { x, y, width: w, height: h }, style: '.status { display: none }' }))
 
   const raster = join(dir, 'satz.png')
   execFileSync('mutool', ['draw', '-q', '-O', '0', '-b', 'BleedBox', '-r', `${view.zoom * 72}`, '-o', raster, pdf, String(n)])
