@@ -35,9 +35,8 @@ font helper, i18n.
 - The `.satz` file and the autosave carry embedded images.
 
 ### 15. Preflight
-- Overset text, missing fonts, missing links, images below 300 ppi, objects at the
-  trim edge that stop short of the bleed, RGB content in a CMYK document.
-- Panel lists issues; click selects the item. Export warns but does not block.
+- Missing links and images below 300 ppi, with images (13).
+- Export warns but does not block.
 
 ### 16. Ship
 - Example A2 poster and 8-page A5 booklet in the repo, exported by a test and

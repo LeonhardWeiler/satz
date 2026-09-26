@@ -234,6 +234,12 @@ export type Span = Attrs & { len: number }
 export type Styled = 'size' | 'lineHeight' | 'letterSpacing' | 'paragraphSpacing'
 export type TextStyle = { id: string; name: string; bindings: Partial<Record<Bindable, string>> } & Record<Styled, number>
 
+/** Something about the layer `layer` on the page or master `page` that may print wrong. */
+export type Issue = { page: string; layer: string; name: string } & (
+  | { problem: 'overset' | 'shortOfBleed' | 'rgb' }
+  | { problem: 'missingFont'; font: string }
+)
+
 export type Snapshot = Palette & {
   pages: Page[]
   masters: Page[]
@@ -248,6 +254,7 @@ export type Snapshot = Palette & {
   fonts: Typeface[]
   /** Fonts text is set in that are not there, with the stories that use them by their first frame. */
   missingFonts: { font: Typeface; stories: string[] }[]
+  preflight: Issue[]
   canUndo: boolean
   canRedo: boolean
 }
