@@ -38,197 +38,158 @@
 <body>
 <main>
 <h1>Satz – Performance-Review</h1>
-<p class="dim">Stand <code>79a329b</code> + <code>afdcba2</code> (main), 25.09.2026 · alle Zahlen gemessen, außer wo „geschätzt“ steht</p>
+<p class="dim">Stand <code>7f70905</code> (main, Engine-Code wie <code>af503b0</code>), 26.09.2026 · alle Zahlen gemessen, außer wo „geschätzt“ steht</p>
 
 <div class="grid">
-  <div class="tile"><span class="dim">Erster Aufruf (eigene Leitung)</span><b>3,2 s</b></div>
-  <div class="tile"><span class="dim">Erster Aufruf, 10 Mbit/s</span><b>5,5 s</b></div>
-  <div class="tile"><span class="dim">Tastendruck, Story über 16 S.</span><b>1,4 s</b></div>
-  <div class="tile"><span class="dim">PDF-Export, 32 Seiten</span><b>3,6 s blockiert</b></div>
+  <div class="tile"><span class="dim">Erster Aufruf (eigene Leitung)</span><b>2,5 s</b></div>
+  <div class="tile"><span class="dim">Erster Aufruf, 10 Mbit/s</span><b>5,3 s</b></div>
+  <div class="tile"><span class="dim">Tastendruck, Dokument mit 24 S.</span><b>p50 125 ms</b></div>
+  <div class="tile"><span class="dim">PDF-Export, 32 Seiten</span><b>2,5 s blockiert</b></div>
 </div>
 
-<p>Mit 1 Seite ist Satz flüssig. Langsam wird es an 3 Stellen, und alle 3 liegen in der Engine, nicht im Rendering. Erstens baut jede Anfrage an die Engine das ganze Dokument neu auf. Zweitens wächst verketteter Text quadratisch. Drittens läuft der PDF-Export im Main-Thread. Dazu kommt die Ladezeit: 5,7 MB WASM (gzip), die vor dem ersten Bild vollständig geladen sein müssen. Die 8-seitige A5-Broschüre aus Milestone 1 trifft genau die Fälle 1 und 2.</p>
+<p>Verkettete Stories sind jetzt linear, der PDF-Export baut die Display Lists aus einem einzigen Snapshot, und statt einer leeren Seite erscheint nach 0,2 s eine Ladeanzeige. Langsam wird Satz noch bei Dokumenten mit vielen Seiten, und zwar aus 2 Gründen. Erstens bauen <code>hit</code>, <code>displayList</code> und <code>masterHit</code> bei jedem Aufruf den ganzen Snapshot neu. Zweitens setzt jedes <code>apply</code> alle Stories des Dokuments neu, auch die unveränderten. Bei 24 Seiten kostet ein Tastendruck deshalb im Browser p50 125 ms. Dazu kommen der PDF-Export im Main-Thread und 5,6 MB WASM (gzip) beim ersten Aufruf.</p>
 
 <h2>Wie gemessen wurde</h2>
 <table>
   <tr><th>Was</th><th>Womit</th></tr>
-  <tr><td>Ladezeit</td><td>Playwright-Chromium gegen die Live-Seite <code>leonhardweiler.github.io/satz</code> (gzip, wie in Produktion) und gegen <code>vite preview</code>; Netz per CDP gedrosselt; kalter und warmer Cache</td></tr>
-  <tr><td>Engine in WASM</td><td>Der Release-Build <code>engine_bg.wasm</code> direkt in Node 22 (V8 wie Chrome); Dokumente mit 1–32 duplizierten Beispielseiten und über 2–16 Seiten verketteten Stories</td></tr>
-  <tr><td>Engine nativ</td><td>Temporärer <code>#[ignore]</code>-Benchmark in <code>engine/src</code>, danach wieder entfernt; Aufschlüsselung PDF und Compiler-Profile</td></tr>
-  <tr><td>UI-Interaktion</td><td>Helium (Chromium 153) mit echter GPU (AMD Radeon 680M): Event-Timing, Long Tasks und Frame-Zeiten für Hover, Drag, Zoom und Tippen bei 1, 8 und 24 Seiten</td></tr>
-  <tr><td>WASM-Größe</td><td><code>twiggy</code> auf dem nicht gestrippten Build, Größe pro Crate</td></tr>
+  <tr><td>Ladezeit</td><td>Playwright-Chromium gegen die Live-Seite <code>leonhardweiler.github.io/satz</code> (Stand <code>af503b0</code>, gzip), Netz per CDP gedrosselt, Median aus 3 Läufen; warmer Cache und erstes Bild zusätzlich in Helium mit echter GPU</td></tr>
+  <tr><td>Engine in WASM</td><td>Der Release-Build <code>engine_bg.wasm</code> direkt in Node 24; Dokumente mit 1–32 duplizierten Beispielseiten und Stories, die über 2–16 Seiten verkettet sind</td></tr>
+  <tr><td>Engine nativ</td><td>Temporärer <code>#[ignore]</code>-Benchmark mit Zeitmessern in <code>Doc::finish</code> und <code>pdf::raster</code>, danach wieder entfernt</td></tr>
+  <tr><td>UI-Interaktion</td><td>Helium (Chromium) mit echter GPU (AMD Radeon 680M), Dokumente mit 1, 8 und 24 Seiten über den Autosave in IndexedDB geladen: Event-Timing, Long Tasks, Frame-Zeiten und ein CPU-Profil für Hover, Drag, Zoom und 20 getippte Zeichen</td></tr>
 </table>
-<p class="dim">Nicht gemessen: Firefox und Safari, schwache Rechner, Mobilgeräte. Die Ladezeit mit Helium war auch bei warmem Cache 2,5 s, mit Chromium 0,4–0,6 s. Das liegt vermutlich an Helium-Einstellungen; ich habe es nicht weiter untersucht.</p>
+<p class="dim">Nicht gemessen: Firefox und Safari, schwache Rechner, Mobilgeräte. Playwright-Chromium rendert mit SwiftShader. Dort dauert das erste Zeichnen als Long Task 1,0–1,3 s, mit echter GPU 80 ms. Deshalb misst <code>web/load-tmp.mjs</code> mit seinen SwiftShader-Flags auch bei warmem Cache etwa 1,5 s bis zum ersten Bild. Für die Ladezeit mit echter GPU gilt die Helium-Zahl.</p>
 
-<h2>1. Ladezeit</h2>
+<h2>1. Jede Abfrage baut den ganzen Snapshot</h2>
 
-<div class="card high"><h3><span class="tag high">hoch</span>5,7 MB WASM vor dem ersten Bild</h3>
+<div class="card high"><h3><span class="tag high">hoch</span><code>render</code>, <code>hit</code> und <code>master_hit</code> rufen jeweils <code>snapshot()</code> auf</h3>
+<p>Die Flows werden seit <code>14a7228</code> einmal pro Befehl gesetzt und in <code>Doc::flows</code> behalten. Den Snapshot selbst baut <code>Doc::render</code>, <code>Doc::hit</code> und <code>Doc::master_hit</code> (<code>engine/src/doc.rs:2912–3070</code>) aber bei jedem Aufruf neu: alle Seiten und Master, jedes Property per <code>serde_json</code>. <code>master_layers</code> baut die Master-Ebenen zusätzlich noch einmal.</p>
+<table>
+  <tr><th>Seiten (WASM)</th><th class="n"><code>snapshot()</code></th><th class="n"><code>displayList</code></th><th class="n"><code>hit</code></th></tr>
+  <tr><td>1</td><td class="n">1,5 ms</td><td class="n">1,2 ms</td><td class="n">0,7 ms</td></tr>
+  <tr><td>8</td><td class="n">6,1 ms</td><td class="n">2,8 ms</td><td class="n">2,4 ms</td></tr>
+  <tr><td>32</td><td class="n">19,2 ms</td><td class="n">9,4 ms</td><td class="n">8,8 ms</td></tr>
+</table>
+<p>Hover über einen Spread bei 32 Seiten (2× <code>hit</code>, 2× <code>displayList</code>) kostet 40 ms, also mehr als 2 Frames. Das CPU-Profil eines Tastendrucks bei 24 Seiten zeigt, wohin die Zeit geht:</p>
+<table>
+  <tr><th>Pro Tastendruck, 24 Seiten</th><th class="n">ms</th></tr>
+  <tr><td><code>engine.apply</code> (siehe 2)</td><td class="n">22</td></tr>
+  <tr><td><code>engine.snapshot</code> in <code>Editor.change</code></td><td class="n">17</td></tr>
+  <tr><td>2× <code>engine.hit</code> über <code>track</code> → <code>pickAt</code>, weil <code>insert</code> 2-mal <code>emit</code> auslöst</td><td class="n">17</td></tr>
+  <tr><td><code>engine.displayList</code></td><td class="n">9</td></tr>
+</table>
+<p>Im Browser mit echter GPU, 24 Seiten: Tippen p50 125 ms, max 208 ms, 20 Long Tasks bei 20 Zeichen. Drag 30 Long Tasks (max 145 ms), Frame-Zeit p95 83 ms. Bei 1 Seite bleibt alles unter 50 ms ohne Long Tasks.</p>
+
+<div class="fix"><b>Vorschlag 1: Den Snapshot neben den Flows behalten</b>
+<p><code>Doc</code> hält den <code>Snapshot</code> genauso wie heute die Flows: gefüllt am Ende von <code>finish</code>, geleert am Anfang von <code>apply</code> und in <code>load</code>. Das ist dieselbe Stelle, an der schon <code>flows</code> geführt wird.</p>
+<pre>snapshot: RefCell&lt;Option&lt;Rc&lt;Snapshot&gt;&gt;&gt;,</pre>
+<p><code>render</code>, <code>hit</code>, <code>master_hit</code> und <code>pdf</code> lesen daraus. Die Master-Ebenen pro Seite gehören, falls nötig, in denselben Cache. Hover, Pan, Zoom und das Caret-Blinken kosten dann nur noch die eine Seite. Pro Tastendruck bei 24 Seiten fallen etwa 25 ms weg (2× <code>hit</code> und der Großteil von <code>displayList</code>, geschätzt aus dem Profil). Das doppelte <code>emit</code> in <code>textEdit.insert</code> ist danach billig und kann bleiben.</p></div>
+</div>
+
+<h2>2. <code>apply</code> setzt jede Story neu</h2>
+
+<div class="card high"><h3><span class="tag high">hoch</span><code>finish</code> ruft nach jedem Befehl <code>flow_all</code> für alle Texte auf</h3>
+<p>Nativ, 32 Beispielseiten, 1 <code>SetFrame</code>: <code>apply</code> 13,5 ms, davon <code>flow_all</code> 11,4 ms und <code>settle</code> + <code>lay_out</code> 2,1 ms. In WASM kosten <code>apply</code> + <code>snapshot</code> bei 32 Seiten 38,5 ms. Das bezahlt jeder Drag-Frame und jeder Tastendruck, auch wenn sich nur eine Story ändert.</p>
+<table>
+  <tr><th>Tastendruck in verketteter Story (WASM)</th><th class="n"><code>apply</code></th><th class="n">Rest</th><th class="n">gesamt</th></tr>
+  <tr><td>8 Seiten, 32 Absätze</td><td class="n">18,6 ms</td><td class="n">8,9 ms</td><td class="n">26,5 ms</td></tr>
+  <tr><td>16 Seiten, 64 Absätze</td><td class="n">36,6 ms</td><td class="n">9,9 ms</td><td class="n">48,3 ms</td></tr>
+</table>
+<p>Der Rest (<code>snapshot</code>, <code>textFrame</code>, <code>caret</code>, <code>displayList</code> und <code>textOverlay</code>) bleibt konstant. <code>apply</code> wächst linear mit der Länge der Story und mit der Zahl der Texte im Dokument.</p>
+
+<div class="fix"><b>Vorschlag 2: Flows unveränderter Stories wiederverwenden</b>
+<p><code>flow_all</code> behält die Flows des letzten Befehls und setzt eine Story nur neu, wenn sich ihre Eingaben geändert haben: Text, Spans und pro Rahmen Bounds, <code>TextFrame</code> und Seitenzahl. Als Schlüssel dient ein Hash dieser Werte pro Story. Dann kostet ein Befehl nur die Stories, die er berührt. Ein Tastendruck im Dokument mit 24 Seiten sinkt bei <code>apply</code> von 22 auf wenige ms (geschätzt, die Eingaben zu lesen kostet weiter etwas).</p>
+<p>Erst wenn einzelne Stories über 16 Seiten lang werden, lohnt ein zweiter Schritt: Rahmen vor der Änderung behalten ihre Zeilen, gesetzt wird ab dem Rahmen, der die Änderung hält.</p></div>
+</div>
+
+<h2>3. PDF-Export</h2>
+
+<div class="card high"><h3><span class="tag high">hoch</span>Blockiert die UI, und der Blur ist der größte Posten</h3>
+<table>
+  <tr><th>Beispielseite mit Schatten und Blur</th><th class="n">WASM</th></tr>
+  <tr><td>1 Seite</td><td class="n">78 ms</td></tr>
+  <tr><td>8 Seiten</td><td class="n">607 ms</td></tr>
+  <tr><td>32 Seiten</td><td class="n">2493 ms</td></tr>
+</table>
+<p>Aufschlüsselung nativ, 8 Seiten bei 300 ppi, 433 ms gesamt:</p>
+<ul>
+  <li><b>Blur 220 ms</b> für 2,9 Megapixel, also 75 ns pro Pixel.</li>
+  <li>Rasterisierung 65 ms.</li>
+  <li>krilla (Kompression und Schreiben) 148 ms.</li>
+  <li>Display Lists 3 ms, bei 32 Seiten 12 ms, also linear.</li>
+</ul>
+<p>Das alles läuft im Main-Thread, und die UI friert so lange ein.</p>
+
+<div class="fix"><b>Vorschlag 3: Blur mit zusammenhängendem Speicher</b>
+<p><code>raster::box_blur</code> läuft pro Kanal einzeln über jede Zeile. Der vertikale Durchgang springt dabei im Speicher um eine ganze Bildbreite. Besser ist es, alle 4 Kanäle eines Pixels in einem Durchgang zu summieren (<code>[u32; 4]</code>) und den vertikalen Durchgang zeilenweise mit einem Array aus Spaltensummen zu rechnen. Das Ergebnis ist bitgleich, der Code etwa gleich lang. Erwartet: ein Mehrfaches schneller (geschätzt). Der bestehende Test <code>blur_spreads_coverage_and_keeps_its_sum</code> prüft nur die Summe. Vor dem Umbau einen Test ergänzen, der das Ergebnis der alten Version Pixel für Pixel vergleicht.</p></div>
+
+<div class="fix"><b>Vorschlag 4: Export in einem Web Worker</b>
+<p>Seit <code>867dedf</code> gibt es <code>save()</code> und <code>load()</code>, die Voraussetzung ist also erfüllt. Der Worker lädt dasselbe <code>engine_bg.wasm</code>, bekommt die Bytes aus <code>engine.save()</code> und die hinzugefügten Fonts (die liegen nicht im Dokument, sondern in IndexedDB), ruft <code>addFont</code>, <code>load</code> und <code>pdf</code> auf und schickt das PDF zurück. <code>load</code> kostet bei 32 Seiten 28 ms, <code>save</code> 1,3 ms. Die UI bleibt bedienbar und kann einen Fortschritt zeigen.</p></div>
+
+<div class="fix"><b>Vorschlag 5 (klein): Raster innerhalb eines Exports wiederverwenden</b>
+<p>Das Ergebnis von <code>pdf::raster</code> mit dem Schlüssel (Item-Hash, ppi, Farbmodus, Offset) merken. Master-Ebenen und wiederholte Layer werden dann einmal gerastert statt einmal pro Seite. Das hilft nur Dokumenten mit Effekten auf Mastern oder wiederholten Layern, deshalb erst nach Vorschlag 3.</p></div>
+</div>
+
+<h2>4. Ladezeit</h2>
+
+<div class="card mid"><h3><span class="tag mid">mittel</span>5,6 MB WASM vor dem ersten Bild</h3>
 <table>
   <tr><th>Datei</th><th class="n">roh</th><th class="n">gzip (Pages)</th><th class="n">brotli</th></tr>
   <tr><td><code>canvaskit.wasm</code></td><td class="n">7,32 MB</td><td class="n">2,96 MB</td><td class="n">2,27 MB</td></tr>
-  <tr><td><code>engine_bg.wasm</code></td><td class="n">6,82 MB</td><td class="n">2,74 MB</td><td class="n">1,83 MB</td></tr>
-  <tr><td><code>index.js</code> + CSS</td><td class="n">0,46 MB</td><td class="n">0,14 MB</td><td class="n">0,12 MB</td></tr>
+  <tr><td><code>engine_bg.wasm</code></td><td class="n">6,62 MB</td><td class="n">2,61 MB</td><td class="n">1,89 MB</td></tr>
+  <tr><td><code>index.js</code> + CSS</td><td class="n">–</td><td class="n">0,14 MB</td><td class="n">–</td></tr>
 </table>
 <table>
-  <tr><th>Netz (Live-Seite)</th><th class="n">kalt bis zum 1. Bild</th><th class="n">warm</th></tr>
-  <tr><td>eigene Leitung, ungedrosselt</td><td class="n">3,2 s</td><td class="n">0,36 s</td></tr>
-  <tr><td>100 Mbit/s, 20 ms RTT</td><td class="n">3,7 s</td><td class="n">0,58 s</td></tr>
-  <tr><td>10 Mbit/s, 60 ms RTT</td><td class="n">5,5 s</td><td class="n">0,58 s</td></tr>
+  <tr><th>Netz (Live-Seite, kalt)</th><th class="n">Ladeanzeige</th><th class="n">Editor bedienbar</th></tr>
+  <tr><td>eigene Leitung, ungedrosselt</td><td class="n">0,17 s</td><td class="n">2,5 s</td></tr>
+  <tr><td>100 Mbit/s, 20 ms RTT</td><td class="n">0,18 s</td><td class="n">2,6 s</td></tr>
+  <tr><td>10 Mbit/s, 60 ms RTT</td><td class="n">0,20 s</td><td class="n">5,3 s</td></tr>
 </table>
-<p>Die Ladezeit ist fast reiner Download. Beide WASM-Dateien laden parallel, das ist schon richtig gemacht. Sie starten aber erst, wenn <code>index.js</code> geladen und ausgeführt ist, das sind 300–430 ms. Die Seite ist bis zum Schluss leer. Wiederholte Aufrufe sind dank HTTP-Cache und V8-Code-Cache schnell. GitHub Pages setzt <code>max-age=600</code> und danach eine 304-Revalidierung.</p>
-<p>Engine-Code pro Crate, roh: Loro etwa 1,4 MB, Font-Crates (read-fonts, skrifa, write-fonts, subsetter) etwa 1,2 MB, harfrust 0,4 MB, tiny-skia 0,38 MB (nur PDF), krilla und pdf-writer 0,41 MB (nur PDF), eingebettete Daten 1,8 MB (Font 262 KB, FOGRA51 241 KB, Trennmuster 233 KB).</p>
+<p>Mit warmem Cache und echter GPU (Helium) ist der Editor nach 0,3 s bedienbar und nach 0,4 s gezeichnet. Die kalte Ladezeit ist fast reiner Download. Beide WASM-Dateien laden parallel, starten aber erst nach <code>index.js</code>, etwa 380 ms nach Beginn der Navigation.</p>
 
-<div class="fix"><b>Vorschlag 1: <code>codegen-units = 1</code></b>
-<pre>[profile.release]
-opt-level = "s"
-lto = true
-codegen-units = 1</pre>
-<p>Eine Zeile. Gemessen: Engine 2,71 → 2,43 MB gzip (−10 %), gleichzeitig schneller. Nativ sinkt ein Snapshot bei 8 Seiten von 3,3 auf 2,8 ms, die verkettete Story von 173 auf 86 ms. Nur der Rust-Build dauert länger.</p>
-<table>
-  <tr><th>Profil</th><th class="n">gzip</th><th class="n">Snapshot 8 S.</th><th class="n">Story 8 S.</th><th class="n">PDF 8 S.</th></tr>
-  <tr><td><code>s</code>, heute</td><td class="n">2,71 MB</td><td class="n">3,3 ms</td><td class="n">173 ms</td><td class="n">455 ms</td></tr>
-  <tr><td><b><code>s</code> + cgu 1</b></td><td class="n"><b>2,43 MB</b></td><td class="n"><b>2,8 ms</b></td><td class="n"><b>86 ms</b></td><td class="n"><b>441 ms</b></td></tr>
-  <tr><td><code>z</code> + cgu 1</td><td class="n">2,15 MB</td><td class="n">3,8 ms</td><td class="n">141 ms</td><td class="n">500 ms</td></tr>
-  <tr><td><code>3</code> + cgu 1</td><td class="n">2,72 MB</td><td class="n">2,3 ms</td><td class="n">66 ms</td><td class="n">356 ms</td></tr>
-</table>
-<p class="dim">Laufzeiten nativ gemessen, die Verhältnisse gelten für WASM ähnlich. <code>z</code> spart zwar noch einmal 12 %, ist aber langsamer als heute. Deshalb empfehle ich es nicht.</p></div>
-
-<div class="fix"><b>Vorschlag 2: Ladeanzeige statt leerer Seite</b>
-<p>In <code>index.html</code> einen statischen Text in <code>#root</code> setzen, etwa „Satz lädt …“. React ersetzt ihn beim ersten <code>render</code>. Das ist 1 Zeile ohne JS. Die Wartezeit bleibt gleich, aber der Nutzer sieht in den 3–5 s, dass etwas passiert.</p></div>
-
-<div class="fix"><b>Vorschlag 3 (klein, optional): WASM parallel zu <code>index.js</code> laden</b>
-<p>Ein <code>&lt;link rel="preload" as="fetch" crossorigin&gt;</code> für beide WASM-Dateien in <code>index.html</code>. Weil die Namen Hashes tragen, muss ein kleiner <code>transformIndexHtml</code>-Hook in <code>vite.config.ts</code> sie aus dem Bundle eintragen. Das bringt etwa 1 RTT plus Parse-Zeit von <code>index.js</code>, also etwa 0,2–0,3 s von 3–5 s (geschätzt aus den Startzeiten oben). Das lohnt sich erst nach Vorschlag 1 und 2.</p></div>
+<div class="fix"><b>Vorschlag 6: WASM parallel zu <code>index.js</code> laden</b>
+<p>Ein <code>&lt;link rel="preload" as="fetch" crossorigin&gt;</code> für beide WASM-Dateien in <code>index.html</code>. Weil die Namen Hashes tragen, muss ein kleiner <code>transformIndexHtml</code>-Hook in <code>vite.config.ts</code> sie aus dem Bundle eintragen. Das spart etwa 0,2 s von 2,5–5,3 s (geschätzt aus den Startzeiten oben).</p></div>
 
 <div class="fix"><b>Bewusst nicht empfohlen</b>
 <ul>
-  <li><b>Brotli</b> würde 28 % sparen (5,7 → 4,1 MB), GitHub Pages liefert aber nur gzip. Das ginge nur mit einem anderen Host, und Pages ist eine feste Designentscheidung. Wenn die Ladezeit später wichtiger wird, ist das der größte Hebel ohne Codeänderung.</li>
-  <li><b>PDF-Teil als zweites, nachgeladenes WASM</b>: Das wären etwa 1 MB roh weniger beim Start, dafür aber ein zweites Crate und doppelte Font- und ICC-Daten. Das ist zu viel Aufwand für etwa 0,4 MB gzip.</li>
-  <li><b>Eigener CanvasKit-Build</b> ohne Paragraph, ICU und Skottie: vermutlich deutlich kleiner, nicht gemessen. Dafür bräuchte man emsdk und einen Skia-Checkout in <code>flake.nix</code>. Das ist erst sinnvoll, wenn der Rest ausgereizt ist.</li>
+  <li><b><code>codegen-units = 1</code></b>: Engine 2,59 → 2,53 MB gzip (−2 %), in WASM gemessen nicht schneller. Das lohnt die längere Build-Zeit nicht mehr.</li>
+  <li><b>Brotli</b> würde 25 % sparen (5,6 → 4,2 MB), GitHub Pages liefert aber nur gzip. Das ginge nur mit einem anderen Host, und Pages ist eine feste Designentscheidung.</li>
+  <li><b>PDF-Teil als zweites, nachgeladenes WASM</b>: etwa 0,4 MB gzip weniger beim Start, dafür ein zweites Crate und doppelte Font- und ICC-Daten.</li>
+  <li><b>Eigener CanvasKit-Build</b> ohne Paragraph, ICU und Skottie: vermutlich deutlich kleiner, nicht gemessen. Dafür bräuchte man emsdk und einen Skia-Checkout in <code>flake.nix</code>.</li>
 </ul></div>
-</div>
-
-<h2>2. Jede Engine-Anfrage baut das ganze Dokument neu</h2>
-
-<div class="card high"><h3><span class="tag high">hoch</span><code>render</code>, <code>hit</code>, <code>print</code> und <code>master_hit</code> rufen jeweils <code>snapshot()</code> auf</h3>
-<p><code>Doc::snapshot()</code> läuft über alle Seiten und Master, setzt über <code>flows()</code> jede Story neu und deserialisiert jedes Property per <code>serde_json</code>. Die folgenden Funktionen machen das bei jedem Aufruf neu (<code>engine/src/doc.rs:2815–2970</code>):</p>
-<ul>
-  <li><code>render</code> (<code>displayList</code>)</li>
-  <li><code>hit</code></li>
-  <li><code>master_hit</code></li>
-  <li><code>print</code></li>
-</ul>
-<p>Das UI ruft sie oft auf:</p>
-<table>
-  <tr><th>Aktion</th><th>Engine-Aufrufe, die das Dokument neu aufbauen</th></tr>
-  <tr><td>Maus bewegen (Hover)</td><td><code>hit</code> pro Seite des Spreads + <code>displayList</code> pro Seite beim Redraw</td></tr>
-  <tr><td>Pan, Zoom, Caret-Blinken (alle 530 ms)</td><td><code>displayList</code> pro Seite, obwohl sich nichts geändert hat</td></tr>
-  <tr><td>1 Drag-Frame</td><td><code>apply</code> + <code>snapshot</code> + <code>displayList</code> pro Seite</td></tr>
-  <tr><td>1 Tastendruck</td><td><code>apply</code>, <code>snapshot</code>, <code>textFrame</code>, <code>caret</code>, <code>displayList</code> und <code>textOverlay</code> pro Seite. Die Text-Aufrufe setzen die Story jeweils neu.</td></tr>
-</table>
-<p>Gemessen in WASM:</p>
-<table>
-  <tr><th>Seiten</th><th class="n"><code>snapshot()</code></th><th class="n"><code>displayList</code></th><th class="n"><code>hit</code></th><th class="n">apply + snapshot</th></tr>
-  <tr><td>1</td><td class="n">2,0 ms</td><td class="n">1,7 ms</td><td class="n">1,0 ms</td><td class="n">1,5 ms</td></tr>
-  <tr><td>8</td><td class="n">9,4 ms</td><td class="n">6,8 ms</td><td class="n">6,3 ms</td><td class="n">10,9 ms</td></tr>
-  <tr><td>32</td><td class="n">39,7 ms</td><td class="n">30,3 ms</td><td class="n">29,9 ms</td><td class="n">43,4 ms</td></tr>
-</table>
-<p>Gemessen im Browser mit echter GPU, bei 24 Seiten: Tastendruck p50 104 ms und max 168 ms, 20 Long Tasks bei 20 Zeichen. Drag p95 50 ms pro Frame, 11 Long Tasks. Bei 1 Seite bleibt alles unter 50 ms, das Rendering selbst ist also nicht das Problem.</p>
-
-<div class="fix"><b>Vorschlag 4: Abgeleitetes einmal pro Änderung berechnen</b>
-<p><code>Doc</code> bekommt einen Cache für alles, was aus dem Loro-Dokument abgeleitet wird: den Snapshot mit den Flows und bei Bedarf die Display List pro Seite. Der Cache wird an genau einer Stelle geleert, und zwar am Anfang von <code>apply</code>. Durch <code>apply</code> laufen alle Mutationen, auch Undo und Redo.</p>
-<pre>pub struct Doc {
-    ...
-    derived: RefCell&lt;Option&lt;Rc&lt;Snapshot&gt;&gt;&gt;,
-}
-
-fn derived(&amp;self) -&gt; Rc&lt;Snapshot&gt; {
-    self.derived.borrow_mut().get_or_insert_with(|| Rc::new(self.build())).clone()
-}</pre>
-<p><code>render</code>, <code>hit</code>, <code>print</code>, <code>master_hit</code>, <code>caret</code> und <code>text_*</code> lesen daraus. Hover, Pan, Zoom und Caret-Blinken kosten dann nur noch die eine Seite statt des ganzen Dokuments. Ein Tastendruck baut einmal statt etwa 6-mal. Der PDF-Export wird linear statt quadratisch (siehe 4).</p>
-<p>Zukunftssicher ist das, weil jede neue Abfrage den Cache automatisch nutzt. Kommen später Loro-<code>import</code> für Persistenz und Kollaboration dazu, leeren sie den Cache über dieselbe Funktion.</p></div>
-</div>
-
-<h2>3. Verketteter Text ist quadratisch</h2>
-
-<div class="card high"><h3><span class="tag high">hoch</span>Jeder Rahmen setzt den gesamten Rest der Story</h3>
-<p><code>Doc::flow</code> (<code>doc.rs:1951</code>) ruft für jeden Rahmen <code>text::overflow</code> auf. Dieser Aufruf formt und bricht mit <code>rows()</code> den ganzen Text ab <code>from</code> bis zum Ende der Story, obwohl nur passt, was in den Rahmen geht. Bei <code>n</code> Rahmen ist das O(n × Story-Länge), und die Story wächst mit den Rahmen. <code>text::draw</code> setzt beim Zeichnen dann noch einmal. Zusammen mit Befund 2 passiert das pro Tastendruck mehrfach.</p>
-<table>
-  <tr><th>Story (WASM, reine Engine-Zeit für 1 Tastendruck)</th><th class="n">ms</th></tr>
-  <tr><td>2 Seiten, 1 Absatz</td><td class="n">61</td></tr>
-  <tr><td>4 Seiten, 1 Absatz</td><td class="n">280</td></tr>
-  <tr><td>8 Seiten, 1 Absatz</td><td class="n">1600</td></tr>
-  <tr><td>8 Seiten, 32 Absätze (realistisch)</td><td class="n">374</td></tr>
-  <tr><td>16 Seiten, 64 Absätze</td><td class="n">1356</td></tr>
-</table>
-<p>Die 8-seitige Broschüre aus Milestone 1 mit durchlaufendem Text lässt sich damit schon heute kaum flüssig bearbeiten.</p>
-
-<div class="fix"><b>Vorschlag 5: Pro Rahmen nur setzen, was hineinpasst, und das Ergebnis behalten</b>
-<ol>
-  <li><code>rows()</code> Absatz für Absatz aufrufen und aufhören, sobald die gesetzte Höhe den Rahmen füllt. Knuth-Plass arbeitet ohnehin pro Absatz. Damit kostet jeder Rahmen nur seinen eigenen Text, und die ganze Story ist O(Länge).</li>
-  <li>Die gesetzten Zeilen jedes Rahmens in <code>Flow</code> speichern, das heute nur <code>start</code> und <code>end</code> hält. <code>draw</code>, <code>caret</code>, <code>text_index</code> und <code>text_overlay</code> lesen sie von dort, statt neu zu setzen. Zusammen mit Vorschlag 4 wird jede Story pro Änderung genau einmal gesetzt.</li>
-</ol>
-<p>Erst wenn Dokumente mit mehr als 100 Seiten dazukommen: einen Absatz-Cache mit dem Schlüssel (Text, Attribute, Breite) einführen, damit ein Tastendruck nur seinen eigenen Absatz neu formt. Das ist der Weg, den InDesign geht. Heute ist er noch nicht nötig.</p>
-<p class="dim">Klein, nicht gemessen: <code>rows()</code> parst bei jedem Aufruf den Font und baut <code>ShaperData</code> neu. Das gehört in ein <code>OnceLock</code>, später eines pro Font.</p></div>
-</div>
-
-<h2>4. PDF-Export</h2>
-
-<div class="card high"><h3><span class="tag high">hoch</span>Blockiert die UI und rechnet Effekte doppelt</h3>
-<table>
-  <tr><th>Beispielseite mit Schatten und Blur</th><th class="n">WASM</th></tr>
-  <tr><td>1 Seite</td><td class="n">86 ms</td></tr>
-  <tr><td>8 Seiten</td><td class="n">734 ms</td></tr>
-  <tr><td>32 Seiten</td><td class="n">3581 ms</td></tr>
-</table>
-<p>Aufschlüsselung, nativ, 8 Seiten bei 300 ppi, 447 ms gesamt:</p>
-<ul>
-  <li><b>Blur 227 ms</b> für nur 2 Megapixel, also 113 ns pro Pixel.</li>
-  <li>Rasterisierung 93 ms.</li>
-  <li>krilla (Kompression und Schreiben) etwa 127 ms.</li>
-</ul>
-<p>Ohne Effekte dauern dieselben 8 Seiten 2 ms. Im CMYK-Modus verdoppelt sich die Rasterzeit, weil 2 Platten gerechnet werden. Zusätzlich baut <code>print</code> pro Seite den Snapshot neu. Das ist quadratisch: nativ 0,5 s bei 32 Seiten, 2,7 s bei 64 Seiten, nur für die Display Lists. Das alles läuft im Main-Thread, und die UI friert so lange ein.</p>
-
-<div class="fix"><b>Vorschlag 6: Blur mit zusammenhängendem Speicher</b>
-<p><code>raster::box_blur</code> läuft pro Kanal einzeln über jede Zeile. Der vertikale Durchgang springt dabei im Speicher um eine ganze Bildbreite. Besser ist es, alle 4 Kanäle eines Pixels in einem Durchgang zu summieren (<code>[u32; 4]</code>) und den vertikalen Durchgang zeilenweise mit einem Array aus Spaltensummen zu rechnen. Das Ergebnis ist bitgleich, der Code etwa gleich lang. Erwartet: ein Mehrfaches schneller (geschätzt, nicht gemessen). Der bestehende Test <code>blur_spreads_coverage_and_keeps_its_sum</code> prüft nur die Summe. Für den Umbau vorher einen Test ergänzen, der das Ergebnis der alten Version Pixel für Pixel vergleicht.</p></div>
-
-<div class="fix"><b>Vorschlag 7: Raster innerhalb eines Exports wiederverwenden</b>
-<p>Das Ergebnis von <code>pdf::raster</code> mit dem Schlüssel (Item-Hash, ppi, Farbmodus, Offset) merken. Die Display List trägt die Hashes schon, der Canvas-Renderer cached damit bereits. Master-Ebenen und duplizierte Layer werden dann einmal gerastert statt einmal pro Seite. Im Messdokument wären das 1 statt 8 Rasterungen pro Effekt.</p></div>
-
-<div class="fix"><b>Vorschlag 8: Export in einem Web Worker</b>
-<p>Der Worker lädt dasselbe <code>engine_bg.wasm</code>, bekommt die Loro-Bytes des Dokuments und schickt das PDF zurück. Die UI bleibt bedienbar und kann einen Fortschritt zeigen. Dafür braucht die Engine <code>export()</code> und <code>import()</code> für Loro-Snapshots. Genau das braucht auch Autosave (TODO §14). Deshalb sollte dieser Schritt zusammen mit der Persistenz gebaut werden, nicht vorher.</p></div>
 </div>
 
 <h2>5. Snapshot-Übergabe an JavaScript</h2>
 
-<div class="card mid"><h3><span class="tag mid">mittel</span><code>serde_wasm_bindgen</code> baut das ganze Dokument als JS-Objekte</h3>
-<p>Nach jedem <code>apply</code> holt <code>Editor</code> den vollständigen Snapshot. Bei 32 Seiten (348 KB JSON) dauert <code>snapshot()</code> 39 ms. Davon sind etwa 9 ms die Übergabe, der Rest ist die Berechnung. <code>JSON.parse</code> derselben Daten dauert 2,1 ms. Heute ist das der kleinere Teil, nach Vorschlag 4 und 5 wird es der größte Posten pro Änderung.</p>
-<div class="fix"><b>Vorschlag 9: Snapshot als JSON-String übergeben</b>
-<p>In <code>lib.rs</code> <code>serde_json::to_string(&amp;snapshot)</code> zurückgeben, in <code>editor.ts</code> <code>JSON.parse(engine.snapshot())</code>. Das ist je 1 Zeile, und der Typ in <code>model.ts</code> bleibt gleich. Erwartet: die Übergabe wird etwa 3–4-mal schneller (geschätzt aus dem Parse-Anteil, die Rust-Seite ist nicht gemessen).</p></div>
+<div class="card low"><h3><span class="tag low">niedrig</span><code>serde_wasm_bindgen</code> statt JSON-String</h3>
+<p>Gemessen mit einem Probe-Build, der den Snapshot als JSON-String übergibt: <code>JSON.parse(engine.snapshotJson())</code> dauert bei 8 Seiten 3,6 statt 5,5 ms, bei 32 Seiten 15,4 statt 20,8 ms. Das sind 25–35 % weniger, nicht mehr. Der größere Teil ist das Bauen des Snapshots, nicht die Übergabe.</p>
+<div class="fix"><b>Vorschlag 7: Snapshot als JSON-String übergeben</b>
+<p>In <code>lib.rs</code> <code>serde_json::to_string(&amp;snapshot)</code> zurückgeben, in <code>editor.ts</code> <code>JSON.parse(engine.snapshot())</code>. Je 1 Zeile, der Typ in <code>model.ts</code> bleibt gleich.</p></div>
 </div>
 
 <h2>6. Gemessen und nicht langsam</h2>
 
 <div class="card good"><h3><span class="tag good">ok</span>Rendering mit CanvasKit</h3>
-<p>Mit echter GPU liegen die Frames bei Hover, Zoom und Drag auf 1 Seite bei p50 17 ms, also 60 fps. Das Picture-Caching pro Item funktioniert. Mit SwiftShader (CI, Playwright) ist Zoomen deutlich langsamer, das betrifft aber nur die Tests.</p></div>
+<p>Mit echter GPU liegen die Frames bei 1 Seite für Hover, Drag, Zoom und Tippen bei p50 17 ms, also 60 fps. Tippen kostet p50 32 ms ohne Long Task. Die Long Tasks bei 24 Seiten kommen aus der Engine (1 und 2), nicht aus dem Rendering.</p></div>
 
-<div class="card good"><h3><span class="tag good">ok</span>Engine-Start und ICC-Transformationen</h3>
-<p>WASM kompilieren 19 ms, erstes <code>new Engine()</code> 56 ms, danach 11 ms. Jede ICC-Richtung kostet beim ersten Gebrauch einmalig etwa 50 ms und ist danach in einem <code>OnceLock</code> gecached. Das ist nicht merkbar, es gibt keinen Handlungsbedarf.</p></div>
+<div class="card good"><h3><span class="tag good">ok</span>Text-Abfragen pro Tastendruck</h3>
+<p>In einer Story über 16 Seiten: <code>textFrame</code> 0,0 ms, <code>caret</code> 2,4 ms, <code>textOverlay</code> 2,3 ms. Die gesetzten Zeilen zusätzlich in <code>Flow</code> zu speichern, lohnt sich deshalb nicht. Auch der Aufbau von <code>FontRef</code> und <code>ShaperData</code> in <code>rows()</code> kostet nur 0,03 ms pro Aufruf und braucht kein <code>OnceLock</code>.</p></div>
 
-<div class="card low"><h3><span class="tag low">beobachten</span>JS-Seite pro Änderung</h3>
-<p><code>Editor.apply</code> baut den Layer-Index des Spreads neu. <code>Editor.lookup</code> indexiert beim Tippen in verketteten Rahmen alle Seiten. Beides ist O(Dokument) in JS, war aber in keiner Messung sichtbar. Nach Vorschlag 4 und 5 sollte man das erneut messen.</p></div>
+<div class="card good"><h3><span class="tag good">ok</span>Autosave und Wiederherstellen</h3>
+<p><code>save()</code> kostet bei 32 Seiten 1,3 ms und läuft höchstens einmal pro Sekunde. <code>load()</code> beim Start kostet 28 ms. Beides ist nicht merkbar.</p></div>
+
+<div class="card low"><h3><span class="tag low">beobachten</span>Ein einzelner Absatz über viele Rahmen</h3>
+<p>Jeder Rahmen setzt den Absatz, in dem er beginnt, von dessen Anfang an. Ein einzelner Absatz über 2, 4 oder 8 Seiten kostet deshalb 62, 247 oder 1243 ms pro Tastendruck, also quadratisch. Bei realistischem Text (4 Absätze pro Seite) sind es 26 ms bei 8 Seiten. Handlungsbedarf entsteht erst, wenn Absätze über mehrere Rahmen üblich werden. Dann setzt man jeden Absatz einmal pro Flow und verteilt seine Zeilen auf die Rahmen.</p></div>
 
 <h2>7. Reihenfolge</h2>
 <table>
   <tr><th>#</th><th>Vorschlag</th><th>Aufwand</th><th>Wirkung</th></tr>
-  <tr><td>1</td><td><code>codegen-units = 1</code></td><td>1 Zeile</td><td>−10 % Engine-Download, alles schneller</td></tr>
-  <tr><td>2</td><td>Ladeanzeige in <code>index.html</code></td><td>1 Zeile</td><td>keine leere Seite mehr</td></tr>
-  <tr><td>3</td><td>Cache für Abgeleitetes in <code>Doc</code>, geleert in <code>apply</code></td><td>klein</td><td>Hover, Pan und Blinken O(Seite); Tastendruck 1 statt etwa 6 Neuaufbauten; PDF linear</td></tr>
-  <tr><td>4</td><td>Story pro Rahmen nur bis voll setzen, Zeilen in <code>Flow</code> behalten</td><td>mittel</td><td>verkettete Stories linear statt quadratisch</td></tr>
-  <tr><td>5</td><td>Snapshot als JSON-String</td><td>2 Zeilen</td><td>Übergabe etwa 3-mal schneller</td></tr>
-  <tr><td>6</td><td>Blur mit zusammenhängendem Speicher</td><td>klein</td><td>größter Posten im PDF-Export</td></tr>
-  <tr><td>7</td><td>Raster-Cache pro Export</td><td>klein</td><td>Master- und Wiederholungseffekte einmal statt pro Seite</td></tr>
-  <tr><td>8</td><td>Export im Worker, zusammen mit Autosave</td><td>mittel</td><td>UI friert beim Export nicht mehr ein</td></tr>
-  <tr><td>9</td><td>Preload der WASM-Dateien</td><td>klein</td><td>etwa 0,2–0,3 s beim ersten Laden</td></tr>
+  <tr><td>1</td><td>Snapshot neben den Flows behalten</td><td>klein</td><td>Hover, Pan und Blinken O(Seite); etwa 25 ms weniger pro Tastendruck bei 24 Seiten</td></tr>
+  <tr><td>2</td><td>Flows unveränderter Stories wiederverwenden</td><td>klein bis mittel</td><td><code>apply</code> kostet die geänderte Story statt des ganzen Dokuments</td></tr>
+  <tr><td>3</td><td>Blur mit zusammenhängendem Speicher</td><td>klein</td><td>größter Posten im PDF-Export (51 %)</td></tr>
+  <tr><td>4</td><td>Export im Worker</td><td>mittel</td><td>UI friert beim Export nicht mehr ein</td></tr>
+  <tr><td>5</td><td>Preload der WASM-Dateien</td><td>klein</td><td>etwa 0,2 s beim ersten Laden</td></tr>
+  <tr><td>6</td><td>Snapshot als JSON-String</td><td>2 Zeilen</td><td>Übergabe 25–35 % schneller</td></tr>
+  <tr><td>7</td><td>Raster-Cache pro Export</td><td>klein</td><td>Effekte auf Mastern einmal statt pro Seite</td></tr>
 </table>
 <p>Damit das so bleibt: Den Messaufbau aus diesem Review als <code>#[ignore]</code>-Test ins Repo nehmen, mit 32 Seiten und einer über 16 Seiten verketteten Story. Nach jeder Änderung an Text oder Engine lässt er sich mit <code>cargo test --release -- --ignored</code> neu messen. In CI gehört er nicht, weil Zeitgrenzen auf geteilten Runnern flackern.</p>
 </main>
