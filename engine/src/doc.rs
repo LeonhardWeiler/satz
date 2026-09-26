@@ -20,7 +20,7 @@ use loro::{
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::cell::RefCell;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Display;
 use std::ops::Range;
 use std::rc::Rc;
@@ -936,11 +936,39 @@ impl Doc {
         d
     }
 
-    /// The document without its history, for `load`.
+    /// The document for `load`, without its history and so without the images
+    /// that only the trash or undo still use.
     pub fn save(&self) -> Vec<u8> {
-        let now = self.doc.state_frontiers();
-        self.doc
-            .export(ExportMode::shallow_snapshot(&now))
+        let mut ids = Vec::new();
+        for r in self.tree.roots() {
+            if self.kind(r) != "trash" {
+                self.walk(r, &mut ids);
+            }
+        }
+        let used: HashSet<String> = ids
+            .into_iter()
+            .filter_map(|id| value(&self.meta(id), "fills"))
+            .filter_map(|v| serde_json::from_value::<Vec<Fill>>(serde_json::to_value(v).ok()?).ok())
+            .flatten()
+            .filter_map(|f| f.image)
+            .collect();
+        let images = self.doc.get_map("images");
+        let unused: Vec<_> = images
+            .keys()
+            .filter(|h| !used.contains(h.as_str()))
+            .collect();
+        let doc = if unused.is_empty() {
+            self.doc.clone()
+        } else {
+            let doc = self.doc.fork();
+            let images = doc.get_map("images");
+            for h in unused {
+                images.delete(&h).expect("delete");
+            }
+            doc.commit();
+            doc
+        };
+        doc.export(ExportMode::shallow_snapshot(&doc.state_frontiers()))
             .expect("export")
     }
 
@@ -8053,6 +8081,25 @@ mod tests {
             page(&d).children[0].ppi
         });
         assert!(close(ppi.join().unwrap().unwrap(), 300.0));
+    }
+
+    #[test]
+    fn a_saved_document_leaves_out_the_images_no_layer_uses() {
+        let (mut d, p) = empty();
+        let (kept, a) = place(&mut d, &p, 60, 30);
+        let (gone, b) = place(&mut d, &p, 40, 30);
+        d.apply(Command::Delete { ids: vec![gone] }).unwrap();
+        let saved = d.save();
+        assert!(d.image(&b).is_ok());
+        let loaded = std::thread::spawn(move || {
+            let d = Doc::load(&saved).unwrap();
+            (
+                d.image(&a).is_ok(),
+                d.image(&b).is_ok(),
+                page(&d).children[0].id.clone(),
+            )
+        });
+        assert_eq!(loaded.join().unwrap(), (true, false, kept));
     }
 
     #[test]

@@ -32,8 +32,6 @@ font helper, i18n.
   their bytes in the Loro map `images`; see `Doc::add_image` and `PlaceImage`.
 - Fit/fill, and crop by moving the image inside its layer: both set the fill's
   `transform`, which maps the image's unit square into the layer.
-- Images no layer uses any more stay in the document; `save` could leave them
-  out, since a saved file has no undo history.
 
 ### 16. Ship
 - Example A2 poster and 8-page A5 booklet in the repo, exported by a test and
