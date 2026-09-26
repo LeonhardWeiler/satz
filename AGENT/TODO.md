@@ -17,34 +17,24 @@ font helper, i18n.
   item. The PDF writer (`krilla`) consumes the same display list.
 - Text: `harfrust` shaping, `hypher` hyphenation, own Knuth-Plass. CanvasKit draws
   glyph IDs from the same font bytes.
-- Color: document is RGB or CMYK + spot colors. Screen preview via `moxcms` with a
-  bundled FOGRA51 profile built from the ICC registry data (`engine/icc/build`); the
+- Color: document is RGB or CMYK + spot colors. Screen preview via `moxcms`, with black
+  point compensation, and a bundled FOGRA51 profile built from the ICC registry data (`engine/icc/build`); the
   ECI's PSO Coated v3 may not be redistributed.
 - UI: Figma UI3 layout, behavior and keybinds (Ctrl for Cmd), dark pro look,
   English, units mm by default (switchable), type sizes in pt.
 - Browsers: Chromium + Firefox; Safari best effort.
 - License: ISC.
 
-## Breadth
-
-### 13. Images
-- Placed images are image fills (`FillKind::Image`, hash in `Fill::image`) with
-  their bytes in the Loro map `images`; see `Doc::add_image` and `PlaceImage`.
-- Fit/fill, and crop by moving the image inside its layer: both set the fill's
-  `transform`, which maps the image's unit square into the layer.
-
-### 16. Ship
-- Example A2 poster and 8-page A5 booklet in the repo, exported by a test and
-  covered by the canvas-vs-PDF check.
-- README with screenshot and live link.
-
 ## Later
 
+- The canvas composites transparency in RGB, the PDF of a CMYK document in CMYK:
+  semi-transparent colour over dark CMYK colour looks lighter on the canvas.
+- CMYK JPEGs: decoded to RGB and separated again; pass them through to the PDF
+  as they are, and do not report them as RGB.
 - Linked images: per document, chosen at creation, embed or link. Linking uses
   File System Access (Chromium) with handles in IndexedDB, so links need a click
   per session and are missing on other computers; Firefox shows the option
   disabled with a hint. Preflight reports missing links with relink.
-
 - Font picker as in Figma (family and style), with local fonts (Local Font Access)
   in the list; a font in text styles. Today fonts are added by upload, and Local
   Font Access only finds missing ones.
