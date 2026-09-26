@@ -6,6 +6,8 @@ export const MM = 72 / 25.4
 
 /** Opens the app; a spread fits at the zoom of a single page in a window 2000 px wide. */
 export async function open(page: Page, width = 1400) {
+  // Playwright turns on catching file choosers without waiting; a chooser opened right after may still get past it.
+  page.on('filechooser', () => {})
   await page.setViewportSize({ width, height: 1100 })
   await page.goto('')
   await expect(page.getByLabel('Zoom')).not.toHaveText('0%')
