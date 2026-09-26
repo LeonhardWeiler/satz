@@ -1,14 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")"
-cargo fmt --check
-cargo clippy --all-targets -- -D warnings
-cargo test
-wasm-pack build engine --target web --out-dir ../web/src/engine --no-pack
+stage=${1-all}
+if [ "$stage" != e2e ]; then
+  cargo fmt --check
+  cargo clippy --all-targets -- -D warnings
+  cargo test
+  wasm-pack build engine --target web --out-dir ../web/src/engine --no-pack
+fi
 cd web
 pnpm install --frozen-lockfile
-pnpm exec tsc --noEmit
-pnpm lint
-pnpm test
-pnpm build
-pnpm e2e
+if [ "$stage" != e2e ]; then
+  pnpm exec tsc --noEmit
+  pnpm lint
+  pnpm test
+  pnpm build
+fi
+if [ "$stage" != build ]; then
+  pnpm e2e "${@:2}"
+fi

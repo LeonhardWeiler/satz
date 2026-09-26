@@ -1,25 +1,59 @@
 name: ci
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  check:
+  build:
     runs-on: ubuntu-latest
+    env:
+      CARGO_INCREMENTAL: 0
     steps:
       - uses: actions/checkout@v7
       - uses: cachix/install-nix-action@v31
-      - run: nix develop -c ./check
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ hashFiles('Cargo.lock', 'flake.lock') }}
+      - run: nix develop -c ./check build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: web/dist
       - uses: actions/upload-pages-artifact@v5
         with:
           path: web/dist
 
+  e2e:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: cachix/install-nix-action@v31
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: web/dist
+      - run: nix develop -c ./check e2e --shard=${{ matrix.shard }}/3
+
   deploy:
     if: github.ref == 'refs/heads/main'
-    needs: check
+    needs: e2e
     runs-on: ubuntu-latest
     permissions:
       pages: write
