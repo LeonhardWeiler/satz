@@ -17,8 +17,8 @@
           inherit system;
           overlays = [ rust-overlay.overlays.default ];
         };
-        rust = pkgs.rust-bin.stable.latest.default.override {
-          extensions = [ "rust-src" "rust-analyzer" ];
+        rust = pkgs.rust-bin.stable.latest.minimal.override {
+          extensions = [ "clippy" "rustfmt" "rust-src" "rust-analyzer" ];
           targets = [ "wasm32-unknown-unknown" ];
         };
       in {
@@ -32,7 +32,11 @@
             pnpm
             mupdf
           ];
-          PLAYWRIGHT_BROWSERS_PATH = pkgs.playwright-driver.browsers;
+          PLAYWRIGHT_BROWSERS_PATH = pkgs.playwright-driver.browsers.override {
+            withChromium = false;
+            withFirefox = false;
+            withWebkit = false;
+          };
           PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
         };
       });
