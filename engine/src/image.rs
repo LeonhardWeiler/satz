@@ -1,4 +1,4 @@
-use crate::color::separate_pixels;
+use crate::color::{preview_pixels, separate_pixels};
 use crate::content_hash;
 use krilla::Data;
 use krilla::image::{BitsPerComponent, CustomImage, ImageColorspace};
@@ -70,6 +70,10 @@ impl CustomImage for Cmyk {
     }
 }
 
+/// Marks the id of an image in a CMYK document's display list, which the canvas
+/// shows as it prints.
+pub const PROOF: u32 = 1 << 31;
+
 thread_local! {
     /// The images of every document loaded so far by id, so that ids stay valid
     /// across documents for the renderer's cache.
@@ -136,7 +140,7 @@ fn entry_by_hash(hash: &str) -> Option<Rc<Entry>> {
 }
 
 fn entry(id: u32) -> Option<Rc<Entry>> {
-    IMAGES.with_borrow(|images| images.get(id as usize).cloned())
+    IMAGES.with_borrow(|images| images.get((id & !PROOF) as usize).cloned())
 }
 
 /// The id of the registered image `hash` in display lists.
@@ -154,9 +158,29 @@ pub fn info(hash: &str) -> Option<ImageInfo> {
     entry_by_hash(hash).map(|e| e.info.clone())
 }
 
-/// The file of the image `id`, empty for an unknown id.
-pub fn bytes(id: u32) -> LoroBinaryValue {
-    entry(id).map(|e| e.bytes.clone()).unwrap_or_default()
+/// The file of the image `id`, or a PNG of it as it prints for a `PROOF` id; empty
+/// for an unknown id.
+pub fn bytes(id: u32) -> Vec<u8> {
+    if id & PROOF == 0 {
+        return entry(id).map(|e| e.bytes.to_vec()).unwrap_or_default();
+    }
+    let proof = || {
+        let c = cmyk(id)?;
+        let rgba: Vec<u8> = preview_pixels(&c.color)
+            .chunks(3)
+            .zip(c.alpha.iter())
+            .flat_map(|(p, &a)| [p[0], p[1], p[2], a])
+            .collect();
+        let mut out = Vec::new();
+        let mut encoder = png::Encoder::new(&mut out, c.size.0, c.size.1);
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_compression(png::Compression::Fastest);
+        let mut writer = encoder.write_header().ok()?;
+        writer.write_image_data(&rgba).ok()?;
+        writer.finish().ok()?;
+        Some(out)
+    };
+    proof().unwrap_or_default()
 }
 
 /// The image `id` for the PDF, which embeds a JPEG as it is, or separates it
@@ -260,10 +284,17 @@ pub mod tests {
         assert_eq!((info.width, info.height), (3, 2));
         assert_eq!(register(png(3, 2).into()).unwrap(), info);
         let id = id(&info.hash).unwrap();
-        assert_eq!(*bytes(id), png(3, 2));
+        assert_eq!(bytes(id), png(3, 2));
+        let proof = pixmap_of(&bytes(id | PROOF));
+        assert!(proof.red() > 200 && proof.green() < 100, "{proof:?}");
         let px = pixmap(id).unwrap();
         assert_eq!((px.width(), px.height()), (3, 2));
         assert_eq!(px.pixel(0, 0).unwrap().red(), 255);
+    }
+
+    fn pixmap_of(png: &[u8]) -> tiny_skia::ColorU8 {
+        let (rgba, ..) = decode(Format::Png, png).unwrap();
+        tiny_skia::ColorU8::from_rgba(rgba[0], rgba[1], rgba[2], rgba[3])
     }
 
     #[test]

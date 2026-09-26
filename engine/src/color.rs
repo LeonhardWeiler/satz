@@ -329,6 +329,35 @@ pub fn separate_pixels(rgba: &[u8]) -> Vec<u8> {
     cmyk
 }
 
+/// Screen RGB bytes of the CMYK bytes `cmyk`, compensated as `to_rgb` is.
+pub fn preview_pixels(cmyk: &[u8]) -> Vec<u8> {
+    static T: OnceLock<(Arc<Transform8BitExecutor>, [[u8; 256]; 3])> = OnceLock::new();
+    let (t, lut) = T.get_or_init(|| {
+        let t = fogra51()
+            .create_transform_8bit(
+                Layout::Rgba,
+                &ColorProfile::new_srgb(),
+                Layout::Rgb,
+                options(),
+            )
+            .unwrap();
+        let lut = std::array::from_fn(|c| {
+            std::array::from_fn(|v| {
+                let mut rgb = [0.0; 3];
+                rgb[c] = v as f32 / 255.0;
+                (compensate(rgb)[c] * 255.0).round() as u8
+            })
+        });
+        (t, lut)
+    });
+    let mut rgb = vec![0; cmyk.len() / 4 * 3];
+    t.transform(cmyk, &mut rgb).unwrap();
+    for (i, v) in rgb.iter_mut().enumerate() {
+        *v = lut[i % 3][*v as usize];
+    }
+    rgb
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -351,6 +380,17 @@ mod tests {
             to_rgb([0.0, 0.0, 0.0, 1.0])
                 .iter()
                 .all(|&v| v > 0.0 && v < 0.1)
+        );
+    }
+
+    #[test]
+    fn pixels_preview_as_single_colours_do() {
+        let cmyk: [f32; 4] = [0.1, 0.6, 0.9, 0.05];
+        let rgb = preview_pixels(&cmyk.map(|v| (v * 255.0).round() as u8));
+        let one = to_rgb(cmyk).map(|v| (v * 255.0).round() as i32);
+        assert!(
+            rgb.iter().zip(one).all(|(&a, b)| (a as i32 - b).abs() <= 2),
+            "{rgb:?} vs {one:?}"
         );
     }
 

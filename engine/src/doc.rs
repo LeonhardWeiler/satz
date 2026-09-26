@@ -3052,7 +3052,8 @@ impl Doc {
             .unwrap_or_default()
     }
 
-    /// The display list of the page `id`, empty when there is none.
+    /// The display list of the page `id` for the canvas, empty when there is none;
+    /// a CMYK document marks its images `image::PROOF`.
     pub fn render(&self, id: &str) -> Vec<Op> {
         let snap = self.snapshot();
         let sheets = || snap.pages.iter().chain(&snap.masters);
@@ -3061,6 +3062,13 @@ impl Doc {
         };
         let mut ops = vec![page_op(p)];
         self.draw_sheet(&snap, p, None, &mut ops);
+        if snap.color_mode == ColorMode::Cmyk {
+            for op in &mut ops {
+                if let Op::Image { image, .. } = op {
+                    *image |= image::PROOF;
+                }
+            }
+        }
         ops
     }
 
@@ -8072,6 +8080,10 @@ mod tests {
         set_frame(&mut d, &id, [20.0, 100.0, 288.0, 72.0]);
         assert_eq!(problems(&d), [(id.clone(), Problem::LowPpi { ppi: 150.0 })]);
         cmyk(&mut d);
+        let proofed = d.render(&p).iter().any(
+            |o| matches!(o, Op::Image { image, .. } if *image == image::id(&hash).unwrap() | image::PROOF),
+        );
+        assert!(proofed);
         assert_eq!(
             problems(&d),
             [

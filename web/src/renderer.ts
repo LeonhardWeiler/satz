@@ -111,7 +111,9 @@ export class Renderer {
     canvas.clipPath(bleed, ck.ClipOp.Intersect, true)
     const live = new Set<number>()
     for (const { id, x } of lists) {
-      const ops = decode(this.engine.displayList(id))
+      let ops = decode(this.engine.displayList(id))
+      // Loading an image may grow the engine's memory, which detaches the list.
+      if (this.loadImages(ops)) ops = decode(this.engine.displayList(id))
       for (const op of ops) {
         if (op.op === 'beginItem') live.add(op.item)
         else if (op.op === 'pushLayer') live.add(op.hash)
@@ -356,9 +358,15 @@ export class Renderer {
     shader?.delete()
   }
 
+  /** Decodes the images of `ops` not decoded yet; returns whether there were any. */
+  private loadImages(ops: Op[]) {
+    const ids = ops.flatMap((op) => (op.op === 'image' && !this.images.has(op.image) ? [op.image] : []))
+    for (const id of ids) this.images.set(id, this.ck.MakeImageFromEncoded(this.engine.image(id)))
+    return ids.length > 0
+  }
+
   private drawImage(canvas: Canvas, { image, transform }: Extract<Op, { op: 'image' }>) {
     const { ck, paint } = this
-    if (!this.images.has(image)) this.images.set(image, ck.MakeImageFromEncoded(this.engine.image(image)))
     const img = this.images.get(image)
     if (!img) return
     const [a, b, c, d, e, f] = transform
