@@ -1,13 +1,14 @@
 use crate::display_list::{CLOSE, CUBIC, LINE, MOVE, Op, Paint as ListPaint, close};
 use crate::geom;
+use crate::image;
 use crate::text::font_bytes;
 use skrifa::instance::{LocationRef, Size};
 use skrifa::outline::{DrawSettings, OutlinePen};
 use skrifa::{FontRef, GlyphId, MetadataProvider};
 use tiny_skia::{
-    BlendMode, Color, FillRule, GradientStop, LineCap, LineJoin, LinearGradient, Mask, MaskType,
-    Paint, Path, PathBuilder, Pixmap, PixmapPaint, Point, RadialGradient, Shader, SpreadMode,
-    Stroke, Transform,
+    BlendMode, Color, FillRule, FilterQuality, GradientStop, LineCap, LineJoin, LinearGradient,
+    Mask, MaskType, Paint, Path, PathBuilder, Pixmap, PixmapPaint, Point, RadialGradient, Shader,
+    SpreadMode, Stroke, Transform,
 };
 
 const BLENDS: [BlendMode; 16] = [
@@ -67,6 +68,26 @@ pub fn extent(ops: &[Op]) -> Option<[f32; 4]> {
                 for p in positions.chunks(2) {
                     add([p[0], p[1], 0.0, 0.0], *size);
                 }
+            }
+            Op::Image {
+                transform: [a, b, c, d, e, f],
+                ..
+            } => {
+                let corners = [
+                    MOVE,
+                    *e,
+                    *f,
+                    LINE,
+                    e + a,
+                    f + b,
+                    LINE,
+                    e + a + c,
+                    f + b + d,
+                    LINE,
+                    e + c,
+                    f + d,
+                ];
+                add(geom::bounds(&corners), 0.0);
             }
             _ => {}
         }
@@ -174,6 +195,19 @@ fn render(px: &mut Pixmap, ops: &[Op], t: Transform, clip: Option<&Mask>) {
                     (glyph_path(*font, *size, glyphs, positions), convert(paint))
                 {
                     px.fill_path(&p, &paint, FillRule::Winding, t, clip);
+                }
+            }
+            Op::Image { image, transform } => {
+                if let Some(pm) = image::pixmap(*image) {
+                    let [a, b, c, d, e, f] = *transform;
+                    let to = t
+                        .pre_concat(Transform::from_row(a, b, c, d, e, f))
+                        .pre_scale(1.0 / pm.width() as f32, 1.0 / pm.height() as f32);
+                    let paint = PixmapPaint {
+                        quality: FilterQuality::Bilinear,
+                        ..PixmapPaint::default()
+                    };
+                    px.draw_pixmap(0, 0, pm.as_ref().as_ref(), &paint, to, clip);
                 }
             }
             Op::PushClip { path, invert } => {
@@ -396,6 +430,21 @@ mod tests {
         let px = rasterize(&ops, [0.0, 0.0, 4.0, 4.0], 144.0).unwrap();
         assert_eq!((px.width(), px.height()), (8, 8));
         assert_eq!(alpha(&px, 3, 3), 255);
+        assert_eq!(alpha(&px, 1, 1), 0);
+    }
+
+    #[test]
+    fn an_image_fills_the_box_its_transform_maps_it_into() {
+        let png = crate::image::tests::png(2, 2);
+        let hash = image::register(png.into()).unwrap().hash;
+        let ops = [Op::Image {
+            image: image::id(&hash).unwrap(),
+            transform: [2.0, 0.0, 0.0, 2.0, 1.0, 1.0],
+        }];
+        assert_eq!(extent(&ops), Some([1.0, 1.0, 2.0, 2.0]));
+        let px = rasterize(&ops, [0.0, 0.0, 4.0, 4.0], 144.0).unwrap();
+        assert_eq!(px.pixel(4, 4).unwrap().red(), 255);
+        assert_eq!(alpha(&px, 4, 4), 255);
         assert_eq!(alpha(&px, 1, 1), 0);
     }
 
