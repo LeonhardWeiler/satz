@@ -36,7 +36,6 @@ font helper, i18n.
 
 ### 15. Preflight
 - Missing links and images below 300 ppi, with images (13).
-- Export warns but does not block.
 
 ### 16. Ship
 - Example A2 poster and 8-page A5 booklet in the repo, exported by a test and

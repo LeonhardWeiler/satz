@@ -19,3 +19,21 @@ test('preflight lists a layer short of the bleed and a click selects it on its p
   const layers = page.getByRole('tree', { name: 'Layers' })
   await expect(layers.getByRole('treeitem', { selected: true })).toHaveCount(1)
 })
+
+test('export warns of preflight issues but still downloads the pdf', async ({ page }) => {
+  await open(page)
+  const warning = page.getByText(/preflight issue/)
+  const exportPdf = page.getByRole('button', { name: 'Export PDF' })
+
+  let download = page.waitForEvent('download')
+  await exportPdf.click()
+  await download
+  await expect(warning).toHaveCount(0)
+
+  await page.keyboard.press('r')
+  await drag(page, await screen(page, 20, -1), await screen(page, 40, 20))
+  download = page.waitForEvent('download')
+  await exportPdf.click()
+  await download
+  await expect(warning).toHaveText('Exported with 1 preflight issue. See Preflight.')
+})

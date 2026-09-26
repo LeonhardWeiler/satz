@@ -16,7 +16,11 @@ export function App({ ck, editor, notice = '' }: { ck: CanvasKit; editor: Editor
   const dirty = useEditor(editor, (e) => e.dirty)
   const name = useEditor(editor, (e) => e.file.name)
 
-  const exportPdf = () => download(editor.engine.pdf(), 'satz.pdf', 'application/pdf')
+  const exportPdf = () => {
+    download(editor.engine.pdf(), 'satz.pdf', 'application/pdf')
+    const issues = editor.snapshot.preflight.length
+    if (issues) say(`Exported with ${issues} preflight ${issues === 1 ? 'issue' : 'issues'}. See Preflight.`)
+  }
   const saveFile = (as: boolean) => {
     say('Saving…')
     save(editor, as).then(
