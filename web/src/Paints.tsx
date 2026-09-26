@@ -3,6 +3,7 @@ import { ColorPicker } from './ColorPicker'
 import { alpha, css, neutral, withAlpha, type ColorMode } from './color'
 import { Field, RowActions, Section, Select } from './controls'
 import { MM } from './editor'
+import { Icon } from './icons'
 import type { Effect, Fill, Scope } from './model'
 
 const TYPES = { solid: 'Solid', linear: 'Linear', radial: 'Radial' } as const
@@ -43,6 +44,7 @@ export function PaintList({
   added,
   mode,
   scope,
+  ppi,
   onChange,
   children,
 }: {
@@ -51,6 +53,8 @@ export function PaintList({
   mode: ColorMode
   scope: Scope
   added: Fill
+  /** Effective pixels per inch of the coarsest image among `paints`. */
+  ppi?: number
   onChange: (paints: Fill[]) => void
   children?: ReactNode
 }) {
@@ -72,7 +76,9 @@ export function PaintList({
               return (
                 <li key={i} className="paint" data-hidden={!p.visible || undefined}>
                   <div className="row">
-                    {p.type === 'solid' ? (
+                    {p.type === 'image' ? (
+                      <Icon name="image" size={16} />
+                    ) : p.type === 'solid' ? (
                       <ColorPicker
                         label={`${title} color`}
                         color={p.color}
@@ -84,7 +90,11 @@ export function PaintList({
                     ) : (
                       <span className="swatch" aria-hidden="true" style={{ background: gradient(p, scope) }} />
                     )}
-                    {bound ? (
+                    {p.type === 'image' ? (
+                      <span className="bound-name">
+                        Image{ppi !== undefined && ` · ${Math.round(ppi)} ppi`}
+                      </span>
+                    ) : bound ? (
                       <>
                         <span className="bound-name" title={swatch ? swatch.name : 'Missing swatch'}>
                           {swatch ? swatch.name : 'Missing swatch'}
@@ -123,7 +133,7 @@ export function PaintList({
                       onRemove={() => onChange(paints.filter((_, j) => j !== i))}
                     />
                   </div>
-                  {p.type !== 'solid' && (
+                  {(p.type === 'linear' || p.type === 'radial') && (
                     <div className="stops">
                       {p.type === 'linear' && (
                         <Field

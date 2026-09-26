@@ -138,6 +138,24 @@ export function addFonts(editor: Editor, say: (message: string) => void) {
   input.click()
 }
 
+/** Asks for PNG and JPEG files and places each on the current page. */
+export function placeImages(editor: Editor, say: (message: string) => void) {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = '.png,.jpg,.jpeg'
+  input.multiple = true
+  input.onchange = async () => {
+    for (const file of input.files ?? []) {
+      try {
+        editor.placeImage(new Uint8Array(await file.arrayBuffer()), file.name)
+      } catch (e) {
+        say(`Could not place ${file.name}: ${(e as Error).message}. Choose a PNG or JPEG file.`)
+      }
+    }
+  }
+  input.click()
+}
+
 type LocalFont = { fullName: string; blob(): Promise<Blob> }
 const local = window as { queryLocalFonts?: () => Promise<LocalFont[]> }
 export const canFindFonts = !!local.queryLocalFonts

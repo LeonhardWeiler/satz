@@ -34,7 +34,7 @@ function ToolButton({ entry, active, editor }: { entry: Entry; active: Tool; edi
   )
 }
 
-export function Toolbar({ editor }: { editor: Editor }) {
+export function Toolbar({ editor, onPlaceImage }: { editor: Editor; onPlaceImage: () => void }) {
   const active = useEditor(editor, (e) => e.tool)
   const [last, setLast] = useState<Shape>('rect')
   const [open, setOpen] = useState(false)
@@ -95,6 +95,9 @@ export function Toolbar({ editor }: { editor: Editor }) {
       </div>
       <ToolButton entry={PEN} active={active} editor={editor} />
       <ToolButton entry={TEXT} active={active} editor={editor} />
+      <button type="button" className="tool" aria-label="Place image" title="Place image (Ctrl+Shift+K)" onClick={onPlaceImage}>
+        <Icon name="image" />
+      </button>
     </div>
   )
 }

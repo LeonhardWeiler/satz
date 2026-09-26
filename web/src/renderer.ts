@@ -1,4 +1,4 @@
-import type { Canvas, CanvasKit, Font, Paint, Rect, SkPicture, Typeface } from 'canvaskit-wasm'
+import type { Canvas, CanvasKit, Font, Image, Paint, Rect, SkPicture, Typeface } from 'canvaskit-wasm'
 import type { Engine } from './engine/engine'
 import { close, decode, type Op, type Paint as Fill } from './displayList'
 
@@ -63,6 +63,8 @@ export class Renderer {
   private layers: Cache = new Map()
   private typefaces = new Map<number, Typeface>()
   private fonts = new Map<string, Font>()
+  /** Decoded images by display-list id; `null` when the file does not decode. */
+  private images = new Map<number, Image | null>()
   /** Paint for display-list content; `chrome` draws the page, guides and overlay. */
   private paint: Paint
   private chrome: Paint
@@ -323,6 +325,7 @@ export class Renderer {
   }
 
   private drawOp(canvas: Canvas, op: Op) {
+    if (op.op === 'image') return this.drawImage(canvas, op)
     if (op.op !== 'fillPath' && op.op !== 'strokePath' && op.op !== 'glyphRun') return
     const { ck, paint } = this
     if (op.op === 'glyphRun' && op.font >= MISSING) {
@@ -351,6 +354,21 @@ export class Renderer {
     }
     paint.setShader(null)
     shader?.delete()
+  }
+
+  private drawImage(canvas: Canvas, { image, transform }: Extract<Op, { op: 'image' }>) {
+    const { ck, paint } = this
+    if (!this.images.has(image)) this.images.set(image, ck.MakeImageFromEncoded(this.engine.image(image)))
+    const img = this.images.get(image)
+    if (!img) return
+    const [a, b, c, d, e, f] = transform
+    canvas.save()
+    canvas.concat([a, c, e, b, d, f, 0, 0, 1])
+    paint.setStyle(ck.PaintStyle.Fill)
+    paint.setColor(ck.BLACK)
+    const src = ck.XYWHRect(0, 0, img.width(), img.height())
+    canvas.drawImageRectOptions(img, src, ck.XYWHRect(0, 0, 1, 1), ck.FilterMode.Linear, ck.MipmapMode.Linear, paint)
+    canvas.restore()
   }
 
   /** Sets fill style and paint; returns the shader to delete after drawing and detaching. */
@@ -398,6 +416,7 @@ export class Renderer {
     for (const { picture } of [...this.pictures.values(), ...this.layers.values()]) picture.delete()
     for (const font of this.fonts.values()) font.delete()
     for (const typeface of this.typefaces.values()) typeface.delete()
+    for (const image of this.images.values()) image?.delete()
     this.paint.delete()
     this.chrome.delete()
   }

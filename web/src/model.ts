@@ -1,11 +1,16 @@
 import type { Color, ColorMode } from './color'
 
+/**
+ * Gradients map their unit space, and images the unit square they fill, into the
+ * layer's unit box with `transform`; `image` is the hash of an image fill's file.
+ */
 export type Fill = {
-  type: 'solid' | 'linear' | 'radial'
+  type: 'solid' | 'linear' | 'radial' | 'image'
   color: Color
   stops: { at: number; color: Color }[]
   transform: number[]
   visible: boolean
+  image?: string
 }
 
 export type Effect = { type: 'dropShadow' | 'blur'; x: number; y: number; radius: number; color: Color; visible: boolean }
@@ -67,6 +72,7 @@ export type NewKind = 'rect' | 'ellipse' | 'polygon' | 'star' | 'line' | 'arrow'
 
 export type Command =
   | { type: 'create'; parent: string; kind: NewKind; x: number; y: number; w: number; h: number }
+  | { type: 'placeImage'; parent: string; image: string; name: string; x: number; y: number }
   | { type: 'setFrame'; id: string; x: number; y: number; w: number; h: number; ignoreConstraints?: boolean }
   | { type: 'autoLayout'; ids: string[] }
   | { type: 'setText'; id: string; text: string }
@@ -126,6 +132,8 @@ export type Node = {
   bindings: Partial<Record<Bindable, string>>
   /** The master layer this page layer overrides. */
   overrideOf?: string
+  /** Effective pixels per inch of the coarsest visible image fill. */
+  ppi?: number
 } & Style &
   Layout &
   (
@@ -238,6 +246,7 @@ export type TextStyle = { id: string; name: string; bindings: Partial<Record<Bin
 export type Issue = { page: string; layer: string; name: string } & (
   | { problem: 'overset' | 'shortOfBleed' | 'rgb' }
   | { problem: 'missingFont'; font: string }
+  | { problem: 'lowPpi'; ppi: number }
 )
 
 export type Snapshot = Palette & {

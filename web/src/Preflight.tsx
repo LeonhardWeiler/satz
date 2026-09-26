@@ -5,6 +5,7 @@ const problem = (i: Issue) =>
   i.problem === 'missingFont' ? `Missing font ${i.font}`
   : i.problem === 'overset' ? 'Overset text'
   : i.problem === 'shortOfBleed' ? 'Short of the bleed'
+  : i.problem === 'lowPpi' ? `Image at ${Math.round(i.ppi)} ppi`
   : 'RGB color'
 
 export function Preflight({ editor }: { editor: Editor }) {

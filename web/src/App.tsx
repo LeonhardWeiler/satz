@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { CanvasKit } from 'canvaskit-wasm'
 import { Canvas, isTyping } from './Canvas'
 import { useEditor, type Editor } from './editor'
-import { autosave, download, open, save, start } from './file'
+import { autosave, download, open, placeImages, save, start } from './file'
 import { handleKey } from './keys'
 import { Layers } from './Layers'
 import { Pages } from './Pages'
@@ -46,6 +46,7 @@ export function App({ ck, editor, notice = '' }: { ck: CanvasKit; editor: Editor
       else if (mod && !e.altKey && e.code === 'KeyS') saveFile(e.shiftKey)
       else if (mod && !e.altKey && !e.shiftKey && e.code === 'KeyO') open(editor, say).catch(() => {})
       else if (mod && e.altKey && !e.shiftKey && e.code === 'KeyN') start(editor)
+      else if (mod && e.shiftKey && !e.altKey && e.code === 'KeyK') placeImages(editor, say)
       else if (isTyping(e) || !handleKey(editor, e)) return
       e.preventDefault()
     }
@@ -64,7 +65,7 @@ export function App({ ck, editor, notice = '' }: { ck: CanvasKit; editor: Editor
       </div>
       <Canvas ck={ck} editor={editor} />
       <Properties editor={editor} onExport={exportPdf} say={say} />
-      <Toolbar editor={editor} />
+      <Toolbar editor={editor} onPlaceImage={() => placeImages(editor, say)} />
       <p className="status" role="status">
         {status}
       </p>

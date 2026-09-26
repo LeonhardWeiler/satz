@@ -127,6 +127,14 @@ export class Editor {
     return this.change(() => this.engine.addFont(bytes))
   }
 
+  /** Places a PNG or JPEG file in the middle of the current page at 300 ppi, or smaller to fit, and selects it. */
+  placeImage(bytes: Uint8Array, name: string) {
+    const { hash } = this.change(() => this.engine.addImage(bytes) as { hash: string })
+    const { id, width, height } = this.page
+    const placed = this.apply({ type: 'placeImage', parent: id, image: hash, name, x: width / 2, y: height / 2 })
+    this.set({ selection: placed, tool: 'move' })
+  }
+
   private change<T>(f: () => T): T {
     const at = this.snapshot.pages.findIndex((p) => p.id === this.pageId)
     try {
