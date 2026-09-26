@@ -6,6 +6,7 @@ import { autosave, download, open, save, start } from './file'
 import { handleKey } from './keys'
 import { Layers } from './Layers'
 import { Pages } from './Pages'
+import { Preflight } from './Preflight'
 import { Properties } from './Properties'
 import { Swatches } from './Swatches'
 import { Toolbar } from './Toolbar'
@@ -55,6 +56,7 @@ export function App({ ck, editor, notice = '' }: { ck: CanvasKit; editor: Editor
         <Pages editor={editor} />
         <Layers editor={editor} />
         <Swatches editor={editor} />
+        <Preflight editor={editor} />
       </div>
       <Canvas ck={ck} editor={editor} />
       <Properties editor={editor} onExport={exportPdf} say={say} />

@@ -467,6 +467,7 @@ pub struct Snapshot {
     /// The fonts text can be set in, the bundled one first.
     pub fonts: Vec<Typeface>,
     pub missing_fonts: Vec<MissingFont>,
+    pub preflight: Vec<Issue>,
     pub can_undo: bool,
     pub can_redo: bool,
 }
@@ -477,6 +478,29 @@ pub struct Snapshot {
 pub struct MissingFont {
     pub font: Typeface,
     pub stories: Vec<String>,
+}
+
+/// Something about the layer `layer` on the page or master `page` that may print wrong.
+#[derive(Debug, PartialEq, Serialize)]
+pub struct Issue {
+    pub page: String,
+    pub layer: String,
+    pub name: String,
+    #[serde(flatten)]
+    pub problem: Problem,
+}
+
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(tag = "problem", rename_all = "camelCase")]
+pub enum Problem {
+    Overset,
+    MissingFont {
+        font: String,
+    },
+    /// Reaches the trim edge but not the edge of the bleed.
+    ShortOfBleed,
+    /// Is coloured in RGB in a CMYK document.
+    Rgb,
 }
 
 /// A page or a master; `name` is a master's, `master` the one a page uses and
@@ -2688,9 +2712,10 @@ impl Doc {
                 }
             }
         }
-        Snapshot {
+        let mut snap = Snapshot {
             fonts: text::fonts(),
             missing_fonts,
+            preflight: Vec::new(),
             stories,
             spreads: spreads
                 .iter()
@@ -2704,7 +2729,9 @@ impl Doc {
             palette,
             can_undo: self.undo.can_undo(),
             can_redo: self.undo.can_redo(),
-        }
+        };
+        snap.preflight = preflight(&snap);
+        snap
     }
 
     fn swatches(&self) -> Vec<Swatch> {
@@ -3601,6 +3628,103 @@ fn reach(n: &Node) -> [f64; 4] {
         m = m.max(f64::from(e.x.abs().max(e.y.abs()) + 3.0 * e.radius));
     }
     [n.x - m, n.y - m, n.w + 2.0 * m, n.h + 2.0 * m]
+}
+
+/// The issues of every layer, page by page and then master by master.
+fn preflight(snap: &Snapshot) -> Vec<Issue> {
+    let mut out = Vec::new();
+    let page = |id: &String| snap.pages.iter().find(|q| q.id == *id).unwrap();
+    for p in &snap.pages {
+        let spread = snap.spreads.iter().find(|s| s.contains(&p.id)).unwrap();
+        let (l, r) = (page(&spread[0]), page(spread.last().unwrap()));
+        let x0 = match l.side {
+            Some(Side::Right) => f64::NEG_INFINITY,
+            _ => l.x - p.x,
+        };
+        let x1 = match r.side {
+            Some(Side::Left) => f64::INFINITY,
+            _ => r.x + r.width - p.x,
+        };
+        for n in &p.children {
+            visit(n, p, Some([x0, x1]), snap, &mut out);
+        }
+    }
+    for m in &snap.masters {
+        let x0 = if snap.facing_pages { -m.width } else { 0.0 };
+        for n in &m.children {
+            visit(n, m, Some([x0, m.width]), snap, &mut out);
+        }
+    }
+    out
+}
+
+/// Adds the issues of the layer `n` on `p` and its children to `out`; a top layer
+/// is checked against the bleed of the trim from `x0` to `x1`, which leaves out a spine.
+fn visit(n: &Node, p: &Page, trim: Option<[f64; 2]>, snap: &Snapshot, out: &mut Vec<Issue>) {
+    let mut problems = Vec::new();
+    let s = &n.style;
+    let mut colors: Vec<&Color> = s
+        .fills
+        .iter()
+        .chain(&s.strokes)
+        .filter(|f| f.visible)
+        .flat_map(|f| std::iter::once(&f.color).chain(f.stops.iter().map(|s| &s.color)))
+        .chain(s.effects.iter().filter(|e| e.visible).map(|e| &e.color))
+        .collect();
+    let mut children: &[Node] = &[];
+    match &n.kind {
+        Kind::Text {
+            content,
+            story,
+            overset,
+            ..
+        } => {
+            if *overset {
+                problems.push(Problem::Overset);
+            }
+            if *story == n.id {
+                colors.extend(content.spans.iter().filter_map(|s| s.attrs.fill.as_ref()));
+                problems.extend(
+                    snap.missing_fonts
+                        .iter()
+                        .filter(|m| m.stories.contains(story))
+                        .map(|m| Problem::MissingFont {
+                            font: m.font.name.clone(),
+                        }),
+                );
+            }
+        }
+        Kind::Group { children: c } | Kind::Frame { children: c, .. } => children = c,
+        Kind::Shape(_) => {}
+    }
+    if let Some([x0, x1]) = trim
+        && !matches!(n.kind, Kind::Text { .. })
+        && n.x < x1
+        && n.x + n.w > x0
+        && n.y < p.height
+        && n.y + n.h > 0.0
+    {
+        let insets = [n.x - x0, x1 - n.x - n.w, n.y, p.height - n.y - n.h];
+        if insets.iter().any(|&d| d < 0.01 && d > 0.01 - p.bleed) {
+            problems.push(Problem::ShortOfBleed);
+        }
+    }
+    let scope = Scope {
+        palette: &snap.palette,
+        modes: &n.active_modes,
+    };
+    if snap.color_mode == ColorMode::Cmyk && colors.iter().any(|c| c.ink(&scope) == Ink::Rgb) {
+        problems.push(Problem::Rgb);
+    }
+    out.extend(problems.into_iter().map(|problem| Issue {
+        page: p.id.clone(),
+        layer: n.id.clone(),
+        name: n.name.clone(),
+        problem,
+    }));
+    for c in children {
+        visit(c, p, None, snap, out);
+    }
 }
 
 /// Sets the page number of the text layers among `nodes` to `number` and fits the
@@ -7662,5 +7786,66 @@ mod tests {
         assert_eq!(d.add_font(MONO).unwrap(), mono);
         assert!(runs(&d)[0].0 & text::MISSING == 0);
         assert!(d.snapshot().missing_fonts.is_empty());
+    }
+
+    fn problems(d: &Doc) -> Vec<(String, Problem)> {
+        let issues = d.snapshot().preflight.into_iter();
+        issues.map(|i| (i.layer, i.problem)).collect()
+    }
+
+    #[test]
+    fn preflight_reports_overset_missing_fonts_short_bleeds_and_rgb_in_cmyk() {
+        let (mut d, p) = empty();
+        facing(&mut d, false);
+        let Page {
+            width: w,
+            height: h,
+            bleed: b,
+            ..
+        } = page(&d);
+        let bleeds = create(&mut d, &p, NewKind::Rect, [-b, -b, w + 2.0 * b, 20.0]);
+        let short = create(&mut d, &p, NewKind::Rect, [0.0, 50.0, 20.0, 20.0]);
+        let inside = create(&mut d, &p, NewKind::Rect, [20.0, 100.0, 20.0, 20.0]);
+        create(&mut d, &p, NewKind::Rect, [w + 50.0, h - 20.0, 20.0, 20.0]);
+        let t = fixed_text(&mut d, &p, [0.0, 200.0, 40.0, 12.0]);
+        set_text(&mut d, &t, SAMPLE);
+        let gone = Typeface {
+            name: "Gone Sans".into(),
+            hash: "0123456789abcdef".into(),
+        };
+        format(&mut d, &t, None, in_font(gone)).unwrap();
+        let font = Problem::MissingFont {
+            font: "Gone Sans".into(),
+        };
+        assert_eq!(
+            problems(&d),
+            [
+                (short.clone(), Problem::ShortOfBleed),
+                (t.clone(), Problem::Overset),
+                (t.clone(), font),
+            ]
+        );
+        cmyk(&mut d);
+        let rgb: Vec<_> = problems(&d)
+            .into_iter()
+            .filter(|i| i.1 == Problem::Rgb)
+            .map(|i| i.0)
+            .collect();
+        assert!([bleeds, short, inside, t].iter().all(|id| rgb.contains(id)));
+    }
+
+    #[test]
+    fn a_layer_on_a_spread_needs_no_bleed_at_the_spine() {
+        let (mut d, first) = empty();
+        let left = add_page(&mut d, Some(&first));
+        let Page {
+            width: w,
+            height: h,
+            bleed: b,
+            ..
+        } = page(&d);
+        create(&mut d, &left, NewKind::Rect, [-b, -b, w + b, h + 2.0 * b]);
+        let top = create(&mut d, &left, NewKind::Rect, [w - 10.0, 0.0, 20.0, 10.0]);
+        assert_eq!(problems(&d), [(top, Problem::ShortOfBleed)]);
     }
 }
