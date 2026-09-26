@@ -1,3 +1,4 @@
+import process from 'node:process'
 import { chromium } from '@playwright/test'
 const url = process.argv[2]
 const nets = [
@@ -15,7 +16,7 @@ for (const [name, net] of nets) {
     await cdp.send('Network.enable')
     if (net) await cdp.send('Network.emulateNetworkConditions', { offline: false, ...net })
     const times = []
-    for (const cache of ['kalt', 'warm']) {
+    for (let i = 0; i < 2; i++) {
       const t0 = Date.now()
       await page.goto(url, { waitUntil: 'commit' })
       await page.waitForSelector('.loading', { timeout: 60000 }).catch(() => {})
