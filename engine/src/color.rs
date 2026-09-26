@@ -256,7 +256,36 @@ pub fn separate(rgb: u32) -> [f32; 4] {
     to_cmyk([16, 8, 0].map(|s| (rgb >> s & 0xff) as f32 / 255.0))
 }
 
+/// Screen colour of `cmyk`, compensated as `compensate` does.
 pub fn to_rgb(cmyk: [f32; 4]) -> [f32; 3] {
+    compensate(fogra_to_srgb(cmyk))
+}
+
+/// Black point compensation, as PDF viewers apply it: the darkest colour FOGRA51
+/// prints shows as screen black.
+fn compensate(rgb: [f32; 3]) -> [f32; 3] {
+    static BLACK: OnceLock<[f32; 3]> = OnceLock::new();
+    let black = BLACK.get_or_init(|| fogra_to_srgb(to_cmyk([0.0; 3])).map(linear));
+    std::array::from_fn(|i| gamma(((linear(rgb[i]) - black[i]) / (1.0 - black[i])).clamp(0.0, 1.0)))
+}
+
+fn linear(v: f32) -> f32 {
+    if v <= 0.04045 {
+        v / 12.92
+    } else {
+        ((v + 0.055) / 1.055).powf(2.4)
+    }
+}
+
+fn gamma(v: f32) -> f32 {
+    if v <= 0.0031308 {
+        v * 12.92
+    } else {
+        1.055 * v.powf(1.0 / 2.4) - 0.055
+    }
+}
+
+fn fogra_to_srgb(cmyk: [f32; 4]) -> [f32; 3] {
     static T: OnceLock<Arc<TransformF32Executor>> = OnceLock::new();
     let t = T.get_or_init(|| {
         transform(
@@ -311,6 +340,18 @@ mod tests {
         assert_eq!(separate(0xd9d9d9), [0.0, 0.0, 0.0, 0.15]);
         let [c, m, y, _] = separate(0xff0000);
         assert!(c < 0.05 && m > 0.9 && y > 0.9);
+    }
+
+    #[test]
+    fn the_darkest_print_colour_previews_as_black_and_paper_as_white() {
+        let bytes = |cmyk| to_rgb(cmyk).map(|v| (v * 255.0).round());
+        assert_eq!(bytes(to_cmyk([0.0; 3])), [0.0; 3]);
+        assert_eq!(bytes([0.0; 4]), [255.0; 3]);
+        assert!(
+            to_rgb([0.0, 0.0, 0.0, 1.0])
+                .iter()
+                .all(|&v| v > 0.0 && v < 0.1)
+        );
     }
 
     #[test]
