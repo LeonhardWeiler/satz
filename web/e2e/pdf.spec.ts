@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
 import { PNG } from 'pngjs'
 import { fitView, type Sheet } from '../src/renderer'
-import { STORY, drag, drawn, frameOnNewPage, open, port, screen } from './util'
+import { STORY, drag, drawn, frameOnNewPage, open, place, png, port, screen } from './util'
 
 const EDGE = 4
 const BLOCK = 4
@@ -97,6 +97,21 @@ test('canvas matches the exported pdf, whose text is the text of every line', as
       'Knuth-Plass algorithm and justifies every line but the last to the width of its frame. The canvas and the PDF ' +
       'draw the same glyphs from the same font.',
   )
+})
+
+test('a placed image exports as the canvas shows it', async ({ page }) => {
+  await open(page)
+  await page.keyboard.press('Control+a')
+  await page.keyboard.press('Delete')
+  // MuPDF stretches images to whole pixels, so the ramp has no sharp edges and fades into the page's white.
+  const fade = (x: number, y: number) => Math.min(1, x / 60, (1199 - x) / 60, y / 60, (599 - y) / 60)
+  const ramp = (x: number, y: number) => [x / 5, y / 3, 255 - x / 5].map((c) => 255 + (c - 255) * fade(x, y))
+  await place(page, png('ramp.png', 1200, 600, ramp))
+  await expect(page.getByRole('tree', { name: 'Layers' }).getByRole('treeitem', { name: 'ramp.png' })).toBeVisible()
+  await page.keyboard.press('Escape')
+  const canvas = (await page.getByLabel('Page canvas').boundingBox())!
+  await page.mouse.move(canvas.x + 2, canvas.y + 2)
+  await expectCanvasMatchesPdf(page)
 })
 
 test('draw, move, undo and redo a rectangle, then export it', async ({ page }) => {

@@ -28,14 +28,21 @@ font helper, i18n.
 ## Breadth
 
 ### 13. Images
-- Place PNG/JPEG; fit/fill, crop by moving content; effective ppi.
+- Placed images are image fills (`FillKind::Image`, hash in `Fill::image`) with
+  their bytes in the Loro map `images`; see `Doc::add_image` and `PlaceImage`.
+- Fit/fill, and crop by moving the image inside its layer: both set the fill's
+  `transform`, which maps the image's unit square into the layer.
 - Per document, chosen at creation: embed or link. Linking uses File System
   Access (Chromium); Firefox shows the option disabled with a hint. Missing
   links reported by preflight with relink.
-- The `.satz` file and the autosave carry embedded images.
+- RGB images in CMYK documents: preflight reports them and the PDF converts
+  them. Today they export as RGB, and a layer blur on an image in a CMYK
+  document takes the image's RGB values for CMY (`pdf::raster`).
+- Images no layer uses any more stay in the document; `save` could leave them
+  out, since a saved file has no undo history.
 
 ### 15. Preflight
-- Missing links and images below 300 ppi, with images (13).
+- Missing links, with images (13).
 
 ### 16. Ship
 - Example A2 poster and 8-page A5 booklet in the repo, exported by a test and

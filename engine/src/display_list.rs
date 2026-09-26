@@ -35,9 +35,11 @@ pub enum Op {
         #[serde(skip)]
         ranges: Vec<std::ops::Range<usize>>,
     },
+    /// The image `image` of `image::id`, whose unit square `transform` maps into
+    /// page space.
     Image {
         image: u32,
-        rect: [f32; 4],
+        transform: [f32; 6],
     },
     PushClip {
         path: Vec<f32>,
@@ -168,9 +170,9 @@ pub fn shift(mut ops: Vec<Op>, dx: f32, dy: f32) -> Vec<Op> {
                     xy[1] += dy;
                 }
             }
-            Op::Image { rect, .. } => {
-                rect[0] += dx;
-                rect[1] += dy;
+            Op::Image { transform, .. } => {
+                transform[4] += dx;
+                transform[5] += dy;
             }
             _ => {}
         }
@@ -281,9 +283,9 @@ pub fn encode(ops: &[Op]) -> Vec<u32> {
                 );
                 floats(&mut out, positions);
             }
-            Op::Image { image, rect } => {
+            Op::Image { image, transform } => {
                 out.extend([5, *image]);
-                floats(&mut out, rect);
+                floats(&mut out, transform);
             }
             Op::PushClip { path, invert } => {
                 out.extend([6, *invert as u32, path.len() as u32]);
@@ -360,7 +362,7 @@ mod tests {
                 },
                 Op::Image {
                     image: 0,
-                    rect: [1.0, 1.0, 4.0, 4.0],
+                    transform: [4.0, 0.0, 0.0, 4.0, 1.0, 1.0],
                 },
             ],
             10.0,
@@ -386,7 +388,7 @@ mod tests {
         assert!(matches!(
             ops[2],
             Op::Image {
-                rect: [11.0, 2.0, 4.0, 4.0],
+                transform: [4.0, 0.0, 0.0, 4.0, 11.0, 2.0],
                 ..
             }
         ));
@@ -528,7 +530,7 @@ mod tests {
             },
             Op::Image {
                 image: 2,
-                rect: [1.0, 2.0, 3.0, 4.0],
+                transform: [3.0, 0.0, 0.0, 4.0, 1.0, 2.0],
             },
             Op::EndItem,
             Op::PopMask,

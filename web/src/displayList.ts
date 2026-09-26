@@ -17,7 +17,8 @@ export type Op =
       glyphs: Uint16Array
       positions: Float32Array
     }
-  | { op: 'image'; image: number; rect: Float32Array }
+  /** The image `image` of `Engine.image`, whose unit square `transform` maps into page space. */
+  | { op: 'image'; image: number; transform: Float32Array }
   | { op: 'pushClip'; path: Float32Array; invert: boolean }
   | { op: 'popClip' }
   | { op: 'strokePath'; paint: Paint; width: number; cap: number; join: number; path: Float32Array }
@@ -80,8 +81,8 @@ export function decode(words: Uint32Array): Op[] {
         break
       }
       case 5:
-        ops.push({ op: 'image', image: words[i], rect: f32(i + 1, 4) })
-        i += 5
+        ops.push({ op: 'image', image: words[i], transform: f32(i + 1, 6) })
+        i += 7
         break
       case 6: {
         const invert = words[i++] === 1

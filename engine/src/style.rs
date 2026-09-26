@@ -1,6 +1,7 @@
 use crate::color::Color;
 use crate::display_list::{CLOSE, Op, Paint, Shadow, Stop};
 use crate::geom::arrow;
+use crate::image;
 use crate::variable::Scope;
 use serde::{Deserialize, Serialize};
 
@@ -62,8 +63,9 @@ pub struct Constraints {
     pub vertical: Constraint,
 }
 
-/// A fill or stroke paint. Gradients map their unit space into the node's
-/// unit box with `transform` [a b c d e f]; see `display_list::Paint`.
+/// A fill or stroke paint. Gradients map their unit space, and images the unit
+/// square they fill, into the node's unit box with `transform` [a b c d e f]; see
+/// `display_list::Paint`. `image` is the hash of an image fill's file.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Fill {
@@ -73,6 +75,8 @@ pub struct Fill {
     pub stops: Vec<FillStop>,
     pub transform: [f32; 6],
     pub visible: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image: Option<String>,
 }
 
 impl Default for Fill {
@@ -83,6 +87,7 @@ impl Default for Fill {
             stops: Vec::new(),
             transform: [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
             visible: true,
+            image: None,
         }
     }
 }
@@ -93,6 +98,31 @@ impl Fill {
             color: color.into(),
             ..Fill::default()
         }
+    }
+
+    /// A fill with the image `hash` stretched over the node's box.
+    pub fn image(hash: &str) -> Fill {
+        Fill {
+            kind: FillKind::Image,
+            image: Some(hash.into()),
+            ..Fill::default()
+        }
+    }
+
+    /// `transform` in page space for a node with the box `frame`.
+    fn place(&self, [x, y, w, h]: [f32; 4]) -> [f32; 6] {
+        let [a, b, c, d, e, f] = self.transform;
+        [w * a, h * b, w * c, h * d, x + w * e, y + h * f]
+    }
+
+    /// Pixels per inch of an image fill on a node `w` × `h` pt, along the image's
+    /// coarser axis.
+    pub fn ppi(&self, w: f64, h: f64) -> Option<f64> {
+        let info = image::info(self.image.as_deref()?)?;
+        let [a, b, c, d, ..] = self.transform.map(f64::from);
+        let across = (w * a).hypot(h * b);
+        let down = (w * c).hypot(h * d);
+        Some((f64::from(info.width) / across).min(f64::from(info.height) / down) * 72.0)
     }
 }
 
@@ -109,6 +139,7 @@ pub enum FillKind {
     Solid,
     Linear,
     Radial,
+    Image,
 }
 
 /// `radius` is the Figma blur radius, twice the Gaussian sigma.
@@ -191,9 +222,9 @@ pub enum Blend {
     Luminosity,
 }
 
-fn paint(f: &Fill, [x, y, w, h]: [f32; 4], s: &Scope) -> Paint {
-    let [a, b, c, d, e, g] = f.transform;
-    let transform = [w * a, h * b, w * c, h * d, x + w * e, y + h * g];
+/// The paint of a colour or gradient fill.
+fn paint(f: &Fill, frame: [f32; 4], s: &Scope) -> Option<Paint> {
+    let transform = f.place(frame);
     let stops = f
         .stops
         .iter()
@@ -203,16 +234,18 @@ fn paint(f: &Fill, [x, y, w, h]: [f32; 4], s: &Scope) -> Paint {
             ink: stop.color.ink(s),
         })
         .collect();
-    match f.kind {
+    Some(match f.kind {
         FillKind::Solid => Paint::Solid {
             color: f.color.rgba(s),
             ink: f.color.ink(s),
         },
         FillKind::Linear => Paint::Linear { transform, stops },
         FillKind::Radial => Paint::Radial { transform, stops },
-    }
+        FillKind::Image => return None,
+    })
 }
 
+/// The paints of the visible colour and gradient fills among `fills`.
 pub fn paints<'a>(
     fills: &'a [Fill],
     frame: [f32; 4],
@@ -221,18 +254,33 @@ pub fn paints<'a>(
     fills
         .iter()
         .filter(|f| f.visible)
-        .map(move |f| paint(f, frame, s))
+        .filter_map(move |f| paint(f, frame, s))
 }
 
 impl Style {
     /// Fill and stroke ops for `path`; closed paths honour the stroke alignment.
     pub fn shape(&self, path: &[f32], frame: [f32; 4], s: &Scope) -> Vec<Op> {
-        let mut ops: Vec<Op> = paints(&self.fills, frame, s)
-            .map(|paint| Op::FillPath {
-                paint,
-                path: path.to_vec(),
-            })
-            .collect();
+        let mut ops = Vec::new();
+        for f in self.fills.iter().filter(|f| f.visible) {
+            if let Some(paint) = paint(f, frame, s) {
+                ops.push(Op::FillPath {
+                    paint,
+                    path: path.to_vec(),
+                });
+            } else if let Some(image) = f.image.as_deref().and_then(image::id) {
+                ops.extend([
+                    Op::PushClip {
+                        path: path.to_vec(),
+                        invert: false,
+                    },
+                    Op::Image {
+                        image,
+                        transform: f.place(frame),
+                    },
+                    Op::PopClip,
+                ]);
+            }
+        }
         let closed = path.contains(&CLOSE);
         let align = if closed {
             self.stroke_align
@@ -317,7 +365,7 @@ mod tests {
             transform: [1.0, 0.0, 0.0, 1.0, 0.5, 0.0],
             ..Fill::solid(Color::Rgb(0xff))
         };
-        match scope(|s| paint(&f, [10.0, 20.0, 100.0, 50.0], s)) {
+        match scope(|s| paint(&f, [10.0, 20.0, 100.0, 50.0], s)).unwrap() {
             Paint::Linear { transform, .. } => {
                 assert_eq!(transform, [100.0, 0.0, 0.0, 50.0, 60.0, 20.0])
             }

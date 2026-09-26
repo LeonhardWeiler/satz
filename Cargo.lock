@@ -269,6 +269,7 @@ dependencies = [
  "krilla",
  "loro",
  "moxcms",
+ "png",
  "read-fonts 0.43.3",
  "serde",
  "serde-wasm-bindgen",
@@ -276,6 +277,8 @@ dependencies = [
  "skrifa",
  "tiny-skia",
  "wasm-bindgen",
+ "zune-core",
+ "zune-jpeg",
 ]
 
 [[package]]

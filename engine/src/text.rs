@@ -1,4 +1,5 @@
 use crate::color::Color;
+use crate::content_hash;
 use crate::display_list::{Op, Paint};
 use crate::linebreak::{Item, break_lines};
 use crate::style::{Fill, paints};
@@ -41,12 +42,9 @@ pub fn typeface(bytes: &[u8]) -> Result<Typeface, String> {
         .english_or_first()
         .ok_or_else(bad)?
         .to_string();
-    let hash = bytes.iter().fold(0xcbf29ce484222325u64, |h, &b| {
-        (h ^ b as u64).wrapping_mul(0x100000001b3)
-    });
     Ok(Typeface {
         name,
-        hash: format!("{hash:016x}"),
+        hash: content_hash(bytes),
     })
 }
 

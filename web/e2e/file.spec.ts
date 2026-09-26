@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { expect, test, type FileChooser, type Page } from '@playwright/test'
-import { drawn, open } from './util'
+import { autosaved, drawn, open } from './util'
 
 const pages = (page: Page) => page.getByRole('navigation', { name: 'Pages' })
 const row = (page: Page, n: number) => pages(page).getByRole('button', { name: `Page ${n}`, exact: true })
@@ -8,25 +8,6 @@ const row = (page: Page, n: number) => pages(page).getByRole('button', { name: `
 async function addPage(page: Page, n: number) {
   await pages(page).getByRole('button', { name: 'Add page' }).click()
   await expect(row(page, n)).toBeVisible()
-}
-
-/** Waits until the autosave holds the unsaved changes. */
-async function autosaved(page: Page) {
-  const dirty = () =>
-    page.evaluate(
-      () =>
-        new Promise<boolean>((done) => {
-          const r = indexedDB.open('satz')
-          r.onsuccess = () => {
-            const get = r.result.transaction('files').objectStore('files').get('doc')
-            get.onsuccess = () => {
-              done(!!get.result?.dirty)
-              r.result.close()
-            }
-          }
-        }),
-    )
-  await expect.poll(dirty).toBe(true)
 }
 
 /** Saves the document as Firefox does, by a download, and returns the file. */

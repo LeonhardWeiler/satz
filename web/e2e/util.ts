@@ -31,6 +31,39 @@ export async function drag(page: Page, from: readonly [number, number], to: read
   await page.mouse.up()
 }
 
+/** Waits until the autosave holds the unsaved changes. */
+export async function autosaved(page: Page) {
+  const dirty = () =>
+    page.evaluate(
+      () =>
+        new Promise<boolean>((done) => {
+          const r = indexedDB.open('satz')
+          r.onsuccess = () => {
+            const get = r.result.transaction('files').objectStore('files').get('doc')
+            get.onsuccess = () => {
+              done(!!get.result?.dirty)
+              r.result.close()
+            }
+          }
+        }),
+    )
+  await expect.poll(dirty).toBe(true)
+}
+
+/** A PNG file `name` of `width` × `height` pixels coloured `rgb(x, y)`. */
+export function png(name: string, width: number, height: number, rgb: (x: number, y: number) => number[]) {
+  const out = new PNG({ width, height })
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) out.data.set([...rgb(x, y), 255], (y * width + x) * 4)
+  return { name, mimeType: 'image/png', buffer: PNG.sync.write(out) }
+}
+
+/** Places the image `file` with the toolbar's Place image. */
+export async function place(page: Page, file: { name: string; mimeType: string; buffer: Buffer }) {
+  const chooser = page.waitForEvent('filechooser')
+  await page.getByRole('button', { name: 'Place image' }).click()
+  await (await chooser).setFiles(file)
+}
+
 /** Waits until the canvas has drawn the frame it has asked for, if any. */
 export async function drawn(page: Page) {
   await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))

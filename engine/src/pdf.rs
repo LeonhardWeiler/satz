@@ -1,5 +1,6 @@
 use crate::color::{ColorMode, Ink};
 use crate::display_list::{CLOSE, CUBIC, LINE, MOVE, Op, Paint, Shadow, Stop as ListStop, close};
+use crate::image;
 use crate::raster::{blur, extent, rasterize, tint};
 use crate::text::{MISSING, font_bytes, fonts};
 use krilla::Document;
@@ -171,6 +172,14 @@ fn draw(s: &mut Surface, env: &Env, ops: &[Op]) {
                     *size,
                     false,
                 );
+            }
+            Op::Image { image, transform } => {
+                if let Some(img) = image::pdf(*image) {
+                    let [a, b, c, d, e, f] = *transform;
+                    s.push_transform(&Transform::from_row(a, b, c, d, e, f));
+                    s.draw_image(img, Size::from_wh(1.0, 1.0).unwrap());
+                    s.pop();
+                }
             }
             Op::PushClip { path, invert } => {
                 let mut pb = PathBuilder::new();
@@ -596,6 +605,24 @@ mod tests {
             .next()?
             .parse()
             .ok()
+    }
+
+    #[test]
+    fn an_image_is_embedded_at_its_own_resolution() {
+        let png = crate::image::tests::png(40, 20);
+        let hash = crate::image::register(png.into()).unwrap().hash;
+        let ops = vec![
+            Op::Page {
+                width: 100.0,
+                height: 100.0,
+                bleed: 0.0,
+            },
+            Op::Image {
+                image: crate::image::id(&hash).unwrap(),
+                transform: [50.0, 0.0, 0.0, 25.0, 10.0, 10.0],
+            },
+        ];
+        assert_eq!(image_width(&ops, 72.0), Some(40));
     }
 
     #[test]

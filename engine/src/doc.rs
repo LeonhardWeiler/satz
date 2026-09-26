@@ -2,6 +2,7 @@ use crate::color::Ink;
 use crate::color::{Color, ColorMode, Swatch};
 use crate::display_list::{CLOSE, LINE, MOVE, Op, Paint, rect, shift};
 use crate::geom::{Shape, bounds, contains, fit, near, outline};
+use crate::image::{self, ImageInfo};
 use crate::layout::{Align3, Direction, Layout, MainAlign, Size, Sizing, arrange};
 use crate::style::{
     Align, Blend, Cap, Constraint, Constraints, Effect, EffectKind, Fill, FillKind, FillStop, Join,
@@ -13,8 +14,9 @@ use crate::text::{
 };
 use crate::variable::{Collection, Mode, Modes, Palette, Scope, Value, Variable};
 use loro::{
-    Container, ExpandType, ExportMode, LoroDoc, LoroMap, LoroText, LoroTree, LoroValue,
-    StyleConfig, TextDelta, TreeID, TreeParentId, UndoManager, UpdateOptions, ValueOrContainer,
+    Container, ExpandType, ExportMode, LoroBinaryValue, LoroDoc, LoroMap, LoroText, LoroTree,
+    LoroValue, StyleConfig, TextDelta, TreeID, TreeParentId, UndoManager, UpdateOptions,
+    ValueOrContainer,
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::cell::RefCell;
@@ -38,6 +40,16 @@ pub enum Command {
         y: f64,
         w: f64,
         h: f64,
+    },
+    /// Places the image `image`, added with `Doc::add_image`, on top of `parent` as
+    /// a rectangle filled with it: centred on (x, y) at 300 ppi, or smaller to fit
+    /// its page; returns its id.
+    PlaceImage {
+        parent: String,
+        image: String,
+        name: String,
+        x: f64,
+        y: f64,
     },
     /// Moves and resizes a layer; a frame's children follow their constraints
     /// unless `ignore_constraints`.
@@ -501,6 +513,10 @@ pub enum Problem {
     ShortOfBleed,
     /// Is coloured in RGB in a CMYK document.
     Rgb,
+    /// Is filled with an image at fewer pixels per inch than print needs.
+    LowPpi {
+        ppi: f64,
+    },
 }
 
 /// A page or a master; `name` is a master's, `master` the one a page uses and
@@ -554,6 +570,9 @@ pub struct Node {
     /// The master layer this page layer overrides.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub override_of: Option<String>,
+    /// Effective pixels per inch of the coarsest visible image fill.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ppi: Option<f64>,
     #[serde(flatten)]
     pub style: Style,
     #[serde(flatten)]
@@ -636,6 +655,11 @@ struct Clip {
 type Res<T> = Result<T, String>;
 
 const MM: f64 = 72.0 / 25.4;
+/// Pixels per inch that images need to print sharp.
+const PRINT_PPI: f64 = 300.0;
+/// The origin of commits that add images, which undo leaves alone: the bytes stay
+/// for whatever uses them now or after an undo.
+const IMAGE_ORIGIN: &str = "image";
 /// Properties a number variable can bind to; lengths count in mm, opacity in %,
 /// text size in pt.
 const BINDABLE: [&str; 11] = [
@@ -682,7 +706,7 @@ impl Doc {
         let tree = doc.get_tree("nodes");
         tree.enable_fractional_index(0);
         Doc {
-            undo: UndoManager::new(&doc),
+            undo: undo_manager(&doc),
             doc,
             tree,
             clipboard: Vec::new(),
@@ -908,7 +932,7 @@ impl Doc {
             },
         })
         .unwrap();
-        d.undo = UndoManager::new(&d.doc);
+        d.undo = undo_manager(&d.doc);
         d
     }
 
@@ -928,6 +952,31 @@ impl Doc {
         Ok(face)
     }
 
+    /// Adds a PNG or JPEG file to the images of the document, for `PlaceImage`;
+    /// undo does not take it out again.
+    pub fn add_image(&mut self, bytes: &[u8]) -> Res<ImageInfo> {
+        let bytes = LoroBinaryValue::from(bytes.to_vec());
+        let info = image::register(bytes.clone())?;
+        let images = self.doc.get_map("images");
+        if images.get(&info.hash).is_none() {
+            self.doc.commit();
+            self.doc.set_next_commit_origin(IMAGE_ORIGIN);
+            images
+                .insert(&info.hash, LoroValue::Binary(bytes))
+                .map_err(err)?;
+            self.doc.commit();
+        }
+        Ok(info)
+    }
+
+    /// The image `hash` of the document.
+    fn image(&self, hash: &str) -> Res<ImageInfo> {
+        match self.doc.get_map("images").get(hash) {
+            Some(_) => image::info(hash).ok_or_else(|| format!("image {hash} does not decode")),
+            None => Err(format!("no image {hash}")),
+        }
+    }
+
     pub fn version(&self) -> String {
         format!("{:?}", self.doc.oplog_frontiers())
     }
@@ -944,8 +993,20 @@ impl Doc {
         {
             return Err("not a Satz document".into());
         }
+        for v in d
+            .doc
+            .get_map("images")
+            .get_value()
+            .into_map()
+            .unwrap_or_default()
+            .values()
+        {
+            if let LoroValue::Binary(bytes) = v {
+                image::register(bytes.clone())?;
+            }
+        }
         d.finish(vec![], false)?;
-        d.undo = UndoManager::new(&d.doc);
+        d.undo = undo_manager(&d.doc);
         Ok(d)
     }
 
@@ -960,84 +1021,30 @@ impl Doc {
                 y,
                 w,
                 h,
+            } => vec![self.create(&parent, kind, [x, y, w, h])?.to_string()],
+            Command::PlaceImage {
+                parent,
+                image,
+                name,
+                x,
+                y,
             } => {
-                let p = self.node(&parent)?;
-                let id = self.tree.create(p).map_err(err)?;
-                let m = self.meta(id);
-                let mode = self.color_mode();
-                let closed = Props {
-                    fills: Some(vec![Fill::solid(Color::gray(mode))]),
-                    stroke_align: Some(Align::Inside),
-                    ..Props::default()
-                };
-                let open = |path: Vec<f32>| Props {
-                    strokes: Some(vec![Fill::solid(Color::black(mode))]),
-                    arrow_end: Some(kind == NewKind::Arrow),
-                    path: Some(path),
-                    ..Props::default()
-                };
-                let line = vec![MOVE, 0.0, 0.0, LINE, 1.0, 0.0];
-                let (name, shape, props) = match kind {
-                    NewKind::Rect => (
-                        "shape",
-                        "rect",
-                        Props {
-                            radius: Some(0.0),
-                            ..closed
-                        },
-                    ),
-                    NewKind::Ellipse => ("shape", "ellipse", closed),
-                    NewKind::Polygon => (
-                        "shape",
-                        "polygon",
-                        Props {
-                            count: Some(3),
-                            ..closed
-                        },
-                    ),
-                    NewKind::Star => (
-                        "shape",
-                        "star",
-                        Props {
-                            count: Some(5),
-                            ratio: Some(0.382),
-                            ..closed
-                        },
-                    ),
-                    NewKind::Line | NewKind::Arrow => ("shape", "path", open(line)),
-                    NewKind::Path => ("shape", "path", open(Vec::new())),
-                    NewKind::Text => {
-                        m.insert_container("text", LoroText::new()).map_err(err)?;
-                        m.insert("size", 12.0).map_err(err)?;
-                        (
-                            "text",
-                            "",
-                            Props {
-                                fills: Some(vec![Fill::solid(Color::black(mode))]),
-                                sizing: Some(Sizing {
-                                    horizontal: Size::Hug,
-                                    vertical: Size::Hug,
-                                }),
-                                ..Props::default()
-                            },
-                        )
-                    }
-                    NewKind::Frame => (
-                        "frame",
-                        "",
-                        Props {
-                            fills: Some(vec![Fill::solid(Color::white(mode))]),
-                            clip: Some(true),
-                            ..closed
-                        },
-                    ),
-                };
-                m.insert("kind", name).map_err(err)?;
-                if !shape.is_empty() {
-                    m.insert("shape", shape).map_err(err)?;
-                }
-                self.set(id, props)?;
-                self.set_frame(id, [x, y, w, h])?;
+                let info = self.image(&image)?;
+                let page = self.meta(self.root(self.node(&parent)?));
+                let [w, h] = [info.width, info.height].map(|px| f64::from(px) * 72.0 / PRINT_PPI);
+                let fit = (num(&page, "width") / w)
+                    .min(num(&page, "height") / h)
+                    .min(1.0);
+                let [w, h] = [w * fit, h * fit];
+                let id = self.create(&parent, NewKind::Rect, [x - w / 2.0, y - h / 2.0, w, h])?;
+                self.set(
+                    id,
+                    Props {
+                        name: Some(name),
+                        fills: Some(vec![Fill::image(&image)]),
+                        ..Props::default()
+                    },
+                )?;
                 vec![id.to_string()]
             }
             Command::SetFrame {
@@ -2000,6 +2007,88 @@ impl Doc {
             }
         };
         self.finish(out, history)
+    }
+
+    /// Adds a layer of the kind `kind` with Figma's defaults on top of `parent`.
+    fn create(&self, parent: &str, kind: NewKind, frame: [f64; 4]) -> Res<TreeID> {
+        let p = self.node(parent)?;
+        let id = self.tree.create(p).map_err(err)?;
+        let m = self.meta(id);
+        let mode = self.color_mode();
+        let closed = Props {
+            fills: Some(vec![Fill::solid(Color::gray(mode))]),
+            stroke_align: Some(Align::Inside),
+            ..Props::default()
+        };
+        let open = |path: Vec<f32>| Props {
+            strokes: Some(vec![Fill::solid(Color::black(mode))]),
+            arrow_end: Some(kind == NewKind::Arrow),
+            path: Some(path),
+            ..Props::default()
+        };
+        let line = vec![MOVE, 0.0, 0.0, LINE, 1.0, 0.0];
+        let (name, shape, props) = match kind {
+            NewKind::Rect => (
+                "shape",
+                "rect",
+                Props {
+                    radius: Some(0.0),
+                    ..closed
+                },
+            ),
+            NewKind::Ellipse => ("shape", "ellipse", closed),
+            NewKind::Polygon => (
+                "shape",
+                "polygon",
+                Props {
+                    count: Some(3),
+                    ..closed
+                },
+            ),
+            NewKind::Star => (
+                "shape",
+                "star",
+                Props {
+                    count: Some(5),
+                    ratio: Some(0.382),
+                    ..closed
+                },
+            ),
+            NewKind::Line | NewKind::Arrow => ("shape", "path", open(line)),
+            NewKind::Path => ("shape", "path", open(Vec::new())),
+            NewKind::Text => {
+                m.insert_container("text", LoroText::new()).map_err(err)?;
+                m.insert("size", 12.0).map_err(err)?;
+                (
+                    "text",
+                    "",
+                    Props {
+                        fills: Some(vec![Fill::solid(Color::black(mode))]),
+                        sizing: Some(Sizing {
+                            horizontal: Size::Hug,
+                            vertical: Size::Hug,
+                        }),
+                        ..Props::default()
+                    },
+                )
+            }
+            NewKind::Frame => (
+                "frame",
+                "",
+                Props {
+                    fills: Some(vec![Fill::solid(Color::white(mode))]),
+                    clip: Some(true),
+                    ..closed
+                },
+            ),
+        };
+        m.insert("kind", name).map_err(err)?;
+        if !shape.is_empty() {
+            m.insert("shape", shape).map_err(err)?;
+        }
+        self.set(id, props)?;
+        self.set_frame(id, frame)?;
+        Ok(id)
     }
 
     fn finish(&self, out: Vec<String>, history: bool) -> Res<Vec<String>> {
@@ -3200,6 +3289,12 @@ impl Doc {
             active_modes,
             bindings: self.bindings(id),
             override_of: v["overrideOf"].as_str().map(String::from),
+            ppi: style
+                .fills
+                .iter()
+                .filter(|f| f.visible)
+                .filter_map(|f| f.ppi(w, h))
+                .reduce(f64::min),
             layout: serde_json::from_value(v.clone()).unwrap_or_default(),
             style,
             kind,
@@ -3260,6 +3355,27 @@ impl Doc {
 
     fn set(&self, id: TreeID, props: Props) -> Res<()> {
         props.check()?;
+        let images = |fills: &Option<Vec<Fill>>| {
+            fills
+                .iter()
+                .flatten()
+                .filter(|f| f.kind == FillKind::Image)
+                .count()
+        };
+        if images(&props.strokes) > 0 {
+            return Err("strokes cannot be images".into());
+        }
+        if images(&props.fills) > 0 && self.kind(id) == "text" {
+            return Err("text cannot be filled with an image".into());
+        }
+        for f in props
+            .fills
+            .iter()
+            .flatten()
+            .filter(|f| f.kind == FillKind::Image)
+        {
+            self.image(f.image.as_deref().unwrap_or_default())?;
+        }
         let m = self.meta(id);
         let serde_json::Value::Object(props) = serde_json::to_value(props).map_err(err)? else {
             return Err("props are not a map".into());
@@ -3613,6 +3729,12 @@ impl Default for Doc {
 /// Draws siblings; a mask masks the siblings above it.
 /// How far the master spread `m` moves to show its side on the page `p`: a left
 /// page shows the master's left page.
+fn undo_manager(doc: &LoroDoc) -> UndoManager {
+    let mut undo = UndoManager::new(doc);
+    undo.add_exclude_origin_prefix(IMAGE_ORIGIN);
+    undo
+}
+
 fn master_dx(m: &Page, p: &Page) -> f64 {
     match p.side {
         Some(Side::Left) => m.width,
@@ -3715,6 +3837,9 @@ fn visit(n: &Node, p: &Page, trim: Option<[f64; 2]>, snap: &Snapshot, out: &mut 
     };
     if snap.color_mode == ColorMode::Cmyk && colors.iter().any(|c| c.ink(&scope) == Ink::Rgb) {
         problems.push(Problem::Rgb);
+    }
+    if let Some(ppi) = n.ppi.filter(|&ppi| ppi < PRINT_PPI - 0.5) {
+        problems.push(Problem::LowPpi { ppi });
     }
     out.extend(problems.into_iter().map(|problem| Issue {
         page: p.id.clone(),
@@ -7847,5 +7972,117 @@ mod tests {
         create(&mut d, &left, NewKind::Rect, [-b, -b, w + b, h + 2.0 * b]);
         let top = create(&mut d, &left, NewKind::Rect, [w - 10.0, 0.0, 20.0, 10.0]);
         assert_eq!(problems(&d), [(top, Problem::ShortOfBleed)]);
+    }
+
+    fn place(d: &mut Doc, page: &str, w: u32, h: u32) -> (String, String) {
+        let hash = d.add_image(&image::tests::png(w, h)).unwrap().hash;
+        let id = d
+            .apply(Command::PlaceImage {
+                parent: page.into(),
+                image: hash.clone(),
+                name: "photo.png".into(),
+                x: 100.0,
+                y: 200.0,
+            })
+            .unwrap()
+            .remove(0);
+        (id, hash)
+    }
+
+    #[test]
+    fn a_placed_image_fills_a_rectangle_at_300_ppi_or_smaller_to_fit_its_page() {
+        let (mut d, p) = empty();
+        let (id, hash) = place(&mut d, &p, 600, 300);
+        let n = &page(&d).children[0];
+        assert_eq!((n.id.as_str(), n.name.as_str()), (id.as_str(), "photo.png"));
+        assert_eq!(frame(n), [28.0, 164.0, 144.0, 72.0]);
+        assert_eq!(n.style.fills, [Fill::image(&hash)]);
+        assert!(close(n.ppi.unwrap(), 300.0));
+        let image = image::id(&hash).unwrap();
+        assert!(page_ops(&d).contains(&Op::Image {
+            image,
+            transform: [144.0, 0.0, 0.0, 72.0, 28.0, 164.0],
+        }));
+        place(&mut d, &p, 60000, 3000);
+        let big = &page(&d).children[1];
+        assert!(close(big.w, page(&d).width));
+        assert!(close(big.h, big.w / 20.0));
+        assert!(big.ppi.unwrap() > 300.0);
+    }
+
+    #[test]
+    fn an_image_enlarged_below_300_ppi_is_a_preflight_issue_while_it_shows() {
+        let (mut d, p) = empty();
+        let (id, hash) = place(&mut d, &p, 600, 300);
+        set_frame(&mut d, &id, [20.0, 100.0, 288.0, 72.0]);
+        assert_eq!(problems(&d), [(id.clone(), Problem::LowPpi { ppi: 150.0 })]);
+        set(
+            &mut d,
+            &id,
+            Props {
+                fills: Some(vec![Fill {
+                    visible: false,
+                    ..Fill::image(&hash)
+                }]),
+                ..Props::default()
+            },
+        );
+        assert_eq!(page(&d).children[0].ppi, None);
+        assert_eq!(problems(&d), []);
+    }
+
+    #[test]
+    fn images_go_into_the_saved_document_and_undo_leaves_them_there() {
+        let (mut d, p) = empty();
+        let (_, hash) = place(&mut d, &p, 60, 30);
+        d.apply(Command::Undo).unwrap();
+        assert!(page(&d).children.is_empty());
+        assert!(d.image(&hash).is_ok());
+        d.apply(Command::Redo).unwrap();
+        let saved = d.save();
+        let ppi = std::thread::spawn(move || {
+            let d = Doc::load(&saved).unwrap();
+            page(&d).children[0].ppi
+        });
+        assert!(close(ppi.join().unwrap().unwrap(), 300.0));
+    }
+
+    #[test]
+    fn image_fills_need_an_image_of_the_document_and_a_layer_other_than_text() {
+        let (mut d, p) = empty();
+        let (id, hash) = place(&mut d, &p, 6, 3);
+        let mut apply = |id: &str, props| {
+            d.apply(Command::Set {
+                id: id.into(),
+                props,
+            })
+        };
+        let fills = |f| Props {
+            fills: Some(vec![f]),
+            ..Props::default()
+        };
+        assert!(apply(&id, fills(Fill::image("0123456789abcdef"))).is_err());
+        let strokes = Props {
+            strokes: Some(vec![Fill::image(&hash)]),
+            ..Props::default()
+        };
+        assert!(apply(&id, strokes).is_err());
+        let t = text(&mut d, "Hi");
+        let mut apply = |id: &str, props| {
+            d.apply(Command::Set {
+                id: id.into(),
+                props,
+            })
+        };
+        assert!(apply(&t, fills(Fill::image(&hash))).is_err());
+        assert!(d.add_image(b"GIF89a").is_err());
+        let unknown = Command::PlaceImage {
+            parent: p,
+            image: "0123456789abcdef".into(),
+            name: "gone.png".into(),
+            x: 0.0,
+            y: 0.0,
+        };
+        assert!(d.apply(unknown).is_err());
     }
 }

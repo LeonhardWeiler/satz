@@ -291,6 +291,7 @@ export function Properties({ editor, onExport, say }: { editor: Editor; onExport
         <PaintList
           title="Fill"
           paints={one.fills}
+          ppi={one.ppi}
           added={solid(neutral(one.kind === 'text' ? 'black' : 'gray', mode))}
           mode={mode}
           scope={scope}

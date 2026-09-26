@@ -2,6 +2,7 @@ mod color;
 mod display_list;
 mod doc;
 mod geom;
+mod image;
 mod layout;
 mod linebreak;
 mod pdf;
@@ -144,6 +145,27 @@ impl Engine {
         let face = self.doc.add_font(bytes).map_err(|e| JsError::new(&e))?;
         Ok(serde_wasm_bindgen::to_value(&face)?)
     }
+
+    /// Adds a PNG or JPEG file to the document's images and returns its hash and
+    /// size in pixels, for the command `placeImage`.
+    #[wasm_bindgen(js_name = addImage)]
+    pub fn add_image(&mut self, bytes: &[u8]) -> Result<JsValue, JsError> {
+        let info = self.doc.add_image(bytes).map_err(|e| JsError::new(&e))?;
+        Ok(serde_wasm_bindgen::to_value(&info)?)
+    }
+
+    /// The file of the image `id` of display lists.
+    pub fn image(&self, id: u32) -> Uint8Array {
+        Uint8Array::from(&image::bytes(id)[..])
+    }
+}
+
+/// FNV-1a hash of `bytes` in hex, which names fonts and images by their content.
+pub(crate) fn content_hash(bytes: &[u8]) -> String {
+    let hash = bytes.iter().fold(0xcbf29ce484222325u64, |h, &b| {
+        (h ^ b as u64).wrapping_mul(0x100000001b3)
+    });
+    format!("{hash:016x}")
 }
 
 /// The name and hash of the font `bytes`.
