@@ -1,70 +1,195 @@
 import type { Node } from './model'
 
-const PATHS = {
-  move: 'M7 4l11 6.5-4.8 1.3 2.9 5-1.7 1-2.9-5L7 16.4z',
-  frame: 'M8 3v18M16 3v18M3 8h18M3 16h18',
-  rect: 'M5.5 5.5h13v13h-13z',
-  ellipse: 'M12 5.5a6.5 6.5 0 1 0 0 13a6.5 6.5 0 1 0 0-13z',
-  polygon: 'M12 5.5l7 12.5h-14z',
-  star: 'M12 4.5l2.2 4.8 5.3.6-3.9 3.6 1.1 5.2-4.7-2.7-4.7 2.7 1.1-5.2-3.9-3.6 5.3-.6z',
-  line: 'M5.5 18.5l13-13',
-  arrow: 'M5.5 18.5l13-13M11 5.5h7.5v7.5',
-  path: 'M5 18c2-8 5-11 14-13M5 18m-1.5 0a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0',
-  pen: 'M12 4l5 8-3 7h-4l-3-7zM12 4v7M12 11m-1 0a1 1 0 1 0 2 0a1 1 0 1 0-2 0',
-  text: 'M6 6h12M12 6v13M9.5 19h5',
-  image: 'M5.5 5.5h13v13h-13zM5.5 16l4-4 3 3 2-2 4 4M15 9.5m-1.2 0a1.2 1.2 0 1 0 2.4 0a1.2 1.2 0 1 0-2.4 0',
-  group: 'M5.5 5.5h13v13h-13z',
-  mask: 'M5.5 5.5h13v13h-13zM12 8.5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 1 0 0-7z',
-  masked: 'M8.5 4.5v9h8',
-  down: 'M12 5v14M7 14l5 5 5-5',
-  right: 'M5 12h14M14 7l5 5-5 5',
-  chevron: 'M9 7l5 5-5 5',
-  spot: 'M12 6a6 6 0 1 0 0 12a6 6 0 1 0 0-12zM12 11a1 1 0 1 0 0 2a1 1 0 1 0 0-2z',
-  process: 'M6 6h12v12h-12zM12 6v12M6 12h12',
-  close: 'M7 7l10 10M17 7L7 17',
-  plus: 'M12 6v12M6 12h12',
-  minus: 'M6 12h12',
-  eye: 'M3.5 12s3-5.5 8.5-5.5 8.5 5.5 8.5 5.5-3 5.5-8.5 5.5S3.5 12 3.5 12zM12 12m-2.5 0a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0',
-  variable: 'M12 4.5l6.5 3.75v7.5L12 19.5l-6.5-3.75v-7.5z',
-  detach: 'M9 15l-2 2a2.8 2.8 0 0 1-4-4l2-2M15 9l2-2a2.8 2.8 0 0 1 4 4l-2 2M8 5v2M5 8h2M16 19v-2M19 16h-2',
-  alignLeft: 'M5 6h14M5 10h9M5 14h14M5 18h9',
-  alignCenter: 'M5 6h14M7.5 10h9M5 14h14M7.5 18h9',
-  alignRight: 'M5 6h14M10 10h9M5 14h14M10 18h9',
-  alignJustify: 'M5 6h14M5 10h14M5 14h14M5 18h9',
-  alignTop: 'M5 5h14M12 8v11M8.5 11.5L12 8l3.5 3.5',
-  alignMiddle: 'M5 12h14M12 4v5M12 15v5M9.5 6.5L12 9l2.5-2.5M9.5 17.5L12 15l2.5 2.5',
-  alignBottom: 'M5 19h14M12 5v11M8.5 12.5L12 16l3.5-3.5',
-  autoWidth: 'M4 12h16M7 9l-3 3 3 3M17 9l3 3-3 3',
-  autoHeight: 'M12 4v16M9 7l3-3 3 3M9 17l3 3 3-3',
-  fixedSize: 'M5.5 5.5h13v13h-13zM9 12h6M12 9v6',
-  eyeOff: 'M3.5 12s3-5.5 8.5-5.5 8.5 5.5 8.5 5.5-3 5.5-8.5 5.5S3.5 12 3.5 12zM5 19L19 5',
-} as const
+const ICONS = {
+  move: <path d="M4 2.5 12.5 8 8.5 9 6.5 13z" />,
+  frame: <path d="M5 2v12M11 2v12M2 5h12M2 11h12" />,
+  rect: <rect x="3" y="3" width="10" height="10" rx=".5" />,
+  ellipse: <circle cx="8" cy="8" r="5.5" />,
+  polygon: <path d="M8 2.5 13.5 12.5h-11z" />,
+  star: <path d="m8 2.5 1.7 3.6 3.8.5-2.8 2.6.7 3.8L8 11.2 4.6 13l.7-3.8L2.5 6.6l3.8-.5z" />,
+  line: <path d="m3 13 10-10" />,
+  arrow: <path d="m3 13 10-10M7.5 3H13v5.5" />,
+  path: (
+    <>
+      <path d="M4.5 11.5C5.5 7 8 4.8 11.5 4.5" />
+      <circle cx="3.5" cy="12.5" r="1.2" />
+      <circle cx="12.5" cy="3.5" r="1.2" />
+    </>
+  ),
+  pen: (
+    <>
+      <path d="M8 2 12 8l-2 5.5H6L4 8z" />
+      <path d="M8 2v5" />
+      <circle cx="8" cy="8.3" r="1" />
+    </>
+  ),
+  text: <path d="M3.5 4V3h9v1M8 3v10M6 13h4" />,
+  image: (
+    <>
+      <rect x="2.5" y="3.5" width="11" height="9" rx="1" />
+      <path d="m2.5 11 3.5-3.5 3 3 1.5-1.5 3 3" />
+      <circle cx="10.5" cy="6.5" r="1" />
+    </>
+  ),
+  group: <rect x="2.5" y="2.5" width="11" height="11" rx="1" strokeDasharray="2 2" />,
+  mask: (
+    <>
+      <rect x="2.5" y="2.5" width="11" height="11" rx="1" />
+      <circle cx="8" cy="8" r="3" />
+    </>
+  ),
+  masked: <path d="M5.5 3v6.5h6" />,
+  autoLayout: (
+    <>
+      <rect x="2.5" y="2.5" width="11" height="4" rx="1" />
+      <rect x="2.5" y="9.5" width="11" height="4" rx="1" />
+    </>
+  ),
+  arrowDown: <path d="M8 3v10M4.5 9.5 8 13l3.5-3.5" />,
+  arrowRight: <path d="M3 8h10M9.5 4.5 13 8l-3.5 3.5" />,
+  chevron: <path d="m6.5 4 4 4-4 4" />,
+  left: <path d="m9.5 4-4 4 4 4" />,
+  spot: (
+    <>
+      <circle cx="8" cy="8" r="5.5" />
+      <circle cx="8" cy="8" r="1" fill="currentColor" />
+    </>
+  ),
+  process: (
+    <>
+      <rect x="2.5" y="2.5" width="11" height="11" rx="1" />
+      <path d="M8 2.5v11M2.5 8h11" />
+    </>
+  ),
+  close: <path d="m4 4 8 8M12 4l-8 8" />,
+  plus: <path d="M8 4.5v7M4.5 8h7" />,
+  minus: <path d="M4.5 8h7" />,
+  eye: (
+    <>
+      <path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z" />
+      <circle cx="8" cy="8" r="2" />
+    </>
+  ),
+  eyeOff: (
+    <path d="m2.5 2.5 11 11M6.2 4A6.5 6.5 0 0 1 8 3.5c4 0 6.5 4.5 6.5 4.5a11 11 0 0 1-1.8 2.3M10 11.9a5.6 5.6 0 0 1-2 .6C4 12.5 1.5 8 1.5 8a11 11 0 0 1 2.4-2.8" />
+  ),
+  lock: (
+    <>
+      <rect x="4" y="7" width="8" height="6" rx="1" />
+      <path d="M5.5 7V5.5a2.5 2.5 0 0 1 5 0V7" />
+    </>
+  ),
+  unlock: (
+    <>
+      <rect x="4" y="7" width="8" height="6" rx="1" />
+      <path d="M5.5 7V5.5a2.5 2.5 0 0 1 4.8-1" />
+    </>
+  ),
+  variable: <path d="M8 2.5 13 5.25v5.5L8 13.5 3 10.75v-5.5z" />,
+  detach: <path d="M6 10 4.5 11.5a2 2 0 0 1-2.8-2.8L3.2 7.2M10 6l1.5-1.5a2 2 0 0 1 2.8 2.8L12.8 8.8M5.5 2.5V4M2.5 5.5H4M10.5 13.5V12M13.5 10.5H12" />,
+  alignLeft: <path d="M3 4h10M3 7h6M3 10h10M3 13h6" />,
+  alignCenter: <path d="M3 4h10M5 7h6M3 10h10M5 13h6" />,
+  alignRight: <path d="M3 4h10M7 7h6M3 10h10M7 13h6" />,
+  alignJustify: <path d="M3 4h10M3 7h10M3 10h10M3 13h6" />,
+  alignTop: <path d="M3 3h10M8 5.5v8M5.5 8 8 5.5 10.5 8" />,
+  alignMiddle: <path d="M3 8h10M8 2v4M8 10v4M6 4l2 2 2-2M6 12l2-2 2 2" />,
+  alignBottom: <path d="M3 13h10M8 2.5v8M5.5 8 8 10.5 10.5 8" />,
+  autoWidth: <path d="M2.5 8h11M5 5.5 2.5 8 5 10.5M11 5.5 13.5 8 11 10.5" />,
+  autoHeight: <path d="M8 2.5v11M5.5 5 8 2.5 10.5 5M5.5 11 8 13.5 10.5 11" />,
+  fixedSize: (
+    <>
+      <rect x="3" y="3" width="10" height="10" rx=".5" />
+      <path d="M6 8h4M8 6v4" />
+    </>
+  ),
+  warn: <path d="M8 2.5 14 13H2zM8 6.5v3M8 11.3v.2" />,
+  error: (
+    <>
+      <circle cx="8" cy="8" r="5.5" />
+      <path d="M8 5v3.5M8 10.8v.2" />
+    </>
+  ),
+  ok: (
+    <>
+      <circle cx="8" cy="8" r="5.5" />
+      <path d="m5.5 8 1.8 1.8L10.8 6" />
+    </>
+  ),
+  doc: <path d="M4 2.5h5.5L12 5v8.5H4zM9.5 2.5V5H12" />,
+  portrait: <rect x="4.5" y="2.5" width="7" height="11" rx="1" />,
+  landscape: <rect x="2.5" y="4.5" width="11" height="7" rx="1" />,
+  opacity: (
+    <>
+      <circle cx="8" cy="8" r="5.5" />
+      <path d="M8 2.5a5.5 5.5 0 0 1 0 11z" fill="currentColor" stroke="none" />
+    </>
+  ),
+  radius: <path d="M3 13V8a5 5 0 0 1 5-5h5" />,
+  stroke: (
+    <>
+      <path d="M3 4h10" />
+      <path d="M3 8h10" strokeWidth="2" />
+      <path d="M3 12.5h10" strokeWidth="3" />
+    </>
+  ),
+  master: <path d="M2.5 4.5h8v9h-8zM5.5 4.5v-2h8v9h-3" />,
+  search: (
+    <>
+      <circle cx="7" cy="7" r="4" />
+      <path d="m10 10 3.5 3.5" />
+    </>
+  ),
+  cmd: <path d="M6 6h4v4H6zM6 6H4.5A1.5 1.5 0 1 1 6 4.5zM10 6V4.5A1.5 1.5 0 1 1 11.5 6zM10 10h1.5a1.5 1.5 0 1 1-1.5 1.5zM6 10v1.5A1.5 1.5 0 1 1 4.5 10z" />,
+  preflight: <path d="M8 1.8 13.5 4v4c0 3.2-2.4 5.3-5.5 6.2C4.9 13.3 2.5 11.2 2.5 8V4zM5.5 8l1.8 1.8L10.5 6.5" />,
+  panelLeft: (
+    <>
+      <rect x="2" y="3" width="12" height="10" rx="1" />
+      <path d="M6 3v10" />
+    </>
+  ),
+  panelRight: (
+    <>
+      <rect x="2" y="3" width="12" height="10" rx="1" />
+      <path d="M10 3v10" />
+    </>
+  ),
+  help: (
+    <>
+      <circle cx="8" cy="8" r="5.5" />
+      <path d="M6.5 6.5a1.5 1.5 0 1 1 2 1.4c-.4.2-.5.5-.5.9v.4M8 10.8v.2" />
+    </>
+  ),
+}
 
-export function Icon({ name, size = 24 }: { name: IconName; size?: number }) {
-  const fill = name === 'move'
+export type IconName = keyof typeof ICONS
+
+export function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
-      <path
-        d={PATHS[name]}
-        fill={fill ? 'currentColor' : 'none'}
-        stroke="currentColor"
-        strokeWidth={fill ? 1 : 1.5}
-        strokeLinejoin="round"
-        strokeDasharray={name === 'group' ? '2.5 2' : undefined}
-      />
+    <svg
+      className="icon"
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.25"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {ICONS[name]}
     </svg>
   )
 }
 
-export type IconName = keyof typeof PATHS
-
 export function KindIcon({ node }: { node: Node }) {
-  const icon = <Icon name={iconOf(node)} size={16} />
+  const icon = <Icon name={iconOf(node)} />
   return node.mask ? <span className="kind" title="Mask">{icon}</span> : icon
 }
 
 function iconOf(node: Node): IconName {
   if (node.mask) return 'mask'
+  if (node.kind === 'frame' && node.direction !== 'none') return 'autoLayout'
   if (node.kind !== 'shape') return node.kind
   if (node.shape !== 'path') return node.shape
   if (node.arrowStart || node.arrowEnd) return 'arrow'

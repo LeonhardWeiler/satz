@@ -46,10 +46,10 @@ export function fitView(sheets: Sheet[], width: number, height: number): View {
   return { x: (width - w * zoom) / 2 - left * zoom, y: (height - h * zoom) / 2, zoom }
 }
 
-const BACKGROUND = '#1e1e1e'
-const TRIM = '#000000'
-const BLEED = '#ff3b30'
-const ACCENT = '#0d99ff'
+const BACKGROUND = '#37393c'
+const BLEED = [56, 174, 224, 0.45] as const
+const OVERSET = '#ff6b5e'
+const ACCENT = '#38aee0'
 const BLENDS = [
   'SrcOver', 'Multiply', 'Screen', 'Overlay', 'Darken', 'Lighten', 'ColorDodge', 'ColorBurn',
   'HardLight', 'SoftLight', 'Difference', 'Exclusion', 'Hue', 'Saturation', 'Color', 'Luminosity',
@@ -131,11 +131,13 @@ export class Renderer {
       canvas.restore()
     }
     paint.setStyle(ck.PaintStyle.Stroke)
-    paint.setStrokeWidth(0)
-    paint.setColor(ck.parseColorString(TRIM))
-    for (const r of trims) canvas.drawRect(r, paint)
-    paint.setColor(ck.parseColorString(BLEED))
+    paint.setStrokeWidth(1 / view.zoom)
+    paint.setColor(ck.Color(...BLEED))
+    const dash = ck.PathEffect.MakeDash([4 / view.zoom, 3 / view.zoom])
+    paint.setPathEffect(dash)
     canvas.drawPath(bleed, paint)
+    paint.setPathEffect(null)
+    dash?.delete()
     bleed.delete()
     canvas.restore()
     this.drawOverlay(canvas, view, dpr, overlay)
@@ -187,7 +189,7 @@ export class Renderer {
     if (marquee) {
       const r = ck.XYWHRect(marquee.x + 0.5, marquee.y + 0.5, marquee.w, marquee.h)
       paint.setStyle(ck.PaintStyle.Fill)
-      paint.setColor(ck.Color(13, 153, 255, 0.1))
+      paint.setColor(ck.Color(56, 174, 224, 0.08))
       canvas.drawRect(r, paint)
       paint.setStyle(ck.PaintStyle.Stroke)
       paint.setColor(accent)
@@ -221,7 +223,7 @@ export class Renderer {
       square(p.x, p.y, PORT)
       const [x, y] = [Math.floor(p.x) + 0.5, Math.floor(p.y) + 0.5]
       if (p.state === 'overset') {
-        paint.setColor(ck.parseColorString(BLEED))
+        paint.setColor(ck.parseColorString(OVERSET))
         paint.setStrokeWidth(2)
         canvas.drawLine(x - 3, y, x + 3, y, paint)
         canvas.drawLine(x, y - 3, x, y + 3, paint)
