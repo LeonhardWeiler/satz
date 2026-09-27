@@ -1,0 +1,37 @@
+# Satz
+
+Rust engine (`engine/`, compiled to WASM) owns the Loro document; the React UI
+(`web/`) sends `Command`s and reads `Snapshot`s. See `AGENT/TODO.md` for the design.
+
+## Checks
+
+`./check` runs everything CI runs, in this order: `cargo fmt --check`, clippy with
+`-D warnings`, `cargo test`, the WASM build into `web/src/engine`, then in `web/`
+tsc, eslint, vitest, vite build and Playwright. `./check build` stops before
+Playwright, `./check e2e [args]` runs only Playwright against `web/dist`.
+`cargo test` writes `web/src/testdata`, which vitest reads, so run it first.
+
+Setup: `nix develop` provides all tools. Without nix: stable Rust with the
+`wasm32-unknown-unknown` target, `wasm-pack`, `wasm-bindgen-cli` 0.2.127, binaryen,
+Node 22, pnpm, MuPDF (`mutool`, for the PDF tests) and
+`pnpm -C web exec playwright install chromium`.
+
+## Rules
+
+- Every arm of `Doc::apply` checks everything before it writes to Loro; a command
+  that fails must leave no pending ops (a debug assertion and
+  `a_command_that_fails_leaves_the_document_as_it_was` enforce it). Numbers in
+  commands must be finite.
+- The display list is a binary contract: `engine/src/display_list.rs` and
+  `web/src/displayList.ts` change together.
+- `wasm-bindgen` is pinned with `=` in `engine/Cargo.toml` to the version of the
+  flake's `wasm-bindgen-cli`; bump both at once.
+- A thread's story lives in its first frame; frames link on with `next`.
+- Pages draw their master under their own layers. A page lists the master layers it
+  overrides in `detached`, and each overriding copy names its master layer in
+  `overrideOf`; a page that leaves its master drops both.
+- Colours keep the space they were given (RGB, CMYK, swatch, variable); switching the
+  document's colour mode does not convert them.
+- `engine/icc/FOGRA51.icc` is built by `engine/icc/build` from the ICC registry data;
+  PSO Coated v3 may not be redistributed.
+- Deleted nodes move under a `trash` root so that undo restores them with their ids.
