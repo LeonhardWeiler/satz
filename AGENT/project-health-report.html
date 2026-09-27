@@ -47,9 +47,9 @@
   <div class="counter"><b>0</b><span>Critical</span></div>
   <div class="counter"><b>0</b><span>High</span></div>
   <div class="counter"><b>0</b><span>Medium</span></div>
-  <div class="counter"><b>6</b><span>Low</span></div>
+  <div class="counter"><b>5</b><span>Low</span></div>
   <div class="counter"><b>0</b><span>Info</span></div>
-  <div class="counter"><b>6</b><span>Total</span></div>
+  <div class="counter"><b>5</b><span>Total</span></div>
 </div>
 
 <nav aria-label="Contents">
@@ -57,7 +57,6 @@
   <li><a href="#open">Open findings</a>
     <ol>
       <li><a href="#UX-8">UX-8 Refused thread ends threading</a></li>
-      <li><a href="#PERF-2">PERF-2 Export on main thread</a></li>
       <li><a href="#TEST-5">TEST-5 Hidden test order</a></li>
       <li><a href="#TEST-1">TEST-1 Gaps in e2e coverage</a></li>
       <li><a href="#SEC-1">SEC-1 Actions not pinned</a></li>
@@ -77,13 +76,6 @@
   <p class="file"><code>web/src/Canvas.tsx</code> <code>onPointerDown</code> (threading branch), <code>onPointerUp</code></p>
   <p>With a loaded out-port, clicking a text frame that already has a previous or next frame makes <code>thread</code> throw, as does a frame on a master threaded with one on a page; the reason shows in the status bar, but the threading cursor ends and the frame gets selected as if it had worked; a frame drawn from the port stays behind unthreaded.</p>
   <p class="rec">Show a not-allowed cursor over frames that cannot take the thread while threading, and keep threading active after a refused click.</p>
-</article>
-
-<article class="card low" id="PERF-2">
-  <header><span class="id">PERF-2</span><span class="badge low">low</span><h3>PDF export blocks the UI without feedback</h3></header>
-  <p class="file"><code>web/src/App.tsx</code> <code>exportPdf</code>; <code>engine/src/lib.rs</code> <code>pdf</code></p>
-  <p>Export runs synchronously on the main thread. All pages now print from one snapshot: 42 ms for the threaded 8-page booklet (Node, WASM without <code>wasm-opt</code>). Shadows and blurs rasterised at 300 ppi and, later, images are not measured; a slow export freezes the tab without any sign of progress.</p>
-  <p class="rec">Show a busy state before the call; move export into a Worker once images land.</p>
 </article>
 
 <article class="card low" id="TEST-5">
