@@ -1926,6 +1926,7 @@ impl Doc {
                 let m = self.master(&id)?;
                 for p in self.pages() {
                     if self.master_of(p) == Some(m) {
+                        self.leave_master(p)?;
                         self.meta(p).delete("master").map_err(err)?;
                     }
                 }
@@ -1934,13 +1935,16 @@ impl Doc {
                 vec![]
             }
             Command::UseMaster { page, master } => {
-                let p = self.meta(self.page(&page)?);
-                match master {
-                    Some(m) => p
-                        .insert("master", self.master(&m)?.to_string())
-                        .map_err(err)?,
-                    None => p.delete("master").map_err(err)?,
+                let p = self.page(&page)?;
+                let m = master.map(|m| self.master(&m)).transpose()?;
+                if m != self.master_of(p) {
+                    self.leave_master(p)?;
                 }
+                match m {
+                    Some(m) => self.meta(p).insert("master", m.to_string()),
+                    None => self.meta(p).delete("master"),
+                }
+                .map_err(err)?;
                 vec![]
             }
             Command::Override { page, id } => {
@@ -3704,6 +3708,16 @@ impl Doc {
     fn master_of(&self, p: TreeID) -> Option<TreeID> {
         let v = value(&self.meta(p), "master")?;
         self.master(&v.into_string().ok()?).ok()
+    }
+
+    /// Makes the layers of page `p` that override its master's plain page layers.
+    fn leave_master(&self, p: TreeID) -> Res<()> {
+        for c in self.children(p) {
+            if self.override_of(c).is_some() {
+                self.meta(c).delete("overrideOf").map_err(err)?;
+            }
+        }
+        self.meta(p).delete("detached").map_err(err)
     }
 
     /// The master layer that the page layer `id` overrides.
@@ -7157,6 +7171,33 @@ mod tests {
         assert_eq!(masters(&d), [None, None, None]);
         d.apply(Command::Undo).unwrap();
         assert_eq!(masters(&d)[0], Some(m));
+    }
+
+    #[test]
+    fn overrides_become_page_layers_when_the_page_leaves_its_master() {
+        for delete in [true, false] {
+            let (mut d, p) = empty();
+            let [a, b] = [add_master(&mut d), add_master(&mut d)];
+            let r = create(&mut d, &a, NewKind::Rect, [0.0, 0.0, 20.0, 20.0]);
+            use_master(&mut d, &p, Some(&a)).unwrap();
+            let copy = d
+                .apply(Command::Override {
+                    page: p.clone(),
+                    id: r,
+                })
+                .unwrap()
+                .remove(0);
+            if delete {
+                d.apply(Command::DeleteMaster { id: a }).unwrap();
+            } else {
+                use_master(&mut d, &p, Some(&b)).unwrap();
+            }
+            let pg = page(&d);
+            assert!(pg.detached.is_empty());
+            assert_eq!(pg.children[0].override_of, None);
+            d.apply(Command::ResetToMaster { ids: vec![p] }).unwrap();
+            assert_eq!(ids(&page(&d).children), [copy]);
+        }
     }
 
     #[test]
