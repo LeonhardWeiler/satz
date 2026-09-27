@@ -50,6 +50,18 @@ test('a new master is shown empty and is renamed by a double click', async ({ pa
   await expect(pages.getByRole('button', { name: 'Body', exact: true })).toBeVisible()
 })
 
+test('a name another master has is rejected in the status bar', async ({ page }) => {
+  await open(page)
+  const pages = page.getByRole('navigation', { name: 'Pages' })
+  await pages.getByRole('button', { name: 'Add master' }).click()
+  await pages.getByRole('button', { name: 'Add master' }).click()
+  await pages.getByRole('button', { name: 'B-Master', exact: true }).dblclick()
+  await pages.getByRole('textbox', { name: 'Master name' }).fill('A-Master')
+  await pages.getByRole('textbox', { name: 'Master name' }).press('Enter')
+  await expect(page.getByText('a master named A-Master exists')).toBeVisible()
+  await expect(pages.getByRole('button', { name: 'B-Master', exact: true })).toBeVisible()
+})
+
 test('a page draws the layers of its master under its own, which a click does not pick', async ({ page }) => {
   await applied(page)
   await expect(rects(page)).toHaveCount(2)

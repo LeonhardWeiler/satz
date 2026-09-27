@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import type { CanvasKit } from 'canvaskit-wasm'
 import { Canvas, isTyping } from './Canvas'
 import { useEditor, type Editor } from './editor'
@@ -11,8 +11,9 @@ import { Properties } from './Properties'
 import { Swatches } from './Swatches'
 import { Toolbar } from './Toolbar'
 
-export function App({ ck, editor, notice = '' }: { ck: CanvasKit; editor: Editor; notice?: string }) {
-  const [status, say] = useState(notice)
+export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
+  const status = useEditor(editor, (e) => e.status)
+  const say = editor.say
   const dirty = useEditor(editor, (e) => e.dirty)
   const name = useEditor(editor, (e) => e.file.name)
 

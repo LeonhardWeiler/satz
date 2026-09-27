@@ -48,9 +48,9 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
   else if (mod && key === 'g') editor.set({ selection: editor.apply({ type: 'group', ids, frame: e.altKey }) })
   else if (mod && key === 'r') editor.set({ renaming: ids[0] })
   else if (!mod && e.shiftKey && e.altKey && key === 'a') {
-    editor.apply({ type: 'beginUndoGroup' })
-    for (const n of editor.selected()) if (n.direction !== 'none') editor.apply({ type: 'set', id: n.id, direction: 'none' })
-    editor.apply({ type: 'endUndoGroup' })
+    editor.batch(() => {
+      for (const n of editor.selected()) if (n.direction !== 'none') editor.apply({ type: 'set', id: n.id, direction: 'none' })
+    })
   } else if (!mod && e.shiftKey && key === 'a') editor.set({ selection: editor.apply({ type: 'autoLayout', ids }) })
   else if (mod && e.altKey && key === 'm') editor.set({ selection: editor.apply({ type: 'mask', ids }) })
   else if (mod && e.code in ORDER) {
@@ -58,11 +58,11 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
   } else if (!mod && ARROWS[e.key]) {
     const step = (e.shiftKey ? 10 : 1) * MM
     const [dx, dy] = ARROWS[e.key]
-    editor.apply({ type: 'beginUndoGroup' })
-    for (const n of editor.selected()) {
-      editor.apply({ type: 'setFrame', id: n.id, x: n.x + dx * step, y: n.y + dy * step, w: n.w, h: n.h })
-    }
-    editor.apply({ type: 'endUndoGroup' })
+    editor.batch(() => {
+      for (const n of editor.selected()) {
+        editor.apply({ type: 'setFrame', id: n.id, x: n.x + dx * step, y: n.y + dy * step, w: n.w, h: n.h })
+      }
+    })
   } else return false
   return true
 }

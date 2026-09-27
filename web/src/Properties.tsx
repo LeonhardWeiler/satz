@@ -43,15 +43,12 @@ export function Properties({ editor, onExport, say }: { editor: Editor; onExport
     return values.every((v) => v === values[0]) ? (values[0] ?? null) : null
   }
   const each = (cmd: (n: Node) => Command | undefined) => {
-    editor.apply({ type: 'beginUndoGroup' })
-    try {
+    editor.batch(() => {
       for (const n of nodes) {
         const c = cmd(n)
         if (c) editor.apply(c)
       }
-    } finally {
-      editor.apply({ type: 'endUndoGroup' })
-    }
+    })
   }
   const frame = (key: 'x' | 'y' | 'w' | 'h') => (v: number) =>
     each((n) => ({ type: 'setFrame', id: n.id, x: n.x, y: n.y, w: n.w, h: n.h, [key]: v * MM }))

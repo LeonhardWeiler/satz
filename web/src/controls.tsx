@@ -36,11 +36,7 @@ export function Field({
     const v = zero && draft?.trim().toLowerCase() === zero.toLowerCase() ? 0 : parseFloat(draft ?? '')
     setDraft(null)
     if (draft === null || !Number.isFinite(v)) return
-    try {
-      onCommit?.(round(v, unit))
-    } catch (e) {
-      console.warn(e)
-    }
+    onCommit?.(round(v, unit))
   }
   return (
     <label className="field" title={title}>

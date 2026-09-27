@@ -318,15 +318,11 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         const to = hit(p).path.findLast((id) => editor.nodes.get(id)?.node.kind === 'text')
         if (to === from) return
         if (to) {
-          try {
-            editor.apply({ type: 'thread', from, to })
-          } catch (err) {
-            console.warn(err)
-          }
+          editor.apply({ type: 'thread', from, to })
           editor.set({ threading: null, selection: [to] })
           return
         }
-        editor.apply({ type: 'beginUndoGroup' })
+        editor.beginGroup()
         const { id, dx } = create('text')
         drag = { kind: 'draw', start: p, id, dx, moved: false, tool: 'text', thread: from }
         editor.set({ selection: [id] })
@@ -336,7 +332,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         const pen = editor.pen
         drag = { kind: 'pen', start: p }
         if (!pen) {
-          editor.apply({ type: 'beginUndoGroup' })
+          editor.beginGroup()
           const { id, dx } = create('path')
           editor.set({ pen: { id, anchors: [{ x: p.x - dx, y: p.y, hx: 0, hy: 0 }] }, selection: [] })
           return
@@ -356,7 +352,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       }
       if (editor.tool !== 'move') {
         const tool = editor.tool
-        editor.apply({ type: 'beginUndoGroup' })
+        editor.beginGroup()
         const { id, dx } = create(tool)
         drag = { kind: 'draw', start: p, id, dx, moved: false, tool }
         editor.set({ selection: [id] })
@@ -381,13 +377,13 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const line = handle?.startsWith('end') && ends(placed(editor.selected()[0]))
       if (line) {
         drag = { kind: 'end', start: p, id: editor.selection[0], ends: line, index: Number(handle!.slice(3)) }
-        editor.apply({ type: 'beginUndoGroup' })
+        editor.beginGroup()
         return
       }
       if (handle) {
         const frames = editor.selected()
         drag = { kind: 'resize', start: p, handle, box: bounds(frames.map(placed)), frames }
-        editor.apply({ type: 'beginUndoGroup' })
+        editor.beginGroup()
         return
       }
       const id = pickAt(p, e.ctrlKey || e.metaKey ? 'deep' : 'click')
@@ -466,7 +462,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         if (!drag.active) {
           if (Math.hypot(dx, dy) * view.zoom <= DRAG) return
           drag.active = true
-          editor.apply({ type: 'beginUndoGroup' })
+          editor.beginGroup()
           if (e.altKey) {
             editor.set({ selection: editor.apply({ type: 'duplicate', ids: drag.frames.map((n) => n.id) }) })
             drag.frames = editor.selected()
@@ -506,11 +502,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       if (drag?.kind === 'draw' && drag.thread) {
         const from = editor.lookup(drag.thread)?.node
         if (!drag.moved && from) editor.apply({ type: 'setFrame', id: drag.id, x: drag.start.x - drag.dx, y: drag.start.y, w: from.w, h: from.h })
-        try {
-          editor.apply({ type: 'thread', from: drag.thread, to: drag.id })
-        } catch (err) {
-          console.warn(err)
-        }
+        editor.apply({ type: 'thread', from: drag.thread, to: drag.id })
         editor.set({ threading: null, selection: [drag.id] })
       } else if (drag?.kind === 'draw') {
         if (drag.tool !== 'text' && !drag.moved) {
@@ -536,7 +528,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         for (const [to, ids] of moves) editor.apply({ type: 'move', ids, parent: to.id, index: to.children.length })
       }
       if (drag?.kind === 'draw' || drag?.kind === 'resize' || drag?.kind === 'end' || (drag?.kind === 'move' && drag.active)) {
-        editor.apply({ type: 'endUndoGroup' })
+        editor.endGroup()
       }
       if (drag?.kind === 'move' && !drag.active && !e.shiftKey) {
         const id = pickAt(toDoc(e), e.ctrlKey || e.metaKey ? 'deep' : 'click')

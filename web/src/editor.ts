@@ -40,8 +40,12 @@ export class Editor {
   file = UNTITLED
   /** The document has changed since it was last saved to or opened from its file. */
   dirty = false
+  /** The message in the status bar. */
+  status = ''
   /** Typing into the edited text is one undo step until the caret moves. */
   private typing = false
+  /** How many undo groups are open; the engine holds one for all of them. */
+  private groups = 0
   private savedAt: string
   private listeners = new Set<() => void>()
 
@@ -57,6 +61,7 @@ export class Editor {
     this.engine.load(bytes)
     Object.assign(this, { selection: [], tool: 'move', renaming: null, pen: null, editing: null, threading: null })
     this.typing = false
+    this.groups = 0
     this.snapshot = this.engine.snapshot()
     this.pageId = this.snapshot.pages[0].id
     this.nodes = this.index()
@@ -118,8 +123,42 @@ export class Editor {
     return this.snapshot.masters.find((m) => m.id === page.master)
   }
 
+  /** Applies `cmd`; a command the engine rejects shows in the status bar and returns nothing. */
   apply(cmd: Command): string[] {
-    return this.change(() => this.engine.apply(cmd))
+    if (cmd.type === 'undo' || cmd.type === 'redo') {
+      this.typing = false
+      this.groups = 0
+    }
+    try {
+      return this.change(() => this.engine.apply(cmd))
+    } catch (e) {
+      this.say((e as Error).message)
+      return []
+    }
+  }
+
+  say = (status: string) => {
+    this.status = status
+    this.emit()
+  }
+
+  /** Opens an undo group that lasts until `endGroup`; groups opened inside it join it. */
+  beginGroup() {
+    if (this.groups++ === 0) this.apply({ type: 'beginUndoGroup' })
+  }
+
+  endGroup() {
+    if (this.groups > 0 && --this.groups === 0) this.apply({ type: 'endUndoGroup' })
+  }
+
+  /** Runs `f` as one undo step, or as part of the group already open. */
+  batch<T>(f: () => T): T {
+    this.beginGroup()
+    try {
+      return f()
+    } finally {
+      this.endGroup()
+    }
   }
 
   /** Adds a TrueType or OpenType font, which sets the text in it again. */
@@ -221,13 +260,13 @@ export class Editor {
   beginTyping() {
     if (this.typing) return
     this.typing = true
-    this.apply({ type: 'beginUndoGroup' })
+    this.beginGroup()
   }
 
   endTyping() {
     if (!this.typing) return
     this.typing = false
-    this.apply({ type: 'endUndoGroup' })
+    this.endGroup()
   }
 
   /** Leaves the edited text selected, or removes it when it is empty, as Figma does. */
@@ -248,7 +287,7 @@ export class Editor {
     this.pen = null
     if (pen.anchors.length < 2) this.apply({ type: 'delete', ids: [pen.id] })
     else this.apply({ type: 'setPath', id: pen.id, path: penPath(pen.anchors, closed) })
-    this.apply({ type: 'endUndoGroup' })
+    this.endGroup()
     this.set({ tool: 'move', selection: pen.anchors.length < 2 ? [] : [pen.id] })
   }
 
@@ -256,8 +295,8 @@ export class Editor {
   gesture = () => {
     this.finishPen(false)
     this.endTyping()
-    this.apply({ type: 'beginUndoGroup' })
-    window.addEventListener('pointerup', () => this.apply({ type: 'endUndoGroup' }), { once: true })
+    this.beginGroup()
+    window.addEventListener('pointerup', () => this.endGroup(), { once: true })
   }
 
   selected(): Node[] {
