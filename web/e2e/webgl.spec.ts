@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { open } from './util'
 
 test('without webgl 2 a notice replaces the canvas', async ({ page }) => {
   await page.addInitScript(() => {
@@ -32,4 +33,13 @@ test('a notice tells when the engine fails to load', async ({ page }) => {
   await page.goto('')
   await expect(page.getByRole('alert')).toContainText('Satz could not start')
   await expect(page.getByRole('progressbar')).toHaveCount(0)
+})
+
+test('each wasm file is preloaded and fetched once', async ({ page }) => {
+  const wasm: string[] = []
+  page.on('request', (r) => r.url().endsWith('.wasm') && wasm.push(r.url()))
+  await open(page)
+  const preloaded = await page.$$eval('link[rel=preload][as=fetch]', (links) => links.map((l) => (l as HTMLLinkElement).href))
+  expect(preloaded.sort()).toEqual(wasm.sort())
+  expect(wasm).toHaveLength(2)
 })
