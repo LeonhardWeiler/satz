@@ -121,48 +121,82 @@ pub fn blur(px: &mut Pixmap, sigma: f32) {
     }
 }
 
+/// Box blur of each row or column over 2r+1 pixels, those outside the edges counting as 0.
 fn box_blur(src: &[u8], dst: &mut [u8], w: usize, h: usize, r: usize, horizontal: bool) {
     let n = 2 * r + 1;
     let most = 255 * n.min(if horizontal { w } else { h });
     let mean: Vec<u8> = (0..=most).map(|s| ((s + n / 2) / n) as u8).collect();
+    let (src, dst) = (src.as_chunks::<4>().0, dst.as_chunks_mut::<4>().0);
     if horizontal {
-        let mut sum = [0; 4];
-        for (s, d) in src.chunks_exact(w * 4).zip(dst.chunks_exact_mut(w * 4)) {
-            slide(s, d, &mut sum, r, &mean);
+        for (s, d) in src.chunks_exact(w).zip(dst.chunks_exact_mut(w)) {
+            let mut sum = [0; 4];
+            for &p in &s[..r.min(w)] {
+                sum = add(sum, p);
+            }
+            for (i, d) in d.iter_mut().enumerate() {
+                if let Some(&p) = s.get(i + r) {
+                    sum = add(sum, p);
+                }
+                *d = means(sum, &mean);
+                if i >= r {
+                    sum = sub(sum, s[i - r]);
+                }
+            }
         }
     } else {
-        slide(src, dst, &mut vec![0; w * 4], r, &mean);
+        let row = |y: usize| &src[y * w..][..w];
+        let mut sum = vec![[0; 4]; w];
+        for y in 0..r.min(h) {
+            for (s, &p) in sum.iter_mut().zip(row(y)) {
+                *s = add(*s, p);
+            }
+        }
+        for (y, d) in dst.chunks_exact_mut(w).enumerate() {
+            if y + r < h {
+                for (s, &p) in sum.iter_mut().zip(row(y + r)) {
+                    *s = add(*s, p);
+                }
+            }
+            for (d, s) in d.iter_mut().zip(&sum) {
+                *d = means(*s, &mean);
+            }
+            if y >= r {
+                for (s, &p) in sum.iter_mut().zip(row(y - r)) {
+                    *s = sub(*s, p);
+                }
+            }
+        }
     }
 }
 
-/// Box blur across the units of `sum.len()` bytes that `src` is made of: each byte
-/// becomes the `mean` of the sum of the bytes at its place in the 2r+1 units around
-/// its own, those outside the ends counting as 0.
-fn slide(src: &[u8], dst: &mut [u8], sum: &mut [u32], r: usize, mean: &[u8]) {
-    let k = sum.len();
-    let len = src.len() / k;
-    let unit = |i: usize| &src[i * k..][..k];
-    sum.fill(0);
-    for i in 0..r.min(len) {
-        for (s, &v) in sum.iter_mut().zip(unit(i)) {
-            *s += v as u32;
-        }
-    }
-    for (i, d) in dst.chunks_exact_mut(k).enumerate() {
-        if i + r < len {
-            for (s, &v) in sum.iter_mut().zip(unit(i + r)) {
-                *s += v as u32;
-            }
-        }
-        for (d, &s) in d.iter_mut().zip(&*sum) {
-            *d = mean[s as usize];
-        }
-        if i >= r {
-            for (s, &v) in sum.iter_mut().zip(unit(i - r)) {
-                *s -= v as u32;
-            }
-        }
-    }
+#[inline(always)]
+fn add(s: [u32; 4], p: [u8; 4]) -> [u32; 4] {
+    [
+        s[0] + p[0] as u32,
+        s[1] + p[1] as u32,
+        s[2] + p[2] as u32,
+        s[3] + p[3] as u32,
+    ]
+}
+
+#[inline(always)]
+fn sub(s: [u32; 4], p: [u8; 4]) -> [u32; 4] {
+    [
+        s[0] - p[0] as u32,
+        s[1] - p[1] as u32,
+        s[2] - p[2] as u32,
+        s[3] - p[3] as u32,
+    ]
+}
+
+#[inline(always)]
+fn means(s: [u32; 4], mean: &[u8]) -> [u8; 4] {
+    [
+        mean[s[0] as usize],
+        mean[s[1] as usize],
+        mean[s[2] as usize],
+        mean[s[3] as usize],
+    ]
 }
 
 /// Replaces the colour of every pixel with `color`, keeping coverage.
