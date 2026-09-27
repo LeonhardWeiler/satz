@@ -530,6 +530,8 @@ pub struct Doc {
     /// command on.
     flows: RefCell<Option<Rc<HashMap<TreeID, Flow>>>>,
     snapshot: RefCell<Option<Rc<Snapshot>>>,
+    /// Each story as last set, by its first frame.
+    sets: RefCell<HashMap<TreeID, Set>>,
     /// The version of the last change other than text set again for a new font.
     version: String,
 }
@@ -699,6 +701,7 @@ impl Doc {
             clipboard: Vec::new(),
             flows: RefCell::new(None),
             snapshot: RefCell::new(None),
+            sets: RefCell::new(HashMap::new()),
         }
     }
 
@@ -2695,8 +2698,11 @@ mod tests {
                     paragraph_spacing: None,
                 },
                 8 => {
-                    let face = d.add_font(MONO).unwrap();
-                    check(&d);
+                    let face = text::typeface(MONO).unwrap();
+                    if rand(2) == 0 {
+                        d.add_font(MONO).unwrap();
+                        check(&d);
+                    }
                     Command::Format {
                         id,
                         range: Some(range),

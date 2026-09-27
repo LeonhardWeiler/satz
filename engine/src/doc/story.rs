@@ -2,6 +2,7 @@ use super::*;
 
 /// Where the story of a thread, from the frame `head`, flows through a frame: the
 /// bytes `start..end`, its neighbours, and text left over at the end of the thread.
+#[derive(Debug, PartialEq)]
 pub(super) struct Flow {
     pub(super) head: TreeID,
     pub(super) story: Rc<Story>,
@@ -12,6 +13,15 @@ pub(super) struct Flow {
     pub(super) prev: Option<TreeID>,
     pub(super) next: Option<TreeID>,
     pub(super) overset: bool,
+}
+
+/// A story set through the frames of its thread, with the bounds and settings of
+/// each frame and the number of fonts it was set with.
+pub(super) struct Set {
+    story: Rc<Story>,
+    frames: Vec<(TreeID, [f32; 4], TextFrame)>,
+    fonts: usize,
+    out: Vec<(TreeID, usize, Option<usize>)>,
 }
 
 /// The UTF-16 range of the paragraphs that `r` touches in `text`.
@@ -78,14 +88,15 @@ impl Doc {
         Ok((f.story.clone(), lines))
     }
 
-    /// The story of the thread starting at `head`, its spans, and each frame with the
-    /// byte where its text starts and where the text left over for the next begins.
+    /// The story of the thread starting at `head` and each frame with the byte where
+    /// its text starts and where the text left over for the next begins. A story set
+    /// before from the same inputs is taken as it was.
     #[allow(clippy::type_complexity)]
     pub(super) fn flow(
         &self,
         head: TreeID,
-    ) -> Res<(String, Vec<Span>, Vec<(TreeID, usize, Option<usize>)>)> {
-        let t = self.own_text(head)?.to_string();
+    ) -> Res<(Rc<Story>, Vec<(TreeID, usize, Option<usize>)>)> {
+        let text = self.own_text(head)?.to_string();
         let v = serde_json::to_value(self.meta(head).get_deep_value()).map_err(err)?;
         let palette = self.palette();
         let modes = self.active_modes(head);
@@ -94,19 +105,43 @@ impl Doc {
             modes: &modes,
         };
         let spans = self.spans(head, &v, &s);
-        let mut out = Vec::new();
-        let mut from = Some(0);
-        for f in self.thread(head) {
-            let start = from.unwrap_or(t.len());
-            let next = from.and_then(|b| {
-                let tf = self.text_frame_of(f);
-                let frame = self.bounds(f).map(|v| v as f32);
-                text::overflow(&t, &spans, frame, &tf, b)
-            });
-            out.push((f, start, next));
-            from = next;
+        let frames: Vec<_> = self
+            .thread(head)
+            .into_iter()
+            .map(|f| (f, self.bounds(f).map(|v| v as f32), self.text_frame_of(f)))
+            .collect();
+        let fonts = text::fonts_added();
+        let set = |t: &str, spans: &[Span]| {
+            let mut out = Vec::new();
+            let mut from = Some(0);
+            for (f, frame, tf) in &frames {
+                let start = from.unwrap_or(t.len());
+                let next = from.and_then(|b| text::overflow(t, spans, *frame, tf, b));
+                out.push((*f, start, next));
+                from = next;
+            }
+            out
+        };
+        if let Some(s) = self.sets.borrow().get(&head).filter(|s| {
+            s.story.text == text && s.story.spans == spans && s.frames == frames && s.fonts == fonts
+        }) {
+            debug_assert_eq!(
+                s.out,
+                set(&text, &spans),
+                "a story set from the same inputs changed"
+            );
+            return Ok((s.story.clone(), s.out.clone()));
         }
-        Ok((t, spans, out))
+        let out = set(&text, &spans);
+        let story = Rc::new(Story { text, spans });
+        let s = Set {
+            story: story.clone(),
+            frames,
+            fonts,
+            out: out.clone(),
+        };
+        self.sets.borrow_mut().insert(head, s);
+        Ok((story, out))
     }
 
     /// The frame of the thread of `n` that holds the byte `at`: the last one that
@@ -406,13 +441,14 @@ impl Doc {
         if vertical != Size::Hug || self.next_of(id).is_some() {
             return Ok(());
         }
-        let (t, spans, flows) = self.flow(self.story(id))?;
+        let (story, flows) = self.flow(self.story(id))?;
+        let (t, spans) = (&story.text, &story.spans);
         let from = flows.iter().find(|f| f.0 == id).map_or(0, |f| f.1);
         let tf = self.text_frame_of(id);
         let old = self.bounds(id);
         let [x, y, w, _] = old;
         let auto_width = horizontal == Size::Hug;
-        let [nw, nh] = text::measure(&t, &spans, &tf, (!auto_width).then_some(w as f32), from);
+        let [nw, nh] = text::measure(t, spans, &tf, (!auto_width).then_some(w as f32), from);
         let new = [x, y, if auto_width { nw.into() } else { w }, nh.into()];
         if new != old {
             self.set_frame(id, new)?;
@@ -444,12 +480,16 @@ impl Doc {
                 prev.insert(x, n);
             }
         }
+        let heads: Vec<TreeID> = texts
+            .into_iter()
+            .filter(|n| !prev.contains_key(n))
+            .collect();
+        self.sets.borrow_mut().retain(|h, _| heads.contains(h));
         let mut out = HashMap::new();
-        for &head in texts.iter().filter(|n| !prev.contains_key(n)) {
-            let Ok((text, spans, frames)) = self.flow(head) else {
+        for head in heads {
+            let Ok((story, frames)) = self.flow(head) else {
                 continue;
             };
-            let story = Rc::new(Story { text, spans });
             for (i, &(f, start, next)) in frames.iter().enumerate() {
                 out.insert(
                     f,
@@ -691,6 +731,16 @@ impl Doc {
 mod tests {
     use super::*;
     use crate::doc::tests::*;
+
+    #[test]
+    fn the_kept_flows_are_those_set_afresh() {
+        random_commands(2, 300, |d| {
+            let kept = d.sets.take();
+            let fresh = d.flow_all();
+            d.sets.replace(kept);
+            assert_eq!(*d.flows(), fresh);
+        });
+    }
 
     #[test]
     fn set_text_changes_text() {

@@ -77,6 +77,11 @@ pub fn font_bytes(id: u32) -> Rc<[u8]> {
     FONTS.with_borrow(|f| f.get((id & !MISSING) as usize).unwrap_or(&f[0]).1.clone())
 }
 
+/// The number of fonts, which only grows.
+pub fn fonts_added() -> usize {
+    FONTS.with_borrow(|f| f.len())
+}
+
 /// The fonts text can be set in.
 pub fn fonts() -> Vec<Typeface> {
     FONTS.with_borrow(|f| f.iter().map(|(t, _)| t.clone()).collect())
