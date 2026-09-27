@@ -1,4 +1,4 @@
-import { Engine, typeface } from './engine/engine'
+import { typeface } from './engine/engine'
 import type { Editor } from './editor'
 import type { Typeface } from './model'
 
@@ -119,7 +119,7 @@ export async function save(editor: Editor, as: boolean) {
   editor.saved({ name: handle.name, handle }, version)
 }
 
-const discard = (editor: Editor) => !editor.dirty || confirm(`Discard unsaved changes to ${editor.file.name}?`)
+export const discard = (editor: Editor) => !editor.dirty || confirm(`Discard unsaved changes to ${editor.file.name}?`)
 
 /** Asks for a file and opens it in place of the document; `say` tells why it could not. */
 export async function open(editor: Editor, say: (message: string) => void) {
@@ -202,12 +202,4 @@ export async function findFonts(editor: Editor, say: (message: string) => void) 
     found++
   }
   say(`Found ${found} of ${missing.length} missing fonts on this computer.${found < missing.length ? ' Add the others with Add font.' : ''}`)
-}
-
-/** Starts over with the sample document. */
-export function start(editor: Editor) {
-  if (!discard(editor)) return
-  const fresh = new Engine()
-  editor.load(fresh.save())
-  fresh.free()
 }

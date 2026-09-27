@@ -4,12 +4,14 @@ import { fitView, type Sheet } from '../src/renderer'
 
 export const MM = 72 / 25.4
 
-/** Opens the app; a spread fits at the zoom of a single page in a window 2000 px wide. */
+/** Opens the app with a canvas of `width` − 496 × 1100 px; a spread fits at the zoom of a single page at 2000. */
 export async function open(page: Page, width = 1400) {
   // Playwright turns on catching file choosers without waiting; a chooser opened right after may still get past it.
   page.on('filechooser', () => {})
-  await page.setViewportSize({ width, height: 1100 })
+  await page.setViewportSize({ width: width + 48, height: 1160 })
   await page.goto('')
+  await page.getByRole('dialog', { name: 'New document' }).getByRole('button', { name: 'Sample' }).click()
+  await page.mouse.move(0, 0)
   await expect(page.getByLabel('Zoom')).not.toHaveText('0%')
 }
 
@@ -107,3 +109,6 @@ export async function frameOnNewPage(page: Page, box: number[]) {
   await page.keyboard.press('t')
   await drag(page, await screen(page, box[0], box[1]), await screen(page, box[2], box[3]))
 }
+
+/** Whether the colour `p` is within 24 of `q` in each channel. */
+export const near = ([r, g, b]: number[], [R, G, B]: number[]) => Math.max(Math.abs(r - R), Math.abs(g - G), Math.abs(b - B)) <= 24

@@ -81,12 +81,16 @@ test('a file that is not a Satz document is not opened and says why', async ({ p
 
 test('new asks before it discards changes and then starts over', async ({ page }) => {
   await addPage(page, 2)
+  const sample = page.getByRole('dialog', { name: 'New document' }).getByRole('button', { name: 'Sample' })
   page.once('dialog', (d) => d.dismiss())
   await page.keyboard.press('Control+Alt+n')
+  await sample.click()
+  await page.keyboard.press('Escape')
   await drawn(page)
   await expect(row(page, 2)).toBeVisible()
   page.once('dialog', (d) => d.accept())
   await page.keyboard.press('Control+Alt+n')
+  await sample.click()
   await expect(pages(page).getByRole('button', { name: /^Page \d$/ })).toHaveCount(1)
   await expect(page).toHaveTitle('Untitled.satz — Satz')
 })

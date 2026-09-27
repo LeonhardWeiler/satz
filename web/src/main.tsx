@@ -34,14 +34,16 @@ if (!document.createElement('canvas').getContext('webgl2')) {
     const engine = new Engine()
     for (const bytes of fonts) engine.addFont(bytes)
     const editor = new Editor(engine)
+    let first = !saved
     try {
       if (saved) editor.load(saved.bytes, { name: saved.name, handle: saved.handle }, saved.dirty)
     } catch (e) {
       editor.status = `Could not restore ${saved!.name}: ${(e as Error).message}. Satz started a new document.`
+      first = true
     }
     root.render(
       <StrictMode>
-        <App ck={ck} editor={editor} />
+        <App ck={ck} editor={editor} first={first} />
       </StrictMode>,
     )
   } catch (e) {
