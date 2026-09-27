@@ -75,6 +75,33 @@ export function download(bytes: Uint8Array, name: string, type: string) {
   URL.revokeObjectURL(url)
 }
 
+let worker: Worker | undefined
+/** The fonts the worker has, the bundled one from the start. */
+let sent = 1
+
+/** The document as PDF, made in a worker that keeps the fonts it was sent for the next export. */
+export function pdf(editor: Editor) {
+  worker ??= new Worker(new URL('./exportWorker.ts', import.meta.url), { type: 'module' })
+  const w = worker
+  const n = editor.snapshot.fonts.length
+  const fonts = Array.from({ length: n - sent }, (_, i) => editor.engine.font(sent + i))
+  const doc = editor.engine.save()
+  return new Promise<Uint8Array>((done, fail) => {
+    w.onmessage = ({ data }: MessageEvent<{ pdf?: Uint8Array; error?: string }>) => {
+      if (data.error !== undefined) return fail(new Error(data.error))
+      sent = n
+      done(data.pdf!)
+    }
+    w.onerror = (e) => {
+      w.terminate()
+      worker = undefined
+      sent = 1
+      fail(new Error(e.message))
+    }
+    w.postMessage({ doc, fonts }, [doc.buffer, ...fonts.map((f) => f.buffer)])
+  })
+}
+
 /** Saves into the document's file, or into one the user picks; Firefox downloads it. */
 export async function save(editor: Editor, as: boolean) {
   const bytes = editor.engine.save()

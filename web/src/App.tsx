@@ -1,8 +1,8 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import type { CanvasKit } from 'canvaskit-wasm'
 import { Canvas, isTyping } from './Canvas'
 import { useEditor, type Editor } from './editor'
-import { autosave, download, open, placeImages, save, start } from './file'
+import { autosave, download, open, pdf, placeImages, save, start } from './file'
 import { handleKey } from './keys'
 import { Layers } from './Layers'
 import { Pages } from './Pages'
@@ -17,10 +17,22 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   const dirty = useEditor(editor, (e) => e.dirty)
   const name = useEditor(editor, (e) => e.file.name)
 
+  const [exporting, setExporting] = useState(false)
+
   const exportPdf = () => {
-    download(editor.engine.pdf(), 'satz.pdf', 'application/pdf')
+    if (exporting) return
     const issues = editor.snapshot.preflight.length
-    if (issues) say(`Exported with ${issues} preflight ${issues === 1 ? 'issue' : 'issues'}. See Preflight.`)
+    setExporting(true)
+    say('Exporting PDF…')
+    pdf(editor)
+      .then(
+        (bytes) => {
+          download(bytes, 'satz.pdf', 'application/pdf')
+          say(issues ? `Exported with ${issues} preflight ${issues === 1 ? 'issue' : 'issues'}. See Preflight.` : '')
+        },
+        (e: Error) => say(`Could not export the PDF: ${e.message}. Reload the page and try again.`),
+      )
+      .finally(() => setExporting(false))
   }
   const saveFile = (as: boolean) => {
     say('Saving…')
@@ -65,7 +77,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         <Preflight editor={editor} />
       </div>
       <Canvas ck={ck} editor={editor} />
-      <Properties editor={editor} onExport={exportPdf} say={say} />
+      <Properties editor={editor} onExport={exportPdf} exporting={exporting} say={say} />
       <Toolbar editor={editor} onPlaceImage={() => placeImages(editor, say)} />
       <p className="status" role="status">
         {status}

@@ -26,7 +26,17 @@ const SIZES: Record<Size, string> = { fixed: 'Fixed', hug: 'Hug', fill: 'Fill' }
 const VERTICAL: Record<Constraint, string> = { min: 'Top', max: 'Bottom', stretch: 'Top & bottom', center: 'Center', scale: 'Scale' }
 const solid = (color: Color): Fill => ({ type: 'solid', color, stops: [], transform: [1, 0, 0, 1, 0, 0], visible: true })
 
-export function Properties({ editor, onExport, say }: { editor: Editor; onExport: () => void; say: (message: string) => void }) {
+export function Properties({
+  editor,
+  onExport,
+  exporting,
+  say,
+}: {
+  editor: Editor
+  onExport: () => void
+  exporting: boolean
+  say: (message: string) => void
+}) {
   const page = useEditor(editor, (e) => e.page)
   const isPage = useEditor(editor, (e) => e.snapshot.pages.includes(e.page))
   const rasterPpi = useEditor(editor, (e) => e.snapshot.rasterPpi)
@@ -88,7 +98,7 @@ export function Properties({ editor, onExport, say }: { editor: Editor; onExport
     >
       <header className="panel-header">
         <h2>{one ? one.name : nodes.length ? `${nodes.length} layers` : isPage ? 'Page' : page.name}</h2>
-        <button type="button" className="primary" onClick={onExport} title="Export PDF (Ctrl+Shift+E)">
+        <button type="button" className="primary" onClick={onExport} disabled={exporting} title="Export PDF (Ctrl+Shift+E)">
           Export PDF
         </button>
       </header>

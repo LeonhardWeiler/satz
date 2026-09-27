@@ -51,7 +51,7 @@ fn pages(n: usize) -> (Doc, Vec<String>, Vec<String>) {
 #[test]
 #[ignore]
 fn bench() {
-    println!("pages  set_frame  keystroke  render  hit    pdf  (median, ms)");
+    println!("pages  set_frame  keystroke  render  hit    save   pdf  (median, ms)");
     for n in [1, 8, 32] {
         let (mut d, ids, frames) = pages(n);
         let rect = page(&d).children[0].id.clone();
@@ -80,11 +80,14 @@ fn bench() {
         let hit = median(21, || {
             d.hit(&ids[0], 60.0, 100.0, 1.0);
         });
+        let save = median(21, || {
+            d.save();
+        });
         let pdf = median(3, || {
             d.pdf();
         });
-        let [a, b, c, e, f] =
-            [set_frame, keystroke, render, hit, pdf].map(|t| t.as_secs_f64() * 1e3);
-        println!("{n:<6} {a:<10.2} {b:<10.2} {c:<7.2} {e:<6.2} {f:.0}");
+        let [a, b, c, e, g, f] =
+            [set_frame, keystroke, render, hit, save, pdf].map(|t| t.as_secs_f64() * 1e3);
+        println!("{n:<6} {a:<10.2} {b:<10.2} {c:<7.2} {e:<6.2} {g:<6.2} {f:.0}");
     }
 }

@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
 import { PNG } from 'pngjs'
 import { fitView, type Sheet } from '../src/renderer'
-import { STORY, drag, drawn, frameOnNewPage, open, place, png, port, screen } from './util'
+import { STORY, drag, drawn, frameOnNewPage, open, pixels, place, png, port, screen } from './util'
 
 const EDGE = 4
 const BLOCK = 4
@@ -448,4 +448,31 @@ test('every page of the example booklet exports as the canvas shows it', async (
     await page.mouse.move(1, 1)
     for (const n of spread) await expectCanvasMatchesPdf(page, n, spread, pdf, MAX_SHARE_DARK)
   }
+})
+
+test('the canvas still draws while the pdf is exported', async ({ page }) => {
+  await open(page)
+  let release!: () => void
+  const held = new Promise<void>((done) => (release = done))
+  await page.route('**/engine_bg*.wasm', async (route) => {
+    await held
+    await route.continue()
+  })
+  const button = page.getByRole('button', { name: 'Export PDF' })
+  const download = page.waitForEvent('download')
+  await button.click()
+  await expect(button).toBeDisabled()
+  await expect(page.getByText('Exporting PDF…')).toBeVisible()
+
+  const [x, y] = await screen(page, 23, 52)
+  const accent = async () => (await pixels(page, x - 1, y - 3, 3, 7)).some(([r, g, b]) => r < 40 && g > 130 && b > 230)
+  await page.mouse.move(x, y - 20)
+  expect(await accent()).toBe(false)
+  await page.keyboard.down('Control')
+  expect(await accent()).toBe(true)
+  await page.keyboard.up('Control')
+
+  release()
+  await download
+  await expect(button).toBeEnabled()
 })
