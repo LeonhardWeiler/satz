@@ -164,6 +164,25 @@ pub fn bounds(path: &[f32]) -> [f32; 4] {
     [b[0], b[1], b[2] - b[0], b[3] - b[1]]
 }
 
+/// Whether `path` is well formed: finite points, each subpath opened by a move.
+pub fn valid(path: &[f32]) -> bool {
+    let mut i = 0;
+    while i < path.len() {
+        let n = match path[i] {
+            MOVE => 2,
+            LINE if i > 0 => 2,
+            CUBIC if i > 0 => 6,
+            CLOSE if i > 0 => 0,
+            _ => return false,
+        };
+        match path.get(i + 1..i + 1 + n) {
+            Some(p) if p.iter().all(|v| v.is_finite()) => i += 1 + n,
+            _ => return false,
+        }
+    }
+    true
+}
+
 /// Applies `f` to every point of a path.
 pub fn map(path: &[f32], f: impl Fn([f32; 2]) -> [f32; 2]) -> Vec<f32> {
     let mut out = Vec::with_capacity(path.len());

@@ -1,7 +1,7 @@
 use crate::color::Ink;
 use crate::color::{Color, ColorMode, Swatch};
 use crate::display_list::{CLOSE, LINE, MOVE, Op, Paint, rect, shift};
-use crate::geom::{Shape, bounds, contains, fit, near, outline};
+use crate::geom::{self, Shape, bounds, contains, fit, near, outline};
 use crate::image::{self, ImageInfo};
 use crate::layout::{Align3, Direction, Layout, MainAlign, Size, Sizing, arrange};
 use crate::style::{
@@ -379,15 +379,26 @@ impl Props {
         within(self.gutter, 0.0, f64::MAX, "gutter")?;
         within(self.baseline_grid, 0.0, f64::MAX, "baseline grid")?;
         within(self.baseline_start, 0.0, f64::MAX, "baseline start")?;
+        within(self.gap, f64::MIN, f64::MAX, "gap")?;
         for e in self.effects.iter().flatten() {
             within(Some(e.radius.into()), 0.0, f64::MAX, "blur")?;
+            for v in [e.x, e.y] {
+                within(f(Some(v)), f64::MIN, f64::MAX, "effect offset")?;
+            }
             e.color.check()?;
         }
         for f in self.fills.iter().chain(&self.strokes).flatten() {
             f.color.check()?;
+            if !f.transform.iter().all(|v| v.is_finite()) {
+                return Err("paint transforms must be finite".into());
+            }
             for s in &f.stops {
+                within(Some(s.at.into()), 0.0, 1.0, "stop")?;
                 s.color.check()?;
             }
+        }
+        if self.path.as_ref().is_some_and(|p| !geom::valid(p)) {
+            return Err("not a path".into());
         }
         Ok(())
     }
@@ -1041,7 +1052,18 @@ impl Doc {
     pub fn apply(&mut self, cmd: Command) -> Res<Vec<String>> {
         self.flows.take();
         let history = matches!(cmd, Command::Undo | Command::Redo);
-        let out = match cmd {
+        let out = self.run(cmd);
+        debug_assert!(
+            out.is_ok() || self.doc.get_pending_txn_len() == 0,
+            "a command wrote before it failed"
+        );
+        self.finish(out?, history)
+    }
+
+    /// Carries out a command; it checks everything before it writes, so that one that
+    /// fails leaves the document as it was.
+    fn run(&mut self, cmd: Command) -> Res<Vec<String>> {
+        Ok(match cmd {
             Command::Create {
                 parent,
                 kind,
@@ -1083,7 +1105,8 @@ impl Doc {
                 h,
                 ignore_constraints,
             } => {
-                let id = self.node(&id)?;
+                let id = self.layer(&id)?;
+                check_frame([x, y, w, h])?;
                 let [.., ow, oh] = self.bounds(id);
                 self.unbind(id, |p| p == "w" && w != ow || p == "h" && h != oh)?;
                 let old = self.layout(id).sizing;
@@ -1262,7 +1285,6 @@ impl Doc {
                     }
                 }
                 let set = serde_json::to_value(&props).map_err(err)?;
-                self.unbind(id, |p| !set[p].is_null())?;
                 // Text that hugs its width hugs its height: choosing hug for the width
                 // makes it auto width, a fixed height makes it fixed.
                 if let Some(s) = props.sizing.as_mut().filter(|s| {
@@ -1275,10 +1297,14 @@ impl Doc {
                     }
                 }
                 self.set(id, props)?;
+                self.unbind(id, |p| !set[p].is_null())?;
                 vec![]
             }
             Command::SetPath { id, path } => {
-                let id = self.node(&id)?;
+                let id = self.layer(&id)?;
+                if !geom::valid(&path) {
+                    return Err("not a path".into());
+                }
                 self.set(
                     id,
                     Props {
@@ -1394,10 +1420,7 @@ impl Doc {
                 vec![f.to_string()]
             }
             Command::Move { ids, parent, index } => {
-                let p = self.node(&parent)?;
-                if !matches!(self.kind(p).as_str(), "page" | "master" | "group" | "frame") {
-                    return Err("not a container".into());
-                }
+                let p = self.container(&parent)?;
                 let ids = self.sorted(&ids)?;
                 let mut up = Some(p);
                 while let Some(n) = up {
@@ -1482,6 +1505,9 @@ impl Doc {
                 color_mode,
                 facing_pages,
             } => {
+                if raster_ppi.is_some_and(|ppi| !(72.0..=1200.0).contains(&ppi)) {
+                    return Err("raster ppi must be in 72..=1200".into());
+                }
                 let m = self.doc.get_map("document");
                 match facing_pages {
                     Some(true) if !self.facing_pages() => {
@@ -1495,9 +1521,6 @@ impl Doc {
                     _ => {}
                 }
                 if let Some(ppi) = raster_ppi {
-                    if !(72.0..=1200.0).contains(&ppi) {
-                        return Err("raster ppi must be in 72..=1200".into());
-                    }
                     m.insert("rasterPpi", ppi).map_err(err)?;
                 }
                 if let Some(mode) = color_mode {
@@ -1589,6 +1612,9 @@ impl Doc {
             }
             Command::DeleteMode { collection, id } => {
                 let (i, mut c) = self.find::<Collection>("collections", &collection)?;
+                if !c.modes.iter().any(|m| m.id == id) {
+                    return Err(format!("no mode {id}"));
+                }
                 if c.modes.len() == 1 {
                     return Err("a collection keeps one mode".into());
                 }
@@ -1709,7 +1735,7 @@ impl Doc {
                         None => s.bindings.remove(&prop),
                     };
                     self.put("textStyles", Some(i), s)?;
-                    return self.finish(vec![], false);
+                    return Ok(vec![]);
                 }
                 let n = self.node(&id)?;
                 let n = if prop == "size" { self.story(n) } else { n };
@@ -1830,13 +1856,16 @@ impl Doc {
                 bleed,
             } => {
                 let m = self.meta(self.sheet(&id)?);
-                for (k, v) in [("width", width), ("height", height), ("bleed", bleed)] {
-                    match v {
-                        Some(v) if !(v >= 0.0 && v.is_finite()) => {
-                            return Err(format!("{k} must not be negative"));
-                        }
-                        Some(v) => m.insert(k, v).map_err(err)?,
-                        None => {}
+                let sizes = [("width", width), ("height", height), ("bleed", bleed)];
+                if let Some((k, _)) = sizes
+                    .iter()
+                    .find(|(_, v)| v.is_some_and(|v| !(v >= 0.0 && v.is_finite())))
+                {
+                    return Err(format!("{k} must not be negative"));
+                }
+                for (k, v) in sizes {
+                    if let Some(v) = v {
+                        m.insert(k, v).map_err(err)?;
                     }
                 }
                 vec![]
@@ -1944,6 +1973,11 @@ impl Doc {
                 vec![copy.to_string()]
             }
             Command::ResetToMaster { ids } => {
+                for id in &ids {
+                    if self.page(id).is_err() && self.override_of(self.node(id)?).is_none() {
+                        return Err(format!("{id} overrides no master layer"));
+                    }
+                }
                 for id in ids {
                     if let Ok(p) = self.page(&id) {
                         let copies: Vec<TreeID> = self
@@ -1957,13 +1991,9 @@ impl Doc {
                         self.meta(p).delete("detached").map_err(err)?;
                         continue;
                     }
-                    let c = self.node(&id)?;
-                    let Some(of) = value(&self.meta(c), "overrideOf")
-                        .and_then(|v| v.into_string().ok())
-                        .map(|s| s.to_string())
-                    else {
-                        return Err(format!("{id} overrides no master layer"));
-                    };
+                    // Gone with its page earlier in the list.
+                    let Ok(c) = self.node(&id) else { continue };
+                    let of = self.override_of(c).unwrap_or_default();
                     let p = self.root(c);
                     self.remove(c)?;
                     let mut detached = self.detached(p);
@@ -2033,13 +2063,13 @@ impl Doc {
                 }
                 vec![]
             }
-        };
-        self.finish(out, history)
+        })
     }
 
     /// Adds a layer of the kind `kind` with Figma's defaults on top of `parent`.
     fn create(&self, parent: &str, kind: NewKind, frame: [f64; 4]) -> Res<TreeID> {
-        let p = self.node(parent)?;
+        let p = self.container(parent)?;
+        check_frame(frame)?;
         let id = self.tree.create(p).map_err(err)?;
         let m = self.meta(id);
         let mode = self.color_mode();
@@ -3427,9 +3457,7 @@ impl Doc {
     }
 
     fn resize(&self, id: TreeID, [x, y, w, h]: [f64; 4], follow: bool) -> Res<()> {
-        if !(w >= 0.0 && h >= 0.0) {
-            return Err("width and height must not be negative".into());
-        }
+        check_frame([x, y, w, h])?;
         let [least_w, least_h] = self.least_size(id);
         let (w, h) = (w.max(least_w), h.max(least_h));
         let [ox, oy, ow, oh] = self.bounds(id);
@@ -3678,6 +3706,13 @@ impl Doc {
         self.master(&v.into_string().ok()?).ok()
     }
 
+    /// The master layer that the page layer `id` overrides.
+    fn override_of(&self, id: TreeID) -> Option<String> {
+        value(&self.meta(id), "overrideOf")
+            .and_then(|v| v.into_string().ok())
+            .map(|s| s.to_string())
+    }
+
     fn detached(&self, p: TreeID) -> Vec<String> {
         value(&self.meta(p), "detached")
             .and_then(|v| serde_json::from_value(serde_json::to_value(v).ok()?).ok())
@@ -3705,8 +3740,26 @@ impl Doc {
         Err(format!("no node {id}"))
     }
 
+    /// A node that is not a page or master.
+    fn layer(&self, id: &str) -> Res<TreeID> {
+        let n = self.node(id)?;
+        match self.tree.parent(n) {
+            Some(TreeParentId::Node(_)) => Ok(n),
+            _ => Err(format!("{id} is not a layer")),
+        }
+    }
+
+    /// A node that holds layers.
+    fn container(&self, id: &str) -> Res<TreeID> {
+        let n = self.node(id)?;
+        match self.kind(n).as_str() {
+            "page" | "master" | "group" | "frame" => Ok(n),
+            _ => Err("not a container".into()),
+        }
+    }
+
     fn nodes(&self, ids: &[String]) -> Res<Vec<TreeID>> {
-        ids.iter().map(|id| self.node(id)).collect()
+        ids.iter().map(|id| self.layer(id)).collect()
     }
 
     fn sorted(&self, ids: &[String]) -> Res<Vec<TreeID>> {
@@ -4189,6 +4242,16 @@ fn check_value(v: &Value) -> Res<()> {
         Value::Number(n) if !n.is_finite() => Err("numbers must be finite".into()),
         Value::Number(_) => Ok(()),
     }
+}
+
+fn check_frame([x, y, w, h]: [f64; 4]) -> Res<()> {
+    if ![x, y, w, h].iter().all(|v| v.is_finite()) {
+        return Err("frames must be finite".into());
+    }
+    if !(w >= 0.0 && h >= 0.0) {
+        return Err("width and height must not be negative".into());
+    }
+    Ok(())
 }
 
 fn err(e: impl Display) -> String {
@@ -5015,6 +5078,152 @@ mod tests {
         assert!(set_frame(&mut d, 1.0, -1.0).is_err());
         set_frame(&mut d, 10.0, 0.0).unwrap();
         assert_eq!(frame(&page(&d).children[0]), [-5.0, 0.0, 10.0, 0.01 * MM]);
+    }
+
+    #[test]
+    fn a_command_that_fails_leaves_the_document_as_it_was() {
+        let (mut d, p) = empty();
+        let r = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
+        let f = create(&mut d, &p, NewKind::Frame, [20.0, 0.0, 10.0, 10.0]);
+        let t = create(&mut d, &p, NewKind::Text, [0.0, 40.0, 0.0, 0.0]);
+        let (c, _) = collection(&mut d, "Numbers");
+        let v = variable(&mut d, &c, "Half", Value::Number(50.0)).unwrap();
+        bind(&mut d, &r, "opacity", Some(&v)).unwrap();
+        let m = add_master(&mut d);
+        let mr = create(&mut d, &m, NewKind::Rect, [0.0; 4]);
+        use_master(&mut d, &p, Some(&m)).unwrap();
+        let copy = d
+            .apply(Command::Override {
+                page: p.clone(),
+                id: mr,
+            })
+            .unwrap()
+            .remove(0);
+        let set = |id: &str, props| Command::Set {
+            id: id.into(),
+            props,
+        };
+        let frame = |id: &str, [x, y, w, h]: [f64; 4]| Command::SetFrame {
+            id: id.into(),
+            x,
+            y,
+            w,
+            h,
+            ignore_constraints: false,
+        };
+        let new = |parent: &str, [x, y, w, h]: [f64; 4]| Command::Create {
+            parent: parent.into(),
+            kind: NewKind::Rect,
+            x,
+            y,
+            w,
+            h,
+        };
+        let path = |path: Vec<f32>| Command::SetPath {
+            id: r.clone(),
+            path,
+        };
+        let fill = |fill: Fill| {
+            set(
+                &r,
+                Props {
+                    fills: Some(vec![fill]),
+                    ..Props::default()
+                },
+            )
+        };
+        let bad = [
+            set(
+                &r,
+                Props {
+                    opacity: Some(2.0),
+                    ..Props::default()
+                },
+            ),
+            set(
+                &f,
+                Props {
+                    gap: Some(f64::NAN),
+                    ..Props::default()
+                },
+            ),
+            set(
+                &r,
+                Props {
+                    effects: Some(vec![Effect {
+                        x: f32::INFINITY,
+                        ..Effect::default()
+                    }]),
+                    ..Props::default()
+                },
+            ),
+            fill(Fill {
+                transform: [f32::NAN, 0.0, 0.0, 1.0, 0.0, 0.0],
+                ..Fill::default()
+            }),
+            fill(Fill {
+                stops: vec![FillStop {
+                    at: 2.0,
+                    color: Color::Rgb(BLACK),
+                }],
+                ..Fill::default()
+            }),
+            new(&p, [0.0, 0.0, -1.0, 1.0]),
+            new(&p, [f64::NAN, 0.0, 1.0, 1.0]),
+            new(&r, [0.0, 0.0, 1.0, 1.0]),
+            frame(&r, [f64::NAN, 0.0, 10.0, 10.0]),
+            frame(&r, [0.0, f64::INFINITY, 10.0, 10.0]),
+            frame(&p, [0.0, 0.0, 10.0, 10.0]),
+            path(vec![LINE, 1.0, 1.0]),
+            path(vec![MOVE, f32::NAN, 0.0]),
+            path(vec![MOVE, 0.0]),
+            Command::SetDocument {
+                raster_ppi: Some(5000.0),
+                color_mode: None,
+                facing_pages: Some(true),
+            },
+            Command::SetPage {
+                id: p.clone(),
+                width: Some(100.0),
+                height: Some(-1.0),
+                bleed: None,
+            },
+            Command::ResetToMaster {
+                ids: vec![copy, r.clone()],
+            },
+            Command::Delete {
+                ids: vec![r.clone(), p.clone()],
+            },
+            Command::Format {
+                id: t.clone(),
+                range: None,
+                props: sized(f64::NAN),
+            },
+            Command::AddTextStyle {
+                name: "Body".into(),
+                size: f64::INFINITY,
+                line_height: 0.0,
+                letter_spacing: 0.0,
+                paragraph_spacing: 0.0,
+            },
+            Command::DeleteMode {
+                collection: c.clone(),
+                id: "none".into(),
+            },
+            Command::SetVariable {
+                id: v.clone(),
+                name: None,
+                mode: None,
+                value: Some(Value::Number(f64::NAN)),
+            },
+        ];
+        let before = d.snapshot();
+        for cmd in bad {
+            let what = format!("{cmd:?}");
+            assert!(d.apply(cmd).is_err(), "{what}");
+            assert_eq!(d.doc.get_pending_txn_len(), 0, "{what}");
+            assert!(d.snapshot() == before, "{what}");
+        }
     }
 
     #[test]
