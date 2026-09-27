@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
 import { PNG } from 'pngjs'
 import { fitView, type Sheet } from '../src/renderer'
-import { STORY, drag, drawn, frameOnNewPage, near, open, pixels, place, png, port, screen } from './util'
+import { STORY, addMaster, addPage, drag, drawn, frameOnNewPage, near, open, pixels, place, png, port, screen, showPage } from './util'
 
 const EDGE = 4
 const BLOCK = 4
@@ -340,7 +340,7 @@ test('formatted text matches the canvas', async ({ page }) => {
 
 test('every page is exported and the second one matches the canvas', async ({ page }) => {
   await open(page)
-  await page.getByRole('navigation', { name: 'Pages' }).getByRole('button', { name: 'Add page' }).click()
+  await addPage(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
   for (const [name, value] of [['W in mm', '120'], ['H in mm', '160'], ['Bleed in mm', '5']]) {
     await panel.getByRole('textbox', { name }).fill(value)
@@ -358,8 +358,7 @@ test('every page is exported and the second one matches the canvas', async ({ pa
 
 test('a master drawn under a page matches the canvas', async ({ page }) => {
   await open(page)
-  const pages = page.getByRole('navigation', { name: 'Pages' })
-  await pages.getByRole('button', { name: 'Add master' }).click()
+  await addMaster(page)
   const canvas = (await page.getByLabel('Page canvas').boundingBox())!
   const at = (fx: number, fy: number) => [canvas.x + canvas.width * fx, canvas.y + canvas.height * fy] as const
   await page.keyboard.press('o')
@@ -367,7 +366,7 @@ test('a master drawn under a page matches the canvas', async ({ page }) => {
   await page.mouse.down()
   await page.mouse.move(...at(0.8, 0.95), { steps: 4 })
   await page.mouse.up()
-  await pages.getByRole('button', { name: 'Page 1', exact: true }).click()
+  await showPage(page, 1)
   await page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Master' }).selectOption('A-Master')
   await page.mouse.move(1, 1)
   await expectCanvasMatchesPdf(page)
@@ -380,7 +379,7 @@ test('text threaded across two pages matches the canvas and reads as one story',
   await page.keyboard.type(STORY)
   await page.keyboard.press('Escape')
   await page.mouse.click(...(await port(page, a, true)))
-  await page.getByRole('navigation', { name: 'Pages' }).getByRole('button', { name: 'Add page' }).click()
+  await addPage(page)
   await page.mouse.click(...(await screen(page, 30, 100)))
   await page.keyboard.press('Escape')
   await page.keyboard.press('Escape')
@@ -392,12 +391,11 @@ test('text threaded across two pages matches the canvas and reads as one story',
 
 test('a layer across the spine prints on both pages of its spread and matches the canvas', async ({ page }) => {
   await open(page, 2000)
-  const pages = page.getByRole('navigation', { name: 'Pages' })
-  await pages.getByRole('button', { name: 'Add page' }).click()
-  await pages.getByRole('button', { name: 'Add page' }).click()
+  await addPage(page)
+  await addPage(page)
   await page.keyboard.press('o')
   await drag(page, await screen(page, 110, 60, 0), await screen(page, 40, 110))
-  await pages.getByRole('button', { name: 'Page 2', exact: true }).click()
+  await showPage(page, 2)
   await expect(page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Ellipse', exact: true })).toHaveCount(1)
   await page.keyboard.press('Escape')
   await page.mouse.move(1, 1)
@@ -408,15 +406,14 @@ test('a layer across the spine prints on both pages of its spread and matches th
 
 test('the pages of a spread show their sides of a master spread and match the canvas', async ({ page }) => {
   await open(page, 2000)
-  const pages = page.getByRole('navigation', { name: 'Pages' })
   const panel = page.getByRole('complementary', { name: 'Properties' })
-  await pages.getByRole('button', { name: 'Add master' }).click()
+  await addMaster(page)
   await page.keyboard.press('o')
   await drag(page, await screen(page, 110, 150, 0), await screen(page, 40, 200))
   await page.keyboard.press('r')
   await drag(page, await screen(page, 10, 10, 0), await screen(page, 40, 25, 0))
   for (let i = 0; i < 2; i++) {
-    await pages.getByRole('button', { name: 'Add page' }).click()
+    await addPage(page)
     await panel.getByRole('combobox', { name: 'Master' }).selectOption('A-Master')
   }
   await page.mouse.move(1, 1)
@@ -444,7 +441,7 @@ test('every page of the example booklet exports as the canvas shows it', async (
   const pdf = await exportPdf(page)
   expect(execFileSync('mutool', ['pages', pdf]).toString().match(/<page /g)).toHaveLength(8)
   for (const spread of [[1], [2, 3], [4, 5], [6, 7], [8]]) {
-    await page.getByRole('navigation', { name: 'Pages' }).getByRole('button', { name: `Page ${spread[0]}`, exact: true }).click()
+    await showPage(page, spread[0])
     await page.mouse.move(1, 1)
     for (const n of spread) await expectCanvasMatchesPdf(page, n, spread, pdf, MAX_SHARE_DARK)
   }

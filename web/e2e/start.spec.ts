@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { open } from './util'
+import { open, pageCount } from './util'
 
 const start = (page: Page) => page.getByRole('dialog', { name: 'New document' })
 const spreads = (page: Page) => page.getByRole('navigation', { name: 'Spreads' })
@@ -10,7 +10,7 @@ test('the start screen shows without an autosave and escape opens the booklet', 
   await page.keyboard.press('Escape')
   await expect(start(page)).toHaveCount(0)
   await expect(page).toHaveTitle('booklet.satz — Satz')
-  await expect(page.getByRole('navigation', { name: 'Pages' }).getByRole('button', { name: /^Page \d$/ })).toHaveCount(8)
+  await pageCount(page, 8)
 })
 
 test('enter creates a document of the chosen format, orientation and pages', async ({ page }) => {

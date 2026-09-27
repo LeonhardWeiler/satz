@@ -1535,52 +1535,6 @@ kbd {
   gap: 8px;
 }
 
-.page-list {
-  flex: none;
-  max-height: 160px;
-}
-
-.page-name {
-  padding-left: 12px;
-}
-
-/* A spread: its left page in the first column, its right page in the second. */
-.spread {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-}
-
-.spread > .layer[data-side='right'] {
-  grid-column: 2;
-}
-
-.layer[data-drop='before']::before,
-.layer[data-drop='after']::before {
-  content: '';
-  position: absolute;
-  top: 2px;
-  bottom: 2px;
-  width: 2px;
-  background: var(--accent);
-}
-
-.layer[data-drop='before']::before {
-  left: -1px;
-}
-
-.layer[data-drop='after']::before {
-  right: -1px;
-}
-
-.page-name[aria-current='page'] {
-  font-weight: 600;
-}
-
-.layer:has(> .page-name[aria-current='page']) {
-  background: var(--selected);
-  color: var(--text);
-}
-
 .menu-backdrop {
   position: fixed;
   inset: 0;
@@ -1591,38 +1545,6 @@ kbd {
   color: var(--text-3);
   background: none;
   cursor: default;
-}
-
-.section-toggle {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-  margin-left: -8px;
-  padding: 0;
-  border: 0;
-  background: none;
-  cursor: pointer;
-}
-
-.section-toggle svg {
-  color: var(--text-3);
-}
-
-.section-toggle[aria-expanded='true'] svg {
-  transform: rotate(90deg);
-}
-
-.panel-header.subheader {
-  border-top: 1px solid var(--border);
-}
-
-.master-badge {
-  flex: none;
-  min-width: 16px;
-  color: var(--text-3);
-  font-variant-numeric: tabular-nums;
-  text-align: center;
 }
 
 .start[open] {
@@ -1788,4 +1710,140 @@ kbd {
 .start-options .segmented button {
   width: 32px;
   height: 24px;
+}
+
+.overview {
+  grid-area: stage;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  padding: 20px 28px;
+  overflow: auto;
+  background: var(--canvas);
+  animation: pop 0.16s var(--ease);
+}
+
+.overview h2 {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.overview h2 span {
+  font-weight: 400;
+}
+
+.ov-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 4px 4px 16px;
+  border-bottom: 1px solid var(--edge);
+}
+
+.ov-spreads {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 8px;
+  border-radius: 6px;
+  outline: none;
+}
+
+.ov-spreads:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.ov-item {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+}
+
+.ov-pages {
+  display: flex;
+}
+
+.ov-page,
+.ov-master {
+  position: relative;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+  cursor: pointer;
+}
+
+.thumb {
+  display: block;
+  background: #fff;
+}
+
+.ov-page[aria-selected='true'] {
+  z-index: 1;
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.ov-page[data-drop='before'] {
+  box-shadow: -3px 0 0 var(--magenta);
+}
+
+.ov-page[data-drop='after'] {
+  box-shadow: 3px 0 0 var(--magenta);
+}
+
+.ov-master:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.ov-item[data-current] .ov-pages,
+.ov-item[data-current] .ov-master:not(:focus-visible) {
+  outline: 1px solid var(--text-3);
+  outline-offset: 3px;
+}
+
+.ov-cap {
+  display: flex;
+  gap: 10px;
+  color: var(--text-2);
+  font-size: 11px;
+}
+
+.ov-cap b {
+  margin-left: 2px;
+  color: #ff7ac0;
+  font-weight: 600;
+}
+
+.ov-item[data-current] .ov-cap {
+  color: var(--text);
+}
+
+.ov-add {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 4px;
+  width: 90px;
+  height: 110px;
+  border: 1px dashed #5a5d62;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-2);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ov-add:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }

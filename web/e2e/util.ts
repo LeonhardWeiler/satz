@@ -105,10 +105,51 @@ export async function port(page: Page, [x0, y0, x1, y1]: number[], out: boolean,
 
 /** Adds a page and draws a fixed text frame from (x0, y0) to (x1, y1) in mm on it. */
 export async function frameOnNewPage(page: Page, box: number[]) {
-  await page.getByRole('navigation', { name: 'Pages' }).getByRole('button', { name: 'Add page' }).click()
+  await addPage(page)
   await page.keyboard.press('t')
   await drag(page, await screen(page, box[0], box[1]), await screen(page, box[2], box[3]))
 }
 
 /** Whether the colour `p` is within 24 of `q` in each channel. */
 export const near = ([r, g, b]: number[], [R, G, B]: number[]) => Math.max(Math.abs(r - R), Math.abs(g - G), Math.abs(b - B)) <= 24
+
+/** The page overview, opened by its button in the top bar if it is closed. */
+export async function overview(page: Page) {
+  const o = page.getByRole('region', { name: 'Page overview' })
+  if (!(await o.count())) await page.getByRole('button', { name: 'Page overview' }).click()
+  return o
+}
+
+/** Page `n` in the page overview, which must be open. */
+export const option = (page: Page, n: number) =>
+  page.getByRole('region', { name: 'Page overview' }).getByRole('option', { name: `Page ${n}`, exact: true })
+
+/** The button of page `n` in the spread switcher, pressed while the page is current. */
+export const current = (page: Page, n: number) =>
+  page.getByRole('navigation', { name: 'Spreads' }).getByRole('button', { name: `Page ${n}`, exact: true })
+
+/** Adds a page after the current one in the page overview and closes it. */
+export async function addPage(page: Page) {
+  const o = await overview(page)
+  await o.getByRole('button', { name: 'Add page' }).click()
+  await page.keyboard.press('.')
+  await expect(o).toHaveCount(0)
+}
+
+/** Shows page `n` by a double click in the page overview, which closes it. */
+export async function showPage(page: Page, n: number) {
+  await (await overview(page)).getByRole('option', { name: `Page ${n}`, exact: true }).dblclick()
+  await expect(page.getByRole('region', { name: 'Page overview' })).toHaveCount(0)
+}
+
+/** Adds a master in the page overview, which shows it. */
+export async function addMaster(page: Page) {
+  await (await overview(page)).getByRole('button', { name: 'New master' }).click()
+  await expect(page.getByRole('region', { name: 'Page overview' })).toHaveCount(0)
+}
+
+/** The number of pages the page overview lists; closes it again. */
+export async function pageCount(page: Page, n: number) {
+  await expect((await overview(page)).getByRole('option')).toHaveCount(n)
+  await page.keyboard.press('.')
+}

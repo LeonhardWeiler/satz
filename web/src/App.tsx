@@ -6,7 +6,7 @@ import { autosave, download, open, pdf, placeImages, save } from './file'
 import { Icon } from './icons'
 import { handleKey } from './keys'
 import { Layers } from './Layers'
-import { Pages } from './Pages'
+import { Overview } from './Overview'
 import { Preflight } from './Preflight'
 import { Properties } from './Properties'
 import { Start } from './Start'
@@ -18,6 +18,7 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
   const say = editor.say
   const dirty = useEditor(editor, (e) => e.dirty)
   const name = useEditor(editor, (e) => e.file.name)
+  const overview = useEditor(editor, (e) => e.overview !== null)
 
   const [exporting, setExporting] = useState(false)
   const [starting, setStarting] = useState(first)
@@ -69,7 +70,10 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
       else if (mod && !e.altKey && !e.shiftKey && e.code === 'KeyO') open(editor, say).catch(() => {})
       else if (mod && !e.shiftKey && e.code === 'KeyN') setStarting(true)
       else if (mod && e.shiftKey && !e.altKey && e.code === 'KeyK') placeImages(editor, say)
-      else if (isTyping(e) || !handleKey(editor, e)) return
+      else if (isTyping(e) || (e.target as Element).closest?.('.menu')) return
+      else if (e.key === '.' && !mod) editor.toggleOverview()
+      else if (editor.overview && e.key === 'Escape') editor.set({ overview: null })
+      else if ((editor.overview && !mod) || !handleKey(editor, e)) return
       e.preventDefault()
     }
     window.addEventListener('keydown', onKey)
@@ -101,7 +105,6 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
           </span>
           <h1>{name}</h1>
         </div>
-        <Pages editor={editor} />
         <Layers editor={editor} />
         <Swatches editor={editor} />
         <Preflight editor={editor} />
@@ -111,12 +114,23 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
         <span className="sep" />
         {toggle('left', 'Left panel', 'Alt+1')}
         {toggle('right', 'Right panel', 'Alt+2')}
+        <button
+          type="button"
+          className="tool toggle"
+          aria-label="Page overview"
+          title="Page overview (.)"
+          aria-pressed={overview}
+          onClick={() => editor.toggleOverview()}
+        >
+          <Icon name="pages" />
+        </button>
         <span className="grow" />
         <button type="button" className="primary" title="Export PDF (Ctrl+Shift+E)" onClick={exportPdf} disabled={exporting}>
           Export
         </button>
       </header>
       <Canvas ck={ck} editor={editor} />
+      {overview && <Overview ck={ck} editor={editor} />}
       <div className="right" inert={off('right')}>
         <Properties editor={editor} say={say} />
       </div>

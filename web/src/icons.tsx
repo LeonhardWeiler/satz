@@ -132,6 +132,7 @@ const ICONS = {
       <path d="M3 12.5h10" strokeWidth="3" />
     </>
   ),
+  pages: <path d="M2.5 2.5h4.5v5H2.5zM9 2.5h4.5v5H9zM2.5 9.5h4.5v4H2.5zM9 9.5h4.5v4H9z" />,
   master: <path d="M2.5 4.5h8v9h-8zM5.5 4.5v-2h8v9h-3" />,
   search: (
     <>

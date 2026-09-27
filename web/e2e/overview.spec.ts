@@ -1,0 +1,80 @@
+import { expect, test } from '@playwright/test'
+import { addMaster, addPage, current, open, option, overview } from './util'
+
+test('dot opens the page overview on the current page with drawn thumbnails, and dot or escape closes it', async ({ page }) => {
+  await open(page)
+  const region = page.getByRole('region', { name: 'Page overview' })
+  await page.keyboard.press('.')
+  await expect(option(page, 1)).toHaveAttribute('aria-selected', 'true')
+  const colours = () =>
+    option(page, 1)
+      .locator('canvas')
+      .evaluate((c: HTMLCanvasElement) => {
+        const { data } = c.getContext('2d')!.getImageData(0, 0, c.width, c.height)
+        const seen = new Set<number>()
+        for (let i = 0; i < data.length; i += 4) seen.add((data[i] << 16) | (data[i + 1] << 8) | data[i + 2])
+        return seen.size
+      })
+  await expect.poll(colours).toBeGreaterThan(3)
+  await page.keyboard.press('.')
+  await expect(region).toHaveCount(0)
+  await page.keyboard.press('.')
+  await page.keyboard.press('Escape')
+  await expect(region).toHaveCount(0)
+})
+
+test('delete removes the selected pages with a toast, and undo restores them', async ({ page }) => {
+  await open(page)
+  await addPage(page)
+  await addPage(page)
+  const pages = (await overview(page)).getByRole('option')
+  await option(page, 2).click()
+  await option(page, 3).click({ modifiers: ['Shift'] })
+  await page.keyboard.press('Delete')
+  await expect(page.getByText('Deleted 2 pages. Ctrl Z restores')).toBeVisible()
+  await expect(pages).toHaveCount(1)
+  await expect(option(page, 1)).toHaveAttribute('aria-selected', 'true')
+  await page.keyboard.press('Delete')
+  await expect(page.getByText('A document keeps at least 1 page')).toBeVisible()
+  await page.keyboard.press('Control+z')
+  await expect(pages).toHaveCount(3)
+})
+
+test('new master and master like page open a new master, and escape leaves it', async ({ page }) => {
+  await open(page)
+  const banner = page.getByText(/Editing master/)
+  await addMaster(page)
+  await expect(banner).toContainText('A-Master')
+  await page.keyboard.press('Escape')
+  await expect(banner).toHaveCount(0)
+  await expect(current(page, 1)).toHaveAttribute('aria-pressed', 'true')
+
+  await overview(page)
+  await option(page, 1).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Master like page' }).click()
+  await expect(banner).toContainText('B-Master')
+})
+
+test('page keys move between spreads and shift+2 and ctrl+0 zoom', async ({ page }) => {
+  await open(page)
+  const zoom = page.getByLabel('Zoom')
+  const fit = (await zoom.textContent())!
+  for (let i = 0; i < 3; i++) await addPage(page)
+  await page.keyboard.press('Home')
+  await expect(current(page, 1)).toHaveAttribute('aria-pressed', 'true')
+  await page.keyboard.press('PageDown')
+  await expect(current(page, 2)).toHaveAttribute('aria-pressed', 'true')
+  await page.keyboard.press('End')
+  await expect(current(page, 4)).toHaveAttribute('aria-pressed', 'true')
+  await page.keyboard.press('PageUp')
+  await expect(current(page, 2)).toHaveAttribute('aria-pressed', 'true')
+
+  await page.keyboard.press('Home')
+  await page.keyboard.press('Control+0')
+  await expect(zoom).toHaveText('100%')
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Sun' }).click()
+  await page.keyboard.press('Shift+2')
+  await expect(zoom).not.toHaveText('100%')
+  await page.keyboard.press('Shift+1')
+  await expect(zoom).toHaveText(fit)
+})

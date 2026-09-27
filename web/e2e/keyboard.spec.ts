@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { open } from './util'
+import { addPage, open, option, overview, showPage } from './util'
 
 test('the layers tree is one tab stop whose arrow keys move, open and close', async ({ page }) => {
   await open(page)
@@ -33,39 +33,41 @@ test('the layers tree is one tab stop whose arrow keys move, open and close', as
   await expect(layers.locator(':focus')).toHaveCount(0)
 })
 
-test('the pages list is one tab stop; arrows move through it and Alt with an arrow moves the page', async ({ page }) => {
+test('the page overview is one tab stop; arrows select a page and Alt with an arrow moves it', async ({ page }) => {
   await open(page)
-  const pages = page.getByRole('navigation', { name: 'Pages' })
-  const row = (n: number) => pages.getByRole('button', { name: `Page ${n}`, exact: true })
-  await pages.getByRole('button', { name: 'Add page' }).click()
-  await pages.getByRole('button', { name: 'Add page' }).click()
-  await expect(row(3)).toHaveAttribute('tabindex', '0')
-  await expect(row(1)).toHaveAttribute('tabindex', '-1')
+  const row = (n: number) => option(page, n)
+  await addPage(page)
+  await addPage(page)
+  const pages = await overview(page)
+  await expect(pages.getByRole('listbox', { name: 'Pages' })).toBeFocused()
+  await expect(row(3)).toHaveAttribute('aria-selected', 'true')
 
   await row(1).click()
   await page.keyboard.press('ArrowDown')
-  await expect(row(2)).toBeFocused()
+  await expect(row(2)).toHaveAttribute('aria-selected', 'true')
   await page.keyboard.press('ArrowLeft')
-  await expect(row(1)).toBeFocused()
+  await expect(row(1)).toHaveAttribute('aria-selected', 'true')
   await page.keyboard.press('ArrowRight')
-  await expect(row(2)).toBeFocused()
+  await expect(row(2)).toHaveAttribute('aria-selected', 'true')
+  await expect(row(1)).toHaveAttribute('aria-selected', 'false')
 
-  await row(1).click()
+  await showPage(page, 1)
+  await overview(page)
   await page.keyboard.press('Alt+ArrowDown')
   await expect(row(2)).toHaveAttribute('aria-current', 'page')
-  await expect(row(2)).toBeFocused()
+  await expect(row(2)).toHaveAttribute('aria-selected', 'true')
   await page.keyboard.press('Alt+ArrowRight')
   await expect(row(3)).toHaveAttribute('aria-current', 'page')
   await page.keyboard.press('Alt+ArrowUp')
   await expect(row(2)).toHaveAttribute('aria-current', 'page')
-  await expect(row(2)).toBeFocused()
+  await expect(row(2)).toHaveAttribute('aria-selected', 'true')
 })
 
 test('the arrow keys move through a context menu', async ({ page }) => {
   await open(page)
-  const pages = page.getByRole('navigation', { name: 'Pages' })
-  await pages.getByRole('button', { name: 'Add page' }).click()
-  await pages.getByRole('button', { name: 'Page 1', exact: true }).click({ button: 'right' })
+  await addPage(page)
+  await overview(page)
+  await option(page, 1).click({ button: 'right' })
   const item = (name: string) => page.getByRole('menuitem', { name })
   await expect(item('Duplicate page')).toBeFocused()
   await page.keyboard.press('ArrowDown')

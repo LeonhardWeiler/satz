@@ -41,6 +41,8 @@ export class Editor {
   back: string | null = null
   /** The side of a facing master that the view fits. */
   side: 'left' | 'right' = 'right'
+  /** The pages selected in the page overview, `null` while it is closed. */
+  overview: string[] | null = null
   file = UNTITLED
   /** The document has changed since it was last saved to or opened from its file. */
   dirty = false
@@ -63,7 +65,7 @@ export class Editor {
   /** Replaces the document by the one saved in `bytes`; on an error it stays as it was. */
   load(bytes: Uint8Array, file = UNTITLED, dirty = false) {
     this.engine.load(bytes)
-    Object.assign(this, { selection: [], tool: 'move', renaming: null, pen: null, editing: null, threading: null })
+    Object.assign(this, { selection: [], tool: 'move', renaming: null, pen: null, editing: null, threading: null, overview: null })
     this.typing = false
     this.groups = 0
     this.snapshot = JSON.parse(this.engine.snapshot())
@@ -202,7 +204,7 @@ export class Editor {
     }
   }
 
-  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'pen' | 'editing' | 'threading' | 'side'>>) {
+  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'pen' | 'editing' | 'threading' | 'side' | 'overview'>>) {
     const leaves = this.editing && patch.selection && !patch.selection.includes(this.editing.id)
     if (leaves && !('editing' in patch)) this.stopEditing()
     if (patch.editing) patch = { selection: [patch.editing.id], ...patch }
@@ -258,6 +260,11 @@ export class Editor {
   /** The current master, if a master is shown. */
   get master() {
     return this.snapshot.masters.find((m) => m.id === this.pageId)
+  }
+
+  /** Opens the page overview with the current page selected, or closes it. */
+  toggleOverview() {
+    this.set({ overview: this.overview ? null : this.master ? [] : [this.pageId] })
   }
 
   /** Leaves the current master for the page shown before it. */
