@@ -9,7 +9,7 @@ import type { Attrs, Props, Sizing, Styled, TextNode, TextProps, TextStyle } fro
 import { Bindable } from './Variables'
 
 
-const ALIGNS = [
+export const ALIGNS = [
   ['left', 'Align left', 'alignLeft'],
   ['center', 'Align center', 'alignCenter'],
   ['right', 'Align right', 'alignRight'],
@@ -44,21 +44,62 @@ const STYLED: [Styled, string, string, string, string?][] = [
 /** The text style's name set at its size, within what a panel row takes. */
 const specimen = (s?: TextStyle) => (s ? { fontSize: Math.min(Math.max(s.size * 0.95, 9), 22), fontFamily: 'var(--doc-font)' } : undefined)
 
+/** The value all spans share, or null. */
+export function sameOf<T>(spans: Attrs[], get: (a: Attrs) => T): T | null {
+  const values = spans.map(get)
+  return values.every((v) => v === values[0]) ? values[0] : null
+}
+
+/** A button with the text style's name set at its size that opens a menu of the styles. */
+export function Specimen({ editor, style, onPick }: { editor: Editor; style: string | null; onPick: (id: string) => void }) {
+  const styles = useEditor(editor, (e) => e.snapshot.textStyles)
+  const current = styles.find((s) => s.id === style)
+  const [menu, setMenu] = useState<DOMRect | null>(null)
+  return (
+    <>
+      <button
+        type="button"
+        className="specimen"
+        title="Text style"
+        aria-haspopup="menu"
+        onClick={(e) => setMenu(e.currentTarget.getBoundingClientRect())}
+      >
+        <span style={specimen(current)}>{style === null ? 'Mixed' : (current?.name ?? 'No style')}</span>
+        {current && <span className="specimen-size">{`${current.size}/${current.lineHeight || 'Auto'} pt`}</span>}
+        <Icon name="chevron" />
+      </button>
+      {menu &&
+        createPortal(
+          <ContextMenu
+            menu={{ x: menu.left, y: menu.bottom + 4 }}
+            label="Text styles"
+            onClose={() => setMenu(null)}
+            items={[
+              ['No style', () => onPick(''), true, style === ''],
+              ...styles.map((s): [ReactNode, () => void, boolean, boolean] => [
+                <span style={specimen(s)}>{s.name}</span>,
+                () => onPick(s.id),
+                true,
+                style === s.id,
+              ]),
+            ]}
+          />,
+          document.body,
+        )}
+    </>
+  )
+}
+
 /** Text style, type and alignment of a text layer. */
 export function TextSection({ editor, node }: { editor: Editor; node: TextNode }) {
   const styles = useEditor(editor, (e) => e.snapshot.textStyles)
   const spans = useEditor(editor, (e) => e.snapshot.stories[node.story])?.spans ?? []
-  const same = <T,>(get: (a: Attrs) => T): T | null => {
-    const values = spans.map(get)
-    return values.every((v) => v === values[0]) ? values[0] : null
-  }
+  const same = <T,>(get: (a: Attrs) => T) => sameOf(spans, get)
   const edited = useEditor(editor, (e) => (e.editing?.id === node.id && e.editing.anchor !== e.editing.focus ? e.editing : null))
   const editing = useEditor(editor, (e) => e.editing?.id === node.id)
   /** Formats the selection of the text being edited, or else all of it. */
   const format = (props: TextProps) => editor.apply({ type: 'format', id: node.id, range: edited && range(edited), ...props })
   const style = same((a) => a.textStyle)
-  const current = styles.find((s) => s.id === style)
-  const [menu, setMenu] = useState<DOMRect | null>(null)
   const create = () => {
     const a = spans[0]
     const [id] = editor.apply({
@@ -90,35 +131,7 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
   return (
     <Section title="Text">
       <div className="row">
-        <button
-          type="button"
-          className="specimen"
-          title="Text style"
-          aria-haspopup="menu"
-          onClick={(e) => setMenu(e.currentTarget.getBoundingClientRect())}
-        >
-          <span style={specimen(current)}>{style === null ? 'Mixed' : (current?.name ?? 'No style')}</span>
-          {current && <span className="specimen-size">{`${current.size}/${current.lineHeight || 'Auto'} pt`}</span>}
-          <Icon name="chevron" />
-        </button>
-        {menu &&
-          createPortal(
-            <ContextMenu
-              menu={{ x: menu.left, y: menu.bottom + 4 }}
-              label="Text styles"
-              onClose={() => setMenu(null)}
-              items={[
-                ['No style', () => format({ textStyle: '' }), true, style === ''],
-                ...styles.map((s): [ReactNode, () => void, boolean, boolean] => [
-                  <span style={specimen(s)}>{s.name}</span>,
-                  () => format({ textStyle: s.id }),
-                  true,
-                  style === s.id,
-                ]),
-              ]}
-            />,
-            document.body,
-          )}
+        <Specimen editor={editor} style={style} onPick={(textStyle) => format({ textStyle })} />
         <button type="button" className="icon-button" aria-label="Create text style" title="Create text style" onClick={create}>
           <Icon name="plus" />
         </button>

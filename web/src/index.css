@@ -1209,7 +1209,8 @@ span.swatch {
 }
 
 .switcher,
-.banner {
+.banner,
+.quick {
   position: absolute;
   z-index: 2;
   display: flex;
@@ -1220,6 +1221,47 @@ span.swatch {
   border-radius: 8px;
   background: var(--menu);
   box-shadow: 0 6px 20px rgb(0 0 0 / 0.35);
+}
+
+.quick {
+  gap: 4px;
+  max-width: calc(100% - 16px);
+  padding: 4px;
+}
+
+.quick[hidden] {
+  display: none;
+}
+
+.quick > .specimen {
+  width: 160px;
+}
+
+.quick .segmented {
+  flex: none;
+}
+
+.quick .field {
+  width: 76px;
+}
+
+.quick .chip {
+  width: 16px;
+  height: 16px;
+}
+
+.quick-info {
+  padding: 0 4px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.menu-item .chip {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 6px;
+  vertical-align: -1px;
 }
 
 .switcher {

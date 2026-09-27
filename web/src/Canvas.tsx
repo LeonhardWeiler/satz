@@ -8,6 +8,7 @@ import { Renderer, fitView, HANDLE, type Box, type View } from './renderer'
 import { pick } from './select'
 import { handleTextKey, insert, range, select, textOf, wordAt } from './textEdit'
 import { Switcher } from './Switcher'
+import { Quick } from './Quick'
 
 const PX_PER_PT = 96 / 72
 const DRAG = 3
@@ -104,11 +105,12 @@ function drawRuler(c: HTMLCanvasElement, horizontal: boolean, origin: number, sc
 /** Half a blink period of the caret in ms. */
 const BLINK = 530
 
-export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
+export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; onMore: () => void }) {
   const ref = useRef<HTMLCanvasElement>(null)
   const rulerX = useRef<HTMLCanvasElement>(null)
   const rulerY = useRef<HTMLCanvasElement>(null)
   const area = useRef<HTMLTextAreaElement>(null)
+  const quick = useRef<HTMLDivElement>(null)
   const [zoom, setZoom] = useState(0)
   const [composing, setComposing] = useState(false)
   const editing = useEditor(editor, (e) => e.editing !== null)
@@ -265,6 +267,18 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         const left = Math.min(...editor.sheets.map((s) => s.x))
         const sel = editor.selection.length ? bounds(editor.selected().map(placed)) : undefined
         const x0 = view.x + left * view.zoom
+        const bar = quick.current!
+        bar.hidden =
+          !sel || !!ed || !!pen || editor.threading !== null || editor.overview !== null || editor.tool !== 'move' ||
+          (!!drag && drag.kind !== 'pan' && !(drag.kind === 'move' && !drag.active))
+        if (sel && !bar.hidden) {
+          const { clientWidth: vw, clientHeight: vh } = canvas
+          const w = bar.offsetWidth
+          const h = bar.offsetHeight
+          const top = view.y + sel.y * view.zoom - h - 14
+          bar.style.left = `${Math.min(Math.max(view.x + (sel.x + sel.w / 2) * view.zoom - w / 2, 8), vw - w - 8)}px`
+          bar.style.top = `${Math.min(Math.max(top >= 8 ? top : view.y + (sel.y + sel.h) * view.zoom + 14, 8), vh - h - 8)}px`
+        }
         drawRuler(rulerX.current!, true, x0, view.zoom * MM, sel && [view.x + sel.x * view.zoom, view.x + (sel.x + sel.w) * view.zoom])
         drawRuler(rulerY.current!, false, view.y, view.zoom * MM, sel && [view.y + sel.y * view.zoom, view.y + (sel.y + sel.h) * view.zoom])
       })
@@ -799,6 +813,9 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         <output className="zoom" aria-label="Zoom">
           {Math.round((zoom / PX_PER_PT) * 100)}%
         </output>
+        <div ref={quick} className="quick" role="toolbar" aria-label="Quick edit">
+          <Quick editor={editor} onMore={onMore} />
+        </div>
         <Switcher editor={editor} />
       </div>
     </div>
