@@ -47,21 +47,20 @@
   <div class="counter"><b>0</b><span>Critical</span></div>
   <div class="counter"><b>0</b><span>High</span></div>
   <div class="counter"><b>0</b><span>Medium</span></div>
-  <div class="counter"><b>7</b><span>Low</span></div>
+  <div class="counter"><b>6</b><span>Low</span></div>
   <div class="counter"><b>0</b><span>Info</span></div>
-  <div class="counter"><b>7</b><span>Total</span></div>
+  <div class="counter"><b>6</b><span>Total</span></div>
 </div>
 
 <nav aria-label="Contents">
 <ol>
   <li><a href="#open">Open findings</a>
     <ol>
-      <li><a href="#UX-8">UX-8 Refused thread is silent</a></li>
+      <li><a href="#UX-8">UX-8 Refused thread ends threading</a></li>
       <li><a href="#PERF-2">PERF-2 Export on main thread</a></li>
       <li><a href="#TEST-5">TEST-5 Hidden test order</a></li>
       <li><a href="#TEST-1">TEST-1 Gaps in e2e coverage</a></li>
       <li><a href="#SEC-1">SEC-1 Actions not pinned</a></li>
-      <li><a href="#DOC-1">DOC-1 No CLAUDE.md</a></li>
       <li><a href="#UX-9">UX-9 No favicon</a></li>
     </ol>
   </li>
@@ -74,9 +73,9 @@
 <h2 id="open">1. Open findings</h2>
 
 <article class="card low" id="UX-8">
-  <header><span class="id">UX-8</span><span class="badge low">low</span><h3>A refused thread fails silently</h3></header>
+  <header><span class="id">UX-8</span><span class="badge low">low</span><h3>A refused thread ends threading</h3></header>
   <p class="file"><code>web/src/Canvas.tsx</code> <code>onPointerDown</code> (threading branch), <code>onPointerUp</code></p>
-  <p>With a loaded out-port, clicking a text frame that already has a previous or next frame makes <code>thread</code> throw, as does a frame on a master threaded with one on a page; the error goes to <code>console.warn</code>, the threading cursor ends and the frame gets selected as if it had worked; a frame drawn from the port stays behind unthreaded. Nothing tells the user why the text did not flow.</p>
+  <p>With a loaded out-port, clicking a text frame that already has a previous or next frame makes <code>thread</code> throw, as does a frame on a master threaded with one on a page; the reason shows in the status bar, but the threading cursor ends and the frame gets selected as if it had worked; a frame drawn from the port stays behind unthreaded.</p>
   <p class="rec">Show a not-allowed cursor over frames that cannot take the thread while threading, and keep threading active after a refused click.</p>
 </article>
 
@@ -106,13 +105,6 @@
   <p class="file"><code>.github/workflows/ci.yml</code></p>
   <p>The deploy job holds <code>pages: write</code> and <code>id-token: write</code>; third-party actions are referenced by mutable major tags.</p>
   <p class="rec">Pin actions to commit SHAs (Dependabot keeps them current).</p>
-</article>
-
-<article class="card low" id="DOC-1">
-  <header><span class="id">DOC-1</span><span class="badge low">low</span><h3>No CLAUDE.md</h3></header>
-  <p class="file">repo root</p>
-  <p>Non-obvious rules live only in code and TODO: the display list contract between <code>display_list.rs</code> and <code>displayList.ts</code>, the <code>wasm-bindgen</code> pin that must match the flake's CLI, the trash root for undo, the story held by a thread's first frame with <code>next</code> links, master layers drawn under pages with <code>detached</code>/<code>overrideOf</code>, colours keeping their own space, the FOGRA51 build in <code>engine/icc/build</code>, the order in which <code>./check</code> produces test fixtures.</p>
-  <p class="rec">Run <code>/init</code> and keep it to those points plus <code>./check</code>.</p>
 </article>
 
 <article class="card low" id="UX-9">
