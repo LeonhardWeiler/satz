@@ -1,0 +1,61 @@
+import { expect, test } from '@playwright/test'
+import { open } from './util'
+
+test('a field takes expressions with units, steps with the arrow keys and shakes off invalid input', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Sun' }).click()
+  const x = panel.getByRole('region', { name: 'Layout' }).getByRole('textbox', { name: 'X in mm' })
+  await x.fill('10 + 5')
+  await x.press('Enter')
+  await expect(x).toHaveValue('15')
+  await x.fill('1cm')
+  await x.press('Enter')
+  await expect(x).toHaveValue('10')
+  await x.fill('*2')
+  await x.press('Enter')
+  await expect(x).toHaveValue('20')
+
+  await x.focus()
+  await x.press('ArrowUp')
+  await expect(x).toHaveValue('21')
+  await x.press('Shift+ArrowUp')
+  await expect(x).toHaveValue('31')
+  await x.press('Alt+ArrowDown')
+  await expect(x).toHaveValue('30.9')
+
+  await x.fill('2 +')
+  await x.press('Enter')
+  await expect(x).toHaveValue('30.9')
+  await expect(panel.locator('.field.bad')).toHaveCount(1)
+})
+
+test('dragging the label of a field scrubs it in one undo step', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Sun' }).click()
+  const layout = panel.getByRole('region', { name: 'Layout' })
+  const x = layout.getByRole('textbox', { name: 'X in mm' })
+  const before = Number(await x.inputValue())
+  const label = (await layout.getByTitle('X in mm').getByText('X', { exact: true }).boundingBox())!
+  await page.mouse.move(label.x + label.width / 2, label.y + label.height / 2)
+  await page.mouse.down()
+  for (const dx of [4, 12, 20]) await page.mouse.move(label.x + label.width / 2 + dx, label.y + label.height / 2)
+  await page.mouse.up()
+  await expect.poll(async () => Number(await x.inputValue())).toBeCloseTo(before + 10)
+  await page.keyboard.press('Control+z')
+  await expect.poll(async () => Number(await x.inputValue())).toBeCloseTo(before)
+})
+
+test('an integer field has minus and plus buttons', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
+  const frame = panel.getByRole('region', { name: 'Text frame' })
+  const columns = frame.getByRole('textbox', { name: 'Columns' })
+  await expect(columns).toHaveValue('1')
+  await frame.getByRole('button', { name: 'Increase Columns' }).click()
+  await expect(columns).toHaveValue('2')
+  await frame.getByRole('button', { name: 'Decrease Columns' }).click()
+  await expect(columns).toHaveValue('1')
+})

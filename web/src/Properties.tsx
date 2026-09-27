@@ -204,7 +204,7 @@ export function Properties({
               )
             )}
             {one?.kind === 'shape' && (one.shape === 'polygon' || one.shape === 'star') && (
-              <Field label="N" title="Count" unit="" value={one.count} onCommit={(v) => set({ count: Math.round(v) })} />
+              <Field label="N" title="Count" unit="" int value={one.count} onCommit={(v) => set({ count: Math.round(v) })} />
             )}
             {one?.kind === 'shape' && one.shape === 'star' && (
               <Field label="Ratio" title="Star ratio in %" unit="%" value={one.ratio * 100} onCommit={(v) => set({ ratio: v / 100 })} />

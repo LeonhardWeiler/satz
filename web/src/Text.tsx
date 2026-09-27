@@ -231,7 +231,7 @@ export function TextFrameSection({ node, set }: { node: TextNode; set: (p: Props
         {INSETS.map(([prop, title, label]) => (
           <Field key={prop} label={label} title={`${title} in mm`} unit="mm" value={node[prop]} onCommit={(v) => set({ [prop]: v })} />
         ))}
-        <Field label="Cols" title="Columns" unit="" value={node.columns} onCommit={(v) => set({ columns: Math.round(v) })} />
+        <Field label="Cols" title="Columns" unit="" int value={node.columns} onCommit={(v) => set({ columns: Math.round(v) })} />
         <Field label="Gutter" title="Gutter in mm" unit="mm" value={node.gutter} onCommit={(gutter) => set({ gutter })} />
         <Field label="Grid" title="Baseline grid in pt" unit="pt" zero="Off" value={node.baselineGrid} onCommit={(baselineGrid) => set({ baselineGrid })} />
         <Field label="Start" title="Baseline grid start in pt" unit="pt" value={node.baselineStart} onCommit={(baselineStart) => set({ baselineStart })} />

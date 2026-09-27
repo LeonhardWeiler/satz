@@ -1,5 +1,6 @@
 import { useState, type KeyboardEvent, type ReactNode } from 'react'
 import { MM } from './editor'
+import { evalExpr, step } from './field'
 import { Icon } from './icons'
 
 /** Moves the focus from the event's target to the item before or after it for the keys `back` and `forth`. */
@@ -16,6 +17,10 @@ const round = (v: number, unit: string) => (unit === '%' ? Math.round(v) : Math.
 /** Points per unit of the lengths that fields show in another unit than they are given in. */
 const PT: Record<string, number> = { mm: MM }
 
+/**
+ * A number input that takes expressions with units. ↑/↓ step it, Shift by 10 and Alt by 0.1;
+ * dragging its label scrubs it; invalid input shakes and keeps the value.
+ */
 export function Field({
   label,
   value,
@@ -23,6 +28,7 @@ export function Field({
   onCommit,
   readOnly,
   zero,
+  int,
   title = `${label} in ${unit}`,
 }: {
   label: string
@@ -33,18 +39,59 @@ export function Field({
   readOnly?: boolean
   /** Shown for 0 and accepted as input for it, e.g. "Auto". */
   zero?: string
+  /** Whole numbers with − and + buttons. */
+  int?: boolean
   title?: string
 }) {
   const [draft, setDraft] = useState<string | null>(null)
+  const [bad, setBad] = useState(false)
+  const [scrub, setScrub] = useState(false)
+  const per = PT[unit] ?? 1
+  const shown = value === null ? null : round(value / per, unit)
+  const put = (v: number) => onCommit?.((int ? Math.round(v) : round(v, unit)) * per)
+  const edit = !readOnly && onCommit && shown !== null
+  const cur = shown ?? 0
   const commit = () => {
-    const v = zero && draft?.trim().toLowerCase() === zero.toLowerCase() ? 0 : parseFloat(draft ?? '')
     setDraft(null)
-    if (draft === null || !Number.isFinite(v)) return
-    onCommit?.(round(v, unit) * (PT[unit] ?? 1))
+    if (draft === null) return
+    const v = zero && draft.trim().toLowerCase() === zero.toLowerCase() ? 0 : evalExpr(draft, cur, unit)
+    if (v === null) setBad(true)
+    else put(v)
   }
+  const bump = (d: number) => edit && put(cur + d)
   return (
-    <label className="field" title={title}>
-      {label && <span className="field-label">{label}</span>}
+    <label className={`field${int ? ' int' : ''}${bad ? ' bad' : ''}${scrub ? ' scrub' : ''}`} title={title} onAnimationEnd={() => setBad(false)}>
+      {label && (
+        <span
+          className="field-label"
+          onClick={(e) => e.preventDefault()}
+          onPointerDown={(e) => {
+            if (!edit) return
+            e.preventDefault()
+            const x0 = e.clientX
+            const target = e.currentTarget
+            target.setPointerCapture(e.pointerId)
+            setScrub(true)
+            const move = (m: PointerEvent) => put(cur + Math.round((m.clientX - x0) / 2) * step(m, int))
+            target.addEventListener('pointermove', move)
+            target.addEventListener(
+              'pointerup',
+              () => {
+                target.removeEventListener('pointermove', move)
+                setScrub(false)
+              },
+              { once: true },
+            )
+          }}
+        >
+          {label}
+        </span>
+      )}
+      {int && edit && (
+        <button type="button" className="field-step" tabIndex={-1} aria-label={`Decrease ${title}`} onClick={(e) => bump(-step(e, true))}>
+          <Icon name="minus" />
+        </button>
+      )}
       <input
         name={title.toLowerCase().replaceAll(' ', '-')}
         aria-label={title}
@@ -52,19 +99,33 @@ export function Field({
         autoComplete="off"
         spellCheck={false}
         readOnly={readOnly}
-        value={draft ?? (value === null ? 'Mixed' : value === 0 && zero ? zero : String(round(value / (PT[unit] ?? 1), unit)))}
-        onChange={(e) => setDraft(e.currentTarget.value)}
+        value={draft ?? (shown === null ? 'Mixed' : shown === 0 && zero ? zero : String(shown))}
+        onChange={(e) => {
+          setDraft(e.currentTarget.value)
+          setBad(false)
+        }}
         onFocus={(e) => e.currentTarget.select()}
         onBlur={commit}
         onKeyDown={(e) => {
           if (e.key === 'Enter') e.currentTarget.blur()
-          if (e.key === 'Escape') {
+          else if (e.key === 'Escape') {
             setDraft(null)
             e.currentTarget.blur()
+          } else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && edit) {
+            e.preventDefault()
+            setDraft(null)
+            put(cur + (e.key === 'ArrowUp' ? 1 : -1) * step(e, int))
+            const input = e.currentTarget
+            requestAnimationFrame(() => input.select())
           }
         }}
       />
-      {((value !== null && !(value === 0 && zero)) || draft !== null) && <span className="field-unit">{unit}</span>}
+      {((shown !== null && !(shown === 0 && zero)) || draft !== null) && unit && <span className="field-unit">{unit}</span>}
+      {int && edit && (
+        <button type="button" className="field-step" tabIndex={-1} aria-label={`Increase ${title}`} onClick={(e) => bump(step(e, true))}>
+          <Icon name="plus" />
+        </button>
+      )}
     </label>
   )
 }
