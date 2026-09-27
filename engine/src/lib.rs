@@ -32,6 +32,7 @@ pub struct Engine {
 impl Engine {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Engine {
+        console_error_panic_hook::set_once();
         Engine::default()
     }
 

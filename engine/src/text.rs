@@ -33,9 +33,15 @@ thread_local! {
 
 pub fn typeface(bytes: &[u8]) -> Result<Typeface, String> {
     let bad = || "not a TrueType or OpenType font".to_string();
-    FontRef::new(bytes)
-        .and_then(|f| f.cmap())
-        .map_err(|_| bad())?;
+    let f = FontRef::new(bytes).map_err(|_| bad())?;
+    let sets = f.cmap().is_ok()
+        && f.hhea().is_ok()
+        && f.hmtx().is_ok()
+        && f.maxp().is_ok()
+        && f.head().is_ok_and(|h| h.units_per_em() > 0);
+    if !sets || krilla::text::Font::new(bytes.to_vec().into(), 0).is_none() {
+        return Err(bad());
+    }
     let name = skrifa::FontRef::new(bytes)
         .map_err(|_| bad())?
         .localized_strings(StringId::FULL_NAME)
@@ -957,6 +963,20 @@ pub fn index_at(lines: &[Line], x: f32, y: f32) -> usize {
 mod tests {
     use super::*;
     use crate::variable::{Modes, Palette};
+
+    #[test]
+    fn a_font_without_the_tables_text_is_set_with_is_rejected() {
+        for table in [b"hhea", b"head", b"cmap", b"hmtx"] {
+            let mut bytes = FONT.to_vec();
+            let at = bytes.windows(4).position(|w| w == table).unwrap();
+            bytes[at] = b'x';
+            assert!(
+                add_font(&bytes).is_err(),
+                "{}",
+                str::from_utf8(table).unwrap()
+            );
+        }
+    }
 
     const H: u16 = 9;
     const I: u16 = 36;

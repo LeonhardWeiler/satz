@@ -8,6 +8,7 @@ license = "ISC"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+console_error_panic_hook = "0.1.7"
 harfrust = "0.13.3"
 hypher = { version = "0.1.8", default-features = false, features = ["english", "german"] }
 js-sys = "=0.3.104"
