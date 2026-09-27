@@ -122,26 +122,44 @@ pub fn blur(px: &mut Pixmap, sigma: f32) {
 }
 
 fn box_blur(src: &[u8], dst: &mut [u8], w: usize, h: usize, r: usize, horizontal: bool) {
-    let (lines, len) = if horizontal { (h, w) } else { (w, h) };
-    let at = |line: usize, i: usize| {
-        if horizontal {
-            (line * w + i) * 4
-        } else {
-            (i * w + line) * 4
+    let n = 2 * r + 1;
+    let most = 255 * n.min(if horizontal { w } else { h });
+    let mean: Vec<u8> = (0..=most).map(|s| ((s + n / 2) / n) as u8).collect();
+    if horizontal {
+        let mut sum = [0; 4];
+        for (s, d) in src.chunks_exact(w * 4).zip(dst.chunks_exact_mut(w * 4)) {
+            slide(s, d, &mut sum, r, &mean);
         }
-    };
-    let n = (2 * r + 1) as u32;
-    for line in 0..lines {
-        for c in 0..4 {
-            let mut sum: u32 = (0..r.min(len)).map(|i| src[at(line, i) + c] as u32).sum();
-            for i in 0..len {
-                if i + r < len {
-                    sum += src[at(line, i + r) + c] as u32;
-                }
-                dst[at(line, i) + c] = ((sum + n / 2) / n) as u8;
-                if i >= r {
-                    sum -= src[at(line, i - r) + c] as u32;
-                }
+    } else {
+        slide(src, dst, &mut vec![0; w * 4], r, &mean);
+    }
+}
+
+/// Box blur across the units of `sum.len()` bytes that `src` is made of: each byte
+/// becomes the `mean` of the sum of the bytes at its place in the 2r+1 units around
+/// its own, those outside the ends counting as 0.
+fn slide(src: &[u8], dst: &mut [u8], sum: &mut [u32], r: usize, mean: &[u8]) {
+    let k = sum.len();
+    let len = src.len() / k;
+    let unit = |i: usize| &src[i * k..][..k];
+    sum.fill(0);
+    for i in 0..r.min(len) {
+        for (s, &v) in sum.iter_mut().zip(unit(i)) {
+            *s += v as u32;
+        }
+    }
+    for (i, d) in dst.chunks_exact_mut(k).enumerate() {
+        if i + r < len {
+            for (s, &v) in sum.iter_mut().zip(unit(i + r)) {
+                *s += v as u32;
+            }
+        }
+        for (d, &s) in d.iter_mut().zip(&*sum) {
+            *d = mean[s as usize];
+        }
+        if i >= r {
+            for (s, &v) in sum.iter_mut().zip(unit(i - r)) {
+                *s -= v as u32;
             }
         }
     }
@@ -450,6 +468,61 @@ mod tests {
         assert_eq!(px.pixel(4, 4).unwrap().red(), 255);
         assert_eq!(alpha(&px, 4, 4), 255);
         assert_eq!(alpha(&px, 1, 1), 0);
+    }
+
+    /// box_blur as it was before it ran over whole pixels and rows.
+    fn box_blur_per_channel(
+        src: &[u8],
+        dst: &mut [u8],
+        w: usize,
+        h: usize,
+        r: usize,
+        horizontal: bool,
+    ) {
+        let (lines, len) = if horizontal { (h, w) } else { (w, h) };
+        let at = |line: usize, i: usize| {
+            if horizontal {
+                (line * w + i) * 4
+            } else {
+                (i * w + line) * 4
+            }
+        };
+        let n = (2 * r + 1) as u32;
+        for line in 0..lines {
+            for c in 0..4 {
+                let mut sum: u32 = (0..r.min(len)).map(|i| src[at(line, i) + c] as u32).sum();
+                for i in 0..len {
+                    if i + r < len {
+                        sum += src[at(line, i + r) + c] as u32;
+                    }
+                    dst[at(line, i) + c] = ((sum + n / 2) / n) as u8;
+                    if i >= r {
+                        sum -= src[at(line, i - r) + c] as u32;
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn box_blur_is_the_same_as_per_channel() {
+        let mut seed = 7u32;
+        for (w, h) in [(1, 1), (1, 9), (9, 1), (5, 3), (17, 31), (64, 40)] {
+            let src: Vec<u8> = (0..w * h * 4)
+                .map(|_| {
+                    seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+                    (seed >> 24) as u8
+                })
+                .collect();
+            for r in [0, 1, 2, 4, 8, 20, 70] {
+                for horizontal in [true, false] {
+                    let (mut a, mut b) = (vec![1; src.len()], vec![2; src.len()]);
+                    box_blur(&src, &mut a, w, h, r, horizontal);
+                    box_blur_per_channel(&src, &mut b, w, h, r, horizontal);
+                    assert!(a == b, "{w}x{h} r {r} horizontal {horizontal}");
+                }
+            }
+        }
     }
 
     #[test]
