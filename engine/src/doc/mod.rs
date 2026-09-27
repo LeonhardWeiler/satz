@@ -705,20 +705,32 @@ impl Doc {
         }
     }
 
-    pub fn new() -> Doc {
+    /// An empty document of `pages` pages `w` × `h` pt with 3 mm bleed.
+    pub fn blank(w: f64, h: f64, pages: usize, facing: bool, mode: ColorMode) -> Doc {
         let mut d = Doc::with(LoroDoc::new());
         let page = d.tree.create(None).unwrap();
         let m = d.meta(page);
         m.insert(KIND, NodeKind::Page.as_str()).unwrap();
-        m.insert("width", 148.0 * MM).unwrap();
-        m.insert("height", 210.0 * MM).unwrap();
+        m.insert("width", w).unwrap();
+        m.insert("height", h).unwrap();
         m.insert("bleed", 3.0 * MM).unwrap();
         d.apply(Command::SetDocument {
             raster_ppi: Some(300.0),
-            color_mode: Some(ColorMode::Rgb),
-            facing_pages: Some(true),
+            color_mode: Some(mode),
+            facing_pages: Some(facing),
         })
         .unwrap();
+        for _ in 1..pages {
+            d.apply(Command::AddPage { after: None }).unwrap();
+        }
+        d.undo = undo_manager(&d.doc);
+        d.finish(vec![], false).unwrap();
+        d
+    }
+
+    pub fn new() -> Doc {
+        let mut d = Doc::blank(148.0 * MM, 210.0 * MM, 1, true, ColorMode::Rgb);
+        let page = d.build_snapshot().pages[0].id.clone();
         let mut add = |parent: &str, kind, [x, y, w, h]: [f64; 4], props: Props| {
             let id = d
                 .apply(Command::Create {
@@ -742,7 +754,6 @@ impl Doc {
             fills: Some(vec![Fill::solid(c)]),
             ..Props::default()
         };
-        let page = page.to_string();
         add(
             &page,
             NewKind::Rect,
@@ -2734,6 +2745,21 @@ mod tests {
     #[test]
     fn the_kept_snapshot_is_the_one_built_afresh() {
         random_commands(1, 200, |d| assert!(*d.snapshot() == d.build_snapshot()));
+    }
+
+    #[test]
+    fn a_blank_doc_has_empty_pages_of_the_size_and_nothing_to_undo() {
+        let d = Doc::blank(100.0, 200.0, 3, true, ColorMode::Cmyk);
+        let s = d.snapshot();
+        assert_eq!(s.pages.len(), 3);
+        assert!(s.facing_pages);
+        assert_eq!(s.color_mode, ColorMode::Cmyk);
+        assert!(
+            s.pages
+                .iter()
+                .all(|p| p.children.is_empty() && p.width == 100.0 && p.height == 200.0)
+        );
+        assert!(!d.undo.can_undo());
     }
 
     #[test]

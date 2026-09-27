@@ -16,6 +16,7 @@ mod variable;
 pub use display_list::{Op, encode};
 pub use doc::{Command, Doc, Snapshot};
 
+use color::ColorMode;
 use js_sys::{Uint8Array, Uint32Array};
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
@@ -34,6 +35,15 @@ impl Engine {
     pub fn new() -> Engine {
         console_error_panic_hook::set_once();
         Engine::default()
+    }
+
+    /// An empty document of `pages` pages `w` × `h` pt.
+    pub fn blank(w: f64, h: f64, pages: usize, facing: bool) -> Engine {
+        Engine {
+            doc: Doc::blank(w, h, pages, facing, ColorMode::Cmyk),
+            list: Vec::new(),
+            overlay: Vec::new(),
+        }
     }
 
     pub fn apply(&mut self, cmd: JsValue) -> Result<Vec<String>, JsError> {

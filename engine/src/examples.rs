@@ -104,23 +104,9 @@ struct Build(Doc);
 impl Build {
     /// An empty CMYK document with one page `w` × `h` mm.
     fn new(w: f64, h: f64, facing: bool) -> (Build, String) {
-        let d = Doc::new();
-        let page = d.build_snapshot().pages.remove(0);
-        let ids = page.children.iter().map(|n| n.id.clone()).collect();
-        let mut b = Build(d);
-        b.run(Command::Delete { ids });
-        b.run(Command::SetPage {
-            id: page.id.clone(),
-            width: Some(w * MM),
-            height: Some(h * MM),
-            bleed: Some(3.0 * MM),
-        });
-        b.run(Command::SetDocument {
-            raster_ppi: Some(300.0),
-            color_mode: Some(ColorMode::Cmyk),
-            facing_pages: Some(facing),
-        });
-        (b, page.id)
+        let d = Doc::blank(w * MM, h * MM, 1, facing, ColorMode::Cmyk);
+        let page = d.build_snapshot().pages[0].id.clone();
+        (Build(d), page)
     }
 
     fn run(&mut self, cmd: Command) -> Vec<String> {
