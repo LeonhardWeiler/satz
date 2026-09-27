@@ -713,7 +713,11 @@ mod tests {
             .unwrap()
             .remove(0);
         let masters = |d: &Doc| -> Vec<Option<String>> {
-            d.snapshot().pages.into_iter().map(|p| p.master).collect()
+            d.build_snapshot()
+                .pages
+                .into_iter()
+                .map(|p| p.master)
+                .collect()
         };
         assert_eq!(
             masters(&d),

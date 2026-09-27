@@ -526,8 +526,10 @@ pub struct Doc {
     tree: LoroTree,
     undo: UndoManager,
     clipboard: Vec<(Clip, Option<TreeID>)>,
-    /// The flows through all text layers, from the end of the last command on.
+    /// The flows through all text layers and the snapshot, from the end of the last
+    /// command on.
     flows: RefCell<Option<Rc<HashMap<TreeID, Flow>>>>,
+    snapshot: RefCell<Option<Rc<Snapshot>>>,
     /// The version of the last change other than text set again for a new font.
     version: String,
 }
@@ -696,6 +698,7 @@ impl Doc {
             tree,
             clipboard: Vec::new(),
             flows: RefCell::new(None),
+            snapshot: RefCell::new(None),
         }
     }
 
@@ -918,6 +921,7 @@ impl Doc {
         })
         .unwrap();
         d.undo = undo_manager(&d.doc);
+        d.finish(vec![], false).unwrap();
         d
     }
 
@@ -990,7 +994,7 @@ impl Doc {
     pub fn load(bytes: &[u8]) -> Res<Doc> {
         let doc = LoroDoc::new();
         doc.import(bytes).map_err(|_| "not a Satz document")?;
-        let mut d = Doc::with(doc);
+        let d = Doc::with(doc);
         let kinds: Vec<_> = d.tree.roots().into_iter().map(|r| d.kind(r)).collect();
         if !kinds.contains(&Some(NodeKind::Page))
             || kinds
@@ -1011,13 +1015,13 @@ impl Doc {
                 image::register(bytes.clone())?;
             }
         }
+        d.doc.set_next_commit_origin(LAYOUT_ORIGIN);
         d.finish(vec![], false)?;
-        d.undo = undo_manager(&d.doc);
         Ok(d)
     }
 
     pub fn apply(&mut self, cmd: Command) -> Res<Vec<String>> {
-        self.flows.take();
+        self.invalidate();
         let history = matches!(cmd, Command::Undo | Command::Redo);
         let out = self.run(cmd);
         debug_assert!(
@@ -1273,7 +1277,13 @@ impl Doc {
         }
         self.doc.commit();
         self.flows.replace(Some(Rc::new(self.flow_all())));
+        self.snapshot.replace(Some(Rc::new(self.build_snapshot())));
         Ok(out)
+    }
+
+    fn invalidate(&self) {
+        self.flows.take();
+        self.snapshot.take();
     }
 
     fn layout(&self, id: TreeID) -> Layout {
@@ -1959,7 +1969,7 @@ mod tests {
     pub(super) use crate::display_list::{CUBIC, Paint};
 
     pub(super) fn page(d: &Doc) -> Page {
-        d.snapshot().pages.remove(0)
+        d.build_snapshot().pages.remove(0)
     }
 
     pub(super) fn page_ops(d: &Doc) -> Vec<Op> {
@@ -2278,7 +2288,7 @@ mod tests {
     }
 
     pub(super) fn page_ids(d: &Doc) -> Vec<String> {
-        d.snapshot().pages.into_iter().map(|p| p.id).collect()
+        d.build_snapshot().pages.into_iter().map(|p| p.id).collect()
     }
 
     pub(super) fn facing(d: &mut Doc, on: bool) {
@@ -2563,7 +2573,7 @@ mod tests {
     }
 
     pub(super) fn problems(d: &Doc) -> Vec<(String, Problem)> {
-        let issues = d.snapshot().preflight.into_iter();
+        let issues = d.build_snapshot().preflight.into_iter();
         issues.map(|i| (i.layer, i.problem)).collect()
     }
 
@@ -2580,6 +2590,144 @@ mod tests {
             .unwrap()
             .remove(0);
         (id, hash)
+    }
+
+    /// The text layers of the pages and masters with the UTF-16 length of their story.
+    fn texts(d: &Doc) -> Vec<(String, usize)> {
+        fn walk(nodes: &[Node], out: &mut Vec<(String, usize)>) {
+            for n in nodes {
+                match &n.kind {
+                    Kind::Text { content, .. } => {
+                        out.push((n.id.clone(), content.text.encode_utf16().count()))
+                    }
+                    Kind::Group { children } | Kind::Frame { children, .. } => walk(children, out),
+                    Kind::Shape(_) => {}
+                }
+            }
+        }
+        let s = d.build_snapshot();
+        let mut out = Vec::new();
+        for p in s.pages.iter().chain(&s.masters) {
+            walk(&p.children, &mut out);
+        }
+        out
+    }
+
+    /// `n` random commands that change text and what sets it, on two threaded pages
+    /// with a master, a text style and a size variable in 2 modes; `check` after each.
+    pub(super) fn random_commands(seed: u64, n: usize, check: impl Fn(&Doc)) {
+        let (mut d, p1, p2, a, _) = two_pages();
+        let master = add_master(&mut d);
+        let number = create(&mut d, &master, NewKind::Text, [0.0, 500.0, 0.0, 0.0]);
+        set_text(&mut d, &number, &text::PAGE_NUMBER.to_string());
+        use_master(&mut d, &p2, Some(&master)).unwrap();
+        let body = style(&mut d, "Body", 11.0);
+        let (c, m1) = collection(&mut d, "Size");
+        let m2 = d
+            .apply(Command::AddMode {
+                collection: c.clone(),
+                name: "Large".into(),
+            })
+            .unwrap()
+            .remove(0);
+        let size = variable(&mut d, &c, "Size", Value::Number(10.0)).unwrap();
+        set_value(&mut d, &size, &m2, Value::Number(16.0)).unwrap();
+        bind(&mut d, &a, "size", Some(&size)).unwrap();
+        let mut pages = vec![p1, p2];
+        let mut r = seed;
+        let mut rand = |n: usize| {
+            r ^= r << 13;
+            r ^= r >> 7;
+            r ^= r << 17;
+            (r % n as u64) as usize
+        };
+        check(&d);
+        for _ in 0..n {
+            let t = texts(&d);
+            let (id, len) = t[rand(t.len())].clone();
+            let (x, y) = (rand(len + 1), rand(len + 1));
+            let range = [x.min(y), x.max(y)];
+            let page = pages[rand(pages.len())].clone();
+            let frame = [
+                rand(200) as f64,
+                rand(400) as f64,
+                20.0 + rand(300) as f64,
+                20.0 + rand(300) as f64,
+            ];
+            let cmd = match rand(14) {
+                0 | 1 => Command::EditText {
+                    id,
+                    range,
+                    text: ["X", "a b ", "\n", ""][rand(4)].into(),
+                },
+                2 => Command::Format {
+                    id,
+                    range: Some(range),
+                    props: sized(6.0 + rand(20) as f64),
+                },
+                3 => Command::Format {
+                    id,
+                    range: Some(range),
+                    props: TextProps {
+                        text_style: Some(body.clone()),
+                        ..TextProps::default()
+                    },
+                },
+                4 => Command::SetFrame {
+                    id,
+                    x: frame[0],
+                    y: frame[1],
+                    w: frame[2],
+                    h: frame[3],
+                    ignore_constraints: false,
+                },
+                5 => Command::Thread {
+                    from: id,
+                    to: t[rand(t.len())].0.clone(),
+                },
+                6 => Command::Unthread { id },
+                7 => Command::SetTextStyle {
+                    id: body.clone(),
+                    name: None,
+                    size: Some(6.0 + rand(20) as f64),
+                    line_height: None,
+                    letter_spacing: None,
+                    paragraph_spacing: None,
+                },
+                8 => {
+                    let face = d.add_font(MONO).unwrap();
+                    check(&d);
+                    Command::Format {
+                        id,
+                        range: Some(range),
+                        props: in_font(face),
+                    }
+                }
+                9 => Command::UseMode {
+                    id: page,
+                    collection: c.clone(),
+                    mode: [None, Some(m1.clone()), Some(m2.clone())][rand(3)].clone(),
+                },
+                10 => Command::DuplicatePage { id: page },
+                11 => Command::SetPage {
+                    id: page,
+                    width: Some(200.0 + rand(400) as f64),
+                    height: None,
+                    bleed: None,
+                },
+                12 => Command::Undo,
+                _ => Command::Redo,
+            };
+            if let Ok(ids) = d.apply(cmd) {
+                pages.extend(ids.into_iter().filter(|i| d.page(i).is_ok()));
+            }
+            check(&d);
+        }
+    }
+
+    #[test]
+    fn the_kept_snapshot_is_the_one_built_afresh() {
+        random_commands(1, 200, |d| assert!(*d.snapshot() == d.build_snapshot()));
     }
 
     #[test]
@@ -2859,7 +3007,7 @@ mod tests {
     #[test]
     fn an_undo_group_is_undone_in_one_step() {
         let mut d = Doc::new();
-        let before = d.snapshot().pages;
+        let before = d.build_snapshot().pages;
         let id = page(&d).children[0].id.clone();
         d.apply(Command::BeginUndoGroup).unwrap();
         for x in 1..4 {
@@ -2896,7 +3044,7 @@ mod tests {
             })
             .unwrap()
             .remove(0);
-        let grouped = d.snapshot().pages;
+        let grouped = d.build_snapshot().pages;
         d.apply(Command::Ungroup { ids: vec![g] }).unwrap();
         d.apply(Command::SetText {
             id: ids[1].clone(),
@@ -3626,14 +3774,14 @@ mod tests {
         })
         .unwrap();
         let mut loaded = Doc::load(&b.d.save()).unwrap();
-        let (before, after) = (b.d.snapshot(), loaded.snapshot());
+        let (before, after) = (b.d.build_snapshot(), loaded.snapshot());
         assert!(!after.can_undo && !after.can_redo);
         assert_eq!(
             Snapshot {
                 can_undo: false,
                 ..before
             },
-            after
+            *after
         );
         for p in &b.pages {
             assert_eq!(b.d.render(p), loaded.render(p));

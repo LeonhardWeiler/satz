@@ -105,7 +105,7 @@ impl Build {
     /// An empty CMYK document with one page `w` × `h` mm.
     fn new(w: f64, h: f64, facing: bool) -> (Build, String) {
         let d = Doc::new();
-        let page = d.snapshot().pages.remove(0);
+        let page = d.build_snapshot().pages.remove(0);
         let ids = page.children.iter().map(|n| n.id.clone()).collect();
         let mut b = Build(d);
         b.run(Command::Delete { ids });
@@ -691,7 +691,7 @@ fn flatten(nodes: &[Node]) -> Vec<&Node> {
 
 /// The preflight issues other than the RGB photographs, which the PDF separates.
 fn issues(d: &Doc) -> Vec<(String, Problem)> {
-    let snap = d.snapshot();
+    let snap = d.build_snapshot();
     let photos: Vec<String> = snap
         .pages
         .iter()
@@ -726,7 +726,7 @@ fn the_poster_is_an_a2_page_without_preflight_issues() {
 fn the_booklet_is_eight_a5_pages_whose_contents_list_its_headings() {
     let d = booklet();
     assert_eq!(issues(&d), []);
-    let pages = d.snapshot().pages;
+    let pages = d.build_snapshot().pages;
     assert_eq!(pages.len(), 8);
     for (title, page) in CONTENTS {
         let text: Vec<String> = d

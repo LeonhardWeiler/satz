@@ -455,7 +455,15 @@ pub(super) fn hit(nodes: &[Node], x: f64, y: f64, tolerance: f64, path: &mut Vec
 }
 
 impl Doc {
-    pub fn snapshot(&self) -> Snapshot {
+    /// The snapshot kept since the last command.
+    pub fn snapshot(&self) -> Rc<Snapshot> {
+        match &*self.snapshot.borrow() {
+            Some(s) => s.clone(),
+            None => Rc::new(self.build_snapshot()),
+        }
+    }
+
+    pub(crate) fn build_snapshot(&self) -> Snapshot {
         let palette = self.palette();
         let flows = self.flows();
         let sheet = |p: TreeID| {

@@ -62,7 +62,7 @@ impl Doc {
     /// Adds a font to those text can be set in and sets the text again.
     pub fn add_font(&mut self, bytes: &[u8]) -> Res<Typeface> {
         let face = text::add_font(bytes)?;
-        self.flows.replace(None);
+        self.invalidate();
         self.doc.set_next_commit_origin(LAYOUT_ORIGIN);
         self.finish(vec![], false)?;
         Ok(face)
@@ -242,9 +242,6 @@ impl Doc {
 
     /// The text layer that `id` follows in its thread.
     pub(super) fn prev_of(&self, id: TreeID) -> Option<TreeID> {
-        if let Some(flows) = &*self.flows.borrow() {
-            return flows.get(&id).and_then(|f| f.prev);
-        }
         let mut all = Vec::new();
         for r in self.pages().into_iter().chain(self.masters()) {
             self.walk(r, &mut all);

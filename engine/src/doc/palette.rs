@@ -585,7 +585,7 @@ mod tests {
         assert!(d.apply(rename("Blue")).is_err());
         d.apply(rename("Red")).unwrap();
         let names: Vec<_> = d
-            .snapshot()
+            .build_snapshot()
             .palette
             .swatches
             .into_iter()
