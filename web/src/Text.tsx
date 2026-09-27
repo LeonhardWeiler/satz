@@ -1,4 +1,6 @@
-import { Fragment } from 'react'
+import { Fragment, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
+import { ContextMenu } from './ContextMenu'
 import { Field, NameInput, nextName, Section, Select } from './controls'
 import { useEditor, type Editor } from './editor'
 import { Icon } from './icons'
@@ -39,6 +41,9 @@ const STYLED: [Styled, string, string, string, string?][] = [
   ['paragraphSpacing', 'Paragraph spacing', 'Para', 'pt'],
 ]
 
+/** The text style's name set at its size, within what a panel row takes. */
+const specimen = (s?: TextStyle) => (s ? { fontSize: Math.min(Math.max(s.size * 0.95, 9), 22), fontFamily: 'var(--doc-font)' } : undefined)
+
 /** Text style, type and alignment of a text layer. */
 export function TextSection({ editor, node }: { editor: Editor; node: TextNode }) {
   const styles = useEditor(editor, (e) => e.snapshot.textStyles)
@@ -52,8 +57,8 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
   /** Formats the selection of the text being edited, or else all of it. */
   const format = (props: TextProps) => editor.apply({ type: 'format', id: node.id, range: edited && range(edited), ...props })
   const style = same((a) => a.textStyle)
-  const options: Record<string, string> = { '': 'No style', ...Object.fromEntries(styles.map((s) => [s.id, s.name])) }
-  if (style === null) options.mixed = 'Mixed'
+  const current = styles.find((s) => s.id === style)
+  const [menu, setMenu] = useState<DOMRect | null>(null)
   const create = () => {
     const a = spans[0]
     const [id] = editor.apply({
@@ -85,7 +90,35 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
   return (
     <Section title="Text">
       <div className="row">
-        <Select label="Text style" value={style ?? 'mixed'} options={options} onChange={(textStyle) => format({ textStyle })} />
+        <button
+          type="button"
+          className="specimen"
+          title="Text style"
+          aria-haspopup="menu"
+          onClick={(e) => setMenu(e.currentTarget.getBoundingClientRect())}
+        >
+          <span style={specimen(current)}>{style === null ? 'Mixed' : (current?.name ?? 'No style')}</span>
+          {current && <span className="specimen-size">{`${current.size}/${current.lineHeight || 'Auto'} pt`}</span>}
+          <Icon name="chevron" />
+        </button>
+        {menu &&
+          createPortal(
+            <ContextMenu
+              menu={{ x: menu.left, y: menu.bottom + 4 }}
+              label="Text styles"
+              onClose={() => setMenu(null)}
+              items={[
+                ['No style', () => format({ textStyle: '' }), true, style === ''],
+                ...styles.map((s): [ReactNode, () => void, boolean, boolean] => [
+                  <span style={specimen(s)}>{s.name}</span>,
+                  () => format({ textStyle: s.id }),
+                  true,
+                  style === s.id,
+                ]),
+              ]}
+            />,
+            document.body,
+          )}
         <button type="button" className="icon-button" aria-label="Create text style" title="Create text style" onClick={create}>
           <Icon name="plus" />
         </button>

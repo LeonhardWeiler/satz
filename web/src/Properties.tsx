@@ -2,9 +2,11 @@ import { neutral, type Color, type ColorMode } from './color'
 import { Field, Section, Select } from './controls'
 import { useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { bounds, ends, scopeOf, useEditor, type Editor } from './editor'
+import { bounds, ends, MM, scopeOf, useEditor, type Editor } from './editor'
+import { Icon, KindIcon } from './icons'
+import { FORMATS } from './Start'
 import { addFonts, canFindFonts, findFonts } from './file'
-import type { Bindable as Prop, Blend, Constraint, Command, Fill, Node, Props, Size, Style } from './model'
+import type { Bindable as Prop, Blend, Constraint, Command, Fill, Node, Page, Props, Size, Style } from './model'
 import { AutoLayout } from './AutoLayout'
 import { EffectList, PaintList } from './Paints'
 import { TextFrameSection, TextSection, TextStyles } from './Text'
@@ -35,9 +37,8 @@ export function Properties({
 }) {
   const page = useEditor(editor, (e) => e.page)
   const isPage = useEditor(editor, (e) => e.snapshot.pages.includes(e.page))
-  const rasterPpi = useEditor(editor, (e) => e.snapshot.rasterPpi)
   const mode = useEditor(editor, (e) => e.snapshot.colorMode)
-  const facing = useEditor(editor, (e) => e.snapshot.facingPages)
+  const overview = useEditor(editor, (e) => e.overview)
   const snapshot = useEditor(editor, (e) => e.snapshot)
   const { fonts, missingFonts } = snapshot
   const [variables, setVariables] = useState(false)
@@ -60,6 +61,12 @@ export function Properties({
     each((n) => ({ type: 'setFrame', id: n.id, x: n.x, y: n.y, w: n.w, h: n.h, [key]: v }))
 
   const one = nodes.length === 1 ? nodes[0] : undefined
+  const ids = snapshot.pages.map((p) => p.id)
+  const picked = overview?.filter((id) => ids.includes(id)) ?? []
+  const targets = isPage && picked.length ? picked : [page.id]
+  const numbers = targets.map((id) => ids.indexOf(id) + 1)
+  const sheets = targets.flatMap((id) => (id === page.id ? page : (snapshot.pages.find((p) => p.id === id) ?? [])))
+  const master = sameOf(sheets, (p) => p.master ?? '')
   const scope = scopeOf(snapshot, one?.activeModes)
   const parent = one && editor.nodes.get(one.id)?.parent
   const flows = !!one && parent?.kind === 'frame' && parent.direction !== 'none' && !one.absolute
@@ -93,50 +100,48 @@ export function Properties({
       onPointerDown={editor.gesture}
     >
       <header className="panel-header">
+        {one ? <KindIcon node={one} /> : <Icon name={nodes.length ? 'group' : isPage ? 'doc' : 'master'} />}
         <h2>{one ? one.name : nodes.length ? `${nodes.length} layers` : isPage ? 'Page' : page.name}</h2>
       </header>
+      {!box && <DocumentSection editor={editor} />}
       {!box && (
-        <Section title={isPage ? 'Page' : 'Master'}>
+        <Section id="page" title={isPage ? (targets.length > 1 ? `Pages ${numbers.join(', ')}` : `Page ${numbers[0]}`) : 'Master'}>
           <div className="grid">
             {(['width', 'height', 'bleed'] as const).map((k) => (
               <Field
                 key={k}
                 label={k === 'bleed' ? 'Bleed' : k === 'width' ? 'W' : 'H'}
-                value={page[k]}
+                value={sameOf(sheets, (p) => p[k])}
                 unit="mm"
-                onCommit={(v) => editor.apply({ type: 'setPage', id: page.id, [k]: v })}
+                onCommit={(v) => editor.batch(() => sheets.forEach((p) => editor.apply({ type: 'setPage', id: p.id, [k]: v })))}
               />
             ))}
-            <Field
-              label="Raster"
-              value={rasterPpi}
-              unit="ppi"
-              onCommit={(v) => editor.apply({ type: 'setDocument', rasterPpi: v })}
-            />
-            <Select
-              label="Color mode"
-              value={mode}
-              options={MODES}
-              onChange={(colorMode) => editor.apply({ type: 'setDocument', colorMode })}
-            />
             <ModeSelects editor={editor} id={page.id} own={page.modes} inherited={{}} />
-            {isPage && (
-              <Select
-                label="Master"
-                value={page.master ?? ''}
-                options={{ '': 'None', ...Object.fromEntries(snapshot.masters.map((m) => [m.id, m.name])) }}
-                onChange={(m) => editor.apply({ type: 'useMaster', page: page.id, master: m || null })}
-              />
-            )}
           </div>
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={facing}
-              onChange={(e) => editor.apply({ type: 'setDocument', facingPages: e.currentTarget.checked })}
-            />
-            Facing pages
-          </label>
+          {isPage && (
+            <select
+              className="select"
+              aria-label="Master"
+              title="Master"
+              value={master === null ? 'mixed' : master}
+              onChange={(e) => {
+                const m = e.currentTarget.value || null
+                editor.batch(() => targets.forEach((id) => editor.apply({ type: 'useMaster', page: id, master: m })))
+              }}
+            >
+              <option value="">None</option>
+              {snapshot.masters.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+              {master === null && (
+                <option value="mixed" disabled>
+                  Mixed
+                </option>
+              )}
+            </select>
+          )}
           {isPage && page.detached.length > 0 && (
             <button type="button" className="button" onClick={() => editor.apply({ type: 'resetToMaster', ids: [page.id] })}>
               Reset overrides
@@ -334,5 +339,84 @@ export function Properties({
       {one?.kind === 'text' && <TextSection editor={editor} node={one} />}
       {one?.kind === 'text' && <TextFrameSection node={one} set={set} />}
     </aside>
+  )
+}
+
+const sameOf = <T, U>(items: T[], get: (t: T) => U): U | null => {
+  const values = items.map(get)
+  return values.every((v) => v === values[0]) ? values[0] : null
+}
+const near = (a: number, b: number) => Math.abs(a - b) < 0.5
+
+/** Format, orientation, size, bleed and number of all pages, facing pages, colour mode and raster resolution. */
+function DocumentSection({ editor }: { editor: Editor }) {
+  const { pages, masters, facingPages, colorMode, rasterPpi } = useEditor(editor, (e) => e.snapshot)
+  const sheets = [...pages, ...masters]
+  const w = sameOf(pages, (p) => p.width)
+  const h = sameOf(pages, (p) => p.height)
+  const landscape = w !== null && h !== null ? w > h : null
+  const format =
+    w !== null && h !== null ? (FORMATS.find(([, a, b]) => near(Math.min(w, h), a * MM) && near(Math.max(w, h), b * MM))?.[0] ?? 'Custom') : 'Custom'
+  const each = (props: (p: Page) => Partial<Pick<Page, 'width' | 'height' | 'bleed'>>) =>
+    editor.batch(() => sheets.forEach((p) => editor.apply({ type: 'setPage', id: p.id, ...props(p) })))
+  const orient = (wide: boolean) => each((p) => (p.width > p.height === wide ? {} : { width: p.height, height: p.width }))
+  const count = (n: number) =>
+    editor.batch(() => {
+      for (let i = pages.length; i < n; i++) editor.apply({ type: 'addPage', after: editor.snapshot.pages.at(-1)!.id })
+      for (const p of pages.slice(Math.max(1, n)).reverse()) editor.apply({ type: 'deletePage', id: p.id })
+    })
+  return (
+    <Section title="Document">
+      <div className="row">
+        <select
+          className="select"
+          aria-label="Format"
+          title="Format"
+          value={format}
+          onChange={(e) => {
+            const [, a, b] = FORMATS.find(([n]) => n === e.currentTarget.value)!
+            each(() => (landscape ? { width: b * MM, height: a * MM } : { width: a * MM, height: b * MM }))
+          }}
+        >
+          {FORMATS.map(([n]) => (
+            <option key={n}>{n}</option>
+          ))}
+          <option disabled>Custom</option>
+        </select>
+        <div role="radiogroup" aria-label="Orientation" className="segmented">
+          {(['portrait', 'landscape'] as const).map((o) => (
+            <button
+              key={o}
+              type="button"
+              role="radio"
+              aria-checked={landscape === (o === 'landscape')}
+              aria-label={o === 'portrait' ? 'Portrait' : 'Landscape'}
+              title={o === 'portrait' ? 'Portrait' : 'Landscape'}
+              onClick={() => orient(o === 'landscape')}
+            >
+              <Icon name={o} />
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="grid">
+        <Field label="W" title="Width of all pages in mm" unit="mm" value={w} onCommit={(width) => each(() => ({ width }))} />
+        <Field label="H" title="Height of all pages in mm" unit="mm" value={h} onCommit={(height) => each(() => ({ height }))} />
+        <Field label="Bleed" title="Bleed of all pages in mm" unit="mm" value={sameOf(pages, (p) => p.bleed)} onCommit={(bleed) => each(() => ({ bleed }))} />
+        <Field label="Pages" title="Pages" unit="" int value={pages.length} onCommit={count} />
+      </div>
+      <label className="check">
+        <input type="checkbox" checked={facingPages} onChange={(e) => editor.apply({ type: 'setDocument', facingPages: e.currentTarget.checked })} />
+        Facing pages
+      </label>
+      <div className="grid">
+        <Select label="Color mode" value={colorMode} options={MODES} onChange={(colorMode) => editor.apply({ type: 'setDocument', colorMode })} />
+        <div className="kv" title="Output profile">
+          <span>Profile</span>
+          <strong>{colorMode === 'cmyk' ? 'FOGRA51' : 'sRGB'}</strong>
+        </div>
+        <Field label="Raster" value={rasterPpi} unit="ppi" onCommit={(v) => editor.apply({ type: 'setDocument', rasterPpi: v })} />
+      </div>
+    </Section>
   )
 }

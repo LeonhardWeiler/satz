@@ -35,6 +35,7 @@
   --bad: #ff6b5e;
   --warn: #f1b43a;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --doc-font: 'Source Serif 4', Georgia, serif;
   --checker: repeating-conic-gradient(#ffffff 0 25%, #cccccc 0 50%) 0 0 / 8px 8px;
   font: 12px/16px 'Hanken Grotesk', system-ui, sans-serif;
   font-variant-numeric: tabular-nums;
@@ -393,16 +394,63 @@ textarea {
 }
 
 .section {
-  display: grid;
-  gap: 8px;
-  padding: 12px;
   border-bottom: 1px solid var(--border);
 }
 
 .section h3 {
+  flex: 1;
   margin: 0;
   font-size: 12px;
   font-weight: 600;
+}
+
+.section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 34px;
+  padding: 0 12px;
+  border: 0;
+  background: none;
+  font-weight: 600;
+  text-align: left;
+}
+
+.section-toggle svg {
+  color: var(--text-3);
+  transform: rotate(90deg);
+  transition: transform 0.18s var(--ease);
+}
+
+.section.closed .section-toggle svg {
+  transform: none;
+}
+
+.section-header .icon-button {
+  margin-right: 8px;
+}
+
+.section-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.18s var(--ease);
+}
+
+.section.closed .section-body {
+  grid-template-rows: 0fr;
+}
+
+.section-inner {
+  display: grid;
+  gap: 8px;
+  min-height: 0;
+  padding: 0 12px 12px;
+  overflow: hidden;
+}
+
+.section.closed .section-inner {
+  padding-bottom: 0;
 }
 
 .grid {
@@ -547,8 +595,19 @@ textarea {
   gap: 4px;
 }
 
+.properties .panel-header {
+  justify-content: flex-start;
+  color: var(--text);
+}
+
+.properties .panel-header svg {
+  flex: none;
+  color: var(--text-3);
+}
+
 .row > .field,
-.row > .select {
+.row > .select,
+.row > .specimen {
   flex: 1;
   min-width: 0;
 }
@@ -1896,4 +1955,51 @@ kbd {
 .ov-add:hover {
   border-color: var(--accent);
   color: var(--accent);
+}
+
+.kv {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 28px;
+  color: var(--text-3);
+}
+
+.kv strong {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.specimen {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--input);
+  text-align: left;
+}
+
+.specimen:hover {
+  background: var(--hover);
+}
+
+.specimen > span:first-child {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.specimen-size {
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.specimen svg {
+  color: var(--text-3);
+  transform: rotate(90deg);
 }

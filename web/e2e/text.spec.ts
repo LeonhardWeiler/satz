@@ -20,7 +20,7 @@ test('type attributes and a text style are set in the text section and edited on
   await panel.getByRole('radio', { name: 'Align center' }).click()
   await expect(panel.getByRole('radio', { name: 'Align center' })).toBeChecked()
   await panel.getByRole('button', { name: 'Create text style' }).click()
-  await expect(panel.getByRole('combobox', { name: 'Text style' }).locator('option:checked')).toHaveText('Text style 1')
+  await expect(panel.getByTitle('Text style', { exact: true })).toContainText('Text style 1')
 
   await page.keyboard.press('Escape')
   const style = panel.getByRole('group', { name: 'Text style 1' })
@@ -31,7 +31,7 @@ test('type attributes and a text style are set in the text section and edited on
   await expect(field('Font size in pt')).toHaveValue('9')
   await commit('Line height in pt', 'auto')
   await expect(field('Line height in pt')).toHaveValue('Auto')
-  await expect(panel.getByRole('combobox', { name: 'Text style' }).locator('option:checked')).toHaveText('No style')
+  await expect(panel.getByTitle('Text style', { exact: true })).toContainText('No style')
   await expect(field('Font size in pt')).toHaveValue('9')
 })
 

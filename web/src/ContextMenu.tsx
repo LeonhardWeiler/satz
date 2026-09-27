@@ -1,7 +1,8 @@
+import type { ReactNode } from 'react'
 import { roam } from './controls'
 import { Popover } from './Popover'
 
-/** A context menu at the pointer that closes on a pick, Escape or a click elsewhere. */
+/** A menu at the pointer that closes on a pick, Escape or a click elsewhere; an item with a fourth value is a radio item. */
 export function ContextMenu({
   menu,
   label,
@@ -10,7 +11,7 @@ export function ContextMenu({
 }: {
   menu: { x: number; y: number }
   label: string
-  items: [string, () => void, boolean][]
+  items: [ReactNode, () => void, boolean, boolean?][]
   onClose: () => void
 }) {
   return (
@@ -24,17 +25,18 @@ export function ContextMenu({
         onPointerDown={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           if (e.key === 'Escape') onClose()
-          else roam(e, [...e.currentTarget.querySelectorAll('[role=menuitem]:not(:disabled)')])
+          else roam(e, [...e.currentTarget.querySelectorAll('[role^=menuitem]:not(:disabled)')])
         }}
       >
-        {items.map(([label, run, enabled], i) => (
+        {items.map(([label, run, enabled, checked], i) => (
           <button
-            key={label}
+            key={i}
             type="button"
-            role="menuitem"
+            role={checked === undefined ? 'menuitem' : 'menuitemradio'}
+            aria-checked={checked}
             className="menu-item"
             disabled={!enabled}
-            autoFocus={i === 0}
+            autoFocus={i === Math.max(0, items.findIndex((it) => it[3]))}
             onClick={() => {
               onClose()
               run()
