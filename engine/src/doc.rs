@@ -653,6 +653,8 @@ pub struct Doc {
     clipboard: Vec<(Clip, Option<TreeID>)>,
     /// The flows through all text layers, from the end of the last command on.
     flows: RefCell<Option<Rc<HashMap<TreeID, Flow>>>>,
+    /// The version of the last change other than text set again for a new font.
+    version: String,
 }
 
 struct Clip {
@@ -671,6 +673,8 @@ const PRINT_PPI: f64 = 300.0;
 /// The origin of commits that add images, which undo leaves alone: the bytes stay
 /// for whatever uses them now or after an undo.
 const IMAGE_ORIGIN: &str = "image";
+/// The origin of commits that set text again for a font added, which undo leaves alone.
+const LAYOUT_ORIGIN: &str = "layout";
 /// Properties a number variable can bind to; lengths count in mm, opacity in %,
 /// text size in pt.
 const BINDABLE: [&str; 11] = [
@@ -718,6 +722,7 @@ impl Doc {
         tree.enable_fractional_index(0);
         Doc {
             undo: undo_manager(&doc),
+            version: format!("{:?}", doc.oplog_frontiers()),
             doc,
             tree,
             clipboard: Vec::new(),
@@ -987,6 +992,7 @@ impl Doc {
     pub fn add_font(&mut self, bytes: &[u8]) -> Res<Typeface> {
         let face = text::add_font(bytes)?;
         self.flows.replace(None);
+        self.doc.set_next_commit_origin(LAYOUT_ORIGIN);
         self.finish(vec![], false)?;
         Ok(face)
     }
@@ -1004,6 +1010,7 @@ impl Doc {
                 .insert(&info.hash, LoroValue::Binary(bytes))
                 .map_err(err)?;
             self.doc.commit();
+            self.version = format!("{:?}", self.doc.oplog_frontiers());
         }
         Ok(info)
     }
@@ -1017,7 +1024,7 @@ impl Doc {
     }
 
     pub fn version(&self) -> String {
-        format!("{:?}", self.doc.oplog_frontiers())
+        self.version.clone()
     }
 
     pub fn load(bytes: &[u8]) -> Res<Doc> {
@@ -1057,7 +1064,9 @@ impl Doc {
             out.is_ok() || self.doc.get_pending_txn_len() == 0,
             "a command wrote before it failed"
         );
-        self.finish(out?, history)
+        let out = self.finish(out?, history)?;
+        self.version = format!("{:?}", self.doc.oplog_frontiers());
+        Ok(out)
     }
 
     /// Carries out a command; it checks everything before it writes, so that one that
@@ -3835,6 +3844,7 @@ impl Default for Doc {
 fn undo_manager(doc: &LoroDoc) -> UndoManager {
     let mut undo = UndoManager::new(doc);
     undo.add_exclude_origin_prefix(IMAGE_ORIGIN);
+    undo.add_exclude_origin_prefix(LAYOUT_ORIGIN);
     undo
 }
 
@@ -8206,6 +8216,24 @@ mod tests {
         assert_eq!(d.add_font(MONO).unwrap(), mono);
         assert!(runs(&d)[0].0 & text::MISSING == 0);
         assert!(d.snapshot().missing_fonts.is_empty());
+    }
+
+    #[test]
+    fn text_set_again_in_an_added_font_is_no_change_and_no_undo_step() {
+        let (mut d, _) = empty();
+        let t = text(&mut d, "Hello world");
+        let mono = Typeface {
+            name: "DM Mono Regular".into(),
+            hash: "c7ad9b42c84d5685".into(),
+        };
+        format(&mut d, &t, None, in_font(mono)).unwrap();
+        let fallback = page(&d).children[0].w;
+        let version = d.version();
+        d.add_font(MONO).unwrap();
+        assert!(page(&d).children[0].w != fallback);
+        assert_eq!(d.version(), version);
+        d.apply(Command::Undo).unwrap();
+        assert_eq!(spans(&d)[0].attrs.font, None);
     }
 
     fn problems(d: &Doc) -> Vec<(String, Problem)> {
