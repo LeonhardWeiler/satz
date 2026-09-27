@@ -25,6 +25,8 @@ use std::fmt::Display;
 use std::ops::Range;
 use std::rc::Rc;
 
+#[cfg(test)]
+mod bench;
 mod clipboard;
 mod draw;
 mod pages;

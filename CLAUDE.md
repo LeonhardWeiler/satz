@@ -10,6 +10,8 @@ Rust engine (`engine/`, compiled to WASM) owns the Loro document; the React UI
 tsc, eslint, vitest, vite build and Playwright. `./check build` stops before
 Playwright, `./check e2e [args]` runs only Playwright against `web/dist`.
 `cargo test` writes `web/src/testdata`, which vitest reads, so run it first.
+`cargo test --release -p engine bench -- --ignored --nocapture` measures the engine
+(`engine/src/doc/bench.rs`); it is not in CI.
 
 Setup: `nix develop` provides all tools. Without nix: stable Rust with the
 `wasm32-unknown-unknown` target, `wasm-pack`, `wasm-bindgen-cli` 0.2.127, binaryen,
