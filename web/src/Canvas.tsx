@@ -269,18 +269,40 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         drawRuler(rulerY.current!, false, view.y, view.zoom * MM, sel && [view.y + sel.y * view.zoom, view.y + (sel.y + sel.h) * view.zoom])
       })
     }
-    const zoomAt = (px: number, py: number, zoom: number) => {
-      zoom = Math.min(256, Math.max(0.02, zoom))
-      view.x = px - ((px - view.x) * zoom) / view.zoom
-      view.y = py - ((py - view.y) * zoom) / view.zoom
-      view.zoom = zoom
-      setZoom(zoom)
-      redraw()
-    }
-    const fit = (sheets = editor.sheets) => {
-      Object.assign(view, fitView(sheets, canvas.clientWidth, canvas.clientHeight))
+    const show = (to: View) => {
+      Object.assign(view, to)
       setZoom(view.zoom)
       redraw()
+    }
+    /** The view at `zoom` that keeps the point `px`, `py` where it is. */
+    const around = (px: number, py: number, zoom: number): View => {
+      zoom = Math.min(256, Math.max(0.02, zoom))
+      return { x: px - ((px - view.x) * zoom) / view.zoom, y: py - ((py - view.y) * zoom) / view.zoom, zoom }
+    }
+    const zoomAt = (px: number, py: number, zoom: number) => show(around(px, py, zoom))
+    const fit = (sheets = editor.sheets) => show(fitView(sheets, canvas.clientWidth, canvas.clientHeight))
+    let anim = 0
+    let target: View | undefined
+    /** Moves the view to `to` in 180 ms; any input ends the move at `to`. */
+    const glide = (to: View) => {
+      settle()
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) return show(to)
+      const from = { ...view }
+      const start = performance.now()
+      target = to
+      const step = (t: number) => {
+        const k = Math.min(1, (t - start) / 180)
+        const e = 1 - (1 - k) ** 3
+        show({ x: from.x + (to.x - from.x) * e, y: from.y + (to.y - from.y) * e, zoom: from.zoom * (to.zoom / from.zoom) ** e })
+        if (k < 1) anim = requestAnimationFrame(step)
+        else target = undefined
+      }
+      anim = requestAnimationFrame(step)
+    }
+    const settle = () => {
+      cancelAnimationFrame(anim)
+      if (target) show(target)
+      target = undefined
     }
 
     const handleUnder = (e: Pointer) => handleAt(view, e.offsetX, e.offsetY, handles())
@@ -315,6 +337,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
+      settle()
       const scale = e.deltaMode === 1 ? 16 : 1
       if (e.ctrlKey || e.metaKey) {
         zoomAt(e.offsetX, e.offsetY, view.zoom * Math.exp(-e.deltaY * scale * 0.01))
@@ -336,6 +359,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       return inside(n) ? n : [...editor.nodes.values()].map((e) => e.node).find(inside)
     }
     const onPointerDown = (e: PointerEvent) => {
+      settle()
       if (e.button !== 0 && e.button !== 1) return
       const p = toDoc(e)
       const edited = e.button === 0 && !space ? inEdited(p) : undefined
@@ -647,11 +671,16 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         return
       }
       if (e.type !== 'keydown') return
+      settle()
       const cx = canvas.clientWidth / 2
       const cy = canvas.clientHeight / 2
       const mod = e.ctrlKey || e.metaKey
-      if (e.shiftKey && e.code === 'Digit1') fit()
-      else if (e.shiftKey && e.code === 'Digit0') zoomAt(cx, cy, PX_PER_PT)
+      const sel = editor.selection.length ? bounds(editor.selected().map(placed)) : undefined
+      if (e.shiftKey && e.code === 'Digit1') glide(fitView(editor.sheets, canvas.clientWidth, canvas.clientHeight))
+      else if (e.shiftKey && e.code === 'Digit2' && sel) {
+        const zoom = Math.min(256, (canvas.clientWidth - 240) / Math.max(sel.w, 1), (canvas.clientHeight - 240) / Math.max(sel.h, 1))
+        glide({ x: cx - (sel.x + sel.w / 2) * zoom, y: cy - (sel.y + sel.h / 2) * zoom, zoom })
+      } else if ((e.shiftKey || mod) && e.code === 'Digit0') glide(around(cx, cy, PX_PER_PT))
       else if (mod && (e.key === '=' || e.key === '+')) zoomAt(cx, cy, view.zoom * 2)
       else if (mod && e.key === '-') zoomAt(cx, cy, view.zoom / 2)
       else return
@@ -692,6 +721,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     window.addEventListener('keyup', onKey)
     return () => {
       cancelAnimationFrame(frame)
+      cancelAnimationFrame(anim)
       clearInterval(blink)
       unsubscribe()
       resize.disconnect()

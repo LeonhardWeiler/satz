@@ -4,6 +4,12 @@ const TOOLS: Record<string, Tool> = {
   v: 'move', f: 'frame', a: 'frame', r: 'rect', o: 'ellipse', l: 'line', p: 'pen', t: 'text',
 }
 const ORDER = { BracketRight: ['forward', 'front'], BracketLeft: ['backward', 'back'] } as const
+const JUMPS: Record<string, (k: number, n: number) => number> = {
+  PageUp: (k) => k - 1,
+  PageDown: (k) => k + 1,
+  Home: () => 0,
+  End: (_, n) => n - 1,
+}
 const ARROWS: Record<string, [number, number]> = {
   ArrowLeft: [-1, 0],
   ArrowRight: [1, 0],
@@ -32,7 +38,13 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
   else if (mod && key === 'v') editor.set({ selection: editor.apply({ type: 'paste', above: ids, page: editor.page.id }) })
   else if (e.key === 'Escape') {
     if (editor.tool !== 'move') editor.setTool('move')
+    else if (!ids.length && editor.master) editor.exitMaster()
     else editor.set({ selection: one?.parent ? [one.parent.id] : [] })
+  } else if (!mod && e.key in JUMPS) {
+    const { spreads } = editor.snapshot
+    const k = spreads.findIndex((s) => s.includes(editor.pageId))
+    const to = spreads[Math.max(0, Math.min(spreads.length - 1, JUMPS[e.key](k, spreads.length)))]
+    editor.showPage(to[0])
   } else if (!ids.length) return false
   else if (e.key === 'Delete' || e.key === 'Backspace') editor.apply({ type: 'delete', ids })
   else if (mod && (key === 'c' || key === 'x')) {
