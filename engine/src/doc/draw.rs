@@ -471,7 +471,7 @@ impl Doc {
                 side: None,
                 x: 0.0,
                 master: self.master_of(p).map(|m| m.to_string()),
-                detached: serde_json::from_value(v["detached"].clone()).unwrap_or_default(),
+                detached: serde_json::from_value(v[DETACHED].clone()).unwrap_or_default(),
                 children: self
                     .children(p)
                     .into_iter()
@@ -722,8 +722,8 @@ impl Doc {
                 .map(|c| self.snap(c, &active_modes, palette, flows))
                 .collect()
         };
-        let kind = match self.kind(id).as_str() {
-            "text" => match flows.get(&id) {
+        let kind = match self.kind(id) {
+            Some(NodeKind::Text) => match flows.get(&id) {
                 Some(f) => {
                     let text = &f.story.text;
                     Kind::Text {
@@ -760,10 +760,10 @@ impl Doc {
                     from: 0,
                 },
             },
-            "group" => Kind::Group {
+            Some(NodeKind::Group) => Kind::Group {
                 children: children(),
             },
-            "frame" => Kind::Frame {
+            Some(NodeKind::Frame) => Kind::Frame {
                 clip: v["clip"] == true,
                 children: children(),
             },
@@ -807,7 +807,7 @@ impl Doc {
             modes,
             active_modes,
             bindings: self.bindings(id),
-            override_of: v["overrideOf"].as_str().map(String::from),
+            override_of: v[OVERRIDE_OF].as_str().map(String::from),
             ppi: style
                 .fills
                 .iter()

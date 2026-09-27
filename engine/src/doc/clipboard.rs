@@ -40,7 +40,7 @@ impl Doc {
         let to = self.meta(new);
         for (k, v) in clip.meta.clone().into_map().unwrap().iter() {
             match (k.as_str(), v) {
-                ("next", _) => {}
+                (NEXT, _) => {}
                 ("text", LoroValue::String(_)) => to
                     .insert_container(k, LoroText::new())
                     .map_err(err)?
@@ -69,7 +69,7 @@ impl Doc {
             .collect();
         for (_, new, next) in pairs {
             if let Some(&to) = next.and_then(|n| copies.get(&n)) {
-                self.meta(new).insert("next", to.to_string()).map_err(err)?;
+                self.meta(new).insert(NEXT, to.to_string()).map_err(err)?;
                 let own = self.own_text(to)?;
                 own.delete_utf16(0, own.len_utf16()).map_err(err)?;
             }
@@ -87,7 +87,7 @@ impl Doc {
         let next = clip
             .meta
             .as_map()
-            .and_then(|m| m.get("next")?.as_string().cloned());
+            .and_then(|m| m.get(NEXT)?.as_string().cloned());
         out.push((clip.id, copy, next.map(|n| n.to_string())));
         for (c, n) in clip.children.iter().zip(self.children(copy)) {
             self.pair_up(c, n, out);
@@ -101,7 +101,7 @@ impl Doc {
             let parent = self.tree.parent(id).ok_or("no parent")?;
             let clip = self.clip(id);
             let copy = self.paste(&clip, parent, self.index(id) + 1)?;
-            self.meta(copy).delete("overrideOf").map_err(err)?;
+            self.meta(copy).delete(OVERRIDE_OF).map_err(err)?;
             out.push(copy.to_string());
             clips.push((clip, copy));
         }
@@ -147,7 +147,7 @@ impl Doc {
                 }
             };
             let copy = self.paste(clip, parent, index)?;
-            self.meta(copy).delete("overrideOf").map_err(err)?;
+            self.meta(copy).delete(OVERRIDE_OF).map_err(err)?;
             out.push(copy.to_string());
             pasted.push((clip, copy));
         }

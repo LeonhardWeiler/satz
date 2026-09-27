@@ -482,6 +482,43 @@ pub enum Order {
     Back,
 }
 
+/// What a node of the tree is; stored under `KIND`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum NodeKind {
+    Page,
+    Master,
+    /// The root that deleted nodes move under.
+    Trash,
+    Group,
+    Frame,
+    Text,
+    Shape,
+}
+
+impl NodeKind {
+    const ALL: [NodeKind; 7] = [
+        NodeKind::Page,
+        NodeKind::Master,
+        NodeKind::Trash,
+        NodeKind::Group,
+        NodeKind::Frame,
+        NodeKind::Text,
+        NodeKind::Shape,
+    ];
+
+    fn as_str(self) -> &'static str {
+        match self {
+            NodeKind::Page => "page",
+            NodeKind::Master => "master",
+            NodeKind::Trash => "trash",
+            NodeKind::Group => "group",
+            NodeKind::Frame => "frame",
+            NodeKind::Text => "text",
+            NodeKind::Shape => "shape",
+        }
+    }
+}
+
 pub struct Doc {
     doc: LoroDoc,
     tree: LoroTree,
@@ -538,6 +575,16 @@ const STORY: [&str; 11] = [
     "font",
 ];
 
+/// Keys of a node that give its kind or link it to other nodes: a text layer to the
+/// next frame of its thread, a page to its master and the master layers it
+/// overrides, a page layer to the master layer it overrides, and a layer on the
+/// left page of a master spread to the one on the right it was copied from.
+const KIND: &str = "kind";
+const NEXT: &str = "next";
+const MASTER: &str = "master";
+const DETACHED: &str = "detached";
+const OVERRIDE_OF: &str = "overrideOf";
+const LEFT_OF: &str = "leftOf";
 /// Figma's selection blue at 30 %.
 const SELECTION: [f32; 4] = [0.051, 0.6, 1.0, 0.3];
 
@@ -654,7 +701,7 @@ impl Doc {
         let mut d = Doc::with(LoroDoc::new());
         let page = d.tree.create(None).unwrap();
         let m = d.meta(page);
-        m.insert("kind", "page").unwrap();
+        m.insert(KIND, NodeKind::Page.as_str()).unwrap();
         m.insert("width", 148.0 * MM).unwrap();
         m.insert("height", 210.0 * MM).unwrap();
         m.insert("bleed", 3.0 * MM).unwrap();
@@ -877,7 +924,7 @@ impl Doc {
     pub fn save(&self) -> Vec<u8> {
         let mut ids = Vec::new();
         for r in self.tree.roots() {
-            if self.kind(r) != "trash" {
+            if self.kind(r) != Some(NodeKind::Trash) {
                 self.walk(r, &mut ids);
             }
         }
@@ -943,10 +990,10 @@ impl Doc {
         doc.import(bytes).map_err(|_| "not a Satz document")?;
         let mut d = Doc::with(doc);
         let kinds: Vec<_> = d.tree.roots().into_iter().map(|r| d.kind(r)).collect();
-        if !kinds.iter().any(|k| k == "page")
+        if !kinds.contains(&Some(NodeKind::Page))
             || kinds
                 .iter()
-                .any(|k| !matches!(k.as_str(), "page" | "master" | "trash"))
+                .any(|k| !matches!(k, Some(NodeKind::Page | NodeKind::Master | NodeKind::Trash)))
         {
             return Err("not a Satz document".into());
         }
@@ -1152,16 +1199,16 @@ impl Doc {
         let line = vec![MOVE, 0.0, 0.0, LINE, 1.0, 0.0];
         let (name, shape, props) = match kind {
             NewKind::Rect => (
-                "shape",
+                NodeKind::Shape,
                 "rect",
                 Props {
                     radius: Some(0.0),
                     ..closed
                 },
             ),
-            NewKind::Ellipse => ("shape", "ellipse", closed),
+            NewKind::Ellipse => (NodeKind::Shape, "ellipse", closed),
             NewKind::Polygon => (
-                "shape",
+                NodeKind::Shape,
                 "polygon",
                 Props {
                     count: Some(3),
@@ -1169,7 +1216,7 @@ impl Doc {
                 },
             ),
             NewKind::Star => (
-                "shape",
+                NodeKind::Shape,
                 "star",
                 Props {
                     count: Some(5),
@@ -1177,13 +1224,13 @@ impl Doc {
                     ..closed
                 },
             ),
-            NewKind::Line | NewKind::Arrow => ("shape", "path", open(line)),
-            NewKind::Path => ("shape", "path", open(Vec::new())),
+            NewKind::Line | NewKind::Arrow => (NodeKind::Shape, "path", open(line)),
+            NewKind::Path => (NodeKind::Shape, "path", open(Vec::new())),
             NewKind::Text => {
                 m.insert_container("text", LoroText::new()).map_err(err)?;
                 m.insert("size", 12.0).map_err(err)?;
                 (
-                    "text",
+                    NodeKind::Text,
                     "",
                     Props {
                         fills: Some(vec![Fill::solid(Color::black(mode))]),
@@ -1196,7 +1243,7 @@ impl Doc {
                 )
             }
             NewKind::Frame => (
-                "frame",
+                NodeKind::Frame,
                 "",
                 Props {
                     fills: Some(vec![Fill::solid(Color::white(mode))]),
@@ -1205,7 +1252,7 @@ impl Doc {
                 },
             ),
         };
-        m.insert("kind", name).map_err(err)?;
+        m.insert(KIND, name.as_str()).map_err(err)?;
         if !shape.is_empty() {
             m.insert("shape", shape).map_err(err)?;
         }
@@ -1217,7 +1264,7 @@ impl Doc {
     fn finish(&self, out: Vec<String>, history: bool) -> Res<Vec<String>> {
         let palette = self.palette();
         for p in self.tree.roots() {
-            if !history && matches!(self.kind(p).as_str(), "page" | "master") {
+            if !history && matches!(self.kind(p), Some(NodeKind::Page | NodeKind::Master)) {
                 self.settle(p, &Modes::new(), &palette)?;
                 self.lay_out(p)?;
             }
@@ -1241,11 +1288,12 @@ impl Doc {
         for &c in &kids {
             self.lay_out(c)?;
         }
-        if self.kind(id) == "text" {
+        if self.kind(id) == Some(NodeKind::Text) {
             return self.fit(id);
         }
         let l = self.layout(id);
-        let Some((horizontal, pad)) = l.axes().filter(|_| self.kind(id) == "frame") else {
+        let Some((horizontal, pad)) = l.axes().filter(|_| self.kind(id) == Some(NodeKind::Frame))
+        else {
             return Ok(());
         };
         let flow: Vec<TreeID> = kids
@@ -1380,7 +1428,7 @@ impl Doc {
         if images(&props.strokes) > 0 {
             return Err("strokes cannot be images".into());
         }
-        if images(&props.fills) > 0 && self.kind(id) == "text" {
+        if images(&props.fills) > 0 && self.kind(id) == Some(NodeKind::Text) {
             return Err("text cannot be filled with an image".into());
         }
         for f in props
@@ -1410,8 +1458,8 @@ impl Doc {
         let [least_w, least_h] = self.least_size(id);
         let (w, h) = (w.max(least_w), h.max(least_h));
         let [ox, oy, ow, oh] = self.bounds(id);
-        match self.kind(id).as_str() {
-            "group" => {
+        match self.kind(id) {
+            Some(NodeKind::Group) => {
                 let sx = if ow > 0.0 { w / ow } else { 1.0 };
                 let sy = if oh > 0.0 { h / oh } else { 1.0 };
                 for c in self.children(id) {
@@ -1423,7 +1471,7 @@ impl Doc {
                 }
                 return Ok(());
             }
-            "frame" if follow => {
+            Some(NodeKind::Frame) if follow => {
                 for c in self.children(id) {
                     let [cx, cy, cw, ch] = self.bounds(c);
                     let k = self.constraints(c);
@@ -1445,10 +1493,12 @@ impl Doc {
     /// path, whose bounds follow its points, and for a side of a text that hugs it.
     fn least_size(&self, id: TreeID) -> [f64; 2] {
         let least = 0.01 * MM;
-        match self.kind(id).as_str() {
-            "shape" if value(&self.meta(id), "shape") == Some("path".into()) => [0.0; 2],
-            "shape" | "frame" => [least; 2],
-            "text" => {
+        match self.kind(id) {
+            Some(NodeKind::Shape) if value(&self.meta(id), "shape") == Some("path".into()) => {
+                [0.0; 2]
+            }
+            Some(NodeKind::Shape | NodeKind::Frame) => [least; 2],
+            Some(NodeKind::Text) => {
                 let s = self.layout(id).sizing;
                 [s.horizontal, s.vertical].map(|s| if s == Size::Hug { 0.0 } else { least })
             }
@@ -1483,11 +1533,11 @@ impl Doc {
         let g = self.tree.create_at(parent, index).map_err(err)?;
         let m = self.meta(g);
         if frame {
-            m.insert("kind", "frame").map_err(err)?;
+            m.insert(KIND, NodeKind::Frame.as_str()).map_err(err)?;
             m.insert("clip", true).map_err(err)?;
             self.set_frame(g, bounds)?;
         } else {
-            m.insert("kind", "group").map_err(err)?;
+            m.insert(KIND, NodeKind::Group.as_str()).map_err(err)?;
         }
         let olds: Vec<_> = ids.iter().map(|&id| self.tree.parent(id)).collect();
         for (i, &id) in ids.iter().enumerate() {
@@ -1500,7 +1550,7 @@ impl Doc {
     }
 
     fn bounds(&self, id: TreeID) -> [f64; 4] {
-        if self.kind(id) == "group" {
+        if self.kind(id) == Some(NodeKind::Group) {
             return union(self.children(id).into_iter().map(|c| self.bounds(c)));
         }
         let m = self.meta(id);
@@ -1509,7 +1559,7 @@ impl Doc {
 
     fn prune(&self, parent: Option<TreeParentId>) -> Res<()> {
         if let Some(TreeParentId::Node(p)) = parent
-            && self.kind(p) == "group"
+            && self.kind(p) == Some(NodeKind::Group)
             && self.children(p).is_empty()
         {
             let up = self.tree.parent(p);
@@ -1525,12 +1575,14 @@ impl Doc {
             .tree
             .roots()
             .into_iter()
-            .find(|&r| self.kind(r) == "trash")
+            .find(|&r| self.kind(r) == Some(NodeKind::Trash))
         {
             Some(t) => t,
             None => {
                 let t = self.tree.create(None).map_err(err)?;
-                self.meta(t).insert("kind", "trash").map_err(err)?;
+                self.meta(t)
+                    .insert(KIND, NodeKind::Trash.as_str())
+                    .map_err(err)?;
                 t
             }
         };
@@ -1551,7 +1603,9 @@ impl Doc {
         while self.tree.contains(root) && self.tree.is_node_deleted(&root) == Ok(false) {
             match self.tree.parent(root) {
                 Some(TreeParentId::Node(p)) => root = p,
-                _ if matches!(self.kind(root).as_str(), "page" | "master") => return Ok(t),
+                _ if matches!(self.kind(root), Some(NodeKind::Page | NodeKind::Master)) => {
+                    return Ok(t);
+                }
                 _ => break,
             }
         }
@@ -1570,8 +1624,8 @@ impl Doc {
     /// A node that holds layers.
     fn container(&self, id: &str) -> Res<TreeID> {
         let n = self.node(id)?;
-        match self.kind(n).as_str() {
-            "page" | "master" | "group" | "frame" => Ok(n),
+        match self.kind(n) {
+            Some(NodeKind::Page | NodeKind::Master | NodeKind::Group | NodeKind::Frame) => Ok(n),
             _ => Err("not a container".into()),
         }
     }
@@ -1619,11 +1673,9 @@ impl Doc {
             .unwrap_or_default()
     }
 
-    fn kind(&self, id: TreeID) -> String {
-        value(&self.meta(id), "kind")
-            .and_then(|v| v.into_string().ok())
-            .map(|s| s.to_string())
-            .unwrap_or_default()
+    fn kind(&self, id: TreeID) -> Option<NodeKind> {
+        let v = value(&self.meta(id), KIND)?.into_string().ok()?;
+        NodeKind::ALL.into_iter().find(|k| k.as_str() == *v)
     }
 
     fn place_image(
@@ -1676,7 +1728,7 @@ impl Doc {
                 *size = Size::Fixed;
             }
         }
-        if self.kind(id) == "text" && sizing.vertical != Size::Hug {
+        if self.kind(id) == Some(NodeKind::Text) && sizing.vertical != Size::Hug {
             sizing.horizontal = match sizing.horizontal {
                 Size::Hug => Size::Fixed,
                 s => s,
@@ -1704,7 +1756,9 @@ impl Doc {
         // Text that hugs its width hugs its height: choosing hug for the width
         // makes it auto width, a fixed height makes it fixed.
         if let Some(s) = props.sizing.as_mut().filter(|s| {
-            self.kind(id) == "text" && s.horizontal == Size::Hug && s.vertical != Size::Hug
+            self.kind(id) == Some(NodeKind::Text)
+                && s.horizontal == Size::Hug
+                && s.vertical != Size::Hug
         }) {
             if self.layout(id).sizing.horizontal == Size::Hug {
                 s.horizontal = Size::Fixed;
@@ -1746,7 +1800,7 @@ impl Doc {
     fn ungroup(&self, ids: Vec<String>) -> Res<Vec<String>> {
         let mut out = Vec::new();
         for g in self.nodes(&ids)? {
-            if !matches!(self.kind(g).as_str(), "group" | "frame") {
+            if !matches!(self.kind(g), Some(NodeKind::Group | NodeKind::Frame)) {
                 continue;
             }
             let parent = self.tree.parent(g).ok_or("no parent")?;
@@ -1780,7 +1834,9 @@ impl Doc {
     fn auto_layout(&self, ids: Vec<String>) -> Res<Vec<String>> {
         let ids = self.sorted(&ids)?;
         let single = match ids[..] {
-            [f] => self.kind(f) == "frame" && self.layout(f).direction == Direction::None,
+            [f] => {
+                self.kind(f) == Some(NodeKind::Frame) && self.layout(f).direction == Direction::None
+            }
             _ => false,
         };
         let f = if single {

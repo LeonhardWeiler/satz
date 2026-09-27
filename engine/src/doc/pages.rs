@@ -64,7 +64,7 @@ impl Doc {
                 let [x, y, cw, ch] = self.bounds(copy);
                 self.set_frame(copy, [x - w, y, cw, ch])?;
                 self.meta(copy)
-                    .insert("leftOf", c.to_string())
+                    .insert(LEFT_OF, c.to_string())
                     .map_err(err)?;
                 self.relink(&lefts, m, c, copy)?;
             }
@@ -83,7 +83,7 @@ impl Doc {
                 if x + w > 0.0 {
                     continue;
                 }
-                let of = value(&self.meta(c), "leftOf").and_then(|v| v.into_string().ok());
+                let of = value(&self.meta(c), LEFT_OF).and_then(|v| v.into_string().ok());
                 if let Some(o) = of.and_then(|o| self.node(&o).ok()) {
                     self.relink(&lefts, m, c, o)?;
                 }
@@ -115,13 +115,13 @@ impl Doc {
                 *d = to.clone();
             }
             self.meta(p)
-                .insert("detached", loro(detached)?)
+                .insert(DETACHED, loro(detached)?)
                 .map_err(err)?;
             for c in self.children(p) {
-                if value(&self.meta(c), "overrideOf").and_then(|v| v.into_string().ok())
+                if value(&self.meta(c), OVERRIDE_OF).and_then(|v| v.into_string().ok())
                     == Some(from.clone().into())
                 {
-                    self.meta(c).insert("overrideOf", to.clone()).map_err(err)?;
+                    self.meta(c).insert(OVERRIDE_OF, to.clone()).map_err(err)?;
                 }
             }
         }
@@ -135,20 +135,24 @@ impl Doc {
     /// The pages in order.
     pub(super) fn pages(&self) -> Vec<TreeID> {
         let roots = self.tree.roots().into_iter();
-        roots.filter(|&r| self.kind(r) == "page").collect()
+        roots
+            .filter(|&r| self.kind(r) == Some(NodeKind::Page))
+            .collect()
     }
 
     pub(super) fn masters(&self) -> Vec<TreeID> {
         let roots = self.tree.roots().into_iter();
-        roots.filter(|&r| self.kind(r) == "master").collect()
+        roots
+            .filter(|&r| self.kind(r) == Some(NodeKind::Master))
+            .collect()
     }
 
     pub(super) fn page(&self, id: &str) -> Res<TreeID> {
-        self.root_of_kind(id, "page")
+        self.root_of_kind(id, NodeKind::Page)
     }
 
     pub(super) fn master(&self, id: &str) -> Res<TreeID> {
-        self.root_of_kind(id, "master")
+        self.root_of_kind(id, NodeKind::Master)
     }
 
     /// A page or a master.
@@ -156,17 +160,17 @@ impl Doc {
         self.page(id).or_else(|_| self.master(id))
     }
 
-    pub(super) fn root_of_kind(&self, id: &str, kind: &str) -> Res<TreeID> {
+    pub(super) fn root_of_kind(&self, id: &str, kind: NodeKind) -> Res<TreeID> {
         let t = TreeID::try_from(id).map_err(err)?;
         match self.tree.parent(t) {
-            Some(TreeParentId::Root) if self.kind(t) == kind => Ok(t),
-            _ => Err(format!("no {kind} {id}")),
+            Some(TreeParentId::Root) if self.kind(t) == Some(kind) => Ok(t),
+            _ => Err(format!("no {} {id}", kind.as_str())),
         }
     }
 
     /// The master the page `p` uses, if it is still there.
     pub(super) fn master_of(&self, p: TreeID) -> Option<TreeID> {
-        let v = value(&self.meta(p), "master")?;
+        let v = value(&self.meta(p), MASTER)?;
         self.master(&v.into_string().ok()?).ok()
     }
 
@@ -174,21 +178,21 @@ impl Doc {
     pub(super) fn leave_master(&self, p: TreeID) -> Res<()> {
         for c in self.children(p) {
             if self.override_of(c).is_some() {
-                self.meta(c).delete("overrideOf").map_err(err)?;
+                self.meta(c).delete(OVERRIDE_OF).map_err(err)?;
             }
         }
-        self.meta(p).delete("detached").map_err(err)
+        self.meta(p).delete(DETACHED).map_err(err)
     }
 
     /// The master layer that the page layer `id` overrides.
     pub(super) fn override_of(&self, id: TreeID) -> Option<String> {
-        value(&self.meta(id), "overrideOf")
+        value(&self.meta(id), OVERRIDE_OF)
             .and_then(|v| v.into_string().ok())
             .map(|s| s.to_string())
     }
 
     pub(super) fn detached(&self, p: TreeID) -> Vec<String> {
-        value(&self.meta(p), "detached")
+        value(&self.meta(p), DETACHED)
             .and_then(|v| serde_json::from_value(serde_json::to_value(v).ok()?).ok())
             .unwrap_or_default()
     }
@@ -232,12 +236,12 @@ impl Doc {
         let p = self.tree.create(None).map_err(err)?;
         self.tree.mov_after(p, like).map_err(err)?;
         let (m, from) = (self.meta(p), self.meta(like));
-        m.insert("kind", "page").map_err(err)?;
+        m.insert(KIND, NodeKind::Page.as_str()).map_err(err)?;
         for k in ["width", "height", "bleed"] {
             m.insert(k, num(&from, k)).map_err(err)?;
         }
-        if let Some(master) = value(&from, "master") {
-            m.insert("master", master).map_err(err)?;
+        if let Some(master) = value(&from, MASTER) {
+            m.insert(MASTER, master).map_err(err)?;
         }
         Ok(vec![p.to_string()])
     }
@@ -318,7 +322,7 @@ impl Doc {
             .ok_or("no free master name")?;
         let p = self.tree.create(None).map_err(err)?;
         let (m, from) = (self.meta(p), self.meta(like));
-        m.insert("kind", "master").map_err(err)?;
+        m.insert(KIND, NodeKind::Master.as_str()).map_err(err)?;
         m.insert("name", name).map_err(err)?;
         for k in ["width", "height", "bleed"] {
             m.insert(k, num(&from, k)).map_err(err)?;
@@ -344,7 +348,7 @@ impl Doc {
         for p in self.pages() {
             if self.master_of(p) == Some(m) {
                 self.leave_master(p)?;
-                self.meta(p).delete("master").map_err(err)?;
+                self.meta(p).delete(MASTER).map_err(err)?;
             }
         }
         self.unlink_all(m)?;
@@ -359,8 +363,8 @@ impl Doc {
             self.leave_master(p)?;
         }
         match m {
-            Some(m) => self.meta(p).insert("master", m.to_string()),
-            None => self.meta(p).delete("master"),
+            Some(m) => self.meta(p).insert(MASTER, m.to_string()),
+            None => self.meta(p).delete(MASTER),
         }
         .map_err(err)?;
         Ok(vec![])
@@ -379,7 +383,7 @@ impl Doc {
         }
         let copy = self.paste(&self.clip(item), p.into(), 0)?;
         self.meta(copy)
-            .insert("overrideOf", id.clone())
+            .insert(OVERRIDE_OF, id.clone())
             .map_err(err)?;
         if self
             .places()
@@ -391,7 +395,7 @@ impl Doc {
         }
         detached.push(id);
         self.meta(p)
-            .insert("detached", loro(detached)?)
+            .insert(DETACHED, loro(detached)?)
             .map_err(err)?;
         Ok(vec![copy.to_string()])
     }
@@ -407,12 +411,12 @@ impl Doc {
                 let copies: Vec<TreeID> = self
                     .children(p)
                     .into_iter()
-                    .filter(|&c| value(&self.meta(c), "overrideOf").is_some())
+                    .filter(|&c| value(&self.meta(c), OVERRIDE_OF).is_some())
                     .collect();
                 for c in copies {
                     self.remove(c)?;
                 }
-                self.meta(p).delete("detached").map_err(err)?;
+                self.meta(p).delete(DETACHED).map_err(err)?;
                 continue;
             }
             // Gone with its page earlier in the list.
@@ -423,7 +427,7 @@ impl Doc {
             let mut detached = self.detached(p);
             detached.retain(|d| *d != of);
             self.meta(p)
-                .insert("detached", loro(detached)?)
+                .insert(DETACHED, loro(detached)?)
                 .map_err(err)?;
         }
         Ok(vec![])

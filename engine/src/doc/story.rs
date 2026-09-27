@@ -235,9 +235,9 @@ impl Doc {
 
     /// The text layer that follows `id` in its thread.
     pub(super) fn next_of(&self, id: TreeID) -> Option<TreeID> {
-        let v = value(&self.meta(id), "next")?.into_string().ok()?;
+        let v = value(&self.meta(id), NEXT)?.into_string().ok()?;
         let n = self.node(&v).ok()?;
-        (self.kind(n) == "text").then_some(n)
+        (self.kind(n) == Some(NodeKind::Text)).then_some(n)
     }
 
     /// The text layer that `id` follows in its thread.
@@ -249,8 +249,9 @@ impl Doc {
         for r in self.pages().into_iter().chain(self.masters()) {
             self.walk(r, &mut all);
         }
-        all.into_iter()
-            .find(|&n| n != id && self.kind(n) == "text" && self.next_of(n) == Some(id))
+        all.into_iter().find(|&n| {
+            n != id && self.kind(n) == Some(NodeKind::Text) && self.next_of(n) == Some(id)
+        })
     }
 
     /// The first frame of the thread of `id`, which holds the story.
@@ -281,11 +282,14 @@ impl Doc {
     pub(super) fn unlink_all(&self, id: TreeID) -> Res<()> {
         let mut all = Vec::new();
         self.walk(id, &mut all);
-        for n in all.into_iter().filter(|&n| self.kind(n) == "text") {
+        for n in all
+            .into_iter()
+            .filter(|&n| self.kind(n) == Some(NodeKind::Text))
+        {
             let next = self.next_of(n);
             match (self.prev_of(n), next) {
-                (Some(p), Some(x)) => self.meta(p).insert("next", x.to_string()).map_err(err)?,
-                (Some(p), None) => self.meta(p).delete("next").map_err(err)?,
+                (Some(p), Some(x)) => self.meta(p).insert(NEXT, x.to_string()).map_err(err)?,
+                (Some(p), None) => self.meta(p).delete(NEXT).map_err(err)?,
                 (None, Some(x)) => {
                     let delta = self.own_text(n)?.to_delta();
                     let t = self
@@ -309,7 +313,7 @@ impl Doc {
                 (None, None) => {}
             }
             if next.is_some() {
-                self.meta(n).delete("next").map_err(err)?;
+                self.meta(n).delete(NEXT).map_err(err)?;
             }
         }
         Ok(())
@@ -435,7 +439,7 @@ impl Doc {
         }
         let texts: Vec<TreeID> = all
             .into_iter()
-            .filter(|&n| self.kind(n) == "text")
+            .filter(|&n| self.kind(n) == Some(NodeKind::Text))
             .collect();
         let mut prev = HashMap::new();
         for &n in &texts {
@@ -614,8 +618,8 @@ impl Doc {
 
     pub(super) fn delete_text_style(&self, id: String) -> Res<Vec<String>> {
         let (i, _) = self.find::<TextStyle>("textStyles", &id)?;
-        self.each(|n, _| match self.kind(n).as_str() {
-            "text" if self.story(n) == n => self.detach(n, None, |s| s == id),
+        self.each(|n, _| match self.kind(n) {
+            Some(NodeKind::Text) if self.story(n) == n => self.detach(n, None, |s| s == id),
             _ => Ok(()),
         })?;
         self.doc.get_list("textStyles").delete(i, 1).map_err(err)?;
@@ -624,14 +628,16 @@ impl Doc {
 
     pub(super) fn thread_after(&self, from: String, to: String) -> Res<Vec<String>> {
         let (a, b) = (self.node(&from)?, self.node(&to)?);
-        if self.kind(a) != "text" || self.kind(b) != "text" {
+        if self.kind(a) != Some(NodeKind::Text) || self.kind(b) != Some(NodeKind::Text) {
             return Err("only text frames thread".into());
         }
         if a == b || self.next_of(b).is_some() || self.prev_of(b).is_some() {
             return Err("the frame is threaded already".into());
         }
         let (ra, rb) = (self.root(a), self.root(b));
-        if ra != rb && (self.kind(ra) != "page" || self.kind(rb) != "page") {
+        if ra != rb
+            && (self.kind(ra) != Some(NodeKind::Page) || self.kind(rb) != Some(NodeKind::Page))
+        {
             return Err("frames thread within the pages or within one master".into());
         }
         let own = self.own_text(b)?;
@@ -648,9 +654,9 @@ impl Doc {
             own.delete_utf16(0, own.len_utf16()).map_err(err)?;
         }
         if let Some(c) = self.next_of(a) {
-            self.meta(b).insert("next", c.to_string()).map_err(err)?;
+            self.meta(b).insert(NEXT, c.to_string()).map_err(err)?;
         }
-        self.meta(a).insert("next", b.to_string()).map_err(err)?;
+        self.meta(a).insert(NEXT, b.to_string()).map_err(err)?;
         let fills = value(&self.meta(self.story(a)), "fills");
         if let Some(f) = fills {
             self.meta(b).insert("fills", f).map_err(err)?;
@@ -678,7 +684,7 @@ impl Doc {
     pub(super) fn unthread(&self, id: String) -> Res<Vec<String>> {
         let a = self.node(&id)?;
         if self.next_of(a).is_some() {
-            self.meta(a).delete("next").map_err(err)?;
+            self.meta(a).delete(NEXT).map_err(err)?;
         }
         Ok(vec![])
     }
