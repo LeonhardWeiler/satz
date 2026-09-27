@@ -1,4 +1,5 @@
 import { useState, type KeyboardEvent, type ReactNode } from 'react'
+import { MM } from './editor'
 import { Icon } from './icons'
 
 /** Moves the focus from the event's target to the item before or after it for the keys `back` and `forth`. */
@@ -12,6 +13,8 @@ export function roam(e: KeyboardEvent, items: Element[], back = ['ArrowUp'], for
 }
 
 const round = (v: number, unit: string) => (unit === '%' ? Math.round(v) : Math.round(v * 100) / 100)
+/** Points per unit of the lengths that fields show in another unit than they are given in. */
+const PT: Record<string, number> = { mm: MM }
 
 export function Field({
   label,
@@ -23,6 +26,7 @@ export function Field({
   title = `${label} in ${unit}`,
 }: {
   label: string
+  /** In pt for lengths, shown in `unit`. */
   value: number | null
   unit: string
   onCommit?: (v: number) => void
@@ -36,7 +40,7 @@ export function Field({
     const v = zero && draft?.trim().toLowerCase() === zero.toLowerCase() ? 0 : parseFloat(draft ?? '')
     setDraft(null)
     if (draft === null || !Number.isFinite(v)) return
-    onCommit?.(round(v, unit))
+    onCommit?.(round(v, unit) * (PT[unit] ?? 1))
   }
   return (
     <label className="field" title={title}>
@@ -48,7 +52,7 @@ export function Field({
         autoComplete="off"
         spellCheck={false}
         readOnly={readOnly}
-        value={draft ?? (value === null ? 'Mixed' : value === 0 && zero ? zero : String(round(value, unit)))}
+        value={draft ?? (value === null ? 'Mixed' : value === 0 && zero ? zero : String(round(value / (PT[unit] ?? 1), unit)))}
         onChange={(e) => setDraft(e.currentTarget.value)}
         onFocus={(e) => e.currentTarget.select()}
         onBlur={commit}

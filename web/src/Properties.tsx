@@ -2,7 +2,7 @@ import { neutral, type Color, type ColorMode } from './color'
 import { Field, Section, Select } from './controls'
 import { useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { MM, bounds, ends, scopeOf, useEditor, type Editor } from './editor'
+import { bounds, ends, scopeOf, useEditor, type Editor } from './editor'
 import { addFonts, canFindFonts, findFonts } from './file'
 import type { Bindable as Prop, Blend, Constraint, Command, Fill, Node, Props, Size, Style } from './model'
 import { AutoLayout } from './AutoLayout'
@@ -51,7 +51,7 @@ export function Properties({ editor, onExport, say }: { editor: Editor; onExport
     })
   }
   const frame = (key: 'x' | 'y' | 'w' | 'h') => (v: number) =>
-    each((n) => ({ type: 'setFrame', id: n.id, x: n.x, y: n.y, w: n.w, h: n.h, [key]: v * MM }))
+    each((n) => ({ type: 'setFrame', id: n.id, x: n.x, y: n.y, w: n.w, h: n.h, [key]: v }))
 
   const one = nodes.length === 1 ? nodes[0] : undefined
   const scope = scopeOf(snapshot, one?.activeModes)
@@ -99,9 +99,9 @@ export function Properties({ editor, onExport, say }: { editor: Editor; onExport
               <Field
                 key={k}
                 label={k === 'bleed' ? 'Bleed' : k === 'width' ? 'W' : 'H'}
-                value={page[k] / MM}
+                value={page[k]}
                 unit="mm"
-                onCommit={(v) => editor.apply({ type: 'setPage', id: page.id, [k]: v * MM })}
+                onCommit={(v) => editor.apply({ type: 'setPage', id: page.id, [k]: v })}
               />
             ))}
             <Field
@@ -179,17 +179,17 @@ export function Properties({ editor, onExport, say }: { editor: Editor; onExport
       {box && (
         <Section title="Layout">
           <div className="grid">
-            <Field label="X" value={nodes.length > 1 ? same((n) => n.x / MM) : box.x / MM} unit="mm" onCommit={frame('x')} />
-            <Field label="Y" value={nodes.length > 1 ? same((n) => n.y / MM) : box.y / MM} unit="mm" onCommit={frame('y')} />
+            <Field label="X" value={nodes.length > 1 ? same((n) => n.x) : box.x} unit="mm" onCommit={frame('x')} />
+            <Field label="Y" value={nodes.length > 1 ? same((n) => n.y) : box.y} unit="mm" onCommit={frame('y')} />
             {line ? (
               <>
-                <Field label="L" title="Length in mm" value={length! / MM} unit="mm" onCommit={(v) => setLine(Math.max(0, v * MM), angle!)} />
+                <Field label="L" title="Length in mm" value={length!} unit="mm" onCommit={(v) => setLine(Math.max(0, v), angle!)} />
                 <Field label="∠" title="Angle in °" value={angle!} unit="°" onCommit={(v) => setLine(length!, v)} />
               </>
             ) : (
               <>
-                {bindable('w', 'W in mm', 'W', <Field label="W" value={same((n) => n.w / MM)} unit="mm" onCommit={frame('w')} />)}
-                {bindable('h', 'H in mm', 'H', <Field label="H" value={same((n) => n.h / MM)} unit="mm" onCommit={frame('h')} />)}
+                {bindable('w', 'W in mm', 'W', <Field label="W" value={same((n) => n.w)} unit="mm" onCommit={frame('w')} />)}
+                {bindable('h', 'H in mm', 'H', <Field label="H" value={same((n) => n.h)} unit="mm" onCommit={frame('h')} />)}
               </>
             )}
             {one?.kind === 'shape' && one.shape === 'rect' && (
@@ -197,7 +197,7 @@ export function Properties({ editor, onExport, say }: { editor: Editor; onExport
                 'radius',
                 'Corner radius in mm',
                 'R',
-                <Field label="R" title="Corner radius in mm" unit="mm" value={one.radius / MM} onCommit={(v) => set({ radius: v * MM })} />,
+                <Field label="R" title="Corner radius in mm" unit="mm" value={one.radius} onCommit={(radius) => set({ radius })} />,
               )
             )}
             {one?.kind === 'shape' && (one.shape === 'polygon' || one.shape === 'star') && (

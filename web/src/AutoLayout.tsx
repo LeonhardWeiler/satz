@@ -1,5 +1,5 @@
 import { Field, Section, Select } from './controls'
-import { MM, type Editor } from './editor'
+import type { Editor } from './editor'
 import { Icon } from './icons'
 import type { Layout, Node, Props } from './model'
 import { Bindable } from './Variables'
@@ -22,7 +22,7 @@ export function AutoLayout({ editor, node, set }: { editor: Editor; node: Node &
   const between = node.alignMain === 'spaceBetween'
   const length = (prop: 'gap' | (typeof PADDING)[number][0], title: string, label: string) => (
     <Bindable editor={editor} id={node.id} prop={prop} title={`${title} in mm`} label={label}>
-      <Field label={label} title={`${title} in mm`} unit="mm" value={node[prop] / MM} onCommit={(v) => set({ [prop]: v * MM })} />
+      <Field label={label} title={`${title} in mm`} unit="mm" value={node[prop]} onCommit={(v) => set({ [prop]: v })} />
     </Bindable>
   )
   return (

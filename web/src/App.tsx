@@ -37,7 +37,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   useEffect(() => {
     const t = setTimeout(() => say(''), 5000)
     return () => clearTimeout(t)
-  }, [status])
+  }, [say, status])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

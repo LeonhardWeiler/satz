@@ -2,7 +2,6 @@ import type { ReactNode } from 'react'
 import { ColorPicker } from './ColorPicker'
 import { alpha, css, neutral, withAlpha, type ColorMode } from './color'
 import { Field, RowActions, Section, Select } from './controls'
-import { MM } from './editor'
 import { Icon } from './icons'
 import type { Effect, Fill, Scope } from './model'
 
@@ -214,15 +213,15 @@ export function EffectList({
                 <div className="grid">
                   {e.type === 'dropShadow' && (
                     <>
-                      <Field label="X" title="Shadow X in mm" unit="mm" value={e.x / MM} onCommit={(v) => set({ x: v * MM })} />
-                      <Field label="Y" title="Shadow Y in mm" unit="mm" value={e.y / MM} onCommit={(v) => set({ y: v * MM })} />
+                      <Field label="X" title="Shadow X in mm" unit="mm" value={e.x} onCommit={(x) => set({ x })} />
+                      <Field label="Y" title="Shadow Y in mm" unit="mm" value={e.y} onCommit={(y) => set({ y })} />
                     </>
                   )}
                   <Field
                     label="Blur"
                     unit="mm"
-                    value={e.radius / MM}
-                    onCommit={(v) => set({ radius: v * MM })}
+                    value={e.radius}
+                    onCommit={(radius) => set({ radius })}
                   />
                   {e.type === 'dropShadow' && (
                     <div className="row">
