@@ -201,12 +201,15 @@ fn means(s: [u32; 4], mean: &[u8]) -> [u8; 4] {
 
 /// Replaces the colour of every pixel with `color`, keeping coverage.
 pub fn tint(px: &mut Pixmap, color: [f32; 4]) {
-    for p in px.data_mut().chunks_mut(4) {
-        let a = p[3] as f32 / 255.0 * color[3];
-        for c in 0..3 {
-            p[c] = (color[c] * a * 255.0).round() as u8;
-        }
-        p[3] = (a * 255.0).round() as u8;
+    let by_coverage: Vec<[u8; 4]> = (0..=255)
+        .map(|v| {
+            let a = v as f32 / 255.0 * color[3];
+            let c = |x: f32| (x * a * 255.0).round() as u8;
+            [c(color[0]), c(color[1]), c(color[2]), c(1.0)]
+        })
+        .collect();
+    for p in px.data_mut().as_chunks_mut::<4>().0 {
+        *p = by_coverage[p[3] as usize];
     }
 }
 
@@ -534,6 +537,23 @@ mod tests {
                         sum -= src[at(line, i - r) + c] as u32;
                     }
                 }
+            }
+        }
+    }
+
+    #[test]
+    fn tint_is_the_same_as_per_pixel() {
+        let mut px = Pixmap::new(256, 1).unwrap();
+        for (v, p) in px.data_mut().chunks_mut(4).enumerate() {
+            p[3] = v as u8;
+        }
+        for color in [[0.2, 0.5, 0.9, 1.0], [1.0, 0.0, 0.3, 0.37]] {
+            let mut t = px.clone();
+            tint(&mut t, color);
+            for (v, p) in t.data().chunks(4).enumerate() {
+                let a = v as f32 / 255.0 * color[3];
+                let c = |c: usize| (color[c] * a * 255.0).round() as u8;
+                assert_eq!(p, [c(0), c(1), c(2), (a * 255.0).round() as u8]);
             }
         }
     }
