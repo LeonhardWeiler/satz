@@ -1,0 +1,1241 @@
+use super::*;
+
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Snapshot {
+    pub pages: Vec<Page>,
+    pub masters: Vec<Page>,
+    pub facing_pages: bool,
+    /// The ids of the pages of each spread from left to right: with facing pages the
+    /// first page alone on the right, then pairs; else each page alone.
+    pub spreads: Vec<Vec<String>>,
+    /// The story of each thread by its first frame.
+    pub stories: BTreeMap<String, Rc<Story>>,
+    /// Resolution at which the PDF rasterizes shadows and blurs.
+    pub raster_ppi: f64,
+    pub color_mode: ColorMode,
+    #[serde(flatten)]
+    pub palette: Palette,
+    /// The fonts text can be set in, the bundled one first.
+    pub fonts: Vec<Typeface>,
+    pub missing_fonts: Vec<MissingFont>,
+    pub preflight: Vec<Issue>,
+    pub can_undo: bool,
+    pub can_redo: bool,
+}
+
+/// A font that text is set in but that is not there, and the stories by their first
+/// frame that use it.
+#[derive(Debug, PartialEq, Serialize)]
+pub struct MissingFont {
+    pub font: Typeface,
+    pub stories: Vec<String>,
+}
+
+/// Something about the layer `layer` on the page or master `page` that may print wrong.
+#[derive(Debug, PartialEq, Serialize)]
+pub struct Issue {
+    pub page: String,
+    pub layer: String,
+    pub name: String,
+    #[serde(flatten)]
+    pub problem: Problem,
+}
+
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(tag = "problem", rename_all = "camelCase")]
+pub enum Problem {
+    Overset,
+    MissingFont {
+        font: String,
+    },
+    /// Reaches the trim edge but not the edge of the bleed.
+    ShortOfBleed,
+    /// Is coloured in RGB in a CMYK document.
+    Rgb,
+    /// Is filled with an image at fewer pixels per inch than print needs.
+    LowPpi {
+        ppi: f64,
+    },
+}
+
+/// A page or a master; `name` is a master's, `master` the one a page uses and
+/// `detached` its master layers it overrides.
+#[derive(Debug, PartialEq, Serialize)]
+pub struct Page {
+    pub id: String,
+    pub name: String,
+    pub width: f64,
+    pub height: f64,
+    pub bleed: f64,
+    /// The side of its spread a page is on with facing pages.
+    pub side: Option<Side>,
+    /// Where the page's left edge sits on its spread, whose spine is at 0.
+    pub x: f64,
+    pub master: Option<String>,
+    pub detached: Vec<String>,
+    pub modes: Modes,
+    pub children: Vec<Node>,
+}
+
+/// The text of a thread and its runs of equal attributes.
+#[derive(Debug, PartialEq, Serialize)]
+pub struct Story {
+    pub text: String,
+    pub spans: Vec<Span>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Side {
+    Left,
+    Right,
+}
+
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Node {
+    pub id: String,
+    pub name: String,
+    pub x: f64,
+    pub y: f64,
+    pub w: f64,
+    pub h: f64,
+    /// Modes chosen on this layer.
+    pub modes: Modes,
+    /// Modes this layer's variables resolve in, its own and inherited.
+    pub active_modes: Modes,
+    /// Number variables by property.
+    pub bindings: BTreeMap<String, String>,
+    /// The master layer this page layer overrides.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub override_of: Option<String>,
+    /// Effective pixels per inch of the coarsest visible image fill.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ppi: Option<f64>,
+    #[serde(flatten)]
+    pub style: Style,
+    #[serde(flatten)]
+    pub layout: Layout,
+    #[serde(flatten)]
+    pub kind: Kind,
+}
+
+#[allow(clippy::large_enum_variant)]
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum Kind {
+    Shape(Shape),
+    /// `content` is the story of the thread, whose first frame is `story`; the layer
+    /// sets it from `start` up to `end` in UTF-16, and `overset` when it is the last
+    /// frame and text is left.
+    Text {
+        #[serde(skip)]
+        content: Rc<Story>,
+        #[serde(flatten)]
+        frame: TextFrame,
+        story: String,
+        start: usize,
+        end: usize,
+        prev: Option<String>,
+        next: Option<String>,
+        overset: bool,
+        /// `start` as a byte offset.
+        #[serde(skip)]
+        from: usize,
+    },
+    Group {
+        children: Vec<Node>,
+    },
+    Frame {
+        clip: bool,
+        children: Vec<Node>,
+    },
+}
+
+pub(super) fn master_dx(m: &Page, p: &Page) -> f64 {
+    match p.side {
+        Some(Side::Left) => m.width,
+        _ => 0.0,
+    }
+}
+
+/// The box of a layer with its strokes and effects: what it can draw into.
+pub(super) fn reach(n: &Node) -> [f64; 4] {
+    let s = &n.style;
+    let mut m = 3.0 * f64::from(s.stroke_weight);
+    for e in &s.effects {
+        m = m.max(f64::from(e.x.abs().max(e.y.abs()) + 3.0 * e.radius));
+    }
+    [n.x - m, n.y - m, n.w + 2.0 * m, n.h + 2.0 * m]
+}
+
+/// The issues of every layer, page by page and then master by master.
+pub(super) fn preflight(snap: &Snapshot) -> Vec<Issue> {
+    let mut out = Vec::new();
+    let page = |id: &String| snap.pages.iter().find(|q| q.id == *id).unwrap();
+    for p in &snap.pages {
+        let spread = snap.spreads.iter().find(|s| s.contains(&p.id)).unwrap();
+        let (l, r) = (page(&spread[0]), page(spread.last().unwrap()));
+        let x0 = match l.side {
+            Some(Side::Right) => f64::NEG_INFINITY,
+            _ => l.x - p.x,
+        };
+        let x1 = match r.side {
+            Some(Side::Left) => f64::INFINITY,
+            _ => r.x + r.width - p.x,
+        };
+        for n in &p.children {
+            visit(n, p, Some([x0, x1]), snap, &mut out);
+        }
+    }
+    for m in &snap.masters {
+        let x0 = if snap.facing_pages { -m.width } else { 0.0 };
+        for n in &m.children {
+            visit(n, m, Some([x0, m.width]), snap, &mut out);
+        }
+    }
+    out
+}
+
+/// Adds the issues of the layer `n` on `p` and its children to `out`; a top layer
+/// is checked against the bleed of the trim from `x0` to `x1`, which leaves out a spine.
+pub(super) fn visit(
+    n: &Node,
+    p: &Page,
+    trim: Option<[f64; 2]>,
+    snap: &Snapshot,
+    out: &mut Vec<Issue>,
+) {
+    let mut problems = Vec::new();
+    let s = &n.style;
+    let paints = || s.fills.iter().chain(&s.strokes).filter(|f| f.visible);
+    let mut colors: Vec<&Color> = paints()
+        .flat_map(|f| match f.kind {
+            FillKind::Solid => vec![&f.color],
+            FillKind::Linear | FillKind::Radial => f.stops.iter().map(|s| &s.color).collect(),
+            FillKind::Image => vec![],
+        })
+        .chain(
+            s.effects
+                .iter()
+                .filter(|e| e.visible && e.kind == EffectKind::DropShadow)
+                .map(|e| &e.color),
+        )
+        .collect();
+    let mut children: &[Node] = &[];
+    match &n.kind {
+        Kind::Text {
+            content,
+            story,
+            overset,
+            ..
+        } => {
+            if *overset {
+                problems.push(Problem::Overset);
+            }
+            if *story == n.id {
+                colors.extend(content.spans.iter().filter_map(|s| s.attrs.fill.as_ref()));
+                problems.extend(
+                    snap.missing_fonts
+                        .iter()
+                        .filter(|m| m.stories.contains(story))
+                        .map(|m| Problem::MissingFont {
+                            font: m.font.name.clone(),
+                        }),
+                );
+            }
+        }
+        Kind::Group { children: c } | Kind::Frame { children: c, .. } => children = c,
+        Kind::Shape(_) => {}
+    }
+    if let Some([x0, x1]) = trim
+        && !matches!(n.kind, Kind::Text { .. })
+        && n.x < x1
+        && n.x + n.w > x0
+        && n.y < p.height
+        && n.y + n.h > 0.0
+    {
+        let insets = [n.x - x0, x1 - n.x - n.w, n.y, p.height - n.y - n.h];
+        if insets.iter().any(|&d| d < 0.01 && d > 0.01 - p.bleed) {
+            problems.push(Problem::ShortOfBleed);
+        }
+    }
+    let scope = Scope {
+        palette: &snap.palette,
+        modes: &n.active_modes,
+    };
+    let image = paints().any(|f| f.kind == FillKind::Image);
+    if snap.color_mode == ColorMode::Cmyk
+        && (image || colors.iter().any(|c| c.ink(&scope) == Ink::Rgb))
+    {
+        problems.push(Problem::Rgb);
+    }
+    if let Some(ppi) = n.ppi.filter(|&ppi| ppi < PRINT_PPI - 0.5) {
+        problems.push(Problem::LowPpi { ppi });
+    }
+    out.extend(problems.into_iter().map(|problem| Issue {
+        page: p.id.clone(),
+        layer: n.id.clone(),
+        name: n.name.clone(),
+        problem,
+    }));
+    for c in children {
+        visit(c, p, None, snap, out);
+    }
+}
+
+/// Sets the page number of the text layers among `nodes` to `number` and fits the
+/// hugging sides of each to it, as `Doc::fit` does.
+pub(super) fn renumber(nodes: &mut [Node], number: &str) {
+    for n in nodes {
+        let Sizing {
+            horizontal,
+            vertical,
+        } = n.layout.sizing;
+        match &mut n.kind {
+            Kind::Text {
+                content,
+                frame,
+                next,
+                from,
+                ..
+            } => {
+                frame.number = number.into();
+                if vertical == Size::Hug && next.is_none() {
+                    let auto_width = horizontal == Size::Hug;
+                    let w = (!auto_width).then_some(n.w as f32);
+                    let [w, h] = text::measure(&content.text, &content.spans, frame, w, *from);
+                    if auto_width {
+                        n.w = w.into();
+                    }
+                    n.h = h.into();
+                }
+            }
+            Kind::Group { children } | Kind::Frame { children, .. } => renumber(children, number),
+            Kind::Shape(_) => {}
+        }
+    }
+}
+
+/// The letters a master's page numbers show: the prefix of "A-Master", or the first
+/// letter, as the pages panel shows it.
+pub fn prefix(name: &str) -> String {
+    let head: String = name
+        .chars()
+        .take_while(|c| c.is_alphanumeric() || *c == '_')
+        .collect();
+    let short = (1..=3).contains(&head.chars().count()) && name[head.len()..].starts_with('-');
+    let p = if short {
+        head
+    } else {
+        name.chars().take(1).collect()
+    };
+    p.to_uppercase()
+}
+
+pub(super) fn page_op(p: &Page) -> Op {
+    Op::Page {
+        width: p.width as f32,
+        height: p.height as f32,
+        bleed: p.bleed as f32,
+    }
+}
+
+pub(super) fn draw_all(nodes: &[Node], ops: &mut Vec<Op>, pal: &Palette) {
+    for (i, n) in nodes.iter().enumerate() {
+        if n.style.mask {
+            ops.push(Op::BeginMask);
+            draw(n, ops, pal);
+            ops.push(Op::EndMask);
+            draw_all(&nodes[i + 1..], ops, pal);
+            ops.push(Op::PopMask);
+            return;
+        }
+        draw(n, ops, pal);
+    }
+}
+
+pub(super) fn draw(n: &Node, ops: &mut Vec<Op>, pal: &Palette) {
+    let frame = [n.x, n.y, n.w, n.h].map(|v| v as f32);
+    let item = |ops: &mut Vec<Op>, body: Vec<Op>| {
+        if body.is_empty() {
+            return;
+        }
+        let key = n.id.bytes().fold(0x811c9dc5u32, |h, b| {
+            (h ^ b as u32).wrapping_mul(0x01000193)
+        });
+        ops.push(Op::BeginItem { item: key });
+        ops.extend(body);
+        ops.push(Op::EndItem);
+    };
+    let s = &Scope {
+        palette: pal,
+        modes: &n.active_modes,
+    };
+    let layer = n.style.layer(s);
+    let wrapped = layer.is_some();
+    ops.extend(layer);
+    match &n.kind {
+        Kind::Shape(shape) => item(ops, n.style.shape(&outline(shape, frame), frame, s)),
+        Kind::Text {
+            content,
+            frame: tf,
+            from,
+            ..
+        } => item(
+            ops,
+            text::draw(
+                &content.text,
+                &content.spans,
+                &n.style.fills,
+                frame,
+                tf,
+                s,
+                *from,
+            ),
+        ),
+        Kind::Group { children } => draw_all(children, ops, pal),
+        Kind::Frame { clip, children } => {
+            let r = rect(frame[0], frame[1], frame[2], frame[3]);
+            item(ops, n.style.shape(&r, frame, s));
+            if !*clip {
+                draw_all(children, ops, pal);
+            } else if n.w > 0.0 && n.h > 0.0 {
+                ops.push(Op::PushClip {
+                    path: r,
+                    invert: false,
+                });
+                draw_all(children, ops, pal);
+                ops.push(Op::PopClip);
+            }
+        }
+    }
+    if wrapped {
+        ops.push(Op::PopLayer);
+    }
+}
+
+/// Like `draw_all`, a node is only hit inside every mask below it among its siblings.
+pub(super) fn hit(nodes: &[Node], x: f64, y: f64, tolerance: f64, path: &mut Vec<String>) -> bool {
+    for (i, n) in nodes.iter().enumerate().rev() {
+        let masks = nodes[..i].iter().filter(|m| m.style.mask);
+        if masks
+            .into_iter()
+            .any(|m| !hit(std::slice::from_ref(m), x, y, tolerance, &mut Vec::new()))
+        {
+            continue;
+        }
+        let inside = x >= n.x && x <= n.x + n.w && y >= n.y && y <= n.y + n.h;
+        path.push(n.id.clone());
+        let found = match &n.kind {
+            Kind::Group { children } => hit(children, x, y, tolerance, path),
+            Kind::Frame { children, clip } => {
+                (inside || !clip) && hit(children, x, y, tolerance, path) || inside
+            }
+            Kind::Shape(s) => {
+                let p = outline(s, [n.x, n.y, n.w, n.h].map(|v| v as f32));
+                let (x, y) = (x as f32, y as f32);
+                let stroke = if n.style.strokes.iter().any(|f| f.visible) {
+                    n.style.stroke_weight / 2.0
+                } else {
+                    0.0
+                };
+                p.contains(&CLOSE) && contains(&p, x, y)
+                    || near(&p, x, y, tolerance as f32 + stroke)
+            }
+            _ => inside,
+        };
+        if found {
+            return true;
+        }
+        path.pop();
+    }
+    false
+}
+
+impl Doc {
+    pub fn snapshot(&self) -> Snapshot {
+        let palette = self.palette();
+        let flows = self.flows();
+        let sheet = |p: TreeID| {
+            let m = self.meta(p);
+            let v = serde_json::to_value(m.get_value()).unwrap_or_default();
+            let modes = self.modes(p);
+            Page {
+                id: p.to_string(),
+                name: v["name"].as_str().unwrap_or_default().into(),
+                width: num(&m, "width"),
+                height: num(&m, "height"),
+                bleed: num(&m, "bleed"),
+                side: None,
+                x: 0.0,
+                master: self.master_of(p).map(|m| m.to_string()),
+                detached: serde_json::from_value(v["detached"].clone()).unwrap_or_default(),
+                children: self
+                    .children(p)
+                    .into_iter()
+                    .map(|c| self.snap(c, &modes, &palette, &flows))
+                    .collect(),
+                modes,
+            }
+        };
+        let facing_pages = self.facing_pages();
+        let mut pages: Vec<Page> = self.pages().into_iter().map(sheet).collect();
+        let places = self.places();
+        for (p, place) in pages.iter_mut().zip(&places) {
+            (p.side, p.x) = (place.side, place.x);
+        }
+        let spreads = spreads(pages.len(), facing_pages);
+        let stories: BTreeMap<_, _> = flows
+            .values()
+            .map(|f| (f.head.to_string(), f.story.clone()))
+            .collect();
+        let mut missing_fonts: Vec<MissingFont> = Vec::new();
+        for (id, story) in &stories {
+            for font in story.spans.iter().filter_map(|s| s.attrs.font.as_ref()) {
+                if text::font_id(&Some(font.clone())) & text::MISSING == 0 {
+                    continue;
+                }
+                match missing_fonts.iter_mut().find(|m| m.font.hash == font.hash) {
+                    Some(m) if m.stories.last() == Some(id) => {}
+                    Some(m) => m.stories.push(id.clone()),
+                    None => missing_fonts.push(MissingFont {
+                        font: font.clone(),
+                        stories: vec![id.clone()],
+                    }),
+                }
+            }
+        }
+        let mut snap = Snapshot {
+            fonts: text::fonts(),
+            missing_fonts,
+            preflight: Vec::new(),
+            stories,
+            spreads: spreads
+                .iter()
+                .map(|s| s.iter().map(|&i| pages[i].id.clone()).collect())
+                .collect(),
+            pages,
+            masters: self.masters().into_iter().map(sheet).collect(),
+            facing_pages,
+            raster_ppi: num(&self.doc.get_map("document"), "rasterPpi"),
+            color_mode: self.color_mode(),
+            palette,
+            can_undo: self.undo.can_undo(),
+            can_redo: self.undo.can_redo(),
+        };
+        snap.preflight = preflight(&snap);
+        snap
+    }
+
+    /// The display list of the page `id` for the canvas, empty when there is none;
+    /// a CMYK document marks its images `image::PROOF`.
+    pub fn render(&self, id: &str) -> Vec<Op> {
+        let snap = self.snapshot();
+        let sheets = || snap.pages.iter().chain(&snap.masters);
+        let Some(p) = sheets().find(|p| p.id == id) else {
+            return Vec::new();
+        };
+        let mut ops = vec![page_op(p)];
+        self.draw_sheet(&snap, p, None, &mut ops);
+        if snap.color_mode == ColorMode::Cmyk {
+            for op in &mut ops {
+                if let Op::Image { image, .. } = op {
+                    *image |= image::PROOF;
+                }
+            }
+        }
+        ops
+    }
+
+    /// The document as a PDF, every page from one snapshot.
+    pub fn pdf(&self) -> Vec<u8> {
+        let snap = self.snapshot();
+        let pages: Vec<_> = snap.pages.iter().map(|p| self.print(&snap, p)).collect();
+        crate::pdf::pdf(&pages, snap.raster_ppi as f32, snap.color_mode)
+    }
+
+    /// The display list of the page `p` as it prints: with the layers of the other
+    /// page of its spread, so that one across the spine prints on both.
+    pub(super) fn print(&self, snap: &Snapshot, p: &Page) -> Vec<Op> {
+        let mut ops = vec![page_op(p)];
+        let spread = snap.spreads.iter().find(|s| s.contains(&p.id));
+        for q in spread.into_iter().flatten() {
+            let q = snap.pages.iter().find(|o| o.id == *q).unwrap();
+            let dx = q.x - p.x;
+            let b = p.bleed;
+            let window =
+                (q.id != p.id).then_some([-b - dx, -b, p.width + 2.0 * b, p.height + 2.0 * b]);
+            let mut own = Vec::new();
+            self.draw_sheet(snap, q, window, &mut own);
+            ops.extend(shift(own, dx as f32, 0.0));
+        }
+        ops
+    }
+
+    /// The master layers a page shows and its own layers, those that reach into
+    /// `window` when there is one. A page of a spread shows its side of the master
+    /// spread up to the spine.
+    pub(super) fn draw_sheet(
+        &self,
+        snap: &Snapshot,
+        p: &Page,
+        window: Option<[f64; 4]>,
+        ops: &mut Vec<Op>,
+    ) {
+        let into = |n: &Node, dx: f64, r: [f64; 4]| {
+            let [x, y, w, h] = reach(n);
+            x + dx < r[0] + r[2] && x + dx + w > r[0] && y < r[1] + r[3] && y + h > r[1]
+        };
+        if let Some(m) = p
+            .master
+            .as_ref()
+            .and_then(|m| snap.masters.iter().find(|s| s.id == *m))
+        {
+            let (w, h, b) = (p.width, p.height, p.bleed);
+            let half = match p.side {
+                Some(Side::Left) => [-b, -b, w + b, h + 2.0 * b],
+                Some(Side::Right) => [0.0, -b, w + b, h + 2.0 * b],
+                None => [-b, -b, w + 2.0 * b, h + 2.0 * b],
+            };
+            let dx = master_dx(m, p);
+            let mut layers = self.master_layers(m, p);
+            if !layers.iter().any(|n| n.style.mask) {
+                layers.retain(|n| into(n, dx, half) && window.is_none_or(|r| into(n, dx, r)));
+            }
+            let mut shown = Vec::new();
+            draw_all(&layers, &mut shown, &snap.palette);
+            let clip = p.side.is_some() && !shown.is_empty();
+            if clip {
+                let [x, y, w, h] = half.map(|v| v as f32);
+                ops.push(Op::PushClip {
+                    path: rect(x, y, w, h),
+                    invert: false,
+                });
+            }
+            ops.extend(shift(shown, dx as f32, 0.0));
+            if clip {
+                ops.push(Op::PopClip);
+            }
+        }
+        // A mask masks the layers above it, so layers go only all together then.
+        match window {
+            Some(r) if !p.children.iter().any(|n| n.style.mask) => {
+                for n in p.children.iter().filter(|n| into(n, 0.0, r)) {
+                    draw(n, ops, &snap.palette);
+                }
+            }
+            _ => draw_all(&p.children, ops, &snap.palette),
+        }
+    }
+
+    /// The layers of the master `m` that the page `p` shows, in its modes.
+    pub(super) fn master_layers(&self, m: &Page, p: &Page) -> Vec<Node> {
+        let palette = self.palette();
+        let mut modes = m.modes.clone();
+        modes.extend(p.modes.clone());
+        let Ok(id) = self.sheet(&m.id) else {
+            return Vec::new();
+        };
+        let flows = self.flows();
+        let mut layers: Vec<Node> = self
+            .children(id)
+            .into_iter()
+            .filter(|c| !p.detached.contains(&c.to_string()))
+            .map(|c| self.snap(c, &modes, &palette, &flows))
+            .collect();
+        if let Ok(page) = self.page(&p.id) {
+            renumber(&mut layers, &self.number(page));
+        }
+        layers
+    }
+
+    /// How the text layer `n` sets its text, with the number of the page it is on.
+    pub(super) fn text_frame_of(&self, n: TreeID) -> TextFrame {
+        let v = serde_json::to_value(self.meta(n).get_deep_value()).unwrap_or_default();
+        TextFrame {
+            number: self.number(self.root(n)),
+            ..serde_json::from_value(v).unwrap_or_default()
+        }
+    }
+
+    /// What a page number on the page or master `root` shows: the page's number, or
+    /// the master's prefix.
+    pub(super) fn number(&self, root: TreeID) -> String {
+        match self.pages().iter().position(|&p| p == root) {
+            Some(i) => (i + 1).to_string(),
+            None => prefix(&self.name(root)),
+        }
+    }
+
+    /// The layer of the master of the page `page` at (x, y) that the page shows.
+    pub fn master_hit(&self, page: &str, x: f64, y: f64, tolerance: f64) -> Option<String> {
+        let snap = self.snapshot();
+        let p = snap.pages.iter().find(|p| p.id == page)?;
+        let m = snap
+            .masters
+            .iter()
+            .find(|m| Some(&m.id) == p.master.as_ref())?;
+        let within = match p.side {
+            Some(Side::Left) => x <= p.width,
+            Some(Side::Right) => x >= 0.0,
+            None => true,
+        };
+        let mut path = Vec::new();
+        if within {
+            let x = x - master_dx(m, p);
+            hit(&self.master_layers(m, p), x, y, tolerance, &mut path);
+        }
+        path.into_iter().next()
+    }
+
+    pub fn hit(&self, page: &str, x: f64, y: f64, tolerance: f64) -> Vec<String> {
+        let mut path = Vec::new();
+        let snap = self.snapshot();
+        if let Some(p) = snap
+            .pages
+            .iter()
+            .chain(&snap.masters)
+            .find(|p| p.id == page)
+        {
+            hit(&p.children, x, y, tolerance, &mut path);
+        }
+        path
+    }
+
+    pub(super) fn snap(
+        &self,
+        id: TreeID,
+        inherited: &Modes,
+        palette: &Palette,
+        flows: &HashMap<TreeID, Flow>,
+    ) -> Node {
+        let m = self.meta(id);
+        let v = serde_json::to_value(m.get_deep_value()).unwrap_or_default();
+        let modes = self.modes(id);
+        let mut active_modes = inherited.clone();
+        active_modes.extend(modes.clone());
+        let children = || {
+            self.children(id)
+                .into_iter()
+                .map(|c| self.snap(c, &active_modes, palette, flows))
+                .collect()
+        };
+        let kind = match self.kind(id).as_str() {
+            "text" => match flows.get(&id) {
+                Some(f) => {
+                    let text = &f.story.text;
+                    Kind::Text {
+                        content: f.story.clone(),
+                        frame: self.text_frame_of(id),
+                        story: f.head.to_string(),
+                        start: utf16_of(text, f.start),
+                        end: utf16_of(text, f.end),
+                        prev: f.prev.map(|p| p.to_string()),
+                        next: f.next.map(|n| n.to_string()),
+                        overset: f.overset,
+                        from: f.start,
+                    }
+                }
+                None => Kind::Text {
+                    content: Rc::new(Story {
+                        text: v["text"].as_str().unwrap_or_default().into(),
+                        spans: self.spans(
+                            id,
+                            &v,
+                            &Scope {
+                                palette,
+                                modes: &active_modes,
+                            },
+                        ),
+                    }),
+                    frame: self.text_frame_of(id),
+                    story: id.to_string(),
+                    start: 0,
+                    end: 0,
+                    prev: None,
+                    next: None,
+                    overset: false,
+                    from: 0,
+                },
+            },
+            "group" => Kind::Group {
+                children: children(),
+            },
+            "frame" => Kind::Frame {
+                clip: v["clip"] == true,
+                children: children(),
+            },
+            _ => Kind::Shape(
+                serde_json::from_value(v.clone()).unwrap_or(Shape::Rect { radius: 0.0 }),
+            ),
+        };
+        let style: Style = serde_json::from_value(v.clone()).unwrap_or_default();
+        let name = v["name"]
+            .as_str()
+            .map(String::from)
+            .unwrap_or_else(|| match &kind {
+                Kind::Shape(Shape::Rect { .. }) => "Rectangle".into(),
+                Kind::Shape(Shape::Ellipse) => "Ellipse".into(),
+                Kind::Shape(Shape::Polygon { .. }) => "Polygon".into(),
+                Kind::Shape(Shape::Star { .. }) => "Star".into(),
+                Kind::Shape(Shape::Path { .. }) if style.arrow_start || style.arrow_end => {
+                    "Arrow".into()
+                }
+                Kind::Shape(Shape::Path { path }) if path.len() == 6 => "Line".into(),
+                Kind::Shape(Shape::Path { .. }) => "Vector".into(),
+                Kind::Text { content, from, .. } if content.text[*from..].is_empty() => {
+                    "Text".into()
+                }
+                Kind::Text { content, from, .. } => content.text[*from..]
+                    .chars()
+                    .take(40)
+                    .map(|c| if c == text::PAGE_NUMBER { '#' } else { c })
+                    .collect(),
+                Kind::Group { .. } => "Group".into(),
+                Kind::Frame { .. } => "Frame".into(),
+            });
+        let [x, y, w, h] = self.bounds(id);
+        Node {
+            id: id.to_string(),
+            name,
+            x,
+            y,
+            w,
+            h,
+            modes,
+            active_modes,
+            bindings: self.bindings(id),
+            override_of: v["overrideOf"].as_str().map(String::from),
+            ppi: style
+                .fills
+                .iter()
+                .filter(|f| f.visible)
+                .filter_map(|f| f.ppi(w, h))
+                .reduce(f64::min),
+            layout: serde_json::from_value(v.clone()).unwrap_or_default(),
+            style,
+            kind,
+        }
+    }
+
+    /// The text of `id` in runs of equal attributes: the layer's, under those of its
+    /// text style, under the marks; paragraph attributes from each paragraph's start.
+    pub(super) fn spans(&self, id: TreeID, node: &serde_json::Value, s: &Scope) -> Vec<Span> {
+        let resolve = |marks: serde_json::Map<String, serde_json::Value>| -> Attrs {
+            let mut m = node.as_object().cloned().unwrap_or_default();
+            let style = marks.get("textStyle").or(m.get("textStyle"));
+            let style = style.and_then(|v| v.as_str()).unwrap_or_default();
+            if let Some(st) = s.palette.text_styles.iter().find(|t| t.id == style) {
+                m.extend(st.values(s));
+            }
+            m.extend(marks);
+            serde_json::from_value(serde_json::Value::Object(m)).unwrap_or_default()
+        };
+        let mut out: Vec<Span> = Vec::new();
+        let mut para: Option<Attrs> = None;
+        for d in self.text(id).map(|t| t.to_delta()).unwrap_or_default() {
+            let TextDelta::Insert { insert, attributes } = d else {
+                continue;
+            };
+            let marks = serde_json::to_value(attributes.unwrap_or_default())
+                .ok()
+                .and_then(|v| v.as_object().cloned())
+                .unwrap_or_default();
+            let attrs = resolve(marks);
+            for piece in insert.split_inclusive('\n') {
+                let p = para.get_or_insert_with(|| attrs.clone());
+                let a = Attrs {
+                    text_align: p.text_align,
+                    paragraph_spacing: p.paragraph_spacing,
+                    hyphenate: p.hyphenate,
+                    lang: p.lang,
+                    ..attrs.clone()
+                };
+                let len = piece.encode_utf16().count();
+                match out.last_mut() {
+                    Some(l) if l.attrs == a => l.len += len,
+                    _ => out.push(Span { len, attrs: a }),
+                }
+                if piece.ends_with('\n') {
+                    para = None;
+                }
+            }
+        }
+        if out.is_empty() {
+            out.push(Span {
+                len: 0,
+                attrs: resolve(Default::default()),
+            });
+        }
+        out
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::doc::tests::*;
+
+    #[test]
+    fn hit_returns_the_topmost_node_under_the_point() {
+        let (mut d, p) = empty();
+        let a = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
+        let b = create(&mut d, &p, NewKind::Rect, [5.0, 5.0, 10.0, 10.0]);
+        assert_eq!(hits(&d, 7.0, 7.0, 0.0), [b]);
+        assert_eq!(hits(&d, 2.0, 2.0, 0.0), [a]);
+        assert!(hits(&d, 20.0, 2.0, 0.0).is_empty());
+    }
+
+    #[test]
+    fn hit_returns_the_path_down_to_the_deepest_node() {
+        let (mut d, p) = empty();
+        let f = create(&mut d, &p, NewKind::Frame, [0.0, 0.0, 100.0, 100.0]);
+        let a = create(&mut d, &f, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
+        let b = create(&mut d, &f, NewKind::Rect, [50.0, 50.0, 10.0, 10.0]);
+        let g = d
+            .apply(Command::Group {
+                ids: vec![a.clone(), b],
+                frame: false,
+            })
+            .unwrap()
+            .remove(0);
+        assert_eq!(hits(&d, 5.0, 5.0, 0.0), [f.clone(), g.clone(), a]);
+        assert_eq!(hits(&d, 30.0, 30.0, 0.0), [f]);
+    }
+
+    #[test]
+    fn clipped_content_is_only_hit_inside_its_frame() {
+        let (mut d, p) = empty();
+        let f = create(&mut d, &p, NewKind::Frame, [0.0, 0.0, 10.0, 10.0]);
+        let a = create(&mut d, &f, NewKind::Rect, [5.0, 5.0, 20.0, 20.0]);
+        assert!(hits(&d, 15.0, 15.0, 0.0).is_empty());
+        assert_eq!(hits(&d, 8.0, 8.0, 0.0), [f.clone(), a.clone()]);
+        d.apply(Command::Set {
+            id: f.clone(),
+            props: Props {
+                clip: Some(false),
+                ..Props::default()
+            },
+        })
+        .unwrap();
+        assert_eq!(hits(&d, 15.0, 15.0, 0.0), [f, a]);
+    }
+
+    #[test]
+    fn render_emits_items_and_clips_frame_children() {
+        let ops = page_ops(&Doc::new());
+        assert!(matches!(ops[0], Op::Page { .. }));
+        assert_eq!(ops.iter().filter(|o| **o == Op::EndItem).count(), 11);
+        assert!(ops.iter().any(|o| matches!(o, Op::GlyphRun { .. })));
+        let at = |f: fn(&Op) -> bool| ops.iter().position(f).unwrap();
+        assert!(
+            at(|o| matches!(o, Op::PushClip { invert: false, .. })) < at(|o| *o == Op::PopClip)
+        );
+        assert!(at(|o| *o == Op::BeginMask) < at(|o| *o == Op::PopMask));
+        assert!(
+            ops.iter()
+                .any(|o| matches!(o, Op::PushLayer { blur, .. } if *blur > 0.0))
+        );
+        assert!(Doc::new().render("9@9").is_empty());
+    }
+
+    #[test]
+    fn shapes_are_hit_on_their_outline_not_their_box() {
+        let (mut d, p) = empty();
+        let e = create(&mut d, &p, NewKind::Ellipse, [0.0, 0.0, 10.0, 10.0]);
+        assert_eq!(hits(&d, 5.0, 5.0, 0.0), [e]);
+        assert!(hits(&d, 0.5, 0.5, 0.0).is_empty());
+
+        let l = create(&mut d, &p, NewKind::Line, [0.0; 4]);
+        d.apply(Command::SetPath {
+            id: l.clone(),
+            path: vec![MOVE, 20.0, 10.0, LINE, 10.0, 0.0],
+        })
+        .unwrap();
+        let n = &page(&d).children[1];
+        assert_eq!(
+            (frame(n), n.name.as_str()),
+            ([10.0, 0.0, 10.0, 10.0], "Line")
+        );
+        assert_eq!(hits(&d, 15.0, 6.0, 0.5), [l]);
+        assert!(hits(&d, 12.0, 8.0, 0.5).is_empty());
+        assert!(hits(&d, 15.0, 6.0, 0.0).is_empty());
+    }
+
+    #[test]
+    fn inside_strokes_are_clipped_and_twice_as_wide() {
+        let (mut d, p) = empty();
+        let r = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
+        set(
+            &mut d,
+            &r,
+            Props {
+                fills: Some(vec![]),
+                strokes: Some(vec![Fill::solid(BLACK)]),
+                stroke_weight: Some(2.0),
+                ..Props::default()
+            },
+        );
+        let ops = page_ops(&d);
+        assert!(matches!(ops[2], Op::PushClip { invert: false, .. }));
+        assert!(matches!(ops[3], Op::StrokePath { width: 4.0, .. }));
+        assert_eq!(ops[4], Op::PopClip);
+        set(
+            &mut d,
+            &r,
+            Props {
+                stroke_align: Some(Align::Outside),
+                ..Props::default()
+            },
+        );
+        assert!(matches!(page_ops(&d)[2], Op::PushClip { invert: true, .. }));
+    }
+
+    #[test]
+    fn arrows_add_a_head_to_the_stroke() {
+        let (mut d, p) = empty();
+        create(&mut d, &p, NewKind::Arrow, [0.0, 0.0, 10.0, 0.0]);
+        assert_eq!(page(&d).children[0].name, "Arrow");
+        let Op::StrokePath { path, .. } = &page_ops(&d)[2] else {
+            panic!("no stroke");
+        };
+        assert_eq!(path[..6], [MOVE, 0.0, 0.0, LINE, 10.0, 0.0]);
+        assert_eq!(
+            path[6..],
+            [MOVE, 5.0, -5.0, LINE, 10.0, 0.0, LINE, 5.0, 5.0]
+        );
+    }
+
+    #[test]
+    fn opacity_blend_and_effects_wrap_the_node_in_a_layer() {
+        let (mut d, p) = empty();
+        let r = create(&mut d, &p, NewKind::Rect, [0.0; 4]);
+        assert!(
+            !page_ops(&d)
+                .iter()
+                .any(|o| matches!(o, Op::PushLayer { .. }))
+        );
+        set(
+            &mut d,
+            &r,
+            Props {
+                opacity: Some(0.5),
+                effects: Some(vec![
+                    Effect::default(),
+                    Effect {
+                        kind: EffectKind::Blur,
+                        radius: 4.0,
+                        ..Effect::default()
+                    },
+                    Effect {
+                        visible: false,
+                        ..Effect::default()
+                    },
+                ]),
+                ..Props::default()
+            },
+        );
+        let ops = page_ops(&d);
+        let Op::PushLayer {
+            opacity,
+            blur,
+            shadows,
+            ..
+        } = &ops[1]
+        else {
+            panic!("no layer");
+        };
+        assert_eq!((*opacity, *blur, shadows.len()), (0.5, 2.0, 1));
+        assert_eq!(shadows[0].offset, [0.0, 3.0]);
+        assert_eq!(shadows[0].blur, 3.0);
+        assert_eq!(ops.last(), Some(&Op::PopLayer));
+    }
+
+    #[test]
+    fn a_mask_masks_the_siblings_above_it() {
+        let (mut d, p) = empty();
+        let [a, m, b, c] = [0; 4].map(|_| create(&mut d, &p, NewKind::Ellipse, [0.0; 4]));
+        set(
+            &mut d,
+            &m,
+            Props {
+                mask: Some(true),
+                ..Props::default()
+            },
+        );
+        let ops = page_ops(&d);
+        let kinds: Vec<_> = ops[1..]
+            .iter()
+            .filter(|o| !matches!(o, Op::FillPath { .. } | Op::EndItem))
+            .collect();
+        let key = |id: &String| {
+            id.bytes().fold(0x811c9dc5u32, |h, b| {
+                (h ^ b as u32).wrapping_mul(0x01000193)
+            })
+        };
+        let item = |id| Op::BeginItem { item: key(id) };
+        assert_eq!(
+            kinds,
+            [
+                &item(&a),
+                &Op::BeginMask,
+                &item(&m),
+                &Op::EndMask,
+                &item(&b),
+                &item(&c),
+                &Op::PopMask
+            ]
+        );
+    }
+
+    #[test]
+    fn masking_several_layers_wraps_them_in_a_mask_group_over_the_lowest() {
+        let (mut d, p) = empty();
+        let [a, b, c] = [0; 3].map(|_| create(&mut d, &p, NewKind::Rect, [0.0; 4]));
+        let g = d
+            .apply(Command::Mask {
+                ids: vec![c.clone(), b.clone()],
+            })
+            .unwrap()
+            .remove(0);
+        let pg = page(&d);
+        assert_eq!(ids(&pg.children), [a.clone(), g.clone()]);
+        assert_eq!(pg.children[1].name, "Mask group");
+        let kids = children(&pg.children[1]);
+        assert_eq!(ids(kids), [b.clone(), c]);
+        assert_eq!((kids[0].style.mask, kids[1].style.mask), (true, false));
+
+        assert_eq!(
+            d.apply(Command::Mask {
+                ids: vec![a.clone()]
+            })
+            .unwrap(),
+            std::slice::from_ref(&a)
+        );
+        assert!(page(&d).children[0].style.mask);
+        d.apply(Command::Mask { ids: vec![a] }).unwrap();
+        assert!(!page(&d).children[0].style.mask);
+        d.apply(Command::Undo).unwrap();
+        d.apply(Command::Undo).unwrap();
+        d.apply(Command::Undo).unwrap();
+        assert_eq!(page(&d).children.len(), 3);
+    }
+
+    #[test]
+    fn masked_layers_are_hit_only_inside_the_mask() {
+        let (mut d, p) = empty();
+        let below = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
+        let m = create(&mut d, &p, NewKind::Ellipse, [0.0, 0.0, 10.0, 10.0]);
+        let above = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
+        d.apply(Command::Mask { ids: vec![m] }).unwrap();
+        assert_eq!(hits(&d, 5.0, 5.0, 0.0), [above]);
+        assert_eq!(hits(&d, 0.5, 0.5, 0.0), [below]);
+    }
+
+    #[test]
+    fn gradients_map_the_unit_box_into_the_frame() {
+        let (mut d, p) = empty();
+        let r = create(&mut d, &p, NewKind::Rect, [10.0, 20.0, 100.0, 50.0]);
+        set(
+            &mut d,
+            &r,
+            Props {
+                fills: Some(vec![Fill {
+                    kind: FillKind::Linear,
+                    transform: [0.0, 1.0, -1.0, 0.0, 0.5, 0.0],
+                    stops: vec![FillStop {
+                        at: 0.0,
+                        color: WHITE.into(),
+                    }],
+                    ..Fill::default()
+                }]),
+                ..Props::default()
+            },
+        );
+        let Op::FillPath {
+            paint: Paint::Linear { transform, stops },
+            ..
+        } = &page_ops(&d)[2]
+        else {
+            panic!("no gradient");
+        };
+        assert_eq!(*transform, [0.0, 50.0, -100.0, 0.0, 60.0, 20.0]);
+        assert_eq!(stops[0].color, [1.0; 4]);
+    }
+
+    #[test]
+    fn preflight_reports_overset_missing_fonts_short_bleeds_and_rgb_in_cmyk() {
+        let (mut d, p) = empty();
+        facing(&mut d, false);
+        let Page {
+            width: w,
+            height: h,
+            bleed: b,
+            ..
+        } = page(&d);
+        let bleeds = create(&mut d, &p, NewKind::Rect, [-b, -b, w + 2.0 * b, 20.0]);
+        let short = create(&mut d, &p, NewKind::Rect, [0.0, 50.0, 20.0, 20.0]);
+        let inside = create(&mut d, &p, NewKind::Rect, [20.0, 100.0, 20.0, 20.0]);
+        create(&mut d, &p, NewKind::Rect, [w + 50.0, h - 20.0, 20.0, 20.0]);
+        let t = fixed_text(&mut d, &p, [0.0, 200.0, 40.0, 12.0]);
+        set_text(&mut d, &t, SAMPLE);
+        let gone = Typeface {
+            name: "Gone Sans".into(),
+            hash: "0123456789abcdef".into(),
+        };
+        format(&mut d, &t, None, in_font(gone)).unwrap();
+        let font = Problem::MissingFont {
+            font: "Gone Sans".into(),
+        };
+        assert_eq!(
+            problems(&d),
+            [
+                (short.clone(), Problem::ShortOfBleed),
+                (t.clone(), Problem::Overset),
+                (t.clone(), font),
+            ]
+        );
+        let inks = |kind| Props {
+            fills: Some(vec![Fill {
+                kind,
+                stops: vec![FillStop {
+                    at: 0.0,
+                    color: process(0.0, 0.0, 0.0, 1.0),
+                }],
+                ..Fill::default()
+            }]),
+            effects: Some(vec![Effect {
+                kind: EffectKind::Blur,
+                ..Effect::default()
+            }]),
+            ..Props::default()
+        };
+        let gradient = create(&mut d, &p, NewKind::Rect, [20.0, 150.0, 20.0, 20.0]);
+        set(&mut d, &gradient, inks(FillKind::Linear));
+        cmyk(&mut d);
+        assert!(!problems(&d).contains(&(gradient, Problem::Rgb)));
+        let rgb: Vec<_> = problems(&d)
+            .into_iter()
+            .filter(|i| i.1 == Problem::Rgb)
+            .map(|i| i.0)
+            .collect();
+        assert!([bleeds, short, inside, t].iter().all(|id| rgb.contains(id)));
+    }
+
+    #[test]
+    fn a_layer_on_a_spread_needs_no_bleed_at_the_spine() {
+        let (mut d, first) = empty();
+        let left = add_page(&mut d, Some(&first));
+        let Page {
+            width: w,
+            height: h,
+            bleed: b,
+            ..
+        } = page(&d);
+        create(&mut d, &left, NewKind::Rect, [-b, -b, w + b, h + 2.0 * b]);
+        let top = create(&mut d, &left, NewKind::Rect, [w - 10.0, 0.0, 20.0, 10.0]);
+        assert_eq!(problems(&d), [(top, Problem::ShortOfBleed)]);
+    }
+}
