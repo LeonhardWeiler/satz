@@ -7,6 +7,7 @@ import { handleAt, portAt, portsOf, rect, resized } from './handles'
 import { Renderer, fitView, HANDLE, type Box, type View } from './renderer'
 import { pick } from './select'
 import { handleTextKey, insert, range, select, textOf, wordAt } from './textEdit'
+import { Switcher } from './Switcher'
 
 const PX_PER_PT = 96 / 72
 const DRAG = 3
@@ -49,11 +50,64 @@ export function isTyping(e: Event) {
   return e.target instanceof HTMLElement && e.target.closest('input:not([type=checkbox]), textarea, select, [contenteditable]') !== null
 }
 
+const RULER = 20
+
+/**
+ * Draws a ruler in mm whose 0 is at `origin` px, at `scale` px per mm, with the span
+ * `extent` in px shaded and a mark at each of `guides` in px.
+ */
+function drawRuler(c: HTMLCanvasElement, horizontal: boolean, origin: number, scale: number, extent?: [number, number], guides: number[] = []) {
+  const { clientWidth: w, clientHeight: h } = c
+  if (!w || !h) return
+  const dpr = devicePixelRatio
+  if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) [c.width, c.height] = [Math.round(w * dpr), Math.round(h * dpr)]
+  const g = c.getContext('2d')!
+  g.setTransform(dpr, 0, 0, dpr, 0, 0)
+  g.clearRect(0, 0, w, h)
+  const at = (p: number, from: number, to: number) => (horizontal ? g.rect(p, from, 1, to - from) : g.rect(from, p, to - from, 1))
+  if (extent) {
+    g.fillStyle = 'rgb(56 174 224 / 0.22)'
+    g.beginPath()
+    if (horizontal) g.rect(extent[0], 0, extent[1] - extent[0], RULER)
+    else g.rect(0, extent[0], RULER, extent[1] - extent[0])
+    g.fill()
+  }
+  const step = [1, 2, 5, 10, 20, 50, 100, 200].find((s) => s * scale >= 7) ?? 500
+  const major = step * (step === 1 || step === 10 || step === 100 ? 10 : 5)
+  g.fillStyle = '#5a5d62'
+  g.beginPath()
+  const len = horizontal ? w : h
+  for (let v = Math.floor(-origin / scale / step) * step; v * scale + origin < len; v += step) {
+    const t = v % major === 0 ? 9 : v % (step * 5) === 0 ? 5 : 3
+    at(Math.round(v * scale + origin), RULER - t, RULER)
+  }
+  g.fill()
+  g.fillStyle = '#9a9da2'
+  g.font = "500 9px 'Hanken Grotesk', system-ui, sans-serif"
+  for (let v = Math.floor(-origin / scale / major) * major; v * scale + origin < len; v += major) {
+    const p = Math.round(v * scale + origin)
+    if (horizontal) g.fillText(String(v), p + 3, 9)
+    else {
+      g.save()
+      g.translate(9, p - 3)
+      g.rotate(-Math.PI / 2)
+      g.fillText(String(v), 0, 0)
+      g.restore()
+    }
+  }
+  g.fillStyle = '#cc2f83'
+  g.beginPath()
+  for (const p of guides) at(Math.round(p) - 0.5, 0, RULER)
+  g.fill()
+}
+
 /** Half a blink period of the caret in ms. */
 const BLINK = 530
 
 export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   const ref = useRef<HTMLCanvasElement>(null)
+  const rulerX = useRef<HTMLCanvasElement>(null)
+  const rulerY = useRef<HTMLCanvasElement>(null)
   const area = useRef<HTMLTextAreaElement>(null)
   const [zoom, setZoom] = useState(0)
   const [composing, setComposing] = useState(false)
@@ -208,6 +262,11 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           ...threadOverlay(),
         })
         surface.flush()
+        const left = Math.min(...editor.sheets.map((s) => s.x))
+        const sel = editor.selection.length ? bounds(editor.selected().map(placed)) : undefined
+        const x0 = view.x + left * view.zoom
+        drawRuler(rulerX.current!, true, x0, view.zoom * MM, sel && [view.x + sel.x * view.zoom, view.x + (sel.x + sel.w) * view.zoom])
+        drawRuler(rulerY.current!, false, view.y, view.zoom * MM, sel && [view.y + sel.y * view.zoom, view.y + (sel.y + sel.h) * view.zoom])
       })
     }
     const zoomAt = (px: number, py: number, zoom: number) => {
@@ -218,8 +277,8 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       setZoom(zoom)
       redraw()
     }
-    const fit = () => {
-      Object.assign(view, fitView(editor.sheets, canvas.clientWidth, canvas.clientHeight))
+    const fit = (sheets = editor.sheets) => {
+      Object.assign(view, fitView(sheets, canvas.clientWidth, canvas.clientHeight))
       setZoom(view.zoom)
       redraw()
     }
@@ -600,7 +659,12 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       e.preventDefault()
     }
 
+    let side = editor.side
     const unsubscribe = editor.subscribe(() => {
+      if (editor.side !== side) {
+        side = editor.side
+        fit(editor.sheets.slice(side === 'left' ? 0 : -1).slice(0, 1))
+      }
       if (spreadKey() !== shown) {
         views.set(shown, { ...view })
         shown = spreadKey()
@@ -648,59 +712,65 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
 
   return (
     <div className="stage">
-      <canvas ref={ref} className="canvas" aria-label="Page canvas" tabIndex={-1} data-tool="move" />
-      {editing && (
-        <textarea
-          ref={(el) => {
-            area.current = el
-            el?.focus({ preventScroll: true })
-          }}
-          className="text-input"
-          aria-label="Text editor"
-          data-composing={composing || undefined}
-          autoComplete="off"
-          autoCorrect="off"
-          autoCapitalize="off"
-          spellCheck={false}
-          onBlur={(e) => {
-            if (editor.editing && e.relatedTarget === null) e.currentTarget.focus({ preventScroll: true })
-          }}
-          onKeyDown={(e) => {
-            if (e.nativeEvent.isComposing) return
-            if (handleTextKey(editor, e.nativeEvent)) e.preventDefault()
-          }}
-          onInput={(e) => {
-            if ((e.nativeEvent as InputEvent).isComposing) return
-            const v = e.currentTarget.value
-            e.currentTarget.value = ''
-            insert(editor, v)
-          }}
-          onCompositionStart={() => setComposing(true)}
-          onCompositionEnd={(e) => {
-            setComposing(false)
-            e.currentTarget.value = ''
-            insert(editor, e.data)
-          }}
-          onCopy={(e) => {
-            const [a, b] = range(editor.editing!)
-            e.clipboardData.setData('text/plain', textOf(editor).slice(a, b))
-            e.preventDefault()
-          }}
-          onCut={(e) => {
-            const [a, b] = range(editor.editing!)
-            e.clipboardData.setData('text/plain', textOf(editor).slice(a, b))
-            insert(editor, '')
-            e.preventDefault()
-          }}
-          onPaste={(e) => {
-            insert(editor, e.clipboardData.getData('text/plain').replace(/\r\n?/g, '\n'))
-            e.preventDefault()
-          }}
-        />
-      )}
-      <output className="zoom" aria-label="Zoom">
-        {Math.round((zoom / PX_PER_PT) * 100)}%
-      </output>
+      <div className="ruler-corner" />
+      <canvas ref={rulerX} className="ruler ruler-x" aria-hidden="true" />
+      <canvas ref={rulerY} className="ruler ruler-y" aria-hidden="true" />
+      <div className="view">
+        <canvas ref={ref} className="canvas" aria-label="Page canvas" tabIndex={-1} data-tool="move" />
+        {editing && (
+          <textarea
+            ref={(el) => {
+              area.current = el
+              el?.focus({ preventScroll: true })
+            }}
+            className="text-input"
+            aria-label="Text editor"
+            data-composing={composing || undefined}
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            onBlur={(e) => {
+              if (editor.editing && e.relatedTarget === null) e.currentTarget.focus({ preventScroll: true })
+            }}
+            onKeyDown={(e) => {
+              if (e.nativeEvent.isComposing) return
+              if (handleTextKey(editor, e.nativeEvent)) e.preventDefault()
+            }}
+            onInput={(e) => {
+              if ((e.nativeEvent as InputEvent).isComposing) return
+              const v = e.currentTarget.value
+              e.currentTarget.value = ''
+              insert(editor, v)
+            }}
+            onCompositionStart={() => setComposing(true)}
+            onCompositionEnd={(e) => {
+              setComposing(false)
+              e.currentTarget.value = ''
+              insert(editor, e.data)
+            }}
+            onCopy={(e) => {
+              const [a, b] = range(editor.editing!)
+              e.clipboardData.setData('text/plain', textOf(editor).slice(a, b))
+              e.preventDefault()
+            }}
+            onCut={(e) => {
+              const [a, b] = range(editor.editing!)
+              e.clipboardData.setData('text/plain', textOf(editor).slice(a, b))
+              insert(editor, '')
+              e.preventDefault()
+            }}
+            onPaste={(e) => {
+              insert(editor, e.clipboardData.getData('text/plain').replace(/\r\n?/g, '\n'))
+              e.preventDefault()
+            }}
+          />
+        )}
+        <output className="zoom" aria-label="Zoom">
+          {Math.round((zoom / PX_PER_PT) * 100)}%
+        </output>
+        <Switcher editor={editor} />
+      </div>
     </div>
   )
 }

@@ -5,11 +5,11 @@ import { join } from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
 import { PNG } from 'pngjs'
 import { fitView, type Sheet } from '../src/renderer'
-import { STORY, drag, drawn, frameOnNewPage, open, pixels, place, png, port, screen } from './util'
+import { STORY, drag, drawn, frameOnNewPage, near, open, pixels, place, png, port, screen } from './util'
 
 const EDGE = 4
 const BLOCK = 4
-const BACKGROUND = 0x1e
+const BACKGROUND = [0x37, 0x39, 0x3c]
 const MAX_DIFF = 48
 const MAX_SHARE = 0.0005
 // Skia boosts the contrast of light text on a dark ground, which MuPDF does not.
@@ -32,7 +32,7 @@ function sheet(pdf: string, n: number) {
 async function exportPdf(page: Page) {
   const pdf = join(mkdtempSync(join(tmpdir(), 'satz-')), 'satz.pdf')
   const download = page.waitForEvent('download')
-  await page.getByRole('button', { name: 'Export PDF' }).click()
+  await page.getByRole('button', { name: 'Export', exact: true }).click()
   await (await download).saveAs(pdf)
   return pdf
 }
@@ -74,7 +74,7 @@ async function expectCanvasMatchesPdf(page: Page, n = 1, spread = [n], pdf?: str
     for (let dy = 0; dy < BLOCK; dy++) {
       for (let dx = 0; dx < BLOCK; dx++) {
         const i = ((py + dy) * img.width + px + dx) * 4 + c
-        sum += pasteboard && img.data[i] === BACKGROUND ? 255 : img.data[i]
+        sum += pasteboard && img.data[i] === BACKGROUND[c] ? 255 : img.data[i]
       }
     }
     return sum / (BLOCK * BLOCK)
@@ -458,14 +458,14 @@ test('the canvas still draws while the pdf is exported', async ({ page }) => {
     await held
     await route.continue()
   })
-  const button = page.getByRole('button', { name: 'Export PDF' })
+  const button = page.getByRole('button', { name: 'Export', exact: true })
   const download = page.waitForEvent('download')
   await button.click()
   await expect(button).toBeDisabled()
   await expect(page.getByText('Exporting PDF…')).toBeVisible()
 
   const [x, y] = await screen(page, 23, 52)
-  const accent = async () => (await pixels(page, x - 1, y - 3, 3, 7)).some(([r, g, b]) => r < 40 && g > 130 && b > 230)
+  const accent = async () => (await pixels(page, x - 1, y - 3, 3, 7)).some((p) => near(p, [56, 174, 224]))
   await page.mouse.move(x, y - 20)
   expect(await accent()).toBe(false)
   await page.keyboard.down('Control')

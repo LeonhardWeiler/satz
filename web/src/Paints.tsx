@@ -76,7 +76,7 @@ export function PaintList({
                 <li key={i} className="paint" data-hidden={!p.visible || undefined}>
                   <div className="row">
                     {p.type === 'image' ? (
-                      <Icon name="image" size={16} />
+                      <Icon name="image" />
                     ) : p.type === 'solid' ? (
                       <ColorPicker
                         label={`${title} color`}

@@ -69,7 +69,7 @@ export function Toolbar({ editor, onPlaceImage }: { editor: Editor; onPlaceImage
           aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
         >
-          <Icon name="chevron" size={12} />
+          <Icon name="chevron" />
         </button>
         {open && (
           <Popover anchor={() => group.current!.getBoundingClientRect()} side="top" className="menu" role="menu" aria-label="Shape tools">
@@ -85,7 +85,7 @@ export function Toolbar({ editor, onPlaceImage }: { editor: Editor; onPlaceImage
                   setOpen(false)
                 }}
               >
-                <Icon name={icon} size={16} />
+                <Icon name={icon} />
                 <span>{label}</span>
                 <kbd>{key}</kbd>
               </button>

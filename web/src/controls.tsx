@@ -134,7 +134,7 @@ export function Section({
         <h3>{title}</h3>
         {onAdd && (
           <button type="button" className="icon-button" aria-label={add} title={add} onClick={onAdd}>
-            <Icon name="plus" size={16} />
+            <Icon name="plus" />
           </button>
         )}
       </header>
@@ -164,10 +164,10 @@ export function RowActions({
         title={`${visible ? 'Hide' : 'Show'} ${what}`}
         onClick={onToggle}
       >
-        <Icon name={visible ? 'eye' : 'eyeOff'} size={16} />
+        <Icon name={visible ? 'eye' : 'eyeOff'} />
       </button>
       <button type="button" className="icon-button" aria-label={`Remove ${what}`} title={`Remove ${what}`} onClick={onRemove}>
-        <Icon name="minus" size={16} />
+        <Icon name="minus" />
       </button>
     </>
   )

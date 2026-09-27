@@ -36,7 +36,7 @@ export function Swatches({ editor }: { editor: Editor }) {
       <header className="panel-header">
         <h2>Swatches</h2>
         <button type="button" className="icon-button" aria-label="Add swatch" title="Add swatch" onClick={add}>
-          <Icon name="plus" size={16} />
+          <Icon name="plus" />
         </button>
       </header>
       <div ref={list} role="listbox" aria-label="Swatches" className="swatch-list">

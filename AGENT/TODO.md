@@ -20,8 +20,10 @@ font helper, i18n.
 - Color: document is RGB or CMYK + spot colors. Screen preview via `moxcms`, with black
   point compensation, and a bundled FOGRA51 profile built from the ICC registry data (`engine/icc/build`); the
   ECI's PSO Coated v3 may not be redistributed.
-- UI: Figma UI3 layout, behavior and keybinds (Ctrl for Cmd), dark pro look,
-  English, units mm by default (switchable), type sizes in pt.
+- UI: design G (`AGENT/ui-ux/g-register.html`): fixed layout with a top bar, layers
+  and swatches left, properties or preflight right, mm rulers; no floating panels, no
+  bottom bar. Figma keybinds (Ctrl for Cmd), dark look, English, units mm by default
+  (switchable), type sizes in pt.
 - Browsers: Chromium + Firefox; Safari best effort.
 - License: ISC.
 

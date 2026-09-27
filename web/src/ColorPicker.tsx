@@ -46,7 +46,7 @@ export function SwatchOption({ swatch, selected, onPick }: { swatch: Swatch; sel
     <button type="button" role="option" aria-selected={selected} className="swatch-option" title={`${swatch.name} · ${kind}`} onClick={onPick}>
       <Chip color={swatch.color} scope={NO_SCOPE} />
       <span className="swatch-name">{swatch.name}</span>
-      <Icon name={swatch.spot ? 'spot' : 'process'} size={16} />
+      <Icon name={swatch.spot ? 'spot' : 'process'} />
     </button>
   )
 }
@@ -198,7 +198,7 @@ export function Picker({
           <h2>{title}</h2>
         )}
         <button type="button" className="icon-button" aria-label="Close" title="Close" onClick={() => onClose(true)}>
-          <Icon name="close" size={16} />
+          <Icon name="close" />
         </button>
       </header>
       {children}

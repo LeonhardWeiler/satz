@@ -132,11 +132,11 @@ export function Pages({ editor }: { editor: Editor }) {
           aria-expanded={mastersOpen}
           onClick={() => setMastersOpen(!mastersOpen)}
         >
-          <Icon name="chevron" size={16} />
+          <Icon name="chevron" />
           <h2>Masters</h2>
         </button>
         <button type="button" className="icon-button" aria-label="Add master" title="Add master" onClick={addMaster}>
-          <Icon name="plus" size={16} />
+          <Icon name="plus" />
         </button>
       </header>
       {mastersOpen && masters.length > 0 && (
@@ -178,7 +178,7 @@ export function Pages({ editor }: { editor: Editor }) {
       <header className="panel-header subheader">
         <h2>Pages</h2>
         <button type="button" className="icon-button" aria-label="Add page" title="Add page" onClick={addPage}>
-          <Icon name="plus" size={16} />
+          <Icon name="plus" />
         </button>
       </header>
       <ul className="tree page-list" aria-label="Pages" onKeyDown={onPagesKey}>

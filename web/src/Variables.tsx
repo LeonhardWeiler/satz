@@ -34,7 +34,7 @@ export function Variables({ editor, onClose }: { editor: Editor; onClose: () => 
       <header className="panel-header">
         <h2>Local variables</h2>
         <button type="button" className="icon-button" aria-label="Close" title="Close" onClick={() => ref.current!.close()}>
-          <Icon name="close" size={16} />
+          <Icon name="close" />
         </button>
       </header>
       <div className="variables-body">
@@ -51,7 +51,7 @@ export function Variables({ editor, onClose }: { editor: Editor; onClose: () => 
                 setSelected(editor.apply({ type: 'addCollection', name })[0])
               }}
             >
-              <Icon name="plus" size={16} />
+              <Icon name="plus" />
             </button>
           </header>
           {collections.map((c) => (
@@ -99,7 +99,7 @@ export function Variables({ editor, onClose }: { editor: Editor; onClose: () => 
                               title={`Delete mode ${m.name}`}
                               onClick={() => editor.apply({ type: 'deleteMode', collection: collection.id, id: m.id })}
                             >
-                              <Icon name="minus" size={16} />
+                              <Icon name="minus" />
                             </button>
                           )}
                         </div>
@@ -119,7 +119,7 @@ export function Variables({ editor, onClose }: { editor: Editor; onClose: () => 
                           })
                         }
                       >
-                        <Icon name="plus" size={16} />
+                        <Icon name="plus" />
                       </button>
                     </th>
                   </tr>
@@ -154,7 +154,7 @@ export function Variables({ editor, onClose }: { editor: Editor; onClose: () => 
                           title={`Delete variable ${v.name}`}
                           onClick={() => editor.apply({ type: 'deleteVariable', id: v.id })}
                         >
-                          <Icon name="minus" size={16} />
+                          <Icon name="minus" />
                         </button>
                       </td>
                     </tr>
@@ -182,7 +182,7 @@ export function Variables({ editor, onClose }: { editor: Editor; onClose: () => 
                 aria-expanded={menu}
                 onClick={() => setMenu((o) => !o)}
               >
-                <Icon name="plus" size={16} />
+                <Icon name="plus" />
                 Create variable
               </button>
               {menu && (
@@ -286,7 +286,7 @@ export function Bindable({
             title="Detach variable"
             onClick={() => bind(null)}
           >
-            <Icon name="detach" size={16} />
+            <Icon name="detach" />
           </button>
         </div>
       ) : (
@@ -301,7 +301,7 @@ export function Bindable({
             aria-expanded={open}
             onClick={() => setOpen((o) => !o)}
           >
-            <Icon name="variable" size={16} />
+            <Icon name="variable" />
           </button>
         </>
       )}

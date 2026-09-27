@@ -37,6 +37,10 @@ export class Editor {
   threading: string | null = null
   /** The current page or master, shown on the canvas in its spread. */
   pageId: string
+  /** The page shown before the current master, to return to. */
+  back: string | null = null
+  /** The side of a facing master that the view fits. */
+  side: 'left' | 'right' = 'right'
   file = UNTITLED
   /** The document has changed since it was last saved to or opened from its file. */
   dirty = false
@@ -94,9 +98,8 @@ export class Editor {
    * right page of the current master, which holds the layers of both.
    */
   get sheets(): Sheet[] {
-    const { masters, facingPages } = this.snapshot
-    const m = masters.find((p) => p.id === this.pageId)
-    return m && facingPages ? [{ ...m, x: -m.width }, m] : this.spread
+    const m = this.master
+    return m && this.snapshot.facingPages ? [{ ...m, x: -m.width }, m] : this.spread
   }
 
   /** How far the page of the layer `id` sits right of the spine on its spread. */
@@ -199,7 +202,7 @@ export class Editor {
     }
   }
 
-  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'pen' | 'editing' | 'threading'>>) {
+  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'pen' | 'editing' | 'threading' | 'side'>>) {
     const leaves = this.editing && patch.selection && !patch.selection.includes(this.editing.id)
     if (leaves && !('editing' in patch)) this.stopEditing()
     if (patch.editing) patch = { selection: [patch.editing.id], ...patch }
@@ -246,9 +249,21 @@ export class Editor {
     if (id === this.pageId) return
     this.finishPen(false)
     this.stopEditing()
+    if (this.snapshot.pages.some((p) => p.id === this.pageId)) this.back = this.pageId
     this.pageId = id
     this.nodes = this.index()
     this.set({ selection: [] })
+  }
+
+  /** The current master, if a master is shown. */
+  get master() {
+    return this.snapshot.masters.find((m) => m.id === this.pageId)
+  }
+
+  /** Leaves the current master for the page shown before it. */
+  exitMaster() {
+    const { pages } = this.snapshot
+    this.showPage(pages.find((p) => p.id === this.back)?.id ?? pages[0].id)
   }
 
   setTool(tool: Tool) {

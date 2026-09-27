@@ -23,7 +23,7 @@ test('preflight lists a layer short of the bleed and a click selects it on its p
 test('export warns of preflight issues but still downloads the pdf', async ({ page }) => {
   await open(page)
   const warning = page.getByText(/preflight issue/)
-  const exportPdf = page.getByRole('button', { name: 'Export PDF' })
+  const exportPdf = page.getByRole('button', { name: 'Export', exact: true })
 
   let download = page.waitForEvent('download')
   await exportPdf.click()

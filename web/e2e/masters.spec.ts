@@ -181,7 +181,7 @@ test('a page number on the pages of a master spread shows the number of each pag
   }
   const pdf = join(mkdtempSync(join(tmpdir(), 'satz-')), 'satz.pdf')
   const download = page.waitForEvent('download')
-  await panel.getByRole('button', { name: 'Export PDF' }).click()
+  await page.getByRole('button', { name: 'Export', exact: true }).click()
   await (await download).saveAs(pdf)
   const text = execFileSync('mutool', ['draw', '-q', '-F', 'text', '-o', '-', pdf, '2-3']).toString()
   expect(text.replace(/\s+/g, ' ').trim()).toBe('2 3')

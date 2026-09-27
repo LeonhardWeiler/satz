@@ -39,7 +39,7 @@ export function AutoLayout({ editor, node, set }: { editor: Editor; node: Node &
               title={`${d === 'vertical' ? 'Vertical' : 'Horizontal'} layout`}
               onClick={() => set({ direction: d })}
             >
-              <Icon name={d === 'vertical' ? 'down' : 'right'} size={16} />
+              <Icon name={d === 'vertical' ? 'arrowDown' : 'arrowRight'} />
             </button>
           ))}
         </div>
@@ -50,7 +50,7 @@ export function AutoLayout({ editor, node, set }: { editor: Editor; node: Node &
           title="Remove auto layout (Shift+Alt+A)"
           onClick={() => set({ direction: 'none' })}
         >
-          <Icon name="minus" size={16} />
+          <Icon name="minus" />
         </button>
       </div>
       <div className="auto-layout">

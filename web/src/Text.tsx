@@ -87,7 +87,7 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
       <div className="row">
         <Select label="Text style" value={style ?? 'mixed'} options={options} onChange={(textStyle) => format({ textStyle })} />
         <button type="button" className="icon-button" aria-label="Create text style" title="Create text style" onClick={create}>
-          <Icon name="plus" size={16} />
+          <Icon name="plus" />
         </button>
       </div>
       <div className="grid">
@@ -122,7 +122,7 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
             title={title}
             onClick={() => format({ textAlign: value })}
           >
-            <Icon name={icon} size={16} />
+            <Icon name={icon} />
           </button>
         ))}
       </div>
@@ -138,7 +138,7 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
             disabled={(value === 'autoWidth' && !!(node.prev || node.next)) || (value === 'autoHeight' && !!node.next)}
             onClick={() => resize(value)}
           >
-            <Icon name={value} size={16} />
+            <Icon name={value} />
           </button>
         ))}
       </div>
@@ -202,7 +202,7 @@ function StyleRow({ editor, style }: { editor: Editor; style: TextStyle }) {
           title="Delete text style"
           onClick={() => editor.apply({ type: 'deleteTextStyle', id: style.id })}
         >
-          <Icon name="minus" size={16} />
+          <Icon name="minus" />
         </button>
       </div>
       <div className="grid">
@@ -247,7 +247,7 @@ export function TextFrameSection({ node, set }: { node: TextNode; set: (p: Props
             title={title}
             onClick={() => set({ verticalAlign: value })}
           >
-            <Icon name={icon} size={16} />
+            <Icon name={icon} />
           </button>
         ))}
       </div>

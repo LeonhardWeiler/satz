@@ -124,14 +124,14 @@ export function Layers({ editor }: { editor: Editor }) {
                 data-open={open || undefined}
                 onClick={() => toggle(node.id)}
               >
-                <Icon name="chevron" size={16} />
+                <Icon name="chevron" />
               </button>
             ) : (
               <span className="chevron" />
             )}
             {mask && (
               <span className="kind masked" title={`Masked by ${mask.name}`}>
-                <Icon name="masked" size={16} />
+                <Icon name="masked" />
               </span>
             )}
             <KindIcon node={node} />

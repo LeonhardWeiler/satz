@@ -28,13 +28,9 @@ const solid = (color: Color): Fill => ({ type: 'solid', color, stops: [], transf
 
 export function Properties({
   editor,
-  onExport,
-  exporting,
   say,
 }: {
   editor: Editor
-  onExport: () => void
-  exporting: boolean
   say: (message: string) => void
 }) {
   const page = useEditor(editor, (e) => e.page)
@@ -98,9 +94,6 @@ export function Properties({
     >
       <header className="panel-header">
         <h2>{one ? one.name : nodes.length ? `${nodes.length} layers` : isPage ? 'Page' : page.name}</h2>
-        <button type="button" className="primary" onClick={onExport} disabled={exporting} title="Export PDF (Ctrl+Shift+E)">
-          Export PDF
-        </button>
       </header>
       {!box && (
         <Section title={isPage ? 'Page' : 'Master'}>
