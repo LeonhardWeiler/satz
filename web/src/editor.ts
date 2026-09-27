@@ -50,7 +50,7 @@ export class Editor {
   private listeners = new Set<() => void>()
 
   constructor(readonly engine: Engine) {
-    this.snapshot = engine.snapshot()
+    this.snapshot = JSON.parse(engine.snapshot())
     this.pageId = this.snapshot.pages[0].id
     this.nodes = this.index()
     this.savedAt = engine.version()
@@ -62,7 +62,7 @@ export class Editor {
     Object.assign(this, { selection: [], tool: 'move', renaming: null, pen: null, editing: null, threading: null })
     this.typing = false
     this.groups = 0
-    this.snapshot = this.engine.snapshot()
+    this.snapshot = JSON.parse(this.engine.snapshot())
     this.pageId = this.snapshot.pages[0].id
     this.nodes = this.index()
     this.saved(file, dirty ? '' : this.engine.version())
@@ -179,7 +179,7 @@ export class Editor {
     try {
       return f()
     } finally {
-      this.snapshot = this.engine.snapshot()
+      this.snapshot = JSON.parse(this.engine.snapshot())
       const { pages, masters } = this.snapshot
       if (!pages.some((p) => p.id === this.pageId) && !masters.some((p) => p.id === this.pageId)) {
         this.pageId = pages[Math.max(0, Math.min(at, pages.length - 1))].id

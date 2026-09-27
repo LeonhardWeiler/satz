@@ -22,11 +22,11 @@ test('layers with shadows are recorded again only when their content changes', a
   const surface = ck.MakeSurface(300, 400)!
   const draw = () => {
     recorded = 0
-    const [page] = (engine.snapshot() as Snapshot).pages
+    const [page] = (JSON.parse(engine.snapshot()) as Snapshot).pages
     renderer.draw(surface.getCanvas(), [page], [page], { x: 0, y: 0, zoom: 0.5 }, 1, { selection: [] })
     return recorded
   }
-  const shapes = () => ((engine.snapshot() as Snapshot).pages[0].children[3] as Extract<Node, { kind: 'group' }>).children
+  const shapes = () => ((JSON.parse(engine.snapshot()) as Snapshot).pages[0].children[3] as Extract<Node, { kind: 'group' }>).children
   const apply = (cmd: Command) => engine.apply(cmd)
 
   expect(draw()).toBeGreaterThan(0)
@@ -60,7 +60,7 @@ test('text in several sizes shares one typeface per font, freed with the rendere
   }
   const renderer = new Renderer(ck, engine)
   const surface = ck.MakeSurface(300, 400)!
-  const [page] = (engine.snapshot() as Snapshot).pages
+  const [page] = (JSON.parse(engine.snapshot()) as Snapshot).pages
   const text = page.children.find((n) => n.kind === 'text')!
   for (const size of [12, 24]) {
     engine.apply({ type: 'format', id: text.id, range: null, size })
@@ -78,7 +78,7 @@ test('text in a missing font is highlighted pink', async () => {
   const engine = new Engine()
   const renderer = new Renderer(ck, engine)
   const surface = ck.MakeSurface(300, 400)!
-  const [page] = (engine.snapshot() as Snapshot).pages
+  const [page] = (JSON.parse(engine.snapshot()) as Snapshot).pages
   const text = page.children.find((n) => n.kind === 'text')!
   const pink = () => {
     renderer.draw(surface.getCanvas(), [page], [page], { x: 0, y: 0, zoom: 0.5 }, 1, { selection: [] })

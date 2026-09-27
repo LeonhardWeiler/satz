@@ -41,9 +41,8 @@ impl Engine {
         self.doc.apply(cmd).map_err(|e| JsError::new(&e))
     }
 
-    pub fn snapshot(&self) -> Result<JsValue, JsError> {
-        let ser = serde_wasm_bindgen::Serializer::json_compatible();
-        Ok(self.doc.snapshot().serialize(&ser)?)
+    pub fn snapshot(&self) -> Result<String, JsError> {
+        Ok(serde_json::to_string(&*self.doc.snapshot())?)
     }
 
     /// Path from the topmost page child down to the deepest node at (x, y) in pt.
