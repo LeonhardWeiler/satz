@@ -56,7 +56,7 @@ export function SwatchOption({ swatch, selected, onPick }: { swatch: Swatch; sel
           <Icon name="warn" />
         </span>
       ) : (
-        swatch.spot && <Icon name="spot" />
+        <Icon name={swatch.spot ? 'spot' : 'process'} />
       )}
     </button>
   )

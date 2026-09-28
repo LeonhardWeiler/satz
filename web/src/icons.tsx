@@ -57,7 +57,7 @@ const ICONS = {
   ),
   process: (
     <>
-      <rect x="2.5" y="2.5" width="11" height="11" rx="1" />
+      <circle cx="8" cy="8" r="5.5" />
       <path d="M8 2.5v11M2.5 8h11" />
     </>
   ),
