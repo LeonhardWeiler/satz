@@ -31,14 +31,14 @@
         color: #fff;
         font: 400 56px/1 'Source Serif 4', Georgia, 'Times New Roman', serif;
       }
-      .loading .bar {
+      .loading .progress {
         width: 160px;
         height: 4px;
         border-radius: 2px;
         overflow: hidden;
         background: rgb(255 255 255 / 0.12);
       }
-      .loading .bar::after {
+      .loading .progress::after {
         content: '';
         display: block;
         height: 100%;
@@ -53,7 +53,7 @@
         }
       }
       @media (prefers-reduced-motion: reduce) {
-        .loading .bar::after {
+        .loading .progress::after {
           animation: none;
         }
       }
@@ -63,7 +63,7 @@
     <div id="root">
       <main class="loading">
         <h1>Satz</h1>
-        <div class="bar" role="progressbar" aria-label="Loading Satz"></div>
+        <div class="progress" role="progressbar" aria-label="Loading Satz"></div>
       </main>
     </div>
     <script type="module" src="/src/main.tsx"></script>
