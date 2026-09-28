@@ -82,3 +82,22 @@ test('a fill is dragged below another to reorder them', async ({ page }) => {
   await fills.getByRole('listitem').first().dragTo(fills.getByRole('listitem').last())
   await expect(types).toHaveText(['Solid', 'Linear'])
 })
+
+test('properties the selected layers share are edited together', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  const layers = page.getByRole('tree', { name: 'Layers' })
+  await layers.getByRole('button', { name: 'Sun', exact: true }).click()
+  await layers.getByRole('button', { name: 'Triangle', exact: true }).click({ modifiers: ['Shift'] })
+  await panel.getByRole('textbox', { name: 'Opacity', exact: true }).fill('50')
+  await panel.getByRole('textbox', { name: 'Opacity', exact: true }).press('Enter')
+  const fill = panel.getByRole('region', { name: 'Fill' })
+  await expect(fill).toContainText('Click + to replace mixed fills')
+  await fill.getByRole('button', { name: 'Add fill' }).click()
+  await expect(fill.getByRole('button', { name: 'Fill color' })).toHaveCount(1)
+  for (const name of ['Sun', 'Triangle']) {
+    await layers.getByRole('button', { name, exact: true }).click()
+    await expect(panel.getByRole('textbox', { name: 'Opacity', exact: true })).toHaveValue('50')
+    await expect(fill.getByRole('button', { name: 'Fill color' })).toHaveCount(1)
+  }
+})

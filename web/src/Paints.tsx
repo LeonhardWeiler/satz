@@ -53,7 +53,8 @@ export function PaintList({
   children,
 }: {
   title: 'Fill' | 'Stroke'
-  paints: Fill[]
+  /** Null when the selected layers differ. */
+  paints: Fill[] | null
   mode: ColorMode
   scope: Scope
   added: Fill
@@ -65,8 +66,9 @@ export function PaintList({
   const what = title.toLowerCase()
   const [dragged, setDragged] = useState<number | null>(null)
   return (
-    <Section title={title} onAdd={() => onChange([...paints, added])}>
-      {paints.length > 0 && (
+    <Section title={title} onAdd={() => onChange([...(paints ?? []), added])}>
+      {!paints && <p className="empty">Click + to replace mixed {what}s</p>}
+      {paints && paints.length > 0 && (
         <ul className="rows">
           {paints
             .map((p, i) => ({ p, i }))
@@ -201,14 +203,16 @@ export function EffectList({
   scope,
   onChange,
 }: {
-  effects: Effect[]
+  /** Null when the selected layers differ. */
+  effects: Effect[] | null
   mode: ColorMode
   scope: Scope
   onChange: (effects: Effect[]) => void
 }) {
   return (
-    <Section title="Effects" onAdd={() => onChange([...effects, shadow(mode)])}>
-      {effects.length > 0 && (
+    <Section title="Effects" onAdd={() => onChange([...(effects ?? []), shadow(mode)])}>
+      {!effects && <p className="empty">Click + to replace mixed effects</p>}
+      {effects && effects.length > 0 && (
         <ul className="rows">
           {effects.map((e, i) => {
             const set = (next: Partial<Effect>) => onChange(replace(effects, i, { ...e, ...next }))

@@ -69,6 +69,10 @@ export function Properties({
     const values = nodes.map(get)
     return values.every((v) => v === values[0]) ? (values[0] ?? null) : null
   }
+  const sameList = <T,>(get: (n: Node) => T[]) => {
+    const values = nodes.map((n) => JSON.stringify(get(n)))
+    return values.every((v) => v === values[0]) ? get(nodes[0]) : null
+  }
   const each = (cmd: (n: Node) => Command | undefined) => {
     editor.batch(() => {
       for (const n of nodes) {
@@ -102,8 +106,11 @@ export function Properties({
     ) : (
       field
     )
-  const set = (props: Props) => one && editor.apply({ type: 'set', id: one.id, ...props })
-  const open = one?.kind === 'shape' && one.shape === 'path' && !one.path.includes(5)
+  const set = (props: Props) => each((n) => ({ type: 'set', id: n.id, ...props }))
+  const isOpen = (n: Node) => n.kind === 'shape' && n.shape === 'path' && !n.path.includes(5)
+  const open = nodes.length > 0 && nodes.every(isOpen)
+  const stroked = nodes.length > 0 && nodes.every((n) => n.kind === 'shape' || n.kind === 'frame')
+  const strokes = stroked ? sameList((n) => n.strokes) : null
   const line = one && ends(one)
   const length = line && Math.hypot(line[1].x - line[0].x, line[1].y - line[0].y)
   const angle = line && (Math.atan2(line[0].y - line[1].y, line[1].x - line[0].x) * 180) / Math.PI
@@ -239,12 +246,12 @@ export function Properties({
                 {bindable('h', 'H in mm', 'H', <Field label="H" value={same((n) => n.h)} unit="mm" onCommit={frame('h')} />)}
               </>
             )}
-            {one?.kind === 'shape' && one.shape === 'rect' && (
+            {nodes.length > 0 && nodes.every((n) => n.kind === 'shape' && n.shape === 'rect') && (
               bindable(
                 'radius',
                 'Corner radius in mm',
                 'R',
-                <Field label="R" title="Corner radius in mm" unit="mm" value={one.radius} onCommit={(radius) => set({ radius })} />,
+                <Field label="R" title="Corner radius in mm" unit="mm" value={same((n) => ('radius' in n ? n.radius : 0))} onCommit={(radius) => set({ radius })} />,
               )
             )}
             {one?.kind === 'shape' && (one.shape === 'polygon' || one.shape === 'star') && (
@@ -299,28 +306,26 @@ export function Properties({
         </Section>
       )}
       {one?.kind === 'frame' && <AutoLayout editor={editor} node={one} set={set} />}
-      {one && (
+      {box && (
         <Section title="Layer">
           <div className="grid">
             {bindable(
               'opacity',
               'Opacity',
               '',
-              <Field label="" title="Opacity" unit="%" value={one.opacity * 100} onCommit={(v) => set({ opacity: v / 100 })} />,
+              <Field label="" title="Opacity" unit="%" value={same((n) => n.opacity * 100)} onCommit={(v) => set({ opacity: v / 100 })} />,
             )}
-            <Select label="Blend mode" value={one.blend} options={BLENDS} onChange={(blend) => set({ blend })} />
-            {one.kind === 'frame' && (
+            <Select label="Blend mode" value={same((n) => n.blend)} options={BLENDS} onChange={(blend) => set({ blend })} />
+            {one?.kind === 'frame' && (
               <ModeSelects editor={editor} id={one.id} own={one.modes} inherited={editor.nodes.get(one.id)?.parent?.activeModes ?? page.modes} />
             )}
           </div>
-          <label className="check">
-            <input type="checkbox" checked={one.mask} onChange={(e) => set({ mask: e.currentTarget.checked })} />
-            Use as mask
-          </label>
-        </Section>
-      )}
-      {nodes.length > 1 && (
-        <Section title="Layer">
+          {one ? (
+            <label className="check">
+              <input type="checkbox" checked={one.mask} onChange={(e) => set({ mask: e.currentTarget.checked })} />
+              Use as mask
+            </label>
+          ) : (
           <button
             type="button"
             className="button"
@@ -329,42 +334,43 @@ export function Properties({
           >
             Use as mask
           </button>
+          )}
         </Section>
       )}
-      {one && one.kind !== 'group' && (
+      {nodes.length > 0 && nodes.every((n) => n.kind !== 'group') && (
         <PaintList
           title="Fill"
-          paints={one.fills}
-          ppi={one.ppi}
-          added={solid(neutral(one.kind === 'text' ? 'black' : 'gray', mode))}
+          paints={sameList((n) => n.fills)}
+          ppi={one?.ppi}
+          added={solid(neutral(nodes.every((n) => n.kind === 'text') ? 'black' : 'gray', mode))}
           mode={mode}
           scope={scope}
           onChange={(fills) => set({ fills })} />
       )}
-      {one && (one.kind === 'shape' || one.kind === 'frame') && (
-        <PaintList title="Stroke" paints={one.strokes} added={solid(neutral('black', mode))} mode={mode} scope={scope} onChange={(strokes) => set({ strokes })}>
-          {one.strokes.length > 0 && (
+      {stroked && (
+        <PaintList title="Stroke" paints={strokes} added={solid(neutral('black', mode))} mode={mode} scope={scope} onChange={(strokes) => set({ strokes })}>
+          {strokes?.length !== 0 && (
             <div className="grid">
               {bindable(
                 'strokeWeight',
                 'Stroke weight',
                 '',
-                <Field label="" title="Stroke weight" unit="pt" value={one.strokeWeight} onCommit={(v) => set({ strokeWeight: v })} />,
+                <Field label="" title="Stroke weight" unit="pt" value={same((n) => n.strokeWeight)} onCommit={(v) => set({ strokeWeight: v })} />,
               )}
-              {!open && <Segmented label="Stroke position" value={one.strokeAlign} options={STROKE_ALIGNS} onChange={(strokeAlign) => set({ strokeAlign })} />}
+              {!nodes.some(isOpen) && <Segmented label="Stroke position" value={same((n) => n.strokeAlign)} options={STROKE_ALIGNS} onChange={(strokeAlign) => set({ strokeAlign })} />}
               {open && (
                 <>
-                  <Segmented label="Stroke cap" value={one.cap} options={CAPS} onChange={(cap) => set({ cap })} />
-                  <Segmented label="Start point" value={one.arrowStart ? 'arrow' : 'none'} options={STARTS} onChange={(v) => set({ arrowStart: v === 'arrow' })} />
-                  <Segmented label="End point" value={one.arrowEnd ? 'arrow' : 'none'} options={ENDS} onChange={(v) => set({ arrowEnd: v === 'arrow' })} />
+                  <Segmented label="Stroke cap" value={same((n) => n.cap)} options={CAPS} onChange={(cap) => set({ cap })} />
+                  <Segmented label="Start point" value={same((n) => (n.arrowStart ? 'arrow' : 'none'))} options={STARTS} onChange={(v) => set({ arrowStart: v === 'arrow' })} />
+                  <Segmented label="End point" value={same((n) => (n.arrowEnd ? 'arrow' : 'none'))} options={ENDS} onChange={(v) => set({ arrowEnd: v === 'arrow' })} />
                 </>
               )}
-              <Segmented label="Stroke join" value={one.join} options={JOINS} onChange={(join) => set({ join })} />
+              <Segmented label="Stroke join" value={same((n) => n.join)} options={JOINS} onChange={(join) => set({ join })} />
             </div>
           )}
         </PaintList>
       )}
-      {one && <EffectList effects={one.effects} mode={mode} scope={scope} onChange={(effects) => set({ effects })} />}
+      {box && <EffectList effects={sameList((n) => n.effects)} mode={mode} scope={scope} onChange={(effects) => set({ effects })} />}
       {one?.kind === 'text' && <TextSection editor={editor} node={one} />}
       {one?.kind === 'text' && <TextFrameSection node={one} set={set} />}
     </aside>
