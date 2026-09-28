@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { ColorPicker } from './ColorPicker'
 import { alpha, css, neutral, withAlpha, type ColorMode } from './color'
 import { Field, RowActions, Section, Select } from './controls'
@@ -30,6 +30,11 @@ function retype(p: Fill, type: Fill['type']): Fill {
 }
 
 const replace = <T,>(list: T[], i: number, item: T) => list.map((v, j) => (j === i ? item : v))
+const move = <T,>(list: T[], from: number, to: number) => {
+  const out = list.filter((_, j) => j !== from)
+  out.splice(to, 0, list[from])
+  return out
+}
 
 function gradient(p: Fill, scope: Scope) {
   const stops = p.stops.map((s) => `${css(s.color, scope)} ${s.at * 100}%`)
@@ -58,6 +63,7 @@ export function PaintList({
   children?: ReactNode
 }) {
   const what = title.toLowerCase()
+  const [dragged, setDragged] = useState<number | null>(null)
   return (
     <Section title={title} onAdd={() => onChange([...paints, added])}>
       {paints.length > 0 && (
@@ -73,7 +79,20 @@ export function PaintList({
               const boundVar = p.type === 'solid' && typeof c === 'object' && 'variable' in c ? c : null
               const variable = boundVar && scope.variables.find((v) => v.id === boundVar.variable)
               return (
-                <li key={i} className="paint" data-hidden={!p.visible || undefined}>
+                <li
+                  key={i}
+                  className="paint"
+                  data-hidden={!p.visible || undefined}
+                  data-dragged={dragged === i || undefined}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.effectAllowed = 'move'
+                    setDragged(i)
+                  }}
+                  onDragOver={(e) => dragged !== null && e.preventDefault()}
+                  onDrop={() => dragged !== null && dragged !== i && onChange(move(paints, dragged, i))}
+                  onDragEnd={() => setDragged(null)}
+                >
                   <div className="row">
                     {p.type === 'image' ? (
                       <Icon name="image" />

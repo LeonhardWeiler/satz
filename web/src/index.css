@@ -624,6 +624,10 @@ textarea {
   gap: 8px;
 }
 
+.paint[data-dragged] {
+  opacity: 0.4;
+}
+
 .paint[data-hidden] > :not(:first-child),
 .paint[data-hidden] > .row > :not(.icon-button) {
   opacity: 0.4;

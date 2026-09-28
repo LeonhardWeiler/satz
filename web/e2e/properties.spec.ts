@@ -69,3 +69,16 @@ test('the text style specimen opens a menu of the styles set at their size', asy
   await page.getByRole('menuitemradio', { name: 'No style' }).click()
   await expect(specimen).toContainText('No style')
 })
+
+test('a fill is dragged below another to reorder them', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).last().click()
+  const fills = panel.getByRole('region', { name: 'Fill' })
+  await fills.getByRole('button', { name: 'Add fill' }).click()
+  const types = fills.getByRole('combobox', { name: 'Fill type' })
+  await choose(types.first(), 'Linear')
+  await expect(types).toHaveText(['Linear', 'Solid'])
+  await fills.getByRole('listitem').first().dragTo(fills.getByRole('listitem').last())
+  await expect(types).toHaveText(['Solid', 'Linear'])
+})
