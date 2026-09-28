@@ -276,6 +276,8 @@ export type Snapshot = Palette & {
   fonts: Typeface[]
   /** Fonts text is set in that are not there, with the stories that use them by their first frame. */
   missingFonts: { font: Typeface; stories: string[] }[]
+  /** The colours of each image by its hash. */
+  images: Record<string, 'Gray' | 'RGB' | 'CMYK'>
   preflight: Issue[]
   canUndo: boolean
   canRedo: boolean

@@ -335,6 +335,7 @@ export function Properties({
           title="Fill"
           paints={sameList((n) => n.fills)}
           ppi={one?.ppi}
+          images={snapshot.images}
           added={solid(neutral(nodes.every((n) => n.kind === 'text') ? 'black' : 'gray', mode))}
           mode={mode}
           scope={scope}

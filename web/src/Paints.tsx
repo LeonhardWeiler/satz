@@ -3,7 +3,7 @@ import { ColorPicker } from './ColorPicker'
 import { alpha, css, neutral, withAlpha, type ColorMode } from './color'
 import { Field, RowActions, Section, Select } from './controls'
 import { Icon } from './icons'
-import type { Effect, Fill, Scope } from './model'
+import type { Effect, Fill, Scope, Snapshot } from './model'
 
 const TYPES = { solid: 'Solid', linear: 'Linear', radial: 'Radial' } as const
 const EFFECTS = { dropShadow: 'Drop shadow', blur: 'Layer blur' } as const
@@ -49,6 +49,7 @@ export function PaintList({
   mode,
   scope,
   ppi,
+  images = {},
   onChange,
   children,
 }: {
@@ -60,6 +61,7 @@ export function PaintList({
   added: Fill
   /** Effective pixels per inch of the coarsest image among `paints`. */
   ppi?: number
+  images?: Snapshot['images']
   onChange: (paints: Fill[]) => void
   children?: ReactNode
 }) {
@@ -112,7 +114,8 @@ export function PaintList({
                     )}
                     {p.type === 'image' ? (
                       <span className="bound-name">
-                        Image{ppi !== undefined && ` · ${Math.round(ppi)} ppi`}
+                        Image{ppi !== undefined && ` · ${Math.round(ppi)} ppi`} · {images[p.image!]}
+                        {images[p.image!] === (mode === 'cmyk' ? 'RGB' : 'CMYK') && ` → ${mode.toUpperCase()}`}
                       </span>
                     ) : bound ? (
                       <>

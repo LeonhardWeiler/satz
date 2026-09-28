@@ -25,6 +25,8 @@ pub struct Snapshot {
     /// The fonts text can be set in, the bundled one first.
     pub fonts: Vec<Typeface>,
     pub missing_fonts: Vec<MissingFont>,
+    /// The colours of each image by its hash.
+    pub images: BTreeMap<String, image::Space>,
     pub preflight: Vec<Issue>,
     pub can_undo: bool,
     pub can_redo: bool,
@@ -592,6 +594,12 @@ impl Doc {
         let mut snap = Snapshot {
             fonts: text::fonts(),
             missing_fonts,
+            images: self
+                .doc
+                .get_map("images")
+                .keys()
+                .filter_map(|h| Some((h.to_string(), image::info(&h)?.space)))
+                .collect(),
             preflight: Vec::new(),
             stories,
             spreads: spreads

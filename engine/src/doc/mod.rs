@@ -3860,6 +3860,7 @@ mod tests {
         assert_eq!(frame(n), [28.0, 164.0, 144.0, 72.0]);
         assert_eq!(n.style.fills, [Fill::image(&hash)]);
         assert!(close(n.ppi.unwrap(), 300.0));
+        assert_eq!(d.build_snapshot().images[&hash], image::Space::Rgb);
         let image = image::id(&hash).unwrap();
         assert!(page_ops(&d).contains(&Op::Image {
             image,

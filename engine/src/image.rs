@@ -13,12 +13,22 @@ use zune_core::colorspace::ColorSpace;
 use zune_core::options::DecoderOptions;
 use zune_jpeg::JpegDecoder;
 
-/// A PNG or JPEG file by the hash of its bytes, and its size in pixels.
+/// A PNG or JPEG file by the hash of its bytes, its size in pixels and its colours.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ImageInfo {
     pub hash: String,
     pub width: u32,
     pub height: u32,
+    pub space: Space,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+pub enum Space {
+    Gray,
+    #[serde(rename = "RGB")]
+    Rgb,
+    #[serde(rename = "CMYK")]
+    Cmyk,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -124,6 +134,7 @@ pub fn register(bytes: LoroBinaryValue) -> Result<ImageInfo, String> {
         hash,
         width,
         height,
+        space: space(format, &bytes),
     };
     IMAGES.with_borrow_mut(|images| {
         images.push(Rc::new(Entry {
@@ -135,6 +146,34 @@ pub fn register(bytes: LoroBinaryValue) -> Result<ImageInfo, String> {
         }))
     });
     Ok(info)
+}
+
+fn space(format: Format, bytes: &[u8]) -> Space {
+    match format {
+        Format::Png => match png::Decoder::new(Cursor::new(bytes)).read_info() {
+            Ok(r)
+                if matches!(
+                    r.info().color_type,
+                    png::ColorType::Grayscale | png::ColorType::GrayscaleAlpha
+                ) =>
+            {
+                Space::Gray
+            }
+            _ => Space::Rgb,
+        },
+        Format::Jpeg => {
+            let mut decoder = JpegDecoder::new(Cursor::new(bytes));
+            match decoder
+                .decode_headers()
+                .ok()
+                .and(decoder.input_colorspace())
+            {
+                Some(ColorSpace::CMYK | ColorSpace::YCCK) => Space::Cmyk,
+                Some(ColorSpace::Luma | ColorSpace::LumaA) => Space::Gray,
+                _ => Space::Rgb,
+            }
+        }
+    }
 }
 
 fn entry_by_hash(hash: &str) -> Option<Rc<Entry>> {

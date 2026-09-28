@@ -10,7 +10,7 @@ test('a placed image draws at 300 ppi, preflight reports it enlarged, and it sta
   const layers = page.getByRole('tree', { name: 'Layers' })
   await expect(layers.getByRole('treeitem', { name: 'red.png', selected: true })).toBeVisible()
   const properties = page.getByRole('complementary', { name: 'Properties' })
-  await expect(properties.getByText('Image · 300 ppi')).toBeVisible()
+  await expect(properties.getByText('Image · 300 ppi · RGB', { exact: true })).toBeVisible()
   const width = properties.getByRole('textbox', { name: 'W in mm' })
   await expect(width).toHaveValue('50.8')
   const middle = await screen(page, 148 / 2, 210 / 2)
