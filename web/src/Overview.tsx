@@ -108,7 +108,6 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     editor.showPage(id)
     close()
   }
-  const plural = (n: number) => `${n} ${n === 1 ? 'page' : 'pages'}`
   const click = (e: MouseEvent, id: string) => {
     list.current?.focus()
     if (e.detail === 2) return openPage(id)
@@ -129,16 +128,6 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         if (editor.snapshot.pages[i].id !== id) editor.apply({ type: 'movePage', id, index: i })
       })
     })
-  }
-  const remove = (del: string[]) => {
-    if (del.length >= pages.length) return editor.say('A document keeps at least 1 page')
-    const numbers = del.map((id) => ids.indexOf(id) + 1)
-    const next = ids.find((id, i) => !del.includes(id) && i >= Math.min(...numbers) - 1) ?? ids.findLast((id) => !del.includes(id))!
-    editor.batch(() => {
-      for (const id of del) editor.apply({ type: 'deletePage', id })
-    })
-    select([next])
-    editor.say(`Deleted ${del.length === 1 ? `page ${numbers[0]}` : plural(del.length)}. Ctrl Z restores`)
   }
   const show = (id?: string) => {
     if (!id) return
@@ -173,7 +162,7 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         setAnchor(ids[j])
         select([ids[j]])
       }
-    } else if (e.key === 'Delete' || e.key === 'Backspace') remove(selected.length ? selected : [last])
+    } else if (e.key === 'Delete' || e.key === 'Backspace') editor.deletePages(selected.length ? selected : [last])
     else if (e.key === 'Enter') openPage(ids[i])
     else return
     e.preventDefault()
@@ -349,7 +338,7 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
                   ]
                 : [
                     ['Duplicate page', () => show(editor.apply({ type: 'duplicatePage', id: menu.id })[0]), true],
-                    ['Delete page', () => remove(selected), selected.length < pages.length],
+                    ['Delete page', () => editor.deletePages(selected), selected.length < pages.length],
                     ['Master like page', () => addMaster(menu.id), true],
                   ]
             }

@@ -259,6 +259,19 @@ export class Editor {
     this.set({ selection: [] })
   }
 
+  /** Deletes the pages `del`, keeping at least 1, and selects the page after them in the overview. */
+  deletePages(del: string[]) {
+    const ids = this.snapshot.pages.map((p) => p.id)
+    if (del.length >= ids.length) return this.say('A document keeps at least 1 page')
+    const numbers = del.map((id) => ids.indexOf(id) + 1)
+    const next = ids.find((id, i) => !del.includes(id) && i >= Math.min(...numbers) - 1) ?? ids.findLast((id) => !del.includes(id))!
+    this.batch(() => {
+      for (const id of del) this.apply({ type: 'deletePage', id })
+    })
+    if (this.overview) this.set({ overview: [next] })
+    this.say(`Deleted ${del.length === 1 ? `page ${numbers[0]}` : `${del.length} pages`}. Ctrl Z restores`)
+  }
+
   /** The current master, if a master is shown. */
   get master() {
     return this.snapshot.masters.find((m) => m.id === this.pageId)
