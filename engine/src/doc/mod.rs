@@ -561,9 +561,10 @@ const IMAGE_ORIGIN: &str = "image";
 /// The origin of commits that set text again for a font added, which undo leaves alone.
 const LAYOUT_ORIGIN: &str = "layout";
 
-/// Properties a number variable can bind to; lengths count in mm, opacity in %,
-/// text size in pt.
-const BINDABLE: [&str; 11] = [
+/// Properties a variable can bind to: a font variable to `font`, a number variable
+/// to the others; lengths count in mm, opacity in %, text size in pt.
+const BINDABLE: [&str; 12] = [
+    "font",
     "size",
     "w",
     "h",
@@ -2225,7 +2226,7 @@ mod tests {
         }
     }
 
-    pub(super) fn lens_and(d: &Doc, f: impl Fn(&Attrs) -> f64) -> Vec<(usize, f64)> {
+    pub(super) fn lens_and<T>(d: &Doc, f: impl Fn(&Attrs) -> T) -> Vec<(usize, T)> {
         spans(d).iter().map(|s| (s.len, f(&s.attrs))).collect()
     }
 

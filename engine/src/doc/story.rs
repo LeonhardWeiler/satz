@@ -344,9 +344,14 @@ impl Doc {
                             None => to.delete(k).map_err(err)?,
                         }
                     }
-                    if let Some(size) = self.bindings(n).get("size") {
-                        let mut b = self.bindings(x);
-                        b.insert("size".into(), size.clone());
+                    let mut b = self.bindings(x);
+                    let own = b.clone();
+                    b.extend(
+                        self.bindings(n)
+                            .into_iter()
+                            .filter(|(k, _)| k == "size" || k == "font"),
+                    );
+                    if b != own {
                         to.insert("bindings", loro(b)?).map_err(err)?;
                     }
                 }
@@ -971,6 +976,53 @@ mod tests {
         assert_eq!(lens_and(&d, |a| a.size), [(8, 18.0)]);
         format(&mut d, &t, None, sized(9.0)).unwrap();
         assert!(page(&d).children[0].bindings.is_empty());
+    }
+
+    #[test]
+    fn a_font_variable_binds_to_a_story_and_follows_its_modes() {
+        let (mut d, p) = empty();
+        let mono = d.add_font(MONO).unwrap();
+        let r = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
+        let t = text(&mut d, "Hi there");
+        format(
+            &mut d,
+            &t,
+            Some([0, 2]),
+            TextProps {
+                font: Some(mono.clone()),
+                ..TextProps::default()
+            },
+        )
+        .unwrap();
+        let (c, _) = collection(&mut d, "Type");
+        let alt = d
+            .apply(Command::AddMode {
+                collection: c.clone(),
+                name: "Alt".into(),
+            })
+            .unwrap()
+            .remove(0);
+        let v = variable(&mut d, &c, "Face", Value::Font(None)).unwrap();
+        set_value(&mut d, &v, &alt, Value::Font(Some(mono.clone()))).unwrap();
+        let n = variable(&mut d, &c, "Size", Value::Number(9.0)).unwrap();
+        assert!(bind(&mut d, &t, "font", Some(&n)).is_err());
+        assert!(bind(&mut d, &t, "size", Some(&v)).is_err());
+        assert!(bind(&mut d, &r, "font", Some(&v)).is_err());
+        bind(&mut d, &t, "font", Some(&v)).unwrap();
+        assert_eq!(lens_and(&d, |a| a.font.clone()), [(8, None)]);
+        use_mode(&mut d, &p, &c, Some(&alt));
+        assert_eq!(lens_and(&d, |a| a.font.clone()), [(8, Some(mono.clone()))]);
+        format(
+            &mut d,
+            &t,
+            None,
+            TextProps {
+                font: Some(mono),
+                ..TextProps::default()
+            },
+        )
+        .unwrap();
+        assert!(page(&d).children[1].bindings.is_empty());
     }
 
     #[test]

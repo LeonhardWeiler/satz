@@ -1,5 +1,5 @@
 use crate::color::{Color, Swatch};
-use crate::text::TextStyle;
+use crate::text::{TextStyle, Typeface};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -24,6 +24,8 @@ pub struct Collection {
 pub enum Value {
     Color(Color),
     Number(f64),
+    /// `None` is the bundled font.
+    Font(Option<Typeface>),
 }
 
 /// `values` holds one value per mode of its collection, all of one kind.
@@ -78,7 +80,9 @@ impl Value {
     pub fn same_kind(&self, other: &Value) -> bool {
         matches!(
             (self, other),
-            (Value::Color(_), Value::Color(_)) | (Value::Number(_), Value::Number(_))
+            (Value::Color(_), Value::Color(_))
+                | (Value::Number(_), Value::Number(_))
+                | (Value::Font(_), Value::Font(_))
         )
     }
 }

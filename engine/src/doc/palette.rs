@@ -22,7 +22,7 @@ pub(super) fn check_value(v: &Value) -> Res<()> {
         Value::Color(Color::Variable { .. }) => Err("a variable cannot hold a variable".into()),
         Value::Color(c) => c.check(),
         Value::Number(n) if !n.is_finite() => Err("numbers must be finite".into()),
-        Value::Number(_) => Ok(()),
+        Value::Number(_) | Value::Font(_) => Ok(()),
     }
 }
 
@@ -56,8 +56,16 @@ impl Doc {
         let old = self.bounds(id);
         let mut frame = old;
         for (prop, var) in self.bindings(id) {
-            let Some(&Value::Number(v)) = scope.value(&var) else {
-                continue;
+            let v = match scope.value(&var) {
+                Some(&Value::Number(v)) => v,
+                Some(Value::Font(f)) if prop == "font" => {
+                    let f = loro(f)?;
+                    if value(&m, "font").as_ref() != Some(&f) {
+                        m.insert("font", f).map_err(err)?;
+                    }
+                    continue;
+                }
+                _ => continue,
             };
             let v = match prop.as_str() {
                 "opacity" => (v / 100.0).clamp(0.0, 1.0),
@@ -433,8 +441,13 @@ impl Doc {
     ) -> Res<Vec<String>> {
         if let Some(v) = &variable {
             let (_, var) = self.find::<Variable>("variables", v)?;
-            if !var.values.values().all(|v| matches!(v, Value::Number(_))) {
-                return Err("only number variables bind to numbers".into());
+            let font = prop == "font";
+            if !var
+                .values
+                .values()
+                .all(|v| matches!(v, Value::Font(_)) == font && !matches!(v, Value::Color(_)))
+            {
+                return Err("a variable binds to a property of its type".into());
             }
         }
         if let Ok((i, mut s)) = self.find::<TextStyle>("textStyles", &id) {
@@ -449,15 +462,18 @@ impl Doc {
             return Ok(vec![]);
         }
         let n = self.node(&id)?;
-        let n = if prop == "size" { self.story(n) } else { n };
+        let story = prop == "size" || prop == "font";
+        let n = if story { self.story(n) } else { n };
         if !BINDABLE.contains(&prop.as_str()) {
             return Err(format!("{prop} cannot be bound"));
         }
-        if prop == "size" && variable.is_some() {
+        if story && variable.is_some() {
             let t = self.text(n)?;
-            self.detach(n, None, |_| true)?;
+            if prop == "size" {
+                self.detach(n, None, |_| true)?;
+            }
             if t.len_utf16() > 0 {
-                t.unmark_utf16(0..t.len_utf16(), "size").map_err(err)?;
+                t.unmark_utf16(0..t.len_utf16(), &prop).map_err(err)?;
             }
         }
         let mut bindings = self.bindings(n);
