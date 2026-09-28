@@ -1,4 +1,4 @@
-import { expect, test, open, pixels, screen, choose } from './util'
+import { expect, test, drag, open, pixels, screen, choose } from './util'
 
 test('type attributes and a text style are set in the text section and edited on the page', async ({ page }) => {
   await open(page)
@@ -111,6 +111,20 @@ test('a clicked text is auto width, a dragged one a fixed empty box shown while 
   await mode('Auto width').click()
   await expect(mode('Auto width')).toBeChecked()
   await expect(field('W in mm')).not.toHaveValue('40')
+})
+
+test('a fixed text frame pulled narrower than its text becomes auto height', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  await page.keyboard.press('t')
+  await drag(page, await screen(page, 20, 100), await screen(page, 120, 110))
+  await page.keyboard.type('Satz sets type in the browser')
+  await page.keyboard.press('Escape')
+  await expect(panel.getByRole('radio', { name: 'Fixed size' })).toBeChecked()
+  await drag(page, await screen(page, 120, 105), await screen(page, 50, 105))
+  await expect(panel.getByRole('radio', { name: 'Auto height' })).toBeChecked()
+  await expect(panel.getByRole('textbox', { name: 'W in mm' })).toHaveValue('30')
+  await expect(panel.getByRole('textbox', { name: 'H in mm' })).not.toHaveValue('10')
 })
 
 test('a space typed at the end of an auto width text stays on its line', async ({ page }) => {

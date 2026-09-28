@@ -707,6 +707,10 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
         drag.frames.forEach((n, i) => {
           const f = boxes[i]
           editor.apply({ type: 'setFrame', id: n.id, ...f, x: f.x - editor.dx(n.id), ignoreConstraints: e.ctrlKey || e.metaKey })
+          const t = editor.nodes.get(n.id)?.node
+          if ((h === 'e' || h === 'w') && t?.kind === 'text' && t.overset && !t.next && t.sizing.vertical === 'fixed') {
+            editor.apply({ type: 'set', id: n.id, sizing: { ...t.sizing, vertical: 'hug' } })
+          }
         })
       }
     }
