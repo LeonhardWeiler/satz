@@ -2265,6 +2265,19 @@ kbd {
   text-align: left;
 }
 
+.specimen.none > span:first-child {
+  color: var(--text-3);
+}
+
+.button.add {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 4px;
+  border-style: dashed;
+  color: var(--text-2);
+}
+
 .specimen:hover {
   background: var(--hover);
 }

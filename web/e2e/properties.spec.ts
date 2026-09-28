@@ -61,6 +61,7 @@ test('the text style specimen opens a menu of the styles set at their size', asy
   const panel = page.getByRole('complementary', { name: 'Properties' })
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
   await panel.getByRole('button', { name: 'Create text style' }).click()
+  await page.mouse.move(0, 0)
   const specimen = panel.getByTitle('Text style', { exact: true })
   await expect(specimen).toContainText('Text style 1')
   await specimen.click()

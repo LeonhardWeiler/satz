@@ -237,7 +237,7 @@ export function Bindable({
   id: string
   prop: Prop
   title: string
-  label: string
+  label: ReactNode
   children: ReactNode
 }) {
   const snapshot = useEditor(editor, (e) => e.snapshot)

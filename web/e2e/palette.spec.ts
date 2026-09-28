@@ -40,6 +40,7 @@ test('ctrl k finds and runs commands, layers, pages and text styles', async ({ p
   const style = panel.getByTitle('Text style', { exact: true })
   await layers.getByRole('button', { name: /^Satz sets type/ }).click()
   await panel.getByRole('button', { name: 'Create text style' }).click()
+  await page.mouse.move(0, 0)
   await expect(style).toContainText('Text style 1')
   await panel.getByRole('textbox', { name: 'Line height in pt' }).fill('30')
   await panel.getByRole('textbox', { name: 'Line height in pt' }).press('Enter')

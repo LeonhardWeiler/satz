@@ -31,9 +31,9 @@ export function Field({
   readOnly,
   zero,
   int,
-  title = `${label} in ${unit}`,
+  title = typeof label === 'string' ? `${label} in ${unit}` : unit,
 }: {
-  label: string
+  label: ReactNode
   /** In pt for lengths, shown in `unit`. */
   value: number | null
   unit: string

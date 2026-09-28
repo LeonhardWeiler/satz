@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
 import { Field, NameInput, nextName, Section, Select } from './controls'
 import { useEditor, type Editor } from './editor'
-import { Icon } from './icons'
+import { Icon, type IconName } from './icons'
 import { PAGE_NUMBER, insert, range } from './textEdit'
 import type { Attrs, Props, Sizing, Styled, TextNode, TextProps, TextStyle } from './model'
 import { Bindable } from './Variables'
@@ -16,10 +16,10 @@ export const ALIGNS = [
   ['justify', 'Justify', 'alignJustify'],
 ] as const
 const INSETS = [
-  ['insetTop', 'Top inset', 'T'],
-  ['insetRight', 'Right inset', 'R'],
-  ['insetBottom', 'Bottom inset', 'B'],
-  ['insetLeft', 'Left inset', 'L'],
+  ['insetTop', 'Top inset', 'insetTop'],
+  ['insetRight', 'Right inset', 'insetRight'],
+  ['insetBottom', 'Bottom inset', 'insetBottom'],
+  ['insetLeft', 'Left inset', 'insetLeft'],
 ] as const
 const VERTICAL = [
   ['top', 'Align top', 'alignTop'],
@@ -34,11 +34,11 @@ const RESIZING = [
 ] as const
 const LANGS = { en: 'English', de: 'German' } as const
 /** Styled attributes: title, label, unit and the text shown for 0. */
-const STYLED: [Styled, string, string, string, string?][] = [
-  ['size', 'Font size', 'Size', 'pt'],
-  ['lineHeight', 'Line height', 'Line', 'pt', 'Auto'],
-  ['letterSpacing', 'Letter spacing', 'Track', '%'],
-  ['paragraphSpacing', 'Paragraph spacing', 'Para', 'pt'],
+const STYLED: [Styled, string, IconName, string, string?][] = [
+  ['size', 'Font size', 'fontSize', 'pt'],
+  ['lineHeight', 'Line height', 'lineHeight', 'pt', 'Auto'],
+  ['letterSpacing', 'Letter spacing', 'letterSpacing', '%'],
+  ['paragraphSpacing', 'Paragraph spacing', 'paragraphSpacing', 'pt'],
 ]
 
 /** The text style's name set at its size, within what a panel row takes. */
@@ -55,11 +55,12 @@ export function Specimen({ editor, style, onPick }: { editor: Editor; style: str
   const styles = useEditor(editor, (e) => e.snapshot.textStyles)
   const current = styles.find((s) => s.id === style)
   const [menu, setMenu] = useState<DOMRect | null>(null)
+  if (!styles.length) return null
   return (
     <>
       <button
         type="button"
-        className="specimen"
+        className={`specimen${style === '' ? ' none' : ''}`}
         title="Text style"
         aria-haspopup="menu"
         onClick={(e) => setMenu(e.currentTarget.getBoundingClientRect())}
@@ -113,16 +114,6 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
     })
     format({ textStyle: id })
   }
-  const { horizontal, vertical } = node.sizing
-  const resizing = horizontal === 'hug' ? 'autoWidth' : vertical === 'hug' ? 'autoHeight' : 'fixedSize'
-  const resize = (mode: (typeof RESIZING)[number][0]) => {
-    const width = horizontal === 'hug' ? 'fixed' : horizontal
-    const sizing: Sizing =
-      mode === 'autoWidth' ? { horizontal: 'hug', vertical: 'hug' }
-      : mode === 'autoHeight' ? { horizontal: width, vertical: 'hug' }
-      : { horizontal: width, vertical: vertical === 'fill' ? 'fill' : 'fixed' }
-    editor.apply({ type: 'set', id: node.id, sizing })
-  }
   const align = same((a) => a.textAlign)
   const hyphenate = same((a) => a.hyphenate)
   const lang = same((a) => a.lang)
@@ -133,15 +124,22 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
     <Section title="Text">
       <div className="row">
         <Specimen editor={editor} style={style} onPick={(textStyle) => format({ textStyle })} />
-        <button type="button" className="icon-button" aria-label="Create text style" title="Create text style" onClick={create}>
+        <button
+          type="button"
+          className={styles.length ? 'icon-button' : 'button add'}
+          aria-label="Create text style"
+          title="Create text style"
+          onClick={create}
+        >
           <Icon name="plus" />
+          {!styles.length && 'Text style'}
         </button>
       </div>
       <div className="grid">
         {STYLED.map(([prop, title, label, unit, zero]) => {
           const field = (
             <Field
-              label={label}
+              label={<Icon name={label} />}
               title={`${title} in ${unit}`}
               unit={unit}
               zero={zero}
@@ -150,7 +148,7 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
             />
           )
           return prop === 'size' ? (
-            <Bindable key={prop} editor={editor} id={node.id} prop={prop} title={`${title} in ${unit}`} label={label}>
+            <Bindable key={prop} editor={editor} id={node.id} prop={prop} title={`${title} in ${unit}`} label={<Icon name={label} />}>
               {field}
             </Bindable>
           ) : (
@@ -170,22 +168,6 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
             onClick={() => format({ textAlign: value })}
           >
             <Icon name={icon} />
-          </button>
-        ))}
-      </div>
-      <div role="radiogroup" aria-label="Resizing" className="segmented">
-        {RESIZING.map(([value, title]) => (
-          <button
-            key={value}
-            type="button"
-            role="radio"
-            aria-checked={resizing === value}
-            aria-label={title}
-            title={title}
-            disabled={(value === 'autoWidth' && !!(node.prev || node.next)) || (value === 'autoHeight' && !!node.next)}
-            onClick={() => resize(value)}
-          >
-            <Icon name={value} />
           </button>
         ))}
       </div>
@@ -254,9 +236,9 @@ function StyleRow({ editor, style }: { editor: Editor; style: TextStyle }) {
       </div>
       <div className="grid">
         {STYLED.map(([prop, title, label, unit, zero]) => (
-          <Bindable key={prop} editor={editor} id={style.id} prop={prop} title={`${title} in ${unit}`} label={label}>
+          <Bindable key={prop} editor={editor} id={style.id} prop={prop} title={`${title} in ${unit}`} label={<Icon name={label} />}>
             <Field
-              label={label}
+              label={<Icon name={label} />}
               title={`${title} in ${unit}`}
               unit={unit}
               zero={zero}
@@ -270,18 +252,44 @@ function StyleRow({ editor, style }: { editor: Editor; style: TextStyle }) {
   )
 }
 
-/** Insets, columns, vertical alignment and baseline grid of a text layer. */
+/** Resizing, insets, columns, vertical alignment and baseline grid of a text layer. */
 export function TextFrameSection({ node, set }: { node: TextNode; set: (p: Props) => void }) {
+  const { horizontal, vertical } = node.sizing
+  const resizing = horizontal === 'hug' ? 'autoWidth' : vertical === 'hug' ? 'autoHeight' : 'fixedSize'
+  const resize = (mode: (typeof RESIZING)[number][0]) => {
+    const width = horizontal === 'hug' ? 'fixed' : horizontal
+    const sizing: Sizing =
+      mode === 'autoWidth' ? { horizontal: 'hug', vertical: 'hug' }
+      : mode === 'autoHeight' ? { horizontal: width, vertical: 'hug' }
+      : { horizontal: width, vertical: vertical === 'fill' ? 'fill' : 'fixed' }
+    set({ sizing })
+  }
   return (
     <Section title="Text frame">
+      <div role="radiogroup" aria-label="Resizing" className="segmented">
+        {RESIZING.map(([value, title]) => (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={resizing === value}
+            aria-label={title}
+            title={title}
+            disabled={(value === 'autoWidth' && !!(node.prev || node.next)) || (value === 'autoHeight' && !!node.next)}
+            onClick={() => resize(value)}
+          >
+            <Icon name={value} />
+          </button>
+        ))}
+      </div>
       <div className="grid">
         {INSETS.map(([prop, title, label]) => (
-          <Field key={prop} label={label} title={`${title} in mm`} unit="mm" value={node[prop]} onCommit={(v) => set({ [prop]: v })} />
+          <Field key={prop} label={<Icon name={label} />} title={`${title} in mm`} unit="mm" value={node[prop]} onCommit={(v) => set({ [prop]: v })} />
         ))}
-        <Field label="Cols" title="Columns" unit="" int value={node.columns} onCommit={(v) => set({ columns: Math.round(v) })} />
-        <Field label="Gutter" title="Gutter in mm" unit="mm" value={node.gutter} onCommit={(gutter) => set({ gutter })} />
-        <Field label="Grid" title="Baseline grid in pt" unit="pt" zero="Off" value={node.baselineGrid} onCommit={(baselineGrid) => set({ baselineGrid })} />
-        <Field label="Start" title="Baseline grid start in pt" unit="pt" value={node.baselineStart} onCommit={(baselineStart) => set({ baselineStart })} />
+        <Field label={<Icon name="columns" />} title="Columns" unit="" int value={node.columns} onCommit={(v) => set({ columns: Math.round(v) })} />
+        <Field label={<Icon name="gutter" />} title="Gutter in mm" unit="mm" value={node.gutter} onCommit={(gutter) => set({ gutter })} />
+        <Field label={<Icon name="baselineGrid" />} title="Baseline grid in pt" unit="pt" zero="Off" value={node.baselineGrid} onCommit={(baselineGrid) => set({ baselineGrid })} />
+        <Field label={<Icon name="baselineStart" />} title="Baseline grid start in pt" unit="pt" value={node.baselineStart} onCommit={(baselineStart) => set({ baselineStart })} />
       </div>
       <div role="radiogroup" aria-label="Vertical align" className="segmented">
         {VERTICAL.map(([value, title, icon]) => (

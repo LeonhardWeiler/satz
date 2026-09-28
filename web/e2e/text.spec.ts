@@ -19,6 +19,7 @@ test('type attributes and a text style are set in the text section and edited on
   await panel.getByRole('radio', { name: 'Align center' }).click()
   await expect(panel.getByRole('radio', { name: 'Align center' })).toBeChecked()
   await panel.getByRole('button', { name: 'Create text style' }).click()
+  await page.mouse.move(0, 0)
   await expect(panel.getByTitle('Text style', { exact: true })).toContainText('Text style 1')
 
   await page.keyboard.press('Escape')
@@ -85,7 +86,7 @@ test('a clicked text is auto width, a dragged one a fixed empty box shown while 
   await expect(mode('Auto width')).toBeChecked()
   await expect(field('W in mm')).toHaveValue('0')
   await expect(field('H in mm')).toHaveValue('5.8')
-  await expect(panel.getByRole('combobox', { name: 'Width sizing' })).toHaveText('Hug')
+  await expect(panel.getByRole('combobox', { name: 'Width sizing' })).toHaveCount(0)
 
   await page.keyboard.press('Escape')
   await page.keyboard.press('t')
@@ -107,7 +108,7 @@ test('a clicked text is auto width, a dragged one a fixed empty box shown while 
   await expect(mode('Fixed size')).toBeChecked()
   await mode('Auto height').click()
   await expect(field('H in mm')).toHaveValue('5.8')
-  await choose(panel.getByRole('combobox', { name: 'Width sizing' }), 'Hug')
+  await mode('Auto width').click()
   await expect(mode('Auto width')).toBeChecked()
   await expect(field('W in mm')).not.toHaveValue('40')
 })

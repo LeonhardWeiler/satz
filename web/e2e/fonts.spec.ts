@@ -16,6 +16,7 @@ test('an added font is listed, stays after a reload and is removed', async ({ pa
   await expect(fonts(page).getByRole('listitem')).toHaveText(['Source Serif 4', 'DM Mono Regular'])
   await page.reload()
   await expect(fonts(page).getByRole('listitem')).toHaveText(['Source Serif 4', 'DM Mono Regular'])
+  await page.keyboard.press('Escape')
   await fonts(page).getByRole('listitem').last().hover()
   await fonts(page).getByRole('button', { name: 'Remove DM Mono Regular' }).click()
   await expect(fonts(page).getByRole('listitem')).toHaveText(['Source Serif 4'])
