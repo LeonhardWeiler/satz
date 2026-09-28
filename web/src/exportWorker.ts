@@ -48,7 +48,7 @@ function statsOf(e: Engine, ppi: number, keep: string[]) {
   return stats
 }
 
-onmessage = async ({ data: { doc, fonts, preview } }: MessageEvent<{ doc: Uint8Array | null; fonts: Uint8Array[]; preview?: Preview }>) => {
+onmessage = async ({ data: { doc, fonts, preview, title } }: MessageEvent<{ doc: Uint8Array | null; fonts: Uint8Array[]; preview?: Preview; title?: string }>) => {
   try {
     const e = await engine
     for (const bytes of fonts) e.addFont(bytes)
@@ -59,7 +59,7 @@ onmessage = async ({ data: { doc, fonts, preview } }: MessageEvent<{ doc: Uint8A
       stats = null
     }
     if (!preview) {
-      const pdf = e.pdf()
+      const pdf = e.pdf(title!, new Date().toISOString().slice(0, 19) + 'Z')
       return postMessage({ pdf }, { transfer: [pdf.buffer] })
     }
     const { pages, ppi, on, limit, over, gamut } = preview

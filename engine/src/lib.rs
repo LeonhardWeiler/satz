@@ -9,6 +9,7 @@ mod inks;
 mod layout;
 mod linebreak;
 mod pdf;
+mod pdfx;
 mod raster;
 mod style;
 mod text;
@@ -79,6 +80,13 @@ impl Engine {
         unsafe { Uint32Array::view(&self.list) }
     }
 
+    /// The display list of the page `id` as its inverted C, M and Y plate, or its K
+    /// plate; the view is invalid after the next call into the engine.
+    pub fn plate(&mut self, page: &str, k: bool) -> Uint32Array {
+        self.list = encode(&self.doc.plate(page, k));
+        unsafe { Uint32Array::view(&self.list) }
+    }
+
     /// [x, top, bottom] in pt of a caret before the UTF-16 `index` of the text `id`.
     pub fn caret(&self, id: &str, index: u32) -> Result<Vec<f64>, JsError> {
         Ok(self
@@ -138,8 +146,9 @@ impl Engine {
         self.doc.inks(page, ppi)
     }
 
-    pub fn pdf(&self) -> Vec<u8> {
-        self.doc.pdf()
+    /// The document as a PDF titled `title`, made at `date` in ISO 8601 UTC.
+    pub fn pdf(&self, title: &str, date: &str) -> Vec<u8> {
+        self.doc.pdf(title, date)
     }
 
     pub fn save(&self) -> Vec<u8> {
@@ -208,6 +217,24 @@ pub fn prefix(name: &str) -> String {
 pub fn preview(c: f32, m: f32, y: f32, k: f32) -> u32 {
     let [r, g, b] = color::to_rgb([c, m, y, k]).map(|v| (v * 255.0).round() as u32);
     r << 16 | g << 8 | b
+}
+
+/// Screen colours of CMYK on a grid of 17 steps per ink as RGBA pixels, C across
+/// and Y down within a tile, M across and K down between tiles.
+#[wasm_bindgen]
+pub fn lut() -> Vec<u8> {
+    const N: usize = 17;
+    let v = |i: usize| ((i * 255 + (N - 1) / 2) / (N - 1)) as u8;
+    let cmyk: Vec<u8> = (0..N.pow(4))
+        .flat_map(|i| {
+            let (x, y) = (i % (N * N), i / (N * N));
+            [v(x % N), v(x / N), v(y % N), v(y / N)]
+        })
+        .collect();
+    color::preview_pixels(&cmyk)
+        .chunks(3)
+        .flat_map(|p| [p[0], p[1], p[2], 255])
+        .collect()
 }
 
 /// CMYK of the 0xRRGGBB colour `rgb` in the document's print condition.

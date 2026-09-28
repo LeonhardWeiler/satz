@@ -620,8 +620,7 @@ impl Doc {
         snap
     }
 
-    /// The display list of the page `id` for the canvas, empty when there is none;
-    /// a CMYK document marks its images `image::PROOF`.
+    /// The display list of the page `id` for the canvas, empty when there is none.
     pub fn render(&self, id: &str) -> Vec<Op> {
         let snap = self.snapshot();
         let sheets = || snap.pages.iter().chain(&snap.masters);
@@ -630,11 +629,20 @@ impl Doc {
         };
         let mut ops = vec![page_op(p)];
         self.draw_sheet(&snap, p, None, &mut ops);
-        if snap.color_mode == ColorMode::Cmyk {
-            for op in &mut ops {
-                if let Op::Image { image, .. } = op {
-                    *image |= image::PROOF;
-                }
+        ops
+    }
+
+    /// The display list of the page `id` as one plate of its print, C, M and Y or K
+    /// in all three, inverted to RGB so that the canvas blends its inks on paper.
+    pub fn plate(&self, id: &str, k: bool) -> Vec<Op> {
+        let mut ops = recolor(&self.render(id), &|c, ink| {
+            let [cyan, m, y, black] = ink.cmyk(c);
+            let [r, g, b] = if k { [black; 3] } else { [cyan, m, y] };
+            [1.0 - r, 1.0 - g, 1.0 - b, c[3]]
+        });
+        for op in &mut ops {
+            if let Op::Image { image, .. } = op {
+                *image |= if k { image::K } else { image::CMY };
             }
         }
         ops
@@ -665,11 +673,23 @@ impl Doc {
         Inks::new(&self.print(&snap, p), ppi)
     }
 
-    /// The document as a PDF, every page from one snapshot.
-    pub fn pdf(&self) -> Vec<u8> {
+    /// The document as a PDF titled `title`, made at `date` in ISO 8601 UTC, every
+    /// page from one snapshot.
+    pub fn pdf(&self, title: &str, date: &str) -> Vec<u8> {
         let snap = self.snapshot();
         let pages: Vec<_> = snap.pages.iter().map(|p| self.print(&snap, p)).collect();
-        crate::pdf::pdf(&pages, snap.raster_ppi as f32, snap.color_mode)
+        crate::pdf::pdf(
+            &pages,
+            &crate::pdf::Export {
+                preset: snap.preset,
+                crop_marks: snap.crop_marks,
+                bleed: snap.include_bleed,
+                ppi: snap.raster_ppi as f32,
+                mode: snap.color_mode,
+                title,
+                date,
+            },
+        )
     }
 
     /// The display list of the page `p` as it prints: with the layers of the other
@@ -1461,6 +1481,12 @@ mod tests {
         assert!((r - pr).abs() < 1e-4 && (g - pg).abs() < 1e-4 && (b - pb).abs() < 1e-4);
         assert!(g > 0.1 || b > 0.1);
         assert_eq!(solid(d.render(&p)).unwrap(), [1.0, 0.0, 0.0, 1.0]);
+        let [c, m, y, k] = color::to_cmyk([1.0, 0.0, 0.0]);
+        let [r, g, b, a] = solid(d.plate(&p, false)).unwrap();
+        assert!((r - (1.0 - c)).abs() < 1e-4 && (g - (1.0 - m)).abs() < 1e-4);
+        assert!((b - (1.0 - y)).abs() < 1e-4 && a == 1.0);
+        let [r, g, b, _] = solid(d.plate(&p, true)).unwrap();
+        assert!((r - (1.0 - k)).abs() < 1e-4 && r == g && g == b);
     }
 
     #[test]

@@ -3,12 +3,13 @@ use crate::display_list::{
     CLOSE, CUBIC, LINE, MOVE, Op, Paint, Shadow, Stop as ListStop, close, recolor,
 };
 use crate::image::{self, plate};
+use crate::pdfx;
 use crate::raster::{blur, extent, rasterize, tint};
 use crate::text::{MISSING, font_bytes, fonts};
-use krilla::Document;
 use krilla::blend::BlendMode;
 use krilla::color::separation::{SeparationColorant, SeparationSpace};
 use krilla::color::{cmyk, rgb, separation};
+use krilla::configure::{ConfigurationBuilder, PdfVersion};
 use krilla::geom::{Path, PathBuilder, Point, Rect, Size, Transform};
 use krilla::image::Image;
 use krilla::mask::{Mask, MaskType};
@@ -19,6 +20,7 @@ use krilla::paint::{
 };
 use krilla::surface::Surface;
 use krilla::text::{Font, GlyphId, KrillaGlyph};
+use krilla::{Document, SerializeSettings};
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
 use tiny_skia::Pixmap;
@@ -39,12 +41,38 @@ const MARK_OFFSET: f32 = 3.0 * MM;
 const MARK_LENGTH: f32 = 5.0 * MM;
 const MARK_WIDTH: f32 = 0.25;
 
-/// Shadows and blurs are rasterized at `ppi` in the colour mode `mode`; everything else stays vector.
-pub fn pdf(pages: &[Vec<Op>], ppi: f32, mode: ColorMode) -> Vec<u8> {
+/// How a document exports to PDF.
+pub struct Export<'a> {
+    pub preset: Preset,
+    pub crop_marks: bool,
+    pub bleed: bool,
+    /// Shadows, blurs and, for PDF/X-1a, transparency are rasterized at `ppi`.
+    pub ppi: f32,
+    pub mode: ColorMode,
+    pub title: &'a str,
+    /// ISO 8601 in UTC, as `2026-09-28T12:00:00Z`.
+    pub date: &'a str,
+}
+
+pub fn pdf(pages: &[Vec<Op>], x: &Export) -> Vec<u8> {
     let fonts: Vec<Font> = (0..fonts().len() as u32)
         .map(|i| Font::new(font_bytes(i).to_vec().into(), 0).unwrap())
         .collect();
-    let mut doc = Document::new();
+    let print = x.preset != Preset::Screen;
+    let version = match x.preset {
+        Preset::Screen => PdfVersion::Pdf17,
+        Preset::X4 => PdfVersion::Pdf16,
+        Preset::X1a => PdfVersion::Pdf14,
+    };
+    let mut doc = Document::new_with(SerializeSettings {
+        no_device_cs: x.preset == Preset::X4,
+        xmp_metadata: !print,
+        configuration: ConfigurationBuilder::new()
+            .with_version(version)
+            .finish()
+            .unwrap(),
+        ..SerializeSettings::default()
+    });
     for ops in pages {
         let Some(&Op::Page {
             width,
@@ -54,37 +82,125 @@ pub fn pdf(pages: &[Vec<Op>], ppi: f32, mode: ColorMode) -> Vec<u8> {
         else {
             continue;
         };
-        let o = bleed + MARK_SPACE;
-        let settings = PageSettings::from_wh(width + 2.0 * o, height + 2.0 * o)
+        let bleed = if print && x.bleed { bleed } else { 0.0 };
+        let slug = if print && x.crop_marks {
+            MARK_SPACE
+        } else {
+            0.0
+        };
+        let o = bleed + slug;
+        let mut settings = PageSettings::from_wh(width + 2.0 * o, height + 2.0 * o)
             .unwrap()
-            .with_trim_box(Rect::from_xywh(o, o, width, height))
-            .with_bleed_box(Rect::from_xywh(
-                MARK_SPACE,
-                MARK_SPACE,
+            .with_trim_box(Rect::from_xywh(o, o, width, height));
+        if print {
+            settings = settings.with_bleed_box(Rect::from_xywh(
+                slug,
+                slug,
                 width + 2.0 * bleed,
                 height + 2.0 * bleed,
             ));
+        }
         let mut page = doc.start_page_with(settings);
         let mut s = page.surface();
         s.push_transform(&Transform::from_translate(o, o));
+        let area = [-bleed, -bleed, width + 2.0 * bleed, height + 2.0 * bleed];
         s.push_clip_path(
-            &rect(-bleed, -bleed, width + 2.0 * bleed, height + 2.0 * bleed),
+            &rect(area[0], area[1], area[2], area[3]),
             &FillRule::NonZero,
         );
         let env = Env {
             fonts: &fonts,
-            ppi,
-            cmyk: mode == ColorMode::Cmyk,
-            page: [-bleed, -bleed, width + 2.0 * bleed, height + 2.0 * bleed],
+            ppi: x.ppi,
+            cmyk: match x.preset {
+                Preset::Screen => false,
+                Preset::X4 => x.mode == ColorMode::Cmyk,
+                Preset::X1a => true,
+            },
+            preset: x.preset,
+            proof: !print && x.mode == ColorMode::Cmyk,
+            page: area,
         };
-        draw(&mut s, &env, &ops[1..]);
+        if x.preset == Preset::X1a {
+            let (opaque, areas) = flatten(&ops[1..]);
+            draw(&mut s, &env, &opaque);
+            for a in areas {
+                paper(&mut s, &env, &ops[1..], a);
+            }
+        } else {
+            draw(&mut s, &env, &ops[1..]);
+        }
         s.pop();
-        crop_marks(&mut s, width, height);
+        if slug > 0.0 {
+            crop_marks(&mut s, width, height);
+        }
         s.pop();
         s.finish();
         page.finish();
     }
-    doc.finish().unwrap()
+    let pdf = doc.finish().unwrap();
+    match print {
+        true => pdfx::pdfx(pdf, x.preset, x.mode == ColorMode::Rgb, x.title, x.date),
+        false => pdf,
+    }
+}
+
+/// `ops` without what is transparent, and the areas that it covers.
+fn flatten(ops: &[Op]) -> (Vec<Op>, Vec<[f32; 4]>) {
+    let translucent = |p: &Paint| match p {
+        Paint::Solid { color, .. } => color[3] < 1.0,
+        Paint::Linear { stops, .. } | Paint::Radial { stops, .. } => {
+            stops.iter().any(|s| s.color[3] < 1.0)
+        }
+    };
+    let (mut opaque, mut areas) = (Vec::new(), Vec::new());
+    let mut i = 0;
+    while i < ops.len() {
+        let end = match &ops[i] {
+            Op::PushLayer {
+                opacity,
+                blend,
+                blur,
+                shadows,
+            } if *opacity < 1.0 || *blend != 0 || *blur > 0.0 || !shadows.is_empty() => {
+                close(ops, i)
+            }
+            Op::BeginMask => close(ops, close(ops, i)),
+            Op::FillPath { paint, .. }
+            | Op::StrokePath { paint, .. }
+            | Op::GlyphRun { paint, .. }
+                if translucent(paint) =>
+            {
+                i
+            }
+            Op::Image { image, .. }
+                if image::cmyk(*image).is_some_and(|c| c.alpha.iter().any(|&a| a < 255)) =>
+            {
+                i
+            }
+            op => {
+                opaque.push(op.clone());
+                i += 1;
+                continue;
+            }
+        };
+        let group = &ops[i..=end.min(ops.len() - 1)];
+        let reach = group
+            .iter()
+            .map(|op| match op {
+                Op::PushLayer { blur, shadows, .. } => shadows
+                    .iter()
+                    .map(|s| s.offset[0].abs().max(s.offset[1].abs()) + 3.0 * s.blur)
+                    .fold(3.0 * blur, f32::max),
+                _ => 0.0,
+            })
+            .fold(0.0, f32::max);
+        areas.extend(
+            extent(group)
+                .map(|[x, y, w, h]| [x - reach, y - reach, w + 2.0 * reach, h + 2.0 * reach]),
+        );
+        i = end + 1;
+    }
+    (opaque, areas)
 }
 
 const BLENDS: [BlendMode; 16] = [
@@ -109,7 +225,11 @@ const BLENDS: [BlendMode; 16] = [
 struct Env<'a> {
     fonts: &'a [Font],
     ppi: f32,
+    /// Images and rasterized effects are CMYK.
     cmyk: bool,
+    preset: Preset,
+    /// Images are drawn as the canvas shows them in a CMYK document.
+    proof: bool,
     page: [f32; 4],
 }
 
@@ -120,7 +240,7 @@ fn draw(s: &mut Surface, env: &Env, ops: &[Op]) {
         match &ops[i] {
             Op::FillPath { paint, path } => {
                 if let Some(p) = build(path) {
-                    s.set_fill(Some(fill(paint)));
+                    s.set_fill(Some(fill(paint, env.preset)));
                     s.draw_path(&p);
                 }
             }
@@ -132,7 +252,7 @@ fn draw(s: &mut Surface, env: &Env, ops: &[Op]) {
                 path,
             } => {
                 if let Some(p) = build(path) {
-                    let (paint, opacity) = convert(paint);
+                    let (paint, opacity) = convert(paint, env.preset);
                     s.set_fill(None);
                     s.set_stroke(Some(Stroke {
                         paint,
@@ -178,7 +298,7 @@ fn draw(s: &mut Surface, env: &Env, ops: &[Op]) {
                         )
                     })
                     .collect();
-                s.set_fill(Some(fill(paint)));
+                s.set_fill(Some(fill(paint, env.preset)));
                 s.draw_glyphs(
                     Point::from_xy(x0, y0),
                     &run,
@@ -189,7 +309,12 @@ fn draw(s: &mut Surface, env: &Env, ops: &[Op]) {
                 );
             }
             Op::Image { image, transform } => {
-                if let Some(img) = image::pdf(*image, env.cmyk) {
+                let id = if env.proof {
+                    image | image::PROOF
+                } else {
+                    *image
+                };
+                if let Some(img) = image::pdf(id, env.cmyk) {
                     let [a, b, c, d, e, f] = *transform;
                     s.push_transform(&Transform::from_row(a, b, c, d, e, f));
                     s.draw_image(img, Size::from_wh(1.0, 1.0).unwrap());
@@ -270,67 +395,135 @@ fn raster(
         return;
     };
     let m = 3.0 * sigma;
-    let [px, py, pw, ph] = env.page;
-    let l = (x + offset[0] - m).max(px);
-    let t = (y + offset[1] - m).max(py);
-    let r = (x + w + offset[0] + m).min(px + pw);
-    let b = (y + h + offset[1] + m).min(py + ph);
-    if l >= r || t >= b {
+    let area = [
+        x + offset[0] - m,
+        y + offset[1] - m,
+        w + 2.0 * m,
+        h + 2.0 * m,
+    ];
+    let Some([l, t, w, h]) = within(env.page, area) else {
         return;
-    }
-    let plane = |ops: &[Op], images: &dyn Fn(u32) -> Option<Rc<Pixmap>>, tint_with| {
-        let rect = [l - offset[0], t - offset[1], r - l, b - t];
-        let mut px = rasterize(ops, rect, env.ppi, images)?;
-        if let Some(c) = tint_with {
-            tint(&mut px, c);
-        }
-        blur(&mut px, sigma * env.ppi / 72.0);
-        Some(px)
     };
+    let rect = [l - offset[0], t - offset[1], w, h];
     let image = if env.cmyk {
-        let plate = |pick: fn([f32; 4]) -> [f32; 3]| {
-            let to = |rgba: &[f32; 4], ink: &Ink| {
-                let [a, b, c] = pick(ink.cmyk(rgba));
-                [a, b, c, rgba[3]]
-            };
-            let images = |id| image::cmyk(id).and_then(|c| plate(&c, pick)).map(Rc::new);
-            plane(
-                &recolor(ops, &to),
-                &images,
-                shadow.map(|s| to(&s.color, &s.ink)),
-            )
-        };
-        let (Some(cmy), Some(k)) = (plate(|c| [c[0], c[1], c[2]]), plate(|c| [c[3], 0.0, 0.0]))
-        else {
-            return;
-        };
-        let size = (cmy.width(), cmy.height());
-        let (cmy, k) = (cmy.take_demultiplied(), k.take_demultiplied());
-        let image = image::Cmyk {
-            color: cmy
-                .chunks(4)
-                .zip(k.chunks(4))
-                .flat_map(|(a, b)| [a[0], a[1], a[2], b[0]])
-                .collect(),
-            alpha: cmy.chunks(4).map(|a| a[3]).collect(),
-            size,
-        };
-        Image::from_custom(image, true).unwrap()
+        separate(ops, rect, env.ppi, shadow, sigma, false)
+            .map(|c| Image::from_custom(c, true).unwrap())
     } else {
-        let Some(px) = plane(ops, &image::pixmap, shadow.map(|s| s.color)) else {
-            return;
-        };
-        let (w, h) = (px.width(), px.height());
-        Image::from_rgba8(px.take_demultiplied(), w, h)
+        plane(
+            ops,
+            rect,
+            env.ppi,
+            &image::pixmap,
+            shadow.map(|s| s.color),
+            sigma,
+        )
+        .map(|px| {
+            let (w, h) = (px.width(), px.height());
+            Image::from_rgba8(px.take_demultiplied(), w, h)
+        })
     };
-    let scale = 72.0 / env.ppi;
+    if let Some(image) = image {
+        place(s, image, l, t, env.ppi);
+    }
+}
+
+/// Draws `ops` over `area` as one opaque CMYK image, as they print on white paper.
+fn paper(s: &mut Surface, env: &Env, ops: &[Op], area: [f32; 4]) {
+    let Some([x, y, w, h]) = within(env.page, area) else {
+        return;
+    };
+    let mut all = vec![Op::FillPath {
+        paint: Paint::Solid {
+            color: [1.0; 4],
+            ink: Ink::Cmyk([0.0; 4]),
+        },
+        path: crate::display_list::rect(x, y, w, h),
+    }];
+    all.extend_from_slice(ops);
+    if let Some(c) = separate(&all, [x, y, w, h], env.ppi, None, 0.0, true) {
+        place(s, Image::from_custom(c, true).unwrap(), x, y, env.ppi);
+    }
+}
+
+/// The part of `area` on `page`, both as [x, y, w, h].
+fn within(page: [f32; 4], [x, y, w, h]: [f32; 4]) -> Option<[f32; 4]> {
+    let (l, t) = (x.max(page[0]), y.max(page[1]));
+    let (r, b) = (
+        (x + w).min(page[0] + page[2]),
+        (y + h).min(page[1] + page[3]),
+    );
+    (l < r && t < b).then_some([l, t, r - l, b - t])
+}
+
+/// Draws `image`, rasterized at `ppi`, with its top left at (`x`, `y`).
+fn place(s: &mut Surface, image: Image, x: f32, y: f32, ppi: f32) {
+    let scale = 72.0 / ppi;
     let (pw, ph) = image.size();
-    s.push_transform(&Transform::from_translate(l, t));
+    s.push_transform(&Transform::from_translate(x, y));
     s.draw_image(
         image,
         Size::from_wh(pw as f32 * scale, ph as f32 * scale).unwrap(),
     );
     s.pop();
+}
+
+/// `ops` over `rect` at `ppi`, tinted with `tint_with` and blurred by `sigma` pt.
+fn plane(
+    ops: &[Op],
+    rect: [f32; 4],
+    ppi: f32,
+    images: &dyn Fn(u32) -> Option<Rc<Pixmap>>,
+    tint_with: Option<[f32; 4]>,
+    sigma: f32,
+) -> Option<Pixmap> {
+    let mut px = rasterize(ops, rect, ppi, images)?;
+    if let Some(c) = tint_with {
+        tint(&mut px, c);
+    }
+    blur(&mut px, sigma * ppi / 72.0);
+    Some(px)
+}
+
+/// `ops` over `rect` at `ppi` in CMYK, drawn plate by plate, tinted with the colour
+/// of `shadow` and blurred by `sigma` pt. With `paper` each plate is drawn as white
+/// less its ink, so that it blends as ink does on paper.
+fn separate(
+    ops: &[Op],
+    rect: [f32; 4],
+    ppi: f32,
+    shadow: Option<&Shadow>,
+    sigma: f32,
+    paper: bool,
+) -> Option<image::Cmyk> {
+    let layer = |pick: fn([f32; 4]) -> [f32; 3]| {
+        let to = |rgba: &[f32; 4], ink: &Ink| {
+            let [a, b, c] = pick(ink.cmyk(rgba));
+            [a, b, c, rgba[3]]
+        };
+        let images = |id| image::cmyk(id).and_then(|c| plate(&c, pick)).map(Rc::new);
+        let tint_with = shadow.map(|s| to(&s.color, &s.ink));
+        plane(&recolor(ops, &to), rect, ppi, &images, tint_with, sigma)
+    };
+    let (cmy, k) = if paper {
+        (
+            layer(|c| [1.0 - c[0], 1.0 - c[1], 1.0 - c[2]])?,
+            layer(|c| [1.0 - c[3], 1.0, 1.0])?,
+        )
+    } else {
+        (layer(|c| [c[0], c[1], c[2]])?, layer(|c| [c[3], 0.0, 0.0])?)
+    };
+    let size = (cmy.width(), cmy.height());
+    let (cmy, k) = (cmy.take_demultiplied(), k.take_demultiplied());
+    let ink = |v: u8| if paper { 255 - v } else { v };
+    Some(image::Cmyk {
+        color: cmy
+            .chunks(4)
+            .zip(k.chunks(4))
+            .flat_map(|(a, b)| [a[0], a[1], a[2], b[0]].map(ink))
+            .collect(),
+        alpha: cmy.chunks(4).map(|a| a[3]).collect(),
+        size,
+    })
 }
 
 fn crop_marks(s: &mut Surface, w: f32, h: f32) {
@@ -360,8 +553,8 @@ fn crop_marks(s: &mut Surface, w: f32, h: f32) {
     s.set_stroke(None);
 }
 
-fn fill(p: &Paint) -> Fill {
-    let (paint, opacity) = convert(p);
+fn fill(p: &Paint, preset: Preset) -> Fill {
+    let (paint, opacity) = convert(p, preset);
     Fill {
         paint,
         opacity,
@@ -377,11 +570,14 @@ fn process(c: [f32; 4]) -> cmyk::Color {
     cmyk::Color::new(byte(c[0]), byte(c[1]), byte(c[2]), byte(c[3]))
 }
 
-fn color(rgba: &[f32; 4], ink: &Ink) -> krilla::color::Color {
-    match ink {
-        Ink::Rgb => rgb::Color::new(byte(rgba[0]), byte(rgba[1]), byte(rgba[2])).into(),
-        Ink::Cmyk(c) => process(*c).into(),
-        Ink::Spot { name, cmyk, tint } => separation::Color::new(
+fn color(rgba: &[f32; 4], ink: &Ink, preset: Preset) -> krilla::color::Color {
+    match (preset, ink) {
+        (Preset::Screen, _) | (Preset::X4, Ink::Rgb) => {
+            rgb::Color::new(byte(rgba[0]), byte(rgba[1]), byte(rgba[2])).into()
+        }
+        (Preset::X1a, Ink::Rgb) => process(ink.cmyk(rgba)).into(),
+        (_, Ink::Cmyk(c)) => process(*c).into(),
+        (_, Ink::Spot { name, cmyk, tint }) => separation::Color::new(
             byte(*tint),
             SeparationSpace::new(
                 SeparationColorant::Custom(name.clone()),
@@ -419,9 +615,9 @@ fn inks(stops: &[ListStop]) -> Vec<Ink> {
         .collect()
 }
 
-fn convert(p: &Paint) -> (krilla::paint::Paint, NormalizedF32) {
+fn convert(p: &Paint, preset: Preset) -> (krilla::paint::Paint, NormalizedF32) {
     let (transform, stops) = match p {
-        Paint::Solid { color: c, ink } => return (color(c, ink).into(), opacity(c)),
+        Paint::Solid { color: c, ink } => return (color(c, ink, preset).into(), opacity(c)),
         Paint::Linear { transform, stops } | Paint::Radial { transform, stops } => (
             Transform::from_row(
                 transform[0],
@@ -436,7 +632,7 @@ fn convert(p: &Paint) -> (krilla::paint::Paint, NormalizedF32) {
                 .zip(inks(stops))
                 .map(|(s, ink)| Stop {
                     offset: NormalizedF32::new(s.at.clamp(0.0, 1.0)).unwrap(),
-                    color: color(&s.color, &ink),
+                    color: color(&s.color, &ink, preset),
                     opacity: opacity(&s.color),
                 })
                 .collect(),
@@ -508,25 +704,49 @@ fn append(pb: &mut PathBuilder, cmds: &[f32]) {
 
 #[cfg(test)]
 mod tests {
+    use super::{Export, Preset};
     use crate::Doc;
     use crate::color::{ColorMode, Ink};
     use crate::display_list::{Op, Paint, Shadow, Stop, rect};
 
+    fn export(pages: &[Vec<Op>], preset: Preset, marks: bool, mode: ColorMode) -> Vec<u8> {
+        let x = Export {
+            preset,
+            crop_marks: marks,
+            bleed: marks,
+            ppi: 72.0,
+            mode,
+            title: "Test <1>",
+            date: "2026-09-28T12:00:00Z",
+        };
+        super::pdf(pages, &x)
+    }
+
+    fn write(pages: &[Vec<Op>], preset: Preset, ppi: f32, mode: ColorMode) -> String {
+        let x = Export {
+            preset,
+            crop_marks: true,
+            bleed: true,
+            ppi,
+            mode,
+            title: "Test <1>",
+            date: "2026-09-28T12:00:00Z",
+        };
+        String::from_utf8_lossy(&super::pdf(pages, &x)).into_owned()
+    }
+
     fn default_pdf() -> String {
         let d = Doc::new();
-        String::from_utf8_lossy(&super::pdf(
-            &[d.render(&d.snapshot().pages[0].id)],
-            300.0,
-            ColorMode::Rgb,
-        ))
-        .into_owned()
+        let page = d.render(&d.snapshot().pages[0].id);
+        write(&[page], Preset::X4, 300.0, ColorMode::Rgb)
     }
 
     fn page_box(pdf: &str, name: &str) -> Vec<f32> {
-        let at = pdf.find(&format!("/{name}[")).unwrap() + name.len() + 2;
+        let at = pdf.find(&format!("/{name}")).unwrap();
+        let at = at + pdf[at..].find('[').unwrap() + 1;
         let end = at + pdf[at..].find(']').unwrap();
         pdf[at..end]
-            .split(' ')
+            .split_whitespace()
             .map(|v| v.parse().unwrap())
             .collect()
     }
@@ -552,8 +772,7 @@ mod tests {
     }
 
     fn image_width(ops: &[Op], ppi: f32) -> Option<u32> {
-        let pdf =
-            String::from_utf8_lossy(&super::pdf(&[ops.to_vec()], ppi, ColorMode::Rgb)).into_owned();
+        let pdf = write(&[ops.to_vec()], Preset::X4, ppi, ColorMode::Rgb);
         let at = pdf
             .find("/Subtype /Image")
             .or_else(|| pdf.find("/Subtype/Image"))?;
@@ -627,7 +846,7 @@ mod tests {
             paint,
             path: rect(10.0, 10.0, 10.0, 10.0),
         }));
-        String::from_utf8_lossy(&super::pdf(&[ops], 72.0, ColorMode::Rgb)).into_owned()
+        write(&[ops], Preset::X4, 72.0, ColorMode::Rgb)
     }
 
     #[test]
@@ -690,8 +909,8 @@ mod tests {
         ]
     }
 
-    fn image_dict(mode: ColorMode) -> String {
-        let pdf = String::from_utf8_lossy(&super::pdf(&[shadowed()], 72.0, mode)).into_owned();
+    fn image_dict(preset: Preset, mode: ColorMode) -> String {
+        let pdf = write(&[shadowed()], preset, 72.0, mode);
         pdf.match_indices("/Subtype/Image")
             .map(|(at, _)| &pdf[pdf[..at].rfind("<<").unwrap()..at + pdf[at..].find(">>").unwrap()])
             .find(|d| d.contains("/SMask"))
@@ -701,9 +920,9 @@ mod tests {
 
     #[test]
     fn shadows_are_rasterized_in_the_documents_colour_mode() {
-        let cmyk = image_dict(ColorMode::Cmyk);
+        let cmyk = image_dict(Preset::X4, ColorMode::Cmyk);
         assert!(cmyk.contains("/ColorSpace/DeviceCMYK"), "{cmyk}");
-        let rgb = image_dict(ColorMode::Rgb);
+        let rgb = image_dict(Preset::Screen, ColorMode::Rgb);
         assert!(rgb.contains("/ColorSpace/DeviceRGB"), "{rgb}");
     }
 
@@ -726,11 +945,10 @@ mod tests {
 
     #[test]
     fn images_in_a_cmyk_document_are_separated() {
-        let pdf =
-            |mode| String::from_utf8_lossy(&super::pdf(&[red_image()], 72.0, mode)).into_owned();
+        let pdf = |mode| write(&[red_image()], Preset::X4, 72.0, mode);
         assert!(pdf(ColorMode::Cmyk).contains("/ColorSpace/DeviceCMYK"));
         assert!(!pdf(ColorMode::Cmyk).contains("/DeviceRGB"));
-        assert!(pdf(ColorMode::Rgb).contains("/DeviceRGB"));
+        assert!(pdf(ColorMode::Rgb).contains("/ICCBased"));
     }
 
     #[test]
@@ -744,5 +962,146 @@ mod tests {
         let px = crate::raster::rasterize(&ops[1..], [10.0, 10.0, 10.0, 10.0], 72.0, &cmy).unwrap();
         let p = px.pixel(5, 5).unwrap();
         assert!(p.red() < 20 && p.green() > 200 && p.blue() > 200, "{p:?}");
+    }
+
+    /// `pdf` with its streams decompressed by MuPDF, which must read it without
+    /// repairs, and its whitespace collapsed to single spaces.
+    fn clean(pdf: &[u8]) -> String {
+        let dir = std::env::temp_dir();
+        let name = |s| {
+            dir.join(format!(
+                "satz-{s}-{:x}.pdf",
+                pdf.len() ^ std::process::id() as usize
+            ))
+        };
+        let (from, to) = (name("in"), name("out"));
+        std::fs::write(&from, pdf).unwrap();
+        let out = std::process::Command::new("mutool")
+            .args(["clean", "-d"])
+            .arg(&from)
+            .arg(&to)
+            .output()
+            .expect("mutool runs");
+        assert!(
+            out.status.success() && out.stderr.is_empty(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        let text = String::from_utf8_lossy(&std::fs::read(&to).unwrap())
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
+        std::fs::write("/tmp/satz-clean.pdf", &text).unwrap();
+        std::fs::remove_file(from).unwrap();
+        std::fs::remove_file(to).unwrap();
+        text
+    }
+
+    /// A CMYK page with an RGB fill, a translucent fill, a shadow and an image.
+    fn busy() -> Vec<Op> {
+        let mut ops = shadowed();
+        ops.extend(red_image().into_iter().skip(1));
+        ops.extend([
+            Op::FillPath {
+                paint: Paint::Solid {
+                    color: [0.0, 0.5, 1.0, 1.0],
+                    ink: Ink::Rgb,
+                },
+                path: rect(40.0, 40.0, 10.0, 10.0),
+            },
+            Op::FillPath {
+                paint: Paint::Solid {
+                    color: [1.0, 0.0, 0.0, 0.5],
+                    ink: Ink::Cmyk([0.0, 1.0, 1.0, 0.0]),
+                },
+                path: rect(60.0, 60.0, 10.0, 10.0),
+            },
+        ]);
+        ops
+    }
+
+    fn assert_pdfx(pdf: &str) {
+        for key in [
+            "/Type /OutputIntent /S /GTS_PDFX /OutputConditionIdentifier (FOGRA51)",
+            "/DestOutputProfile",
+            "/Trapped /False",
+            "<dc:title><rdf:Alt><rdf:li xml:lang=\"x-default\">Test &lt;1&gt;</rdf:li>",
+            "<xmp:CreateDate>2026-09-28T12:00:00Z</xmp:CreateDate>",
+            "<xmpMM:DocumentID>xmp.did:",
+            "/CreationDate (D:20260928120000Z00'00')",
+            "/TrimBox",
+            "/BleedBox",
+        ] {
+            assert!(pdf.contains(key), "{key}");
+        }
+    }
+
+    #[test]
+    fn pdf_x4_has_the_fogra51_output_intent_and_keeps_transparency() {
+        let pdf = clean(&export(&[busy()], Preset::X4, true, ColorMode::Cmyk));
+        assert!(pdf.starts_with("%PDF-1.6"));
+        assert_pdfx(&pdf);
+        assert!(pdf.contains("<pdfxid:GTS_PDFXVersion>PDF/X-4</pdfxid:GTS_PDFXVersion>"));
+        assert!(pdf.contains("/GTS_PDFXVersion (PDF/X-4)"));
+        assert!(pdf.contains("/ICCBased"));
+        assert!(!pdf.contains("/DeviceRGB"));
+        assert!(pdf.contains("/SMask"));
+        assert!(pdf.contains("/ca .5"));
+    }
+
+    #[test]
+    fn pdf_x1a_is_cmyk_and_opaque() {
+        let pdf = clean(&export(&[busy()], Preset::X1a, true, ColorMode::Cmyk));
+        assert!(pdf.starts_with("%PDF-1.4"));
+        assert_pdfx(&pdf);
+        assert!(pdf.contains("/GTS_PDFXConformance (PDF/X-1a:2003)"));
+        assert!(pdf.contains("<pdfx:GTS_PDFXConformance>PDF/X-1a:2003</pdfx:GTS_PDFXConformance>"));
+        assert!(pdf.contains("/ColorSpace /DeviceCMYK"));
+        for no in [
+            "/DeviceRGB",
+            "/ICCBased",
+            "/SMask",
+            "/Transparency",
+            "/ca ",
+            "/CA ",
+            "/BM",
+            " rg ",
+            " RG ",
+            "/Pattern",
+        ] {
+            assert!(!pdf.contains(no), "{no}");
+        }
+    }
+
+    #[test]
+    fn the_pages_of_an_rgb_pdf_x4_blend_in_srgb() {
+        let group = "/Group << /Type /Group /S /Transparency /CS [ /ICCBased";
+        let rgb = clean(&export(&[busy(), busy()], Preset::X4, true, ColorMode::Rgb));
+        assert_eq!(rgb.matches(group).count(), 2);
+        let cmyk = clean(&export(&[busy()], Preset::X4, true, ColorMode::Cmyk));
+        assert!(!cmyk.contains(group));
+    }
+
+    #[test]
+    fn a_screen_pdf_is_rgb_and_shows_the_trim_box_only() {
+        let pdf = clean(&export(&[busy()], Preset::Screen, true, ColorMode::Cmyk));
+        for no in [
+            "/DeviceCMYK",
+            "/Separation",
+            "/OutputIntents",
+            "/BleedBox",
+            "/All",
+        ] {
+            assert!(!pdf.contains(no), "{no}");
+        }
+        assert_close(&page_box(&pdf, "MediaBox"), &page_box(&pdf, "TrimBox"));
+    }
+
+    #[test]
+    fn without_crop_marks_and_bleed_the_media_box_is_the_trim_box() {
+        let pdf = clean(&export(&[busy()], Preset::X4, false, ColorMode::Cmyk));
+        assert_close(&page_box(&pdf, "MediaBox"), &page_box(&pdf, "TrimBox"));
+        assert_close(&page_box(&pdf, "BleedBox"), &page_box(&pdf, "TrimBox"));
+        assert!(!pdf.contains("/All"));
     }
 }

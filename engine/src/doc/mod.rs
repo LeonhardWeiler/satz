@@ -3769,7 +3769,7 @@ mod tests {
     fn the_booklet_pdf_reads_as_one_story_with_a_number_on_every_page() {
         let b = booklet();
         let path = std::env::temp_dir().join(format!("satz-booklet-{}.pdf", std::process::id()));
-        std::fs::write(&path, b.d.pdf()).unwrap();
+        std::fs::write(&path, b.d.pdf("Satz", "2026-09-28T12:00:00Z")).unwrap();
         let mut read = String::new();
         for i in 1..=8 {
             let out = std::process::Command::new("mutool")
@@ -3881,8 +3881,8 @@ mod tests {
         set_frame(&mut d, &id, [20.0, 100.0, 288.0, 72.0]);
         assert_eq!(problems(&d), [(id.clone(), Problem::LowPpi { ppi: 150.0 })]);
         cmyk(&mut d);
-        let proofed = d.render(&p).iter().any(
-            |o| matches!(o, Op::Image { image, .. } if *image == image::id(&hash).unwrap() | image::PROOF),
+        let proofed = d.plate(&p, false).iter().any(
+            |o| matches!(o, Op::Image { image, .. } if *image == image::id(&hash).unwrap() | image::CMY),
         );
         assert!(proofed);
         assert_eq!(

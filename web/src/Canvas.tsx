@@ -323,7 +323,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
           pen: pen && { anchors: pen.anchors.map((a) => ({ ...a, x: a.x + penDx })), cursor: drag ? undefined : cursor },
           insert: insert as [Point, Point] | undefined,
           ...threadOverlay(),
-        }, editor.preflight)
+        }, editor.preflight, editor.snapshot.colorMode === 'cmyk')
         surface.flush()
         const left = Math.min(...editor.sheets.map((s) => s.x))
         const sel = editor.selection.length ? bounds(editor.selected().map(placed)) : undefined

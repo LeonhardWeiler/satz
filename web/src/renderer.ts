@@ -1,5 +1,5 @@
-import type { Canvas, CanvasKit, Font, Image, Paint, Rect, SkPicture, Typeface } from 'canvaskit-wasm'
-import type { Engine } from './engine/engine'
+import type { Canvas, CanvasKit, Font, Image, Paint, Rect, RuntimeEffect, SkPicture, Surface, Typeface } from 'canvaskit-wasm'
+import { lut, type Engine } from './engine/engine'
 import { close, decode, type Op, type Paint as Fill } from './displayList'
 
 /** Marks the font of a glyph run whose own font is missing, drawn in the bundled one. */
@@ -57,13 +57,37 @@ const BLENDS = [
   'SrcOver', 'Multiply', 'Screen', 'Overlay', 'Darken', 'Lighten', 'ColorDodge', 'ColorBurn',
   'HardLight', 'SoftLight', 'Difference', 'Exclusion', 'Hue', 'Saturation', 'Color', 'Luminosity',
 ] as const
+/** Shows the inverted C, M and Y plate `cmy` and K plate `k` as their inks print on paper, through the screen colours `lut` of a grid of `n` steps per ink. */
+const INKS = `
+uniform shader cmy;
+uniform shader k;
+uniform shader lut;
+uniform float n;
+half4 main(float2 p) {
+  half4 a = cmy.eval(p);
+  if (a.a == 0) return half4(0);
+  float3 c = (1 - a.rgb / a.a) * (n - 1);
+  float black = (1 - k.eval(p).r / a.a) * (n - 1);
+  float m = min(floor(c.g), n - 2);
+  float b = min(floor(black), n - 2);
+  float2 at = float2(c.r + 0.5 + n * m, c.b + 0.5 + n * b);
+  half4 s = mix(
+    mix(lut.eval(at), lut.eval(at + float2(n, 0)), c.g - m),
+    mix(lut.eval(at + float2(0, n)), lut.eval(at + float2(n, n)), c.g - m),
+    black - b);
+  return half4(s.rgb * a.a, a.a);
+}`
 const CAPS = ['Butt', 'Round', 'Square'] as const
 const JOINS = ['Miter', 'Round', 'Bevel'] as const
 
 export class Renderer {
-  /** Item pictures by item id, and pictures of layers with shadows by layer hash. */
-  private pictures: Cache = new Map()
-  private layers: Cache = new Map()
+  /** Item pictures by item id, and pictures of layers with shadows by layer hash, for the page and for its C, M and Y and its K plate. */
+  private caches = [0, 1, 2].map(() => ({ pictures: new Map(), layers: new Map() }) as { pictures: Cache; layers: Cache })
+  private cache = this.caches[0]
+  /** The plates, the shader that shows them and its screen colours, made on first use. */
+  private plates: Surface[] = []
+  private inksEffect?: RuntimeEffect
+  private lut?: Image
   private typefaces = new Map<number, Typeface>()
   private fonts = new Map<string, Font>()
   /** Decoded images by display-list id; `null` when the file does not decode. */
@@ -89,19 +113,22 @@ export class Renderer {
    * Draws the display list of each page of `lists` at its x on the spread, over the
    * pages `sheets`, clipped to their bleed together: a layer across the spine shows on
    * both pages, and the bleed runs around the spread's outer edges. With `proof` the
-   * pages show as they print, with their `inks` over them.
+   * pages show as they print, with their `inks` over them; `cmyk` pages blend their
+   * inks as they print.
    */
-  draw(canvas: Canvas, lists: { id: string; x: number; inks?: Inked }[], sheets: Sheet[], view: View, dpr: number, overlay: Overlay, proof = false) {
+  draw(canvas: Canvas, lists: { id: string; x: number; inks?: Inked }[], sheets: Sheet[], view: View, dpr: number, overlay: Overlay, proof = false, cmyk = false) {
     const { ck, chrome: paint } = this
     if (proof !== this.proof) {
       this.proof = proof
       this.clear()
     }
     canvas.clear(ck.parseColorString(BACKGROUND))
-    canvas.save()
-    canvas.scale(dpr, dpr)
-    canvas.translate(view.x, view.y)
-    canvas.scale(view.zoom, view.zoom)
+    const place = (c: Canvas) => {
+      c.save()
+      c.scale(dpr, dpr)
+      c.translate(view.x, view.y)
+      c.scale(view.zoom, view.zoom)
+    }
     const trims = sheets.map((s) => ck.XYWHRect(s.x, 0, s.width, s.height))
     const bleeds = sheets.map((s) => ck.LTRBRect(s.x - s.bleed, -s.bleed, s.x + s.width + s.bleed, s.height + s.bleed))
     const box = ([l, t, r, b]: Float32Array) => ck.Path.MakeFromCmds([MOVE, l, t, LINE, r, t, LINE, r, b, LINE, l, b, CLOSE])!
@@ -116,29 +143,45 @@ export class Renderer {
       }
     }
     const bounds = bleed.getBounds()
-    paint.setStyle(ck.PaintStyle.Fill)
-    paint.setColor(ck.WHITE)
-    for (const r of trims) canvas.drawRect(r, paint)
+    const live = new Set<number>()
+    const pages = (c: Canvas, plate: number) => {
+      this.cache = this.caches[plate]
+      paint.setStyle(ck.PaintStyle.Fill)
+      paint.setColor(ck.WHITE)
+      for (const r of trims) c.drawRect(r, paint)
+      c.save()
+      c.clipPath(bleed, ck.ClipOp.Intersect, true)
+      for (const { id, x } of lists) {
+        const ops = decode((plate ? this.engine.plate(id, plate === 2) : this.engine.displayList(id, proof)).slice())
+        this.loadImages(ops)
+        for (const op of ops) {
+          if (op.op === 'beginItem') live.add(op.item)
+          else if (op.op === 'pushLayer') live.add(op.hash)
+        }
+        c.save()
+        c.translate(x, 0)
+        const local = ck.LTRBRect(bounds[0] - x, bounds[1], bounds[2] - x, bounds[3])
+        this.drawOps(c, ops, ops[0]?.op === 'page' ? 1 : 0, ops.length, local)
+        c.restore()
+      }
+      c.restore()
+    }
+    if (cmyk) {
+      this.drawPlates(canvas, (c, plate) => {
+        place(c)
+        pages(c, plate)
+        c.restore()
+      })
+    }
+    place(canvas)
+    if (!cmyk) pages(canvas, 0)
     canvas.save()
     canvas.clipPath(bleed, ck.ClipOp.Intersect, true)
-    const live = new Set<number>()
-    for (const { id, x, inks } of lists) {
-      const ops = decode(this.engine.displayList(id, proof).slice())
-      this.loadImages(ops)
-      for (const op of ops) {
-        if (op.op === 'beginItem') live.add(op.item)
-        else if (op.op === 'pushLayer') live.add(op.hash)
-      }
-      canvas.save()
-      canvas.translate(x, 0)
-      const local = ck.LTRBRect(bounds[0] - x, bounds[1], bounds[2] - x, bounds[3])
-      this.drawOps(canvas, ops, ops[0]?.op === 'page' ? 1 : 0, ops.length, local)
+    for (const { x, inks } of lists) {
       const image = inks && this.inkImage(inks)
-      if (image) {
-        const { x: l, y: t, w, h } = inks.rect
-        canvas.drawImageRectOptions(image, ck.XYWHRect(0, 0, inks.width, inks.height), ck.XYWHRect(l, t, w, h), ck.FilterMode.Nearest, ck.MipmapMode.None, null)
-      }
-      canvas.restore()
+      if (!image) continue
+      const { x: l, y: t, w, h } = inks.rect
+      canvas.drawImageRectOptions(image, ck.XYWHRect(0, 0, inks.width, inks.height), ck.XYWHRect(x + l, t, w, h), ck.FilterMode.Nearest, ck.MipmapMode.None, null)
     }
     for (const [pixels, image] of this.inks) {
       if (lists.some((l) => l.inks?.image === pixels)) continue
@@ -163,13 +206,48 @@ export class Renderer {
     bleed.delete()
     canvas.restore()
     this.drawOverlay(canvas, view, dpr, overlay)
-    for (const cache of [this.pictures, this.layers]) {
+    for (const cache of this.caches.flatMap((c) => [c.pictures, c.layers])) {
       for (const [key, { picture }] of cache) {
         if (live.has(key)) continue
         picture.delete()
         cache.delete(key)
       }
     }
+  }
+
+  /** Draws the plates 1 and 2 that `draw` draws, each on a surface of its own, as their inks print. */
+  private drawPlates(canvas: Canvas, draw: (c: Canvas, plate: number) => void) {
+    const { ck } = this
+    const [, , width, height] = canvas.getDeviceClipBounds()
+    if (this.plates[0]?.width() !== width || this.plates[0]?.height() !== height) {
+      for (const s of this.plates) s.delete()
+      const info = { width, height, colorType: ck.ColorType.RGBA_8888, alphaType: ck.AlphaType.Premul, colorSpace: ck.ColorSpace.SRGB }
+      this.plates = [canvas.makeSurface(info)!, canvas.makeSurface(info)!]
+    }
+    const plates = this.plates.map((s, i) => {
+      s.getCanvas().clear(ck.TRANSPARENT)
+      draw(s.getCanvas(), i + 1)
+      const image = s.makeImageSnapshot()
+      const shader = image.makeShaderOptions(ck.TileMode.Clamp, ck.TileMode.Clamp, ck.FilterMode.Nearest, ck.MipmapMode.None)
+      image.delete()
+      return shader
+    })
+    if (!this.lut) {
+      const pixels = lut()
+      const size = Math.round(Math.sqrt(pixels.length / 4))
+      const info = { width: size, height: size, colorType: ck.ColorType.RGBA_8888, alphaType: ck.AlphaType.Unpremul, colorSpace: ck.ColorSpace.SRGB }
+      this.lut = ck.MakeImage(info, pixels, size * 4)!
+      this.inksEffect = ck.RuntimeEffect.Make(INKS)!
+    }
+    const table = this.lut.makeShaderOptions(ck.TileMode.Clamp, ck.TileMode.Clamp, ck.FilterMode.Linear, ck.MipmapMode.None)
+    const shader = this.inksEffect!.makeShaderWithChildren([Math.round(Math.sqrt(this.lut.width()))], [...plates, table])
+    const paint = new ck.Paint()
+    paint.setShader(shader)
+    canvas.drawPaint(paint)
+    paint.delete()
+    shader.delete()
+    table.delete()
+    for (const s of plates) s.delete()
   }
 
   private drawOverlay(
@@ -268,7 +346,7 @@ export class Renderer {
       const op = ops[i]
       if (op.op === 'beginItem') {
         const end = close(ops, i)
-        canvas.drawPicture(this.cached(this.pictures, op.item, op.hash, () => this.record(ops, i + 1, end, bounds)))
+        canvas.drawPicture(this.cached(this.cache.pictures, op.item, op.hash, () => this.record(ops, i + 1, end, bounds)))
         i = end
       } else if (op.op === 'pushClip') {
         const end = close(ops, i)
@@ -290,7 +368,7 @@ export class Renderer {
           canvas.saveLayer(layer)
           this.drawOps(canvas, ops, i + 1, end, bounds)
         } else {
-          const picture = this.cached(this.layers, op.hash, op.hash, () => this.record(ops, i + 1, end, bounds))
+          const picture = this.cached(this.cache.layers, op.hash, op.hash, () => this.record(ops, i + 1, end, bounds))
           canvas.saveLayer(layer)
           for (const s of op.shadows) {
             const p = new ck.Paint()
@@ -445,7 +523,7 @@ export class Renderer {
 
   /** Forgets the pictures of all items and layers. */
   private clear() {
-    for (const cache of [this.pictures, this.layers]) {
+    for (const cache of this.caches.flatMap((c) => [c.pictures, c.layers])) {
       for (const { picture } of cache.values()) picture.delete()
       cache.clear()
     }
@@ -464,6 +542,9 @@ export class Renderer {
 
   delete() {
     this.clear()
+    for (const s of this.plates) s.delete()
+    this.lut?.delete()
+    this.inksEffect?.delete()
     for (const image of this.inks.values()) image.delete()
     for (const font of this.fonts.values()) font.delete()
     for (const typeface of this.typefaces.values()) typeface.delete()

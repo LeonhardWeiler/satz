@@ -50,7 +50,7 @@ impl CustomImage for Cmyk {
     }
 
     fn alpha_channel(&self) -> Option<&[u8]> {
-        Some(&self.alpha)
+        self.alpha.iter().any(|&a| a < 255).then_some(&self.alpha)
     }
 
     fn bits_per_component(&self) -> BitsPerComponent {
@@ -70,9 +70,11 @@ impl CustomImage for Cmyk {
     }
 }
 
-/// Marks the id of an image in a CMYK document's display list, which the canvas
-/// shows as it prints.
+/// Mark the id of an image in a display list that shows it as it prints, or as
+/// the inverted C, M and Y or K plate that `Doc::plate` draws.
 pub const PROOF: u32 = 1 << 31;
+pub const CMY: u32 = 1 << 30;
+pub const K: u32 = 1 << 29;
 
 thread_local! {
     /// The images of every document loaded so far by id, so that ids stay valid
@@ -140,7 +142,7 @@ fn entry_by_hash(hash: &str) -> Option<Rc<Entry>> {
 }
 
 fn entry(id: u32) -> Option<Rc<Entry>> {
-    IMAGES.with_borrow(|images| images.get((id & !PROOF) as usize).cloned())
+    IMAGES.with_borrow(|images| images.get((id & !(PROOF | CMY | K)) as usize).cloned())
 }
 
 /// The id of the registered image `hash` in display lists.
@@ -158,15 +160,24 @@ pub fn info(hash: &str) -> Option<ImageInfo> {
     entry_by_hash(hash).map(|e| e.info.clone())
 }
 
-/// The file of the image `id`, or a PNG of it as it prints for a `PROOF` id; empty
-/// for an unknown id.
+/// The file of the image `id`, or a PNG of it for a marked id; empty for an
+/// unknown id.
 pub fn bytes(id: u32) -> Vec<u8> {
-    if id & PROOF == 0 {
+    if id & (PROOF | CMY | K) == 0 {
         return entry(id).map(|e| e.bytes.to_vec()).unwrap_or_default();
     }
     let proof = || {
         let c = cmyk(id)?;
-        let rgba: Vec<u8> = preview_pixels(&c.color)
+        let rgb: Vec<u8> = match id & K != 0 {
+            true => c.color.chunks(4).flat_map(|p| [255 - p[3]; 3]).collect(),
+            false if id & CMY != 0 => c
+                .color
+                .chunks(4)
+                .flat_map(|p| [255 - p[0], 255 - p[1], 255 - p[2]])
+                .collect(),
+            false => preview_pixels(&c.color),
+        };
+        let rgba: Vec<u8> = rgb
             .chunks(3)
             .zip(c.alpha.iter())
             .flat_map(|(p, &a)| [p[0], p[1], p[2], a])
@@ -183,11 +194,14 @@ pub fn bytes(id: u32) -> Vec<u8> {
     proof().unwrap_or_default()
 }
 
-/// The image `id` for the PDF, which embeds a JPEG as it is, or separates it
-/// through FOGRA51 for a CMYK document.
+/// The image `id` for the PDF, which embeds a JPEG as it is, separates it
+/// through FOGRA51 for `cmyk`, or shows it as it prints for a `PROOF` id.
 pub fn pdf(id: u32, cmyk: bool) -> Option<krilla::image::Image> {
     if cmyk {
         return krilla::image::Image::from_custom(self::cmyk(id)?, true).ok();
+    }
+    if id & PROOF != 0 {
+        return krilla::image::Image::from_png(bytes(id).into(), true).ok();
     }
     let e = entry(id)?;
     pdf_image(e.format, &e.bytes).ok()
@@ -302,6 +316,14 @@ pub mod tests {
         assert_eq!(bytes(id), png(3, 2));
         let proof = pixmap_of(&bytes(id | PROOF));
         assert!(proof.red() > 200 && proof.green() < 100, "{proof:?}");
+        let [c, m, y, k] = [0, 1, 2, 3].map(|i| cmyk(id).unwrap().color[i]);
+        let cmy = pixmap_of(&bytes(id | CMY));
+        assert_eq!(
+            [cmy.red(), cmy.green(), cmy.blue()],
+            [255 - c, 255 - m, 255 - y]
+        );
+        let black = pixmap_of(&bytes(id | K));
+        assert_eq!([black.red(), black.green(), black.blue()], [255 - k; 3]);
         let px = pixmap(id).unwrap();
         assert_eq!((px.width(), px.height()), (3, 2));
         assert_eq!(px.pixel(0, 0).unwrap().red(), 255);

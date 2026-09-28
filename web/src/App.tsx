@@ -34,10 +34,11 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
 
   const exportPdf = () => {
     if (exporting) return
-    const file = `${name.replace(/\.satz$/, '')}.pdf`
+    const title = name.replace(/\.satz$/, '')
+    const file = `${title}.pdf`
     setExporting(true)
     say('Exporting PDF…')
-    pdf(editor)
+    pdf(editor, title)
       .then(
         (bytes) => {
           download(bytes, file, 'application/pdf')

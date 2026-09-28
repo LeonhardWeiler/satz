@@ -82,7 +82,7 @@ const exporter: Job = { fonts: 1, version: '' }
 const previewer: Job = { fonts: 1, version: '' }
 
 /** Sends the document to the worker of `job`, as far as it does not have it, to run `preview` or export a PDF. */
-function run<T>(job: Job, editor: Editor, preview?: Preview) {
+function run<T>(job: Job, editor: Editor, preview?: Preview, title?: string) {
   const w = (job.worker ??= new Worker(new URL('./exportWorker.ts', import.meta.url), { type: 'module' }))
   const n = editor.snapshot.fonts.length
   const fonts = Array.from({ length: n - job.fonts }, (_, i) => editor.engine.font(job.fonts + i))
@@ -100,12 +100,12 @@ function run<T>(job: Job, editor: Editor, preview?: Preview) {
       Object.assign(job, { worker: undefined, fonts: 1, version: '' })
       fail(new Error(e.message))
     }
-    w.postMessage({ doc, fonts, preview }, [...(doc ? [doc.buffer] : []), ...fonts.map((f) => f.buffer)])
+    w.postMessage({ doc, fonts, preview, title }, [...(doc ? [doc.buffer] : []), ...fonts.map((f) => f.buffer)])
   })
 }
 
-/** The document as PDF, made in a worker. */
-export const pdf = (editor: Editor) => run<{ pdf: Uint8Array }>(exporter, editor).then((r) => r.pdf)
+/** The document titled `title` as PDF, made in a worker. */
+export const pdf = (editor: Editor, title: string) => run<{ pdf: Uint8Array }>(exporter, editor, undefined, title).then((r) => r.pdf)
 
 /** The inks of pages as the preflight shows them, rasterized in a worker. */
 export const preview = (editor: Editor, p: Preview) => run<Previewed>(previewer, editor, p)
