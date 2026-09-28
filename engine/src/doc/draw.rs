@@ -113,6 +113,10 @@ pub struct Node {
     /// Effective pixels per inch of the coarsest visible image fill.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ppi: Option<f64>,
+    /// Not drawn, exported, hit or preflighted, with its children.
+    pub hidden: bool,
+    /// Not hit on the canvas, with its children.
+    pub locked: bool,
     #[serde(flatten)]
     pub style: Style,
     #[serde(flatten)]
@@ -207,6 +211,9 @@ pub(super) fn visit(
     snap: &Snapshot,
     out: &mut Vec<Issue>,
 ) {
+    if n.hidden {
+        return;
+    }
     let mut problems = Vec::new();
     let s = &n.style;
     let paints = || s.fills.iter().chain(&s.strokes).filter(|f| f.visible);
@@ -344,7 +351,7 @@ pub(super) fn page_op(p: &Page) -> Op {
 
 pub(super) fn draw_all(nodes: &[Node], ops: &mut Vec<Op>, pal: &Palette) {
     for (i, n) in nodes.iter().enumerate() {
-        if n.style.mask {
+        if n.style.mask && !n.hidden {
             ops.push(Op::BeginMask);
             draw(n, ops, pal);
             ops.push(Op::EndMask);
@@ -357,6 +364,9 @@ pub(super) fn draw_all(nodes: &[Node], ops: &mut Vec<Op>, pal: &Palette) {
 }
 
 pub(super) fn draw(n: &Node, ops: &mut Vec<Op>, pal: &Palette) {
+    if n.hidden {
+        return;
+    }
     let frame = [n.x, n.y, n.w, n.h].map(|v| v as f32);
     let item = |ops: &mut Vec<Op>, body: Vec<Op>| {
         if body.is_empty() {
@@ -417,21 +427,38 @@ pub(super) fn draw(n: &Node, ops: &mut Vec<Op>, pal: &Palette) {
 }
 
 /// Like `draw_all`, a node is only hit inside every mask below it among its siblings.
-pub(super) fn hit(nodes: &[Node], x: f64, y: f64, tolerance: f64, path: &mut Vec<String>) -> bool {
+/// Locked layers are skipped unless `locks` is false, as for masks.
+pub(super) fn hit(
+    nodes: &[Node],
+    x: f64,
+    y: f64,
+    tolerance: f64,
+    locks: bool,
+    path: &mut Vec<String>,
+) -> bool {
     for (i, n) in nodes.iter().enumerate().rev() {
-        let masks = nodes[..i].iter().filter(|m| m.style.mask);
-        if masks
-            .into_iter()
-            .any(|m| !hit(std::slice::from_ref(m), x, y, tolerance, &mut Vec::new()))
-        {
+        if n.hidden || locks && n.locked {
+            continue;
+        }
+        let masks = nodes[..i].iter().filter(|m| m.style.mask && !m.hidden);
+        if masks.into_iter().any(|m| {
+            !hit(
+                std::slice::from_ref(m),
+                x,
+                y,
+                tolerance,
+                false,
+                &mut Vec::new(),
+            )
+        }) {
             continue;
         }
         let inside = x >= n.x && x <= n.x + n.w && y >= n.y && y <= n.y + n.h;
         path.push(n.id.clone());
         let found = match &n.kind {
-            Kind::Group { children } => hit(children, x, y, tolerance, path),
+            Kind::Group { children } => hit(children, x, y, tolerance, locks, path),
             Kind::Frame { children, clip } => {
-                (inside || !clip) && hit(children, x, y, tolerance, path) || inside
+                (inside || !clip) && hit(children, x, y, tolerance, locks, path) || inside
             }
             Kind::Shape(s) => {
                 let p = outline(s, [n.x, n.y, n.w, n.h].map(|v| v as f32));
@@ -693,7 +720,7 @@ impl Doc {
         let mut path = Vec::new();
         if within {
             let x = x - master_dx(m, p);
-            hit(&self.master_layers(m, p), x, y, tolerance, &mut path);
+            hit(&self.master_layers(m, p), x, y, tolerance, true, &mut path);
         }
         path.into_iter().next()
     }
@@ -707,7 +734,7 @@ impl Doc {
             .chain(&snap.masters)
             .find(|p| p.id == page)
         {
-            hit(&p.children, x, y, tolerance, &mut path);
+            hit(&p.children, x, y, tolerance, true, &mut path);
         }
         path
     }
@@ -816,6 +843,8 @@ impl Doc {
             active_modes,
             bindings: self.bindings(id),
             override_of: v[OVERRIDE_OF].as_str().map(String::from),
+            hidden: v["hidden"] == true,
+            locked: v["locked"] == true,
             ppi: style
                 .fills
                 .iter()
@@ -1230,6 +1259,84 @@ mod tests {
             .map(|i| i.0)
             .collect();
         assert!([bleeds, short, inside, t].iter().all(|id| rgb.contains(id)));
+    }
+
+    #[test]
+    fn a_hidden_layer_and_its_children_are_not_drawn_hit_or_preflighted_until_undone() {
+        let (mut d, p) = empty();
+        let a = create(&mut d, &p, NewKind::Rect, [0.0, 50.0, 20.0, 20.0]);
+        let b = create(&mut d, &p, NewKind::Rect, [0.0, 50.0, 10.0, 10.0]);
+        let g = d
+            .apply(Command::Group {
+                ids: vec![b.clone()],
+                frame: false,
+            })
+            .unwrap()
+            .remove(0);
+        cmyk(&mut d);
+        assert!(!page(&d).children.iter().any(|n| n.hidden || n.locked));
+        let before = page_ops(&d);
+        let shown = problems(&d);
+        assert!(shown.iter().any(|i| i.0 == b));
+        let hide = |hidden| Props {
+            hidden: Some(hidden),
+            ..Props::default()
+        };
+        set(&mut d, &g, hide(true));
+        assert!(page(&d).children[1].hidden);
+        assert_eq!(items(&page_ops(&d)).len(), 1);
+        assert_eq!(hits(&d, 5.0, 55.0, 0.0), std::slice::from_ref(&a));
+        assert!(!problems(&d).iter().any(|i| i.0 == b));
+        set(&mut d, &a, hide(true));
+        assert!(items(&page_ops(&d)).is_empty());
+        assert!(hits(&d, 5.0, 55.0, 0.0).is_empty());
+        d.apply(Command::Undo).unwrap();
+        d.apply(Command::Undo).unwrap();
+        assert_eq!(page_ops(&d), before);
+        assert_eq!(problems(&d), shown);
+    }
+
+    #[test]
+    fn a_locked_layer_and_its_children_are_drawn_but_not_hit() {
+        let (mut d, p) = empty();
+        let a = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 20.0, 20.0]);
+        let f = create(&mut d, &p, NewKind::Frame, [0.0, 0.0, 10.0, 10.0]);
+        let b = create(&mut d, &f, NewKind::Rect, [0.0, 0.0, 5.0, 5.0]);
+        assert_eq!(hits(&d, 2.0, 2.0, 0.0), [f.clone(), b.clone()]);
+        let before = page_ops(&d);
+        let lock = |locked| Props {
+            locked: Some(locked),
+            ..Props::default()
+        };
+        set(&mut d, &b, lock(true));
+        assert_eq!(hits(&d, 2.0, 2.0, 0.0), std::slice::from_ref(&f));
+        set(&mut d, &f, lock(true));
+        assert_eq!(hits(&d, 2.0, 2.0, 0.0), std::slice::from_ref(&a));
+        assert_eq!(page_ops(&d), before);
+        set(&mut d, &a, lock(true));
+        assert!(hits(&d, 2.0, 2.0, 0.0).is_empty());
+    }
+
+    #[test]
+    fn a_locked_mask_still_masks_what_is_hit_and_a_hidden_one_masks_nothing() {
+        let (mut d, p) = empty();
+        let m = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
+        let a = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 20.0, 20.0]);
+        d.apply(Command::Mask {
+            ids: vec![m.clone()],
+        })
+        .unwrap();
+        let props = |hidden, locked| Props {
+            hidden: Some(hidden),
+            locked: Some(locked),
+            ..Props::default()
+        };
+        set(&mut d, &m, props(false, true));
+        assert_eq!(hits(&d, 5.0, 5.0, 0.0), std::slice::from_ref(&a));
+        assert!(hits(&d, 15.0, 15.0, 0.0).is_empty());
+        set(&mut d, &m, props(true, false));
+        assert_eq!(hits(&d, 15.0, 15.0, 0.0), [a]);
+        assert!(!page_ops(&d).contains(&Op::BeginMask));
     }
 
     #[test]

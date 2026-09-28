@@ -321,6 +321,8 @@ pub enum Command {
 #[serde(rename_all = "camelCase")]
 pub struct Props {
     pub name: Option<String>,
+    pub hidden: Option<bool>,
+    pub locked: Option<bool>,
     pub clip: Option<bool>,
     pub radius: Option<f32>,
     pub count: Option<u32>,

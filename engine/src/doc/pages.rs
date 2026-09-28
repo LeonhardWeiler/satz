@@ -663,6 +663,26 @@ mod tests {
     }
 
     #[test]
+    fn a_hidden_or_locked_master_layer_is_not_hit_and_a_hidden_one_not_drawn_on_its_pages() {
+        let (mut d, p) = empty();
+        let m = add_master(&mut d);
+        let under = create(&mut d, &m, NewKind::Rect, [0.0, 0.0, 20.0, 20.0]);
+        use_master(&mut d, &p, Some(&m)).unwrap();
+        let props = |hidden, locked| Props {
+            hidden: Some(hidden),
+            locked: Some(locked),
+            ..Props::default()
+        };
+        set(&mut d, &under, props(false, true));
+        assert_eq!(d.master_hit(&p, 15.0, 15.0, 0.0), None);
+        assert_eq!(items(&page_ops(&d)).len(), 1);
+        set(&mut d, &under, props(true, false));
+        assert_eq!(d.master_hit(&p, 15.0, 15.0, 0.0), None);
+        assert!(items(&page_ops(&d)).is_empty());
+        assert!(items(&d.render(&m)).is_empty());
+    }
+
+    #[test]
     fn a_master_draws_under_the_layers_of_the_pages_that_use_it_and_is_not_hit_there() {
         let (mut d, p1) = empty();
         let p2 = add_page(&mut d, None);
