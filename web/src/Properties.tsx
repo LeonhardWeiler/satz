@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { bounds, ends, MM, scopeOf, useEditor, type Editor } from './editor'
 import { Icon, KindIcon } from './icons'
 import { FORMATS } from './Start'
-import { addFonts, canFindFonts, findFonts } from './file'
+import { addFonts, canFindFonts, findFonts, removeFont } from './file'
 import type { Bindable as Prop, Blend, Constraint, Command, Fill, Node, Page, Props, Size, Style } from './model'
 import { AutoLayout } from './AutoLayout'
 import { EffectList, PaintList } from './Paints'
@@ -136,8 +136,15 @@ export function Properties({
       {!box && (
         <Section title="Fonts" onAdd={() => addFonts(editor, say)}>
           <ul className="fonts">
-            {fonts.map((f) => (
-              <li key={f.hash}>{f.name}</li>
+            {fonts.map((f, i) => (
+              <li key={f.hash}>
+                <span>{f.name}</span>
+                {i > 0 && (
+                  <button type="button" className="icon-button" aria-label={`Remove ${f.name}`} title="Remove font" onClick={() => removeFont(editor, f.hash).catch(() => {})}>
+                    <Icon name="minus" />
+                  </button>
+                )}
+              </li>
             ))}
             {missingFonts.map(({ font }) => (
               <li key={font.hash} className="missing" title="Missing: its text is set in Source Serif 4">

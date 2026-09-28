@@ -182,6 +182,11 @@ export class Editor {
     return this.change(() => this.engine.addFont(bytes))
   }
 
+  /** Removes the added font `hash`; text set in it shows as missing. */
+  removeFont(hash: string) {
+    this.change(() => this.engine.removeFont(hash))
+  }
+
   /** Places a PNG or JPEG file in the middle of the current page at 300 ppi, or smaller to fit, and selects it. */
   placeImage(bytes: Uint8Array, name: string) {
     const { hash } = this.change(() => this.engine.addImage(bytes) as { hash: string })

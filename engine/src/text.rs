@@ -58,7 +58,7 @@ pub fn typeface(bytes: &[u8]) -> Result<Typeface, String> {
 pub fn add_font(bytes: &[u8]) -> Result<Typeface, String> {
     let face = typeface(bytes)?;
     FONTS.with_borrow_mut(|f| {
-        if !f.iter().any(|(t, _)| t.hash == face.hash) {
+        if !f.iter().any(|(t, b)| t.hash == face.hash && !b.is_empty()) {
             f.push((face.clone(), bytes.into()));
         }
     });
@@ -69,12 +69,24 @@ pub fn add_font(bytes: &[u8]) -> Result<Typeface, String> {
 pub fn font_id(face: &Option<Typeface>) -> u32 {
     let Some(face) = face else { return 0 };
     FONTS
-        .with_borrow(|f| f.iter().position(|(t, _)| t.hash == face.hash))
+        .with_borrow(|f| {
+            f.iter()
+                .position(|(t, b)| t.hash == face.hash && !b.is_empty())
+        })
         .map_or(MISSING, |i| i as u32)
 }
 
 pub fn font_bytes(id: u32) -> Rc<[u8]> {
     FONTS.with_borrow(|f| f.get((id & !MISSING) as usize).unwrap_or(&f[0]).1.clone())
+}
+
+/// Removes the added font `hash`; its id stays, with no bytes.
+pub fn remove_font(hash: &str) {
+    FONTS.with_borrow_mut(|f| {
+        for (_, b) in f.iter_mut().skip(1).filter(|(t, _)| t.hash == hash) {
+            *b = Rc::from([]);
+        }
+    });
 }
 
 /// The number of fonts, which only grows.
@@ -84,7 +96,12 @@ pub fn fonts_added() -> usize {
 
 /// The fonts text can be set in.
 pub fn fonts() -> Vec<Typeface> {
-    FONTS.with_borrow(|f| f.iter().map(|(t, _)| t.clone()).collect())
+    FONTS.with_borrow(|f| {
+        f.iter()
+            .filter(|(_, b)| !b.is_empty())
+            .map(|(t, _)| t.clone())
+            .collect()
+    })
 }
 
 /// The keys of `Attrs` a text style sets.

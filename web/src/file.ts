@@ -81,10 +81,23 @@ type Job = { worker?: Worker; fonts: number; version: string }
 const exporter: Job = { fonts: 1, version: '' }
 const previewer: Job = { fonts: 1, version: '' }
 
+function reset(job: Job) {
+  job.worker?.terminate()
+  Object.assign(job, { worker: undefined, fonts: 1, version: '' })
+}
+
+/** Removes the added font `hash` from the document's fonts, this browser and the workers. */
+export async function removeFont(editor: Editor, hash: string) {
+  editor.removeFont(hash)
+  reset(exporter)
+  reset(previewer)
+  await result((await store('fonts')).delete(hash))
+}
+
 /** Sends the document to the worker of `job`, as far as it does not have it, to run `preview` or export a PDF. */
 function run<T>(job: Job, editor: Editor, preview?: Preview, title?: string) {
   const w = (job.worker ??= new Worker(new URL('./exportWorker.ts', import.meta.url), { type: 'module' }))
-  const n = editor.snapshot.fonts.length
+  const n = editor.engine.fontsAdded()
   const fonts = Array.from({ length: n - job.fonts }, (_, i) => editor.engine.font(job.fonts + i))
   const version = editor.engine.version()
   const doc = version === job.version ? null : editor.engine.save()
@@ -96,8 +109,7 @@ function run<T>(job: Job, editor: Editor, preview?: Preview, title?: string) {
       done(data)
     }
     w.onerror = (e) => {
-      w.terminate()
-      Object.assign(job, { worker: undefined, fonts: 1, version: '' })
+      reset(job)
       fail(new Error(e.message))
     }
     w.postMessage({ doc, fonts, preview, title }, [...(doc ? [doc.buffer] : []), ...fonts.map((f) => f.buffer)])

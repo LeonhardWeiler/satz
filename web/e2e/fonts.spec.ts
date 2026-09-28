@@ -9,13 +9,18 @@ async function add(page: Page, files: string | { name: string; mimeType: string;
   await (await chooser).setFiles(files)
 }
 
-test('an added font is listed and stays after a reload', async ({ page }) => {
+test('an added font is listed, stays after a reload and is removed', async ({ page }) => {
   await open(page)
   await expect(fonts(page).getByRole('listitem')).toHaveText(['Source Serif 4'])
   await add(page, new URL('../../engine/fonts/DMMono-Regular.ttf', import.meta.url).pathname)
   await expect(fonts(page).getByRole('listitem')).toHaveText(['Source Serif 4', 'DM Mono Regular'])
   await page.reload()
   await expect(fonts(page).getByRole('listitem')).toHaveText(['Source Serif 4', 'DM Mono Regular'])
+  await fonts(page).getByRole('listitem').last().hover()
+  await fonts(page).getByRole('button', { name: 'Remove DM Mono Regular' }).click()
+  await expect(fonts(page).getByRole('listitem')).toHaveText(['Source Serif 4'])
+  await page.reload()
+  await expect(fonts(page).getByRole('listitem')).toHaveText(['Source Serif 4'])
 })
 
 test('a file that is not a font is not added and says why', async ({ page }) => {

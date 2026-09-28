@@ -194,6 +194,18 @@ impl Engine {
         Ok(serde_wasm_bindgen::to_value(&face)?)
     }
 
+    /// Removes the added font `hash`.
+    #[wasm_bindgen(js_name = removeFont)]
+    pub fn remove_font(&mut self, hash: &str) -> Result<(), JsError> {
+        self.doc.remove_font(hash).map_err(|e| JsError::new(&e))
+    }
+
+    /// The number of font ids, removed ones included.
+    #[wasm_bindgen(js_name = fontsAdded)]
+    pub fn fonts_added(&self) -> usize {
+        text::fonts_added()
+    }
+
     /// Adds a PNG or JPEG file to the document's images and returns its hash and
     /// size in pixels, for the command `placeImage`.
     #[wasm_bindgen(js_name = addImage)]

@@ -78,6 +78,14 @@ impl Doc {
         Ok(face)
     }
 
+    /// Removes the added font `hash`; text set in it falls back as a missing font.
+    pub fn remove_font(&mut self, hash: &str) -> Res<()> {
+        text::remove_font(hash);
+        self.invalidate();
+        self.doc.set_next_commit_origin(LAYOUT_ORIGIN);
+        self.finish(vec![], false).map(drop)
+    }
+
     /// The story of the text layer `n` and the lines of it set in its frame.
     pub(super) fn frame_lines(&self, n: TreeID) -> Res<(Rc<Story>, Vec<text::Line>)> {
         let flows = self.flows();
@@ -1586,6 +1594,20 @@ mod tests {
                 .count()
                 >= 2
         );
+    }
+
+    #[test]
+    fn a_removed_font_is_reported_missing_until_it_is_added_again() {
+        let (mut d, _) = empty();
+        let t = text(&mut d, "Hello world");
+        let face = text::add_font(MONO).unwrap();
+        format(&mut d, &t, Some([0, 5]), in_font(face.clone())).unwrap();
+        d.remove_font(&face.hash).unwrap();
+        assert_eq!(d.snapshot().missing_fonts[0].font, face);
+        assert_eq!(d.snapshot().fonts.len(), 1);
+        d.add_font(MONO).unwrap();
+        assert!(d.snapshot().missing_fonts.is_empty());
+        assert_eq!(text::fonts_added(), 3);
     }
 
     #[test]

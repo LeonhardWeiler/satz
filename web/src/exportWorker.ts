@@ -51,7 +51,7 @@ function statsOf(e: Engine, ppi: number, keep: string[]) {
 onmessage = async ({ data: { doc, fonts, preview, title } }: MessageEvent<{ doc: Uint8Array | null; fonts: Uint8Array[]; preview?: Preview; title?: string }>) => {
   try {
     const e = await engine
-    for (const bytes of fonts) e.addFont(bytes)
+    for (const bytes of fonts) if (bytes.length) e.addFont(bytes)
     if (doc) {
       e.load(doc)
       for (const i of inks.values()) i.free()
