@@ -173,7 +173,6 @@ export function Layers({ editor }: { editor: Editor }) {
               <button
                 type="button"
                 tabIndex={-1}
-                data-on={node.locked || undefined}
                 aria-label={node.locked ? 'Unlock' : 'Lock'}
                 title={`${node.locked ? 'Unlock' : 'Lock'} (Ctrl+Shift+L)`}
                 onClick={() => editor.apply({ type: 'set', id: node.id, locked: !node.locked })}
@@ -183,7 +182,6 @@ export function Layers({ editor }: { editor: Editor }) {
               <button
                 type="button"
                 tabIndex={-1}
-                data-on={node.hidden || undefined}
                 aria-label={node.hidden ? 'Show' : 'Hide'}
                 title={`${node.hidden ? 'Show' : 'Hide'} (Ctrl+Shift+H)`}
                 onClick={() => editor.apply({ type: 'set', id: node.id, hidden: !node.hidden })}

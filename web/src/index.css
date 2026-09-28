@@ -385,7 +385,8 @@ textarea {
 }
 
 .layer:hover .acts button,
-.acts button[data-on] {
+.layer:focus-within .acts button,
+[aria-selected='true'] > .layer .acts button {
   visibility: visible;
 }
 

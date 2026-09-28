@@ -50,6 +50,7 @@ test('a hidden layer is not on the canvas, in the pdf or in preflight until show
   await page.mouse.click(...inside)
   await expect(rect(page)).toHaveAttribute('aria-selected', 'false')
 
+  await rect(page).hover()
   await show.click()
   await page.mouse.move(1, 1)
   expect(await at(page, inside)).not.toBe(paper)
