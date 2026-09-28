@@ -1,11 +1,11 @@
 import type { Node } from './model'
 
 const ICONS = {
-  move: <path d="M4 2.5 12.5 8 8.5 9 6.5 13z" />,
+  move: <path d="M3.6 3.3c-.2-.6.3-1 .8-.7l8.1 4.9c.5.3.4 1-.2 1.1L8.8 9.2l-1.7 3.7c-.3.6-1 .5-1.1-.1z" />,
   frame: <path d="M5 2v12M11 2v12M2 5h12M2 11h12" />,
-  rect: <rect x="3" y="3" width="10" height="10" rx=".5" />,
+  rect: <rect x="3" y="3" width="10" height="10" rx="2" />,
   ellipse: <circle cx="8" cy="8" r="5.5" />,
-  polygon: <path d="M8 2.5 13.5 12.5h-11z" />,
+  polygon: <path d="M7.1 3.6a1 1 0 0 1 1.8 0l4.6 8.4a1 1 0 0 1-.9 1.5H3.4a1 1 0 0 1-.9-1.5z" />,
   star: <path d="m8 2.5 1.7 3.6 3.8.5-2.8 2.6.7 3.8L8 11.2 4.6 13l.7-3.8L2.5 6.6l3.8-.5z" />,
   line: <path d="m3 13 10-10" />,
   arrow: <path d="m3 13 10-10M7.5 3H13v5.5" />,
@@ -18,7 +18,7 @@ const ICONS = {
   ),
   pen: (
     <>
-      <path d="M8 2 12 8l-2 5.5H6L4 8z" />
+      <path d="M7.2 2.9a1 1 0 0 1 1.6 0L12 8l-2 5.5H6L4 8z" />
       <path d="M8 2v5" />
       <circle cx="8" cy="8.3" r="1" />
     </>
@@ -26,23 +26,23 @@ const ICONS = {
   text: <path d="M3.5 4V3h9v1M8 3v10M6 13h4" />,
   image: (
     <>
-      <rect x="2.5" y="3.5" width="11" height="9" rx="1" />
+      <rect x="2.5" y="3.5" width="11" height="9" rx="2" />
       <path d="m2.5 11 3.5-3.5 3 3 1.5-1.5 3 3" />
       <circle cx="10.5" cy="6.5" r="1" />
     </>
   ),
-  group: <rect x="2.5" y="2.5" width="11" height="11" rx="1" strokeDasharray="2 2" />,
+  group: <rect x="2.5" y="2.5" width="11" height="11" rx="2" strokeDasharray="2 2" />,
   mask: (
     <>
-      <rect x="2.5" y="2.5" width="11" height="11" rx="1" />
+      <rect x="2.5" y="2.5" width="11" height="11" rx="2" />
       <circle cx="8" cy="8" r="3" />
     </>
   ),
   masked: <path d="M5.5 3v6.5h6" />,
   autoLayout: (
     <>
-      <rect x="2.5" y="2.5" width="11" height="4" rx="1" />
-      <rect x="2.5" y="9.5" width="11" height="4" rx="1" />
+      <rect x="2.5" y="2.5" width="11" height="4" rx="1.5" />
+      <rect x="2.5" y="9.5" width="11" height="4" rx="1.5" />
     </>
   ),
   arrowDown: <path d="M8 3v10M4.5 9.5 8 13l3.5-3.5" />,
@@ -102,13 +102,13 @@ const ICONS = {
   ),
   lock: (
     <>
-      <rect x="4" y="7" width="8" height="6" rx="1" />
+      <rect x="4" y="7" width="8" height="6" rx="1.5" />
       <path d="M5.5 7V5.5a2.5 2.5 0 0 1 5 0V7" />
     </>
   ),
   unlock: (
     <>
-      <rect x="4" y="7" width="8" height="6" rx="1" />
+      <rect x="4" y="7" width="8" height="6" rx="1.5" />
       <path d="M5.5 7V5.5a2.5 2.5 0 0 1 4.8-1" />
     </>
   ),
@@ -126,7 +126,14 @@ const ICONS = {
   alignBottomEdges: <path d="M2 13.5h12M4.5 3v8h2.5V3zM9 6v5h2.5V6z" />,
   distributeX: <path d="M2.5 2v12M13.5 2v12M6.5 5h3v6h-3z" />,
   distributeY: <path d="M2 2.5h12M2 13.5h12M5 6.5h6v3H5z" />,
-  tidy: <path d="M3 3h4v4H3zM9 3h4v4H9zM3 9h4v4H3zM9 9h4v4H9z" />,
+  tidy: (
+    <>
+      <rect x="3" y="3" width="4" height="4" rx="1" />
+      <rect x="9" y="3" width="4" height="4" rx="1" />
+      <rect x="3" y="9" width="4" height="4" rx="1" />
+      <rect x="9" y="9" width="4" height="4" rx="1" />
+    </>
+  ),
   alignTop: <path d="M3 3h10M8 5.5v8M5.5 8 8 5.5 10.5 8" />,
   alignMiddle: <path d="M3 8h10M8 2v4M8 10v4M6 4l2 2 2-2M6 12l2-2 2 2" />,
   alignBottom: <path d="M3 13h10M8 2.5v8M5.5 8 8 10.5 10.5 8" />,
@@ -134,7 +141,7 @@ const ICONS = {
   autoHeight: <path d="M8 2.5v11M5.5 5 8 2.5 10.5 5M5.5 11 8 13.5 10.5 11" />,
   fixedSize: (
     <>
-      <rect x="3" y="3" width="10" height="10" rx=".5" />
+      <rect x="3" y="3" width="10" height="10" rx="2" />
       <path d="M6 8h4M8 6v4" />
     </>
   ),
@@ -181,7 +188,7 @@ const ICONS = {
       <path d="M7.25 6 6.5 11M9.5 6l-.75 5M5.75 7.75h4.5M5.5 9.5h4.5" />
     </>
   ),
-  warn: <path d="M8 2.5 14 13H2zM8 6.5v3M8 11.3v.2" />,
+  warn: <path d="M7.1 3.1a1 1 0 0 1 1.8 0l5.2 9.4a1 1 0 0 1-.9 1.5H2.8a1 1 0 0 1-.9-1.5zM8 6.5v3M8 11.3v.2" />,
   error: (
     <>
       <circle cx="8" cy="8" r="5.5" />
@@ -194,9 +201,9 @@ const ICONS = {
       <path d="m5.5 8 1.8 1.8L10.8 6" />
     </>
   ),
-  doc: <path d="M4 2.5h5.5L12 5v8.5H4zM9.5 2.5V5H12" />,
-  portrait: <rect x="4.5" y="2.5" width="7" height="11" rx="1" />,
-  landscape: <rect x="2.5" y="4.5" width="11" height="7" rx="1" />,
+  doc: <path d="M5.5 2.5h4L12 5v7.5a1.5 1.5 0 0 1-1.5 1.5h-5A1.5 1.5 0 0 1 4 12.5V4a1.5 1.5 0 0 1 1.5-1.5zM9.5 2.5V5H12" />,
+  portrait: <rect x="4.5" y="2.5" width="7" height="11" rx="1.5" />,
+  landscape: <rect x="2.5" y="4.5" width="11" height="7" rx="1.5" />,
   opacity: (
     <>
       <circle cx="8" cy="8" r="5.5" />
@@ -211,7 +218,14 @@ const ICONS = {
       <path d="M3 12.5h10" strokeWidth="3" />
     </>
   ),
-  pages: <path d="M2.5 2.5h4.5v5H2.5zM9 2.5h4.5v5H9zM2.5 9.5h4.5v4H2.5zM9 9.5h4.5v4H9z" />,
+  pages: (
+    <>
+      <rect x="2.5" y="2.5" width="4.5" height="5" rx="1" />
+      <rect x="9" y="2.5" width="4.5" height="5" rx="1" />
+      <rect x="2.5" y="9.5" width="4.5" height="4" rx="1" />
+      <rect x="9" y="9.5" width="4.5" height="4" rx="1" />
+    </>
+  ),
   master: <path d="M2.5 4.5h8v9h-8zM5.5 4.5v-2h8v9h-3" />,
   search: (
     <>
@@ -223,13 +237,13 @@ const ICONS = {
   preflight: <path d="M8 1.8 13.5 4v4c0 3.2-2.4 5.3-5.5 6.2C4.9 13.3 2.5 11.2 2.5 8V4zM5.5 8l1.8 1.8L10.5 6.5" />,
   panelLeft: (
     <>
-      <rect x="2" y="3" width="12" height="10" rx="1" />
+      <rect x="2" y="3" width="12" height="10" rx="2" />
       <path d="M6 3v10" />
     </>
   ),
   panelRight: (
     <>
-      <rect x="2" y="3" width="12" height="10" rx="1" />
+      <rect x="2" y="3" width="12" height="10" rx="2" />
       <path d="M10 3v10" />
     </>
   ),
