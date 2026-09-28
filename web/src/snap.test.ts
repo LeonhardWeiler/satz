@@ -69,3 +69,14 @@ test('a box inside another is measured to each of its sides', () => {
     { x1: 25, y1: 60, x2: 25, y2: 200, length: 140 },
   ])
 })
+
+test('a box inside another is measured to the nearest box beside it on each side', () => {
+  const page = { x: 0, y: 0, w: 100, h: 200 }
+  const others = [{ x: 50, y: 50, w: 20, h: 20 }, { x: 80, y: 20, w: 10, h: 10 }, { x: 20, y: 100, w: 5, h: 5 }]
+  expect(measure({ x: 10, y: 20, w: 30, h: 40 }, page, others)).toEqual([
+    { x1: 0, y1: 40, x2: 10, y2: 40, length: 10 },
+    { x1: 40, y1: 55, x2: 50, y2: 55, length: 10 },
+    { x1: 25, y1: 0, x2: 25, y2: 20, length: 20 },
+    { x1: 22.5, y1: 60, x2: 22.5, y2: 100, length: 40 },
+  ])
+})

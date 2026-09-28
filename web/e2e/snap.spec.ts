@@ -48,7 +48,7 @@ test('alt shows the distances to the layer under the pointer or to the page', as
 
   await page.mouse.move(...(await screen(page, 60, 120)))
   await page.keyboard.down('Alt')
-  await expect(labels(page)).toHaveText(['20 mm', '108 mm', '20 mm', '170 mm'])
+  await expect(labels(page)).toHaveText(['20 mm', '40 mm', '20 mm', '170 mm'])
   await page.mouse.move(...(await screen(page, 90, 30)))
   await expect(labels(page)).toHaveText(['40 mm'])
   await page.keyboard.up('Alt')

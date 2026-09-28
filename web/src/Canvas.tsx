@@ -344,7 +344,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
         const target = !alt || !sel || drag || ed || pen || editor.tool !== 'move' || editor.overview !== null
           ? undefined
           : hovered || (page && { x: page.x, y: 0, w: page.width, h: page.height })
-        if (target) measures = measure(sel!, target)
+        if (target) measures = measure(sel!, target, snapsNow().others)
         else if (!drag) measures = []
         marks.current!.innerHTML = svgOf(target)
         const at = (axis: 'x' | 'y', o: number) => snapped.filter((g) => g.axis === axis).map((g) => o + g.at * view.zoom)
@@ -388,6 +388,12 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
       target = undefined
     }
 
+    /** Whether a click at `p` with the pen closes its path on the first anchor. */
+    const closes = (p: Point) => {
+      const pen = editor.pen
+      const first = pen?.anchors[0]
+      return !!first && pen.anchors.length > 1 && Math.hypot(first.x - p.x + editor.dx(pen.id), first.y - p.y) * view.zoom <= HANDLE
+    }
     const handleUnder = (e: Pointer) => handleAt(view, e.offsetX, e.offsetY, handles())
     const track = () => {
       if (!pointer || drag || editor.pen) return

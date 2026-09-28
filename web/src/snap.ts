@@ -80,10 +80,11 @@ export function nearest(box: Box, others: Box[], n = 2) {
 }
 
 /**
- * The distances between `a` and `b`: to each side of the other when one is inside the other,
- * else across the gap on each axis they are apart on.
+ * The distances between `a` and `b`: when one is inside the other, from each side of the inner
+ * one to the nearest of `others` on that side or else to the outer one; else across the gap on
+ * each axis they are apart on.
  */
-export function measure(a: Box, b: Box): Measure[] {
+export function measure(a: Box, b: Box, others: Box[] = []): Measure[] {
   const out: Measure[] = []
   const h = (x1: number, x2: number, y: number) => {
     if (x2 - x1 > EPSILON) out.push({ x1, y1: y, x2, y2: y, length: x2 - x1 })
@@ -95,11 +96,19 @@ export function measure(a: Box, b: Box): Measure[] {
     p.x >= q.x - EPSILON && p.y >= q.y - EPSILON && p.x + p.w <= q.x + q.w + EPSILON && p.y + p.h <= q.y + q.h + EPSILON
   if (inside(a, b) || inside(b, a)) {
     const [i, u] = inside(a, b) ? [a, b] : [b, a]
-    const [cx, cy] = [i.x + i.w / 2, i.y + i.h / 2]
-    h(u.x, i.x, cy)
-    h(i.x + i.w, u.x + u.w, cy)
-    v(u.y, i.y, cx)
-    v(i.y + i.h, u.y + u.h, cx)
+    const [ir, ib, ur, ub] = [i.x + i.w, i.y + i.h, u.x + u.w, u.y + u.h]
+    const row = others.filter((o) => o.y < ib && o.y + o.h > i.y)
+    const column = others.filter((o) => o.x < ir && o.x + o.w > i.x)
+    const y = (o?: Box) => (o ? (Math.max(i.y, o.y) + Math.min(ib, o.y + o.h)) / 2 : i.y + i.h / 2)
+    const x = (o?: Box) => (o ? (Math.max(i.x, o.x) + Math.min(ir, o.x + o.w)) / 2 : i.x + i.w / 2)
+    const l = row.filter((o) => o.x + o.w <= i.x + EPSILON && o.x + o.w > u.x).sort((p, q) => q.x + q.w - p.x - p.w)[0]
+    const r = row.filter((o) => o.x >= ir - EPSILON && o.x < ur).sort((p, q) => p.x - q.x)[0]
+    const t = column.filter((o) => o.y + o.h <= i.y + EPSILON && o.y + o.h > u.y).sort((p, q) => q.y + q.h - p.y - p.h)[0]
+    const d = column.filter((o) => o.y >= ib - EPSILON && o.y < ub).sort((p, q) => p.y - q.y)[0]
+    h(l ? l.x + l.w : u.x, i.x, y(l))
+    h(ir, r ? r.x : ur, y(r))
+    v(t ? t.y + t.h : u.y, i.y, x(t))
+    v(ib, d ? d.y : ub, x(d))
     return out
   }
   const oy = [Math.max(a.y, b.y), Math.min(a.y + a.h, b.y + b.h)]
