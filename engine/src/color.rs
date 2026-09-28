@@ -315,6 +315,35 @@ pub fn to_cmyk(rgb: [f32; 3]) -> [f32; 4] {
     cmyk.map(|v| v.clamp(0.0, 1.0))
 }
 
+/// The colour `rgb` prints visibly different in FOGRA51.
+pub fn out_of_gamut(rgb: [f32; 3]) -> bool {
+    apart(rgb, to_rgb(to_cmyk(rgb)))
+}
+
+/// The sRGB colours `a` and `b` differ in chroma by more than 10 in CIELAB.
+pub fn apart(a: [f32; 3], b: [f32; 3]) -> bool {
+    let (a, b) = (chroma(a), chroma(b));
+    (a[0] - b[0]).hypot(a[1] - b[1]) > 10.0
+}
+
+/// a* and b* of the sRGB colour `rgb` in CIELAB under D65.
+fn chroma(rgb: [f32; 3]) -> [f32; 2] {
+    let [r, g, b] = rgb.map(linear);
+    let xyz = [
+        (0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.9505,
+        0.2126 * r + 0.7152 * g + 0.0722 * b,
+        (0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.089,
+    ]
+    .map(|t| {
+        if t > 0.008856 {
+            t.cbrt()
+        } else {
+            7.787 * t + 16.0 / 116.0
+        }
+    });
+    [500.0 * (xyz[0] - xyz[1]), 200.0 * (xyz[1] - xyz[2])]
+}
+
 /// CMYK bytes of the RGBA bytes `rgba`, whose alpha is left out.
 pub fn separate_pixels(rgba: &[u8]) -> Vec<u8> {
     static T: OnceLock<Arc<Transform8BitExecutor>> = OnceLock::new();

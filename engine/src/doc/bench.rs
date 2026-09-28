@@ -90,4 +90,17 @@ fn bench() {
             [set_frame, keystroke, render, hit, save, pdf].map(|t| t.as_secs_f64() * 1e3);
         println!("{n:<6} {a:<10.2} {b:<10.2} {c:<7.2} {e:<6.2} {g:<6.2} {f:.0}");
     }
+    let (mut d, ids, _) = pages(1);
+    cmyk(&mut d);
+    for ppi in [36.0, 72.0] {
+        let inks = median(5, || {
+            d.inks(&ids[0], ppi).unwrap();
+        });
+        let i = d.inks(&ids[0], ppi).unwrap();
+        let image = median(5, || {
+            i.image(0b0101, 300.0, true, true);
+        });
+        let [a, b] = [inks, image].map(|t| t.as_secs_f64() * 1e3);
+        println!("inks at {ppi} ppi {a:.1} ms, image {b:.1} ms");
+    }
 }

@@ -14,6 +14,8 @@ pub struct Snapshot {
     /// Resolution at which the PDF rasterizes shadows and blurs.
     pub raster_ppi: f64,
     pub color_mode: ColorMode,
+    /// The highest total of inks in % that preflight allows.
+    pub ink_limit: f64,
     #[serde(flatten)]
     pub palette: Palette,
     /// The fonts text can be set in, the bundled one first.
@@ -57,7 +59,20 @@ pub enum Problem {
     LowPpi {
         ppi: f64,
     },
+    /// Has an RGB colour that prints visibly different in a CMYK document.
+    Gamut,
+    /// Has a colour whose inks add up to `ink` %, above the document's limit.
+    Ink {
+        ink: f64,
+    },
+    /// Ends `distance` pt inside the trim, closer than `SAFE`.
+    NearTrim {
+        distance: f64,
+    },
 }
+
+/// How far inside the trim a layer should stay, 3 mm.
+const SAFE: f64 = 3.0 * 72.0 / 25.4;
 
 /// A page or a master; `name` is a master's, `master` the one a page uses and
 /// `detached` its master layers it overrides.
@@ -264,8 +279,14 @@ pub(super) fn visit(
         && n.y + n.h > 0.0
     {
         let insets = [n.x - x0, x1 - n.x - n.w, n.y, p.height - n.y - n.h];
+        let near = insets
+            .iter()
+            .copied()
+            .filter(|d| (0.01..SAFE - 0.01).contains(d));
         if insets.iter().any(|&d| d < 0.01 && d > 0.01 - p.bleed) {
             problems.push(Problem::ShortOfBleed);
+        } else if let Some(distance) = near.reduce(f64::min) {
+            problems.push(Problem::NearTrim { distance });
         }
     }
     let scope = Scope {
@@ -277,6 +298,27 @@ pub(super) fn visit(
         && (image || colors.iter().any(|c| c.ink(&scope) == Ink::Rgb))
     {
         problems.push(Problem::Rgb);
+    }
+    if snap.color_mode == ColorMode::Cmyk {
+        let inks: Vec<Ink> = colors.iter().map(|c| c.ink(&scope)).collect();
+        let rgb = colors.iter().zip(&inks).filter(|(_, i)| **i == Ink::Rgb);
+        if rgb.clone().any(|(c, _)| {
+            let [r, g, b, _] = c.rgba(&scope);
+            color::out_of_gamut([r, g, b])
+        }) {
+            problems.push(Problem::Gamut);
+        }
+        let ink = colors
+            .iter()
+            .zip(&inks)
+            .map(|(c, i)| match i {
+                Ink::Spot { tint, .. } => f64::from(*tint) * 100.0,
+                _ => f64::from(i.cmyk(&c.rgba(&scope)).iter().sum::<f32>()) * 100.0,
+            })
+            .fold(0.0, f64::max);
+        if ink > snap.ink_limit + 0.5 {
+            problems.push(Problem::Ink { ink });
+        }
     }
     if let Some(ppi) = n.ppi.filter(|&ppi| ppi < PRINT_PPI - 0.5) {
         problems.push(Problem::LowPpi { ppi });
@@ -555,6 +597,9 @@ impl Doc {
             masters: self.masters().into_iter().map(sheet).collect(),
             facing_pages,
             raster_ppi: num(&self.doc.get_map("document"), "rasterPpi"),
+            ink_limit: Some(num(&self.doc.get_map("document"), "inkLimit"))
+                .filter(|&l| l > 0.0)
+                .unwrap_or(300.0),
             color_mode: self.color_mode(),
             palette,
             can_undo: self.undo.can_undo(),
@@ -582,6 +627,31 @@ impl Doc {
             }
         }
         ops
+    }
+
+    /// The display list of the page `id` as it prints in FOGRA51: RGB colours and images
+    /// show separated.
+    pub fn proof(&self, id: &str) -> Vec<Op> {
+        let mut ops = recolor(&self.render(id), &|c, ink| match ink {
+            Ink::Rgb => {
+                let [r, g, b] = color::to_rgb(color::to_cmyk([c[0], c[1], c[2]]));
+                [r, g, b, c[3]]
+            }
+            _ => *c,
+        });
+        for op in &mut ops {
+            if let Op::Image { image, .. } = op {
+                *image |= image::PROOF;
+            }
+        }
+        ops
+    }
+
+    /// The inks of the page `id` as it prints at `ppi`.
+    pub fn inks(&self, id: &str, ppi: f32) -> Option<Inks> {
+        let snap = self.snapshot();
+        let p = snap.pages.iter().find(|p| p.id == id)?;
+        Inks::new(&self.print(&snap, p), ppi)
     }
 
     /// The document as a PDF, every page from one snapshot.
@@ -1259,6 +1329,127 @@ mod tests {
             .map(|i| i.0)
             .collect();
         assert!([bleeds, short, inside, t].iter().all(|id| rgb.contains(id)));
+    }
+
+    #[test]
+    fn preflight_reports_colours_out_of_gamut_ink_over_the_limit_and_layers_near_the_trim() {
+        let (mut d, p) = empty();
+        facing(&mut d, false);
+        let solid = |color| Props {
+            fills: Some(vec![Fill {
+                color,
+                ..Fill::default()
+            }]),
+            ..Props::default()
+        };
+        let near = create(&mut d, &p, NewKind::Rect, [5.0, 100.0, 20.0, 20.0]);
+        let red = create(&mut d, &p, NewKind::Rect, [50.0, 100.0, 20.0, 20.0]);
+        let dark = create(&mut d, &p, NewKind::Rect, [100.0, 100.0, 20.0, 20.0]);
+        set(&mut d, &near, solid(process(0.0, 0.0, 0.0, 1.0)));
+        set(&mut d, &red, solid(Color::Rgb(0xff0000ff)));
+        set(&mut d, &dark, solid(process(1.0, 1.0, 1.0, 1.0)));
+        assert_eq!(
+            problems(&d),
+            [(near.clone(), Problem::NearTrim { distance: 5.0 })]
+        );
+        cmyk(&mut d);
+        let found = problems(&d);
+        assert!(found.contains(&(red.clone(), Problem::Gamut)));
+        assert!(found.contains(&(dark.clone(), Problem::Ink { ink: 400.0 })));
+        assert_eq!(found.iter().filter(|i| i.0 == near).count(), 1);
+        let limit = |ink_limit| Command::SetDocument {
+            raster_ppi: None,
+            color_mode: None,
+            facing_pages: None,
+            ink_limit: Some(ink_limit),
+        };
+        d.apply(limit(400.0)).unwrap();
+        assert!(!problems(&d).iter().any(|i| i.0 == dark));
+        assert!(d.apply(limit(401.0)).is_err());
+        assert_eq!(d.build_snapshot().ink_limit, 400.0);
+    }
+
+    #[test]
+    fn pages_rasterize_the_coverage_of_each_ink_and_the_colours_out_of_gamut() {
+        let (mut d, p) = empty();
+        let Page {
+            width,
+            height,
+            bleed,
+            ..
+        } = page(&d);
+        let solid = |color| Props {
+            fills: Some(vec![Fill {
+                color,
+                ..Fill::default()
+            }]),
+            ..Props::default()
+        };
+        let dark = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 72.0, 72.0]);
+        set(&mut d, &dark, solid(process(0.5, 0.0, 0.0, 1.0)));
+        let orange = swatch(&mut d, "Orange", process(0.0, 0.5, 1.0, 0.0), true).unwrap();
+        let spot = create(&mut d, &p, NewKind::Rect, [0.0, 144.0, 72.0, 72.0]);
+        set(&mut d, &spot, solid(bound(&orange, 0.5)));
+        let red = create(&mut d, &p, NewKind::Rect, [144.0, 0.0, 72.0, 72.0]);
+        set(&mut d, &red, solid(Color::Rgb(0xff0000ff)));
+        cmyk(&mut d);
+        let inks = d.inks(&p, 10.0).unwrap();
+        let px = |v: f64| (v * 10.0 / 72.0) as u32;
+        let size = |v: f64| (v * 10.0 / 72.0).ceil() as u32;
+        assert_eq!(
+            (inks.width(), inks.height()),
+            (size(width + 2.0 * bleed), size(height + 2.0 * bleed))
+        );
+        assert_eq!(inks.spots(), ["Orange"]);
+        let max = inks.max();
+        assert_eq!(max.len(), 5);
+        assert!((max[3] - 100.0).abs() < 1.0 && (max[4] - 50.0).abs() < 1.0);
+        let at =
+            |x: f64, y: f64| (px(y + bleed + 36.0) * inks.width() + px(x + bleed + 36.0)) as usize;
+        let coverage = inks.coverage();
+        assert!((coverage[at(0.0, 0.0)] - 150.0).abs() < 1.0);
+        assert!((coverage[at(0.0, 144.0)] - 50.0).abs() < 1.0);
+        let image = inks.image(0b11111, 120.0, true, true);
+        assert_eq!(image[at(0.0, 0.0) * 4..][..4], [204, 47, 131, 255]);
+        assert_ne!(image[at(144.0, 0.0) * 4 + 3], 0);
+        assert_eq!(image[at(0.0, 144.0) * 4 + 3], 0);
+        let black = inks.image(0b01000, 400.0, false, false);
+        let [r, g, b, _] = black[at(0.0, 0.0) * 4..][..4] else {
+            unreachable!()
+        };
+        assert!(r < 80 && g < 80 && b < 80);
+        assert!(black[at(0.0, 144.0) * 4] > 240);
+    }
+
+    #[test]
+    fn the_proof_shows_rgb_colours_as_they_print() {
+        let (mut d, p) = empty();
+        let red = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 72.0, 72.0]);
+        set(
+            &mut d,
+            &red,
+            Props {
+                fills: Some(vec![Fill {
+                    color: Color::Rgb(0xff0000ff),
+                    ..Fill::default()
+                }]),
+                ..Props::default()
+            },
+        );
+        let solid = |ops: Vec<Op>| {
+            ops.into_iter().find_map(|op| match op {
+                Op::FillPath {
+                    paint: Paint::Solid { color, .. },
+                    ..
+                } => Some(color),
+                _ => None,
+            })
+        };
+        let [r, g, b, _] = solid(d.proof(&p)).unwrap();
+        let [pr, pg, pb] = color::to_rgb(color::to_cmyk([1.0, 0.0, 0.0]));
+        assert!((r - pr).abs() < 1e-4 && (g - pg).abs() < 1e-4 && (b - pb).abs() < 1e-4);
+        assert!(g > 0.1 || b > 0.1);
+        assert_eq!(solid(d.render(&p)).unwrap(), [1.0, 0.0, 0.0, 1.0]);
     }
 
     #[test]

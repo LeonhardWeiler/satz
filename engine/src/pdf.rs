@@ -1,6 +1,8 @@
 use crate::color::{ColorMode, Ink};
-use crate::display_list::{CLOSE, CUBIC, LINE, MOVE, Op, Paint, Shadow, Stop as ListStop, close};
-use crate::image;
+use crate::display_list::{
+    CLOSE, CUBIC, LINE, MOVE, Op, Paint, Shadow, Stop as ListStop, close, recolor,
+};
+use crate::image::{self, plate};
 use crate::raster::{blur, extent, rasterize, tint};
 use crate::text::{MISSING, font_bytes, fonts};
 use krilla::Document;
@@ -18,7 +20,7 @@ use krilla::paint::{
 use krilla::surface::Surface;
 use krilla::text::{Font, GlyphId, KrillaGlyph};
 use std::rc::Rc;
-use tiny_skia::{IntSize, Pixmap};
+use tiny_skia::Pixmap;
 
 const MM: f32 = 72.0 / 25.4;
 const MARK_SPACE: f32 = 10.0 * MM;
@@ -318,50 +320,6 @@ fn raster(
         Size::from_wh(pw as f32 * scale, ph as f32 * scale).unwrap(),
     );
     s.pop();
-}
-
-/// `ops` with every colour replaced by `f(colour, ink)`.
-fn recolor(ops: &[Op], f: &impl Fn(&[f32; 4], &Ink) -> [f32; 4]) -> Vec<Op> {
-    let stops = |stops: &mut Vec<ListStop>| {
-        for s in stops {
-            s.color = f(&s.color, &s.ink);
-        }
-    };
-    ops.iter()
-        .map(|op| {
-            let mut op = op.clone();
-            match &mut op {
-                Op::FillPath { paint, .. }
-                | Op::StrokePath { paint, .. }
-                | Op::GlyphRun { paint, .. } => match paint {
-                    Paint::Solid { color, ink } => *color = f(color, ink),
-                    Paint::Linear { stops: s, .. } | Paint::Radial { stops: s, .. } => stops(s),
-                },
-                Op::PushLayer { shadows, .. } => {
-                    for s in shadows {
-                        s.color = f(&s.color, &s.ink);
-                    }
-                }
-                _ => {}
-            }
-            op
-        })
-        .collect()
-}
-
-/// The CMYK pixels `c` with the channels `pick` takes as RGB, premultiplied.
-fn plate(c: &image::Cmyk, pick: fn([f32; 4]) -> [f32; 3]) -> Option<Pixmap> {
-    let data = c
-        .color
-        .chunks(4)
-        .zip(c.alpha.iter())
-        .flat_map(|(p, &a)| {
-            let [x, y, z] = pick([p[0], p[1], p[2], p[3]].map(|v| v as f32 / 255.0));
-            let a = a as f32 / 255.0;
-            [x, y, z].map(|v| byte(v * a)).into_iter().chain([byte(a)])
-        })
-        .collect();
-    Pixmap::from_vec(data, IntSize::from_wh(c.size.0, c.size.1)?)
 }
 
 fn crop_marks(s: &mut Surface, w: f32, h: f32) {

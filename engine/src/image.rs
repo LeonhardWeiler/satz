@@ -262,6 +262,21 @@ fn decode(format: Format, bytes: &[u8]) -> Option<(Vec<u8>, u32, u32)> {
     })
 }
 
+/// The CMYK pixels `c` with the channels `pick` takes as RGB, premultiplied.
+pub fn plate(c: &Cmyk, pick: fn([f32; 4]) -> [f32; 3]) -> Option<Pixmap> {
+    let data = c
+        .color
+        .chunks(4)
+        .zip(c.alpha.iter())
+        .flat_map(|(p, &a)| {
+            let [x, y, z] = pick([p[0], p[1], p[2], p[3]].map(|v| v as f32 / 255.0));
+            let a = a as f32 / 255.0;
+            [x * a, y * a, z * a, a].map(|v| (v.clamp(0.0, 1.0) * 255.0).round() as u8)
+        })
+        .collect();
+    Pixmap::from_vec(data, IntSize::from_wh(c.size.0, c.size.1)?)
+}
+
 #[cfg(test)]
 pub mod tests {
     use super::*;

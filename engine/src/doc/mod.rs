@@ -1,8 +1,9 @@
-use crate::color::Ink;
+use crate::color::{self, Ink};
 use crate::color::{Color, ColorMode, Swatch};
-use crate::display_list::{CLOSE, LINE, MOVE, Op, Paint, rect, shift};
+use crate::display_list::{CLOSE, LINE, MOVE, Op, Paint, recolor, rect, shift};
 use crate::geom::{self, Shape, bounds, contains, fit, near, outline};
 use crate::image::{self, ImageInfo};
+use crate::inks::Inks;
 use crate::layout::{Align3, Direction, Layout, MainAlign, Size, Sizing, arrange};
 use crate::style::{
     Align, Blend, Cap, Constraint, Constraints, Effect, EffectKind, Fill, FillKind, FillStop, Join,
@@ -165,6 +166,8 @@ pub enum Command {
         /// Pairs the pages into spreads, as in InDesign.
         #[serde(default)]
         facing_pages: Option<bool>,
+        #[serde(default)]
+        ink_limit: Option<f64>,
     },
     /// Pastes above the topmost of `above`, or else into the parent the layers were
     /// copied from when that is on `page`, or else onto `page`.
@@ -720,6 +723,7 @@ impl Doc {
             raster_ppi: Some(300.0),
             color_mode: Some(mode),
             facing_pages: Some(facing),
+            ink_limit: None,
         })
         .unwrap();
         for _ in 1..pages {
@@ -1137,7 +1141,8 @@ impl Doc {
                 raster_ppi,
                 color_mode,
                 facing_pages,
-            } => self.set_document(raster_ppi, color_mode, facing_pages),
+                ink_limit,
+            } => self.set_document(raster_ppi, color_mode, facing_pages, ink_limit),
             Command::AddSwatch { name, color, spot } => self.add_swatch(name, color, spot),
             Command::SetSwatch {
                 id,
@@ -2046,6 +2051,7 @@ mod tests {
             raster_ppi: Some(raster_ppi),
             color_mode: None,
             facing_pages: None,
+            ink_limit: None,
         }
     }
 
@@ -2054,6 +2060,7 @@ mod tests {
             raster_ppi: None,
             color_mode: Some(ColorMode::Cmyk),
             facing_pages: None,
+            ink_limit: None,
         })
         .unwrap();
     }
@@ -2312,6 +2319,7 @@ mod tests {
             raster_ppi: None,
             color_mode: None,
             facing_pages: Some(on),
+            ink_limit: None,
         })
         .unwrap();
     }
@@ -3217,6 +3225,12 @@ mod tests {
             )
         };
         let bad = [
+            Command::SetDocument {
+                raster_ppi: Some(150.0),
+                color_mode: Some(ColorMode::Cmyk),
+                facing_pages: None,
+                ink_limit: Some(500.0),
+            },
             set(
                 &r,
                 Props {
@@ -3265,6 +3279,7 @@ mod tests {
                 raster_ppi: Some(5000.0),
                 color_mode: None,
                 facing_pages: Some(true),
+                ink_limit: None,
             },
             Command::SetPage {
                 id: p.clone(),

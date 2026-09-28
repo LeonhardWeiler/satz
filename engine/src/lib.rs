@@ -5,6 +5,7 @@ mod doc;
 mod examples;
 mod geom;
 mod image;
+mod inks;
 mod layout;
 mod linebreak;
 mod pdf;
@@ -69,8 +70,12 @@ impl Engine {
 
     /// The view is invalid after the next call into the engine.
     #[wasm_bindgen(js_name = displayList)]
-    pub fn display_list(&mut self, page: &str) -> Uint32Array {
-        self.list = encode(&self.doc.render(page));
+    pub fn display_list(&mut self, page: &str, proof: bool) -> Uint32Array {
+        self.list = encode(&if proof {
+            self.doc.proof(page)
+        } else {
+            self.doc.render(page)
+        });
         unsafe { Uint32Array::view(&self.list) }
     }
 
@@ -126,6 +131,11 @@ impl Engine {
             .map_err(|e| JsError::new(&e))?;
         self.overlay = encode(&ops);
         Ok(unsafe { Uint32Array::view(&self.overlay) })
+    }
+
+    /// The inks of the page `page` as it prints at `ppi`.
+    pub fn inks(&self, page: &str, ppi: f32) -> Option<inks::Inks> {
+        self.doc.inks(page, ppi)
     }
 
     pub fn pdf(&self) -> Vec<u8> {

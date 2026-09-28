@@ -332,6 +332,35 @@ pub fn encode(ops: &[Op]) -> Vec<u32> {
     out
 }
 
+/// `ops` with every colour replaced by `f(colour, ink)`.
+pub fn recolor(ops: &[Op], f: &impl Fn(&[f32; 4], &Ink) -> [f32; 4]) -> Vec<Op> {
+    let stops = |stops: &mut Vec<Stop>| {
+        for s in stops {
+            s.color = f(&s.color, &s.ink);
+        }
+    };
+    ops.iter()
+        .map(|op| {
+            let mut op = op.clone();
+            match &mut op {
+                Op::FillPath { paint, .. }
+                | Op::StrokePath { paint, .. }
+                | Op::GlyphRun { paint, .. } => match paint {
+                    Paint::Solid { color, ink } => *color = f(color, ink),
+                    Paint::Linear { stops: s, .. } | Paint::Radial { stops: s, .. } => stops(s),
+                },
+                Op::PushLayer { shadows, .. } => {
+                    for s in shadows {
+                        s.color = f(&s.color, &s.ink);
+                    }
+                }
+                _ => {}
+            }
+            op
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -202,9 +202,13 @@ impl Doc {
         raster_ppi: Option<f64>,
         color_mode: Option<ColorMode>,
         facing_pages: Option<bool>,
+        ink_limit: Option<f64>,
     ) -> Res<Vec<String>> {
         if raster_ppi.is_some_and(|ppi| !(72.0..=1200.0).contains(&ppi)) {
             return Err("raster ppi must be in 72..=1200".into());
+        }
+        if ink_limit.is_some_and(|l| !(200.0..=400.0).contains(&l)) {
+            return Err("ink limit must be in 200..=400".into());
         }
         let m = self.doc.get_map("document");
         match facing_pages {
@@ -223,6 +227,9 @@ impl Doc {
         }
         if let Some(mode) = color_mode {
             m.insert("colorMode", loro(mode)?).map_err(err)?;
+        }
+        if let Some(limit) = ink_limit {
+            m.insert("inkLimit", limit).map_err(err)?;
         }
         Ok(vec![])
     }
