@@ -176,16 +176,6 @@ body,
   cursor: grabbing;
 }
 
-.zoom {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  font-weight: 500;
-  color: var(--text-2);
-  font-variant-numeric: tabular-nums;
-  pointer-events: none;
-}
-
 /* Takes keyboard and IME input at the caret; shows only the text being composed. */
 .text-input {
   position: absolute;

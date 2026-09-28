@@ -922,7 +922,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
             }}
           />
         )}
-        <output className="zoom" aria-label="Zoom">
+        <output className="sr-only" aria-label="Zoom">
           {Math.round((zoom / PX_PER_PT) * 100)}%
         </output>
         <div ref={quick} className="quick" role="toolbar" aria-label="Quick edit">
