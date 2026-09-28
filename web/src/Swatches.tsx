@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { fromRgb, neutral, resolve, rgb, type Color } from './color'
-import { Picker, SwatchOption } from './ColorPicker'
+import { Chip, NO_SCOPE, Picker, SwatchOption } from './ColorPicker'
 import { NameInput, nextName } from './controls'
 import { scopeOf, useEditor, type Editor } from './editor'
 import type { Fill } from './model'
@@ -23,6 +23,7 @@ export function Swatches({ editor }: { editor: Editor }) {
   const swatches = snapshot.swatches
   const mode = useEditor(editor, (e) => e.snapshot.colorMode)
   const [editing, setEditing] = useState<string | null>(null)
+  const [renaming, setRenaming] = useState<string | null>(null)
   const list = useRef<HTMLDivElement>(null)
   const swatch = swatches.find((s) => s.id === editing)
 
@@ -50,12 +51,22 @@ export function Swatches({ editor }: { editor: Editor }) {
           <div
             key={s.id}
             data-id={s.id}
-            onDoubleClick={() => setEditing(s.id)}
+            onDoubleClick={() => {
+              setEditing(null)
+              setRenaming(s.id)
+            }}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') setEditing(s.id)
+              if (e.key === 'Enter' && renaming !== s.id) setEditing(s.id)
             }}
           >
-            <SwatchOption swatch={s} selected={s.id === editing} onPick={() => pick(s.id)} />
+            {renaming === s.id ? (
+              <div className="swatch-option" onBlur={() => setRenaming(null)}>
+                <Chip color={s.color} scope={NO_SCOPE} />
+                <NameInput label="Swatch name" value={s.name} autoFocus onCommit={(name) => editor.apply({ type: 'setSwatch', id: s.id, name })} />
+              </div>
+            ) : (
+              <SwatchOption swatch={s} selected={s.id === editing} onPick={() => pick(s.id)} />
+            )}
           </div>
         ))}
       </div>
