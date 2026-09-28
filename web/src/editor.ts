@@ -69,6 +69,10 @@ export class Editor {
   status = ''
   /** Typing into the edited text is one undo step until the caret moves. */
   private typing = false
+  /** The plain text the last copy of layers put on the clipboard; other text there came from outside. */
+  copied: string | null = null
+  /** The last copies `duplicate` made and where their originals were. */
+  private copies: { ids: string[]; from: { x: number; y: number } } | null = null
   /** How many undo groups are open; the engine holds one for all of them. */
   private groups = 0
   private savedAt: string
@@ -283,6 +287,49 @@ export class Editor {
 
   storyOf(n: TextNode) {
     return this.snapshot.stories[n.story]
+  }
+
+  /** Copies the layers `ids` and returns them as plain text: the text of text layers, the names of the others. */
+  copy(ids: string[]) {
+    this.apply({ type: 'copy', ids })
+    const nodes = ids.map((id) => this.nodes.get(id)!.node)
+    this.copied = [...new Set(nodes.map((n) => (n.kind === 'text' ? this.storyOf(n).text : n.name)))].join('\n')
+    return this.copied
+  }
+
+  /**
+   * Duplicates `ids` and selects the copies. Duplicating the last copies again after
+   * they were moved moves the new copies as far on, unless `step` is false.
+   */
+  duplicate(ids: string[], step = true) {
+    const at = () => this.nodes.get(ids[0])!.node
+    const last = this.copies?.ids.join() === ids.join() && step ? this.copies.from : null
+    const d = last ? { x: at().x - last.x, y: at().y - last.y } : { x: 0, y: 0 }
+    const from = { x: at().x, y: at().y }
+    const copies = this.batch(() => {
+      const copies = this.apply({ type: 'duplicate', ids })
+      for (const id of d.x || d.y ? copies : []) {
+        const n = this.nodes.get(id)!.node
+        this.apply({ type: 'setFrame', id, x: n.x + d.x, y: n.y + d.y, w: n.w, h: n.h })
+      }
+      return copies
+    })
+    this.copies = { ids: copies, from }
+    this.set({ selection: copies })
+  }
+
+  /** Places `text` from outside as a new text layer amid the current page, at most 80 % of its width wide. */
+  pasteText(text: string) {
+    const page = this.page
+    const id = this.batch(() => {
+      const [id] = this.apply({ type: 'create', parent: page.id, kind: 'text', x: 0, y: 0, w: 0, h: 0 })
+      this.apply({ type: 'setText', id, text })
+      const n = () => this.nodes.get(id)!.node
+      if (n().w > page.width * 0.8) this.apply({ type: 'setFrame', id, x: 0, y: 0, w: page.width * 0.8, h: n().h })
+      this.apply({ type: 'setFrame', id, x: (page.width - n().w) / 2, y: (page.height - n().h) / 2, w: n().w, h: n().h })
+      return id
+    })
+    this.set({ selection: [id] })
   }
 
   /** The layer `id` on any page or master, and the page it is on. */

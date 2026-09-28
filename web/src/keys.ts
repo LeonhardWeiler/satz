@@ -55,7 +55,7 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
     editor.apply({ type: key === 'y' || e.shiftKey ? 'redo' : 'undo' })
   }
   else if (mod && key === 'a') editor.set({ selection: siblings })
-  else if (mod && key === 'v') editor.set({ selection: editor.apply({ type: 'paste', above: ids, page: editor.page.id }) })
+  else if (mod && key === 'v' && !e.isTrusted) editor.set({ selection: editor.apply({ type: 'paste', above: ids, page: editor.page.id }) })
   else if (e.key === 'Escape') {
     if (editor.tool !== 'move') editor.setTool('move')
     else if (!ids.length && editor.master) editor.exitMaster()
@@ -72,8 +72,8 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
   } else if (!mod && !e.altKey && e.shiftKey && key === 'g') editor.set({ grids: !editor.grids })
   else if (!ids.length) return false
   else if (e.key === 'Delete' || e.key === 'Backspace') editor.apply({ type: 'delete', ids })
-  else if (mod && (key === 'c' || key === 'x')) {
-    editor.apply({ type: 'copy', ids })
+  else if (mod && (key === 'c' || key === 'x') && !e.isTrusted) {
+    navigator.clipboard?.writeText(editor.copy(ids)).catch(() => {})
     if (key === 'x') editor.apply({ type: 'delete', ids })
   } else if (e.key === 'Enter' && e.shiftKey && !mod) {
     if (one?.parent && editor.selected().every((n) => editor.nodes.get(n.id)?.parent === one.parent)) {
@@ -85,7 +85,7 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
   } else if (e.key === 'Enter' && !mod) {
     const kids = editor.selected().flatMap((n) => ('children' in n ? n.children.map((c) => c.id) : []))
     if (kids.length) editor.set({ selection: kids })
-  } else if (mod && key === 'd') editor.set({ selection: editor.apply({ type: 'duplicate', ids }) })
+  } else if (mod && key === 'd') editor.duplicate(ids)
   else if (mod && key === 'g' && e.shiftKey) editor.set({ selection: editor.apply({ type: 'ungroup', ids }) })
   else if (mod && key === 'g') editor.set({ selection: editor.apply({ type: 'group', ids, frame: e.altKey }) })
   else if ((mod && key === 'r') || e.key === 'F2') editor.set({ renaming: ids[0] })

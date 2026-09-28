@@ -113,6 +113,28 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
   }, [])
 
   useEffect(() => {
+    const clip = (e: ClipboardEvent) => {
+      if (e.defaultPrevented || isTyping(e) || !e.clipboardData) return
+      const ids = editor.selection
+      if (e.type === 'paste') {
+        const images = [...e.clipboardData.files].filter((f) => f.type === 'image/png' || f.type === 'image/jpeg')
+        const text = e.clipboardData.getData('text/plain').replace(/\r\n?/g, '\n')
+        if (images.length) drop(editor, images, say)
+        else if (text.trim() && text !== editor.copied) editor.pasteText(text)
+        else editor.set({ selection: editor.apply({ type: 'paste', above: ids, page: editor.page.id }) })
+      } else {
+        if (!ids.length) return
+        e.clipboardData.setData('text/plain', editor.copy(ids))
+        if (e.type === 'cut') editor.apply({ type: 'delete', ids })
+      }
+      e.preventDefault()
+    }
+    const types = ['copy', 'cut', 'paste'] as const
+    types.forEach((t) => window.addEventListener(t, clip))
+    return () => types.forEach((t) => window.removeEventListener(t, clip))
+  }, [editor, say])
+
+  useEffect(() => {
     const files = (e: DragEvent) => e.dataTransfer?.types.includes('Files')
     const over = (e: DragEvent) => files(e) && e.preventDefault()
     const onDrop = (e: DragEvent) => {

@@ -66,6 +66,31 @@ test('double-clicking a text puts the caret where it was clicked, and ime input 
   await expect(editor).toHaveCount(0)
 })
 
+test('copied layers paste back, text from outside pastes as a text layer and a moved duplicate repeats its step', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  await open(page)
+  const layers = page.getByRole('tree', { name: 'Layers' })
+  const suns = layers.getByRole('button', { name: 'Sun', exact: true })
+  await suns.click()
+  await page.keyboard.press('Control+c')
+  await page.keyboard.press('Control+v')
+  await expect(suns).toHaveCount(2)
+
+  await page.evaluate(() => navigator.clipboard.writeText('Hello from elsewhere'))
+  await page.keyboard.press('Control+v')
+  await expect(layers.getByRole('button', { name: 'Hello from elsewhere', exact: true })).toBeVisible()
+
+  await suns.first().click()
+  const x = page.getByRole('complementary', { name: 'Properties' }).getByRole('textbox', { name: 'X in mm' }).first()
+  const at = Number(await x.inputValue())
+  await page.keyboard.press('Control+d')
+  await page.keyboard.press('Shift+ArrowRight')
+  await expect.poll(async () => Number(await x.inputValue())).toBeCloseTo(at + 10)
+  await page.keyboard.press('Control+d')
+  await expect.poll(async () => Number(await x.inputValue())).toBeCloseTo(at + 20)
+  await expect(suns).toHaveCount(4)
+})
+
 test('a triple click in a text selects all of it', async ({ page }) => {
   await open(page)
   const layers = page.getByRole('tree', { name: 'Layers' })

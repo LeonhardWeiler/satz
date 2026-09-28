@@ -3,7 +3,7 @@ import { ACTIONS } from './commands'
 import { Icon } from './icons'
 
 const GROUPS: [string, [string, string][]][] = [
-  ['Canvas', [['Ctrl click', 'Select inside a group'], ['Ctrl Shift click', 'Override a master layer'], ['Double-click', 'Edit text, enter a group'], ['Alt drag', 'Resize from the centre'], ['Space drag', 'Pan'], ['Ctrl wheel', 'Zoom'], ['Ctrl drag', 'No snapping'], ['Shift drag', 'Lock to an axis'], ['Drag beside a corner', 'Turn, Shift by 15°'], ['Enter on a shape', 'Edit its points'], ['Alt', 'Distances to the layer under the pointer']]],
+  ['Canvas', [['Ctrl click', 'Select inside a group'], ['Ctrl Shift click', 'Override a master layer'], ['Double-click', 'Edit text, enter a group'], ['Alt drag', 'Resize from the centre'], ['Space drag', 'Pan'], ['Ctrl wheel', 'Zoom'], ['Ctrl drag', 'No snapping'], ['Shift drag', 'Lock to an axis'], ['Drag beside a corner', 'Turn, Shift by 15°'], ['Enter on a shape', 'Edit its points'], ['Ctrl D on a moved copy', 'Copy again as far on'], ['Ctrl V of outside text', 'New text layer'], ['Alt', 'Distances to the layer under the pointer']]],
   ['Layers', [['↑ ↓', 'Previous, next layer'], ['→ ←', 'Open, close a group'], ['Enter', 'Select children'], ['Shift Enter', 'Select parent'], ['Tab', 'Next sibling'], ['Shift Tab', 'Previous sibling'], ['F2', 'Rename'], ['Arrows on canvas', 'Nudge 1 mm, Shift 10 mm']]],
   ['Fields', [['Drag the label', 'Change the value'], ['↑ ↓', '1, Shift 10, Alt 0.1'], ['118/2', 'Calculates on Enter'], ['12pt', 'Converts the unit']]],
   ['Text', [['Enter', 'Edit the selected text'], ['Esc', 'Stop editing'], ['Ctrl Alt Shift N', 'Insert the page number'], ['Double-click a port', 'Unthread']]],

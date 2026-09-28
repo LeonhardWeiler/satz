@@ -760,7 +760,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
           drag.active = true
           editor.beginGroup()
           if (e.altKey) {
-            editor.set({ selection: editor.apply({ type: 'duplicate', ids: drag.frames.map((n) => n.id) }) })
+            editor.duplicate(drag.frames.map((n) => n.id), false)
             drag.frames = editor.selected()
           }
           drag.box = bounds(drag.frames.map(placed))
