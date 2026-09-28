@@ -67,10 +67,11 @@ export function Properties({
   const numbers = targets.map((id) => ids.indexOf(id) + 1)
   const sheets = targets.flatMap((id) => (id === page.id ? page : (snapshot.pages.find((p) => p.id === id) ?? [])))
   const master = sameOf(sheets, (p) => p.master ?? '')
+  const setSheets = (props: PageProps) => editor.batch(() => sheets.forEach((p) => editor.apply({ type: 'setPage', id: p.id, ...props(p) })))
   const scope = scopeOf(snapshot, one?.activeModes)
   const parent = one && editor.nodes.get(one.id)?.parent
   const flows = !!one && parent?.kind === 'frame' && parent.direction !== 'none' && !one.absolute
-  const hugs = (one?.kind === 'frame' && one.direction !== 'none') || one?.kind === 'text'
+  const hugs = (one?.kind === 'frame' && one.direction !== 'none') || (one?.kind === 'text' && flows)
   const sizes = Object.fromEntries(Object.entries(SIZES).filter(([s]) => s === 'fixed' || (s === 'hug' ? hugs : flows))) as Record<Size, string>
   const box = nodes.length ? bounds(nodes) : undefined
   const bindable = (prop: Prop, title: string, label: string, field: ReactNode) =>
@@ -106,6 +107,7 @@ export function Properties({
       {!box && <DocumentSection editor={editor} />}
       {!box && (
         <Section id="page" title={isPage ? (targets.length > 1 ? `Pages ${numbers.join(', ')}` : `Page ${numbers[0]}`) : 'Master'}>
+          <FormatRow page sheets={sheets} each={setSheets} />
           <div className="grid">
             {(['width', 'height', 'bleed'] as const).map((k) => (
               <Field
@@ -113,7 +115,7 @@ export function Properties({
                 label={k === 'bleed' ? 'Bleed' : k === 'width' ? 'W' : 'H'}
                 value={sameOf(sheets, (p) => p[k])}
                 unit="mm"
-                onCommit={(v) => editor.batch(() => sheets.forEach((p) => editor.apply({ type: 'setPage', id: p.id, [k]: v })))}
+                onCommit={(v) => setSheets(() => ({ [k]: v }))}
               />
             ))}
             <ModeSelects editor={editor} id={page.id} own={page.modes} inherited={{}} />
@@ -125,6 +127,15 @@ export function Properties({
               options={Object.fromEntries([['', 'None'], ...snapshot.masters.map((m) => [m.id, m.name])])}
               onChange={(m) => editor.batch(() => targets.forEach((id) => editor.apply({ type: 'useMaster', page: id, master: m || null })))}
             />
+          )}
+          {isPage && targets.length === 1 && snapshot.pages.some((p) => p.width !== page.width || p.height !== page.height || p.bleed !== page.bleed) && (
+            <button
+              type="button"
+              className="button"
+              onClick={() => editor.batch(() => snapshot.pages.forEach((p) => editor.apply({ type: 'setPage', id: p.id, width: page.width, height: page.height, bleed: page.bleed })))}
+            >
+              Apply to all pages
+            </button>
           )}
           {isPage && page.detached.length > 0 && (
             <button type="button" className="button" onClick={() => editor.apply({ type: 'resetToMaster', ids: [page.id] })}>
@@ -345,12 +356,7 @@ function DocumentSection({ editor }: { editor: Editor }) {
   const sheets = [...pages, ...masters]
   const w = sameOf(pages, (p) => p.width)
   const h = sameOf(pages, (p) => p.height)
-  const landscape = w !== null && h !== null ? w > h : null
-  const format =
-    w !== null && h !== null ? (FORMATS.find(([, a, b]) => near(Math.min(w, h), a * MM) && near(Math.max(w, h), b * MM))?.[0] ?? 'Custom') : 'Custom'
-  const each = (props: (p: Page) => Partial<Pick<Page, 'width' | 'height' | 'bleed'>>) =>
-    editor.batch(() => sheets.forEach((p) => editor.apply({ type: 'setPage', id: p.id, ...props(p) })))
-  const orient = (wide: boolean) => each((p) => (p.width > p.height === wide ? {} : { width: p.height, height: p.width }))
+  const each = (props: PageProps) => editor.batch(() => sheets.forEach((p) => editor.apply({ type: 'setPage', id: p.id, ...props(p) })))
   const count = (n: number) =>
     editor.batch(() => {
       for (let i = pages.length; i < n; i++) editor.apply({ type: 'addPage', after: editor.snapshot.pages.at(-1)!.id })
@@ -358,33 +364,7 @@ function DocumentSection({ editor }: { editor: Editor }) {
     })
   return (
     <Section title="Document">
-      <div className="row">
-        <Select
-          label="Format"
-          value={format}
-          options={Object.fromEntries([...FORMATS.map(([n]) => [n, n]), ['Custom', 'Custom']])}
-          disabled={['Custom']}
-          onChange={(n) => {
-            const [, a, b] = FORMATS.find(([f]) => f === n)!
-            each(() => (landscape ? { width: b * MM, height: a * MM } : { width: a * MM, height: b * MM }))
-          }}
-        />
-        <div role="radiogroup" aria-label="Orientation" className="segmented">
-          {(['portrait', 'landscape'] as const).map((o) => (
-            <button
-              key={o}
-              type="button"
-              role="radio"
-              aria-checked={landscape === (o === 'landscape')}
-              aria-label={o === 'portrait' ? 'Portrait' : 'Landscape'}
-              title={o === 'portrait' ? 'Portrait' : 'Landscape'}
-              onClick={() => orient(o === 'landscape')}
-            >
-              <Icon name={o} />
-            </button>
-          ))}
-        </div>
-      </div>
+      <FormatRow sheets={pages} each={each} />
       <div className="grid">
         <Field label="W" title="Width of all pages in mm" unit="mm" value={w} onCommit={(width) => each(() => ({ width }))} />
         <Field label="H" title="Height of all pages in mm" unit="mm" value={h} onCommit={(height) => each(() => ({ height }))} />
@@ -404,5 +384,46 @@ function DocumentSection({ editor }: { editor: Editor }) {
         <Field label="Raster" value={rasterPpi} unit="ppi" onCommit={(v) => editor.apply({ type: 'setDocument', rasterPpi: v })} />
       </div>
     </Section>
+  )
+}
+
+type PageProps = (p: Page) => Partial<Pick<Page, 'width' | 'height' | 'bleed'>>
+
+/** A format and orientation picker for `sheets`. */
+function FormatRow({ page, sheets, each }: { page?: boolean; sheets: Page[]; each: (props: PageProps) => void }) {
+  const w = sameOf(sheets, (p) => p.width)
+  const h = sameOf(sheets, (p) => p.height)
+  const landscape = w !== null && h !== null ? w > h : null
+  const format =
+    w !== null && h !== null ? (FORMATS.find(([, a, b]) => near(Math.min(w, h), a * MM) && near(Math.max(w, h), b * MM))?.[0] ?? 'Custom') : 'Custom'
+  const orient = (wide: boolean) => each((p) => (p.width > p.height === wide ? {} : { width: p.height, height: p.width }))
+  return (
+      <div className="row">
+        <Select
+          label={page ? 'Page format' : 'Format'}
+          value={format}
+          options={Object.fromEntries([...FORMATS.map(([n]) => [n, n]), ['Custom', 'Custom']])}
+          disabled={['Custom']}
+          onChange={(n) => {
+            const [, a, b] = FORMATS.find(([f]) => f === n)!
+            each(() => (landscape ? { width: b * MM, height: a * MM } : { width: a * MM, height: b * MM }))
+          }}
+        />
+        <div role="radiogroup" aria-label={page ? 'Page orientation' : 'Orientation'} className="segmented">
+          {(['portrait', 'landscape'] as const).map((o) => (
+            <button
+              key={o}
+              type="button"
+              role="radio"
+              aria-checked={landscape === (o === 'landscape')}
+              aria-label={o === 'portrait' ? 'Portrait' : 'Landscape'}
+              title={o === 'portrait' ? 'Portrait' : 'Landscape'}
+              onClick={() => orient(o === 'landscape')}
+            >
+              <Icon name={o} />
+            </button>
+          ))}
+        </div>
+      </div>
   )
 }
