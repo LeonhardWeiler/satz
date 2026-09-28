@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import type { CanvasKit, Surface } from 'canvaskit-wasm'
 import { MM, bounds, ends, insertion, useEditor, type Editor, type Point, type Tool } from './editor'
 import type { Container, NewKind, Node, Page, TextNode } from './model'
+import { radii } from './model'
 import { penPath } from './pen'
-import { handleAt, portAt, portsOf, rect, resized } from './handles'
+import { handleAt, portAt, portsOf, radiusHandles, rect, resized } from './handles'
 import { Renderer, fitView, HANDLE, type Box, type View } from './renderer'
 import { pick } from './select'
 import { guides, measure, nearest, snap, targets, type Guide, type Lines, type Measure } from './snap'
@@ -42,6 +43,7 @@ type Drag =
   | { kind: 'move'; start: Point; frames: Node[]; active: boolean; flow?: Container; to?: ReturnType<typeof insertion>; box?: Box; snaps?: Snaps }
   | { kind: 'resize'; start: Point; handle: string; box: Box; frames: Node[]; snaps: Snaps; by: number }
   | { kind: 'end'; start: Point; id: string; ends: [Point, Point]; index: number }
+  | { kind: 'radius'; start: Point; id: string; box: Box; radii: number[]; index: number }
   | { kind: 'marquee'; start: Point; end: Point; base: string[] }
   | { kind: 'draw'; start: Point; id: string; dx: number; moved: boolean; tool: keyof typeof DEFAULT_SIZE; thread?: string; snaps?: Snaps }
   | { kind: 'pen'; start: Point }
@@ -216,8 +218,11 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
     const handles = () => {
       const nodes = editor.selected().map(placed)
       if (editor.tool !== 'move' || !nodes.length || editor.editing) return {}
-      const line = nodes.length === 1 ? ends(nodes[0]) : undefined
-      return line ? { line } : { box: bounds(nodes) }
+      const n = nodes.length === 1 ? nodes[0] : undefined
+      const line = n && ends(n)
+      if (line) return { line }
+      const box = bounds(nodes)
+      return { box, radii: n?.kind === 'shape' && n.shape === 'rect' ? radiusHandles(view, box, radii(n)) : undefined }
     }
 
     /** What the selection snaps to: the pages of the spread and the visible layers beside the selection. */
@@ -285,7 +290,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
       cancelAnimationFrame(frame)
       frame = 0
       if (!surface) return
-      const { box, line } = drag?.kind === 'marquee' ? {} : handles()
+      const { box, line, radii: corners } = drag?.kind === 'marquee' ? {} : handles()
       const h = editor.hover ?? hover
       const over = h && !editor.selection.includes(h) ? editor.nodes.get(h)?.node : undefined
       const hovered = over && placed(over)
@@ -326,6 +331,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
         hover: image && cursor ? { x: cursor.x - image.w / 2, y: cursor.y - image.h / 2, w: image.w, h: image.h } : hovered,
         marquee,
         handles: box,
+        radii: corners,
         ends: line,
         pen: pen && { anchors: pen.anchors.map((a) => ({ ...a, x: a.x + penDx })), cursor: drag ? undefined : cursor },
         insert: insert as [Point, Point] | undefined,
@@ -569,6 +575,12 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
         editor.beginGroup()
         return
       }
+      if (handle?.startsWith('radius')) {
+        const n = placed(editor.selected()[0])
+        if (n.kind === 'shape' && n.shape === 'rect') drag = { kind: 'radius', start: p, id: n.id, box: n, radii: radii(n), index: Number(handle.slice(6)) }
+        editor.beginGroup()
+        return
+      }
       if (handle) {
         const frames = editor.selected()
         drag = { kind: 'resize', start: p, handle, box: bounds(frames.map(placed)), frames, snaps: snapsNow(), by: 1 }
@@ -693,6 +705,12 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
         snapped = free ? guides(moved, lines, xs(dx), ys(dy)) : []
         measures = nearest(moved, others).flatMap((o) => measure(moved, o))
         for (const n of drag.frames) editor.apply({ type: 'setFrame', id: n.id, x: n.x + dx, y: n.y + dy, w: n.w, h: n.h })
+      } else if (drag.kind === 'radius') {
+        const { box: b, index: i } = drag
+        const [sx, sy] = [i === 1 || i === 2 ? -1 : 1, i < 2 ? 1 : -1]
+        const r = Math.max(0, Math.min(drag.radii[i] + ((p.x - drag.start.x) * sx + (p.y - drag.start.y) * sy) / 2, b.w / 2, b.h / 2))
+        const corners = drag.radii.map((v, j) => (j === i ? r : v))
+        editor.apply({ type: 'set', id: drag.id, ...(e.ctrlKey || e.metaKey ? { corners } : { radius: r, corners: [] }) })
       } else if (drag.kind === 'end') {
         const fixed = drag.ends[1 - drag.index]
         const from = drag.ends[drag.index]
@@ -757,7 +775,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
         }
         for (const [to, ids] of moves) editor.apply({ type: 'move', ids, parent: to.id, index: to.children.length })
       }
-      if (drag?.kind === 'draw' || drag?.kind === 'resize' || drag?.kind === 'end' || (drag?.kind === 'move' && drag.active)) {
+      if (drag?.kind === 'draw' || drag?.kind === 'resize' || drag?.kind === 'end' || drag?.kind === 'radius' || (drag?.kind === 'move' && drag.active)) {
         editor.endGroup()
       }
       if (drag?.kind === 'move' && !drag.active && !e.shiftKey) {

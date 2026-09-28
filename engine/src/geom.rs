@@ -7,6 +7,9 @@ pub enum Shape {
     Rect {
         #[serde(default)]
         radius: f32,
+        /// Top left, top right, bottom right and bottom left; empty for `radius` at each.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        corners: Vec<f32>,
     },
     Ellipse,
     Polygon {
@@ -26,54 +29,57 @@ const FLATNESS: usize = 16;
 
 pub fn outline(shape: &Shape, [x, y, w, h]: [f32; 4]) -> Vec<f32> {
     match shape {
-        Shape::Rect { radius } if *radius <= 0.0 => rect(x, y, w, h),
-        Shape::Rect { radius } => {
-            let r = radius.min(w / 2.0).min(h / 2.0);
-            let k = r * (1.0 - KAPPA);
+        Shape::Rect { radius, corners } => {
+            let [a, b, c, d] =
+                [0, 1, 2, 3].map(|i| corners.get(i).unwrap_or(radius).min(w / 2.0).min(h / 2.0));
+            if a + b + c + d <= 0.0 {
+                return rect(x, y, w, h);
+            }
+            let k = 1.0 - KAPPA;
             let (r0, b0) = (x + w, y + h);
             vec![
                 MOVE,
-                x + r,
+                x + a,
                 y,
                 LINE,
-                r0 - r,
+                r0 - b,
                 y,
                 CUBIC,
-                r0 - k,
+                r0 - b * k,
                 y,
                 r0,
-                y + k,
+                y + b * k,
                 r0,
-                y + r,
+                y + b,
                 LINE,
                 r0,
-                b0 - r,
+                b0 - c,
                 CUBIC,
                 r0,
-                b0 - k,
-                r0 - k,
+                b0 - c * k,
+                r0 - c * k,
                 b0,
-                r0 - r,
+                r0 - c,
                 b0,
                 LINE,
-                x + r,
+                x + d,
                 b0,
                 CUBIC,
-                x + k,
+                x + d * k,
                 b0,
                 x,
-                b0 - k,
+                b0 - d * k,
                 x,
-                b0 - r,
+                b0 - d,
                 LINE,
                 x,
-                y + r,
+                y + a,
                 CUBIC,
                 x,
-                y + k,
-                x + k,
+                y + a * k,
+                x + a * k,
                 y,
-                x + r,
+                x + a,
                 y,
                 CLOSE,
             ]
@@ -317,7 +323,13 @@ mod tests {
 
     #[test]
     fn a_rect_without_radius_is_its_frame() {
-        let path = outline(&Shape::Rect { radius: 0.0 }, [1.0, 2.0, 3.0, 4.0]);
+        let path = outline(
+            &Shape::Rect {
+                radius: 0.0,
+                corners: vec![],
+            },
+            [1.0, 2.0, 3.0, 4.0],
+        );
         assert_eq!(
             path,
             [
@@ -328,12 +340,31 @@ mod tests {
 
     #[test]
     fn a_rounded_rect_contains_its_middle_but_not_its_corners() {
-        let path = outline(&Shape::Rect { radius: 5.0 }, [0.0, 0.0, 20.0, 20.0]);
+        let path = outline(
+            &Shape::Rect {
+                radius: 5.0,
+                corners: vec![],
+            },
+            [0.0, 0.0, 20.0, 20.0],
+        );
         assert!(contains(&path, 10.0, 10.0));
         assert!(contains(&path, 10.0, 0.5));
         assert!(!contains(&path, 0.5, 0.5));
         assert!(!contains(&path, 19.5, 19.5));
         assert!(!contains(&path, 25.0, 10.0));
+    }
+
+    #[test]
+    fn corners_round_each_corner_on_its_own() {
+        let shape = Shape::Rect {
+            radius: 5.0,
+            corners: vec![0.0, 8.0, 0.0, 8.0],
+        };
+        let path = outline(&shape, [0.0, 0.0, 20.0, 20.0]);
+        assert!(contains(&path, 0.5, 0.5));
+        assert!(!contains(&path, 19.5, 0.5));
+        assert!(contains(&path, 19.5, 19.5));
+        assert!(!contains(&path, 0.5, 19.5));
     }
 
     #[test]
@@ -381,7 +412,13 @@ mod tests {
 
     #[test]
     fn near_covers_the_closing_edge() {
-        let path = outline(&Shape::Rect { radius: 0.0 }, [0.0, 0.0, 10.0, 10.0]);
+        let path = outline(
+            &Shape::Rect {
+                radius: 0.0,
+                corners: vec![],
+            },
+            [0.0, 0.0, 10.0, 10.0],
+        );
         assert!(near(&path, 0.2, 5.0, 0.5));
         assert!(!near(&path, 5.0, 5.0, 0.5));
     }

@@ -344,6 +344,7 @@ pub struct Props {
     pub locked: Option<bool>,
     pub clip: Option<bool>,
     pub radius: Option<f32>,
+    pub corners: Option<Vec<f32>>,
     pub count: Option<u32>,
     pub ratio: Option<f32>,
     pub path: Option<Vec<f32>>,
@@ -390,6 +391,14 @@ impl Props {
         let f = |v: Option<f32>| v.map(f64::from);
         within(f(self.stroke_weight), 0.0, f64::MAX, "stroke weight")?;
         within(f(self.radius), 0.0, f64::MAX, "radius")?;
+        if let Some(c) = &self.corners {
+            if !matches!(c.len(), 0 | 4) {
+                return Err("corners take 4 radii or none".into());
+            }
+            for &r in c {
+                within(Some(r.into()), 0.0, f64::MAX, "radius")?;
+            }
+        }
         within(self.count.map(f64::from), 3.0, 60.0, "count")?;
         within(f(self.ratio), 0.01, 1.0, "ratio")?;
         within(f(self.opacity), 0.0, 1.0, "opacity")?;
@@ -2793,7 +2802,13 @@ mod tests {
         let p = &s.pages[0];
         assert!((p.width - 419.53).abs() < 0.01);
         assert!((p.bleed - 8.50).abs() < 0.01);
-        assert_eq!(p.children[0].kind, Kind::Shape(Shape::Rect { radius: 0.0 }));
+        assert_eq!(
+            p.children[0].kind,
+            Kind::Shape(Shape::Rect {
+                radius: 0.0,
+                corners: vec![]
+            })
+        );
         assert_eq!(p.children[0].style.fills, [Fill::solid(0xe8452cff)]);
         assert!(
             matches!(&p.children[1].kind, Kind::Text { content, .. } if content.spans[0].attrs.size == 14.0)
@@ -2816,7 +2831,13 @@ mod tests {
             (n.name.as_str(), frame(n)),
             ("Rectangle", [1.0, 2.0, 3.0, 4.0])
         );
-        assert_eq!(n.kind, Kind::Shape(Shape::Rect { radius: 0.0 }));
+        assert_eq!(
+            n.kind,
+            Kind::Shape(Shape::Rect {
+                radius: 0.0,
+                corners: vec![]
+            })
+        );
         assert_eq!(n.style.fills, [Fill::solid(0xd9d9d9ff)]);
         assert_eq!(n.style.stroke_align, Align::Inside);
         let f = &pg.children[1];
@@ -3305,6 +3326,20 @@ mod tests {
                 id: t.clone(),
                 by: 0.0,
             },
+            set(
+                &r,
+                Props {
+                    corners: Some(vec![1.0, 2.0]),
+                    ..Props::default()
+                },
+            ),
+            set(
+                &r,
+                Props {
+                    corners: Some(vec![1.0, 2.0, f32::NAN, 0.0]),
+                    ..Props::default()
+                },
+            ),
             Command::ScaleText {
                 id: r.clone(),
                 by: 2.0,

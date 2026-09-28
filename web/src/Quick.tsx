@@ -5,7 +5,7 @@ import { ContextMenu } from './ContextMenu'
 import { Field, Segmented } from './controls'
 import { scopeOf, useEditor, type Editor } from './editor'
 import { Icon } from './icons'
-import type { Fill, Props } from './model'
+import { radiusOf, type Fill, type Props } from './model'
 import { ALIGNS, sameOf, Specimen } from './Text'
 
 /** The most used properties of the selection, above it on the canvas. */
@@ -48,7 +48,7 @@ export function Quick({ editor, onMore }: { editor: Editor; onMore: () => void }
         </button>
       )}
       {one?.kind === 'shape' && one.shape === 'rect' && (
-        <Field label="R" title="Corner radius in mm" unit="mm" value={one.radius} onCommit={(radius) => set({ radius })} />
+        <Field label="R" title="Corner radius in mm" unit="mm" value={radiusOf(one)} onCommit={(radius) => set({ radius, corners: [] })} />
       )}
       {one?.kind === 'shape' && (one.shape === 'polygon' || one.shape === 'star') && (
         <Field label="N" title="Count" unit="" int value={one.count} onCommit={(v) => set({ count: Math.round(v) })} />

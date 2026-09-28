@@ -54,3 +54,23 @@ test('quick edit sits above the selection, sets radius, opacity and fill, and hi
   await drag(page, await screen(page, 20, 100), await screen(page, 80, 130))
   await expect(quick).toBeHidden()
 })
+
+test('the circles inside a rectangle round its corners, with ctrl only the one dragged', async ({ page }) => {
+  await open(page)
+  const radius = page.getByRole('complementary', { name: 'Properties' }).getByRole('textbox', { name: 'Corner radius in mm' })
+  await page.keyboard.press('r')
+  await drag(page, await screen(page, 20, 20), await screen(page, 60, 60))
+  const [x, y] = await screen(page, 20, 20)
+  const mm = (await screen(page, 21, 20))[0] - x
+  await drag(page, [x + 12, y + 12], [x + 12 + 5 * mm, y + 12 + 5 * mm])
+  await expect(radius).toHaveValue('5')
+  const [r, b] = await screen(page, 60, 60)
+  await page.keyboard.down('Control')
+  await drag(page, [r - 5 * mm, b - 5 * mm], [r - 8 * mm, b - 8 * mm])
+  await page.keyboard.up('Control')
+  await expect(radius).toHaveValue('Mixed')
+  await expect(page.getByRole('toolbar', { name: 'Quick edit' }).getByRole('textbox', { name: 'Corner radius in mm' })).toHaveValue('Mixed')
+  await radius.fill('2')
+  await radius.press('Enter')
+  await expect(radius).toHaveValue('2')
+})

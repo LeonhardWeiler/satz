@@ -847,7 +847,7 @@ mod tests {
             let pg = page(d);
             let n = &children(&pg.children[0])[0];
             let radius = match n.kind {
-                Kind::Shape(Shape::Rect { radius }) => radius,
+                Kind::Shape(Shape::Rect { radius, .. }) => radius,
                 _ => -1.0,
             };
             (n.w, radius, n.style.stroke_weight, n.style.opacity)
@@ -956,7 +956,8 @@ mod tests {
         assert_eq!(
             n.kind,
             Kind::Shape(Shape::Rect {
-                radius: 2.0 * MM as f32
+                radius: 2.0 * MM as f32,
+                corners: vec![]
             })
         );
 

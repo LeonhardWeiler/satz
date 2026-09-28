@@ -6,6 +6,8 @@ const EDGE = 4
 /** Distance in px of a text frame's in- and out-port from its top and bottom corner. */
 const PORT_INSET = 16
 const PORT = 10
+/** Least distance in px of a corner radius handle from its corner; below 4 times it they hide. */
+const RADIUS = 12
 
 const screen = (view: View, p: Point) => ({ x: view.x + p.x * view.zoom, y: view.y + p.y * view.zoom })
 
@@ -13,7 +15,9 @@ const screen = (view: View, p: Point) => ({ x: view.x + p.x * view.zoom, y: view
  * What the screen point (x, y) grabs of the selection handles: `end0` or `end1` of a
  * line, a corner such as `nw` or an edge such as `e` of the box, or nothing.
  */
-export function handleAt(view: View, x: number, y: number, { box, line }: { box?: Box; line?: [Point, Point] }) {
+export function handleAt(view: View, x: number, y: number, { box, line, radii }: { box?: Box; line?: [Point, Point]; radii?: Point[] }) {
+  const i = radii?.findIndex((p) => Math.hypot(p.x - x, p.y - y) <= HANDLE / 2 + 1) ?? -1
+  if (i >= 0) return `radius${i}`
   if (line) {
     const i = line.findIndex((p) => Math.hypot(screen(view, p).x - x, screen(view, p).y - y) <= HANDLE / 2 + 1)
     return i < 0 ? undefined : `end${i}`
@@ -33,6 +37,17 @@ export function handleAt(view: View, x: number, y: number, { box, line }: { box?
   if (box.w && near(x, l, EDGE)) return 'w'
   if (box.w && near(x, r, EDGE)) return 'e'
   return undefined
+}
+
+/** The corner radius handles in screen space of `box` with `radii`, from the top left clockwise. */
+export function radiusHandles(view: View, box: Box, radii: number[]) {
+  const [w, h] = [box.w * view.zoom, box.h * view.zoom]
+  if (Math.min(w, h) < 4 * RADIUS) return []
+  const { x: l, y: t } = screen(view, box)
+  return radii.map((r, i) => {
+    const d = Math.min(Math.max(r * view.zoom, RADIUS), w / 2, h / 2)
+    return { x: i === 1 || i === 2 ? l + w - d : l + d, y: i < 2 ? t + d : t + h - d }
+  })
 }
 
 /**

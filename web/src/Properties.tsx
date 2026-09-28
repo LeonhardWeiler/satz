@@ -6,6 +6,7 @@ import { Icon, KindIcon } from './icons'
 import { FORMATS, ORIENTATIONS } from './Start'
 import { addFonts, canFindFonts, findFonts, removeFont } from './file'
 import type { Bindable as Prop, Blend, Constraint, Command, Fill, Node, Page, Props, Size } from './model'
+import { radiusOf } from './model'
 import { align, ALIGNS } from './align'
 import { AutoLayout } from './AutoLayout'
 import { EffectList, PaintList } from './Paints'
@@ -244,7 +245,13 @@ export function Properties({
                 'radius',
                 'Corner radius in mm',
                 'R',
-                <Field label="R" title="Corner radius in mm" unit="mm" value={same((n) => ('radius' in n ? n.radius : 0))} onCommit={(radius) => set({ radius })} />,
+                <Field
+                  label="R"
+                  title="Corner radius in mm"
+                  unit="mm"
+                  value={same((n) => ('radius' in n ? (radiusOf(n) ?? undefined) : 0))}
+                  onCommit={(radius) => set({ radius, corners: [] })}
+                />,
               )
             )}
             {one?.kind === 'shape' && (one.shape === 'polygon' || one.shape === 'star') && (

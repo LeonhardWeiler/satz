@@ -14,6 +14,8 @@ export type Overlay = {
   hover?: Box
   marquee?: Box
   handles?: Box
+  /** Corner radius handles in screen space. */
+  radii?: { x: number; y: number }[]
   /** Ends of a selected line, shown instead of box handles. */
   ends?: { x: number; y: number }[]
   /** Where dragged layers land in an auto layout frame. */
@@ -254,7 +256,7 @@ export class Renderer {
     canvas: Canvas,
     view: View,
     dpr: number,
-    { selection, hover, marquee, handles, ends, pen, insert, ports, threads }: Overlay,
+    { selection, hover, marquee, handles, radii, ends, pen, insert, ports, threads }: Overlay,
   ) {
     const { ck, chrome: paint } = this
     const screen = (b: Box) =>
@@ -317,6 +319,14 @@ export class Renderer {
       const r = screen(handles)
       canvas.drawRect(r, paint)
       for (const x of [r[0], r[2]]) for (const y of [r[1], r[3]]) square(x, y, HANDLE)
+    }
+    for (const p of radii ?? []) {
+      paint.setStyle(ck.PaintStyle.Fill)
+      paint.setColor(ck.WHITE)
+      canvas.drawCircle(p.x, p.y, HANDLE / 2, paint)
+      paint.setStyle(ck.PaintStyle.Stroke)
+      paint.setColor(accent)
+      canvas.drawCircle(p.x, p.y, HANDLE / 2, paint)
     }
     for (const [a, b] of threads ?? []) canvas.drawLine(a.x, a.y, b.x, b.y, paint)
     for (const p of ports ?? []) {

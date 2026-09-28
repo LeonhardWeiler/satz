@@ -911,9 +911,10 @@ impl Doc {
                 clip: v["clip"] == true,
                 children: children(),
             },
-            _ => Kind::Shape(
-                serde_json::from_value(v.clone()).unwrap_or(Shape::Rect { radius: 0.0 }),
-            ),
+            _ => Kind::Shape(serde_json::from_value(v.clone()).unwrap_or(Shape::Rect {
+                radius: 0.0,
+                corners: vec![],
+            })),
         };
         let style: Style = serde_json::from_value(v.clone()).unwrap_or_default();
         let name = v["name"]
