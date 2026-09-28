@@ -1,3 +1,4 @@
+import { align, ALIGNS } from './align'
 import { MM, type Editor, type Tool } from './editor'
 
 const TOOLS: Record<string, Tool> = {
@@ -15,6 +16,11 @@ const ARROWS: Record<string, [number, number]> = {
   ArrowRight: [1, 0],
   ArrowUp: [0, -1],
   ArrowDown: [0, 1],
+}
+
+const alignment = (e: KeyboardEvent) => {
+  const mods = `${e.ctrlKey || e.metaKey ? 'Ctrl+' : ''}Alt+${e.shiftKey ? 'Shift+' : ''}`
+  return ALIGNS.find(([, , , k]) => k === mods + e.key.toUpperCase())?.[0]
 }
 
 /** Figma UI3 shortcuts with Ctrl for Cmd. Returns true when the key was handled. */
@@ -81,6 +87,7 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
     })
   } else if (!mod && e.shiftKey && key === 'a') editor.set({ selection: editor.apply({ type: 'autoLayout', ids }) })
   else if (mod && e.altKey && key === 'm') editor.set({ selection: editor.apply({ type: 'mask', ids }) })
+  else if (e.altKey && alignment(e)) align(editor, alignment(e)!)
   else if (mod && e.code in ORDER) {
     editor.apply({ type: 'order', ids, to: ORDER[e.code as keyof typeof ORDER][e.shiftKey ? 1 : 0] })
   } else if (!mod && ARROWS[e.key]) {

@@ -7,6 +7,7 @@ import { Icon, KindIcon } from './icons'
 import { FORMATS, ORIENTATIONS } from './Start'
 import { addFonts, canFindFonts, findFonts, removeFont } from './file'
 import type { Bindable as Prop, Blend, Constraint, Command, Fill, Node, Page, Props, Size } from './model'
+import { align, ALIGNS } from './align'
 import { AutoLayout } from './AutoLayout'
 import { EffectList, PaintList } from './Paints'
 import { TextFrameSection, TextSection, TextStyles } from './Text'
@@ -18,7 +19,7 @@ const BLENDS: Record<Blend, string> = {
   softLight: 'Soft light', difference: 'Difference', exclusion: 'Exclusion', hue: 'Hue',
   saturation: 'Saturation', color: 'Color', luminosity: 'Luminosity',
 }
-const ALIGNS = [
+const STROKE_ALIGNS = [
   ['inside', 'Inside', 'strokeInside'],
   ['center', 'Center', 'strokeCenter'],
   ['outside', 'Outside', 'strokeOutside'],
@@ -123,6 +124,23 @@ export function Properties({
         {one ? <KindIcon node={one} /> : <Icon name={nodes.length ? 'group' : isPage ? 'doc' : 'master'} />}
         <h2>{one ? one.name : nodes.length ? `${nodes.length} layers` : isPage ? 'Page' : page.name}</h2>
       </header>
+      {box && (
+        <div role="toolbar" aria-label="Align" className="align">
+          {ALIGNS.map(([how, title, icon, key]) => (
+            <button
+              key={how}
+              type="button"
+              className="icon-button"
+              aria-label={title}
+              title={`${title} (${key})`}
+              disabled={nodes.length < (how === 'tidy' ? 2 : how.startsWith('distribute') ? 3 : 1)}
+              onClick={() => align(editor, how)}
+            >
+              <Icon name={icon} />
+            </button>
+          ))}
+        </div>
+      )}
       {!box && <DocumentSection editor={editor} />}
       {!box && (
         <Section id="page" title={isPage ? (targets.length > 1 ? `Pages ${numbers.join(', ')}` : `Page ${numbers[0]}`) : 'Master'}>
@@ -333,7 +351,7 @@ export function Properties({
                 '',
                 <Field label="" title="Stroke weight" unit="pt" value={one.strokeWeight} onCommit={(v) => set({ strokeWeight: v })} />,
               )}
-              {!open && <Segmented label="Stroke position" value={one.strokeAlign} options={ALIGNS} onChange={(strokeAlign) => set({ strokeAlign })} />}
+              {!open && <Segmented label="Stroke position" value={one.strokeAlign} options={STROKE_ALIGNS} onChange={(strokeAlign) => set({ strokeAlign })} />}
               {open && (
                 <>
                   <Segmented label="Stroke cap" value={one.cap} options={CAPS} onChange={(cap) => set({ cap })} />
