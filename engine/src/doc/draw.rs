@@ -16,6 +16,10 @@ pub struct Snapshot {
     pub color_mode: ColorMode,
     /// The highest total of inks in % that preflight allows.
     pub ink_limit: f64,
+    /// How the PDF exports; an RGB document exports PDF/X-4 in place of PDF/X-1a.
+    pub preset: Preset,
+    pub crop_marks: bool,
+    pub include_bleed: bool,
     #[serde(flatten)]
     pub palette: Palette,
     /// The fonts text can be set in, the bundled one first.
@@ -584,6 +588,7 @@ impl Doc {
                 }
             }
         }
+        let document = self.doc.get_map("document");
         let mut snap = Snapshot {
             fonts: text::fonts(),
             missing_fonts,
@@ -596,11 +601,17 @@ impl Doc {
             pages,
             masters: self.masters().into_iter().map(sheet).collect(),
             facing_pages,
-            raster_ppi: num(&self.doc.get_map("document"), "rasterPpi"),
-            ink_limit: Some(num(&self.doc.get_map("document"), "inkLimit"))
+            raster_ppi: num(&document, "rasterPpi"),
+            ink_limit: Some(num(&document, "inkLimit"))
                 .filter(|&l| l > 0.0)
                 .unwrap_or(300.0),
             color_mode: self.color_mode(),
+            preset: match self.setting("preset", Preset::X4) {
+                Preset::X1a if self.color_mode() == ColorMode::Rgb => Preset::X4,
+                p => p,
+            },
+            crop_marks: self.setting("cropMarks", true),
+            include_bleed: self.setting("includeBleed", true),
             palette,
             can_undo: self.undo.can_undo(),
             can_redo: self.undo.can_redo(),
@@ -1357,11 +1368,11 @@ mod tests {
         assert!(found.contains(&(red.clone(), Problem::Gamut)));
         assert!(found.contains(&(dark.clone(), Problem::Ink { ink: 400.0 })));
         assert_eq!(found.iter().filter(|i| i.0 == near).count(), 1);
-        let limit = |ink_limit| Command::SetDocument {
-            raster_ppi: None,
-            color_mode: None,
-            facing_pages: None,
-            ink_limit: Some(ink_limit),
+        let limit = |ink_limit| {
+            Command::SetDocument(Settings {
+                ink_limit: Some(ink_limit),
+                ..Settings::default()
+            })
         };
         d.apply(limit(400.0)).unwrap();
         assert!(!problems(&d).iter().any(|i| i.0 == dark));

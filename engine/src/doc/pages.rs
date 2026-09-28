@@ -197,21 +197,22 @@ impl Doc {
             .unwrap_or_default()
     }
 
-    pub(super) fn set_document(
-        &self,
-        raster_ppi: Option<f64>,
-        color_mode: Option<ColorMode>,
-        facing_pages: Option<bool>,
-        ink_limit: Option<f64>,
-    ) -> Res<Vec<String>> {
-        if raster_ppi.is_some_and(|ppi| !(72.0..=1200.0).contains(&ppi)) {
+    pub(super) fn set_document(&self, s: Settings) -> Res<Vec<String>> {
+        if s.raster_ppi
+            .is_some_and(|ppi| !(72.0..=1200.0).contains(&ppi))
+        {
             return Err("raster ppi must be in 72..=1200".into());
         }
-        if ink_limit.is_some_and(|l| !(200.0..=400.0).contains(&l)) {
+        if s.ink_limit.is_some_and(|l| !(200.0..=400.0).contains(&l)) {
             return Err("ink limit must be in 200..=400".into());
         }
+        if s.preset == Some(Preset::X1a)
+            && s.color_mode.unwrap_or(self.color_mode()) == ColorMode::Rgb
+        {
+            return Err("PDF/X-1a needs a CMYK document".into());
+        }
         let m = self.doc.get_map("document");
-        match facing_pages {
+        match s.facing_pages {
             Some(true) if !self.facing_pages() => {
                 m.insert("facingPages", true).map_err(err)?;
                 self.split_masters()?;
@@ -222,14 +223,23 @@ impl Doc {
             }
             _ => {}
         }
-        if let Some(ppi) = raster_ppi {
+        if let Some(ppi) = s.raster_ppi {
             m.insert("rasterPpi", ppi).map_err(err)?;
         }
-        if let Some(mode) = color_mode {
+        if let Some(mode) = s.color_mode {
             m.insert("colorMode", loro(mode)?).map_err(err)?;
         }
-        if let Some(limit) = ink_limit {
+        if let Some(limit) = s.ink_limit {
             m.insert("inkLimit", limit).map_err(err)?;
+        }
+        if let Some(preset) = s.preset {
+            m.insert("preset", loro(preset)?).map_err(err)?;
+        }
+        if let Some(on) = s.crop_marks {
+            m.insert("cropMarks", on).map_err(err)?;
+        }
+        if let Some(on) = s.include_bleed {
+            m.insert("includeBleed", on).map_err(err)?;
         }
         Ok(vec![])
     }
@@ -455,6 +465,52 @@ mod tests {
         assert!(d.apply(ppi(0.0)).is_err());
         d.apply(Command::Undo).unwrap();
         assert_eq!(d.snapshot().raster_ppi, 300.0);
+    }
+
+    #[test]
+    fn the_pdf_exports_as_x4_with_crop_marks_and_bleed_until_changed() {
+        let mut d = Doc::new();
+        let export = |d: &Doc| {
+            let s = d.snapshot();
+            (s.preset, s.crop_marks, s.include_bleed)
+        };
+        assert_eq!(export(&d), (Preset::X4, true, true));
+        let set = |preset, crop_marks, include_bleed| {
+            Command::SetDocument(Settings {
+                preset,
+                crop_marks,
+                include_bleed,
+                ..Settings::default()
+            })
+        };
+        d.apply(set(Some(Preset::Screen), Some(false), Some(false)))
+            .unwrap();
+        assert_eq!(export(&d), (Preset::Screen, false, false));
+        d.apply(Command::Undo).unwrap();
+        assert_eq!(export(&d), (Preset::X4, true, true));
+    }
+
+    #[test]
+    fn pdf_x1a_is_for_cmyk_documents_only() {
+        let mut d = Doc::new();
+        let x1a = |color_mode| {
+            Command::SetDocument(Settings {
+                preset: Some(Preset::X1a),
+                color_mode,
+                ..Settings::default()
+            })
+        };
+        assert!(d.apply(x1a(None)).is_err());
+        assert!(d.apply(x1a(Some(ColorMode::Rgb))).is_err());
+        assert_eq!(d.snapshot().preset, Preset::X4);
+        d.apply(x1a(Some(ColorMode::Cmyk))).unwrap();
+        assert_eq!(d.snapshot().preset, Preset::X1a);
+        d.apply(Command::SetDocument(Settings {
+            color_mode: Some(ColorMode::Rgb),
+            ..Settings::default()
+        }))
+        .unwrap();
+        assert_eq!(d.snapshot().preset, Preset::X4);
     }
 
     #[test]

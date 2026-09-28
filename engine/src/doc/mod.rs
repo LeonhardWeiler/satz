@@ -5,6 +5,7 @@ use crate::geom::{self, Shape, bounds, contains, fit, near, outline};
 use crate::image::{self, ImageInfo};
 use crate::inks::Inks;
 use crate::layout::{Align3, Direction, Layout, MainAlign, Size, Sizing, arrange};
+use crate::pdf::Preset;
 use crate::style::{
     Align, Blend, Cap, Constraint, Constraints, Effect, EffectKind, Fill, FillKind, FillStop, Join,
     Style,
@@ -38,6 +39,20 @@ use clipboard::*;
 pub use draw::*;
 use pages::*;
 use story::*;
+
+/// The settings of the document that `Command::SetDocument` changes; `None` keeps one.
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Settings {
+    pub raster_ppi: Option<f64>,
+    pub color_mode: Option<ColorMode>,
+    /// Pairs the pages into spreads, as in InDesign.
+    pub facing_pages: Option<bool>,
+    pub ink_limit: Option<f64>,
+    pub preset: Option<Preset>,
+    pub crop_marks: Option<bool>,
+    pub include_bleed: Option<bool>,
+}
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Deserialize)]
@@ -160,15 +175,7 @@ pub enum Command {
     Copy {
         ids: Vec<String>,
     },
-    SetDocument {
-        raster_ppi: Option<f64>,
-        color_mode: Option<ColorMode>,
-        /// Pairs the pages into spreads, as in InDesign.
-        #[serde(default)]
-        facing_pages: Option<bool>,
-        #[serde(default)]
-        ink_limit: Option<f64>,
-    },
+    SetDocument(Settings),
     /// Pastes above the topmost of `above`, or else into the parent the layers were
     /// copied from when that is on `page`, or else onto `page`.
     Paste {
@@ -719,12 +726,12 @@ impl Doc {
         m.insert("width", w).unwrap();
         m.insert("height", h).unwrap();
         m.insert("bleed", 3.0 * MM).unwrap();
-        d.apply(Command::SetDocument {
+        d.apply(Command::SetDocument(Settings {
             raster_ppi: Some(300.0),
             color_mode: Some(mode),
             facing_pages: Some(facing),
-            ink_limit: None,
-        })
+            ..Settings::default()
+        }))
         .unwrap();
         for _ in 1..pages {
             d.apply(Command::AddPage { after: None }).unwrap();
@@ -1137,12 +1144,7 @@ impl Doc {
                 Ok(vec![])
             }
             Command::Duplicate { ids } => self.duplicate(ids),
-            Command::SetDocument {
-                raster_ppi,
-                color_mode,
-                facing_pages,
-                ink_limit,
-            } => self.set_document(raster_ppi, color_mode, facing_pages, ink_limit),
+            Command::SetDocument(s) => self.set_document(s),
             Command::AddSwatch { name, color, spot } => self.add_swatch(name, color, spot),
             Command::SetSwatch {
                 id,
@@ -1444,9 +1446,14 @@ impl Doc {
     }
 
     fn color_mode(&self) -> ColorMode {
-        value(&self.doc.get_map("document"), "colorMode")
+        self.setting("colorMode", ColorMode::Rgb)
+    }
+
+    /// The document setting `key`, or `default` when it is not set.
+    fn setting<T: DeserializeOwned>(&self, key: &str, default: T) -> T {
+        value(&self.doc.get_map("document"), key)
             .and_then(|v| serde_json::from_value(serde_json::to_value(v).ok()?).ok())
-            .unwrap_or_default()
+            .unwrap_or(default)
     }
 
     fn set(&self, id: TreeID, props: Props) -> Res<()> {
@@ -2047,21 +2054,17 @@ mod tests {
     }
 
     pub(super) fn ppi(raster_ppi: f64) -> Command {
-        Command::SetDocument {
+        Command::SetDocument(Settings {
             raster_ppi: Some(raster_ppi),
-            color_mode: None,
-            facing_pages: None,
-            ink_limit: None,
-        }
+            ..Settings::default()
+        })
     }
 
     pub(super) fn cmyk(d: &mut Doc) {
-        d.apply(Command::SetDocument {
-            raster_ppi: None,
+        d.apply(Command::SetDocument(Settings {
             color_mode: Some(ColorMode::Cmyk),
-            facing_pages: None,
-            ink_limit: None,
-        })
+            ..Settings::default()
+        }))
         .unwrap();
     }
 
@@ -2315,12 +2318,10 @@ mod tests {
     }
 
     pub(super) fn facing(d: &mut Doc, on: bool) {
-        d.apply(Command::SetDocument {
-            raster_ppi: None,
-            color_mode: None,
+        d.apply(Command::SetDocument(Settings {
             facing_pages: Some(on),
-            ink_limit: None,
-        })
+            ..Settings::default()
+        }))
         .unwrap();
     }
 
@@ -3225,12 +3226,12 @@ mod tests {
             )
         };
         let bad = [
-            Command::SetDocument {
+            Command::SetDocument(Settings {
                 raster_ppi: Some(150.0),
                 color_mode: Some(ColorMode::Cmyk),
-                facing_pages: None,
                 ink_limit: Some(500.0),
-            },
+                ..Settings::default()
+            }),
             set(
                 &r,
                 Props {
@@ -3275,12 +3276,11 @@ mod tests {
             path(vec![LINE, 1.0, 1.0]),
             path(vec![MOVE, f32::NAN, 0.0]),
             path(vec![MOVE, 0.0]),
-            Command::SetDocument {
+            Command::SetDocument(Settings {
                 raster_ppi: Some(5000.0),
-                color_mode: None,
                 facing_pages: Some(true),
-                ink_limit: None,
-            },
+                ..Settings::default()
+            }),
             Command::SetPage {
                 id: p.clone(),
                 width: Some(100.0),

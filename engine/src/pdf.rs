@@ -19,8 +19,19 @@ use krilla::paint::{
 };
 use krilla::surface::Surface;
 use krilla::text::{Font, GlyphId, KrillaGlyph};
+use serde::{Deserialize, Serialize};
 use std::rc::Rc;
 use tiny_skia::Pixmap;
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Preset {
+    /// RGB as the canvas shows it, the trim box only.
+    Screen,
+    X4,
+    /// CMYK and spots only, transparency flattened at the raster ppi.
+    X1a,
+}
 
 const MM: f32 = 72.0 / 25.4;
 const MARK_SPACE: f32 = 10.0 * MM;
