@@ -95,6 +95,7 @@ export type Command =
   | { type: 'duplicatePage' | 'deletePage'; id: string }
   | { type: 'setPage'; id: string; width?: number; height?: number; bleed?: number; scale?: boolean }
   | { type: 'setGrids'; id: string; grids: Grid[] }
+  | { type: 'flatten'; id: string }
   | { type: 'scaleText'; id: string; by: number }
   | { type: 'movePage'; id: string; index: number }
   | { type: 'addMaster'; like: string | null }

@@ -12,6 +12,11 @@ const SHAPES: (Entry & { tool: Shape })[] = [
   { tool: 'polygon', label: 'Polygon', key: '', icon: 'polygon' },
   { tool: 'star', label: 'Star', key: '', icon: 'star' },
 ]
+const POINTS = [
+  { mode: 'move', label: 'Move point', key: 'V', icon: 'move' },
+  { mode: 'add', label: 'Add point', key: 'P', icon: 'addPoint' },
+  { mode: 'delete', label: 'Delete point', key: '-', icon: 'deletePoint' },
+] as const
 const MOVE: Entry = { tool: 'move', label: 'Move', key: 'V', icon: 'move' }
 const FRAME: Entry = { tool: 'frame', label: 'Frame', key: 'F', icon: 'frame' }
 const PEN: Entry = { tool: 'pen', label: 'Pen', key: 'P', icon: 'pen' }
@@ -41,6 +46,30 @@ export function Toolbar({ editor, onPlaceImage }: { editor: Editor; onPlaceImage
   const current = SHAPES.find((s) => s.tool === active)
   if (current && current.tool !== last) setLast(current.tool)
   const shape = current ?? SHAPES.find((s) => s.tool === last)!
+  const vector = useEditor(editor, (e) => e.vector)
+
+  if (vector) {
+    return (
+      <div className="toolbar" role="toolbar" aria-label="Path tools">
+        {POINTS.map(({ mode, label, key, icon }) => (
+          <button
+            key={mode}
+            type="button"
+            className="tool"
+            aria-pressed={vector.mode === mode}
+            aria-label={label}
+            title={`${label} (${key})`}
+            onClick={() => editor.set({ vector: { ...vector, mode } })}
+          >
+            <Icon name={icon} />
+          </button>
+        ))}
+        <button type="button" className="button" title="Done (Enter)" onClick={() => editor.set({ vector: null })}>
+          Done
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="toolbar" role="toolbar" aria-label="Tools">

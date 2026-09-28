@@ -6,6 +6,7 @@ import type { Handle } from './file'
 import { penPath, type Anchor } from './pen'
 import type { Sheet } from './renderer'
 import { index, type Entry } from './select'
+import { contours, toPath, type At, type Contour } from './vector'
 import type { Editing } from './textEdit'
 
 export type Shape = 'rect' | 'line' | 'ellipse' | 'polygon' | 'star'
@@ -52,6 +53,8 @@ export class Editor {
   preflight = false
   /** The layout grids of the pages show and layers snap to them. */
   grids = true
+  /** The path being edited on the canvas, what a click on it does and its picked knot. */
+  vector: { id: string; mode: 'move' | 'add' | 'delete'; at: At | null } | null = null
   /** The plates shown (bit 0 for C to 3 for K, then the spots), and whether ink above the limit and colours out of gamut are marked. */
   inks = { on: 2 ** 31 - 1, over: true, gamut: true }
   /** The inks of the shown pages and of the document, from the worker. */
@@ -212,6 +215,8 @@ export class Editor {
       }
       this.nodes = this.index()
       this.selection = this.selection.filter((id) => this.nodes.has(id))
+      const v = this.vector && this.nodes.get(this.vector.id)?.node
+      if (v && !(v.kind === 'shape' && v.shape === 'path')) this.vector = null
       const n = this.editing && this.nodes.get(this.editing.id)?.node
       if (this.editing) {
         const len = n?.kind === 'text' ? this.storyOf(n).text.length : -1
@@ -225,8 +230,9 @@ export class Editor {
     }
   }
 
-  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'hover' | 'pen' | 'editing' | 'threading' | 'placing' | 'side' | 'overview' | 'preflight' | 'grids' | 'inks' | 'previewed' | 'pointerInk'>>) {
+  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'hover' | 'pen' | 'editing' | 'threading' | 'placing' | 'side' | 'overview' | 'preflight' | 'grids' | 'vector' | 'inks' | 'previewed' | 'pointerInk'>>) {
     const leaves = this.editing && patch.selection && !patch.selection.includes(this.editing.id)
+    if (this.vector && ((patch.selection && !patch.selection.includes(this.vector.id)) || (patch.tool && patch.tool !== 'move'))) patch = { vector: null, ...patch }
     if (leaves && !('editing' in patch)) this.stopEditing()
     if (patch.editing) patch = { selection: [patch.editing.id], ...patch }
     Object.assign(this, patch)
@@ -309,6 +315,35 @@ export class Editor {
   exitMaster() {
     const { pages } = this.snapshot
     this.showPage(pages.find((p) => p.id === this.back)?.id ?? pages[0].id)
+  }
+
+  /** Edits the points of the shape `id`, which becomes a path. */
+  editPath(id: string) {
+    const n = this.nodes.get(id)?.node
+    if (n?.kind !== 'shape') return
+    if (n.shape !== 'path') this.apply({ type: 'flatten', id })
+    this.set({ selection: [id], vector: { id, mode: 'move', at: null } })
+  }
+
+  /** The knots of the path being edited, in the space of its page. */
+  knots(): Contour[] {
+    const n = this.vector && this.nodes.get(this.vector.id)?.node
+    if (n?.kind !== 'shape' || n.shape !== 'path') return []
+    const [x, y] = [(u: number) => n.x + u * n.w, (v: number) => n.y + v * n.h]
+    return contours(n.path).map(({ knots, closed }) => ({
+      closed,
+      knots: knots.map((k) => ({ x: x(k.x), y: y(k.y), ix: x(k.ix), iy: y(k.iy), ox: x(k.ox), oy: y(k.oy) })),
+    }))
+  }
+
+  /** Gives the path being edited the knots `cs` and picks `at`; without knots the path goes. */
+  setKnots(cs: Contour[], at: At | null = null) {
+    const v = this.vector!
+    if (!cs.length) this.apply({ type: 'delete', ids: [v.id] })
+    else {
+      this.apply({ type: 'setPath', id: v.id, path: toPath(cs) })
+      this.set({ vector: { ...v, at } })
+    }
   }
 
   setTool(tool: Tool) {

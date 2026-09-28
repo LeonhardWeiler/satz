@@ -16,6 +16,20 @@ const ICONS = {
       <circle cx="12.5" cy="3.5" r="1.2" />
     </>
   ),
+  addPoint: (
+    <>
+      <path d="M2.5 13.5C4 9.5 6 8 9 7.5" />
+      <rect x="1.5" y="12" width="2.5" height="2.5" />
+      <path d="M12 2.5v6M9 5.5h6" />
+    </>
+  ),
+  deletePoint: (
+    <>
+      <path d="M2.5 13.5C4 9.5 6 8 9 7.5" />
+      <rect x="1.5" y="12" width="2.5" height="2.5" />
+      <path d="M9 5.5h6" />
+    </>
+  ),
   pen: (
     <>
       <path d="M7.2 2.9a1 1 0 0 1 1.6 0L12 8l-2 5.5H6L4 8z" />

@@ -1,9 +1,11 @@
 import { align, ALIGNS } from './align'
 import { MM, type Editor, type Tool } from './editor'
+import { remove } from './vector'
 
 const TOOLS: Record<string, Tool> = {
   v: 'move', f: 'frame', a: 'frame', r: 'rect', o: 'ellipse', l: 'line', p: 'pen', t: 'text',
 }
+const VECTOR_KEYS: Record<string, 'move' | 'add' | 'delete'> = { v: 'move', p: 'add', '-': 'delete' }
 const ORDER = { BracketRight: ['forward', 'front'], BracketLeft: ['backward', 'back'] } as const
 const JUMPS: Record<string, (k: number, n: number) => number> = {
   PageUp: (k) => k - 1,
@@ -39,7 +41,10 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
   }
 
   if (editor.dragging) return false
-  if (editor.placing.length && e.key === 'Escape') editor.set({ placing: [] })
+  if (editor.vector && (e.key === 'Escape' || e.key === 'Enter')) editor.set({ vector: null })
+  else if (editor.vector?.at && (e.key === 'Delete' || e.key === 'Backspace')) editor.setKnots(remove(editor.knots(), editor.vector.at))
+  else if (editor.vector && !mod && !e.altKey && !e.shiftKey && key in VECTOR_KEYS) editor.set({ vector: { ...editor.vector, mode: VECTOR_KEYS[key] } })
+  else if (editor.placing.length && e.key === 'Escape') editor.set({ placing: [] })
   else if (editor.threading && e.key === 'Escape') editor.set({ threading: null })
   else if (editor.pen && (e.key === 'Escape' || e.key === 'Enter')) editor.finishPen(false)
   else if (!mod && !e.altKey && !e.shiftKey && TOOLS[key]) {
@@ -74,7 +79,8 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
     if (one?.parent && editor.selected().every((n) => editor.nodes.get(n.id)?.parent === one.parent)) {
       editor.set({ selection: [one.parent.id] })
     }
-  } else if (e.key === 'Enter' && !mod && one?.node.kind === 'text' && ids.length === 1) {
+  } else if (e.key === 'Enter' && !mod && one?.node.kind === 'shape' && ids.length === 1) editor.editPath(one.node.id)
+  else if (e.key === 'Enter' && !mod && one?.node.kind === 'text' && ids.length === 1) {
     editor.set({ editing: { id: one.node.id, anchor: 0, focus: editor.storyOf(one.node).text.length } })
   } else if (e.key === 'Enter' && !mod) {
     const kids = editor.selected().flatMap((n) => ('children' in n ? n.children.map((c) => c.id) : []))

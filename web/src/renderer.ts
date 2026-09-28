@@ -3,6 +3,7 @@ import type { Engine } from './engine/engine'
 import { close, decode, type Op, type Paint as Fill } from './displayList'
 import type { Grid } from './model'
 import { gridSpans } from './snap'
+import { toPath, type At, type Contour } from './vector'
 
 /** Marks the font of a glyph run whose own font is missing, drawn in the bundled one. */
 const MISSING = 2 ** 31
@@ -27,6 +28,8 @@ export type Overlay = {
   text?: { ops: Uint32Array; x: number }[]
   /** In- and out-ports of a text frame in screen space: empty, threaded, holding overset text, or open to thread on. */
   ports?: readonly { x: number; y: number; state: 'empty' | 'threaded' | 'overset' | 'open' }[]
+  /** The knots of the path being edited and the one picked. */
+  vector?: { contours: Contour[]; at: At | null }
   /** Show the layout grids of the pages. */
   grids?: boolean
   /** Lines in screen space from each frame of a thread to the next. */
@@ -276,7 +279,7 @@ export class Renderer {
     canvas: Canvas,
     view: View,
     dpr: number,
-    { selection, hover, marquee, handles, radii, ends, pen, insert, ports, threads }: Overlay,
+    { selection, hover, marquee, handles, radii, ends, pen, insert, ports, threads, vector }: Overlay,
   ) {
     const { ck, chrome: paint } = this
     const screen = (b: Box) =>
@@ -324,6 +327,38 @@ export class Renderer {
         canvas.drawLine(...at(last.x - last.hx, last.y - last.hy), ...at(last.x + last.hx, last.y + last.hy), paint)
       }
       for (const a of pen.anchors) square(...at(a.x, a.y), 7)
+    }
+    if (vector) {
+      const screen = vector.contours.map((c) => ({
+        ...c,
+        knots: c.knots.map((k) => {
+          const [[x, y], [ix, iy], [ox, oy]] = [at(k.x, k.y), at(k.ix, k.iy), at(k.ox, k.oy)]
+          return { x, y, ix, iy, ox, oy }
+        }),
+      }))
+      const path = ck.Path.MakeFromCmds(toPath(screen))
+      if (path) canvas.drawPath(path, paint)
+      path?.delete()
+      screen.forEach(({ knots }, c) =>
+        knots.forEach((k, i) => {
+          const picked = vector.at?.[0] === c && vector.at[1] === i
+          if (picked) {
+            for (const [x, y] of [[k.ix, k.iy], [k.ox, k.oy]]) {
+              if (x === k.x && y === k.y) continue
+              paint.setStyle(ck.PaintStyle.Stroke)
+              paint.setColor(accent)
+              canvas.drawLine(k.x, k.y, x, y, paint)
+              canvas.drawCircle(x, y, 3, paint)
+            }
+          }
+          square(k.x, k.y, 7)
+          if (picked) {
+            paint.setStyle(ck.PaintStyle.Fill)
+            canvas.drawRect(ck.XYWHRect(Math.floor(k.x - 3.5) + 0.5, Math.floor(k.y - 3.5) + 0.5, 7, 7), paint)
+          }
+        }),
+      )
+      paint.setStyle(ck.PaintStyle.Stroke)
     }
     if (ends) {
       const [a, b] = ends

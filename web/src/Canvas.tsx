@@ -8,6 +8,7 @@ import { handleAt, portAt, portsOf, radiusHandles, rect, resized } from './handl
 import { Renderer, fitView, HANDLE, type Box, type View } from './renderer'
 import { pick } from './select'
 import { guides, measure, nearest, snap, targets, type Guide, type Lines, type Measure } from './snap'
+import { nearest as nearestSegment, remove, shift, split, type At, type Contour, type Knot } from './vector'
 import { handleTextKey, insert, range, select, textOf, wordAt } from './textEdit'
 import { Switcher } from './Switcher'
 import { Quick } from './Quick'
@@ -47,6 +48,7 @@ type Drag =
   | { kind: 'marquee'; start: Point; end: Point; base: string[] }
   | { kind: 'draw'; start: Point; id: string; dx: number; moved: boolean; tool: keyof typeof DEFAULT_SIZE; thread?: string; snaps?: Snaps }
   | { kind: 'pen'; start: Point }
+  | { kind: 'knot'; start: Point; cs: Contour[]; at: At; part: 'point' | 'in' | 'out' }
   | { kind: 'text' }
 
 /** Snaps a vector to the nearest multiple of 45°. */
@@ -217,7 +219,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
     /** Box handles of the selection, or the ends of a single selected line. */
     const handles = () => {
       const nodes = editor.selected().map(placed)
-      if (editor.tool !== 'move' || !nodes.length || editor.editing) return {}
+      if (editor.tool !== 'move' || !nodes.length || editor.editing || editor.vector) return {}
       const n = nodes.length === 1 ? nodes[0] : undefined
       const line = n && ends(n)
       if (line) return { line }
@@ -336,6 +338,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
         pen: pen && { anchors: pen.anchors.map((a) => ({ ...a, x: a.x + penDx })), cursor: drag ? undefined : cursor },
         insert: insert as [Point, Point] | undefined,
         grids: editor.grids && !editor.preflight,
+        vector: vector(),
         ...threadOverlay(),
       }, editor.preflight, editor.snapshot.colorMode === 'cmyk')
       surface.flush()
@@ -407,11 +410,19 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
       const first = pen?.anchors[0]
       return !!first && pen.anchors.length > 1 && Math.hypot(first.x - p.x + editor.dx(pen.id), first.y - p.y) * view.zoom <= HANDLE
     }
+    /** The knots of the path being edited on the spread, and the one picked. */
+    const vector = () => {
+      const v = editor.vector
+      if (!v) return undefined
+      const dx = editor.dx(v.id)
+      const contours = editor.knots().map((c) => ({ ...c, knots: c.knots.map((k) => ({ ...k, x: k.x + dx, ix: k.ix + dx, ox: k.ox + dx })) }))
+      return { contours, at: v.at }
+    }
     const handleUnder = (e: Pointer) => handleAt(view, e.offsetX, e.offsetY, handles())
     const track = () => {
       if (!pointer || drag || editor.pen) return
       const side = portUnder(pointer)?.side
-      canvas.style.cursor = side ? 'pointer' : (CURSORS[handleUnder(pointer) ?? ''] ?? '')
+      canvas.style.cursor = side ? 'pointer' : editor.vector?.mode === 'add' ? 'crosshair' : (CURSORS[handleUnder(pointer) ?? ''] ?? '')
       const mode = pointer.ctrlKey ? 'deep' : 'click'
       const id = editor.tool === 'move' ? pickAt(toDoc(pointer), mode) : undefined
       if (id !== hover || side !== port) {
@@ -557,6 +568,45 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
         drag = { kind: 'draw', start: p, id, dx, moved: false, tool, snaps }
         editor.set({ selection: [id] })
         return
+      }
+      const v = editor.vector
+      if (v) {
+        const cs = editor.knots()
+        const q = { x: p.x - editor.dx(v.id), y: p.y }
+        const r = HIT / view.zoom
+        const on = (x: number, y: number, k: Knot) => Math.hypot(x - q.x, y - q.y) <= r && (x !== k.x || y !== k.y)
+        const k = v.at && cs[v.at[0]]?.knots[v.at[1]]
+        let under: { at: At; part: 'point' | 'in' | 'out' } | undefined =
+          k && v.at ? (on(k.ix, k.iy, k) ? { at: v.at, part: 'in' } : on(k.ox, k.oy, k) ? { at: v.at, part: 'out' } : undefined) : undefined
+        cs.forEach(({ knots }, c) => knots.forEach((k, i) => {
+          if (!under && Math.hypot(k.x - q.x, k.y - q.y) <= r) under = { at: [c, i], part: 'point' }
+        }))
+        const segment = nearestSegment(cs, q)
+        if (v.mode === 'delete') {
+          if (under?.part === 'point') editor.setKnots(remove(cs, under.at))
+          drag = null
+          return
+        }
+        if (v.mode === 'add' && !under && segment.d <= r) {
+          const at: At = [segment.at[0], segment.at[1] + 1]
+          const next = split(cs, segment.at, segment.t)
+          editor.beginGroup()
+          editor.setKnots(next, at)
+          drag = { kind: 'knot', start: p, cs: next, at, part: 'point' }
+          return
+        }
+        if (under) {
+          editor.beginGroup()
+          editor.set({ vector: { ...v, at: under.at } })
+          drag = { kind: 'knot', start: p, cs, ...under }
+          return
+        }
+        if (segment.d <= r) {
+          editor.set({ vector: { ...v, at: null } })
+          drag = null
+          return
+        }
+        editor.set({ vector: null })
       }
       // Ctrl+Shift+click on a master layer that no page layer covers overrides it, as in InDesign.
       const under = pageAt(p)
@@ -710,6 +760,8 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
         snapped = free ? guides(moved, lines, xs(dx), ys(dy)) : []
         measures = nearest(moved, others).flatMap((o) => measure(moved, o))
         for (const n of drag.frames) editor.apply({ type: 'setFrame', id: n.id, x: n.x + dx, y: n.y + dy, w: n.w, h: n.h })
+      } else if (drag.kind === 'knot') {
+        editor.setKnots(shift(drag.cs, drag.at, drag.part, p.x - drag.start.x, p.y - drag.start.y), drag.at)
       } else if (drag.kind === 'radius') {
         const { box: b, index: i } = drag
         const [sx, sy] = [i === 1 || i === 2 ? -1 : 1, i < 2 ? 1 : -1]
@@ -780,7 +832,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
         }
         for (const [to, ids] of moves) editor.apply({ type: 'move', ids, parent: to.id, index: to.children.length })
       }
-      if (drag?.kind === 'draw' || drag?.kind === 'resize' || drag?.kind === 'end' || drag?.kind === 'radius' || (drag?.kind === 'move' && drag.active)) {
+      if (drag?.kind === 'draw' || drag?.kind === 'resize' || drag?.kind === 'end' || drag?.kind === 'radius' || drag?.kind === 'knot' || (drag?.kind === 'move' && drag.active)) {
         editor.endGroup()
       }
       if (drag?.kind === 'move' && !drag.active && !e.shiftKey) {
@@ -796,7 +848,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
       redraw()
     }
     const onDoubleClick = (e: MouseEvent) => {
-      if (editor.tool !== 'move') return
+      if (editor.tool !== 'move' || editor.vector) return
       const port = portUnder(e)
       if (port) {
         // Double-clicking a port breaks the thread there.
@@ -817,7 +869,8 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
       if (n && n.kind === 'text' && editor.selection.includes(id)) {
         const i = editor.engine.textIndex(n.id, p.x - editor.dx(n.id), p.y)
         editor.set({ editing: { id: n.id, anchor: i, focus: i } })
-      } else if (id) editor.set({ selection: [id] })
+      } else if (n && n.kind === 'shape' && editor.selection.includes(id)) editor.editPath(id)
+      else if (id) editor.set({ selection: [id] })
     }
     /** A triple click in the edited text selects all of it. */
     const onClick = (e: MouseEvent) => {

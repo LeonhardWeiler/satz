@@ -1091,6 +1091,41 @@ mod tests {
     }
 
     #[test]
+    fn a_flattened_shape_is_a_path_along_its_outline() {
+        let (mut d, p) = empty();
+        let r = create(&mut d, &p, NewKind::Rect, [10.0, 20.0, 40.0, 30.0]);
+        set(
+            &mut d,
+            &r,
+            Props {
+                radius: Some(5.0),
+                ..Props::default()
+            },
+        );
+        let fills = |d: &Doc| {
+            page_ops(d)
+                .into_iter()
+                .filter_map(|o| match o {
+                    Op::FillPath { path, .. } => Some(path),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+        };
+        let before = fills(&d);
+        d.apply(Command::Flatten { id: r.clone() }).unwrap();
+        assert!(matches!(
+            page(&d).children[0].kind,
+            Kind::Shape(Shape::Path { .. })
+        ));
+        let after = fills(&d);
+        assert_eq!(before.len(), after.len());
+        for (a, b) in before.concat().iter().zip(after.concat()) {
+            assert!((a - b).abs() < 1e-3, "{a} {b}");
+        }
+        assert!(d.apply(Command::Flatten { id: p }).is_err());
+    }
+
+    #[test]
     fn shapes_are_hit_on_their_outline_not_their_box() {
         let (mut d, p) = empty();
         let e = create(&mut d, &p, NewKind::Ellipse, [0.0, 0.0, 10.0, 10.0]);

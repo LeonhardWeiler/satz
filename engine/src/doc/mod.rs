@@ -146,6 +146,10 @@ pub enum Command {
         id: String,
         path: Vec<f32>,
     },
+    /// Turns a shape into a path along its outline.
+    Flatten {
+        id: String,
+    },
     Delete {
         ids: Vec<String>,
     },
@@ -1152,6 +1156,7 @@ impl Doc {
             Command::DeleteTextStyle { id } => self.delete_text_style(id),
             Command::Set { id, props } => self.set_props(id, props),
             Command::SetPath { id, path } => self.set_path(id, path),
+            Command::Flatten { id } => self.flatten(id),
             Command::Delete { ids } => self.delete(ids),
             Command::Group { ids, frame } => {
                 Ok(vec![self.group(&self.sorted(&ids)?, frame)?.to_string()])
@@ -1855,6 +1860,31 @@ impl Doc {
             },
         )?;
         self.set_frame(id, bounds(&path).map(f64::from))?;
+        Ok(vec![])
+    }
+
+    fn flatten(&self, id: String) -> Res<Vec<String>> {
+        let id = self.layer(&id)?;
+        if self.kind(id) != Some(NodeKind::Shape) {
+            return Err("only shapes flatten".into());
+        }
+        let v = serde_json::to_value(self.meta(id).get_value()).map_err(err)?;
+        let shape: Shape = serde_json::from_value(v).map_err(err)?;
+        if matches!(shape, Shape::Path { .. }) {
+            return Ok(vec![]);
+        }
+        let [x, y, w, h] = self.bounds(id).map(|v| v as f32);
+        let path = geom::map(&outline(&shape, [x, y, w, h]), |[u, v]| {
+            [(u - x) / w, (v - y) / h]
+        });
+        self.meta(id).insert("shape", "path").map_err(err)?;
+        self.set(
+            id,
+            Props {
+                path: Some(path),
+                ..Props::default()
+            },
+        )?;
         Ok(vec![])
     }
 

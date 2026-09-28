@@ -99,3 +99,31 @@ test('a right click selects the layer under it and offers the actions for it', a
   await page.mouse.click(...(await screen(page, 5, 150)), { button: 'right' })
   await expect(menu.getByRole('menuitem', { name: /Select all/ })).toBeVisible()
 })
+
+test('enter edits the points of a shape, moving, adding and deleting them', async ({ page }) => {
+  await open(page)
+  const props = page.getByRole('complementary', { name: 'Properties' })
+  const tools = page.getByRole('toolbar', { name: 'Path tools' })
+  await page.keyboard.press('r')
+  await drag(page, await screen(page, 20, 20), await screen(page, 60, 60))
+  await page.keyboard.press('Enter')
+  await expect(tools.getByRole('button', { name: 'Move point' })).toHaveAttribute('aria-pressed', 'true')
+  await drag(page, await screen(page, 60, 60), await screen(page, 80, 60))
+  await expect(props.getByRole('textbox', { name: 'W' })).toHaveValue('60')
+
+  await page.keyboard.press('p')
+  await expect(tools.getByRole('button', { name: 'Add point' })).toHaveAttribute('aria-pressed', 'true')
+  await page.mouse.click(...(await screen(page, 40, 20)))
+  await drag(page, await screen(page, 40, 20), await screen(page, 40, 10))
+  await expect(props.getByRole('textbox', { name: 'H' })).toHaveValue('50')
+
+  await page.keyboard.press('Delete')
+  await expect(props.getByRole('textbox', { name: 'H' })).toHaveValue('40')
+  await tools.getByRole('button', { name: 'Delete point' }).click()
+  await page.mouse.click(...(await screen(page, 80, 60)))
+  await expect(props.getByRole('textbox', { name: 'W' })).toHaveValue('40')
+
+  await page.keyboard.press('Enter')
+  await expect(tools).toHaveCount(0)
+  await expect(page.getByRole('toolbar', { name: 'Tools' })).toBeVisible()
+})
