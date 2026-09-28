@@ -13,7 +13,7 @@ import { Quick } from './Quick'
 
 const PX_PER_PT = 96 / 72
 const DRAG = 3
-const HIT = 4
+const HIT = 6
 /** Distance in px within which layers snap. */
 const SNAP = 5
 const CURSORS: Record<string, string> = {
@@ -25,11 +25,13 @@ const CURSORS: Record<string, string> = {
   s: 'ns-resize',
   e: 'ew-resize',
   w: 'ew-resize',
+  end0: 'crosshair',
+  end1: 'crosshair',
 }
 /** Size in mm of a layer made with a click; a clicked text is auto width, a dragged one fixed. */
 const DEFAULT_SIZE: Record<Exclude<Tool, 'move' | 'pen'>, [number, number]> = {
   rect: [30, 30], ellipse: [30, 30], polygon: [30, 30], star: [30, 30], frame: [30, 30], text: [0, 0],
-  line: [30, 0], arrow: [30, 0],
+  line: [30, 0],
 }
 
 type Pointer = { offsetX: number; offsetY: number; ctrlKey: boolean }
@@ -511,8 +513,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
         }
         // Anchors are in the space of the path's page.
         const anchor = { x: p.x - editor.dx(pen.id), y: p.y, hx: 0, hy: 0 }
-        const first = pen.anchors[0]
-        if (pen.anchors.length > 1 && Math.hypot(first.x - anchor.x, first.y - anchor.y) * view.zoom <= HANDLE) {
+        if (closes(p)) {
           drag = null
           editor.finishPen(true)
           return
@@ -592,6 +593,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
       }
       if (editor.pen && !drag) {
         cursor = p
+        canvas.toggleAttribute('data-close', closes(p))
         redraw()
         return
       }
@@ -628,7 +630,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
         snapped = s.guides
         let dx = s.p.x - drag.start.x
         let dy = s.p.y - drag.start.y
-        if (drag.tool === 'line' || drag.tool === 'arrow') {
+        if (drag.tool === 'line') {
           if (e.shiftKey) [dx, dy] = snap45(dx, dy)
           const [x, y] = [drag.start.x - drag.dx, drag.start.y]
           editor.apply({ type: 'setPath', id: drag.id, path: [0, x, y, 1, x + dx, y + dy] })
