@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { autosaved, colors, open, place, png, screen } from './util'
+import { autosaved, colors, open, place, png, preflight, screen } from './util'
 
 const red = (width: number, height: number) => png('red.png', width, height, () => [255, 0, 0])
 
@@ -19,7 +19,7 @@ test('a placed image draws at 300 ppi, preflight reports it enlarged, and it sta
 
   await width.fill('101.6')
   await width.press('Enter')
-  await expect(page.getByRole('region', { name: 'Preflight' }).getByRole('button', { name: /red\.png.*Image at 150 ppi/ })).toBeVisible()
+  await expect((await preflight(page)).getByRole('button', { name: /red\.png.*Image at 150 ppi/ })).toBeVisible()
 
   await autosaved(page)
   await page.reload()

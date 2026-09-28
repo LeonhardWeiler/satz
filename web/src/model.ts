@@ -103,7 +103,7 @@ export type Command =
   | { type: 'resetToMaster'; ids: string[] }
   | { type: 'thread'; from: string; to: string }
   | { type: 'unthread'; id: string }
-  | { type: 'setDocument'; rasterPpi?: number; colorMode?: ColorMode; facingPages?: boolean }
+  | { type: 'setDocument'; rasterPpi?: number; colorMode?: ColorMode; facingPages?: boolean; inkLimit?: number }
   | { type: 'addSwatch'; name: string; color: Color; spot: boolean }
   | { type: 'setSwatch'; id: string; name?: string; color?: Color; spot?: boolean }
   | { type: 'deleteSwatch'; id: string }
@@ -248,9 +248,11 @@ export type TextStyle = { id: string; name: string; bindings: Partial<Record<Bin
 
 /** Something about the layer `layer` on the page or master `page` that may print wrong. */
 export type Issue = { page: string; layer: string; name: string } & (
-  | { problem: 'overset' | 'shortOfBleed' | 'rgb' }
+  | { problem: 'overset' | 'shortOfBleed' | 'rgb' | 'gamut' }
   | { problem: 'missingFont'; font: string }
   | { problem: 'lowPpi'; ppi: number }
+  | { problem: 'ink'; ink: number }
+  | { problem: 'nearTrim'; distance: number }
 )
 
 export type Snapshot = Palette & {
@@ -263,6 +265,7 @@ export type Snapshot = Palette & {
   stories: Record<string, Story>
   rasterPpi: number
   colorMode: ColorMode
+  inkLimit: number
   /** The fonts text can be set in, the bundled one first. */
   fonts: Typeface[]
   /** Fonts text is set in that are not there, with the stories that use them by their first frame. */

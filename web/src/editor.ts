@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import type { Engine } from './engine/engine'
 import type { Command, Container, Modes, Node, Page, Palette, Scope, Snapshot, TextNode, Typeface } from './model'
+import type { Previewed } from './exportWorker'
 import type { Handle } from './file'
 import { penPath, type Anchor } from './pen'
 import type { Sheet } from './renderer'
@@ -45,6 +46,14 @@ export class Editor {
   side: 'left' | 'right' = 'right'
   /** The pages selected in the page overview, `null` while it is closed. */
   overview: string[] | null = null
+  /** The preflight is open: the pages show as they print, with what `inks` marks over them. */
+  preflight = false
+  /** The plates shown (bit 0 for C to 3 for K, then the spots), and whether ink above the limit and colours out of gamut are marked. */
+  inks = { on: 2 ** 31 - 1, over: true, gamut: true }
+  /** The inks of the shown pages and of the document, from the worker. */
+  previewed: Previewed | null = null
+  /** The ink coverage in % under the pointer while the preflight is open. */
+  pointerInk: number | null = null
   file = UNTITLED
   /** The document has changed since it was last saved to or opened from its file. */
   dirty = false
@@ -206,7 +215,7 @@ export class Editor {
     }
   }
 
-  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'hover' | 'pen' | 'editing' | 'threading' | 'side' | 'overview'>>) {
+  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'hover' | 'pen' | 'editing' | 'threading' | 'side' | 'overview' | 'preflight' | 'inks' | 'previewed' | 'pointerInk'>>) {
     const leaves = this.editing && patch.selection && !patch.selection.includes(this.editing.id)
     if (leaves && !('editing' in patch)) this.stopEditing()
     if (patch.editing) patch = { selection: [patch.editing.id], ...patch }
@@ -280,6 +289,10 @@ export class Editor {
   /** Opens the page overview with the current page selected, or closes it. */
   toggleOverview() {
     this.set({ overview: this.overview ? null : this.master ? [] : [this.pageId] })
+  }
+
+  togglePreflight() {
+    this.set({ preflight: !this.preflight, pointerInk: null })
   }
 
   /** Leaves the current master for the page shown before it. */

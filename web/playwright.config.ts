@@ -8,7 +8,7 @@ export default defineConfig({
   testDir: 'e2e',
   fullyParallel: true,
   workers: 2,
-  use: { baseURL: 'http://localhost:4173/satz/' },
+  use: { baseURL: 'http://localhost:4173/satz/', contextOptions: { reducedMotion: 'reduce' } },
   projects: [
     {
       name: 'chromium',

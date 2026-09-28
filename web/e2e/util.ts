@@ -1,4 +1,5 @@
 import { expect, type Page } from '@playwright/test'
+import { join } from 'node:path'
 import { PNG } from 'pngjs'
 import { fitView, type Sheet } from '../src/renderer'
 
@@ -152,4 +153,32 @@ export async function addMaster(page: Page) {
 export async function pageCount(page: Page, n: number) {
   await expect((await overview(page)).getByRole('option')).toHaveCount(n)
   await page.keyboard.press('.')
+}
+
+/** The export button of the preflight, which the Export button in the top bar opens; fits the narrower canvas again. */
+export async function exportButton(page: Page) {
+  await page.getByRole('button', { name: 'Export', exact: true }).click()
+  await page.keyboard.press('Shift+1')
+  return page.getByRole('region', { name: 'Preflight' }).locator('.pf-go')
+}
+
+/** The preflight, opened with Ctrl Alt Y if it is closed; fits the narrower canvas again. */
+export async function preflight(page: Page) {
+  const region = page.getByRole('region', { name: 'Preflight' })
+  if (!(await region.count())) {
+    await page.keyboard.press('Control+Alt+Y')
+    await page.keyboard.press('Shift+1')
+  }
+  return region
+}
+
+/** Opens the file `name` from examples/. */
+export async function openExample(page: Page, name: string) {
+  await page.addInitScript(() => delete (window as { showOpenFilePicker?: unknown }).showOpenFilePicker)
+  await open(page, 2000)
+  const chooser = page.waitForEvent('filechooser')
+  await page.keyboard.press('Control+o')
+  await (await chooser).setFiles(join(import.meta.dirname, '../../examples', name))
+  await expect(page).toHaveTitle(`${name} — Satz`)
+  await page.mouse.move(1, 1)
 }

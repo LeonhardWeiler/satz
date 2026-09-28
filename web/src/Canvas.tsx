@@ -174,6 +174,20 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
       }
       return { page: pageAt(p), path: [] as string[] }
     }
+    /** The inks of the page `p` from the preflight, over its bleed. */
+    const inkedOf = (p: Page) => {
+      const v = editor.previewed
+      const s = v?.sheets.find((s) => s.page === p.id)
+      return s && { ...s, rect: { x: -p.bleed, y: -p.bleed, w: (s.width * 72) / v!.ppi, h: (s.height * 72) / v!.ppi } }
+    }
+    /** The ink coverage in % of the preflight at `p`. */
+    const inkAt = (p: Point) => {
+      const page = pageAt(p)
+      const s = inkedOf(page)
+      if (!s) return null
+      const [x, y] = [p.x - page.x - s.rect.x, p.y - s.rect.y].map((v) => Math.floor((v / s.rect.w) * s.width))
+      return x >= 0 && y >= 0 && x < s.width && y < s.height ? Math.round(s.coverage[y * s.width + x]) : null
+    }
     /** The layer that a click at `p` picks. */
     const pickAt = (p: Point, mode: 'click' | 'double' | 'deep') => {
       const { page, path } = hit(p)
@@ -298,7 +312,8 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
         const penDx = pen ? editor.dx(pen.id) : 0
         const flowDx = drag?.kind === 'move' && drag.flow ? editor.dx(drag.flow.id) : 0
         const insert = drag?.kind === 'move' ? drag.to?.line.map((q) => ({ x: q.x + flowDx, y: q.y })) : undefined
-        renderer.draw(surface.getCanvas(), spread.map((p) => ({ id: p.id, x: p.x })), editor.sheets, view, canvas.width / canvas.clientWidth, {
+        const lists = spread.map((p) => ({ id: p.id, x: p.x, inks: editor.preflight ? inkedOf(p) : undefined }))
+        renderer.draw(surface.getCanvas(), lists, editor.sheets, view, canvas.width / canvas.clientWidth, {
           text,
           selection: editor.selection.length > 1 || ed || drag?.kind === 'draw' ? editor.selected().map(placed) : [],
           hover: hovered,
@@ -308,7 +323,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
           pen: pen && { anchors: pen.anchors.map((a) => ({ ...a, x: a.x + penDx })), cursor: drag ? undefined : cursor },
           insert: insert as [Point, Point] | undefined,
           ...threadOverlay(),
-        })
+        }, editor.preflight)
         surface.flush()
         const left = Math.min(...editor.sheets.map((s) => s.x))
         const sel = editor.selection.length ? bounds(editor.selected().map(placed)) : undefined
@@ -565,6 +580,10 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
         redraw()
       }
       pointer = { offsetX: e.offsetX, offsetY: e.offsetY, ctrlKey: e.ctrlKey || e.metaKey }
+      if (editor.preflight) {
+        const ink = inkAt(p)
+        if (ink !== editor.pointerInk) editor.set({ pointerInk: ink })
+      }
       if (editor.pen && !drag) {
         cursor = p
         redraw()
@@ -756,6 +775,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
       pointer = undefined
       hover = undefined
       cursor = undefined
+      if (editor.pointerInk !== null) editor.set({ pointerInk: null })
       redraw()
     }
     const onKey = (e: KeyboardEvent) => {

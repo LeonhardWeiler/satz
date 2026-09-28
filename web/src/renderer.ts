@@ -35,6 +35,8 @@ const [MOVE, LINE, CLOSE] = [0, 1, 5]
 
 /** A page on the canvas: its trim size and bleed, and the x of its left edge on its spread. */
 export type Sheet = { x: number; width: number; height: number; bleed: number }
+/** RGBA pixels drawn over the page with its bleed, `rect` in the space of the page. */
+export type Inked = { width: number; height: number; image: Uint8Array; rect: Box }
 
 /** The view that fits the pages of a spread, aligned at the top, into `width` × `height` px. */
 export function fitView(sheets: Sheet[], width: number, height: number): View {
@@ -65,6 +67,10 @@ export class Renderer {
   private fonts = new Map<string, Font>()
   /** Decoded images by display-list id; `null` when the file does not decode. */
   private images = new Map<number, Image | null>()
+  /** Images of the inks over pages by their pixels. */
+  private inks = new Map<Uint8Array, Image>()
+  /** The pages show as they print. */
+  private proof = false
   /** Paint for display-list content; `chrome` draws the page, guides and overlay. */
   private paint: Paint
   private chrome: Paint
@@ -81,10 +87,15 @@ export class Renderer {
   /**
    * Draws the display list of each page of `lists` at its x on the spread, over the
    * pages `sheets`, clipped to their bleed together: a layer across the spine shows on
-   * both pages, and the bleed runs around the spread's outer edges.
+   * both pages, and the bleed runs around the spread's outer edges. With `proof` the
+   * pages show as they print, with their `inks` over them.
    */
-  draw(canvas: Canvas, lists: { id: string; x: number }[], sheets: Sheet[], view: View, dpr: number, overlay: Overlay) {
+  draw(canvas: Canvas, lists: { id: string; x: number; inks?: Inked }[], sheets: Sheet[], view: View, dpr: number, overlay: Overlay, proof = false) {
     const { ck, chrome: paint } = this
+    if (proof !== this.proof) {
+      this.proof = proof
+      this.clear()
+    }
     canvas.clear(ck.parseColorString(BACKGROUND))
     canvas.save()
     canvas.scale(dpr, dpr)
@@ -110,8 +121,8 @@ export class Renderer {
     canvas.save()
     canvas.clipPath(bleed, ck.ClipOp.Intersect, true)
     const live = new Set<number>()
-    for (const { id, x } of lists) {
-      const ops = decode(this.engine.displayList(id).slice())
+    for (const { id, x, inks } of lists) {
+      const ops = decode(this.engine.displayList(id, proof).slice())
       this.loadImages(ops)
       for (const op of ops) {
         if (op.op === 'beginItem') live.add(op.item)
@@ -121,7 +132,17 @@ export class Renderer {
       canvas.translate(x, 0)
       const local = ck.LTRBRect(bounds[0] - x, bounds[1], bounds[2] - x, bounds[3])
       this.drawOps(canvas, ops, ops[0]?.op === 'page' ? 1 : 0, ops.length, local)
+      const image = inks && this.inkImage(inks)
+      if (image) {
+        const { x: l, y: t, w, h } = inks.rect
+        canvas.drawImageRectOptions(image, ck.XYWHRect(0, 0, inks.width, inks.height), ck.XYWHRect(l, t, w, h), ck.FilterMode.Nearest, ck.MipmapMode.None, null)
+      }
       canvas.restore()
+    }
+    for (const [pixels, image] of this.inks) {
+      if (lists.some((l) => l.inks?.image === pixels)) continue
+      image.delete()
+      this.inks.delete(pixels)
     }
     canvas.restore()
     for (const { ops, x } of overlay.text ?? []) {
@@ -421,8 +442,28 @@ export class Renderer {
     return font
   }
 
+  /** Forgets the pictures of all items and layers. */
+  private clear() {
+    for (const cache of [this.pictures, this.layers]) {
+      for (const { picture } of cache.values()) picture.delete()
+      cache.clear()
+    }
+  }
+
+  private inkImage({ width, height, image }: Inked) {
+    let i = this.inks.get(image)
+    if (!i) {
+      const { ck } = this
+      const info = { width, height, alphaType: ck.AlphaType.Unpremul, colorType: ck.ColorType.RGBA_8888, colorSpace: ck.ColorSpace.SRGB }
+      i = ck.MakeImage(info, image, width * 4) ?? undefined
+      if (i) this.inks.set(image, i)
+    }
+    return i
+  }
+
   delete() {
-    for (const { picture } of [...this.pictures.values(), ...this.layers.values()]) picture.delete()
+    this.clear()
+    for (const image of this.inks.values()) image.delete()
     for (const font of this.fonts.values()) font.delete()
     for (const typeface of this.typefaces.values()) typeface.delete()
     for (const image of this.images.values()) image?.delete()

@@ -9,7 +9,7 @@ import { handleKey } from './keys'
 import { Layers } from './Layers'
 import { Overview } from './Overview'
 import { Palette } from './Palette'
-import { Preflight } from './Preflight'
+import { isError, Preflight } from './Preflight'
 import { Properties } from './Properties'
 import { Start } from './Start'
 import { Swatches } from './Swatches'
@@ -21,6 +21,9 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
   const dirty = useEditor(editor, (e) => e.dirty)
   const name = useEditor(editor, (e) => e.file.name)
   const overview = useEditor(editor, (e) => e.overview !== null)
+  const preflight = useEditor(editor, (e) => e.preflight)
+  const issues = useEditor(editor, (e) => e.snapshot.preflight)
+  const errors = issues.filter(isError).length
 
   const [exporting, setExporting] = useState(false)
   const [starting, setStarting] = useState(first)
@@ -31,18 +34,24 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
 
   const exportPdf = () => {
     if (exporting) return
-    const issues = editor.snapshot.preflight.length
+    const file = `${name.replace(/\.satz$/, '')}.pdf`
     setExporting(true)
     say('Exporting PDF…')
     pdf(editor)
       .then(
         (bytes) => {
-          download(bytes, 'satz.pdf', 'application/pdf')
-          say(issues ? `Exported with ${issues} preflight ${issues === 1 ? 'issue' : 'issues'}. See Preflight.` : '')
+          download(bytes, file, 'application/pdf')
+          say(`Exported ${file}`)
         },
         (e: Error) => say(`Could not export the PDF: ${e.message}. Reload the page and try again.`),
       )
       .finally(() => setExporting(false))
+  }
+  /** Opens the preflight at its export button. */
+  const openExport = () => {
+    if (!editor.preflight) editor.togglePreflight()
+    setHidden((h) => ({ ...h, right: false, ui: false }))
+    requestAnimationFrame(() => document.querySelector<HTMLElement>('.pf-go')?.focus())
   }
   const saveFile = (as: boolean) => {
     say('Saving…')
@@ -68,7 +77,8 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
       if (e.altKey && !mod && e.code === 'Digit1') hide('left')
       else if (e.altKey && !mod && e.code === 'Digit2') hide('right')
       else if (mod && e.code === 'Backslash') hide('ui')
-      else if (mod && e.shiftKey && e.code === 'KeyE') exportPdf()
+      else if (mod && e.shiftKey && e.code === 'KeyE') openExport()
+      else if (mod && e.altKey && e.code === 'KeyY') editor.togglePreflight()
       else if (mod && !e.altKey && e.code === 'KeyS') saveFile(e.shiftKey)
       else if (mod && !e.altKey && !e.shiftKey && e.code === 'KeyO') open(editor, say).catch(() => {})
       else if (mod && !e.shiftKey && e.code === 'KeyN') setStarting(true)
@@ -78,6 +88,7 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
       else if (e.key === '.' && !mod) editor.toggleOverview()
       else if (e.key === '?' && !mod) setDialog('help')
       else if (editor.overview && e.key === 'Escape') editor.set({ overview: null })
+      else if (editor.preflight && e.key === 'Escape') editor.togglePreflight()
       else if ((editor.overview && !mod) || !handleKey(editor, e)) return
       e.preventDefault()
     }
@@ -109,7 +120,7 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
   )
 
   return (
-    <main className={`app${off('left') ? ' no-left' : ''}${off('right') ? ' no-right' : ''}${hidden.ui ? ' no-ui' : ''}`}>
+    <main className={`app${off('left') ? ' no-left' : ''}${off('right') ? ' no-right' : ''}${hidden.ui ? ' no-ui' : ''}${preflight ? ' preflighting' : ''}`}>
       <div className="left" inert={off('left')}>
         <div className="brand">
           <span className="mark" aria-hidden="true">
@@ -121,7 +132,6 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
         </div>
         <Layers editor={editor} />
         <Swatches editor={editor} />
-        <Preflight editor={editor} />
       </div>
       <header className="bar" inert={hidden.ui}>
         <Toolbar editor={editor} onPlaceImage={() => placeImages(editor, say)} />
@@ -139,17 +149,30 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
           <Icon name="pages" />
         </button>
         <span className="grow" />
+        <button
+          type="button"
+          className="tool pf-btn"
+          aria-label={`Preflight, ${issues.length} issue${issues.length === 1 ? '' : 's'}`}
+          title="Preflight (Ctrl+Alt+Y)"
+          aria-pressed={preflight}
+          onClick={() => editor.togglePreflight()}
+        >
+          <Icon name="preflight" />
+          <span className="pf-count" data-sev={errors ? 'error' : issues.length ? 'warn' : 'ok'}>
+            {issues.length}
+          </span>
+        </button>
         <button type="button" className="tool" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" onClick={() => setDialog('help')}>
           <Icon name="help" />
         </button>
-        <button type="button" className="primary" title="Export PDF (Ctrl+Shift+E)" onClick={exportPdf} disabled={exporting}>
+        <button type="button" className="primary" title="Export PDF (Ctrl+Shift+E)" onClick={openExport}>
           Export
         </button>
       </header>
       <Canvas ck={ck} editor={editor} onMore={more} />
       {overview && <Overview ck={ck} editor={editor} />}
       <div className="right" inert={off('right')}>
-        <Properties editor={editor} say={say} />
+        {preflight ? <Preflight editor={editor} exporting={exporting} onExport={exportPdf} /> : <Properties editor={editor} say={say} />}
       </div>
       {starting && (
         <Start

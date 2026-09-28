@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
 import { PNG } from 'pngjs'
 import { fitView, type Sheet } from '../src/renderer'
-import { STORY, addMaster, addPage, drag, drawn, frameOnNewPage, near, open, pixels, place, png, port, screen, showPage } from './util'
+import { STORY, addMaster, addPage, drag, drawn, exportButton, frameOnNewPage, near, open, openExample, pixels, place, png, port, screen, showPage } from './util'
 
 const EDGE = 4
 const BLOCK = 4
@@ -32,8 +32,10 @@ function sheet(pdf: string, n: number) {
 async function exportPdf(page: Page) {
   const pdf = join(mkdtempSync(join(tmpdir(), 'satz-')), 'satz.pdf')
   const download = page.waitForEvent('download')
-  await page.getByRole('button', { name: 'Export', exact: true }).click()
+  await (await exportButton(page)).click()
   await (await download).saveAs(pdf)
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Shift+1')
   return pdf
 }
 
@@ -421,16 +423,6 @@ test('the pages of a spread show their sides of a master spread and match the ca
 })
 
 /** Opens the example `name` from the repo, by the file input that Firefox uses. */
-async function openExample(page: Page, name: string) {
-  await page.addInitScript(() => delete (window as { showOpenFilePicker?: unknown }).showOpenFilePicker)
-  await open(page, 2000)
-  const chooser = page.waitForEvent('filechooser')
-  await page.keyboard.press('Control+o')
-  await (await chooser).setFiles(join(import.meta.dirname, '../../examples', name))
-  await expect(page).toHaveTitle(`${name} — Satz`)
-  await page.mouse.move(1, 1)
-}
-
 test('the example poster exports as the canvas shows it', async ({ page }) => {
   await openExample(page, 'poster.satz')
   await expectCanvasMatchesPdf(page, 1, [1], undefined, MAX_SHARE_DARK)
@@ -455,7 +447,7 @@ test('the canvas still draws while the pdf is exported', async ({ page }) => {
     await held
     await route.continue()
   })
-  const button = page.getByRole('button', { name: 'Export', exact: true })
+  const button = await exportButton(page)
   const download = page.waitForEvent('download')
   await button.click()
   await expect(button).toBeDisabled()

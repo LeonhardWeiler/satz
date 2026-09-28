@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { expect, test, type Page } from '@playwright/test'
-import { addMaster, colors, drag, open, screen, showPage } from './util'
+import { addMaster, colors, drag, exportButton, open, preflight, screen, showPage } from './util'
 
 const layers = (page: Page) => page.getByRole('tree', { name: 'Layers' })
 const rect = (page: Page) => layers(page).getByRole('treeitem', { name: 'Rectangle' }).first()
@@ -8,8 +8,10 @@ const at = async (page: Page, p: readonly [number, number]) => (await colors(pag
 
 async function exported(page: Page) {
   const download = page.waitForEvent('download')
-  await page.getByRole('button', { name: 'Export', exact: true }).click()
+  await (await exportButton(page)).click()
   const pdf = (await (await download).path())!
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Shift+1')
   return execFileSync('mutool', ['draw', '-F', 'trace', '-o', '-', pdf]).toString().match(/<fill_path/g)?.length ?? 0
 }
 
@@ -26,8 +28,12 @@ test('a hidden layer is not on the canvas, in the pdf or in preflight until show
   await page.mouse.move(1, 1)
   const paper = await at(page, await screen(page, 30, 10))
   const inside = await drawn(page)
-  const short = page.getByRole('region', { name: 'Preflight' }).getByRole('button', { name: /Short of the bleed/ })
-  await expect(short).toHaveCount(1)
+  const short = async (n: number) => {
+    await expect((await preflight(page)).getByRole('button', { name: /Short of the bleed/ })).toHaveCount(n)
+    await page.keyboard.press('Escape')
+    await page.keyboard.press('Shift+1')
+  }
+  await short(1)
   const before = await exported(page)
   await page.keyboard.press('Escape')
   await page.mouse.move(1, 1)
@@ -39,7 +45,7 @@ test('a hidden layer is not on the canvas, in the pdf or in preflight until show
   const show = rect(page).getByRole('button', { name: 'Show' })
   await expect(show).toBeVisible()
   expect(await at(page, inside)).toBe(paper)
-  await expect(short).toHaveCount(0)
+  await short(0)
   expect(await exported(page)).toBe(before - 1)
   await page.mouse.click(...inside)
   await expect(rect(page)).toHaveAttribute('aria-selected', 'false')
@@ -47,7 +53,7 @@ test('a hidden layer is not on the canvas, in the pdf or in preflight until show
   await show.click()
   await page.mouse.move(1, 1)
   expect(await at(page, inside)).not.toBe(paper)
-  await expect(short).toHaveCount(1)
+  await short(1)
 })
 
 test('a locked layer is not hit on the canvas but is selected in the tree', async ({ page }) => {

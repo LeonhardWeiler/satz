@@ -3,7 +3,7 @@ import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
-import { addMaster, addPage, colors, current, drag, open, overview, screen, showPage } from './util'
+import { addMaster, addPage, colors, current, drag, exportButton, open, overview, screen, showPage } from './util'
 
 const gray = ([r, g, b]: number[]) => [r, g, b].every((c) => Math.abs(c - 0xd9) < 8)
 
@@ -177,7 +177,7 @@ test('a page number on the pages of a master spread shows the number of each pag
   }
   const pdf = join(mkdtempSync(join(tmpdir(), 'satz-')), 'satz.pdf')
   const download = page.waitForEvent('download')
-  await page.getByRole('button', { name: 'Export', exact: true }).click()
+  await (await exportButton(page)).click()
   await (await download).saveAs(pdf)
   const text = execFileSync('mutool', ['draw', '-q', '-F', 'text', '-o', '-', pdf, '2-3']).toString()
   expect(text.replace(/\s+/g, ' ').trim()).toBe('2 3')

@@ -1,6 +1,7 @@
 import { typeface } from './engine/engine'
 import type { Editor } from './editor'
 import type { Typeface } from './model'
+import type { Preview, Previewed } from './exportWorker'
 
 export type Handle = FileSystemFileHandle & { requestPermission(o: { mode: 'readwrite' }): Promise<PermissionState> }
 export type Saved = { bytes: Uint8Array; name: string; handle: Handle | null; dirty: boolean }
@@ -75,32 +76,39 @@ export function download(bytes: Uint8Array, name: string, type: string) {
   URL.revokeObjectURL(url)
 }
 
-let worker: Worker | undefined
-/** The fonts the worker has, the bundled one from the start. */
-let sent = 1
+/** A worker with the fonts it was sent, the bundled one from the start, and the version of the document it has. */
+type Job = { worker?: Worker; fonts: number; version: string }
+const exporter: Job = { fonts: 1, version: '' }
+const previewer: Job = { fonts: 1, version: '' }
 
-/** The document as PDF, made in a worker that keeps the fonts it was sent for the next export. */
-export function pdf(editor: Editor) {
-  worker ??= new Worker(new URL('./exportWorker.ts', import.meta.url), { type: 'module' })
-  const w = worker
+/** Sends the document to the worker of `job`, as far as it does not have it, to run `preview` or export a PDF. */
+function run<T>(job: Job, editor: Editor, preview?: Preview) {
+  const w = (job.worker ??= new Worker(new URL('./exportWorker.ts', import.meta.url), { type: 'module' }))
   const n = editor.snapshot.fonts.length
-  const fonts = Array.from({ length: n - sent }, (_, i) => editor.engine.font(sent + i))
-  const doc = editor.engine.save()
-  return new Promise<Uint8Array>((done, fail) => {
-    w.onmessage = ({ data }: MessageEvent<{ pdf?: Uint8Array; error?: string }>) => {
+  const fonts = Array.from({ length: n - job.fonts }, (_, i) => editor.engine.font(job.fonts + i))
+  const version = editor.engine.version()
+  const doc = version === job.version ? null : editor.engine.save()
+  return new Promise<T>((done, fail) => {
+    w.onmessage = ({ data }: MessageEvent<T & { error?: string }>) => {
       if (data.error !== undefined) return fail(new Error(data.error))
-      sent = n
-      done(data.pdf!)
+      job.fonts = n
+      job.version = version
+      done(data)
     }
     w.onerror = (e) => {
       w.terminate()
-      worker = undefined
-      sent = 1
+      Object.assign(job, { worker: undefined, fonts: 1, version: '' })
       fail(new Error(e.message))
     }
-    w.postMessage({ doc, fonts }, [doc.buffer, ...fonts.map((f) => f.buffer)])
+    w.postMessage({ doc, fonts, preview }, [...(doc ? [doc.buffer] : []), ...fonts.map((f) => f.buffer)])
   })
 }
+
+/** The document as PDF, made in a worker. */
+export const pdf = (editor: Editor) => run<{ pdf: Uint8Array }>(exporter, editor).then((r) => r.pdf)
+
+/** The inks of pages as the preflight shows them, rasterized in a worker. */
+export const preview = (editor: Editor, p: Preview) => run<Previewed>(previewer, editor, p)
 
 /** Saves into the document's file, or into one the user picks; Firefox downloads it. */
 export async function save(editor: Editor, as: boolean) {
