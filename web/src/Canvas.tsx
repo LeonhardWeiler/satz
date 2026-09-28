@@ -6,6 +6,7 @@ import { penPath } from './pen'
 import { handleAt, portAt, portsOf, rect, resized } from './handles'
 import { Renderer, fitView, HANDLE, type Box, type View } from './renderer'
 import { pick } from './select'
+import { guides, measure, nearest, snap, targets, type Guide, type Lines, type Measure } from './snap'
 import { handleTextKey, insert, range, select, textOf, wordAt } from './textEdit'
 import { Switcher } from './Switcher'
 import { Quick } from './Quick'
@@ -13,6 +14,8 @@ import { Quick } from './Quick'
 const PX_PER_PT = 96 / 72
 const DRAG = 3
 const HIT = 4
+/** Distance in px within which layers snap. */
+const SNAP = 5
 const CURSORS: Record<string, string> = {
   nw: 'nwse-resize',
   se: 'nwse-resize',
@@ -30,13 +33,15 @@ const DEFAULT_SIZE: Record<Exclude<Tool, 'move' | 'pen'>, [number, number]> = {
 }
 
 type Pointer = { offsetX: number; offsetY: number; ctrlKey: boolean }
+/** What a drag snaps to and the layers it measures to. */
+type Snaps = { lines: Lines; others: Box[] }
 type Drag =
   | { kind: 'pan'; last: Point }
-  | { kind: 'move'; start: Point; frames: Node[]; active: boolean; flow?: Container; to?: ReturnType<typeof insertion> }
-  | { kind: 'resize'; start: Point; handle: string; box: Box; frames: Node[] }
+  | { kind: 'move'; start: Point; frames: Node[]; active: boolean; flow?: Container; to?: ReturnType<typeof insertion>; box?: Box; snaps?: Snaps }
+  | { kind: 'resize'; start: Point; handle: string; box: Box; frames: Node[]; snaps: Snaps }
   | { kind: 'end'; start: Point; id: string; ends: [Point, Point]; index: number }
   | { kind: 'marquee'; start: Point; end: Point; base: string[] }
-  | { kind: 'draw'; start: Point; id: string; dx: number; moved: boolean; tool: keyof typeof DEFAULT_SIZE; thread?: string }
+  | { kind: 'draw'; start: Point; id: string; dx: number; moved: boolean; tool: keyof typeof DEFAULT_SIZE; thread?: string; snaps?: Snaps }
   | { kind: 'pen'; start: Point }
   | { kind: 'text' }
 
@@ -111,6 +116,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
   const rulerY = useRef<HTMLCanvasElement>(null)
   const area = useRef<HTMLTextAreaElement>(null)
   const quick = useRef<HTMLDivElement>(null)
+  const marks = useRef<SVGSVGElement>(null)
   const [zoom, setZoom] = useState(0)
   const [composing, setComposing] = useState(false)
   const editing = useEditor(editor, (e) => e.editing !== null)
@@ -132,6 +138,9 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
     let cursor: Point | undefined
     /** Last pointer position and Ctrl state over the canvas, for hover and cursor. */
     let pointer: Pointer | undefined
+    let alt = false
+    let snapped: Guide[] = []
+    let measures: Measure[] = []
     let caretOn = true
     let blink: ReturnType<typeof setInterval> | undefined
     /** Shows the caret and blinks it from now on, so that it stays while typing. */
@@ -192,6 +201,42 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
       if (editor.tool !== 'move' || !nodes.length || editor.editing) return {}
       const line = nodes.length === 1 ? ends(nodes[0]) : undefined
       return line ? { line } : { box: bounds(nodes) }
+    }
+
+    /** What the selection snaps to: the pages of the spread and the visible layers beside the selection. */
+    const snapsNow = (): Snaps => {
+      const top = (id: string) => {
+        let e = editor.nodes.get(id)
+        while (e?.parent) e = editor.nodes.get(e.parent.id)
+        return e?.node.id
+      }
+      const skip = new Set([...editor.selection, ...editor.selection.map(top)])
+      const siblings = editor.selected().flatMap((n) => editor.nodes.get(n.id)?.parent?.children ?? []).map(placed)
+      const tops = editor.spread.flatMap((page) => page.children.map((n) => ({ ...n, x: n.x + page.x })))
+      const others = [...new Map([...tops, ...siblings].map((n) => [n.id, n])).values()].filter((n) => !n.hidden && !skip.has(n.id))
+      return { lines: targets(editor.sheets, others), others }
+    }
+    /** `p` moved onto what it snaps to, unless `off`, with the guides through it. */
+    const snapPoint = (p: Point, snaps: Snaps | undefined, off: boolean) => {
+      if (!snaps || off) return { p, guides: [] }
+      const q = { x: p.x + snap([p.x], snaps.lines.x, SNAP / view.zoom), y: p.y + snap([p.y], snaps.lines.y, SNAP / view.zoom) }
+      return { p: q, guides: guides({ ...q, w: 0, h: 0 }, snaps.lines, [q.x], [q.y]) }
+    }
+    const svgOf = (target?: Box) => {
+      const [X, Y] = [(x: number) => view.x + x * view.zoom, (y: number) => view.y + y * view.zoom]
+      const line = (x1: number, y1: number, x2: number, y2: number, cls = '') =>
+        `<line class="${cls}" x1="${X(x1)}" y1="${Y(y1)}" x2="${X(x2)}" y2="${Y(y2)}"/>`
+      let svg = snapped.map((g) => (g.axis === 'x' ? line(g.at, g.from, g.at, g.to) : line(g.from, g.at, g.to, g.at))).join('')
+      if (target) svg += `<rect class="target" x="${X(target.x)}" y="${Y(target.y)}" width="${target.w * view.zoom}" height="${target.h * view.zoom}"/>`
+      for (const m of measures) {
+        svg += line(m.x1, m.y1, m.x2, m.y2, m.dashed ? 'dashed' : '')
+        if (m.dashed) continue
+        const t = `${Math.round((m.length / MM) * 10) / 10} mm`
+        const w = t.length * 6.2 + 10
+        const [cx, cy] = m.y1 === m.y2 ? [X((m.x1 + m.x2) / 2), Y(m.y1) + 13] : [X(m.x1) + 9 + w / 2, Y((m.y1 + m.y2) / 2)]
+        svg += `<rect class="label" x="${cx - w / 2}" y="${cy - 9}" width="${w}" height="18" rx="4"/><text x="${cx}" y="${cy}">${t}</text>`
+      }
+      return svg
     }
 
     /** Ports of the selected text frame, and lines from each frame of its thread on this page to the next. */
@@ -280,8 +325,16 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
           bar.style.left = `${Math.min(Math.max(view.x + (sel.x + sel.w / 2) * view.zoom - w / 2, 8), vw - w - 8)}px`
           bar.style.top = `${Math.min(Math.max(top >= 8 ? top : view.y + (sel.y + sel.h) * view.zoom + 14, 8), vh - h - 8)}px`
         }
-        drawRuler(rulerX.current!, true, x0, view.zoom * MM, sel && [view.x + sel.x * view.zoom, view.x + (sel.x + sel.w) * view.zoom])
-        drawRuler(rulerY.current!, false, view.y, view.zoom * MM, sel && [view.y + sel.y * view.zoom, view.y + (sel.y + sel.h) * view.zoom])
+        const page = pointer ? pageAt(toDoc(pointer)) : undefined
+        const target = !alt || !sel || drag || ed || pen || editor.tool !== 'move' || editor.overview !== null
+          ? undefined
+          : hovered || (page && { x: page.x, y: 0, w: page.width, h: page.height })
+        if (target) measures = measure(sel!, target)
+        else if (!drag) measures = []
+        marks.current!.innerHTML = svgOf(target)
+        const at = (axis: 'x' | 'y', o: number) => snapped.filter((g) => g.axis === axis).map((g) => o + g.at * view.zoom)
+        drawRuler(rulerX.current!, true, x0, view.zoom * MM, sel && [view.x + sel.x * view.zoom, view.x + (sel.x + sel.w) * view.zoom], at('x', view.x))
+        drawRuler(rulerY.current!, false, view.y, view.zoom * MM, sel && [view.y + sel.y * view.zoom, view.y + (sel.y + sel.h) * view.zoom], at('y', view.y))
       })
     }
     const show = (to: View) => {
@@ -376,7 +429,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
     const onPointerDown = (e: PointerEvent) => {
       settle()
       if (e.button !== 0 && e.button !== 1) return
-      const p = toDoc(e)
+      let p = toDoc(e)
       const edited = e.button === 0 && !space ? inEdited(p) : undefined
       if (edited) {
         e.preventDefault()
@@ -450,9 +503,11 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
       }
       if (editor.tool !== 'move') {
         const tool = editor.tool
+        const snaps = snapsNow()
+        p = snapPoint(p, snaps, e.ctrlKey || e.metaKey).p
         editor.beginGroup()
         const { id, dx } = create(tool)
-        drag = { kind: 'draw', start: p, id, dx, moved: false, tool }
+        drag = { kind: 'draw', start: p, id, dx, moved: false, tool, snaps }
         editor.set({ selection: [id] })
         return
       }
@@ -480,7 +535,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
       }
       if (handle) {
         const frames = editor.selected()
-        drag = { kind: 'resize', start: p, handle, box: bounds(frames.map(placed)), frames }
+        drag = { kind: 'resize', start: p, handle, box: bounds(frames.map(placed)), frames, snaps: snapsNow() }
         editor.beginGroup()
         return
       }
@@ -504,6 +559,11 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
     }
     const onPointerMove = (e: PointerEvent) => {
       const p = toDoc(e)
+      const free = !(e.ctrlKey || e.metaKey)
+      if (alt !== e.altKey && !drag) {
+        alt = e.altKey
+        redraw()
+      }
       pointer = { offsetX: e.offsetX, offsetY: e.offsetY, ctrlKey: e.ctrlKey || e.metaKey }
       if (editor.pen && !drag) {
         cursor = p
@@ -539,8 +599,10 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
       } else if (drag.kind === 'draw') {
         drag.moved ||= Math.hypot(p.x - drag.start.x, p.y - drag.start.y) * view.zoom > DRAG
         if (!drag.moved) return
-        let dx = p.x - drag.start.x
-        let dy = p.y - drag.start.y
+        const s = snapPoint(p, drag.snaps, !free || e.shiftKey)
+        snapped = s.guides
+        let dx = s.p.x - drag.start.x
+        let dy = s.p.y - drag.start.y
         if (drag.tool === 'line' || drag.tool === 'arrow') {
           if (e.shiftKey) [dx, dy] = snap45(dx, dy)
           const [x, y] = [drag.start.x - drag.dx, drag.start.y]
@@ -566,6 +628,8 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
             editor.set({ selection: editor.apply({ type: 'duplicate', ids: drag.frames.map((n) => n.id) }) })
             drag.frames = editor.selected()
           }
+          drag.box = bounds(drag.frames.map(placed))
+          drag.snaps = snapsNow()
         }
         if (drag.flow) {
           const local = { x: p.x - editor.dx(drag.flow.id), y: p.y }
@@ -573,10 +637,20 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
           redraw()
           return
         }
-        if (e.shiftKey) {
-          if (Math.abs(dx) > Math.abs(dy)) dy = 0
-          else dx = 0
+        const lock = e.shiftKey ? (Math.abs(dx) > Math.abs(dy) ? 'y' : 'x') : undefined
+        if (lock === 'y') dy = 0
+        if (lock === 'x') dx = 0
+        const { lines, others } = drag.snaps!
+        const b = drag.box!
+        const xs = (d: number) => (lock === 'x' ? [] : [b.x + d, b.x + d + b.w / 2, b.x + d + b.w])
+        const ys = (d: number) => (lock === 'y' ? [] : [b.y + d, b.y + d + b.h / 2, b.y + d + b.h])
+        if (free) {
+          dx += snap(xs(dx), lines.x, SNAP / view.zoom)
+          dy += snap(ys(dy), lines.y, SNAP / view.zoom)
         }
+        const moved = { ...b, x: b.x + dx, y: b.y + dy }
+        snapped = free ? guides(moved, lines, xs(dx), ys(dy)) : []
+        measures = nearest(moved, others).flatMap((o) => measure(moved, o))
         for (const n of drag.frames) editor.apply({ type: 'setFrame', id: n.id, x: n.x + dx, y: n.y + dy, w: n.w, h: n.h })
       } else if (drag.kind === 'end') {
         const fixed = drag.ends[1 - drag.index]
@@ -590,7 +664,15 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
         editor.apply({ type: 'setPath', id: drag.id, path: [0, a.x - off, a.y, 1, b.x - off, b.y] })
       } else if (drag.kind === 'resize') {
         const d = { x: p.x - drag.start.x, y: p.y - drag.start.y }
-        const boxes = resized(drag.box, drag.handle, d, e, drag.frames.map(placed))
+        const { box: b, handle: h, snaps } = drag
+        const edge = (side: string, at: number) => (h.includes(side) ? [at] : [])
+        if (free) {
+          d.x += snap([...edge('w', b.x + d.x), ...edge('e', b.x + b.w + d.x)], snaps.lines.x, SNAP / view.zoom)
+          d.y += snap([...edge('n', b.y + d.y), ...edge('s', b.y + b.h + d.y)], snaps.lines.y, SNAP / view.zoom)
+        }
+        const boxes = resized(b, h, d, e, drag.frames.map(placed))
+        const r = bounds(boxes)
+        snapped = free ? guides(r, snaps.lines, [...edge('w', r.x), ...edge('e', r.x + r.w)], [...edge('n', r.y), ...edge('s', r.y + r.h)]) : []
         drag.frames.forEach((n, i) => {
           const f = boxes[i]
           editor.apply({ type: 'setFrame', id: n.id, ...f, x: f.x - editor.dx(n.id), ignoreConstraints: e.ctrlKey || e.metaKey })
@@ -634,6 +716,8 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
         if (id && editor.selection.length > 1) editor.set({ selection: [id] })
       }
       drag = null
+      snapped = []
+      measures = []
       editor.dragging = false
       delete canvas.dataset.panning
       track()
@@ -676,6 +760,11 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
     }
     const onKey = (e: KeyboardEvent) => {
       if (isTyping(e)) return
+      if (e.key === 'Alt') {
+        alt = e.type === 'keydown'
+        e.preventDefault()
+        redraw()
+      }
       if ((e.key === 'Control' || e.key === 'Meta') && pointer) {
         pointer.ctrlKey = e.type === 'keydown'
         track()
@@ -763,6 +852,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
       <canvas ref={rulerY} className="ruler ruler-y" aria-hidden="true" />
       <div className="view">
         <canvas ref={ref} className="canvas" aria-label="Page canvas" tabIndex={-1} data-tool="move" />
+        <svg ref={marks} className="marks" aria-hidden="true" />
         {editing && (
           <textarea
             ref={(el) => {

@@ -3,7 +3,7 @@ import { ACTIONS } from './commands'
 import { Icon } from './icons'
 
 const GROUPS: [string, [string, string][]][] = [
-  ['Canvas', [['Ctrl click', 'Select inside a group'], ['Double-click', 'Edit text, enter a group'], ['Alt drag', 'Resize from the centre'], ['Space drag', 'Pan'], ['Ctrl wheel', 'Zoom']]],
+  ['Canvas', [['Ctrl click', 'Select inside a group'], ['Double-click', 'Edit text, enter a group'], ['Alt drag', 'Resize from the centre'], ['Space drag', 'Pan'], ['Ctrl wheel', 'Zoom'], ['Ctrl drag', 'No snapping'], ['Shift drag', 'Lock to an axis'], ['Alt', 'Distances to the layer under the pointer']]],
   ['Layers', [['↑ ↓', 'Previous, next layer'], ['→ ←', 'Open, close a group'], ['Enter', 'Select children'], ['Shift Enter', 'Select parent'], ['Tab', 'Next sibling'], ['Shift Tab', 'Previous sibling'], ['F2', 'Rename'], ['Arrows on canvas', 'Nudge 1 mm, Shift 10 mm']]],
   ['Fields', [['Drag the label', 'Change the value'], ['↑ ↓', '1, Shift 10, Alt 0.1'], ['118/2', 'Calculates on Enter'], ['12pt', 'Converts the unit']]],
   ['Pages', [['PgUp PgDn', 'Previous, next spread'], ['Home End', 'First, last spread'], ['.', 'Page overview'], ['Alt ← →', 'Move the page in the overview'], ['Double-click master', 'Edit master']]],

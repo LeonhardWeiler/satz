@@ -1,0 +1,56 @@
+import { expect, test, type Page } from '@playwright/test'
+import { addMaster, drag, open, screen } from './util'
+
+const layout = (page: Page) => page.getByRole('complementary', { name: 'Properties' }).getByRole('region', { name: 'Layout' })
+const value = async (page: Page, name: string) => Number(await layout(page).getByRole('textbox', { name: `${name} in mm` }).inputValue())
+const labels = (page: Page) => page.locator('.marks text')
+
+test('drawing and moving snap to the page and other layers unless ctrl is held', async ({ page }) => {
+  await open(page)
+  await addMaster(page)
+  await page.keyboard.press('r')
+  await drag(page, await screen(page, 1, 0.8), await screen(page, 40, 30))
+  expect(await value(page, 'X')).toBe(0)
+  expect(await value(page, 'Y')).toBe(0)
+  await page.keyboard.press('r')
+  await drag(page, await screen(page, 100, 100), await screen(page, 120, 120))
+
+  await page.mouse.move(...(await screen(page, 20, 15)))
+  await page.mouse.down()
+  await page.mouse.move(...(await screen(page, 73.4, 15.3)), { steps: 6 })
+  await expect(page.locator('.marks line')).not.toHaveCount(0)
+  await expect(labels(page)).toHaveCount(2)
+  await expect(labels(page).first()).toHaveText(/^\d+(\.\d)? mm$/)
+  await page.mouse.up()
+  await expect(labels(page)).toHaveCount(0)
+  expect(await value(page, 'X')).toBe(54)
+  expect(await value(page, 'Y')).toBe(0)
+
+  await page.mouse.move(...(await screen(page, 74, 15)))
+  await page.mouse.down()
+  await page.keyboard.down('Control')
+  await page.mouse.move(...(await screen(page, 80, 15)), { steps: 3 })
+  await page.mouse.move(...(await screen(page, 75, 15)), { steps: 3 })
+  await page.mouse.up()
+  await page.keyboard.up('Control')
+  expect(await value(page, 'X')).toBeCloseTo(55, 0)
+  expect(await value(page, 'X')).not.toBe(54)
+})
+
+test('alt shows the distances to the layer under the pointer or to the page', async ({ page }) => {
+  await open(page)
+  await addMaster(page)
+  await page.keyboard.press('r')
+  await drag(page, await screen(page, 20, 20), await screen(page, 40, 40))
+  await page.keyboard.press('r')
+  await drag(page, await screen(page, 80, 20), await screen(page, 100, 40))
+  await page.mouse.click(...(await screen(page, 30, 30)))
+
+  await page.mouse.move(...(await screen(page, 60, 120)))
+  await page.keyboard.down('Alt')
+  await expect(labels(page)).toHaveText(['20 mm', '108 mm', '20 mm', '170 mm'])
+  await page.mouse.move(...(await screen(page, 90, 30)))
+  await expect(labels(page)).toHaveText(['40 mm'])
+  await page.keyboard.up('Alt')
+  await expect(labels(page)).toHaveCount(0)
+})

@@ -2246,3 +2246,39 @@ kbd {
 .swatch-option .swatch-warn svg {
   color: var(--warn);
 }
+
+.marks {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: hidden;
+
+  line {
+    stroke: var(--magenta);
+    stroke-width: 1;
+  }
+
+  .dashed {
+    stroke-dasharray: 3 3;
+  }
+
+  .target {
+    fill: none;
+    stroke: var(--magenta);
+    stroke-dasharray: 3 3;
+  }
+
+  .label {
+    fill: var(--magenta);
+  }
+
+  text {
+    fill: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    text-anchor: middle;
+    dominant-baseline: central;
+  }
+}
