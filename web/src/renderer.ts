@@ -1,5 +1,5 @@
 import type { Canvas, CanvasKit, Font, Image, Paint, Rect, RuntimeEffect, SkPicture, Surface, Typeface } from 'canvaskit-wasm'
-import { lut, type Engine } from './engine/engine'
+import type { Engine } from './engine/engine'
 import { close, decode, type Op, type Paint as Fill } from './displayList'
 
 /** Marks the font of a glyph run whose own font is missing, drawn in the bundled one. */
@@ -233,7 +233,7 @@ export class Renderer {
       return shader
     })
     if (!this.lut) {
-      const pixels = lut()
+      const pixels = this.engine.lut()
       const size = Math.round(Math.sqrt(pixels.length / 4))
       const info = { width: size, height: size, colorType: ck.ColorType.RGBA_8888, alphaType: ck.AlphaType.Unpremul, colorSpace: ck.ColorSpace.SRGB }
       this.lut = ck.MakeImage(info, pixels, size * 4)!
