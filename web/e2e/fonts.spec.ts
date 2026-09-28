@@ -1,5 +1,5 @@
 import { type Page } from '@playwright/test'
-import { expect, test, open } from './util'
+import { expect, test, choose, open } from './util'
 
 const fonts = (page: Page) => page.getByRole('region', { name: 'Fonts' })
 
@@ -22,6 +22,19 @@ test('an added font is listed, stays after a reload and is removed', async ({ pa
   await expect(fonts(page).getByRole('listitem')).toHaveText(['Source Serif 4'])
   await page.reload()
   await expect(fonts(page).getByRole('listitem')).toHaveText(['Source Serif 4'])
+})
+
+test('text is set in a font picked in the text section', async ({ page }) => {
+  await open(page)
+  await add(page, new URL('../../engine/fonts/DMMono-Regular.ttf', import.meta.url).pathname)
+  await expect(fonts(page).getByRole('listitem')).toHaveText(['Source Serif 4', 'DM Mono Regular'])
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
+  const font = page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Font' })
+  await expect(font).toHaveText('Source Serif 4')
+  await choose(font, 'DM Mono Regular')
+  await expect(font).toHaveText('DM Mono Regular')
+  await page.keyboard.press('Control+z')
+  await expect(font).toHaveText('Source Serif 4')
 })
 
 test('a file that is not a font is not added and says why', async ({ page }) => {

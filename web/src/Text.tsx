@@ -95,6 +95,8 @@ export function Specimen({ editor, style, onPick }: { editor: Editor; style: str
 /** Text style, type and alignment of a text layer. */
 export function TextSection({ editor, node }: { editor: Editor; node: TextNode }) {
   const styles = useEditor(editor, (e) => e.snapshot.textStyles)
+  const fonts = useEditor(editor, (e) => e.snapshot.fonts)
+  const missing = useEditor(editor, (e) => e.snapshot.missingFonts)
   const spans = useEditor(editor, (e) => e.snapshot.stories[node.story])?.spans ?? []
   const same = <T,>(get: (a: Attrs) => T) => sameOf(spans, get)
   const edited = useEditor(editor, (e) => (e.editing?.id === node.id && e.editing.anchor !== e.editing.focus ? e.editing : null))
@@ -115,6 +117,9 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
     format({ textStyle: id })
   }
   const align = same((a) => a.textAlign)
+  const font = same((a) => a.font?.hash ?? '')
+  const faces = [...fonts.map((f, i) => (i ? f : { ...f, hash: '' })), ...missing.map((m) => m.font)]
+  const fontNames: Record<string, string> = Object.fromEntries(faces.map((f) => [f.hash, f.name]))
   const hyphenate = same((a) => a.hyphenate)
   const lang = same((a) => a.lang)
   const langs: Record<string, string> = { ...LANGS }
@@ -148,6 +153,13 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
           </button>
         )}
       </div>
+      <Select
+        label="Font"
+        value={font}
+        options={fontNames}
+        disabled={missing.map((m) => m.font.hash)}
+        onChange={(hash) => format({ font: hash ? faces.find((f) => f.hash === hash)! : null })}
+      />
       <div className="grid">
         {STYLED.map(([prop, title, label, unit, zero]) => {
           const field = (
