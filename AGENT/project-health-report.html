@@ -41,26 +41,28 @@
 <body>
 <main>
 <h1>Satz – project health report</h1>
-<p class="meta">2026-09-25 · branch <code>main</code> · commit <code>af503b0</code> · browser DTP (Rust/WASM engine, CanvasKit renderer, React UI, krilla PDF)</p>
+<p class="meta">2026-09-28 · branch <code>main</code> · commit <code>ceaca76</code> · browser DTP (Rust/WASM engine, CanvasKit renderer, React UI, krilla PDF)</p>
 
 <div class="counters">
   <div class="counter"><b>0</b><span>Critical</span></div>
   <div class="counter"><b>0</b><span>High</span></div>
-  <div class="counter"><b>0</b><span>Medium</span></div>
+  <div class="counter"><b>1</b><span>Medium</span></div>
   <div class="counter"><b>5</b><span>Low</span></div>
-  <div class="counter"><b>0</b><span>Info</span></div>
-  <div class="counter"><b>5</b><span>Total</span></div>
+  <div class="counter"><b>1</b><span>Info</span></div>
+  <div class="counter"><b>7</b><span>Total</span></div>
 </div>
 
 <nav aria-label="Contents">
 <ol>
   <li><a href="#open">Open findings</a>
     <ol>
+      <li><a href="#BUG-1">BUG-1 Rotation ignored by preflight and snaps</a></li>
       <li><a href="#UX-8">UX-8 Refused thread ends threading</a></li>
+      <li><a href="#ROB-1">ROB-1 Dead engine goes unnoticed</a></li>
       <li><a href="#TEST-5">TEST-5 Hidden test order</a></li>
       <li><a href="#TEST-1">TEST-1 Gaps in e2e coverage</a></li>
       <li><a href="#SEC-1">SEC-1 Actions not pinned</a></li>
-      <li><a href="#UX-9">UX-9 No favicon</a></li>
+      <li><a href="#BUILD-1">BUILD-1 Standing chunk size warning</a></li>
     </ol>
   </li>
   <li><a href="#strong">What is already strong</a></li>
@@ -71,11 +73,25 @@
 
 <h2 id="open">1. Open findings</h2>
 
+<article class="card medium" id="BUG-1">
+  <header><span class="id">BUG-1</span><span class="badge medium">medium</span><h3>Preflight's trim and bleed check and snapping use the unturned frame of a rotated layer</h3></header>
+  <p class="file"><code>engine/src/doc/draw.rs</code> <code>visit</code> (insets from <code>n.x</code>, <code>n.w</code>); <code>web/src/snap.ts</code> <code>targets</code>; <code>web/src/Canvas.tsx</code> <code>snapsNow</code></p>
+  <p>Rotation is stored beside the frame and applied around its centre, but the preflight measures the distance to trim and bleed from <code>x, y, w, h</code> alone, and so do the snap lines of other layers. A rectangle turned 45° whose corners reach past the trim but stop short of the bleed is not reported as short of bleed, and one whose frame touches the trim while its turned shape stays inside is reported wrongly; layers snap to edges and centres that are not where the rotated layer shows. A layer inside a rotated group has the same problem through its ancestors' transform.</p>
+  <p class="rec">Give the engine one bounding box per node that includes its own and its ancestors' rotation (the transform already exists at <code>doc/mod.rs</code> for drawing and hits), send it in the snapshot, and use it in <code>visit</code> and <code>targets</code>; add a preflight test with a turned rectangle near the trim.</p>
+</article>
+
 <article class="card low" id="UX-8">
   <header><span class="id">UX-8</span><span class="badge low">low</span><h3>A refused thread ends threading</h3></header>
   <p class="file"><code>web/src/Canvas.tsx</code> <code>onPointerDown</code> (threading branch), <code>onPointerUp</code></p>
   <p>With a loaded out-port, clicking a text frame that already has a previous or next frame makes <code>thread</code> throw, as does a frame on a master threaded with one on a page; the reason shows in the status bar, but the threading cursor ends and the frame gets selected as if it had worked; a frame drawn from the port stays behind unthreaded.</p>
   <p class="rec">Show a not-allowed cursor over frames that cannot take the thread while threading, and keep threading active after a refused click.</p>
+</article>
+
+<article class="card low" id="ROB-1">
+  <header><span class="id">ROB-1</span><span class="badge low">low</span><h3>A trap in the engine shows as an ordinary status message</h3></header>
+  <p class="file"><code>web/src/editor.ts</code> <code>apply</code>; <code>web/src/file.ts</code> <code>autosave</code></p>
+  <p><code>apply</code> catches every error and puts its message in the status bar. A rejected command and a Rust panic or out-of-memory trap (e.g. a very large placed image decoded to RGBA without a size limit in <code>image::decode</code>) look the same, although after a trap the WASM instance is unusable: every later command fails, autosave throws on <code>engine.save()</code>, and the user keeps working on edits that are no longer kept.</p>
+  <p class="rec">Treat <code>WebAssembly.RuntimeError</code> apart: stop autosave and show the start-failure notice with a reload button (the last autosave is intact); refuse images above a pixel limit in <code>add_image</code> with a message.</p>
 </article>
 
 <article class="card low" id="TEST-5">
@@ -88,48 +104,48 @@
 <article class="card low" id="TEST-1">
   <header><span class="id">TEST-1</span><span class="badge low">low</span><h3>E2E runs Chromium only; layer reordering, File System Access and Local Font Access are untested</h3></header>
   <p class="file"><code>web/playwright.config.ts</code>, <code>web/e2e/</code>, <code>web/src/file.ts</code></p>
-  <p>Only Chromium (SwiftShader) runs, although Firefox is a settled target browser. The only layers drag test drops a group onto its own child and expects nothing to happen; no test reorders layers or moves one into a group by drag. Page reordering has a test. <code>file.spec.ts</code> removes the file pickers and so tests saving and opening the way Firefox does (download and file input); saving into the same file with <code>showSaveFilePicker</code>, the stored handle after a reload, and finding missing fonts with <code>queryLocalFonts</code> run in no test, because both need a native dialog or a permission.</p>
+  <p>Only Chromium (SwiftShader) runs, although Firefox is a settled target browser. No test in <code>layers.spec.ts</code> drags a layer to reorder it or into a group. <code>file.spec.ts</code> removes the file pickers and so tests saving and opening the way Firefox does; saving into the same file with <code>showSaveFilePicker</code>, the stored handle after a reload, and finding missing fonts with <code>queryLocalFonts</code> run in no test.</p>
   <p class="rec">Add a layers drag-and-drop test (reorder, into a group); stub the pickers and <code>queryLocalFonts</code> with handles whose structured clone IndexedDB accepts; add a Firefox project once its WebGL path works in CI.</p>
 </article>
 
 <article class="card low" id="SEC-1">
   <header><span class="id">SEC-1</span><span class="badge low">low</span><h3>GitHub Actions pinned to tags, not commits</h3></header>
   <p class="file"><code>.github/workflows/ci.yml</code></p>
-  <p>The deploy job holds <code>pages: write</code> and <code>id-token: write</code>; third-party actions are referenced by mutable major tags.</p>
+  <p>The deploy job holds <code>pages: write</code> and <code>id-token: write</code>; third-party actions (<code>cachix/install-nix-action@v31</code> and the <code>actions/*</code> ones) are referenced by mutable major tags.</p>
   <p class="rec">Pin actions to commit SHAs (Dependabot keeps them current).</p>
 </article>
 
-<article class="card low" id="UX-9">
-  <header><span class="id">UX-9</span><span class="badge low">low</span><h3>No favicon: every load logs a 404</h3></header>
-  <p class="file"><code>web/index.html</code></p>
-  <p>The page declares no icon, so the browser requests <code>/favicon.ico</code>, gets a 404 in the console on every load and shows a blank tab icon.</p>
-  <p class="rec">Add a small inline SVG icon as a <code>data:</code> URL in <code>&lt;link rel="icon"&gt;</code>.</p>
+<article class="card info" id="BUILD-1">
+  <header><span class="id">BUILD-1</span><span class="badge info">info</span><h3>Every build warns that the main chunk is over 500 kB</h3></header>
+  <p class="file"><code>web/vite.config.ts</code></p>
+  <p><code>index-*.js</code> is 535 kB (167 kB gzip), so <code>pnpm build</code> prints the chunk size warning on every run. Next to 14 MB of WASM it costs little, but a warning that is always there hides a new one.</p>
+  <p class="rec">Set <code>build.chunkSizeWarningLimit</code> just above the current size, so growth still warns.</p>
 </article>
 
 <h2 id="strong">2. What is already strong</h2>
 <ul class="plain">
-  <li><span class="badge good">gate</span> <code>./check</code> covers fmt, clippy <code>-D warnings</code>, 176 cargo tests, wasm build, <code>tsc</code>, eslint, 18 vitest tests, build, 84 Playwright tests (locally only the CMYK comparison differs with MuPDF 1.23 outside the flake). E2E helpers wait for the drawn frame, not a fixed delay. CI runs the same script in <code>nix develop</code>, started by hand.</li>
-  <li><span class="badge good">test</span> Pixel diff of the live canvas against the exported PDF rasterised by MuPDF, in RGB and CMYK, now per page: a resized second page, a master under a page, threaded text across pages, which is also read back from the PDF as one story, a layer across the spine on both pages of its spread, and the two sides of a master spread.</li>
-  <li><span class="badge good">test</span> Engine tests read as specifications (<code>deleting_a_threaded_frame_keeps_its_story_in_the_rest_of_the_thread</code>) and check undo with stable ids after structural commands; text tests cover overflow into the next frame including a hyphenated break.</li>
-  <li><span class="badge good">test</span> Every bug from earlier manual rounds has an e2e regression test; e2e locates elements by role and accessible name, which also keeps the labels honest.</li>
-  <li><span class="badge good">engine</span> Props and colours are range-checked before the first mutation; the UI keeps no clamps of its own. Page and master commands refuse deleting the last page and duplicate master names.</li>
-  <li><span class="badge good">design</span> One display list feeds canvas and PDF; item and layer hashes make picture caching cheap, and stale pictures are evicted each frame.</li>
+  <li><span class="badge good">gate</span> <code>./check</code> in <code>nix develop</code> passes end to end on <code>ceaca76</code>: fmt, clippy <code>-D warnings</code>, 226 cargo tests (plus the ignored benchmark), wasm build, <code>tsc</code>, eslint, 37 vitest tests, build, 149 Playwright tests. E2E fails on console errors and waits for the drawn frame, not a fixed delay. CI runs the same script, e2e in 3 shards.</li>
+  <li><span class="badge good">test</span> Pixel diff of the live canvas against the exported PDF rasterised by MuPDF, in RGB and CMYK and per page: a resized page, a master under a page, threaded text across pages, a layer across the spine, both sides of a master spread; PDF presets and separations are checked too.</li>
+  <li><span class="badge good">test</span> Engine tests read as specifications (<code>deleting_a_threaded_frame_keeps_its_story_in_the_rest_of_the_thread</code>) and check undo with stable ids; <code>a_command_that_fails_leaves_the_document_as_it_was</code> guards every command arm. New features land with an e2e flow: rotation and its hit test, point editing, the context menu, paste from outside, layout grids.</li>
+  <li><span class="badge good">engine</span> Props and colours are range-checked before the first mutation (rotation included); the UI keeps no clamps of its own. Page and master commands refuse deleting the last page and duplicate master names.</li>
+  <li><span class="badge good">design</span> One display list feeds canvas and PDF; the PDF and preflight rasters are made in a worker; item and layer hashes make picture caching cheap.</li>
   <li><span class="badge good">text</span> Rich text on Loro, hypher hyphenation, own Knuth-Plass, columns, insets and baseline grid; threads across pages with an overset marker on the out-port; the caret follows the story into the next frame and page.</li>
-  <li><span class="badge good">build</span> Toolchain fully in <code>flake.nix</code>; <code>wasm-bindgen</code> pinned to the CLI version in the flake; 3 runtime web dependencies; CI with <code>contents: read</code> by default.</li>
-  <li><span class="badge good">a11y</span> Labelled controls, <code>:focus-visible</code> styles, dialog and tab roles in the picker, <code>aria-current</code> on the shown page; layers and pages lists are one tab stop each with arrow keys, the context menu moves with arrows; a loading screen, a WebGL 2 notice and a start-failure notice, each with an e2e test.</li>
+  <li><span class="badge good">build</span> Toolchain fully in <code>flake.nix</code>; <code>wasm-bindgen</code> pinned to the CLI version in the flake; 3 runtime web dependencies; CI with <code>contents: read</code> by default; <code>CLAUDE.md</code> matches the code.</li>
+  <li><span class="badge good">a11y</span> Labelled controls, <code>:focus-visible</code> styles, menu roles with radio items in the context menu, combobox selects, <code>role="tooltip"</code>; layers and pages lists are one tab stop each with arrow keys; loading, WebGL 2 and start-failure notices, each with an e2e test.</li>
 </ul>
 
 <h2 id="decided">3. Deliberately decided</h2>
 <table>
-  <tr><td>Engine</td><td>Rust → WASM owns the Loro doc, layout and undo; harfrust, hypher, own Knuth-Plass; krilla for PDF, PDF/X built in-house later.</td></tr>
+  <tr><td>Engine</td><td>Rust → WASM owns the Loro doc, layout and undo; harfrust, hypher, own Knuth-Plass; krilla writes the PDF, <code>pdfx.rs</code> adds the PDF/X OutputIntent, XMP and Info.</td></tr>
   <tr><td>Rendering</td><td>CanvasKit (Skia, WebGL2) drawing a binary display list; replaced Vello for GPU effects. Large WASM download accepted.</td></tr>
-  <tr><td>UI</td><td>Figma UI3 layout, behaviour and shortcuts (Ctrl for Cmd), dark, English, mm by default. Mask rule follows Figma. Start view fits the page.</td></tr>
+  <tr><td>UI</td><td>Design G: fixed top bar, layers and swatches left, properties or preflight right, rulers, no floating panels; Figma behaviour and shortcuts (Ctrl for Cmd), dark, English, mm by default.</td></tr>
   <tr><td>Colour</td><td>RGB or CMYK per document plus spot colours (name, CMYK alternate, tint). Switching mode converts nothing; colours keep their own space. Preview through a built-in FOGRA51 profile; PSO Coated v3 may not be redistributed. User profiles later.</td></tr>
-  <tr><td>Text weight</td><td>Canvas text is not thickened to match PDF viewers (TODO B8 closed).</td></tr>
+  <tr><td>PDF</td><td>Presets screen, PDF/X-4 and PDF/X-1a; X-1a flattens transparency at the raster ppi and needs a CMYK document.</td></tr>
+  <tr><td>Text weight</td><td>Canvas text is not thickened to match PDF viewers.</td></tr>
   <tr><td>Hosting</td><td>Static on GitHub Pages, no backend. One document autosaved to IndexedDB; <code>.satz</code> files hold its Loro snapshot without history, saved into the same file in Chromium and downloaded in Firefox.</td></tr>
-  <tr><td>Fonts</td><td>A font library per browser in IndexedDB, not in the document or <code>.satz</code>; text refers to a font by name and hash. A missing font falls back to the bundled Source Serif 4 and is pink on the canvas only. TTF and OTF; the font picker comes later.</td></tr>
+  <tr><td>Fonts</td><td>A font library per browser in IndexedDB, not in the document or <code>.satz</code>; text refers to a font by name and hash. A missing font falls back to the bundled Source Serif 4 and is pink on the canvas only. TTF and OTF, picked in the text section.</td></tr>
   <tr><td>Browsers</td><td>Chromium and Firefox; Safari best effort.</td></tr>
-  <tr><td>Scope</td><td>M1 excludes PDF/X, components, realtime collaboration, Figma import, font helper, i18n.</td></tr>
+  <tr><td>Scope</td><td>M1 excludes components, realtime collaboration, Figma import, font helper, i18n.</td></tr>
 </table>
 
 <h2 id="legend">4. Legend</h2>
