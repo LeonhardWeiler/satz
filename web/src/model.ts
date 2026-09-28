@@ -72,7 +72,7 @@ export type NewKind = 'rect' | 'ellipse' | 'polygon' | 'star' | 'line' | 'path' 
 
 export type Command =
   | { type: 'create'; parent: string; kind: NewKind; x: number; y: number; w: number; h: number }
-  | { type: 'placeImage'; parent: string; image: string; name: string; x: number; y: number }
+  | { type: 'placeImage'; parent: string; image: string; name: string; x: number; y: number; w: number; h: number }
   | { type: 'setFrame'; id: string; x: number; y: number; w: number; h: number; ignoreConstraints?: boolean }
   | { type: 'autoLayout'; ids: string[] }
   | { type: 'setText'; id: string; text: string }

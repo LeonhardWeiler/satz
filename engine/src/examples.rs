@@ -193,10 +193,11 @@ impl Build {
             parent: parent.into(),
             image: hash.clone(),
             name: "Earthrise".into(),
-            x: 0.0,
-            y: 0.0,
+            x: frame[0] * MM,
+            y: frame[1] * MM,
+            w: frame[2] * MM,
+            h: frame[3] * MM,
         });
-        self.frame(&id, frame);
         self.set(
             &id,
             Props {

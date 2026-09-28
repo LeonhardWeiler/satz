@@ -26,6 +26,28 @@ test('a placed image draws at 300 ppi, preflight reports it enlarged, and it sta
   expect((await colors(page, [middle])).map(isRed)).toEqual([true])
 })
 
+test('a chosen image follows the pointer as a frame until a click places it, and escape drops it', async ({ page }) => {
+  await open(page)
+  const chooser = page.waitForEvent('filechooser')
+  await page.getByRole('button', { name: 'Place image' }).click()
+  await (await chooser).setFiles(red(600, 300))
+  const layers = page.getByRole('tree', { name: 'Layers' })
+  const [x, y] = await screen(page, 40, 40)
+  await page.mouse.move(x, y)
+  await expect(layers.getByRole('treeitem', { name: 'red.png' })).toHaveCount(0)
+  await page.mouse.click(x, y)
+  await expect(layers.getByRole('treeitem', { name: 'red.png', selected: true })).toBeVisible()
+  const properties = page.getByRole('complementary', { name: 'Properties' })
+  await expect(properties.getByRole('textbox', { name: 'X in mm' })).toHaveValue('14.6')
+
+  const again = page.waitForEvent('filechooser')
+  await page.getByRole('button', { name: 'Place image' }).click()
+  await (await again).setFiles(red(600, 300))
+  await page.keyboard.press('Escape')
+  await page.mouse.click(x, y)
+  await expect(layers.getByRole('treeitem', { name: 'red.png' })).toHaveCount(1)
+})
+
 test('a file that is not an image is not placed and says why', async ({ page }) => {
   await open(page)
   await place(page, { name: 'notes.png', mimeType: 'image/png', buffer: Buffer.from('notes') })

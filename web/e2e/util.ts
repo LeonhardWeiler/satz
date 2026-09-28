@@ -84,11 +84,13 @@ export function png(name: string, width: number, height: number, rgb: (x: number
   return { name, mimeType: 'image/png', buffer: PNG.sync.write(out) }
 }
 
-/** Places the image `file` with the toolbar's Place image. */
-export async function place(page: Page, file: { name: string; mimeType: string; buffer: Buffer }) {
+/** Places the image `file` with the toolbar's Place image, centred on the page point `at` in mm. */
+export async function place(page: Page, file: { name: string; mimeType: string; buffer: Buffer }, at = [74, 105]) {
   const chooser = page.waitForEvent('filechooser')
   await page.getByRole('button', { name: 'Place image' }).click()
   await (await chooser).setFiles(file)
+  const [x, y] = await screen(page, at[0], at[1])
+  await page.mouse.click(x, y)
 }
 
 /** Waits until the canvas has drawn the frame it has asked for, if any. */

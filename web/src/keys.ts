@@ -39,7 +39,8 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
   }
 
   if (editor.dragging) return false
-  if (editor.threading && e.key === 'Escape') editor.set({ threading: null })
+  if (editor.placing.length && e.key === 'Escape') editor.set({ placing: [] })
+  else if (editor.threading && e.key === 'Escape') editor.set({ threading: null })
   else if (editor.pen && (e.key === 'Escape' || e.key === 'Enter')) editor.finishPen(false)
   else if (!mod && !e.altKey && !e.shiftKey && TOOLS[key]) {
     if (!e.repeat) editor.setTool(TOOLS[key])

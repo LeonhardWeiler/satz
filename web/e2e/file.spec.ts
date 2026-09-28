@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { type FileChooser, type Page } from '@playwright/test'
-import { expect, test, addPage, autosaved, drawn, open, pageCount } from './util'
+import { expect, test, addPage, autosaved, drawn, open, pageCount, screen } from './util'
 
 
 /** Saves the document as Firefox does, by a download, and returns the file. */
@@ -72,7 +72,7 @@ test('a file that is not a Satz document is not opened and says why', async ({ p
   await pageCount(page, 2)
 })
 
-test('a dropped document opens and a dropped image is placed', async ({ page }) => {
+test('a dropped document opens and a dropped image is placed with a click', async ({ page }) => {
   await addPage(page)
   const file = await save(page)
   await addPage(page)
@@ -92,6 +92,8 @@ test('a dropped document opens and a dropped image is placed', async ({ page }) 
   await expect(page).toHaveTitle('Untitled.satz — Satz')
   await pageCount(page, 2)
   await dropFile('earthrise.jpg', image)
+  const [x, y] = await screen(page, 74, 105)
+  await page.mouse.click(x, y)
   await expect(page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'earthrise.jpg' })).toBeVisible()
 })
 

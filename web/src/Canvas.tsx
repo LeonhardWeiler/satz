@@ -318,10 +318,11 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
       const flowDx = drag?.kind === 'move' && drag.flow ? editor.dx(drag.flow.id) : 0
       const insert = drag?.kind === 'move' ? drag.to?.line.map((q) => ({ x: q.x + flowDx, y: q.y })) : undefined
       const lists = spread.map((p) => ({ id: p.id, x: p.x, inks: editor.preflight ? inkedOf(p) : undefined }))
+      const image = editor.placing[0]
       renderer.draw(surface.getCanvas(), lists, editor.sheets, view, canvas.width / canvas.clientWidth, {
         text,
         selection: editor.selection.length > 1 || ed || drag?.kind === 'draw' ? editor.selected().map(placed) : [],
-        hover: hovered,
+        hover: image && cursor ? { x: cursor.x - image.w / 2, y: cursor.y - image.h / 2, w: image.w, h: image.h } : hovered,
         marquee,
         handles: box,
         ends: line,
@@ -489,6 +490,14 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
         const [id] = editor.apply({ type: 'create', parent, kind, x: p.x - dx, y: p.y, w: 0, h: 0 })
         return { id, dx }
       }
+      const image = editor.placing[0]
+      if (image) {
+        const { parent, dx } = target()
+        const { hash, name, w, h } = image
+        const placed = editor.apply({ type: 'placeImage', parent, image: hash, name, x: p.x - dx - w / 2, y: p.y - h / 2, w, h })
+        editor.set({ selection: placed, placing: editor.placing.slice(1) })
+        return
+      }
       if (editor.threading) {
         // A loaded out-port threads into the text frame clicked, or a new one drawn.
         const from = editor.threading
@@ -595,7 +604,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
         const ink = inkAt(p)
         if (ink !== editor.pointerInk) editor.set({ pointerInk: ink })
       }
-      if (editor.pen && !drag) {
+      if ((editor.pen || editor.placing.length) && !drag) {
         cursor = p
         canvas.toggleAttribute('data-close', closes(p))
         redraw()

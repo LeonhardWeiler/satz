@@ -38,6 +38,8 @@ export class Editor {
   editing: Editing | null = null
   /** The text frame whose out-port was clicked, to thread into the next one clicked. */
   threading: string | null = null
+  /** Images to place, the first at the next click on the canvas. */
+  placing: { hash: string; name: string; w: number; h: number }[] = []
   /** The current page or master, shown on the canvas in its spread. */
   pageId: string
   /** The page shown before the current master, to return to. */
@@ -76,7 +78,7 @@ export class Editor {
   /** Replaces the document by the one saved in `bytes`; on an error it stays as it was. */
   load(bytes: Uint8Array, file = UNTITLED, dirty = false) {
     this.engine.load(bytes)
-    Object.assign(this, { selection: [], tool: 'move', renaming: null, hover: null, pen: null, editing: null, threading: null, overview: null })
+    Object.assign(this, { selection: [], tool: 'move', renaming: null, hover: null, pen: null, editing: null, threading: null, placing: [], overview: null })
     this.typing = false
     this.groups = 0
     this.snapshot = JSON.parse(this.engine.snapshot())
@@ -187,12 +189,13 @@ export class Editor {
     this.change(() => this.engine.removeFont(hash))
   }
 
-  /** Places a PNG or JPEG file in the middle of the current page at 300 ppi, or smaller to fit, and selects it. */
-  placeImage(bytes: Uint8Array, name: string) {
-    const { hash } = this.change(() => this.engine.addImage(bytes) as { hash: string })
-    const { id, width, height } = this.page
-    const placed = this.apply({ type: 'placeImage', parent: id, image: hash, name, x: width / 2, y: height / 2 })
-    this.set({ selection: placed, tool: 'move' })
+  /** Adds a PNG or JPEG file to the images to place, at 300 ppi or smaller to fit the current page. */
+  loadImage(bytes: Uint8Array, name: string) {
+    const { hash, width, height } = this.change(() => this.engine.addImage(bytes) as { hash: string; width: number; height: number })
+    const [w, h] = [width, height].map((px) => (px * 72) / 300)
+    const fit = Math.min(1, this.page.width / w, this.page.height / h)
+    this.setTool('move')
+    this.set({ placing: [...this.placing, { hash, name, w: w * fit, h: h * fit }] })
   }
 
   private change<T>(f: () => T): T {
@@ -220,7 +223,7 @@ export class Editor {
     }
   }
 
-  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'hover' | 'pen' | 'editing' | 'threading' | 'side' | 'overview' | 'preflight' | 'inks' | 'previewed' | 'pointerInk'>>) {
+  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'hover' | 'pen' | 'editing' | 'threading' | 'placing' | 'side' | 'overview' | 'preflight' | 'inks' | 'previewed' | 'pointerInk'>>) {
     const leaves = this.editing && patch.selection && !patch.selection.includes(this.editing.id)
     if (leaves && !('editing' in patch)) this.stopEditing()
     if (patch.editing) patch = { selection: [patch.editing.id], ...patch }
@@ -309,7 +312,7 @@ export class Editor {
   setTool(tool: Tool) {
     this.finishPen(false)
     this.stopEditing()
-    this.set({ tool, threading: null })
+    this.set({ tool, threading: null, placing: [] })
   }
 
   beginTyping() {

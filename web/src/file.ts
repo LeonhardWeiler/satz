@@ -188,7 +188,7 @@ async function addFont(editor: Editor, file: File, say: (message: string) => voi
 
 async function placeImage(editor: Editor, file: File, say: (message: string) => void) {
   try {
-    editor.placeImage(new Uint8Array(await file.arrayBuffer()), file.name)
+    editor.loadImage(new Uint8Array(await file.arrayBuffer()), file.name)
   } catch (e) {
     say(`Could not place ${file.name}: ${(e as Error).message}. Choose a PNG or JPEG file.`)
   }

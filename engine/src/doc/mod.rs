@@ -71,14 +71,15 @@ pub enum Command {
         h: f64,
     },
     /// Places the image `image`, added with `Doc::add_image`, on top of `parent` as
-    /// a rectangle filled with it: centred on (x, y) at 300 ppi, or smaller to fit
-    /// its page; returns its id.
+    /// a rectangle [x, y, w, h] filled with it; returns its id.
     PlaceImage {
         parent: String,
         image: String,
         name: String,
         x: f64,
         y: f64,
+        w: f64,
+        h: f64,
     },
     /// Moves and resizes a layer; a frame's children follow their constraints
     /// unless `ignore_constraints`.
@@ -1079,7 +1080,9 @@ impl Doc {
                 name,
                 x,
                 y,
-            } => self.place_image(parent, image, name, x, y),
+                w,
+                h,
+            } => self.place_image(parent, image, name, [x, y, w, h]),
             Command::SetFrame {
                 id,
                 x,
@@ -1723,17 +1726,10 @@ impl Doc {
         parent: String,
         image: String,
         name: String,
-        x: f64,
-        y: f64,
+        frame: [f64; 4],
     ) -> Res<Vec<String>> {
-        let info = self.image(&image)?;
-        let page = self.meta(self.root(self.node(&parent)?));
-        let [w, h] = [info.width, info.height].map(|px| f64::from(px) * 72.0 / PRINT_PPI);
-        let fit = (num(&page, "width") / w)
-            .min(num(&page, "height") / h)
-            .min(1.0);
-        let [w, h] = [w * fit, h * fit];
-        let id = self.create(&parent, NewKind::Rect, [x - w / 2.0, y - h / 2.0, w, h])?;
+        self.image(&image)?;
+        let id = self.create(&parent, NewKind::Rect, frame)?;
         self.set(
             id,
             Props {
@@ -2609,8 +2605,10 @@ mod tests {
                 parent: page.into(),
                 image: hash.clone(),
                 name: "photo.png".into(),
-                x: 100.0,
-                y: 200.0,
+                x: 28.0,
+                y: 164.0,
+                w: f64::from(w) * 72.0 / 300.0,
+                h: f64::from(h) * 72.0 / 300.0,
             })
             .unwrap()
             .remove(0);
@@ -3854,7 +3852,7 @@ mod tests {
     }
 
     #[test]
-    fn a_placed_image_fills_a_rectangle_at_300_ppi_or_smaller_to_fit_its_page() {
+    fn a_placed_image_fills_its_rectangle() {
         let (mut d, p) = empty();
         let (id, hash) = place(&mut d, &p, 600, 300);
         let n = &page(&d).children[0];
@@ -3867,11 +3865,6 @@ mod tests {
             image,
             transform: [144.0, 0.0, 0.0, 72.0, 28.0, 164.0],
         }));
-        place(&mut d, &p, 60000, 3000);
-        let big = &page(&d).children[1];
-        assert!(close(big.w, page(&d).width));
-        assert!(close(big.h, big.w / 20.0));
-        assert!(big.ppi.unwrap() > 300.0);
     }
 
     #[test]
@@ -3977,6 +3970,8 @@ mod tests {
             name: "gone.png".into(),
             x: 0.0,
             y: 0.0,
+            w: 1.0,
+            h: 1.0,
         };
         assert!(d.apply(unknown).is_err());
     }
