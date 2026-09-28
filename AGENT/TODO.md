@@ -10,17 +10,9 @@ font helper, i18n.
 
 ## UI design G (branch ui-g, spec AGENT/ui-ux/g-register.html)
 
-Built: everything in `AGENT/ui-g-inventory.md` except the PDF export presets.
+Built: everything in `AGENT/ui-g-inventory.md`.
 Open:
 
-- PDF presets in the engine: PDF/X-4 (FOGRA51 OutputIntent, GTS_PDFXVersion in
-  XMP, ICC-tagged RGB), PDF/X-1a (CMYK and spots only, transparency flattened at
-  the raster ppi, disabled in RGB documents) and screen (RGB as the canvas shows
-  it, TrimBox only); crop marks and bleed switchable, all kept in the document via
-  SetDocument; the preflight's export section gets the preset menu and switches.
-  krilla 0.8 has no PDF/X validator or CMYK OutputIntent, so the OutputIntent,
-  XMP and version need an own writer; Rust tests check the structure of each
-  preset, canvas-vs-PDF stays green with X-4.
 - Commit 5b5a630 does not build alone (the Pages.tsx deletion landed there).
 
 ## Settled design

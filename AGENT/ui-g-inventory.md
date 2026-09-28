@@ -208,7 +208,7 @@ Places: **Top** top bar, **Left** layers and swatches, **Right** properties,
 - [x] Separations C M Y K and spots with max — Preflight, engine
 - [x] Ink coverage limit, mark, max with object and page, value under pointer — Preflight, engine
 - [x] Export button with error count, progress, toast — Preflight
-- [ ] Export presets X-4, X-1a, screen; crop marks and bleed switches in the document — not built: requirement 15 (PDF presets in the engine) was dropped, see AGENT/TODO.md
+- [x] Export presets X-4, X-1a, screen; crop marks and bleed switches in the document — Preflight
 
 ### Keys from core.js
 

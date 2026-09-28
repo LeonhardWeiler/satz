@@ -41,4 +41,9 @@ Node 22, pnpm, MuPDF (`mutool`, for the PDF tests) and
   only the layers tree selects it.
 - The preflight's separations, ink coverage and gamut marks come from `Inks`
   (`engine/src/inks.rs`), rasterized in the export worker, never on the main thread.
+- PDF presets: screen (RGB, trim box only), PDF/X-4 and PDF/X-1a (CMYK and spots
+  only, transparency flattened at the raster ppi, CMYK documents only). krilla writes
+  the PDF; `engine/src/pdfx.rs` adds the FOGRA51 OutputIntent, XMP and Info in an
+  incremental update. RGB X-4 pages blend in an sRGB group, CMYK documents blend in
+  CMYK, on the canvas too (plates and a FOGRA51 LUT in `renderer.ts`).
 - Deleted nodes move under a `trash` root so that undo restores them with their ids.
