@@ -324,7 +324,8 @@ fn draw(s: &mut Surface, env: &Env, ops: &[Op]) {
             Op::PushClip { path, invert } => {
                 let mut pb = PathBuilder::new();
                 if *invert {
-                    pb.push_rect(Rect::from_xywh(-1e5, -1e5, 2e5, 2e5).unwrap());
+                    let [x, y, w, h] = env.page;
+                    pb.push_rect(Rect::from_xywh(x, y, w, h).unwrap());
                 }
                 append(&mut pb, path);
                 let rule = if *invert {
@@ -1016,6 +1017,18 @@ mod tests {
                 },
                 path: rect(60.0, 60.0, 10.0, 10.0),
             },
+            Op::PushClip {
+                path: rect(10.0, 10.0, 5.0, 5.0),
+                invert: true,
+            },
+            Op::FillPath {
+                paint: Paint::Solid {
+                    color: [0.0, 0.0, 0.0, 1.0],
+                    ink: Ink::Cmyk([0.0, 0.0, 0.0, 1.0]),
+                },
+                path: rect(5.0, 5.0, 15.0, 15.0),
+            },
+            Op::PopClip,
         ]);
         ops
     }
