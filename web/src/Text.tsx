@@ -117,8 +117,8 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
     format({ textStyle: id })
   }
   const align = same((a) => a.textAlign)
-  const font = same((a) => a.font?.hash ?? '')
-  const faces = [...fonts.map((f, i) => (i ? f : { ...f, hash: '' })), ...missing.map((m) => m.font)]
+  const font = same((a) => (a.font ?? fonts[0]).hash)
+  const faces = [...fonts, ...missing.map((m) => m.font)]
   const fontNames: Record<string, string> = Object.fromEntries(faces.map((f) => [f.hash, f.name]))
   const hyphenate = same((a) => a.hyphenate)
   const lang = same((a) => a.lang)
@@ -158,7 +158,7 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
         value={font}
         options={fontNames}
         disabled={missing.map((m) => m.font.hash)}
-        onChange={(hash) => format({ font: hash ? faces.find((f) => f.hash === hash)! : null })}
+        onChange={(hash) => format({ font: faces.find((f) => f.hash === hash) })}
       />
       <div className="grid">
         {STYLED.map(([prop, title, label, unit, zero]) => {

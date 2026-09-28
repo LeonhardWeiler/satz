@@ -33,8 +33,10 @@ test('text is set in a font picked in the text section', async ({ page }) => {
   await expect(font).toHaveText('Source Serif 4')
   await choose(font, 'DM Mono Regular')
   await expect(font).toHaveText('DM Mono Regular')
-  await page.keyboard.press('Control+z')
+  await choose(font, 'Source Serif 4')
   await expect(font).toHaveText('Source Serif 4')
+  await page.keyboard.press('Control+z')
+  await expect(font).toHaveText('DM Mono Regular')
 })
 
 test('a file that is not a font is not added and says why', async ({ page }) => {
