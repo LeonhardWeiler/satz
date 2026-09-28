@@ -231,7 +231,6 @@ body,
   font-size: 12px;
   font-weight: 600;
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -359,7 +358,6 @@ button {
   background: none;
   text-align: left;
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
   cursor: default;
 }
@@ -596,6 +594,15 @@ textarea {
   font-variant-numeric: tabular-nums;
 }
 
+.panel-header h2,
+.layer-name,
+.bound-name,
+.select > span,
+.specimen > span:first-child,
+.field input:not(:focus) {
+  mask-image: linear-gradient(to right, #000 calc(100% - 16px), transparent);
+}
+
 .field input:read-only {
   color: var(--text-2);
 }
@@ -755,7 +762,6 @@ span.swatch {
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -938,7 +944,6 @@ span.swatch {
 
 .select > span {
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -2311,7 +2316,6 @@ kbd {
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
