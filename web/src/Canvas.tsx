@@ -130,6 +130,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
     /** The view of each spread left for another, as Figma keeps it for pages. */
     const spreadKey = () => `${editor.spread.map((p) => p.id).join()}/${editor.sheets.length}`
     let shown = spreadKey()
+    const gl = ck.MakeWebGLContext(ck.GetWebGLContext(canvas))!
     let surface: Surface | null = null
     let frame = 0
     let fitted = false
@@ -418,7 +419,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
       canvas.width = box ? box.inlineSize : Math.round(entry.contentRect.width * devicePixelRatio)
       canvas.height = box ? box.blockSize : Math.round(entry.contentRect.height * devicePixelRatio)
       surface?.delete()
-      surface = ck.MakeWebGLCanvasSurface(canvas)
+      surface = ck.MakeOnScreenGLSurface(gl, canvas.width, canvas.height, ck.ColorSpace.SRGB)
       if (!fitted) {
         fitted = true
         fit()
@@ -886,6 +887,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
       window.removeEventListener('keyup', onKey)
       renderer.delete()
       surface?.delete()
+      gl.delete()
     }
   }, [ck, editor])
 
