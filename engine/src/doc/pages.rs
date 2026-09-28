@@ -8,6 +8,27 @@ pub(super) struct Place {
     pub(super) x: f64,
 }
 
+/// A layout grid of a page: `count` columns or rows between margins of `margin`
+/// and gutters of `gutter`, or square cells of `size`, in pt. The canvas shows it;
+/// the PDF leaves it out.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Grid {
+    pub kind: GridKind,
+    pub count: u32,
+    pub gutter: f64,
+    pub margin: f64,
+    pub size: f64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum GridKind {
+    Columns,
+    Rows,
+    Grid,
+}
+
 /// The indices of the pages of each spread among `n` pages, as `Snapshot::spreads`.
 pub(super) fn spreads(n: usize, facing: bool) -> Vec<Vec<usize>> {
     match facing {
@@ -254,8 +275,10 @@ impl Doc {
         self.tree.mov_after(p, like).map_err(err)?;
         let (m, from) = (self.meta(p), self.meta(like));
         m.insert(KIND, NodeKind::Page.as_str()).map_err(err)?;
-        for k in ["width", "height", "bleed"] {
-            m.insert(k, num(&from, k)).map_err(err)?;
+        for k in ["width", "height", "bleed", GRIDS] {
+            if let Some(v) = value(&from, k) {
+                m.insert(k, v).map_err(err)?;
+            }
         }
         if let Some(master) = value(&from, MASTER) {
             m.insert(MASTER, master).map_err(err)?;
@@ -331,6 +354,21 @@ impl Doc {
         Ok(vec![])
     }
 
+    pub(super) fn set_grids(&self, id: String, grids: Vec<Grid>) -> Res<Vec<String>> {
+        let page = self.sheet(&id)?;
+        for g in &grids {
+            let sizes = [g.gutter, g.margin, g.size];
+            if !sizes.iter().all(|v| *v >= 0.0 && v.is_finite()) || g.count == 0 {
+                return Err("grids need a column and sizes that are not negative".into());
+            }
+            if g.kind == GridKind::Grid && g.size == 0.0 {
+                return Err("a grid needs a cell size".into());
+            }
+        }
+        self.meta(page).insert(GRIDS, loro(grids)?).map_err(err)?;
+        Ok(vec![])
+    }
+
     pub(super) fn delete_page(&self, id: String) -> Res<Vec<String>> {
         let p = self.page(&id)?;
         if self.pages().len() == 1 {
@@ -368,8 +406,10 @@ impl Doc {
         let (m, from) = (self.meta(p), self.meta(like));
         m.insert(KIND, NodeKind::Master.as_str()).map_err(err)?;
         m.insert("name", name).map_err(err)?;
-        for k in ["width", "height", "bleed"] {
-            m.insert(k, num(&from, k)).map_err(err)?;
+        for k in ["width", "height", "bleed", GRIDS] {
+            if let Some(v) = value(&from, k) {
+                m.insert(k, v).map_err(err)?;
+            }
         }
         Ok(vec![p.to_string()])
     }
@@ -612,6 +652,30 @@ mod tests {
             })
             .is_err()
         );
+    }
+
+    #[test]
+    fn layout_grids_are_set_per_page_and_new_pages_take_them_over() {
+        let (mut d, p) = empty();
+        let grids = vec![Grid {
+            kind: GridKind::Columns,
+            count: 4,
+            gutter: 10.0,
+            margin: 20.0,
+            size: 0.0,
+        }];
+        d.apply(Command::SetGrids {
+            id: p.clone(),
+            grids: grids.clone(),
+        })
+        .unwrap();
+        let q = add_page(&mut d, Some(&p));
+        let s = d.snapshot();
+        assert_eq!(s.pages[0].grids, grids);
+        assert_eq!(s.pages.iter().find(|x| x.id == q).unwrap().grids, grids);
+        d.apply(Command::Undo).unwrap();
+        d.apply(Command::Undo).unwrap();
+        assert!(d.snapshot().pages[0].grids.is_empty());
     }
 
     #[test]

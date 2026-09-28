@@ -18,6 +18,7 @@ export const ACTIONS: Action[] = [
   { title: 'Show or hide left panel', keys: 'Alt 1' },
   { title: 'Show or hide right panel', keys: 'Alt 2' },
   { title: 'Show or hide interface', keys: 'Ctrl \\' },
+  { title: 'Show or hide layout grids', keys: 'Shift G' },
   { title: 'Zoom to fit', keys: 'Shift 1' },
   { title: 'Zoom to selection', keys: 'Shift 2' },
   { title: 'Zoom to 100 %', keys: 'Ctrl 0' },

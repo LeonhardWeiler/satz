@@ -208,6 +208,11 @@ pub enum Command {
         #[serde(default)]
         scale: bool,
     },
+    /// Sets the layout grids of a page or master.
+    SetGrids {
+        id: String,
+        grids: Vec<Grid>,
+    },
     /// Removes a page other than the last.
     DeletePage {
         id: String,
@@ -625,6 +630,7 @@ const KIND: &str = "kind";
 const NEXT: &str = "next";
 const MASTER: &str = "master";
 const DETACHED: &str = "detached";
+const GRIDS: &str = "grids";
 const OVERRIDE_OF: &str = "overrideOf";
 const LEFT_OF: &str = "leftOf";
 /// Figma's selection blue at 30 %.
@@ -1226,6 +1232,7 @@ impl Doc {
                 bleed,
                 scale,
             } => self.set_page(id, width, height, bleed, scale),
+            Command::SetGrids { id, grids } => self.set_grids(id, grids),
             Command::DeletePage { id } => self.delete_page(id),
             Command::MovePage { id, index } => self.move_page(id, index),
             Command::AddMaster { like } => self.add_master(like),
@@ -3331,6 +3338,16 @@ mod tests {
             Command::ScaleText {
                 id: t.clone(),
                 by: 0.0,
+            },
+            Command::SetGrids {
+                id: p.clone(),
+                grids: vec![Grid {
+                    kind: GridKind::Grid,
+                    count: 1,
+                    gutter: 0.0,
+                    margin: 0.0,
+                    size: 0.0,
+                }],
             },
             set(
                 &r,

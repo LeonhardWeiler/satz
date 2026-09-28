@@ -64,7 +64,8 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
     const list = siblings.toReversed()
     const i = list.indexOf(ids[0])
     editor.set({ selection: [list[(i + (e.shiftKey ? -1 : 1) + list.length) % list.length]] })
-  } else if (!ids.length) return false
+  } else if (!mod && !e.altKey && e.shiftKey && key === 'g') editor.set({ grids: !editor.grids })
+  else if (!ids.length) return false
   else if (e.key === 'Delete' || e.key === 'Backspace') editor.apply({ type: 'delete', ids })
   else if (mod && (key === 'c' || key === 'x')) {
     editor.apply({ type: 'copy', ids })

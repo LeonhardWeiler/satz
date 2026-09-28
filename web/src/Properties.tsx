@@ -5,7 +5,7 @@ import { bounds, ends, MM, scopeOf, useEditor, type Editor } from './editor'
 import { Icon, KindIcon } from './icons'
 import { FORMATS, ORIENTATIONS } from './Start'
 import { addFonts, canFindFonts, findFonts, removeFont } from './file'
-import type { Bindable as Prop, Blend, Constraint, Command, Fill, Node, Page, Props, Size } from './model'
+import type { Bindable as Prop, Blend, Constraint, Command, Fill, Grid, Node, Page, Props, Size } from './model'
 import { radiusOf } from './model'
 import { align, ALIGNS } from './align'
 import { AutoLayout } from './AutoLayout'
@@ -187,6 +187,7 @@ export function Properties({
           )}
         </Section>
       )}
+      {!box && <GridSection editor={editor} sheets={sheets} all={isPage && targets.length === 1 ? snapshot.pages : []} />}
       {!box && (
         <Section title="Fonts" onAdd={() => addFonts(editor, say)}>
           <ul className="fonts">
@@ -424,6 +425,54 @@ function DocumentSection({ editor }: { editor: Editor }) {
         </div>
         <Field label="Raster" value={rasterPpi} unit="ppi" onCommit={(v) => editor.apply({ type: 'setDocument', rasterPpi: v })} />
       </div>
+    </Section>
+  )
+}
+
+const GRIDS: Record<Grid['kind'], string> = { columns: 'Columns', rows: 'Rows', grid: 'Grid' }
+
+/** The layout grids of `sheets`, and a button that gives them to `all` when they differ. */
+function GridSection({ editor, sheets, all }: { editor: Editor; sheets: Page[]; all: Page[] }) {
+  const key = (p: Page) => JSON.stringify(p.grids)
+  const grids = sameOf(sheets, key) === null ? null : sheets[0].grids
+  const setGrids = (grids: Grid[], to = sheets) => editor.batch(() => to.forEach((p) => editor.apply({ type: 'setGrids', id: p.id, grids })))
+  const fresh: Grid = { kind: 'columns', count: 2, gutter: 5 * MM, margin: 15 * MM, size: 5 * MM }
+  return (
+    <Section title="Layout grids" onAdd={() => setGrids([...(grids ?? []), fresh])}>
+      {!grids && <p className="empty">Click + to replace mixed grids</p>}
+      {grids && grids.length > 0 && (
+        <ul className="rows">
+          {grids.map((g, i) => {
+            const set = (next: Partial<Grid>) => setGrids(grids.map((h, j) => (j === i ? { ...g, ...next } : h)))
+            return (
+              <li key={i} className="paint">
+                <div className="row">
+                  <Select label="Grid type" value={g.kind} options={GRIDS} onChange={(kind) => set({ kind })} />
+                  <button type="button" className="icon-button" aria-label="Remove grid" title="Remove grid" onClick={() => setGrids(grids.filter((_, j) => j !== i))}>
+                    <Icon name="minus" />
+                  </button>
+                </div>
+                <div className="grid">
+                  {g.kind === 'grid' ? (
+                    <Field label="Size" title="Cell size in mm" unit="mm" value={g.size} onCommit={(size) => size > 0 && set({ size })} />
+                  ) : (
+                    <>
+                      <Field label="N" title={GRIDS[g.kind]} unit="" int value={g.count} onCommit={(count) => set({ count: Math.max(1, Math.round(count)) })} />
+                      <Field label="Gutter" title="Gutter in mm" unit="mm" value={g.gutter} onCommit={(gutter) => set({ gutter: Math.max(0, gutter) })} />
+                      <Field label="Margin" title="Margin in mm" unit="mm" value={g.margin} onCommit={(margin) => set({ margin: Math.max(0, margin) })} />
+                    </>
+                  )}
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+      {grids && all.some((p) => key(p) !== key(sheets[0])) && (
+        <button type="button" className="button" onClick={() => setGrids(grids, all)}>
+          Apply grids to all pages
+        </button>
+      )}
     </Section>
   )
 }

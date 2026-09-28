@@ -11,18 +11,45 @@ export type Measure = { x1: number; y1: number; x2: number; y2: number; length: 
 
 const EPSILON = 1e-6
 
+/** The columns and rows of the layout grids of `s` as spans on their axis in the space of the spread; the lines of a grid span nothing. */
+export function gridSpans(s: Sheet) {
+  const x: [number, number][] = []
+  const y: [number, number][] = []
+  for (const g of s.grids ?? []) {
+    if (g.kind === 'grid') {
+      for (let at = g.size; at < s.width - EPSILON; at += g.size) x.push([s.x + at, s.x + at])
+      for (let at = g.size; at < s.height - EPSILON; at += g.size) y.push([at, at])
+      continue
+    }
+    const [length, start, out] = g.kind === 'columns' ? [s.width, s.x, x] : [s.height, 0, y]
+    const size = (length - 2 * g.margin - g.gutter * (g.count - 1)) / g.count
+    for (let i = 0; i < g.count; i++) {
+      const at = start + g.margin + i * (size + g.gutter)
+      out.push([at, at + size])
+    }
+  }
+  return { x, y }
+}
+
 /**
- * What layers snap to on a spread: edges and centres of the pages and of `nodes`, and of text
- * frames also their insets, column edges and baseline grid. Everything is in the space of the spread.
+ * What layers snap to on a spread: edges and centres of the pages and of `nodes`, of text
+ * frames also their insets, column edges and baseline grid, and with `grids` the layout grids.
+ * Everything is in the space of the spread.
  */
-export function targets(sheets: Sheet[], nodes: Node[]): Lines {
+export function targets(sheets: Sheet[], nodes: Node[], grids = false): Lines {
   const x: Line[] = []
   const y: Line[] = []
   const box = (b: Box) => {
     for (const at of [b.x, b.x + b.w / 2, b.x + b.w]) x.push({ at, from: b.y, to: b.y + b.h })
     for (const at of [b.y, b.y + b.h / 2, b.y + b.h]) y.push({ at, from: b.x, to: b.x + b.w })
   }
-  for (const s of sheets) box({ x: s.x, y: 0, w: s.width, h: s.height })
+  for (const s of sheets) {
+    box({ x: s.x, y: 0, w: s.width, h: s.height })
+    if (!grids) continue
+    const spans = gridSpans(s)
+    for (const at of spans.x.flat()) x.push({ at, from: 0, to: s.height })
+    for (const at of spans.y.flat()) y.push({ at, from: s.x, to: s.x + s.width })
+  }
   for (const n of nodes) {
     box(n)
     if (n.kind !== 'text') continue

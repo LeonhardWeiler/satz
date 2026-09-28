@@ -94,6 +94,7 @@ export type Command =
   | { type: 'addPage'; after: string | null }
   | { type: 'duplicatePage' | 'deletePage'; id: string }
   | { type: 'setPage'; id: string; width?: number; height?: number; bleed?: number; scale?: boolean }
+  | { type: 'setGrids'; id: string; grids: Grid[] }
   | { type: 'scaleText'; id: string; by: number }
   | { type: 'movePage'; id: string; index: number }
   | { type: 'addMaster'; like: string | null }
@@ -184,9 +185,13 @@ export type Page = {
   x: number
   master: string | null
   detached: string[]
+  grids: Grid[]
   modes: Modes
   children: Node[]
 }
+
+/** `count` columns or rows between margins and gutters, or square cells of `size`, in pt. */
+export type Grid = { kind: 'columns' | 'rows' | 'grid'; count: number; gutter: number; margin: number; size: number }
 
 /** A spot colour's `color` is its CMYK alternate. */
 export type Swatch = { id: string; name: string; color: Color; spot: boolean }

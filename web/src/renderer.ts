@@ -1,6 +1,8 @@
 import type { Canvas, CanvasKit, Font, Image, Paint, Rect, RuntimeEffect, SkPicture, Surface, Typeface } from 'canvaskit-wasm'
 import type { Engine } from './engine/engine'
 import { close, decode, type Op, type Paint as Fill } from './displayList'
+import type { Grid } from './model'
+import { gridSpans } from './snap'
 
 /** Marks the font of a glyph run whose own font is missing, drawn in the bundled one. */
 const MISSING = 2 ** 31
@@ -25,6 +27,8 @@ export type Overlay = {
   text?: { ops: Uint32Array; x: number }[]
   /** In- and out-ports of a text frame in screen space: empty, threaded, holding overset text, or open to thread on. */
   ports?: readonly { x: number; y: number; state: 'empty' | 'threaded' | 'overset' | 'open' }[]
+  /** Show the layout grids of the pages. */
+  grids?: boolean
   /** Lines in screen space from each frame of a thread to the next. */
   threads?: [{ x: number; y: number }, { x: number; y: number }][]
 }
@@ -36,7 +40,7 @@ const PORT = 10
 const [MOVE, LINE, CLOSE] = [0, 1, 5]
 
 /** A page on the canvas: its trim size and bleed, and the x of its left edge on its spread. */
-export type Sheet = { x: number; width: number; height: number; bleed: number }
+export type Sheet = { x: number; width: number; height: number; bleed: number; grids?: Grid[] }
 /** RGBA pixels drawn over the page with its bleed, `rect` in the space of the page. */
 export type Inked = { width: number; height: number; image: Uint8Array; rect: Box }
 
@@ -53,6 +57,7 @@ export function fitView(sheets: Sheet[], width: number, height: number): View {
 
 const BACKGROUND = '#37393c'
 const BLEED = [56, 174, 224, 0.45] as const
+const GRID = [255, 72, 72, 0.12] as const
 const OVERSET = '#ff6b5e'
 const ACCENT = '#38aee0'
 const BLENDS = [
@@ -191,6 +196,21 @@ export class Renderer {
       this.inks.delete(pixels)
     }
     canvas.restore()
+    if (overlay.grids) {
+      paint.setColor(ck.Color(...GRID))
+      paint.setStrokeWidth(1 / view.zoom)
+      for (const s of sheets) {
+        const { x, y } = gridSpans(s)
+        for (const [spans, across] of [[x, s.height], [y, s.width]] as const) {
+          for (const [a, b] of spans) {
+            const r = spans === x ? ck.XYWHRect(a, 0, b - a, across) : ck.XYWHRect(s.x, a, across, b - a)
+            paint.setStyle(a === b ? ck.PaintStyle.Stroke : ck.PaintStyle.Fill)
+            if (a === b) canvas.drawLine(r[0], r[1], r[2], r[3], paint)
+            else canvas.drawRect(r, paint)
+          }
+        }
+      }
+    }
     for (const { ops, x } of overlay.text ?? []) {
       canvas.save()
       canvas.translate(x, 0)

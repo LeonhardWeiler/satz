@@ -1,4 +1,4 @@
-import { expect, test, addPage, current, drag, open, option, overview, screen, showPage } from './util'
+import { expect, test, addPage, colors, current, drag, open, option, overview, screen, showPage } from './util'
 
 test('pages are added, shown, reordered, duplicated and deleted with undo', async ({ page }) => {
   await open(page)
@@ -80,4 +80,25 @@ test('with facing pages the page overview shows spreads from a first right page,
   await page.keyboard.press('Control+z')
   await expect(facing).toBeChecked()
   await expect(spread('Spread 2–3')).toBeVisible()
+})
+
+test('layout grids show on the page, hide with shift g and apply to all pages', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  const count = panel.getByRole('textbox', { name: 'Columns' })
+  const at = async (x: number, y: number) => (await colors(page, [await screen(page, x, y)]))[0]
+  await addPage(page)
+  await panel.getByRole('button', { name: 'Add layout grid' }).click()
+  await expect(count).toHaveValue('2')
+  await expect.poll(() => at(40, 100)).not.toEqual([255, 255, 255])
+  expect(await at(5, 100)).toEqual([255, 255, 255])
+  expect(await at(73, 100)).toEqual([255, 255, 255])
+  await page.keyboard.press('Shift+G')
+  await expect.poll(() => at(40, 100)).toEqual([255, 255, 255])
+  await page.keyboard.press('Shift+G')
+  await panel.getByRole('button', { name: 'Apply grids to all pages' }).click()
+  await showPage(page, 1)
+  await expect(count).toHaveValue('2')
+  await panel.getByRole('button', { name: 'Remove grid' }).click()
+  await expect(count).toHaveCount(0)
 })

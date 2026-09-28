@@ -236,7 +236,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
       const siblings = editor.selected().flatMap((n) => editor.nodes.get(n.id)?.parent?.children ?? []).map(placed)
       const tops = editor.spread.flatMap((page) => page.children.map((n) => ({ ...n, x: n.x + page.x })))
       const others = [...new Map([...tops, ...siblings].map((n) => [n.id, n])).values()].filter((n) => !n.hidden && !skip.has(n.id))
-      return { lines: targets(editor.sheets, others), others }
+      return { lines: targets(editor.sheets, others, editor.grids), others }
     }
     /** `p` moved onto what it snaps to, unless `off`, with the guides through it. */
     const snapPoint = (p: Point, snaps: Snaps | undefined, off: boolean) => {
@@ -335,6 +335,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
         ends: line,
         pen: pen && { anchors: pen.anchors.map((a) => ({ ...a, x: a.x + penDx })), cursor: drag ? undefined : cursor },
         insert: insert as [Point, Point] | undefined,
+        grids: editor.grids && !editor.preflight,
         ...threadOverlay(),
       }, editor.preflight, editor.snapshot.colorMode === 'cmyk')
       surface.flush()

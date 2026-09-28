@@ -95,6 +95,7 @@ pub struct Page {
     pub x: f64,
     pub master: Option<String>,
     pub detached: Vec<String>,
+    pub grids: Vec<Grid>,
     pub modes: Modes,
     pub children: Vec<Node>,
 }
@@ -555,6 +556,7 @@ impl Doc {
                 x: 0.0,
                 master: self.master_of(p).map(|m| m.to_string()),
                 detached: serde_json::from_value(v[DETACHED].clone()).unwrap_or_default(),
+                grids: serde_json::from_value(v[GRIDS].clone()).unwrap_or_default(),
                 children: self
                     .children(p)
                     .into_iter()

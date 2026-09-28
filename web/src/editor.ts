@@ -50,6 +50,8 @@ export class Editor {
   overview: string[] | null = null
   /** The preflight is open: the pages show as they print, with what `inks` marks over them. */
   preflight = false
+  /** The layout grids of the pages show and layers snap to them. */
+  grids = true
   /** The plates shown (bit 0 for C to 3 for K, then the spots), and whether ink above the limit and colours out of gamut are marked. */
   inks = { on: 2 ** 31 - 1, over: true, gamut: true }
   /** The inks of the shown pages and of the document, from the worker. */
@@ -223,7 +225,7 @@ export class Editor {
     }
   }
 
-  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'hover' | 'pen' | 'editing' | 'threading' | 'placing' | 'side' | 'overview' | 'preflight' | 'inks' | 'previewed' | 'pointerInk'>>) {
+  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'hover' | 'pen' | 'editing' | 'threading' | 'placing' | 'side' | 'overview' | 'preflight' | 'grids' | 'inks' | 'previewed' | 'pointerInk'>>) {
     const leaves = this.editing && patch.selection && !patch.selection.includes(this.editing.id)
     if (leaves && !('editing' in patch)) this.stopEditing()
     if (patch.editing) patch = { selection: [patch.editing.id], ...patch }
