@@ -1,5 +1,4 @@
-import { expect, test } from '@playwright/test'
-import { addMaster, addPage, open, option, overview } from './util'
+import { expect, test, addMaster, addPage, open, option, overview } from './util'
 
 test('a closed section stays closed for other selections', async ({ page }) => {
   await open(page)

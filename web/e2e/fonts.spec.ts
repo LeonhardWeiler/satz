@@ -1,5 +1,5 @@
-import { expect, test, type Page } from '@playwright/test'
-import { open } from './util'
+import { type Page } from '@playwright/test'
+import { expect, test, open } from './util'
 
 const fonts = (page: Page) => page.getByRole('region', { name: 'Fonts' })
 

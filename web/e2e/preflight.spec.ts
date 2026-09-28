@@ -1,5 +1,4 @@
-import { expect, test } from '@playwright/test'
-import { addPage, current, drag, exportButton, open, openExample, pixels, preflight, screen } from './util'
+import { expect, test, addPage, current, drag, exportButton, open, openExample, pixels, preflight, screen } from './util'
 
 test('preflight lists a layer short of the bleed and a click selects it on its page', async ({ page }) => {
   await open(page)

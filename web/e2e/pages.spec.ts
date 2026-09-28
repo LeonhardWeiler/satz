@@ -1,5 +1,4 @@
-import { expect, test } from '@playwright/test'
-import { addPage, current, drag, open, option, overview, screen, showPage } from './util'
+import { expect, test, addPage, current, drag, open, option, overview, screen, showPage } from './util'
 
 test('pages are added, shown, reordered, duplicated and deleted with undo', async ({ page }) => {
   await open(page)

@@ -1,5 +1,4 @@
-import { expect, test } from '@playwright/test'
-import { addPage, colors, current, drag, open, screen } from './util'
+import { expect, test, addPage, colors, current, drag, open, screen } from './util'
 
 const gray = ([r, g, b]: number[]) => [r, g, b].every((c) => Math.abs(c - 0xd9) < 8)
 

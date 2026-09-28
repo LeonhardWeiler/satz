@@ -1,5 +1,4 @@
-import { expect, test } from '@playwright/test'
-import { drag, near, open, pixels, screen } from './util'
+import { expect, test, drag, near, open, pixels, screen } from './util'
 
 
 test('moving a gradient layer leaves the page and the handles alone', async ({ page }) => {

@@ -2,8 +2,8 @@ import { execFileSync } from 'node:child_process'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, test, type Page } from '@playwright/test'
-import { addMaster, addPage, colors, current, drag, exportButton, open, overview, screen, showPage } from './util'
+import { type Page } from '@playwright/test'
+import { expect, test, addMaster, addPage, colors, current, drag, exportButton, open, overview, screen, showPage } from './util'
 
 const gray = ([r, g, b]: number[]) => [r, g, b].every((c) => Math.abs(c - 0xd9) < 8)
 

@@ -1,5 +1,4 @@
-import { expect, test } from '@playwright/test'
-import { autosaved, colors, open, place, png, preflight, screen } from './util'
+import { expect, test, autosaved, colors, open, place, png, preflight, screen } from './util'
 
 const red = (width: number, height: number) => png('red.png', width, height, () => [255, 0, 0])
 

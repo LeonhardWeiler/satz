@@ -1,5 +1,4 @@
-import { expect, test } from '@playwright/test'
-import { open } from './util'
+import { expect, test, open } from './util'
 
 test('a field takes expressions with units, steps with the arrow keys and shakes off invalid input', async ({ page }) => {
   await open(page)

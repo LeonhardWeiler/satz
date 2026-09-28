@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
-import { expect, test, type Page } from '@playwright/test'
-import { addMaster, colors, drag, exportButton, open, preflight, screen, showPage } from './util'
+import { type Page } from '@playwright/test'
+import { expect, test, addMaster, colors, drag, exportButton, open, preflight, screen, showPage } from './util'
 
 const layers = (page: Page) => page.getByRole('tree', { name: 'Layers' })
 const rect = (page: Page) => layers(page).getByRole('treeitem', { name: 'Rectangle' }).first()

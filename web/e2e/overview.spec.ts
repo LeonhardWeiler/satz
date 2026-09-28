@@ -1,5 +1,4 @@
-import { expect, test } from '@playwright/test'
-import { addMaster, addPage, current, open, option, overview } from './util'
+import { expect, test, addMaster, addPage, current, open, option, overview } from './util'
 
 test('dot opens the page overview on the current page with drawn thumbnails, and dot or escape closes it', async ({ page }) => {
   await open(page)

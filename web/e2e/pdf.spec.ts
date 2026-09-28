@@ -2,10 +2,10 @@ import { execFileSync } from 'node:child_process'
 import { mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, test, type Page } from '@playwright/test'
+import { type Page } from '@playwright/test'
 import { PNG } from 'pngjs'
 import { fitView, type Sheet } from '../src/renderer'
-import { STORY, addMaster, addPage, drag, drawn, exportButton, frameOnNewPage, near, open, openExample, pixels, place, png, port, screen, showPage } from './util'
+import { expect, test, STORY, addMaster, addPage, drag, drawn, exportButton, frameOnNewPage, near, open, openExample, pixels, place, png, port, screen, showPage } from './util'
 
 const EDGE = 4
 const BLOCK = 4

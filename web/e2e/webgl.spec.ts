@@ -1,5 +1,4 @@
-import { expect, test } from '@playwright/test'
-import { open } from './util'
+import { expect, test, open } from './util'
 
 test('without webgl 2 a notice replaces the canvas', async ({ page }) => {
   await page.addInitScript(() => {
@@ -28,7 +27,7 @@ test('the name and a loading bar show while the engine loads', async ({ page }) 
   await expect(page.getByRole('progressbar')).toHaveCount(0)
 })
 
-test('a notice tells when the engine fails to load', async ({ page }) => {
+test('a notice tells when the engine fails to load', { annotation: { type: 'errors' } }, async ({ page }) => {
   await page.route('**/*.wasm', (route) => route.abort())
   await page.goto('')
   await expect(page.getByRole('alert')).toContainText('Satz could not start')

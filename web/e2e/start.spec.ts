@@ -1,5 +1,5 @@
-import { expect, test, type Page } from '@playwright/test'
-import { open, pageCount } from './util'
+import { type Page } from '@playwright/test'
+import { expect, test, open, pageCount } from './util'
 
 const start = (page: Page) => page.getByRole('dialog', { name: 'New document' })
 const spreads = (page: Page) => page.getByRole('navigation', { name: 'Spreads' })

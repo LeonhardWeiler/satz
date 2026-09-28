@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
-import { expect, test, type FileChooser, type Page } from '@playwright/test'
-import { addPage, autosaved, drawn, open, pageCount } from './util'
+import { type FileChooser, type Page } from '@playwright/test'
+import { expect, test, addPage, autosaved, drawn, open, pageCount } from './util'
 
 
 /** Saves the document as Firefox does, by a download, and returns the file. */

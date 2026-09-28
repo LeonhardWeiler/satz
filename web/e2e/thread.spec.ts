@@ -1,5 +1,5 @@
-import { expect, test, type Page } from '@playwright/test'
-import { STORY, current, frameOnNewPage, open, pixels, port, screen, showPage } from './util'
+import { type Page } from '@playwright/test'
+import { expect, test, STORY, current, frameOnNewPage, open, pixels, port, screen, showPage } from './util'
 
 const A = [20, 20, 60, 40]
 const B = [80, 20, 120, 40]

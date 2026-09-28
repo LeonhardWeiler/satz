@@ -1,5 +1,4 @@
-import { expect, test } from '@playwright/test'
-import { addPage, open, option, overview, showPage } from './util'
+import { expect, test, addPage, open, option, overview, showPage } from './util'
 
 test('the layers tree is one tab stop whose arrow keys move, open and close', async ({ page }) => {
   await open(page)

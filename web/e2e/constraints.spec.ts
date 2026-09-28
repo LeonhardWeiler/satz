@@ -1,5 +1,4 @@
-import { expect, test } from '@playwright/test'
-import { open } from './util'
+import { expect, test, open } from './util'
 
 test('a child pinned right keeps its distance to the right edge when the frame widens', async ({ page }) => {
   await open(page)

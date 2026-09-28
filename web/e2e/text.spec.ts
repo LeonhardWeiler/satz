@@ -1,5 +1,4 @@
-import { expect, test } from '@playwright/test'
-import { open, pixels, screen } from './util'
+import { expect, test, open, pixels, screen } from './util'
 
 test('type attributes and a text style are set in the text section and edited on the page', async ({ page }) => {
   await open(page)

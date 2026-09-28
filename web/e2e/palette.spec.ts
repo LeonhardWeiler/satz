@@ -1,5 +1,5 @@
-import { expect, test, type Page } from '@playwright/test'
-import { current, open } from './util'
+import { type Page } from '@playwright/test'
+import { expect, test, current, open } from './util'
 
 const palette = (page: Page) => page.getByRole('dialog', { name: 'Command palette' })
 async function run(page: Page, query: string, name: string | RegExp) {

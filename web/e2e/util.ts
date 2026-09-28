@@ -1,9 +1,24 @@
-import { expect, type Page } from '@playwright/test'
+import { expect, test as base, type Page } from '@playwright/test'
 import { join } from 'node:path'
 import { PNG } from 'pngjs'
 import { fitView, type Sheet } from '../src/renderer'
 
 export const MM = 72 / 25.4
+
+/** Fails a test that logs an error in the browser console, unless it expects errors with `test.info().annotations.push({ type: 'errors' })`. */
+export const test = base.extend<{ console: void }>({
+  console: [
+    async ({ page }, use, info) => {
+      const errors: string[] = []
+      page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+      page.on('pageerror', (e) => errors.push(e.message))
+      await use()
+      if (!info.annotations.some((a) => a.type === 'errors')) expect(errors).toEqual([])
+    },
+    { auto: true },
+  ],
+})
+export { expect }
 
 /** Opens the app with a canvas of `width` − 496 × 1100 px; a spread fits at the zoom of a single page at 2000. */
 export async function open(page: Page, width = 1400) {

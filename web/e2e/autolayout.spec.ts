@@ -1,5 +1,4 @@
-import { expect, test } from '@playwright/test'
-import { drag, open, screen } from './util'
+import { expect, test, drag, open, screen } from './util'
 
 test('shift+a adds a hugging auto layout whose padding, sizing and alignment move the child', async ({ page }) => {
   await open(page)

@@ -1,5 +1,5 @@
-import { expect, test, type Page } from '@playwright/test'
-import { addMaster, drag, open, screen } from './util'
+import { type Page } from '@playwright/test'
+import { expect, test, addMaster, drag, open, screen } from './util'
 
 const layout = (page: Page) => page.getByRole('complementary', { name: 'Properties' }).getByRole('region', { name: 'Layout' })
 const value = async (page: Page, name: string) => Number(await layout(page).getByRole('textbox', { name: `${name} in mm` }).inputValue())

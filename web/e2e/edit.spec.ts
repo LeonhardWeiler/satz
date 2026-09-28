@@ -1,5 +1,4 @@
-import { expect, test } from '@playwright/test'
-import { MM, open, pixels, screen } from './util'
+import { expect, test, MM, open, pixels, screen } from './util'
 
 /** Height in mm of `n` lines of 12 pt text as the H field shows it. */
 const lines = (n: number) => String(Math.round(((n * 16.452) / MM) * 100) / 100)

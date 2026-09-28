@@ -1,5 +1,5 @@
-import { expect, test, type Locator, type Page } from '@playwright/test'
-import { colors, open, screen } from './util'
+import { type Locator, type Page } from '@playwright/test'
+import { expect, test, colors, open, screen } from './util'
 
 const near = ([r, g, b]: number[], [R, G, B]: number[]) => Math.max(Math.abs(r - R), Math.abs(g - G), Math.abs(b - B)) <= 24
 
