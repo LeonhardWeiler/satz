@@ -211,7 +211,7 @@ test('draw shapes and a closed pen path, then export them', async ({ page }) => 
   const canvas = (await page.getByLabel('Page canvas').boundingBox())!
   const at = (fx: number, fy: number) => [canvas.x + canvas.width * fx, canvas.y + canvas.height * fy] as const
   const layers = page.getByRole('tree', { name: 'Layers' })
-  const names = ['Ellipse', 'Arrow', 'Star', 'Vector']
+  const names = ['Ellipse', 'Line', 'Star', 'Vector']
   const count = (name: string) => layers.getByRole('button', { name, exact: true })
   const before = await Promise.all(names.map((n) => count(n).count()))
   const drag = async (from: readonly [number, number], to: readonly [number, number]) => {
@@ -223,7 +223,7 @@ test('draw shapes and a closed pen path, then export them', async ({ page }) => 
 
   await page.keyboard.press('o')
   await drag(at(0.35, 0.45), at(0.45, 0.55))
-  await page.keyboard.press('Shift+L')
+  await page.keyboard.press('l')
   await drag(at(0.5, 0.45), at(0.6, 0.55))
   await page.getByRole('button', { name: 'Shape tools' }).click()
   await page.getByRole('menuitemradio', { name: /Star/ }).click()

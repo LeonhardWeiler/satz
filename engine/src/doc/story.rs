@@ -1425,10 +1425,8 @@ mod tests {
         assert_eq!(size(&d, &t), [40.0, least]);
         let hug = create(&mut d, &p, NewKind::Text, [0.0, 0.0, 0.0, 0.0]);
         assert_eq!(size(&d, &hug)[0], 0.0);
-        for kind in [NewKind::Line, NewKind::Arrow] {
-            let l = create(&mut d, &p, kind, [0.0, 0.0, 40.0, 0.0]);
-            assert_eq!(size(&d, &l), [40.0, 0.0]);
-        }
+        let l = create(&mut d, &p, NewKind::Line, [0.0, 0.0, 40.0, 0.0]);
+        assert_eq!(size(&d, &l), [40.0, 0.0]);
     }
 
     #[test]

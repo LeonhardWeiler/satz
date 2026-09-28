@@ -36,7 +36,6 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
   if (editor.threading && e.key === 'Escape') editor.set({ threading: null })
   else if (editor.pen && (e.key === 'Escape' || e.key === 'Enter')) editor.finishPen(false)
   else if (!mod && !e.altKey && !e.shiftKey && TOOLS[key]) editor.setTool(TOOLS[key])
-  else if (!mod && !e.altKey && e.shiftKey && key === 'l') editor.setTool('arrow')
   else if (mod && (key === 'z' || key === 'y')) {
     editor.finishPen(false)
     editor.apply({ type: key === 'y' || e.shiftKey ? 'redo' : 'undo' })

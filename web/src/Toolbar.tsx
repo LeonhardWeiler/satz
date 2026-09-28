@@ -8,7 +8,6 @@ type Entry = { tool: Tool; label: string; key: string; icon: IconName }
 const SHAPES: (Entry & { tool: Shape })[] = [
   { tool: 'rect', label: 'Rectangle', key: 'R', icon: 'rect' },
   { tool: 'line', label: 'Line', key: 'L', icon: 'line' },
-  { tool: 'arrow', label: 'Arrow', key: 'Shift+L', icon: 'arrow' },
   { tool: 'ellipse', label: 'Ellipse', key: 'O', icon: 'ellipse' },
   { tool: 'polygon', label: 'Polygon', key: '', icon: 'polygon' },
   { tool: 'star', label: 'Star', key: '', icon: 'star' },

@@ -68,7 +68,7 @@ export type Layout = {
 
 export type Props = Partial<Style> & Partial<Layout> & Partial<TextFrame> & { name?: string; hidden?: boolean; locked?: boolean; clip?: boolean; radius?: number; count?: number; ratio?: number }
 
-export type NewKind = 'rect' | 'ellipse' | 'polygon' | 'star' | 'line' | 'arrow' | 'path' | 'text' | 'frame'
+export type NewKind = 'rect' | 'ellipse' | 'polygon' | 'star' | 'line' | 'path' | 'text' | 'frame'
 
 export type Command =
   | { type: 'create'; parent: string; kind: NewKind; x: number; y: number; w: number; h: number }

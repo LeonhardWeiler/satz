@@ -75,7 +75,6 @@ export const ACTIONS: Action[] = [
   { title: 'Rectangle tool', keys: 'R', tool: true },
   { title: 'Ellipse tool', keys: 'O', tool: true },
   { title: 'Line tool', keys: 'L', tool: true },
-  { title: 'Arrow tool', keys: 'Shift L', tool: true },
   { title: 'Pen tool', keys: 'P', tool: true },
   { title: 'Text tool', keys: 'T', tool: true },
   { title: 'Command palette', keys: 'Ctrl K' },

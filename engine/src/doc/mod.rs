@@ -481,7 +481,6 @@ pub enum NewKind {
     Polygon,
     Star,
     Line,
-    Arrow,
     Path,
     Text,
     Frame,
@@ -875,11 +874,12 @@ impl Doc {
             ),
             add(
                 &page,
-                NewKind::Arrow,
+                NewKind::Line,
                 [112.0, 62.0, 30.0, 0.0],
                 Props {
                     strokes: Some(vec![Fill::solid(WHITE)]),
                     stroke_weight: Some(2.0),
+                    arrow_end: Some(true),
                     ..named("Arrow")
                 },
             ),
@@ -1221,7 +1221,6 @@ impl Doc {
         };
         let open = |path: Vec<f32>| Props {
             strokes: Some(vec![Fill::solid(Color::black(mode))]),
-            arrow_end: Some(kind == NewKind::Arrow),
             path: Some(path),
             ..Props::default()
         };
@@ -1253,7 +1252,7 @@ impl Doc {
                     ..closed
                 },
             ),
-            NewKind::Line | NewKind::Arrow => (NodeKind::Shape, "path", open(line)),
+            NewKind::Line => (NodeKind::Shape, "path", open(line)),
             NewKind::Path => (NodeKind::Shape, "path", open(Vec::new())),
             NewKind::Text => {
                 m.insert_container("text", LoroText::new()).map_err(err)?;

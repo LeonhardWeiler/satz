@@ -1134,8 +1134,15 @@ mod tests {
     #[test]
     fn arrows_add_a_head_to_the_stroke() {
         let (mut d, p) = empty();
-        create(&mut d, &p, NewKind::Arrow, [0.0, 0.0, 10.0, 0.0]);
-        assert_eq!(page(&d).children[0].name, "Arrow");
+        let id = create(&mut d, &p, NewKind::Line, [0.0, 0.0, 10.0, 0.0]);
+        set(
+            &mut d,
+            &id,
+            Props {
+                arrow_end: Some(true),
+                ..Props::default()
+            },
+        );
         let Op::StrokePath { path, .. } = &page_ops(&d)[2] else {
             panic!("no stroke");
         };
