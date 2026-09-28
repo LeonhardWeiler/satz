@@ -54,7 +54,7 @@ test('new master and master like page open a new master, and escape leaves it', 
   await expect(banner).toContainText('B-Master')
 })
 
-test('page keys move between spreads and shift+2 and ctrl+0 zoom', async ({ page }) => {
+test('page keys move between spreads and fit them, and shift+2 and ctrl+0 zoom', async ({ page }) => {
   await open(page)
   const zoom = page.getByLabel('Zoom')
   const fit = (await zoom.textContent())!
@@ -76,4 +76,7 @@ test('page keys move between spreads and shift+2 and ctrl+0 zoom', async ({ page
   await expect(zoom).not.toHaveText('100%')
   await page.keyboard.press('Shift+1')
   await expect(zoom).toHaveText(fit)
+  await page.keyboard.press('Control+0')
+  await page.keyboard.press('PageDown')
+  await expect(zoom).not.toHaveText('100%')
 })

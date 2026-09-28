@@ -128,7 +128,6 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
     const renderer = new Renderer(ck, editor.engine)
     const view: View = { x: 0, y: 0, zoom: 1 }
     /** The view of each spread left for another, as Figma keeps it for pages. */
-    const views = new Map<string, View>()
     const spreadKey = () => `${editor.spread.map((p) => p.id).join()}/${editor.sheets.length}`
     let shown = spreadKey()
     let surface: Surface | null = null
@@ -836,13 +835,8 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
         fit(editor.sheets.slice(side === 'left' ? 0 : -1).slice(0, 1))
       }
       if (spreadKey() !== shown) {
-        views.set(shown, { ...view })
         shown = spreadKey()
-        const kept = views.get(shown)
-        if (kept) {
-          Object.assign(view, kept)
-          setZoom(view.zoom)
-        } else fit()
+        fit()
       }
       wake()
       canvas.dataset.tool = editor.tool
