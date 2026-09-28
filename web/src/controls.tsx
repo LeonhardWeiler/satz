@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
 import { MM } from './editor'
 import { evalExpr, step } from './field'
-import { Icon } from './icons'
+import { Icon, type IconName } from './icons'
 
 /** Moves the focus from the event's target to the item before or after it for the keys `back` and `forth`. */
 export function roam(e: KeyboardEvent, items: Element[], back = ['ArrowUp'], forth = ['ArrowDown']) {
@@ -290,5 +290,30 @@ export function RowActions({
         <Icon name="minus" />
       </button>
     </>
+  )
+}
+
+/** Icon buttons of which one is checked: value, title and icon of each. */
+export function Segmented<T extends string>({
+  label,
+  value,
+  options,
+  disabled,
+  onChange,
+}: {
+  label: string
+  value: T | null
+  options: readonly (readonly [T, string, IconName])[]
+  disabled?: (v: T) => boolean
+  onChange: (v: T) => void
+}) {
+  return (
+    <div role="radiogroup" aria-label={label} className="segmented">
+      {options.map(([v, title, icon]) => (
+        <button key={v} type="button" role="radio" aria-checked={value === v} aria-label={title} title={title} disabled={disabled?.(v)} onClick={() => onChange(v)}>
+          <Icon name={icon} />
+        </button>
+      ))}
+    </div>
   )
 }

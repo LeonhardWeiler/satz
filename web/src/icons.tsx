@@ -47,6 +47,32 @@ const ICONS = {
   ),
   arrowDown: <path d="M8 3v10M4.5 9.5 8 13l3.5-3.5" />,
   arrowRight: <path d="M3 8h10M9.5 4.5 13 8l-3.5 3.5" />,
+  arrowLeft: <path d="M13 8H3M6.5 4.5 3 8l3.5 3.5" />,
+  plainLine: <path d="M3 8h10" />,
+  strokeInside: (
+    <>
+      <rect x="2.5" y="8" width="11" height="5" fill="currentColor" stroke="none" opacity=".5" />
+      <path d="M1.5 8h13" />
+    </>
+  ),
+  strokeCenter: (
+    <>
+      <rect x="2.5" y="5.5" width="11" height="5" fill="currentColor" stroke="none" opacity=".5" />
+      <path d="M1.5 8h13" />
+    </>
+  ),
+  strokeOutside: (
+    <>
+      <rect x="2.5" y="3" width="11" height="5" fill="currentColor" stroke="none" opacity=".5" />
+      <path d="M1.5 8h13" />
+    </>
+  ),
+  joinMiter: <path d="M3.5 13V3.5H13" />,
+  joinRound: <path d="M3.5 13V8a4.5 4.5 0 0 1 4.5-4.5h5" />,
+  joinBevel: <path d="M3.5 13V7L7 3.5h6" />,
+  capNone: <path d="M13 5H6v6h7" />,
+  capRound: <path d="M13 5H6a3 3 0 0 0 0 6h7" />,
+  capSquare: <path d="M13 5H3v6h10M6 7v2" />,
   chevron: <path d="m6.5 4 4 4-4 4" />,
   left: <path d="m9.5 4-4 4 4 4" />,
   spot: (

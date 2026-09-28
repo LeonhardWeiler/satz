@@ -1,7 +1,7 @@
 import { Fragment, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
-import { Field, NameInput, nextName, Section, Select } from './controls'
+import { Field, NameInput, nextName, Section, Segmented, Select } from './controls'
 import { useEditor, type Editor } from './editor'
 import { Icon, type IconName } from './icons'
 import { PAGE_NUMBER, insert, range } from './textEdit'
@@ -28,9 +28,9 @@ const VERTICAL = [
 ] as const
 /** Figma's text resize modes as sizing: auto width hugs both sides, auto height the height. */
 const RESIZING = [
-  ['autoWidth', 'Auto width'],
-  ['autoHeight', 'Auto height'],
-  ['fixedSize', 'Fixed size'],
+  ['autoWidth', 'Auto width', 'autoWidth'],
+  ['autoHeight', 'Auto height', 'autoHeight'],
+  ['fixedSize', 'Fixed size', 'fixedSize'],
 ] as const
 const LANGS = { en: 'English', de: 'German' } as const
 /** Styled attributes: title, label, unit and the text shown for 0. */
@@ -169,21 +169,7 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
           )
         })}
       </div>
-      <div role="radiogroup" aria-label="Text align" className="segmented">
-        {ALIGNS.map(([value, title, icon]) => (
-          <button
-            key={value}
-            type="button"
-            role="radio"
-            aria-checked={align === value}
-            aria-label={title}
-            title={title}
-            onClick={() => format({ textAlign: value })}
-          >
-            <Icon name={icon} />
-          </button>
-        ))}
-      </div>
+      <Segmented label="Text align" value={align} options={ALIGNS} onChange={(textAlign) => format({ textAlign })} />
       <div className="row">
         <label className="check">
           <input
@@ -267,22 +253,13 @@ export function TextFrameSection({ node, set }: { node: TextNode; set: (p: Props
   }
   return (
     <Section title="Text frame">
-      <div role="radiogroup" aria-label="Resizing" className="segmented">
-        {RESIZING.map(([value, title]) => (
-          <button
-            key={value}
-            type="button"
-            role="radio"
-            aria-checked={resizing === value}
-            aria-label={title}
-            title={title}
-            disabled={(value === 'autoWidth' && !!(node.prev || node.next)) || (value === 'autoHeight' && !!node.next)}
-            onClick={() => resize(value)}
-          >
-            <Icon name={value} />
-          </button>
-        ))}
-      </div>
+      <Segmented
+        label="Resizing"
+        value={resizing}
+        options={RESIZING}
+        disabled={(v) => (v === 'autoWidth' && !!(node.prev || node.next)) || (v === 'autoHeight' && !!node.next)}
+        onChange={resize}
+      />
       <div className="grid">
         {INSETS.map(([prop, title, label]) => (
           <Field key={prop} label={<Icon name={label} />} title={`${title} in mm`} unit="mm" value={node[prop]} onCommit={(v) => set({ [prop]: v })} />
@@ -292,21 +269,7 @@ export function TextFrameSection({ node, set }: { node: TextNode; set: (p: Props
         <Field label={<Icon name="baselineGrid" />} title="Baseline grid in pt" unit="pt" zero="Off" value={node.baselineGrid} onCommit={(baselineGrid) => set({ baselineGrid })} />
         <Field label={<Icon name="baselineStart" />} title="Baseline grid start in pt" unit="pt" value={node.baselineStart} onCommit={(baselineStart) => set({ baselineStart })} />
       </div>
-      <div role="radiogroup" aria-label="Vertical align" className="segmented">
-        {VERTICAL.map(([value, title, icon]) => (
-          <button
-            key={value}
-            type="button"
-            role="radio"
-            aria-checked={node.verticalAlign === value}
-            aria-label={title}
-            title={title}
-            onClick={() => set({ verticalAlign: value })}
-          >
-            <Icon name={icon} />
-          </button>
-        ))}
-      </div>
+      <Segmented label="Vertical align" value={node.verticalAlign} options={VERTICAL} onChange={(verticalAlign) => set({ verticalAlign })} />
     </Section>
   )
 }

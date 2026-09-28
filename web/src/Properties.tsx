@@ -1,12 +1,12 @@
 import { neutral, type Color, type ColorMode } from './color'
-import { Field, Section, Select } from './controls'
+import { Field, Section, Segmented, Select } from './controls'
 import { useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { bounds, ends, MM, scopeOf, useEditor, type Editor } from './editor'
 import { Icon, KindIcon } from './icons'
-import { FORMATS } from './Start'
+import { FORMATS, ORIENTATIONS } from './Start'
 import { addFonts, canFindFonts, findFonts, removeFont } from './file'
-import type { Bindable as Prop, Blend, Constraint, Command, Fill, Node, Page, Props, Size, Style } from './model'
+import type { Bindable as Prop, Blend, Constraint, Command, Fill, Node, Page, Props, Size } from './model'
 import { AutoLayout } from './AutoLayout'
 import { EffectList, PaintList } from './Paints'
 import { TextFrameSection, TextSection, TextStyles } from './Text'
@@ -18,10 +18,29 @@ const BLENDS: Record<Blend, string> = {
   softLight: 'Soft light', difference: 'Difference', exclusion: 'Exclusion', hue: 'Hue',
   saturation: 'Saturation', color: 'Color', luminosity: 'Luminosity',
 }
-const ALIGNS: Record<Style['strokeAlign'], string> = { inside: 'Inside', center: 'Center', outside: 'Outside' }
-const JOINS: Record<Style['join'], string> = { miter: 'Miter join', round: 'Round join', bevel: 'Bevel join' }
-const CAPS: Record<Style['cap'], string> = { none: 'No cap', round: 'Round cap', square: 'Square cap' }
-const ENDS = { none: 'None', arrow: 'Line arrow' } as const
+const ALIGNS = [
+  ['inside', 'Inside', 'strokeInside'],
+  ['center', 'Center', 'strokeCenter'],
+  ['outside', 'Outside', 'strokeOutside'],
+] as const
+const JOINS = [
+  ['miter', 'Miter join', 'joinMiter'],
+  ['round', 'Round join', 'joinRound'],
+  ['bevel', 'Bevel join', 'joinBevel'],
+] as const
+const CAPS = [
+  ['none', 'No cap', 'capNone'],
+  ['round', 'Round cap', 'capRound'],
+  ['square', 'Square cap', 'capSquare'],
+] as const
+const STARTS = [
+  ['none', 'No start arrow', 'plainLine'],
+  ['arrow', 'Start arrow', 'arrowLeft'],
+] as const
+const ENDS = [
+  ['none', 'No end arrow', 'plainLine'],
+  ['arrow', 'End arrow', 'arrowRight'],
+] as const
 const MODES: Record<ColorMode, string> = { rgb: 'RGB', cmyk: 'CMYK' }
 const HORIZONTAL: Record<Constraint, string> = { min: 'Left', max: 'Right', stretch: 'Left & right', center: 'Center', scale: 'Scale' }
 const SIZES: Record<Size, string> = { fixed: 'Fixed', hug: 'Hug', fill: 'Fill' }
@@ -314,25 +333,15 @@ export function Properties({
                 '',
                 <Field label="" title="Stroke weight" unit="pt" value={one.strokeWeight} onCommit={(v) => set({ strokeWeight: v })} />,
               )}
-              {!open && <Select label="Stroke position" value={one.strokeAlign} options={ALIGNS} onChange={(strokeAlign) => set({ strokeAlign })} />}
-              <Select label="Stroke join" value={one.join} options={JOINS} onChange={(join) => set({ join })} />
+              {!open && <Segmented label="Stroke position" value={one.strokeAlign} options={ALIGNS} onChange={(strokeAlign) => set({ strokeAlign })} />}
               {open && (
                 <>
-                  <Select label="Stroke cap" value={one.cap} options={CAPS} onChange={(cap) => set({ cap })} />
-                  <Select
-                    label="Start point"
-                    value={one.arrowStart ? 'arrow' : 'none'}
-                    options={ENDS}
-                    onChange={(v) => set({ arrowStart: v === 'arrow' })}
-                  />
-                  <Select
-                    label="End point"
-                    value={one.arrowEnd ? 'arrow' : 'none'}
-                    options={ENDS}
-                    onChange={(v) => set({ arrowEnd: v === 'arrow' })}
-                  />
+                  <Segmented label="Stroke cap" value={one.cap} options={CAPS} onChange={(cap) => set({ cap })} />
+                  <Segmented label="Start point" value={one.arrowStart ? 'arrow' : 'none'} options={STARTS} onChange={(v) => set({ arrowStart: v === 'arrow' })} />
+                  <Segmented label="End point" value={one.arrowEnd ? 'arrow' : 'none'} options={ENDS} onChange={(v) => set({ arrowEnd: v === 'arrow' })} />
                 </>
               )}
+              <Segmented label="Stroke join" value={one.join} options={JOINS} onChange={(join) => set({ join })} />
             </div>
           )}
         </PaintList>
@@ -409,21 +418,12 @@ function FormatRow({ page, sheets, each }: { page?: boolean; sheets: Page[]; eac
             each(() => (landscape ? { width: b * MM, height: a * MM } : { width: a * MM, height: b * MM }))
           }}
         />
-        <div role="radiogroup" aria-label={page ? 'Page orientation' : 'Orientation'} className="segmented">
-          {(['portrait', 'landscape'] as const).map((o) => (
-            <button
-              key={o}
-              type="button"
-              role="radio"
-              aria-checked={landscape === (o === 'landscape')}
-              aria-label={o === 'portrait' ? 'Portrait' : 'Landscape'}
-              title={o === 'portrait' ? 'Portrait' : 'Landscape'}
-              onClick={() => orient(o === 'landscape')}
-            >
-              <Icon name={o} />
-            </button>
-          ))}
-        </div>
+        <Segmented
+          label={page ? 'Page orientation' : 'Orientation'}
+          value={landscape === null ? null : landscape ? 'landscape' : 'portrait'}
+          options={ORIENTATIONS}
+          onChange={(o) => orient(o === 'landscape')}
+        />
       </div>
   )
 }

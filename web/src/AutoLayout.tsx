@@ -1,4 +1,4 @@
-import { Field, Section, Select } from './controls'
+import { Field, Section, Segmented, Select } from './controls'
 import type { Editor } from './editor'
 import { Icon } from './icons'
 import type { Layout, Node, Props } from './model'
@@ -16,6 +16,11 @@ const PADDING = [
 ] as const
 
 /** Direction, alignment, gap and padding of an auto layout frame, or a button that adds one. */
+const DIRECTIONS = [
+  ['vertical', 'Vertical layout', 'arrowDown'],
+  ['horizontal', 'Horizontal layout', 'arrowRight'],
+] as const
+
 export function AutoLayout({ editor, node, set }: { editor: Editor; node: Node & Layout; set: (p: Props) => void }) {
   if (node.direction === 'none') return <Section title="Auto layout" onAdd={() => editor.apply({ type: 'autoLayout', ids: [node.id] })} />
   const horizontal = node.direction === 'horizontal'
@@ -28,21 +33,7 @@ export function AutoLayout({ editor, node, set }: { editor: Editor; node: Node &
   return (
     <Section title="Auto layout">
       <div className="row">
-        <div role="radiogroup" aria-label="Direction" className="segmented">
-          {(['vertical', 'horizontal'] as const).map((d) => (
-            <button
-              key={d}
-              type="button"
-              role="radio"
-              aria-checked={node.direction === d}
-              aria-label={`${d === 'vertical' ? 'Vertical' : 'Horizontal'} layout`}
-              title={`${d === 'vertical' ? 'Vertical' : 'Horizontal'} layout`}
-              onClick={() => set({ direction: d })}
-            >
-              <Icon name={d === 'vertical' ? 'arrowDown' : 'arrowRight'} />
-            </button>
-          ))}
-        </div>
+        <Segmented label="Direction" value={node.direction} options={DIRECTIONS} onChange={(direction) => set({ direction })} />
         <button
           type="button"
           className="icon-button"

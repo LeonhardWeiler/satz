@@ -2,11 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 import { Engine } from './engine/engine'
 import { MM, type Editor } from './editor'
 import { discard, open } from './file'
-import { Field } from './controls'
+import { Field, Segmented } from './controls'
 import { Icon } from './icons'
 import booklet from '../../examples/booklet.satz?url'
 import poster from '../../examples/poster.satz?url'
 
+export const ORIENTATIONS = [
+  ['portrait', 'Portrait', 'portrait'],
+  ['landscape', 'Landscape', 'landscape'],
+] as const
 export const FORMATS: [string, number, number][] = [
   ['A2', 420, 594],
   ['A3', 297, 420],
@@ -120,21 +124,7 @@ export function Start({ editor, first, say, onClose }: { editor: Editor; first: 
           })}
         </div>
         <div className="start-options">
-          <div className="segmented" role="radiogroup" aria-label="Orientation">
-            {(['portrait', 'landscape'] as const).map((o) => (
-              <button
-                key={o}
-                type="button"
-                role="radio"
-                aria-label={o === 'portrait' ? 'Portrait' : 'Landscape'}
-                title={o === 'portrait' ? 'Portrait' : 'Landscape'}
-                aria-checked={land === (o === 'landscape')}
-                onClick={() => setLand(o === 'landscape')}
-              >
-                <Icon name={o} />
-              </button>
-            ))}
-          </div>
+          <Segmented label="Orientation" value={land ? 'landscape' : 'portrait'} options={ORIENTATIONS} onChange={(o) => setLand(o === 'landscape')} />
           {format === 'Custom' && (
             <>
               <Field label="W" title="Width" value={w} unit="mm" onCommit={(v) => v > 0 && setCustom(land ? [custom[0], v] : [v, custom[1]])} />

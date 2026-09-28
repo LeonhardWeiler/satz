@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Chip, NO_SCOPE } from './ColorPicker'
 import { ContextMenu } from './ContextMenu'
-import { Field } from './controls'
+import { Field, Segmented } from './controls'
 import { scopeOf, useEditor, type Editor } from './editor'
 import { Icon } from './icons'
 import type { Fill, Props } from './model'
@@ -33,21 +33,7 @@ export function Quick({ editor, onMore }: { editor: Editor; onMore: () => void }
             style={sameOf(spans, (a) => a.textStyle)}
             onPick={(textStyle) => editor.apply({ type: 'format', id: one.id, range: null, textStyle })}
           />
-          <div role="radiogroup" aria-label="Text align" className="segmented">
-            {ALIGNS.map(([value, title, icon]) => (
-              <button
-                key={value}
-                type="button"
-                role="radio"
-                aria-checked={align === value}
-                aria-label={title}
-                title={title}
-                onClick={() => editor.apply({ type: 'format', id: one.id, range: null, textAlign: value })}
-              >
-                <Icon name={icon} />
-              </button>
-            ))}
-          </div>
+          <Segmented label="Text align" value={align} options={ALIGNS} onChange={(textAlign) => editor.apply({ type: 'format', id: one.id, range: null, textAlign })} />
         </>
       )}
       {!nodes.some((n) => n.kind === 'group') && (
