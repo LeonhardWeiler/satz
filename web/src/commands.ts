@@ -13,6 +13,7 @@ export const ACTIONS: Action[] = [
   { title: 'Save as', keys: 'Ctrl Shift S' },
   { title: 'Place image', keys: 'Ctrl Shift K' },
   { title: 'Export PDF', keys: 'Ctrl Shift E' },
+  { title: 'Preflight', keys: 'Ctrl Alt Y' },
   { title: 'Page overview', keys: '.' },
   { title: 'Show or hide left panel', keys: 'Alt 1' },
   { title: 'Show or hide right panel', keys: 'Alt 2' },
