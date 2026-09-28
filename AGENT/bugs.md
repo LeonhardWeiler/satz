@@ -58,3 +58,4 @@
 58. when holding down ctrl when resizing the text the font size should change, just like with e and then resizing in indesign
 59. search for ways to decrease the bundle size, because right now its just to big and takes to long. maybe it could be smaller if parts of the app are written ourselfs instead of using third party libraries
 60. the page viewer should have the add page button add the position, where the next page will be (not always in the row below)
+61. every time the druckbogen changes to the next or previous, it should reset the zoom to amount shift + 1
