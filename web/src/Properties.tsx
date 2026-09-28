@@ -257,6 +257,13 @@ export function Properties({
             {one?.kind === 'shape' && (one.shape === 'polygon' || one.shape === 'star') && (
               <Field label="N" title="Count" unit="" int value={one.count} onCommit={(v) => set({ count: Math.round(v) })} />
             )}
+            {one?.kind === 'shape' && one.shape === 'ellipse' && (
+              <>
+                <Field label="Start" title="Arc start in °" unit="°" value={one.start} onCommit={(v) => set({ start: ((v % 360) + 360) % 360 })} />
+                <Field label="Sweep" title="Arc sweep in %" unit="%" value={one.sweep * 100} onCommit={(v) => set({ sweep: Math.min(Math.max(v, 0), 100) / 100 })} />
+                <Field label="Ratio" title="Inner radius in %" unit="%" value={one.inner * 100} onCommit={(v) => set({ inner: Math.min(Math.max(v, 0), 100) / 100 })} />
+              </>
+            )}
             {one?.kind === 'shape' && one.shape === 'star' && (
               <Field label="Ratio" title="Star ratio in %" unit="%" value={one.ratio * 100} onCommit={(v) => set({ ratio: v / 100 })} />
             )}

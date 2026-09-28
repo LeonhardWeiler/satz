@@ -922,7 +922,7 @@ impl Doc {
             .map(String::from)
             .unwrap_or_else(|| match &kind {
                 Kind::Shape(Shape::Rect { .. }) => "Rectangle".into(),
-                Kind::Shape(Shape::Ellipse) => "Ellipse".into(),
+                Kind::Shape(Shape::Ellipse { .. }) => "Ellipse".into(),
                 Kind::Shape(Shape::Polygon { .. }) => "Polygon".into(),
                 Kind::Shape(Shape::Star { .. }) => "Star".into(),
                 Kind::Shape(Shape::Path { .. }) if style.arrow_start || style.arrow_end => {

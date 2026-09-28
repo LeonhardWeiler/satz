@@ -1,5 +1,6 @@
 use crate::display_list::{CLOSE, CUBIC, LINE, MOVE, rect};
 use serde::{Deserialize, Serialize};
+use std::f32::consts::{FRAC_PI_2, TAU};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "shape", rename_all = "camelCase")]
@@ -11,7 +12,16 @@ pub enum Shape {
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         corners: Vec<f32>,
     },
-    Ellipse,
+    /// An arc from `start` degrees clockwise from the right over `sweep` of the full turn,
+    /// hollowed to `inner` of its radius.
+    Ellipse {
+        #[serde(default)]
+        start: f32,
+        #[serde(default = "one")]
+        sweep: f32,
+        #[serde(default)]
+        inner: f32,
+    },
     Polygon {
         count: u32,
     },
@@ -25,6 +35,10 @@ pub enum Shape {
 }
 
 const KAPPA: f32 = 0.552_284_8;
+
+fn one() -> f32 {
+    1.0
+}
 const FLATNESS: usize = 16;
 
 pub fn outline(shape: &Shape, [x, y, w, h]: [f32; 4]) -> Vec<f32> {
@@ -84,44 +98,29 @@ pub fn outline(shape: &Shape, [x, y, w, h]: [f32; 4]) -> Vec<f32> {
                 CLOSE,
             ]
         }
-        Shape::Ellipse => {
+        Shape::Ellipse {
+            start,
+            sweep,
+            inner,
+        } => {
             let (rx, ry) = (w / 2.0, h / 2.0);
             let (cx, cy) = (x + rx, y + ry);
-            let (kx, ky) = (rx * KAPPA, ry * KAPPA);
-            vec![
-                MOVE,
-                cx + rx,
-                cy,
-                CUBIC,
-                cx + rx,
-                cy + ky,
-                cx + kx,
-                cy + ry,
-                cx,
-                cy + ry,
-                CUBIC,
-                cx - kx,
-                cy + ry,
-                cx - rx,
-                cy + ky,
-                cx - rx,
-                cy,
-                CUBIC,
-                cx - rx,
-                cy - ky,
-                cx - kx,
-                cy - ry,
-                cx,
-                cy - ry,
-                CUBIC,
-                cx + kx,
-                cy - ry,
-                cx + rx,
-                cy - ky,
-                cx + rx,
-                cy,
-                CLOSE,
-            ]
+            let a0 = start.to_radians();
+            let a1 = a0 + TAU * sweep.clamp(0.0, 1.0);
+            let full = *sweep >= 1.0;
+            let mut path = Vec::new();
+            arc(&mut path, [cx, cy, rx, ry], a0, a1, MOVE);
+            if *inner > 0.0 {
+                if full {
+                    path.push(CLOSE);
+                }
+                let verb = if full { MOVE } else { LINE };
+                arc(&mut path, [cx, cy, rx * inner, ry * inner], a1, a0, verb);
+            } else if !full {
+                path.extend([LINE, cx, cy]);
+            }
+            path.push(CLOSE);
+            path
         }
         Shape::Polygon { count } => polygon(*count.max(&3), |_| 1.0, [x, y, w, h]),
         Shape::Star { count, ratio } => polygon(
@@ -130,6 +129,26 @@ pub fn outline(shape: &Shape, [x, y, w, h]: [f32; 4]) -> Vec<f32> {
             [x, y, w, h],
         ),
         Shape::Path { path } => map(path, |[u, v]| [x + u * w, y + v * h]),
+    }
+}
+
+/// Cubics along the ellipse `[cx, cy, rx, ry]` from the angle `a0` to `a1`, opened by `verb`.
+fn arc(path: &mut Vec<f32>, [cx, cy, rx, ry]: [f32; 4], a0: f32, a1: f32, verb: f32) {
+    let n = ((a1 - a0).abs() / FRAC_PI_2).ceil().max(1.0);
+    let d = (a1 - a0) / n;
+    let k = 4.0 / 3.0 * (d / 4.0).tan();
+    path.extend([verb, cx + rx * a0.cos(), cy + ry * a0.sin()]);
+    for i in 0..n as usize {
+        let (s, e) = (a0 + d * i as f32, a0 + d * (i + 1) as f32);
+        path.extend([
+            CUBIC,
+            cx + rx * (s.cos() - k * s.sin()),
+            cy + ry * (s.sin() + k * s.cos()),
+            cx + rx * (e.cos() + k * e.sin()),
+            cy + ry * (e.sin() - k * e.cos()),
+            cx + rx * e.cos(),
+            cy + ry * e.sin(),
+        ]);
     }
 }
 
@@ -354,6 +373,28 @@ mod tests {
         assert!(!contains(&path, 25.0, 10.0));
     }
 
+    fn ellipse(start: f32, sweep: f32, inner: f32) -> Shape {
+        Shape::Ellipse {
+            start,
+            sweep,
+            inner,
+        }
+    }
+
+    #[test]
+    fn an_ellipse_opens_to_an_arc_and_hollows_to_a_ring() {
+        let ring = outline(&ellipse(0.0, 1.0, 0.5), [0.0, 0.0, 20.0, 20.0]);
+        assert!(!contains(&ring, 10.0, 10.0));
+        assert!(contains(&ring, 10.0, 1.0));
+        let half = outline(&ellipse(0.0, 0.5, 0.0), [0.0, 0.0, 20.0, 20.0]);
+        assert!(contains(&half, 10.0, 15.0));
+        assert!(!contains(&half, 10.0, 5.0));
+        let arc = outline(&ellipse(90.0, 0.25, 0.5), [0.0, 0.0, 20.0, 20.0]);
+        assert!(contains(&arc, 5.0, 15.0));
+        assert!(!contains(&arc, 15.0, 15.0));
+        assert!(!contains(&arc, 9.0, 11.0));
+    }
+
     #[test]
     fn corners_round_each_corner_on_its_own() {
         let shape = Shape::Rect {
@@ -369,7 +410,7 @@ mod tests {
 
     #[test]
     fn an_ellipse_fills_its_frame_but_not_the_corners() {
-        let path = outline(&Shape::Ellipse, [0.0, 0.0, 20.0, 10.0]);
+        let path = outline(&ellipse(0.0, 1.0, 0.0), [0.0, 0.0, 20.0, 10.0]);
         assert!(contains(&path, 10.0, 5.0));
         assert!(contains(&path, 19.5, 5.0));
         assert!(contains(&path, 10.0, 0.2));

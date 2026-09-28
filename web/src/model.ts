@@ -40,7 +40,7 @@ export type Constraint = 'min' | 'max' | 'stretch' | 'center' | 'scale'
 
 export type Shape =
   | { shape: 'rect'; radius: number; corners?: number[] }
-  | { shape: 'ellipse' }
+  | { shape: 'ellipse'; start: number; sweep: number; inner: number }
   | { shape: 'polygon'; count: number }
   | { shape: 'star'; count: number; ratio: number }
   | { shape: 'path'; path: number[] }
@@ -66,7 +66,7 @@ export type Layout = {
   absolute: boolean
 }
 
-export type Props = Partial<Style> & Partial<Layout> & Partial<TextFrame> & { name?: string; hidden?: boolean; locked?: boolean; clip?: boolean; radius?: number; corners?: number[]; count?: number; ratio?: number }
+export type Props = Partial<Style> & Partial<Layout> & Partial<TextFrame> & { name?: string; hidden?: boolean; locked?: boolean; clip?: boolean; radius?: number; corners?: number[]; start?: number; sweep?: number; inner?: number; count?: number; ratio?: number }
 
 export type NewKind = 'rect' | 'ellipse' | 'polygon' | 'star' | 'line' | 'path' | 'text' | 'frame'
 

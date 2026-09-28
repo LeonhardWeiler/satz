@@ -345,6 +345,9 @@ pub struct Props {
     pub clip: Option<bool>,
     pub radius: Option<f32>,
     pub corners: Option<Vec<f32>>,
+    pub start: Option<f32>,
+    pub sweep: Option<f32>,
+    pub inner: Option<f32>,
     pub count: Option<u32>,
     pub ratio: Option<f32>,
     pub path: Option<Vec<f32>>,
@@ -401,6 +404,9 @@ impl Props {
         }
         within(self.count.map(f64::from), 3.0, 60.0, "count")?;
         within(f(self.ratio), 0.01, 1.0, "ratio")?;
+        within(f(self.start), -360.0, 360.0, "start")?;
+        within(f(self.sweep), 0.0, 1.0, "sweep")?;
+        within(f(self.inner), 0.0, 1.0, "inner radius")?;
         within(f(self.opacity), 0.0, 1.0, "opacity")?;
         for p in [
             self.padding_top,
@@ -3330,6 +3336,13 @@ mod tests {
                 &r,
                 Props {
                     corners: Some(vec![1.0, 2.0]),
+                    ..Props::default()
+                },
+            ),
+            set(
+                &r,
+                Props {
+                    sweep: Some(2.0),
                     ..Props::default()
                 },
             ),
