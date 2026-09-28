@@ -67,7 +67,7 @@ export function Start({ editor, first, say, onClose }: { editor: Editor; first: 
 
   const openFile = () => {
     onClose()
-    open(editor, say).catch(() => {})
+    open(editor, say)
   }
 
   return (

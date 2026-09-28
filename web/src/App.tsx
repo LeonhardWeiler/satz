@@ -3,7 +3,7 @@ import type { CanvasKit } from 'canvaskit-wasm'
 import { Canvas, isTyping } from './Canvas'
 import { useEditor, type Editor } from './editor'
 import { Help } from './Help'
-import { autosave, download, open, pdf, placeImages, save } from './file'
+import { autosave, download, drop, open, pdf, placeImages, save } from './file'
 import { Icon } from './icons'
 import { handleKey } from './keys'
 import { Layers } from './Layers'
@@ -82,7 +82,7 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
       else if (mod && e.shiftKey && e.code === 'KeyE') openExport()
       else if (mod && e.altKey && e.code === 'KeyY') editor.togglePreflight()
       else if (mod && !e.altKey && e.code === 'KeyS') saveFile(e.shiftKey)
-      else if (mod && !e.altKey && !e.shiftKey && e.code === 'KeyO') open(editor, say).catch(() => {})
+      else if (mod && !e.altKey && !e.shiftKey && e.code === 'KeyO') open(editor, say)
       else if (mod && !e.shiftKey && e.code === 'KeyN') setStarting(true)
       else if (mod && e.shiftKey && !e.altKey && e.code === 'KeyK') placeImages(editor, say)
       else if (mod && !e.shiftKey && !e.altKey && e.code === 'KeyK') setDialog('palette')
@@ -97,6 +97,22 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   })
+
+  useEffect(() => {
+    const files = (e: DragEvent) => e.dataTransfer?.types.includes('Files')
+    const over = (e: DragEvent) => files(e) && e.preventDefault()
+    const onDrop = (e: DragEvent) => {
+      if (!files(e)) return
+      e.preventDefault()
+      drop(editor, [...e.dataTransfer!.files], say)
+    }
+    window.addEventListener('dragover', over)
+    window.addEventListener('drop', onDrop)
+    return () => {
+      window.removeEventListener('dragover', over)
+      window.removeEventListener('drop', onDrop)
+    }
+  }, [editor, say])
 
   const more = () => {
     setHidden((h) => ({ ...h, right: false, ui: false }))

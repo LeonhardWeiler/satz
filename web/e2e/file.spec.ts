@@ -72,6 +72,29 @@ test('a file that is not a Satz document is not opened and says why', async ({ p
   await pageCount(page, 2)
 })
 
+test('a dropped document opens and a dropped image is placed', async ({ page }) => {
+  await addPage(page)
+  const file = await save(page)
+  await addPage(page)
+  const image = await readFile(new URL('../../examples/earthrise.jpg', import.meta.url))
+  const dropFile = async (name: string, bytes: Buffer) => {
+    await page.evaluate(
+      ([name, bytes]) => {
+        const dataTransfer = new DataTransfer()
+        dataTransfer.items.add(new File([new Uint8Array(bytes)], name))
+        document.querySelector('.canvas')!.dispatchEvent(new DragEvent('drop', { dataTransfer, bubbles: true, cancelable: true }))
+      },
+      [name, [...bytes]] as const,
+    )
+  }
+  page.once('dialog', (d) => d.accept())
+  await dropFile(file.name, file.buffer)
+  await expect(page).toHaveTitle('Untitled.satz — Satz')
+  await pageCount(page, 2)
+  await dropFile('earthrise.jpg', image)
+  await expect(page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'earthrise.jpg' })).toBeVisible()
+})
+
 test('new asks before it discards changes and then starts over', async ({ page }) => {
   await addPage(page)
   const sample = page.getByRole('dialog', { name: 'New document' }).getByRole('button', { name: 'Sample' })

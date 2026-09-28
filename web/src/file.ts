@@ -141,21 +141,24 @@ export async function save(editor: Editor, as: boolean) {
 
 export const discard = (editor: Editor) => !editor.dirty || confirm(`Discard unsaved changes to ${editor.file.name}?`)
 
+async function load(editor: Editor, file: File, handle: Handle | null, say: (message: string) => void) {
+  if (!discard(editor)) return
+  try {
+    editor.load(new Uint8Array(await file.arrayBuffer()), { name: file.name, handle })
+  } catch (e) {
+    say(`Could not open ${file.name}: ${(e as Error).message}. Choose a .satz file saved by Satz.`)
+  }
+}
+
 /** Asks for a file and opens it in place of the document; `say` tells why it could not. */
 export async function open(editor: Editor, say: (message: string) => void) {
-  if (!discard(editor)) return
-  const load = async (file: File, handle: Handle | null) => {
-    try {
-      editor.load(new Uint8Array(await file.arrayBuffer()), { name: file.name, handle })
-    } catch (e) {
-      say(`Could not open ${file.name}: ${(e as Error).message}. Choose a .satz file saved by Satz.`)
-    }
-  }
-  if (pickers.showOpenFilePicker) {
+  if (!pickers.showOpenFilePicker) return pick('.satz', false, ([file]) => file && load(editor, file, null, say))
+  try {
     const [handle] = await pickers.showOpenFilePicker({ types: TYPES })
-    return load(await handle.getFile(), handle)
+    await load(editor, await handle.getFile(), handle, say)
+  } catch (e) {
+    if ((e as Error).name !== 'AbortError') say(`Could not open a file: ${(e as Error).message}.`)
   }
-  pick('.satz', false, ([file]) => file && load(file, null))
 }
 
 /** One file input for every picker, held so that it is not collected before it fires `change`. */
@@ -175,30 +178,43 @@ async function keep(editor: Editor, bytes: Uint8Array) {
   await result((await store('fonts')).put(bytes, face.hash))
 }
 
-/** Asks for TrueType and OpenType files and adds them to the fonts. */
-export function addFonts(editor: Editor, say: (message: string) => void) {
-  pick('.ttf,.otf', true, async (files) => {
-    for (const file of files) {
-      try {
-        await keep(editor, new Uint8Array(await file.arrayBuffer()))
-      } catch (e) {
-        say(`Could not add ${file.name}: ${(e as Error).message}. Choose a .ttf or .otf file.`)
-      }
-    }
-  })
+async function addFont(editor: Editor, file: File, say: (message: string) => void) {
+  try {
+    await keep(editor, new Uint8Array(await file.arrayBuffer()))
+  } catch (e) {
+    say(`Could not add ${file.name}: ${(e as Error).message}. Choose a .ttf or .otf file.`)
+  }
 }
 
-/** Asks for PNG and JPEG files and places each on the current page. */
-export function placeImages(editor: Editor, say: (message: string) => void) {
-  pick('.png,.jpg,.jpeg', true, async (files) => {
-    for (const file of files) {
-      try {
-        editor.placeImage(new Uint8Array(await file.arrayBuffer()), file.name)
-      } catch (e) {
-        say(`Could not place ${file.name}: ${(e as Error).message}. Choose a PNG or JPEG file.`)
-      }
-    }
+async function placeImage(editor: Editor, file: File, say: (message: string) => void) {
+  try {
+    editor.placeImage(new Uint8Array(await file.arrayBuffer()), file.name)
+  } catch (e) {
+    say(`Could not place ${file.name}: ${(e as Error).message}. Choose a PNG or JPEG file.`)
+  }
+}
+
+/** Asks for TrueType and OpenType files and adds them to the fonts. */
+export const addFonts = (editor: Editor, say: (message: string) => void) =>
+  pick('.ttf,.otf', true, async (files) => {
+    for (const file of files) await addFont(editor, file, say)
   })
+
+/** Asks for PNG and JPEG files and places each on the current page. */
+export const placeImages = (editor: Editor, say: (message: string) => void) =>
+  pick('.png,.jpg,.jpeg', true, async (files) => {
+    for (const file of files) await placeImage(editor, file, say)
+  })
+
+/** Opens a dropped document, places dropped images and adds dropped fonts. */
+export async function drop(editor: Editor, files: File[], say: (message: string) => void) {
+  for (const file of files) {
+    const ext = file.name.split('.').pop()!.toLowerCase()
+    if (ext === 'satz') await load(editor, file, null, say)
+    else if (ext === 'ttf' || ext === 'otf') await addFont(editor, file, say)
+    else if (ext === 'png' || ext === 'jpg' || ext === 'jpeg') await placeImage(editor, file, say)
+    else say(`Could not use ${file.name}. Drop a .satz document, a PNG or JPEG image or a .ttf or .otf font.`)
+  }
 }
 
 type LocalFont = { fullName: string; blob(): Promise<Blob> }
