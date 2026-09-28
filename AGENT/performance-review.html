@@ -38,16 +38,18 @@
 <body>
 <main>
 <h1>Satz – Performance-Review</h1>
-<p class="dim">Stand <code>923a0cb</code> (main), 27.09.2026 · alle Zahlen gemessen, außer wo „geschätzt“ steht</p>
+<p class="dim">Stand <code>3297d7e</code> (main), 28.09.2026 · alle Zahlen gemessen, außer wo „geschätzt“ steht</p>
 
 <div class="grid">
   <div class="tile"><span class="dim">Erster Aufruf (eigene Leitung)</span><b>2,5 s</b></div>
   <div class="tile"><span class="dim">Tastendruck, Story über 16 S. (WASM)</span><b>19,9 ms</b></div>
   <div class="tile"><span class="dim">Hover, 32 Seiten (WASM)</span><b>0,8 ms</b></div>
-  <div class="tile"><span class="dim">PDF-Export, 32 Seiten</span><b>im Worker</b></div>
+  <div class="tile"><span class="dim">Panel ein/aus, 4-mal (Chromium)</span><b>1000 → 132 ms</b></div>
 </div>
 
-<p>Die Vorschläge 1–4, 6 und 7 des letzten Reviews sind umgesetzt. Der Snapshot wird einmal pro Befehl gebaut und von <code>render</code>, <code>hit</code>, <code>masterHit</code> und <code>pdf</code> gelesen. Unveränderte Stories werden nicht neu gesetzt. Der PDF-Export ist in WASM um 40 % schneller und läuft in einem Web Worker. Beide WASM-Dateien laden per Preload parallel zu <code>index.js</code>, und der Snapshot kommt als JSON-String. Übrig bleibt bei großen Dokumenten der Snapshot selbst: Er wird nach jedem Befehl ganz gebaut und in JS ganz geparst, bei 32 Seiten zusammen etwa 13 ms.</p>
+<p><b>28.09.:</b> Die App fühlte sich nach vielen neuen Funktionen wieder träger an. Die Engine ist es nicht: Der native Benchmark ist bei 32 Seiten schneller als am 27.09. (<code>set_frame</code> 9,88 → 6,86 ms, <code>keystroke</code> 18,03 → 11,43 ms). Die Ursache lag im Canvas. Bei jeder Größenänderung, also bei jedem Frame, in dem ein Panel ein- oder ausfährt, legte <code>MakeWebGLCanvasSurface</code> einen neuen GrContext an. Dann wurden alle Shader neu kompiliert und alle Bilder neu hochgeladen, und der alte Kontext blieb im Speicher. Seit <code>3297d7e</code> gibt es einen GrContext pro Canvas, und bei einer Größenänderung entsteht nur eine neue Surface.</p>
+
+<p>Die Vorschläge 1–4, 6 und 7 des vorletzten Reviews sind umgesetzt. Der Snapshot wird einmal pro Befehl gebaut und von <code>render</code>, <code>hit</code>, <code>masterHit</code> und <code>pdf</code> gelesen. Unveränderte Stories werden nicht neu gesetzt. Der PDF-Export ist in WASM um 40 % schneller und läuft in einem Web Worker. Beide WASM-Dateien laden per Preload parallel zu <code>index.js</code>, und der Snapshot kommt als JSON-String. Übrig bleibt bei großen Dokumenten der Snapshot selbst: Er wird nach jedem Befehl ganz gebaut und in JS ganz geparst, bei 32 Seiten zusammen etwa 13 ms.</p>
 
 <h2>Wie gemessen wurde</h2>
 <table>
@@ -57,7 +59,7 @@
   <tr><td>Engine nativ</td><td><code>cargo test --release -p engine bench -- --ignored --nocapture</code> (<code>engine/src/doc/bench.rs</code>, seit <code>bb2773e</code>), dieselben Dokumente</td></tr>
   <tr><td>PDF-Profil</td><td><code>node --cpu-prof</code> gegen einen WASM-Build mit Funktionsnamen, 8 Seiten</td></tr>
 </table>
-<p class="dim">Nicht neu gemessen: UI-Interaktion mit echter GPU (Helium), Firefox und Safari, schwache Rechner, Mobilgeräte. Die Browser-Zahlen des letzten Reviews (Tippen bei 24 Seiten p50 125 ms) gelten nicht mehr; die Engine-Anteile daran sind unten neu gemessen.</p>
+<p class="dim">UI am 28.09.: Playwright-Chromium headless (SwiftShader) auf dem Build, <code>booklet.satz</code>, Long Animation Frames und CPU-Profil per CDP je Interaktion. Die Zahlen sind mit Software-GL größer als auf echter GPU, taugen aber zum Vergleich vorher/nachher. Nicht neu gemessen: UI-Interaktion mit echter GPU (Helium), Firefox und Safari, schwache Rechner, Mobilgeräte. Die Browser-Zahlen des letzten Reviews (Tippen bei 24 Seiten p50 125 ms) gelten nicht mehr; die Engine-Anteile daran sind unten neu gemessen.</p>
 
 <h2>1. Gemessen nach dieser Runde</h2>
 
@@ -75,7 +77,8 @@
   <tr><th>Benchmark nativ, Median ms</th><th class="n">set_frame</th><th class="n">keystroke</th><th class="n">render</th><th class="n">hit</th><th class="n">save</th><th class="n">pdf</th></tr>
   <tr><td>1 Seite</td><td class="n">0,26</td><td class="n">0,66</td><td class="n">0,37</td><td class="n">0,01</td><td class="n">0,06</td><td class="n">36</td></tr>
   <tr><td>8 Seiten</td><td class="n">1,84</td><td class="n">5,73</td><td class="n">0,53</td><td class="n">0,01</td><td class="n">0,29</td><td class="n">275</td></tr>
-  <tr><td>32 Seiten</td><td class="n">9,88</td><td class="n">18,03</td><td class="n">0,54</td><td class="n">0,01</td><td class="n">1,10</td><td class="n">1115</td></tr>
+  <tr><td>32 Seiten, 28.09.</td><td class="n">6,86</td><td class="n">11,43</td><td class="n">0,30</td><td class="n">0,01</td><td class="n">0,75</td><td class="n">767</td></tr>
+  <tr><td class="dim">32 Seiten, 27.09.</td><td class="n dim">9,88</td><td class="n dim">18,03</td><td class="n dim">0,54</td><td class="n dim">0,01</td><td class="n dim">1,10</td><td class="n dim">1115</td></tr>
   <tr><td class="dim">32 Seiten, <code>bb2773e</code></td><td class="n dim">16,57</td><td class="n dim">21,59</td><td class="n dim">5,70</td><td class="n dim">5,13</td><td class="n dim">–</td><td class="n dim">1774</td></tr>
 </table>
 
@@ -88,6 +91,8 @@
   <tr><td><code>23ab26c</code></td><td>PDF-Export im Web Worker</td><td>Main-Thread 32 S.: <code>pdf</code> 1315 ms → <code>save</code> 1,1 ms (nativ)</td></tr>
   <tr><td><code>6c6ab9f</code></td><td>Preload für <code>engine_bg.wasm</code> und <code>canvaskit.wasm</code></td><td>150 ms RTT: 2308 → 2119 ms; bei knapper Bandbreite kein Unterschied</td></tr>
   <tr><td><code>9d1492a</code></td><td>Snapshot als JSON-String</td><td>32 S.: 18,6 → 11,0 ms für Übergabe und Parsen</td></tr>
+  <tr><td><code>3297d7e</code></td><td>Ein GrContext pro Canvas, <code>MakeOnScreenGLSurface</code> bei Größenänderung</td><td>Chromium, Panel 4-mal ein/aus: 1000 → 132–274 ms Wandzeit, längster Frame 654 → 73 ms; <code>texSubImage2D</code> und <code>getShaderParameter</code> fallen weg</td></tr>
+  <tr><td><code>f324182</code></td><td><code>codegen-units = 1</code></td><td><code>engine_bg.wasm</code> 7,20 → 6,76 MB, gzip 2,89 → 2,69 MB (−7 %)</td></tr>
 </table>
 
 <h2>2. Der Snapshot wird pro Befehl ganz gebaut und ganz geparst</h2>
@@ -108,11 +113,11 @@
 
 <h2>4. Ladezeit</h2>
 
-<div class="card mid"><h3><span class="tag mid">mittel</span>5,7 MB WASM vor dem ersten Bild</h3>
+<div class="card mid"><h3><span class="tag mid">mittel</span>5,7 MB WASM (gzip) vor dem ersten Bild</h3>
 <table>
   <tr><th>Datei</th><th class="n">roh</th><th class="n">gzip</th></tr>
   <tr><td><code>canvaskit.wasm</code></td><td class="n">7,32 MB</td><td class="n">2,99 MB</td></tr>
-  <tr><td><code>engine_bg.wasm</code></td><td class="n">6,86 MB</td><td class="n">2,73 MB</td></tr>
+  <tr><td><code>engine_bg.wasm</code></td><td class="n">6,76 MB</td><td class="n">2,69 MB</td></tr>
   <tr><td><code>index.js</code> + CSS</td><td class="n">–</td><td class="n">0,14 MB</td></tr>
 </table>
 <table>
@@ -124,7 +129,8 @@
 <p>Die kalte Ladezeit ist fast reiner Download. Der Preload startet beide WASM-Dateien mit dem HTML; ein Test prüft, dass jede Datei nur einmal geladen wird. Das spart nur, wenn die Latenz zählt. Bei 10 Mbit/s ergab ein A/B-Vergleich gegen denselben Build ohne Preload keinen Unterschied (13,19 gegen 13,23 s, lokal ohne gzip). Die 6,0 s live liegen deshalb an der Streuung des Netzes und an 0,12 MB mehr Engine.</p>
 <div class="fix"><b>Bewusst nicht empfohlen</b>
 <ul>
-  <li><b><code>codegen-units = 1</code></b>: Engine 2,59 → 2,53 MB gzip (−2 %), in WASM gemessen nicht schneller. Das lohnt die längere Build-Zeit nicht mehr.</li>
+  <li><b><code>opt-level = "z"</code></b>: Engine 6,76 → 5,85 MB (gzip 2,34 MB), aber der native Benchmark wird 30–60 % langsamer (32 S. <code>keystroke</code> 11,4 → 16,1 ms, Inks 72 ppi 209 → 341 ms). Das bleibt <code>"s"</code>.</li>
+  <li><b>Bibliotheken selbst schreiben</b>: Die Engine besteht grob aus Loro mit <code>generic_btree</code> (1,7 MB Code), dem Font-Stack aus <code>read_fonts</code>, <code>skrifa</code>, <code>harfrust</code> und <code>write_fonts</code> (1,5 MB), krilla mit <code>pdf_writer</code> (0,4 MB), tiny-skia (0,4 MB), moxcms (0,2 MB), eigenem Code (0,6 MB) und 1,3 MB Daten, darunter Font und FOGRA51. Keine davon ließe sich mit vertretbarem Aufwand kleiner und gleich gut ersetzen. Loros Standard-Feature <code>counter</code> abzuschalten spart 8 KB.</li>
   <li><b>Brotli</b> würde 25 % sparen, GitHub Pages liefert aber nur gzip. Das ginge nur mit einem anderen Host, und Pages ist eine feste Designentscheidung.</li>
   <li><b>PDF-Teil als zweites, nachgeladenes WASM</b>: Seit dem Worker liegt es nahe, aber es spart nur etwa 0,4 MB gzip beim Start und braucht ein zweites Crate mit doppelten Font- und ICC-Daten.</li>
   <li><b>Eigener CanvasKit-Build</b> ohne Paragraph, ICU und Skottie: vermutlich deutlich kleiner, nicht gemessen. Dafür bräuchte man emsdk und einen Skia-Checkout in <code>flake.nix</code>.</li>
@@ -153,7 +159,8 @@
 <table>
   <tr><th>#</th><th>Vorschlag</th><th>Aufwand</th><th>Wirkung</th></tr>
   <tr><td>1</td><td>Snapshot pro Seite wiederverwenden</td><td>mittel, braucht eine Designentscheidung</td><td>Befehle bei 32 Seiten etwa 13 ms schneller</td></tr>
-  <tr><td>2</td><td>Raster-Cache pro Export</td><td>klein</td><td>Effekte auf Mastern einmal statt pro Seite, sobald es solche Dokumente gibt</td></tr>
+  <tr><td>2</td><td>Eigener CanvasKit-Build ohne Paragraph, ICU und Skottie</td><td>groß, emsdk und Skia in <code>flake.nix</code></td><td>der größte verbleibende Hebel für die Ladezeit, CanvasKit ist 2,99 MB gzip</td></tr>
+  <tr><td>3</td><td>Raster-Cache pro Export</td><td>klein</td><td>Effekte auf Mastern einmal statt pro Seite, sobald es solche Dokumente gibt</td></tr>
 </table>
 <p class="dim">Nach jeder Änderung an Text oder Engine: <code>cargo test --release -p engine bench -- --ignored --nocapture</code>. In CI gehört er nicht, weil Zeitgrenzen auf geteilten Runnern flackern.</p>
 </main>
