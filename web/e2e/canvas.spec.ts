@@ -241,3 +241,13 @@ test('space activates a focused layer button', async ({ page }) => {
   await page.keyboard.press('Space')
   await expect(page.getByRole('complementary', { name: 'Properties' }).getByRole('heading', { level: 2 })).toHaveText('Sun')
 })
+
+test('side panels are resized at their inner edge and keep their width after a reload', async ({ page }) => {
+  await open(page)
+  const right = page.getByRole('complementary', { name: 'Properties' })
+  const box = (await right.boundingBox())!
+  await drag(page, [box.x + 2, box.y + 300], [box.x - 98, box.y + 300])
+  await expect.poll(async () => Math.round((await right.boundingBox())!.width)).toBe(Math.round(box.width) + 100)
+  await page.reload()
+  await expect.poll(async () => Math.round((await right.boundingBox())!.width)).toBe(Math.round(box.width) + 100)
+})

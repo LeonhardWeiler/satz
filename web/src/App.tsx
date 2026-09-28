@@ -124,6 +124,7 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
   return (
     <main className={`app${off('left') ? ' no-left' : ''}${off('right') ? ' no-right' : ''}${hidden.ui ? ' no-ui' : ''}${preflight ? ' preflighting' : ''}`}>
       <div className="left" inert={off('left')}>
+        <Edge side="left" />
         <div className="brand">
           <span className="mark" aria-hidden="true">
             <i />
@@ -174,6 +175,7 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
       <Canvas ck={ck} editor={editor} onMore={more} />
       {overview && <Overview ck={ck} editor={editor} />}
       <div className="right" inert={off('right')}>
+        <Edge side="right" />
         {preflight ? <Preflight editor={editor} exporting={exporting} onExport={exportPdf} /> : <Properties editor={editor} say={say} />}
       </div>
       {starting && (
@@ -194,5 +196,38 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
         {status}
       </p>
     </main>
+  )
+}
+
+const WIDTHS = 'satz.panels'
+const widths: Record<string, number> = JSON.parse(localStorage.getItem(WIDTHS) ?? '{}')
+let grab = 0
+for (const [side, w] of Object.entries(widths)) document.documentElement.style.setProperty(`--${side}-width`, `${w}px`)
+
+/** The inner edge of a side panel, dragged to set its width. */
+function Edge({ side }: { side: 'left' | 'right' }) {
+  const at = (x: number) => (side === 'left' ? x : innerWidth - x)
+  return (
+    <div
+      className="edge"
+      aria-hidden="true"
+      onPointerDown={(e) => {
+        grab = at(e.clientX) - e.currentTarget.parentElement!.offsetWidth
+        e.currentTarget.setPointerCapture(e.pointerId)
+        e.preventDefault()
+      }}
+      onPointerMove={(e) => {
+        if (!e.currentTarget.hasPointerCapture(e.pointerId)) return
+        const w = Math.round(Math.min(560, Math.max(200, at(e.clientX) - grab)))
+        document.documentElement.style.setProperty(`--${side}-width`, `${w}px`)
+        widths[side] = w
+      }}
+      onPointerUp={() => localStorage.setItem(WIDTHS, JSON.stringify(widths))}
+      onDoubleClick={() => {
+        document.documentElement.style.removeProperty(`--${side}-width`)
+        delete widths[side]
+        localStorage.setItem(WIDTHS, JSON.stringify(widths))
+      }}
+    />
   )
 }

@@ -62,10 +62,9 @@ body,
 
 .app {
   display: grid;
-  grid-template-columns: var(--l, 240px) minmax(0, 1fr) var(--r, 284px);
+  grid-template-columns: var(--l, var(--left-width, 240px)) minmax(0, 1fr) var(--r, var(--right-width, 284px));
   grid-template-rows: 40px minmax(0, 1fr);
   grid-template-areas: 'left bar right' 'left stage right';
-  transition: grid-template-columns 0.2s var(--ease), grid-template-rows 0.2s var(--ease);
 }
 
 .app.no-left {
@@ -1223,6 +1222,7 @@ span.swatch {
 
 .left,
 .right {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -1244,6 +1244,33 @@ span.swatch {
 .left > *,
 .right > * {
   min-width: 200px;
+}
+
+.left > .edge,
+.right > .edge {
+  position: absolute;
+  z-index: 5;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  min-width: 0;
+  cursor: col-resize;
+}
+
+.left > .edge {
+  right: 0;
+}
+
+.right > .edge {
+  left: 0;
+}
+
+.left > .edge:is(:hover, :active) {
+  box-shadow: inset -2px 0 var(--accent);
+}
+
+.right > .edge:is(:hover, :active) {
+  box-shadow: inset 2px 0 var(--accent);
 }
 
 .left > .panel {

@@ -278,82 +278,83 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
 
     const redraw = () => {
       canvas.dataset.sheets = JSON.stringify(editor.sheets.map(({ x, width, height, bleed }) => ({ x, width, height, bleed })))
-      if (frame) return
-      frame = requestAnimationFrame(() => {
-        frame = 0
-        if (!surface) return
-        const { box, line } = drag?.kind === 'marquee' ? {} : handles()
-        const h = editor.hover ?? hover
-        const over = h && !editor.selection.includes(h) ? editor.nodes.get(h)?.node : undefined
-        const hovered = over && placed(over)
-        const marquee =
-          drag?.kind === 'marquee'
-            ? rect(
-                { x: view.x + drag.start.x * view.zoom, y: view.y + drag.start.y * view.zoom },
-                { x: view.x + drag.end.x * view.zoom, y: view.y + drag.end.y * view.zoom },
-              )
-            : undefined
-        const ed = editor.editing
-        let text: { ops: Uint32Array; x: number }[] | undefined
-        if (ed) {
-          const [cx, top, bottom] = editor.engine.caret(ed.id, ed.focus)
-          const x = cx + editor.dx(ed.id)
-          Object.assign(area.current?.style ?? {}, {
-            left: `${view.x + x * view.zoom}px`,
-            top: `${view.y + top * view.zoom}px`,
-            height: `${(bottom - top) * view.zoom}px`,
-          })
-          if (caretOn || ed.anchor !== ed.focus) {
-            text = editor.spread.map((p) => ({
-              ops: editor.engine.textOverlay(ed.id, ed.anchor, ed.focus, 1 / view.zoom, p.id).slice(),
-              x: p.x,
-            }))
-          }
+      frame ||= requestAnimationFrame(paint)
+    }
+    const paint = () => {
+      cancelAnimationFrame(frame)
+      frame = 0
+      if (!surface) return
+      const { box, line } = drag?.kind === 'marquee' ? {} : handles()
+      const h = editor.hover ?? hover
+      const over = h && !editor.selection.includes(h) ? editor.nodes.get(h)?.node : undefined
+      const hovered = over && placed(over)
+      const marquee =
+        drag?.kind === 'marquee'
+          ? rect(
+              { x: view.x + drag.start.x * view.zoom, y: view.y + drag.start.y * view.zoom },
+              { x: view.x + drag.end.x * view.zoom, y: view.y + drag.end.y * view.zoom },
+            )
+          : undefined
+      const ed = editor.editing
+      let text: { ops: Uint32Array; x: number }[] | undefined
+      if (ed) {
+        const [cx, top, bottom] = editor.engine.caret(ed.id, ed.focus)
+        const x = cx + editor.dx(ed.id)
+        Object.assign(area.current?.style ?? {}, {
+          left: `${view.x + x * view.zoom}px`,
+          top: `${view.y + top * view.zoom}px`,
+          height: `${(bottom - top) * view.zoom}px`,
+        })
+        if (caretOn || ed.anchor !== ed.focus) {
+          text = editor.spread.map((p) => ({
+            ops: editor.engine.textOverlay(ed.id, ed.anchor, ed.focus, 1 / view.zoom, p.id).slice(),
+            x: p.x,
+          }))
         }
-        const spread = editor.spread
-        const pen = editor.pen
-        const penDx = pen ? editor.dx(pen.id) : 0
-        const flowDx = drag?.kind === 'move' && drag.flow ? editor.dx(drag.flow.id) : 0
-        const insert = drag?.kind === 'move' ? drag.to?.line.map((q) => ({ x: q.x + flowDx, y: q.y })) : undefined
-        const lists = spread.map((p) => ({ id: p.id, x: p.x, inks: editor.preflight ? inkedOf(p) : undefined }))
-        renderer.draw(surface.getCanvas(), lists, editor.sheets, view, canvas.width / canvas.clientWidth, {
-          text,
-          selection: editor.selection.length > 1 || ed || drag?.kind === 'draw' ? editor.selected().map(placed) : [],
-          hover: hovered,
-          marquee,
-          handles: box,
-          ends: line,
-          pen: pen && { anchors: pen.anchors.map((a) => ({ ...a, x: a.x + penDx })), cursor: drag ? undefined : cursor },
-          insert: insert as [Point, Point] | undefined,
-          ...threadOverlay(),
-        }, editor.preflight, editor.snapshot.colorMode === 'cmyk')
-        surface.flush()
-        const left = Math.min(...editor.sheets.map((s) => s.x))
-        const sel = editor.selection.length ? bounds(editor.selected().map(placed)) : undefined
-        const x0 = view.x + left * view.zoom
-        const bar = quick.current!
-        bar.hidden =
-          !sel || alt || !!ed || !!pen || editor.threading !== null || editor.overview !== null || editor.preflight || editor.tool !== 'move' ||
-          (!!drag && drag.kind !== 'pan' && !(drag.kind === 'move' && !drag.active))
-        if (sel && !bar.hidden) {
-          const { clientWidth: vw, clientHeight: vh } = canvas
-          const w = bar.offsetWidth
-          const h = bar.offsetHeight
-          const top = view.y + sel.y * view.zoom - h - 14
-          bar.style.left = `${Math.min(Math.max(view.x + (sel.x + sel.w / 2) * view.zoom - w / 2, 8), vw - w - 8)}px`
-          bar.style.top = `${Math.min(Math.max(top >= 8 ? top : view.y + (sel.y + sel.h) * view.zoom + 14, 8), vh - h - 8)}px`
-        }
-        const page = pointer ? pageAt(toDoc(pointer)) : undefined
-        const target = !alt || !sel || drag || ed || pen || editor.tool !== 'move' || editor.overview !== null
-          ? undefined
-          : hovered || (page && { x: page.x, y: 0, w: page.width, h: page.height })
-        if (target) measures = measure(sel!, target, snapsNow().others)
-        else if (!drag) measures = []
-        marks.current!.innerHTML = svgOf(target)
-        const at = (axis: 'x' | 'y', o: number) => snapped.filter((g) => g.axis === axis).map((g) => o + g.at * view.zoom)
-        drawRuler(rulerX.current!, true, x0, view.zoom * MM, sel && [view.x + sel.x * view.zoom, view.x + (sel.x + sel.w) * view.zoom], at('x', view.x))
-        drawRuler(rulerY.current!, false, view.y, view.zoom * MM, sel && [view.y + sel.y * view.zoom, view.y + (sel.y + sel.h) * view.zoom], at('y', view.y))
-      })
+      }
+      const spread = editor.spread
+      const pen = editor.pen
+      const penDx = pen ? editor.dx(pen.id) : 0
+      const flowDx = drag?.kind === 'move' && drag.flow ? editor.dx(drag.flow.id) : 0
+      const insert = drag?.kind === 'move' ? drag.to?.line.map((q) => ({ x: q.x + flowDx, y: q.y })) : undefined
+      const lists = spread.map((p) => ({ id: p.id, x: p.x, inks: editor.preflight ? inkedOf(p) : undefined }))
+      renderer.draw(surface.getCanvas(), lists, editor.sheets, view, canvas.width / canvas.clientWidth, {
+        text,
+        selection: editor.selection.length > 1 || ed || drag?.kind === 'draw' ? editor.selected().map(placed) : [],
+        hover: hovered,
+        marquee,
+        handles: box,
+        ends: line,
+        pen: pen && { anchors: pen.anchors.map((a) => ({ ...a, x: a.x + penDx })), cursor: drag ? undefined : cursor },
+        insert: insert as [Point, Point] | undefined,
+        ...threadOverlay(),
+      }, editor.preflight, editor.snapshot.colorMode === 'cmyk')
+      surface.flush()
+      const left = Math.min(...editor.sheets.map((s) => s.x))
+      const sel = editor.selection.length ? bounds(editor.selected().map(placed)) : undefined
+      const x0 = view.x + left * view.zoom
+      const bar = quick.current!
+      bar.hidden =
+        !sel || alt || !!ed || !!pen || editor.threading !== null || editor.overview !== null || editor.preflight || editor.tool !== 'move' ||
+        (!!drag && drag.kind !== 'pan' && !(drag.kind === 'move' && !drag.active))
+      if (sel && !bar.hidden) {
+        const { clientWidth: vw, clientHeight: vh } = canvas
+        const w = bar.offsetWidth
+        const h = bar.offsetHeight
+        const top = view.y + sel.y * view.zoom - h - 14
+        bar.style.left = `${Math.min(Math.max(view.x + (sel.x + sel.w / 2) * view.zoom - w / 2, 8), vw - w - 8)}px`
+        bar.style.top = `${Math.min(Math.max(top >= 8 ? top : view.y + (sel.y + sel.h) * view.zoom + 14, 8), vh - h - 8)}px`
+      }
+      const page = pointer ? pageAt(toDoc(pointer)) : undefined
+      const target = !alt || !sel || drag || ed || pen || editor.tool !== 'move' || editor.overview !== null
+        ? undefined
+        : hovered || (page && { x: page.x, y: 0, w: page.width, h: page.height })
+      if (target) measures = measure(sel!, target, snapsNow().others)
+      else if (!drag) measures = []
+      marks.current!.innerHTML = svgOf(target)
+      const at = (axis: 'x' | 'y', o: number) => snapped.filter((g) => g.axis === axis).map((g) => o + g.at * view.zoom)
+      drawRuler(rulerX.current!, true, x0, view.zoom * MM, sel && [view.x + sel.x * view.zoom, view.x + (sel.x + sel.w) * view.zoom], at('x', view.x))
+      drawRuler(rulerY.current!, false, view.y, view.zoom * MM, sel && [view.y + sel.y * view.zoom, view.y + (sel.y + sel.h) * view.zoom], at('y', view.y))
     }
     const show = (to: View) => {
       Object.assign(view, to)
@@ -421,7 +422,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
         fitted = true
         fit()
       }
-      redraw()
+      paint()
     })
     try {
       resize.observe(canvas, { box: 'device-pixel-content-box' })
