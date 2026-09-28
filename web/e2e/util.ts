@@ -51,23 +51,24 @@ export async function drag(page: Page, from: readonly [number, number], to: read
   await page.mouse.up()
 }
 
-/** Waits until the autosave holds the unsaved changes. */
-export async function autosaved(page: Page) {
-  const dirty = () =>
+/** Waits until the autosave holds a document, by default one with unsaved changes. */
+export async function autosaved(page: Page, dirty = true) {
+  const stored = () =>
     page.evaluate(
-      () =>
+      (dirty) =>
         new Promise<boolean>((done) => {
           const r = indexedDB.open('satz')
           r.onsuccess = () => {
             const get = r.result.transaction('files').objectStore('files').get('doc')
             get.onsuccess = () => {
-              done(!!get.result?.dirty)
+              done(!!get.result && (!dirty || get.result.dirty))
               r.result.close()
             }
           }
         }),
+      dirty,
     )
-  await expect.poll(dirty).toBe(true)
+  await expect.poll(stored).toBe(true)
 }
 
 /** A PNG file `name` of `width` × `height` pixels coloured `rgb(x, y)`. */
