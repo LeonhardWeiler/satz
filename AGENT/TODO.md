@@ -5,42 +5,22 @@ Done when: on the live GitHub Pages build, a user creates an A2 poster and an
 CMYK + spot color), and exports both as PDF with TrimBox, BleedBox and crop marks
 that match the canvas.
 
-Out of scope for M1: PDF/X, components, realtime collaboration, Figma import,
+Out of scope for M1: components, realtime collaboration, Figma import,
 font helper, i18n.
 
 ## UI design G (branch ui-g, spec AGENT/ui-ux/g-register.html)
 
-Done: G look, fixed layout, start screen, "." page overview, navigation keys,
-fields (expressions, units, step, scrub), collapsible properties with document
-and page sections, text style specimen menu. Open, in this order:
+Built: everything in `AGENT/ui-g-inventory.md` except the PDF export presets.
+Open:
 
-- Quick edit above the selection (`web/src/Quick.tsx`): built, has no E2E test yet
-  (shown on selection, hidden while dragging, editing text and in modes, fill
-  swatch menu, More opens and focuses the properties).
-- Layers: canvas hover highlight, visible/lock buttons on hover, hidden rows
-  dimmed, keys ↑↓→← Enter Shift+Enter Tab Shift+Tab F2 Ctrl+R, master row, empty
-  state; drag & drop stays.
-- Engine props `hidden` and `locked` (set, undo, old files load false): hidden is
-  not drawn, exported, hit or preflighted; locked is not hit but selectable in the
-  tree; parents and masters pass them on. Ctrl+Shift+H, Ctrl+Shift+L. Rust and E2E
-  tests.
-- Ctrl+K palette (commands, layers, pages, swatches, text styles; fuzzy; keys
-  shown), "?" help, toasts incl. apply errors.
-- Swatches as in G: chip, name, CMYK, RGB-only warning, click fills.
-- Snapping (`snap.ts` with vitest): objects, page, centre, margins, columns,
-  baseline grid within 5 px; move, resize, draw; Ctrl off, Shift locks the axis;
-  distances to the 2 nearest objects, Alt under the pointer; magenta, mm; rulers
-  show extent and guides.
-- Preflight mode (Ctrl+Alt+Y, count button, Ctrl+Shift+E, Export; Esc; 384 px):
-  issues incl. gamut, ink limit, <3 mm from trim; proof with gamut switch;
-  separations C/M/Y/K/spots with max; ink coverage with limit, marking, max,
-  value under the pointer; export presets X-4, X-1a, screen; crop/bleed via
-  SetDocument; export button with error count, progress and toast.
-- PDF presets in the engine (krilla), Rust structure tests; canvas-vs-PDF stays
-  green with X-4.
-- Every core.js shortcut, main's stay (stop on a collision).
-- Docs: settled design here, README screenshot, CLAUDE.md contracts, screenshots
-  at 1440×900 and 880×700 in AGENT/ui-ux/g-impl/; tick AGENT/ui-g-inventory.md.
+- PDF presets in the engine: PDF/X-4 (FOGRA51 OutputIntent, GTS_PDFXVersion in
+  XMP, ICC-tagged RGB), PDF/X-1a (CMYK and spots only, transparency flattened at
+  the raster ppi, disabled in RGB documents) and screen (RGB as the canvas shows
+  it, TrimBox only); crop marks and bleed switchable, all kept in the document via
+  SetDocument; the preflight's export section gets the preset menu and switches.
+  krilla 0.8 has no PDF/X validator or CMYK OutputIntent, so the OutputIntent,
+  XMP and version need an own writer; Rust tests check the structure of each
+  preset, canvas-vs-PDF stays green with X-4.
 - Commit 5b5a630 does not build alone (the Pages.tsx deletion landed there).
 
 ## Settled design
@@ -55,9 +35,10 @@ and page sections, text style specimen menu. Open, in this order:
 - Color: document is RGB or CMYK + spot colors. Screen preview via `moxcms`, with black
   point compensation, and a bundled FOGRA51 profile built from the ICC registry data (`engine/icc/build`); the
   ECI's PSO Coated v3 may not be redistributed.
-- UI: design G (`AGENT/ui-ux/g-register.html`): fixed layout with a top bar, layers
-  and swatches left, properties or preflight right, mm rulers; no floating panels, no
-  bottom bar. Figma keybinds (Ctrl for Cmd), dark look, English, units mm by default
+- UI: design G (`AGENT/ui-ux/g-register.html`), fixed: a top bar, layers and
+  swatches left, properties or the preflight mode right, mm rulers; no floating
+  panels, no bottom bar. Pages in the overview on "." over the canvas, which always
+  shows one spread. Figma keybinds (Ctrl for Cmd), dark look, English, units mm by default
   (switchable), type sizes in pt.
 - Browsers: Chromium + Firefox; Safari best effort.
 - License: ISC.

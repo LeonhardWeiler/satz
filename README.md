@@ -4,7 +4,7 @@ Desktop publishing in the browser: posters and multi-page documents, print-ready
 
 **[Open Satz](https://leonhardweiler.github.io/satz/)**
 
-![Satz with the example poster open](examples/screenshot.png)
+![Satz with the example booklet open](examples/screenshot.png)
 
 ## Examples
 

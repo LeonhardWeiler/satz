@@ -36,4 +36,9 @@ Node 22, pnpm, MuPDF (`mutool`, for the PDF tests) and
   document's colour mode does not convert them.
 - `engine/icc/FOGRA51.icc` is built by `engine/icc/build` from the ICC registry data;
   PSO Coated v3 may not be redistributed.
+- A node's `hidden` and `locked` (default false) pass to its children and hold on
+  masters too: hidden is not drawn, exported, hit or preflighted; locked is drawn but
+  only the layers tree selects it.
+- The preflight's separations, ink coverage and gamut marks come from `Inks`
+  (`engine/src/inks.rs`), rasterized in the export worker, never on the main thread.
 - Deleted nodes move under a `trash` root so that undo restores them with their ids.
