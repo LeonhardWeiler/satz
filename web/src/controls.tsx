@@ -107,8 +107,10 @@ export function Field({
         onFocus={(e) => e.currentTarget.select()}
         onBlur={commit}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') e.currentTarget.blur()
-          else if (e.key === 'Escape') {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            e.currentTarget.blur()
+          } else if (e.key === 'Escape') {
             setDraft(null)
             e.currentTarget.blur()
           } else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && edit) {
@@ -147,7 +149,10 @@ export function NameInput({ label, value, onCommit }: { label: string; value: st
         else e.currentTarget.value = value
       }}
       onKeyDown={(e) => {
-        if (e.key === 'Enter') e.currentTarget.blur()
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          e.currentTarget.blur()
+        }
       }}
     />
   )
