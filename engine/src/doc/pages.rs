@@ -287,14 +287,41 @@ impl Doc {
         width: Option<f64>,
         height: Option<f64>,
         bleed: Option<f64>,
+        scale: bool,
     ) -> Res<Vec<String>> {
-        let m = self.meta(self.sheet(&id)?);
+        let page = self.sheet(&id)?;
+        let m = self.meta(page);
         let sizes = [("width", width), ("height", height), ("bleed", bleed)];
         if let Some((k, _)) = sizes
             .iter()
             .find(|(_, v)| v.is_some_and(|v| !(v >= 0.0 && v.is_finite())))
         {
             return Err(format!("{k} must not be negative"));
+        }
+        let by = |k, v: Option<f64>| {
+            let old = num(&m, k);
+            v.filter(|_| scale && old > 0.0).map_or(1.0, |v| v / old)
+        };
+        let (sx, sy) = (by("width", width), by("height", height));
+        if sx * sy > 0.0 && (sx, sy) != (1.0, 1.0) {
+            let mut all = Vec::new();
+            for c in self.children(page) {
+                self.walk(c, &mut all);
+            }
+            let heads: Vec<_> = all
+                .iter()
+                .filter(|&&n| self.kind(n) == Some(NodeKind::Text) && self.story(n) == n)
+                .collect();
+            for &n in &heads {
+                self.check_scale(*n, (sx * sy).sqrt())?;
+            }
+            let frames: Vec<_> = all.iter().map(|&n| (n, self.bounds(n))).collect();
+            for (n, [x, y, w, h]) in frames {
+                self.reframe(n.to_string(), x * sx, y * sy, w * sx, h * sy, true)?;
+            }
+            for &n in heads {
+                self.scale_text(n, (sx * sy).sqrt())?;
+            }
         }
         for (k, v) in sizes {
             if let Some(v) = v {
@@ -532,6 +559,7 @@ mod tests {
             width: Some(100.0),
             height: Some(200.0),
             bleed: Some(5.0),
+            scale: false,
         })
         .unwrap();
         let p3 = add_page(&mut d, None);
@@ -580,9 +608,38 @@ mod tests {
                 width: Some(-1.0),
                 height: None,
                 bleed: None,
+                scale: false,
             })
             .is_err()
         );
+    }
+
+    #[test]
+    fn a_page_scaled_to_a_new_size_scales_its_layers_and_their_text() {
+        let (mut d, p) = empty();
+        let r = create(&mut d, &p, NewKind::Rect, [10.0, 20.0, 30.0, 40.0]);
+        let t = create(&mut d, &p, NewKind::Text, [0.0, 0.0, 100.0, 100.0]);
+        d.apply(Command::SetText {
+            id: t.clone(),
+            text: "Hi".into(),
+        })
+        .unwrap();
+        format(&mut d, &t, None, sized(20.0)).unwrap();
+        let [w, h] = [page(&d).width, page(&d).height];
+        d.apply(Command::SetPage {
+            id: p,
+            width: Some(w * 2.0),
+            height: Some(h * 2.0),
+            bleed: None,
+            scale: true,
+        })
+        .unwrap();
+        let s = page(&d);
+        assert_eq!(frame(&s.children[0]), [20.0, 40.0, 60.0, 80.0]);
+        assert_eq!(lens_and(&d, |a| a.size), [(2, 40.0)]);
+        d.apply(Command::ScaleText { id: t, by: 0.5 }).unwrap();
+        assert_eq!(lens_and(&d, |a| a.size), [(2, 20.0)]);
+        assert_eq!(ids(&s.children[..1]), [r]);
     }
 
     #[test]

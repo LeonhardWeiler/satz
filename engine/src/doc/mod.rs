@@ -112,6 +112,11 @@ pub enum Command {
         #[serde(flatten)]
         props: TextProps,
     },
+    /// Scales the sizes and spacing in pt of the story of a text layer by `by`.
+    ScaleText {
+        id: String,
+        by: f64,
+    },
     AddTextStyle {
         name: String,
         size: f64,
@@ -193,12 +198,15 @@ pub enum Command {
     DuplicatePage {
         id: String,
     },
-    /// Sets the trim size and bleed of a page in pt.
+    /// Sets the trim size and bleed of a page in pt; with `scale` its layers scale
+    /// with its size and their text with the square root of its area.
     SetPage {
         id: String,
         width: Option<f64>,
         height: Option<f64>,
         bleed: Option<f64>,
+        #[serde(default)]
+        scale: bool,
     },
     /// Removes a page other than the last.
     DeletePage {
@@ -1094,6 +1102,10 @@ impl Doc {
             Command::SetText { id, text } => self.set_text(id, text),
             Command::EditText { id, range, text } => self.edit_text(id, range, text),
             Command::Format { id, range, props } => self.format(id, range, props),
+            Command::ScaleText { id, by } => {
+                self.scale_text(self.node(&id)?, by)?;
+                Ok(vec![])
+            }
             Command::AddTextStyle {
                 name,
                 size,
@@ -1197,7 +1209,8 @@ impl Doc {
                 width,
                 height,
                 bleed,
-            } => self.set_page(id, width, height, bleed),
+                scale,
+            } => self.set_page(id, width, height, bleed, scale),
             Command::DeletePage { id } => self.delete_page(id),
             Command::MovePage { id, index } => self.move_page(id, index),
             Command::AddMaster { like } => self.add_master(like),
@@ -2331,6 +2344,7 @@ mod tests {
             width: Some(width),
             height: None,
             bleed: None,
+            scale: false,
         })
         .unwrap();
     }
@@ -2740,6 +2754,7 @@ mod tests {
                     width: Some(200.0 + rand(400) as f64),
                     height: None,
                     bleed: None,
+                    scale: false,
                 },
                 12 => Command::Undo,
                 _ => Command::Redo,
@@ -3284,6 +3299,15 @@ mod tests {
                 width: Some(100.0),
                 height: Some(-1.0),
                 bleed: None,
+                scale: false,
+            },
+            Command::ScaleText {
+                id: t.clone(),
+                by: 0.0,
+            },
+            Command::ScaleText {
+                id: r.clone(),
+                by: 2.0,
             },
             Command::ResetToMaster {
                 ids: vec![copy, r.clone()],

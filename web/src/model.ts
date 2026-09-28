@@ -93,7 +93,8 @@ export type Command =
   | { type: 'paste'; above: string[]; page?: string }
   | { type: 'addPage'; after: string | null }
   | { type: 'duplicatePage' | 'deletePage'; id: string }
-  | { type: 'setPage'; id: string; width?: number; height?: number; bleed?: number }
+  | { type: 'setPage'; id: string; width?: number; height?: number; bleed?: number; scale?: boolean }
+  | { type: 'scaleText'; id: string; by: number }
   | { type: 'movePage'; id: string; index: number }
   | { type: 'addMaster'; like: string | null }
   | { type: 'setMaster'; id: string; name: string }

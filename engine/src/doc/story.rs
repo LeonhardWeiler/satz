@@ -549,6 +549,42 @@ impl Doc {
         Ok(vec![])
     }
 
+    /// The sizes and spacing of the story of `n` by `by`, for `Format` of each span.
+    fn scaled(&self, n: TreeID, by: f64) -> Res<Vec<(Option<[usize; 2]>, TextProps)>> {
+        let head = self.story(n);
+        self.text(head)?;
+        if !(by > 0.0 && by.is_finite()) {
+            return Err("the scale must be positive".into());
+        }
+        let snap = self.snapshot();
+        let story = snap.stories.get(&head.to_string()).ok_or("no story")?;
+        let mut at = 0;
+        let spans = story.spans.iter().map(|s| {
+            at += s.len;
+            let props = TextProps {
+                size: Some(s.attrs.size * by),
+                line_height: Some(s.attrs.line_height * by),
+                paragraph_spacing: Some(s.attrs.paragraph_spacing * by),
+                ..TextProps::default()
+            };
+            props.check()?;
+            Ok(((!story.text.is_empty()).then_some([at - s.len, at]), props))
+        });
+        spans.collect()
+    }
+
+    pub(super) fn check_scale(&self, n: TreeID, by: f64) -> Res<()> {
+        self.scaled(n, by).map(|_| ())
+    }
+
+    /// Scales the sizes and spacing in pt of the story of `n` by `by`.
+    pub(super) fn scale_text(&self, n: TreeID, by: f64) -> Res<()> {
+        for (range, props) in self.scaled(n, by)? {
+            self.format(self.story(n).to_string(), range, props)?;
+        }
+        Ok(())
+    }
+
     pub(super) fn format(
         &self,
         id: String,

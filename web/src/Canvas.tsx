@@ -40,7 +40,7 @@ type Snaps = { lines: Lines; others: Box[] }
 type Drag =
   | { kind: 'pan'; last: Point }
   | { kind: 'move'; start: Point; frames: Node[]; active: boolean; flow?: Container; to?: ReturnType<typeof insertion>; box?: Box; snaps?: Snaps }
-  | { kind: 'resize'; start: Point; handle: string; box: Box; frames: Node[]; snaps: Snaps }
+  | { kind: 'resize'; start: Point; handle: string; box: Box; frames: Node[]; snaps: Snaps; by: number }
   | { kind: 'end'; start: Point; id: string; ends: [Point, Point]; index: number }
   | { kind: 'marquee'; start: Point; end: Point; base: string[] }
   | { kind: 'draw'; start: Point; id: string; dx: number; moved: boolean; tool: keyof typeof DEFAULT_SIZE; thread?: string; snaps?: Snaps }
@@ -570,7 +570,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
       }
       if (handle) {
         const frames = editor.selected()
-        drag = { kind: 'resize', start: p, handle, box: bounds(frames.map(placed)), frames, snaps: snapsNow() }
+        drag = { kind: 'resize', start: p, handle, box: bounds(frames.map(placed)), frames, snaps: snapsNow(), by: 1 }
         editor.beginGroup()
         return
       }
@@ -713,8 +713,12 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
         const boxes = resized(b, h, d, e, drag.frames.map(placed))
         const r = bounds(boxes)
         snapped = free ? guides(r, snaps.lines, [...edge('w', r.x), ...edge('e', r.x + r.w)], [...edge('n', r.y), ...edge('s', r.y + r.h)]) : []
+        const by = h === 'e' || h === 'w' ? r.w / b.w : r.h / b.h
+        const scale = (e.ctrlKey || e.metaKey) && by > 0 ? by / drag.by : 1
+        drag.by *= scale
         drag.frames.forEach((n, i) => {
           const f = boxes[i]
+          if (scale !== 1 && n.kind === 'text') editor.apply({ type: 'scaleText', id: n.id, by: scale })
           editor.apply({ type: 'setFrame', id: n.id, ...f, x: f.x - editor.dx(n.id), ignoreConstraints: e.ctrlKey || e.metaKey })
           const t = editor.nodes.get(n.id)?.node
           if ((h === 'e' || h === 'w') && t?.kind === 'text' && t.overset && !t.next && t.sizing.vertical === 'fixed') {
