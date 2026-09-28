@@ -80,7 +80,7 @@ export function Quick({ editor, onMore }: { editor: Editor; onMore: () => void }
             menu={{ x: menu.left, y: menu.bottom + 4 }}
             label="Swatches"
             onClose={() => setMenu(null)}
-            items={snapshot.swatches.map((s): [ReactNode, () => void, boolean, boolean] => [
+            items={snapshot.swatches.length ? snapshot.swatches.map((s): [ReactNode, () => void, boolean, boolean] => [
               <>
                 <Chip color={s.color} scope={NO_SCOPE} />
                 {s.name}
@@ -88,7 +88,7 @@ export function Quick({ editor, onMore }: { editor: Editor; onMore: () => void }
               () => pick(s.id),
               true,
               !!fill && typeof fill.color === 'object' && 'swatch' in fill.color && fill.color.swatch === s.id,
-            ])}
+            ]) : [['No swatches', () => {}, false]]}
           />,
           document.body,
         )}

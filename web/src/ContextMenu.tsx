@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { roam } from './controls'
 import { Popover } from './Popover'
 
@@ -14,11 +14,17 @@ export function ContextMenu({
   items: [ReactNode, () => void, boolean, boolean?][]
   onClose: () => void
 }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!ref.current!.contains(document.activeElement)) ref.current!.focus()
+  }, [])
   return (
     <div className="menu-backdrop" onPointerDown={onClose} onContextMenu={(e) => e.preventDefault()}>
       <Popover
         anchor={() => new DOMRect(menu.x, menu.y, 0, 0)}
         side="right"
+        ref={ref}
+        tabIndex={-1}
         className="menu"
         role="menu"
         aria-label={label}

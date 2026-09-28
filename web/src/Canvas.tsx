@@ -330,7 +330,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
         const x0 = view.x + left * view.zoom
         const bar = quick.current!
         bar.hidden =
-          !sel || !!ed || !!pen || editor.threading !== null || editor.overview !== null || editor.tool !== 'move' ||
+          !sel || !!ed || !!pen || editor.threading !== null || editor.overview !== null || editor.preflight || editor.tool !== 'move' ||
           (!!drag && drag.kind !== 'pan' && !(drag.kind === 'move' && !drag.active))
         if (sel && !bar.hidden) {
           const { clientWidth: vw, clientHeight: vh } = canvas
