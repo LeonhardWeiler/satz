@@ -76,3 +76,13 @@ test('open file on the start screen asks for a file as ctrl+o does', async ({ pa
   await chooser
   await expect(start(page)).toHaveCount(0)
 })
+
+test('ctrl+o on the start screen opens the file it asks for', async ({ page }) => {
+  await page.addInitScript(() => delete (window as { showOpenFilePicker?: unknown }).showOpenFilePicker)
+  await open(page)
+  await page.keyboard.press('Control+n')
+  const chooser = page.waitForEvent('filechooser')
+  await page.keyboard.press('Control+o')
+  await (await chooser).setFiles(`${import.meta.dirname}/../../examples/poster.satz`)
+  await expect(page).toHaveTitle('poster.satz — Satz')
+})

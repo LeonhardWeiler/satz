@@ -61,6 +61,11 @@ export function Start({ editor, first, say, onClose }: { editor: Editor; first: 
     ref.current!.querySelector<HTMLElement>(`[data-format="${f[0]}"]`)?.focus()
   }
 
+  const openFile = () => {
+    onClose()
+    open(editor, say).catch(() => {})
+  }
+
   return (
     <dialog
       ref={ref}
@@ -80,6 +85,9 @@ export function Start({ editor, first, say, onClose }: { editor: Editor; first: 
         } else if (e.key === 'Enter' && (at >= 0 || target === ref.current)) {
           e.preventDefault()
           create()
+        } else if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.code === 'KeyO') {
+          e.preventDefault()
+          openFile()
         }
       }}
     >
@@ -155,14 +163,7 @@ export function Start({ editor, first, say, onClose }: { editor: Editor; first: 
             <small>{text}</small>
           </button>
         ))}
-        <button
-          type="button"
-          className="example"
-          onClick={() => {
-            onClose()
-            open(editor, say).catch(() => {})
-          }}
-        >
+        <button type="button" className="example" onClick={openFile}>
           <span>
             <Icon name="search" />
             Open file…
