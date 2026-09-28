@@ -1,5 +1,5 @@
 import { type Page } from '@playwright/test'
-import { expect, test, addMaster, autosaved, current, option, overview } from './util'
+import { expect, test, addMaster, autosaved, current, open, option, overview } from './util'
 
 const start = (page: Page) => page.getByRole('dialog', { name: 'New document' })
 
@@ -72,3 +72,12 @@ test('the overview lists masters above vertical spreads, assigns a master and re
   await expect(region).toHaveCount(0)
 })
 
+
+test('at 880 px the top bar fits with every button', async ({ page }) => {
+  await open(page)
+  await page.setViewportSize({ width: 880, height: 700 })
+  const bar = page.locator('header.bar')
+  await expect.poll(() => bar.evaluate((b) => b.scrollWidth - b.clientWidth)).toBe(0)
+  await expect.poll(() => page.getByRole('toolbar', { name: 'Tools' }).evaluate((t) => t.scrollWidth - t.clientWidth)).toBe(0)
+  await expect(bar.getByRole('button', { name: 'Export', exact: true })).toBeInViewport({ ratio: 1 })
+})

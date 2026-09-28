@@ -979,6 +979,18 @@ span.swatch {
   color: var(--text);
 }
 
+.bar > :not(.grow),
+.toolbar > * {
+  flex: none;
+}
+
+.bar > .toolbar {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
 .toolbar {
   display: flex;
   gap: 2px;
@@ -2442,5 +2454,17 @@ kbd {
     font-weight: 600;
     text-anchor: middle;
     dominant-baseline: central;
+  }
+}
+
+@media (max-width: 1100px) {
+  .app {
+    --l: 192px;
+    --r: 248px;
+  }
+
+  .tool {
+    min-width: 26px;
+    padding: 0 5px;
   }
 }

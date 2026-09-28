@@ -44,7 +44,8 @@ export function fitView(sheets: Sheet[], width: number, height: number): View {
   const w = Math.max(...sheets.map((s) => s.x + s.width)) - left
   const h = Math.max(...sheets.map((s) => s.height))
   const bleed = Math.max(...sheets.map((s) => s.bleed))
-  const zoom = Math.min((width - 2 * FIT_PADDING) / (w + 2 * bleed), (height - 2 * FIT_PADDING) / (h + 2 * bleed))
+  const pad = Math.min(FIT_PADDING, width / 12, height / 12)
+  const zoom = Math.min((width - 2 * pad) / (w + 2 * bleed), (height - 2 * pad) / (h + 2 * bleed))
   return { x: (width - w * zoom) / 2 - left * zoom, y: (height - h * zoom) / 2, zoom }
 }
 
