@@ -72,7 +72,6 @@ test('the overview lists masters above vertical spreads, assigns a master and re
   await expect(region).toHaveCount(0)
 })
 
-
 test('at 880 px the top bar fits with every button', async ({ page }) => {
   await open(page)
   await page.setViewportSize({ width: 880, height: 700 })
