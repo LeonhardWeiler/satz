@@ -103,7 +103,7 @@ export type Command =
   | { type: 'resetToMaster'; ids: string[] }
   | { type: 'thread'; from: string; to: string }
   | { type: 'unthread'; id: string }
-  | { type: 'setDocument'; rasterPpi?: number; colorMode?: ColorMode; facingPages?: boolean; inkLimit?: number }
+  | { type: 'setDocument'; rasterPpi?: number; colorMode?: ColorMode; facingPages?: boolean; inkLimit?: number; preset?: Preset; cropMarks?: boolean; includeBleed?: boolean }
   | { type: 'addSwatch'; name: string; color: Color; spot: boolean }
   | { type: 'setSwatch'; id: string; name?: string; color?: Color; spot?: boolean }
   | { type: 'deleteSwatch'; id: string }
@@ -255,6 +255,7 @@ export type Issue = { page: string; layer: string; name: string } & (
   | { problem: 'nearTrim'; distance: number }
 )
 
+export type Preset = 'screen' | 'x4' | 'x1a'
 export type Snapshot = Palette & {
   pages: Page[]
   masters: Page[]
@@ -266,6 +267,10 @@ export type Snapshot = Palette & {
   rasterPpi: number
   colorMode: ColorMode
   inkLimit: number
+  /** How the PDF exports; PDF/X-1a only in CMYK documents. */
+  preset: Preset
+  cropMarks: boolean
+  includeBleed: boolean
   /** The fonts text can be set in, the bundled one first. */
   fonts: Typeface[]
   /** Fonts text is set in that are not there, with the stories that use them by their first frame. */

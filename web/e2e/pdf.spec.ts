@@ -281,6 +281,50 @@ test('a cmyk document exports cmyk and spot colours and matches the canvas', asy
   expect(trace).toContain('colorspace="Separation(DeviceCMYK,HKS 43)" color="1"')
 })
 
+test('each preset exports as its standard', async ({ page }) => {
+  await open(page)
+  const go = await exportButton(page)
+  const panel = page.getByRole('region', { name: 'Preflight' })
+  const save = async () => {
+    const pdf = join(mkdtempSync(join(tmpdir(), 'satz-')), 'satz.pdf')
+    const download = page.waitForEvent('download')
+    await go.click()
+    await (await download).saveAs(pdf)
+    return pdf
+  }
+  const preset = panel.getByRole('combobox', { name: 'Preset' })
+  const show = (pdf: string) => execFileSync('mutool', ['show', '-b', pdf, 'trailer/Root/OutputIntents/1']).toString()
+  const trace = (pdf: string) => execFileSync('mutool', ['draw', '-F', 'trace', '-o', '-', pdf]).toString()
+  await expect(preset).toHaveValue('x4')
+  await expect(preset.getByRole('option', { name: 'PDF/X-1a, print, CMYK documents only' })).toBeDisabled()
+
+  const x4 = await save()
+  expect(show(x4)).toContain('/S /GTS_PDFX')
+  expect(readFileSync(x4).toString('latin1')).toContain('/GTS_PDFXVersion(PDF/X-4)')
+  expect(execFileSync('mutool', ['pages', x4, '1']).toString()).toContain('<BleedBox')
+
+  await preset.selectOption('screen')
+  await expect(panel.getByRole('checkbox', { name: 'Crop marks' })).toBeDisabled()
+  const screen = await save()
+  const boxes = execFileSync('mutool', ['pages', screen, '1']).toString()
+  expect(pageBox(boxes, 'MediaBox')).toEqual(pageBox(boxes, 'TrimBox'))
+  expect(readFileSync(screen).toString('latin1')).not.toContain('GTS_PDFX')
+
+  await page.keyboard.press('Escape')
+  await page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Color mode' }).selectOption('CMYK')
+  await exportButton(page)
+  await preset.selectOption('x1a')
+  await panel.getByRole('checkbox', { name: 'Crop marks' }).uncheck()
+  await panel.getByRole('checkbox', { name: /Include \d+ mm bleed/ }).uncheck()
+  const x1a = await save()
+  expect(show(x1a)).toContain('/S /GTS_PDFX')
+  expect(readFileSync(x1a).toString('latin1')).toContain('/GTS_PDFXConformance(PDF/X-1a:2003)')
+  const x1aBoxes = execFileSync('mutool', ['pages', x1a, '1']).toString()
+  expect(pageBox(x1aBoxes, 'MediaBox')).toEqual(pageBox(x1aBoxes, 'TrimBox'))
+  expect(trace(x1a)).not.toContain('colorspace="DeviceRGB"')
+  expect(trace(x1a)).toContain('colorspace="DeviceCMYK"')
+})
+
 test('an auto layout frame with a colour variable in a second mode matches the canvas', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })

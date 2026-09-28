@@ -1,10 +1,10 @@
 import { useEffect } from 'react'
 import { press } from './commands'
-import { Field, Section } from './controls'
+import { Field, Section, Select } from './controls'
 import { MM, useEditor, type Editor } from './editor'
 import { preview } from './file'
 import { Icon } from './icons'
-import type { Issue } from './model'
+import type { Issue, Preset } from './model'
 
 const PPI = 48
 const PLATES = [['Cyan', 'c'], ['Magenta', 'm'], ['Yellow', 'y'], ['Black', 'k']]
@@ -55,6 +55,8 @@ function usePreview(editor: Editor) {
   }, [editor])
 }
 
+const PRESETS: Record<Preset, string> = { x4: 'PDF/X-4, print', x1a: 'PDF/X-1a, print', screen: 'PDF, screen' }
+
 export function Preflight({ editor, exporting, onExport }: { editor: Editor; exporting: boolean; onExport: () => void }) {
   const issues = useEditor(editor, (e) => e.snapshot.preflight)
   const pages = useEditor(editor, (e) => e.snapshot.pages)
@@ -62,6 +64,7 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
   const selection = useEditor(editor, (e) => e.selection)
   const inks = useEditor(editor, (e) => e.inks)
   const limit = useEditor(editor, (e) => e.snapshot.inkLimit)
+  const { preset, cropMarks, includeBleed, colorMode } = useEditor(editor, (e) => e.snapshot)
   const previewed = useEditor(editor, (e) => e.previewed)
   const pointerInk = useEditor(editor, (e) => e.pointerInk)
   usePreview(editor)
@@ -161,6 +164,21 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
           </div>
         </Section>
         <Section title="Export">
+          <Select
+            label="Preset"
+            value={preset}
+            options={colorMode === 'rgb' ? { ...PRESETS, x1a: 'PDF/X-1a, print, CMYK documents only' } : PRESETS}
+            disabled={colorMode === 'rgb' ? ['x1a'] : []}
+            onChange={(preset) => editor.apply({ type: 'setDocument', preset })}
+          />
+          <label className="check">
+            <input type="checkbox" checked={cropMarks} disabled={preset === 'screen'} onChange={(e) => editor.apply({ type: 'setDocument', cropMarks: e.currentTarget.checked })} />
+            Crop marks
+          </label>
+          <label className="check">
+            <input type="checkbox" checked={includeBleed} disabled={preset === 'screen'} onChange={(e) => editor.apply({ type: 'setDocument', includeBleed: e.currentTarget.checked })} />
+            Include {Math.round((pages[0]?.bleed ?? 0) / MM)} mm bleed
+          </label>
           <button type="button" className="primary pf-go" disabled={exporting} onClick={onExport}>
             {exporting ? 'Exporting…' : errors ? `Export with ${count(errors, 'error')}` : 'Export PDF'}
           </button>

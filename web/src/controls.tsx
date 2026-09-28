@@ -166,17 +166,19 @@ export function Select<T extends string>({
   label,
   value,
   options,
+  disabled = [],
   onChange,
 }: {
   label: string
   value: T
   options: Record<T, string>
+  disabled?: T[]
   onChange: (v: T) => void
 }) {
   return (
     <select className="select" aria-label={label} title={label} value={value} onChange={(e) => onChange(e.currentTarget.value as T)}>
       {Object.entries<string>(options).map(([v, text]) => (
-        <option key={v} value={v}>
+        <option key={v} value={v} disabled={disabled.includes(v as T)}>
           {text}
         </option>
       ))}
