@@ -24,7 +24,6 @@ async function drawn(page: Page) {
 }
 
 test('a hidden layer is not on the canvas, in the pdf or in preflight until shown again', async ({ page }) => {
-  test.slow()
   await open(page)
   await page.mouse.move(1, 1)
   const paper = await at(page, await screen(page, 30, 10))

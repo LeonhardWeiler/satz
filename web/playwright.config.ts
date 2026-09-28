@@ -8,6 +8,7 @@ export default defineConfig({
   testDir: 'e2e',
   fullyParallel: true,
   workers: 2,
+  timeout: 60_000,
   use: { baseURL: 'http://localhost:4173/satz/', contextOptions: { reducedMotion: 'reduce' } },
   projects: [
     {
