@@ -49,4 +49,12 @@
 49. der loading screen ist versetzt, die schrift ist nicht vertikal mit dem loading balken zentriert
 50. wenn man alt click um die abstände zu sehen soll die top leiste über den elementen verschwinden
 51. Auch auf der Linken Seite soll mit alt der Abstand zu sehen sein
-52. wenn man mehrere elemente auswählt, sollen alle gleichen properties bearbeitbar sein, wie stroke oder fill, ..
+52. wenn man mehrere elemente auswählt, sollen alle gleichen properties bearbeitbar sein, wie stroke oder fill, ...
+53. update the performance report, because with all the feature additions in the app it feels more sluggish again
+54. when holding down r oder o for the tool the cursor dissappears
+55. the fading of the otherwise maybe cut of text doesn't work right, its used in many places where its just wrong, fix it in all of them and think of a smarter way to use it. it should only be the last resort and the layout should be changed first
+56. when opening or closing one of the side panels like alt + 1, it lags a lot and the page dissappears for a bit, because it has to render again
+57. when resizing a page (or the document) e.g. from a4 to a5 the layout should be adjusted, so that it looks the same (the text should be resized aswell)
+58. when holding down ctrl when resizing the text the font size should change, just like with e and then resizing in indesign
+59. search for ways to decrease the bundle size, because right now its just to big and takes to long. maybe it could be smaller if parts of the app are written ourselfs instead of using third party libraries
+60. the page viewer should have the add page button add the position, where the next page will be (not always in the row below)
