@@ -226,6 +226,7 @@ body,
 }
 
 .panel-header h2 {
+  min-width: 0;
   margin: 0;
   font-size: 12px;
   font-weight: 600;
@@ -599,7 +600,16 @@ textarea {
 .select > span,
 .specimen > span:first-child,
 .field input:not(:focus) {
-  mask-image: linear-gradient(to right, #000 calc(100% - 16px), transparent);
+  /* A scroll timeline is only active while the text overflows, so only then it fades. */
+  animation: fade linear both !important;
+  animation-timeline: scroll(self inline) !important;
+}
+
+@keyframes fade {
+  from,
+  to {
+    mask-image: linear-gradient(to right, #000 calc(100% - 16px), transparent);
+  }
 }
 
 .field input:read-only {
