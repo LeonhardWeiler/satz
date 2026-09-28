@@ -1153,6 +1153,16 @@ mod tests {
         set_text(&mut d, &t, "Text\nText text");
         let [_, _, w2, h2] = frames(&d, &t)[0];
         assert!(w2 > w1 * 1.5 && close(h2, 2.0 * LEADING), "{w2} {h2}");
+        set_text(
+            &mut d,
+            &t,
+            "Satz sets type in the browser. The engine shapes it.",
+        );
+        assert_eq!(
+            page(&d).children[0].name,
+            "Satz sets type in the browser. The…"
+        );
+        set_text(&mut d, &t, "Text\nText text");
         let (c, m) = collection(&mut d, "Type");
         let v = variable(&mut d, &c, "Size", Value::Number(24.0)).unwrap();
         bind(&mut d, &t, "size", Some(&v)).unwrap();

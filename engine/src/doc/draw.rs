@@ -949,11 +949,20 @@ impl Doc {
                 Kind::Text { content, from, .. } if content.text[*from..].is_empty() => {
                     "Text".into()
                 }
-                Kind::Text { content, from, .. } => content.text[*from..]
-                    .chars()
-                    .take(40)
-                    .map(|c| if c == text::PAGE_NUMBER { '#' } else { c })
-                    .collect(),
+                Kind::Text { content, from, .. } => {
+                    let t: String = content.text[*from..]
+                        .chars()
+                        .take(41)
+                        .map(|c| if c == text::PAGE_NUMBER { '#' } else { c })
+                        .collect();
+                    match t.char_indices().nth(40) {
+                        Some((end, _)) => {
+                            let cut = t[..end].rfind(' ').unwrap_or(end);
+                            format!("{}…", t[..cut].trim_end_matches([',', '.', ';', ':']))
+                        }
+                        None => t,
+                    }
+                }
                 Kind::Group { .. } => "Group".into(),
                 Kind::Frame { .. } => "Frame".into(),
             });

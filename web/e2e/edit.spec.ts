@@ -90,6 +90,7 @@ test('a right click selects the layer under it and offers the actions for it', a
   await page.mouse.click(...(await screen(page, 5, 150)))
   await page.mouse.click(...(await screen(page, 30, 30)), { button: 'right' })
   await expect(layers.getByRole('treeitem', { selected: true })).toHaveCount(1)
+  await expect(menu.getByRole('menuitem', { name: /Ungroup/ })).toBeDisabled()
   await menu.getByRole('menuitem', { name: /Duplicate/ }).click()
   await expect(menu).toHaveCount(0)
   await expect(rects).toHaveCount(before + 2)

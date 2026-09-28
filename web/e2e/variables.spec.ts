@@ -55,7 +55,7 @@ test('a font variable sets the font of a text in the mode of its page', async ({
   await choose(edit.getByRole('combobox', { name: 'Font 1 in Mode 2' }), 'DM Mono Regular')
   await page.keyboard.press('Escape')
   await expect(edit).toBeHidden()
-  await choose(panel.getByRole('combobox', { name: 'Collection 1 mode' }), 'Mode 2')
+  await choose(panel.getByRole('combobox', { name: 'Collection 1 mode' }), 'Collection 1: Mode 2')
 
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
   await panel.getByRole('button', { name: 'Apply variable to Font', exact: true }).click()
@@ -107,13 +107,13 @@ test('a fill bound to a colour variable follows the mode of its frame and page',
 
   await page.keyboard.press('Escape')
   await page.keyboard.press('Escape')
-  await choose(panel.getByRole('combobox', { name: 'Collection 1 mode' }), 'Mode 2')
+  await choose(panel.getByRole('combobox', { name: 'Collection 1 mode' }), 'Collection 1: Mode 2')
   await expectColors(blue, blue)
 
   await layers.getByRole('button', { name: 'Frame', exact: true }).click()
   const frameMode = panel.getByRole('combobox', { name: 'Collection 1 mode' })
-  await expect(frameMode).toHaveText('Auto (Mode 2)')
-  await choose(frameMode, 'Mode 1')
+  await expect(frameMode).toHaveText('Collection 1: auto (Mode 2)')
+  await choose(frameMode, 'Collection 1: Mode 1')
   await expectColors(blue, red)
 })
 
@@ -128,7 +128,7 @@ test('a number variable binds to width and detaches with the value of the curren
   await page.keyboard.press('Escape')
 
   const panel = page.getByRole('complementary', { name: 'Properties' })
-  await choose(panel.getByRole('combobox', { name: 'Collection 1 mode' }), 'Mode 2')
+  await choose(panel.getByRole('combobox', { name: 'Collection 1 mode' }), 'Collection 1: Mode 2')
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).last().click()
   await panel.getByRole('button', { name: 'Apply variable to W in mm' }).click()
   await page.getByRole('listbox', { name: 'Number variables' }).getByRole('option', { name: 'Number 1' }).click()

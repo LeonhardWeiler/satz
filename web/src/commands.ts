@@ -1,7 +1,7 @@
 import type { Editor } from './editor'
 
-/** A command by its title and shortcut; one without `run` runs by pressing its shortcut. */
-export type Action = { title: string; keys: string; tool?: boolean; run?: (editor: Editor) => void }
+/** A command by its title and shortcut; one without `run` runs by pressing its shortcut, one whose `can` fails is greyed out in the context menu. */
+export type Action = { title: string; keys: string; tool?: boolean; run?: (editor: Editor) => void; can?: (editor: Editor) => boolean }
 
 const pageOrLast = (editor: Editor) =>
   editor.snapshot.pages.some((p) => p.id === editor.pageId) ? editor.pageId : editor.snapshot.pages.at(-1)!.id
@@ -60,7 +60,7 @@ export const ACTIONS: Action[] = [
   { title: 'Select all', keys: 'Ctrl A' },
   { title: 'Group', keys: 'Ctrl G' },
   { title: 'Frame selection', keys: 'Ctrl Alt G' },
-  { title: 'Ungroup', keys: 'Ctrl Shift G' },
+  { title: 'Ungroup', keys: 'Ctrl Shift G', can: (editor) => editor.selected().some((n) => n.kind === 'group' || n.kind === 'frame') },
   { title: 'Use as mask', keys: 'Ctrl Alt M' },
   { title: 'Add auto layout', keys: 'Shift A' },
   { title: 'Remove auto layout', keys: 'Shift Alt A' },

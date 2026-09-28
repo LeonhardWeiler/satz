@@ -58,3 +58,7 @@
 59. search for ways to decrease the bundle size, because right now its just to big and takes to long. maybe it could be smaller if parts of the app are written ourselfs instead of using third party libraries
 60. the page viewer should have the add page button add the position, where the next page will be (not always in the row below)
 61. every time the druckbogen changes to the next or previous, it should reset the zoom to amount shift + 1
+62. the context menu offers ungroup for a selection without a group, it does nothing
+63. the keyboard shortcuts miss turning a layer by its corner and enter for editing a shape's points
+64. the master and mode selects of a page show a bare "None", "Cover" or "Dark" without saying what they choose
+65. text layers are named after their first 40 characters, cut off mid word without an ellipsis, in the layers, the properties and the preflight ("The engin")
