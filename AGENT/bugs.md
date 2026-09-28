@@ -36,7 +36,6 @@
 36. Improve all the icons to be a bit rounder and look more professional
 37. Make layout stuff at the sides resizable on the edge
 38. Use a better icon for the non spot color swatches
-39. On single pages the short of bleed thing should not be shown
 40. Make it easy to make document wide changes to e.g the layout instead of changing each page individually
 41. add options for page sizes instead of just the width and height
 42. add non blocking tiny microinteractions everywhere to make the inteface more engaging
