@@ -24,6 +24,13 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
   const ids = editor.selection
   const one = editor.nodes.get(ids[0])
   const siblings = (one?.parent?.children ?? editor.page.children).map((n) => n.id)
+  const free = e.target === document.body || (e.target as Element).classList?.contains('canvas')
+  const toggle = (prop: 'hidden' | 'locked') => {
+    const on = editor.selected().some((n) => !n[prop])
+    editor.batch(() => {
+      for (const n of editor.selected()) editor.apply({ type: 'set', id: n.id, [prop]: on })
+    })
+  }
 
   if (editor.dragging) return false
   if (editor.threading && e.key === 'Escape') editor.set({ threading: null })
@@ -45,11 +52,19 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
     const k = spreads.findIndex((s) => s.includes(editor.pageId))
     const to = spreads[Math.max(0, Math.min(spreads.length - 1, JUMPS[e.key](k, spreads.length)))]
     editor.showPage(to[0])
+  } else if (e.key === 'Tab' && !mod && !e.altKey && free && siblings.length) {
+    const list = siblings.toReversed()
+    const i = list.indexOf(ids[0])
+    editor.set({ selection: [list[(i + (e.shiftKey ? -1 : 1) + list.length) % list.length]] })
   } else if (!ids.length) return false
   else if (e.key === 'Delete' || e.key === 'Backspace') editor.apply({ type: 'delete', ids })
   else if (mod && (key === 'c' || key === 'x')) {
     editor.apply({ type: 'copy', ids })
     if (key === 'x') editor.apply({ type: 'delete', ids })
+  } else if (e.key === 'Enter' && e.shiftKey && !mod) {
+    if (one?.parent && editor.selected().every((n) => editor.nodes.get(n.id)?.parent === one.parent)) {
+      editor.set({ selection: [one.parent.id] })
+    }
   } else if (e.key === 'Enter' && !mod && one?.node.kind === 'text' && ids.length === 1) {
     editor.set({ editing: { id: one.node.id, anchor: 0, focus: editor.storyOf(one.node).text.length } })
   } else if (e.key === 'Enter' && !mod) {
@@ -58,7 +73,9 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
   } else if (mod && key === 'd') editor.set({ selection: editor.apply({ type: 'duplicate', ids }) })
   else if (mod && key === 'g' && e.shiftKey) editor.set({ selection: editor.apply({ type: 'ungroup', ids }) })
   else if (mod && key === 'g') editor.set({ selection: editor.apply({ type: 'group', ids, frame: e.altKey }) })
-  else if (mod && key === 'r') editor.set({ renaming: ids[0] })
+  else if ((mod && key === 'r') || e.key === 'F2') editor.set({ renaming: ids[0] })
+  else if (mod && e.shiftKey && key === 'h') toggle('hidden')
+  else if (mod && e.shiftKey && key === 'l') toggle('locked')
   else if (!mod && e.shiftKey && e.altKey && key === 'a') {
     editor.batch(() => {
       for (const n of editor.selected()) if (n.direction !== 'none') editor.apply({ type: 'set', id: n.id, direction: 'none' })

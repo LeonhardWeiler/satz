@@ -221,7 +221,8 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
         frame = 0
         if (!surface) return
         const { box, line } = drag?.kind === 'marquee' ? {} : handles()
-        const over = hover && !editor.selection.includes(hover) ? editor.nodes.get(hover)?.node : undefined
+        const h = editor.hover ?? hover
+        const over = h && !editor.selection.includes(h) ? editor.nodes.get(h)?.node : undefined
         const hovered = over && placed(over)
         const marquee =
           drag?.kind === 'marquee'
@@ -524,6 +525,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
         const m = rect(drag.start, p)
         const inside = editor.spread
           .flatMap((page) => page.children.map((n) => ({ ...n, x: n.x + page.x })))
+          .filter((n) => !n.hidden && !n.locked)
           .filter((n) => n.x < m.x + m.w && n.x + n.w > m.x && n.y < m.y + m.h && n.y + n.h > m.y)
           .map((n) => n.id)
         editor.set({ selection: [...new Set([...drag.base, ...inside])] })

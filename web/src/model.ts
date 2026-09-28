@@ -66,7 +66,7 @@ export type Layout = {
   absolute: boolean
 }
 
-export type Props = Partial<Style> & Partial<Layout> & Partial<TextFrame> & { name?: string; clip?: boolean; radius?: number; count?: number; ratio?: number }
+export type Props = Partial<Style> & Partial<Layout> & Partial<TextFrame> & { name?: string; hidden?: boolean; locked?: boolean; clip?: boolean; radius?: number; count?: number; ratio?: number }
 
 export type NewKind = 'rect' | 'ellipse' | 'polygon' | 'star' | 'line' | 'arrow' | 'path' | 'text' | 'frame'
 
@@ -134,6 +134,10 @@ export type Node = {
   overrideOf?: string
   /** Effective pixels per inch of the coarsest visible image fill. */
   ppi?: number
+  /** Not drawn, exported, hit or preflighted, with its children. */
+  hidden: boolean
+  /** Not hit on the canvas, with its children. */
+  locked: boolean
 } & Style &
   Layout &
   (

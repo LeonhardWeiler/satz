@@ -27,6 +27,8 @@ export class Editor {
   selection: string[] = []
   tool: Tool = 'move'
   renaming: string | null = null
+  /** The layer under the pointer in the layers panel, highlighted on the canvas. */
+  hover: string | null = null
   /** The path being drawn with the pen tool, inside an open undo group. */
   pen: Pen | null = null
   /** The pointer is down on the canvas, possibly inside a drag's undo group. */
@@ -65,7 +67,7 @@ export class Editor {
   /** Replaces the document by the one saved in `bytes`; on an error it stays as it was. */
   load(bytes: Uint8Array, file = UNTITLED, dirty = false) {
     this.engine.load(bytes)
-    Object.assign(this, { selection: [], tool: 'move', renaming: null, pen: null, editing: null, threading: null, overview: null })
+    Object.assign(this, { selection: [], tool: 'move', renaming: null, hover: null, pen: null, editing: null, threading: null, overview: null })
     this.typing = false
     this.groups = 0
     this.snapshot = JSON.parse(this.engine.snapshot())
@@ -204,7 +206,7 @@ export class Editor {
     }
   }
 
-  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'pen' | 'editing' | 'threading' | 'side' | 'overview'>>) {
+  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'hover' | 'pen' | 'editing' | 'threading' | 'side' | 'overview'>>) {
     const leaves = this.editing && patch.selection && !patch.selection.includes(this.editing.id)
     if (leaves && !('editing' in patch)) this.stopEditing()
     if (patch.editing) patch = { selection: [patch.editing.id], ...patch }

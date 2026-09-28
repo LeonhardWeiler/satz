@@ -39,9 +39,16 @@ export function Layers({ editor }: { editor: Editor }) {
     const items = [...e.currentTarget.querySelectorAll('.layer-name')]
     const item = (e.target as HTMLElement).closest<HTMLElement>('[role=treeitem]')
     if (roam(e, items) || !item || !items.includes(e.target as Element)) return
+    const id = item.dataset.id!
+    const entry = editor.nodes.get(id)
     const open = item.getAttribute('aria-expanded')
     const focus = (el: Element | null | undefined) => (el as HTMLElement | null)?.focus()
-    if (e.key === 'ArrowRight' && open === 'false') toggle(item.dataset.id!)
+    if (e.key === 'Enter' || e.key === 'F2') e.stopPropagation()
+    if (e.key === 'F2') editor.set({ renaming: id })
+    else if (e.key === 'Enter' && e.shiftKey && entry?.parent) editor.set({ selection: [entry.parent.id] })
+    else if (e.key === 'Enter' && selection.includes(id) && entry && 'children' in entry.node && entry.node.children.length) {
+      editor.set({ selection: entry.node.children.map((c) => c.id) })
+    } else if (e.key === 'ArrowRight' && open === 'false') toggle(item.dataset.id!)
     else if (e.key === 'ArrowRight' && open === 'true') focus(item.querySelector('[role=group] .layer-name'))
     else if (e.key === 'ArrowLeft' && open === 'true') toggle(item.dataset.id!)
     else if (e.key === 'ArrowLeft') focus(item.parentElement?.closest('[role=treeitem]')?.querySelector('.layer-name'))
@@ -99,6 +106,9 @@ export function Layers({ editor }: { editor: Editor }) {
           <div
             className="layer"
             style={{ paddingLeft: 4 + (level - 1) * 16 }}
+            data-hidden={node.hidden || undefined}
+            data-locked={node.locked || undefined}
+            onMouseEnter={() => editor.set({ hover: node.id })}
             data-drop={drop?.id === node.id ? drop.at : undefined}
             draggable={renaming !== node.id}
             onDragStart={(e) => {
@@ -159,20 +169,57 @@ export function Layers({ editor }: { editor: Editor }) {
                 {node.name}
               </button>
             )}
+            <span className="acts">
+              <button
+                type="button"
+                tabIndex={-1}
+                data-on={node.locked || undefined}
+                aria-label={node.locked ? 'Unlock' : 'Lock'}
+                title={`${node.locked ? 'Unlock' : 'Lock'} (Ctrl+Shift+L)`}
+                onClick={() => editor.apply({ type: 'set', id: node.id, locked: !node.locked })}
+              >
+                <Icon name={node.locked ? 'lock' : 'unlock'} />
+              </button>
+              <button
+                type="button"
+                tabIndex={-1}
+                data-on={node.hidden || undefined}
+                aria-label={node.hidden ? 'Show' : 'Hide'}
+                title={`${node.hidden ? 'Show' : 'Hide'} (Ctrl+Shift+H)`}
+                onClick={() => editor.apply({ type: 'set', id: node.id, hidden: !node.hidden })}
+              >
+                <Icon name={node.hidden ? 'eyeOff' : 'eye'} />
+              </button>
+            </span>
           </div>
           {open && <ul role="group">{rows(node.children, level + 1)}</ul>}
         </li>
       )
     })
 
+  const master = editor.masterOf(page)
   return (
     <nav className="panel layers" aria-label="Layers">
       <header className="panel-header">
         <h2>Layers</h2>
       </header>
-      <ul role="tree" aria-label="Layers" aria-multiselectable="true" className="tree" onKeyDown={onKey}>
+      <ul
+        role="tree"
+        aria-label="Layers"
+        aria-multiselectable="true"
+        className="tree"
+        onKeyDown={onKey}
+        onMouseLeave={() => editor.set({ hover: null })}
+      >
         {rows(page.children, 1)}
       </ul>
+      {!page.children.length && <p className="tree-note">Draw with R, O or T</p>}
+      {master && (
+        <p className="tree-note master-row">
+          <Icon name="master" />
+          {master.name} master items
+        </p>
+      )}
     </nav>
   )
 }
