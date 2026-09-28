@@ -164,6 +164,7 @@ export function Layers({ editor }: { editor: Editor }) {
                 className="layer-name"
                 tabIndex={node.id === stop ? 0 : -1}
                 onClick={(e) => select(node.id, e.shiftKey || e.ctrlKey || e.metaKey)}
+                onContextMenu={() => selection.includes(node.id) || select(node.id, false)}
                 onDoubleClick={() => editor.set({ renaming: node.id })}
               >
                 {node.name}

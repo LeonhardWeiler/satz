@@ -3,7 +3,7 @@ import { roam } from './controls'
 import { Icon } from './icons'
 import { Popover, type Anchor } from './Popover'
 
-/** A menu beside `anchor` that closes on a pick, Escape or a click elsewhere; an item with a fourth value is a radio item. */
+/** A menu beside `anchor` that closes on a pick, Escape or a click elsewhere; an item with a fourth value is a radio item, a fifth its shortcut, `null` a separator. */
 export function ContextMenu({
   anchor,
   side = 'right',
@@ -14,7 +14,7 @@ export function ContextMenu({
   anchor: Anchor
   side?: 'right' | 'bottom'
   label: string
-  items: [ReactNode, () => void, boolean, boolean?][]
+  items: ([ReactNode, () => void, boolean, boolean?, string?] | null)[]
   onClose: () => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -43,7 +43,10 @@ export function ContextMenu({
           else roam(e, [...e.currentTarget.querySelectorAll('[role^=menuitem]:not(:disabled)')])
         }}
       >
-        {items.map(([label, run, enabled, checked], i) => (
+        {items.map((item, i) => {
+          if (!item) return <hr key={i} className="menu-sep" />
+          const [label, run, enabled, checked, keys] = item
+          return (
           <button
             key={i}
             type="button"
@@ -51,7 +54,7 @@ export function ContextMenu({
             aria-checked={checked}
             className="menu-item"
             disabled={!enabled}
-            autoFocus={i === Math.max(0, items.findIndex((it) => it[3]))}
+            autoFocus={i === Math.max(0, items.findIndex((it) => it?.[3]))}
             onClick={() => {
               onClose()
               run()
@@ -59,8 +62,10 @@ export function ContextMenu({
           >
             <span>{checked && <Icon name="check" />}</span>
             <span>{label}</span>
+            {keys && <kbd>{keys}</kbd>}
           </button>
-        ))}
+          )
+        })}
       </Popover>
     </div>
   )

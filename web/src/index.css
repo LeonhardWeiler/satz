@@ -1937,6 +1937,12 @@ kbd {
   z-index: 10;
 }
 
+.menu-sep {
+  margin: 4px 0;
+  border: 0;
+  border-top: 1px solid var(--edge);
+}
+
 .menu-item:disabled {
   color: var(--text-3);
   background: none;

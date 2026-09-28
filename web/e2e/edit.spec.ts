@@ -1,4 +1,4 @@
-import { expect, test, MM, open, pixels, screen } from './util'
+import { expect, test, MM, drag, open, pixels, screen } from './util'
 
 /** Height in mm of `n` lines of 12 pt text as the H field shows it. */
 const lines = (n: number) => String(Math.round(((n * 16.452) / MM) * 100) / 100)
@@ -75,4 +75,27 @@ test('a triple click in a text selects all of it', async ({ page }) => {
   await expect(page.getByRole('textbox', { name: 'Text editor' })).toBeFocused()
   await page.keyboard.type('Z')
   await expect(layers.getByRole('button', { name: 'Z', exact: true })).toBeVisible()
+})
+
+test('a right click selects the layer under it and offers the actions for it', async ({ page }) => {
+  await open(page)
+  const layers = page.getByRole('tree', { name: 'Layers' })
+  const rects = layers.getByRole('button', { name: 'Rectangle', exact: true })
+  const menu = page.getByRole('menu', { name: 'Actions' })
+  const before = await rects.count()
+  await page.keyboard.press('r')
+  await drag(page, await screen(page, 20, 20), await screen(page, 40, 40))
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('v')
+  await page.mouse.click(...(await screen(page, 5, 150)))
+  await page.mouse.click(...(await screen(page, 30, 30)), { button: 'right' })
+  await expect(layers.getByRole('treeitem', { selected: true })).toHaveCount(1)
+  await menu.getByRole('menuitem', { name: /Duplicate/ }).click()
+  await expect(menu).toHaveCount(0)
+  await expect(rects).toHaveCount(before + 2)
+  await rects.first().click({ button: 'right' })
+  await expect(menu.getByRole('menuitem', { name: /Delete/ })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await page.mouse.click(...(await screen(page, 5, 150)), { button: 'right' })
+  await expect(menu.getByRole('menuitem', { name: /Select all/ })).toBeVisible()
 })

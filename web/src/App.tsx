@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { CanvasKit } from 'canvaskit-wasm'
 import { Canvas, isTyping } from './Canvas'
+import { ACTIONS, MENU, press } from './commands'
+import { ContextMenu } from './ContextMenu'
 import { useEditor, type Editor } from './editor'
 import { Help } from './Help'
 import { autosave, download, drop, open, pdf, placeImages, save } from './file'
@@ -30,6 +32,8 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
   const [starting, setStarting] = useState(first)
   const [started, setStarted] = useState(!first)
   const [dialog, setDialog] = useState<'palette' | 'help' | null>(null)
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
+  const selected = useEditor(editor, (e) => e.selection.length > 0)
   const [hidden, setHidden] = useState({ left: false, right: false, ui: false })
   const hide = (panel: keyof typeof hidden) => setHidden((h) => ({ ...h, [panel]: !h[panel] }))
 
@@ -97,6 +101,16 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   })
+
+  useEffect(() => {
+    const onMenu = (e: MouseEvent) => {
+      if (e.defaultPrevented || isTyping(e)) return
+      e.preventDefault()
+      setMenu({ x: e.clientX, y: e.clientY })
+    }
+    window.addEventListener('contextmenu', onMenu)
+    return () => window.removeEventListener('contextmenu', onMenu)
+  }, [])
 
   useEffect(() => {
     const files = (e: DragEvent) => e.dataTransfer?.types.includes('Files')
@@ -208,6 +222,17 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
       {dialog === 'palette' && <Palette editor={editor} onClose={() => setDialog(null)} />}
       {dialog === 'help' && <Help onClose={() => setDialog(null)} />}
       <Tooltip />
+      {menu && (
+        <ContextMenu
+          anchor={() => new DOMRect(menu.x, menu.y)}
+          label="Actions"
+          onClose={() => setMenu(null)}
+          items={MENU[selected ? 'selected' : 'none'].map((title) => {
+            const a = title && ACTIONS.find((a) => a.title === title)!
+            return a ? [a.title, () => (a.run ? a.run(editor) : press(a.keys)), true, undefined, a.keys.replaceAll(' ', '+')] : null
+          })}
+        />
+      )}
       <p className="status" role="status">
         {status}
       </p>

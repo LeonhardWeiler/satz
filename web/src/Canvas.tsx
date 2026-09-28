@@ -463,8 +463,12 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
     }
     const onPointerDown = (e: PointerEvent) => {
       settle()
-      if (e.button !== 0 && e.button !== 1) return
       let p = toDoc(e)
+      if (e.button === 2 && editor.tool === 'move' && !editor.editing) {
+        const id = pickAt(p, 'click')
+        if (!id || !editor.selection.includes(id)) editor.set({ selection: id ? [id] : [] })
+      }
+      if (e.button !== 0 && e.button !== 1) return
       const edited = e.button === 0 && !space ? inEdited(p) : undefined
       if (edited) {
         e.preventDefault()
