@@ -46,3 +46,7 @@
 46. think of smart way to do everything from copy pasting to dragging and highlighting so that the program does what the user expects automatically and make the usage less cumbersome
 47. I just noticed that there is no align at all. i want to have the default align stuff like top, center, bottom horizontally and vertically and distribute and tidy and all of that if i only select 1 element it should align to the document and otherwise align to the selected elements
 48. for rectangles, images, etc. that look like a rectangle on the cornsers there should be a circle on the inside that you can drag to the center to add a corner radius and when pressing ctrl i think is the smartest move it only is for that corner
+49. der loading screen ist versetzt, die schrift ist nicht vertikal mit dem loading balken zentriert
+50. wenn man alt click um die abstände zu sehen soll die top leiste über den elementen verschwinden
+51. Auch auf der Linken Seite soll mit alt der Abstand zu sehen sein
+52. wenn man mehrere elemente auswählt, sollen alle gleichen properties bearbeitbar sein, wie stroke oder fill, ..
