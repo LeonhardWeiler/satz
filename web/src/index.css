@@ -1478,6 +1478,34 @@ kbd {
   font: 500 11px 'Hanken Grotesk', system-ui, sans-serif;
 }
 
+.tool,
+.icon-button,
+.button,
+.select,
+.layer,
+.menu-item,
+.check input {
+  transition: background-color 0.1s, color 0.1s, transform 0.08s var(--ease);
+}
+
+.tool:active,
+.icon-button:active,
+.button:active,
+.check input:active {
+  transform: scale(0.93);
+}
+
+.tool[aria-pressed='true'] svg,
+.icon-button[aria-pressed='true'] svg {
+  animation: press 0.18s var(--ease);
+}
+
+@keyframes press {
+  from {
+    transform: scale(0.7);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
