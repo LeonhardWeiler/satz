@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react'
 import type { CanvasKit } from 'canvaskit-wasm'
 import { Canvas, isTyping } from './Canvas'
 import { useEditor, type Editor } from './editor'
+import { Help } from './Help'
 import { autosave, download, open, pdf, placeImages, save } from './file'
 import { Icon } from './icons'
 import { handleKey } from './keys'
 import { Layers } from './Layers'
 import { Overview } from './Overview'
+import { Palette } from './Palette'
 import { Preflight } from './Preflight'
 import { Properties } from './Properties'
 import { Start } from './Start'
@@ -23,6 +25,7 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
   const [exporting, setExporting] = useState(false)
   const [starting, setStarting] = useState(first)
   const [started, setStarted] = useState(!first)
+  const [dialog, setDialog] = useState<'palette' | 'help' | null>(null)
   const [hidden, setHidden] = useState({ left: false, right: false, ui: false })
   const hide = (panel: keyof typeof hidden) => setHidden((h) => ({ ...h, [panel]: !h[panel] }))
 
@@ -70,8 +73,10 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
       else if (mod && !e.altKey && !e.shiftKey && e.code === 'KeyO') open(editor, say).catch(() => {})
       else if (mod && !e.shiftKey && e.code === 'KeyN') setStarting(true)
       else if (mod && e.shiftKey && !e.altKey && e.code === 'KeyK') placeImages(editor, say)
+      else if (mod && !e.shiftKey && !e.altKey && e.code === 'KeyK') setDialog('palette')
       else if (isTyping(e) || (e.target as Element).closest?.('.menu')) return
       else if (e.key === '.' && !mod) editor.toggleOverview()
+      else if (e.key === '?' && !mod) setDialog('help')
       else if (editor.overview && e.key === 'Escape') editor.set({ overview: null })
       else if ((editor.overview && !mod) || !handleKey(editor, e)) return
       e.preventDefault()
@@ -134,6 +139,9 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
           <Icon name="pages" />
         </button>
         <span className="grow" />
+        <button type="button" className="tool" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" onClick={() => setDialog('help')}>
+          <Icon name="help" />
+        </button>
         <button type="button" className="primary" title="Export PDF (Ctrl+Shift+E)" onClick={exportPdf} disabled={exporting}>
           Export
         </button>
@@ -154,6 +162,8 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
           }}
         />
       )}
+      {dialog === 'palette' && <Palette editor={editor} onClose={() => setDialog(null)} />}
+      {dialog === 'help' && <Help onClose={() => setDialog(null)} />}
       <p className="status" role="status">
         {status}
       </p>
