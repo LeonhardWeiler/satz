@@ -134,6 +134,19 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
           <Icon name="plus" />
           {!styles.length && 'Text style'}
         </button>
+        {editing && (
+          <button
+            type="button"
+            className="icon-button page-number"
+            aria-label="Insert page number"
+            title="Insert page number (Ctrl+Alt+Shift+N)"
+            // Keeps the focus in the edited text.
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => insert(editor, PAGE_NUMBER)}
+          >
+            <Icon name="pageNumber" />
+          </button>
+        )}
       </div>
       <div className="grid">
         {STYLED.map(([prop, title, label, unit, zero]) => {
@@ -190,18 +203,6 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
           onChange={(l) => l !== 'mixed' && format({ lang: l as Attrs['lang'] })}
         />
       </div>
-      {editing && (
-        <button
-          type="button"
-          className="button"
-          title="Insert page number (Ctrl+Alt+Shift+N)"
-          // Keeps the focus in the edited text.
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => insert(editor, PAGE_NUMBER)}
-        >
-          Insert page number
-        </button>
-      )}
     </Section>
   )
 }

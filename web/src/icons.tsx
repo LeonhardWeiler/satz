@@ -140,6 +140,12 @@ const ICONS = {
   gutter: <path d="M3.5 3v10M12.5 3v10M6 8h4M7 7 6 8l1 1M9 7l1 1-1 1" />,
   baselineGrid: <path d="M2.5 4h11M2.5 8h11M2.5 12h11" strokeDasharray="1.5 1.5" />,
   baselineStart: <path d="M2.5 12.5h11M5 2.5v6M3 6.5l2 2 2-2M9 8.5h4.5" />,
+  pageNumber: (
+    <>
+      <rect x="3.5" y="2" width="9" height="12" rx="1.5" />
+      <path d="M7.25 6 6.5 11M9.5 6l-.75 5M5.75 7.75h4.5M5.5 9.5h4.5" />
+    </>
+  ),
   warn: <path d="M8 2.5 14 13H2zM8 6.5v3M8 11.3v.2" />,
   error: (
     <>

@@ -635,6 +635,10 @@ textarea {
   gap: 4px;
 }
 
+.row > .page-number {
+  margin-left: auto;
+}
+
 .properties .panel-header {
   justify-content: flex-start;
   color: var(--text);
