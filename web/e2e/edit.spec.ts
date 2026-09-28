@@ -127,3 +127,28 @@ test('enter edits the points of a shape, moving, adding and deleting them', asyn
   await expect(tools).toHaveCount(0)
   await expect(page.getByRole('toolbar', { name: 'Tools' })).toBeVisible()
 })
+
+test('a layer turns by its corner and is hit where it shows', async ({ page }) => {
+  await open(page)
+  const props = page.getByRole('complementary', { name: 'Properties' })
+  await page.keyboard.press('r')
+  await drag(page, await screen(page, 20, 20), await screen(page, 60, 40))
+  const [x, y] = await screen(page, 60, 20)
+  const [cx, cy] = await screen(page, 40, 30)
+  const from = [x + 8, y - 8] as const
+  await page.mouse.move(...from)
+  await expect(page.getByLabel('Page canvas')).toHaveCSS('cursor', /url/)
+  await page.keyboard.down('Shift')
+  await drag(page, from, [cx + (from[1] - cy), cy - (from[0] - cx)])
+  await page.keyboard.up('Shift')
+  await expect(props.getByRole('textbox', { name: 'Rotation in °' })).toHaveValue('90')
+
+  await page.keyboard.press('Escape')
+  await expect(props.getByRole('textbox', { name: 'Rotation in °' })).toHaveCount(0)
+  await page.mouse.click(...(await screen(page, 40, 48)))
+  await expect(props.getByRole('textbox', { name: 'Rotation in °' })).toHaveValue('90')
+  const field = props.getByRole('textbox', { name: 'Rotation in °' })
+  await field.fill('-45')
+  await field.press('Enter')
+  await expect(field).toHaveValue('315')
+})

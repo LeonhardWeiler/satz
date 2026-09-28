@@ -61,8 +61,9 @@ pub fn extent(ops: &[Op]) -> Option<[f32; 4]> {
             b[3].max(y + h + pad),
         ];
     };
-    for op in ops {
-        match op {
+    let mut i = 0;
+    while i < ops.len() {
+        match &ops[i] {
             Op::FillPath { path, .. } => add(geom::bounds(path), 0.0),
             Op::StrokePath { path, width, .. } => add(geom::bounds(path), 2.0 * width),
             Op::GlyphRun {
@@ -92,8 +93,24 @@ pub fn extent(ops: &[Op]) -> Option<[f32; 4]> {
                 ];
                 add(geom::bounds(&corners), 0.0);
             }
+            Op::PushTransform {
+                transform: [a, b, c, d, e, f],
+            } => {
+                let end = close(ops, i);
+                if let Some([x, y, w, h]) = extent(&ops[i + 1..end]) {
+                    let corners = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]]
+                        .into_iter()
+                        .enumerate()
+                        .flat_map(|(k, [u, v])| {
+                            [[MOVE, LINE][k.min(1)], a * u + c * v + e, b * u + d * v + f]
+                        });
+                    add(geom::bounds(&corners.collect::<Vec<_>>()), 0.0);
+                }
+                i = end;
+            }
             _ => {}
         }
+        i += 1;
     }
     (b[0] <= b[2]).then(|| [b[0], b[1], b[2] - b[0], b[3] - b[1]])
 }
@@ -324,6 +341,14 @@ fn render(px: &mut Pixmap, ops: &[Op], t: Transform, clip: Option<&Mask>, images
                     ..PixmapPaint::default()
                 };
                 px.draw_pixmap(0, 0, out.as_ref(), &paint, Transform::identity(), clip);
+                i = end;
+            }
+            Op::PushTransform {
+                transform: [a, b, c, d, e, f],
+            } => {
+                let end = close(ops, i);
+                let t = t.pre_concat(Transform::from_row(*a, *b, *c, *d, *e, *f));
+                render(px, &ops[i + 1..end], t, clip, images);
                 i = end;
             }
             Op::BeginMask => {

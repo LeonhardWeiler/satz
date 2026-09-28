@@ -23,9 +23,10 @@ export type Op =
   | { op: 'popClip' }
   | { op: 'strokePath'; paint: Paint; width: number; cap: number; join: number; path: Float32Array }
   | { op: 'pushLayer'; hash: number; opacity: number; blend: number; blur: number; shadows: Shadow[] }
-  | { op: 'popLayer' | 'beginMask' | 'endMask' | 'popMask' }
+  | { op: 'pushTransform'; transform: Float32Array }
+  | { op: 'popLayer' | 'beginMask' | 'endMask' | 'popMask' | 'popTransform' }
 
-const SIMPLE = { 2: 'endItem', 7: 'popClip', 10: 'popLayer', 11: 'beginMask', 12: 'endMask', 13: 'popMask' } as const
+const SIMPLE = { 2: 'endItem', 7: 'popClip', 10: 'popLayer', 11: 'beginMask', 12: 'endMask', 13: 'popMask', 15: 'popTransform' } as const
 
 export function decode(words: Uint32Array): Op[] {
   const { buffer, byteOffset } = words
@@ -84,6 +85,10 @@ export function decode(words: Uint32Array): Op[] {
         ops.push({ op: 'image', image: words[i], transform: f32(i + 1, 6) })
         i += 7
         break
+      case 14:
+        ops.push({ op: 'pushTransform', transform: f32(i, 6) })
+        i += 6
+        break
       case 6: {
         const invert = words[i++] === 1
         ops.push({ op: 'pushClip', invert, path: path() })
@@ -121,8 +126,8 @@ export function decode(words: Uint32Array): Op[] {
   return ops
 }
 
-const OPEN = new Set(['pushClip', 'pushLayer', 'beginMask', 'beginItem'])
-const CLOSE = new Set(['popClip', 'popLayer', 'popMask', 'endItem', 'endMask'])
+const OPEN = new Set(['pushClip', 'pushLayer', 'pushTransform', 'beginMask', 'beginItem'])
+const CLOSE = new Set(['popClip', 'popLayer', 'popMask', 'popTransform', 'endItem', 'endMask'])
 
 /** Index of the op that closes the one opened at `at`; `endMask` closes `beginMask` and opens up to `popMask`. */
 export function close(ops: Op[], at: number) {

@@ -371,7 +371,13 @@ fn draw(s: &mut Surface, env: &Env, ops: &[Op]) {
                 pops.push(1);
                 i = end;
             }
-            Op::PopClip | Op::PopLayer | Op::PopMask => {
+            Op::PushTransform {
+                transform: [a, b, c, d, e, f],
+            } => {
+                s.push_transform(&Transform::from_row(*a, *b, *c, *d, *e, *f));
+                pops.push(1);
+            }
+            Op::PopClip | Op::PopLayer | Op::PopMask | Op::PopTransform => {
                 for _ in 0..pops.pop().unwrap_or(0) {
                     s.pop();
                 }

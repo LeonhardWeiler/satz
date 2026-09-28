@@ -241,6 +241,9 @@ export function Properties({
                 {bindable('h', 'H in mm', 'H', <Field label="H" value={same((n) => n.h)} unit="mm" onCommit={frame('h')} />)}
               </>
             )}
+            {!line && nodes.every((n) => n.kind !== 'group') && (
+              <Field label="∠" title="Rotation in °" unit="°" value={same((n) => n.rotation)} onCommit={(v) => set({ rotation: ((v % 360) + 360) % 360 })} />
+            )}
             {nodes.length > 0 && nodes.every((n) => n.kind === 'shape' && n.shape === 'rect') && (
               bindable(
                 'radius',

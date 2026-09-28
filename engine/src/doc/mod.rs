@@ -351,6 +351,7 @@ pub struct Props {
     pub name: Option<String>,
     pub hidden: Option<bool>,
     pub locked: Option<bool>,
+    pub rotation: Option<f64>,
     pub clip: Option<bool>,
     pub radius: Option<f32>,
     pub corners: Option<Vec<f32>>,
@@ -417,6 +418,7 @@ impl Props {
         within(f(self.sweep), 0.0, 1.0, "sweep")?;
         within(f(self.inner), 0.0, 1.0, "inner radius")?;
         within(f(self.opacity), 0.0, 1.0, "opacity")?;
+        within(self.rotation, -360.0, 360.0, "rotation")?;
         for p in [
             self.padding_top,
             self.padding_right,
@@ -1672,6 +1674,24 @@ impl Doc {
         self.tree.mov(id, trash).map_err(err)
     }
 
+    /// The transform that turns `id` and its content by its rotation and its ancestors'.
+    pub(super) fn turn(&self, mut id: TreeID) -> [f32; 6] {
+        let mut m = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0];
+        loop {
+            let r = num(&self.meta(id), "rotation");
+            let b = self.bounds(id).map(|v| v as f32);
+            m = geom::then(m, geom::rotation(r, b));
+            match self.tree.parent(id) {
+                Some(TreeParentId::Node(p)) => id = p,
+                _ => return m,
+            }
+        }
+    }
+
+    pub fn turn_of(&self, id: &str) -> Res<[f32; 6]> {
+        Ok(self.turn(self.node(id)?))
+    }
+
     /// The page or other root that `id` is on.
     fn root(&self, mut id: TreeID) -> TreeID {
         while let Some(TreeParentId::Node(p)) = self.tree.parent(id) {
@@ -1870,21 +1890,29 @@ impl Doc {
         }
         let v = serde_json::to_value(self.meta(id).get_value()).map_err(err)?;
         let shape: Shape = serde_json::from_value(v).map_err(err)?;
-        if matches!(shape, Shape::Path { .. }) {
+        let rotation = num(&self.meta(id), "rotation");
+        if matches!(shape, Shape::Path { .. }) && rotation == 0.0 {
             return Ok(vec![]);
         }
-        let [x, y, w, h] = self.bounds(id).map(|v| v as f32);
-        let path = geom::map(&outline(&shape, [x, y, w, h]), |[u, v]| {
-            [(u - x) / w, (v - y) / h]
+        let frame = self.bounds(id).map(|v| v as f32);
+        let [a, b, c, d, e, f] = geom::rotation(rotation, frame);
+        let path = geom::map(&outline(&shape, frame), |[u, v]| {
+            [a * u + c * v + e, b * u + d * v + f]
         });
-        self.meta(id).insert("shape", "path").map_err(err)?;
+        if !geom::valid(&path) {
+            return Err("not a path".into());
+        }
+        let m = self.meta(id);
+        m.insert("shape", "path").map_err(err)?;
+        m.insert("rotation", 0.0).map_err(err)?;
         self.set(
             id,
             Props {
-                path: Some(path),
+                path: Some(fit(&path, [0.0, 0.0, 1.0, 1.0])),
                 ..Props::default()
             },
         )?;
+        self.set_frame(id, bounds(&path).map(f64::from))?;
         Ok(vec![])
     }
 
@@ -3390,6 +3418,13 @@ mod tests {
                 &r,
                 Props {
                     sweep: Some(2.0),
+                    ..Props::default()
+                },
+            ),
+            set(
+                &r,
+                Props {
+                    rotation: Some(f64::NAN),
                     ..Props::default()
                 },
             ),

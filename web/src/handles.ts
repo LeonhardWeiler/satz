@@ -6,16 +6,38 @@ const EDGE = 4
 /** Distance in px of a text frame's in- and out-port from its top and bottom corner. */
 const PORT_INSET = 16
 const PORT = 10
+/** Distance in px beyond a corner of the selection box within which it is turned. */
+const TURN = 16
 /** Least distance in px of a corner radius handle from its corner; below 4 times it they hide. */
 const RADIUS = 12
 
 const screen = (view: View, p: Point) => ({ x: view.x + p.x * view.zoom, y: view.y + p.y * view.zoom })
 
+/** `p` turned `degrees` counterclockwise around `c`, as the engine turns layers. */
+export function spin(p: Point, degrees: number, c: Point = { x: 0, y: 0 }): Point {
+  const [s, k] = [Math.sin((degrees * Math.PI) / 180), Math.cos((degrees * Math.PI) / 180)]
+  const [x, y] = [p.x - c.x, p.y - c.y]
+  return { x: c.x + k * x + s * y, y: c.y - s * x + k * y }
+}
+
+/** The upright box around the turned box `b`. */
+export function upright(b: Box): Box {
+  const c = { x: b.x + b.w / 2, y: b.y + b.h / 2 }
+  const ps = [[0, 0], [b.w, 0], [b.w, b.h], [0, b.h]].map(([u, v]) => spin({ x: b.x + u, y: b.y + v }, b.rotation ?? 0, c))
+  const [xs, ys] = [ps.map((p) => p.x), ps.map((p) => p.y)]
+  return rect({ x: Math.min(...xs), y: Math.min(...ys) }, { x: Math.max(...xs), y: Math.max(...ys) })
+}
+
 /**
  * What the screen point (x, y) grabs of the selection handles: `end0` or `end1` of a
- * line, a corner such as `nw` or an edge such as `e` of the box, or nothing.
+ * line, a corner such as `nw` or an edge such as `e` of the box, `rotate` just outside
+ * a corner, or nothing. Radius handles are in the unturned space of the box.
  */
 export function handleAt(view: View, x: number, y: number, { box, line, radii }: { box?: Box; line?: [Point, Point]; radii?: Point[] }) {
+  if (box?.rotation) {
+    const c = screen(view, { x: box.x + box.w / 2, y: box.y + box.h / 2 })
+    ;({ x, y } = spin({ x, y }, -box.rotation, c))
+  }
   const i = radii?.findIndex((p) => Math.hypot(p.x - x, p.y - y) <= HANDLE / 2 + 1) ?? -1
   if (i >= 0) return `radius${i}`
   if (line) {
@@ -31,7 +53,10 @@ export function handleAt(view: View, x: number, y: number, { box, line, radii }:
   const v = !box.h ? '' : near(y, t, HANDLE / 2) ? 'n' : near(y, b, HANDLE / 2) ? 's' : ''
   const h = !box.w ? '' : near(x, l, HANDLE / 2) ? 'w' : near(x, r, HANDLE / 2) ? 'e' : ''
   if (v && h) return v + h
-  if (!within(x, l, r) || !within(y, t, b)) return undefined
+  if (!within(x, l, r) || !within(y, t, b)) {
+    const corner = [l, r].some((cx) => [t, b].some((cy) => Math.hypot(x - cx, y - cy) <= TURN))
+    return corner ? 'rotate' : undefined
+  }
   if (box.h && near(y, t, EDGE)) return 'n'
   if (box.h && near(y, b, EDGE)) return 's'
   if (box.w && near(x, l, EDGE)) return 'w'

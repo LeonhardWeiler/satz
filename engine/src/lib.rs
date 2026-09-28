@@ -113,6 +113,11 @@ impl Engine {
             .to_vec())
     }
 
+    /// The transform [a b c d e f] that turns the layer `id` on its page.
+    pub fn turn(&self, id: &str) -> Result<Vec<f32>, JsError> {
+        Ok(self.doc.turn_of(id).map_err(|e| JsError::new(&e))?.to_vec())
+    }
+
     /// The frame of the thread of the text `id` that holds the UTF-16 `index`.
     #[wasm_bindgen(js_name = textFrame)]
     pub fn text_frame(&self, id: &str, index: u32) -> Result<String, JsError> {

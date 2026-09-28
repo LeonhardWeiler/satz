@@ -41,6 +41,26 @@ fn one() -> f32 {
 }
 const FLATNESS: usize = 16;
 
+/// The transform [a b c d e f] that turns `frame` by `degrees` counterclockwise around its centre.
+pub fn rotation(degrees: f64, [x, y, w, h]: [f32; 4]) -> [f32; 6] {
+    let (s, c) = (degrees.to_radians() as f32).sin_cos();
+    let (cx, cy) = (x + w / 2.0, y + h / 2.0);
+    [c, -s, s, c, cx - c * cx - s * cy, cy + s * cx - c * cy]
+}
+
+/// The transform that applies `n`, then `m`.
+pub fn then([a, b, c, d, e, f]: [f32; 6], m: [f32; 6]) -> [f32; 6] {
+    let [p, q, r, s, t, u] = m;
+    [
+        p * a + r * b,
+        q * a + s * b,
+        p * c + r * d,
+        q * c + s * d,
+        p * e + r * f + t,
+        q * e + s * f + u,
+    ]
+}
+
 pub fn outline(shape: &Shape, [x, y, w, h]: [f32; 4]) -> Vec<f32> {
     match shape {
         Shape::Rect { radius, corners } => {

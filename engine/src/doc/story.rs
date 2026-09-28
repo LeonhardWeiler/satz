@@ -237,10 +237,13 @@ impl Doc {
             }
             let (story, lines) = self.frame_lines(f)?;
             let [x, top, bottom] = text::caret(&story.text, &lines, a);
-            return Ok(vec![Op::FillPath {
-                paint: solid([0.0, 0.0, 0.0, 1.0]),
-                path: rect(x - caret_width / 2.0, top, caret_width, bottom - top),
-            }]);
+            return Ok(self.turned(
+                f,
+                vec![Op::FillPath {
+                    paint: solid([0.0, 0.0, 0.0, 1.0]),
+                    path: rect(x - caret_width / 2.0, top, caret_width, bottom - top),
+                }],
+            ));
         }
         let mut ops = Vec::new();
         for f in self.thread(self.story(n)) {
@@ -250,23 +253,41 @@ impl Doc {
             let (story, lines) = self.frame_lines(f)?;
             let t = &story.text;
             ops.extend(
-                lines
-                    .iter()
-                    .filter(|l| a <= l.end && b > l.start || a == l.start && b >= l.start)
-                    .map(|l| {
-                        let x0 = text::x_at(t, l, a.max(l.start));
-                        let mut x1 = text::x_at(t, l, b.min(l.end));
-                        if b > l.end {
-                            x1 = x1.max(x0 + (l.bottom - l.top) / 4.0);
-                        }
-                        Op::FillPath {
-                            paint: solid(SELECTION),
-                            path: rect(x0, l.top, x1 - x0, l.bottom - l.top),
-                        }
-                    }),
+                self.turned(
+                    f,
+                    lines
+                        .iter()
+                        .filter(|l| a <= l.end && b > l.start || a == l.start && b >= l.start)
+                        .map(|l| {
+                            let x0 = text::x_at(t, l, a.max(l.start));
+                            let mut x1 = text::x_at(t, l, b.min(l.end));
+                            if b > l.end {
+                                x1 = x1.max(x0 + (l.bottom - l.top) / 4.0);
+                            }
+                            Op::FillPath {
+                                paint: solid(SELECTION),
+                                path: rect(x0, l.top, x1 - x0, l.bottom - l.top),
+                            }
+                        })
+                        .collect(),
+                ),
             );
         }
         Ok(ops)
+    }
+
+    /// `ops` drawn turned as the layer `id` is.
+    fn turned(&self, id: TreeID, ops: Vec<Op>) -> Vec<Op> {
+        let transform = self.turn(id);
+        if transform == [1.0, 0.0, 0.0, 1.0, 0.0, 0.0] {
+            return ops;
+        }
+        [
+            vec![Op::PushTransform { transform }],
+            ops,
+            vec![Op::PopTransform],
+        ]
+        .concat()
     }
 
     /// The layer's own text, which is its story's unless it follows another frame.

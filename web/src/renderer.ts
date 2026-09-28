@@ -11,7 +11,8 @@ const MISSING = 2 ** 31
 type Cache = Map<number, { hash: number; picture: SkPicture }>
 
 export type View = { x: number; y: number; zoom: number }
-export type Box = { x: number; y: number; w: number; h: number }
+/** A box turned `rotation` degrees counterclockwise around its centre. */
+export type Box = { x: number; y: number; w: number; h: number; rotation?: number }
 export type Overlay = {
   selection: Box[]
   hover?: Box
@@ -217,7 +218,8 @@ export class Renderer {
     for (const { ops, x } of overlay.text ?? []) {
       canvas.save()
       canvas.translate(x, 0)
-      for (const op of decode(ops)) this.drawOp(canvas, op)
+      const list = decode(ops)
+      this.drawOps(canvas, list, 0, list.length, bounds)
       canvas.restore()
     }
     paint.setStyle(ck.PaintStyle.Stroke)
@@ -300,15 +302,22 @@ export class Renderer {
       paint.setColor(accent)
       canvas.drawRect(h, paint)
     }
+    /** Draws `draw` turned as `b` is. */
+    const turned = (b: Box, draw: () => void) => {
+      canvas.save()
+      if (b.rotation) canvas.rotate(-b.rotation, ...at(b.x + b.w / 2, b.y + b.h / 2))
+      draw()
+      canvas.restore()
+    }
     canvas.save()
     canvas.scale(dpr, dpr)
     paint.setStyle(ck.PaintStyle.Stroke)
     paint.setColor(accent)
     paint.setStrokeWidth(1)
-    for (const b of selection) canvas.drawRect(screen(b), paint)
+    for (const b of selection) turned(b, () => canvas.drawRect(screen(b), paint))
     if (hover) {
       paint.setStrokeWidth(2)
-      canvas.drawRect(screen(hover), paint)
+      turned(hover, () => canvas.drawRect(screen(hover), paint))
       paint.setStrokeWidth(1)
     }
     if (marquee) {
@@ -371,17 +380,19 @@ export class Renderer {
       paint.setStrokeWidth(1)
     }
     if (handles) {
-      const r = screen(handles)
-      canvas.drawRect(r, paint)
-      for (const x of [r[0], r[2]]) for (const y of [r[1], r[3]]) square(x, y, HANDLE)
-    }
-    for (const p of radii ?? []) {
-      paint.setStyle(ck.PaintStyle.Fill)
-      paint.setColor(ck.WHITE)
-      canvas.drawCircle(p.x, p.y, HANDLE / 2, paint)
-      paint.setStyle(ck.PaintStyle.Stroke)
-      paint.setColor(accent)
-      canvas.drawCircle(p.x, p.y, HANDLE / 2, paint)
+      turned(handles, () => {
+        const r = screen(handles)
+        canvas.drawRect(r, paint)
+        for (const x of [r[0], r[2]]) for (const y of [r[1], r[3]]) square(x, y, HANDLE)
+        for (const p of radii ?? []) {
+          paint.setStyle(ck.PaintStyle.Fill)
+          paint.setColor(ck.WHITE)
+          canvas.drawCircle(p.x, p.y, HANDLE / 2, paint)
+          paint.setStyle(ck.PaintStyle.Stroke)
+          paint.setColor(accent)
+          canvas.drawCircle(p.x, p.y, HANDLE / 2, paint)
+        }
+      })
     }
     for (const [a, b] of threads ?? []) canvas.drawLine(a.x, a.y, b.x, b.y, paint)
     for (const p of ports ?? []) {
@@ -419,6 +430,14 @@ export class Renderer {
         canvas.save()
         canvas.clipPath(path, op.invert ? ck.ClipOp.Difference : ck.ClipOp.Intersect, true)
         path.delete()
+        this.drawOps(canvas, ops, i + 1, end, bounds)
+        canvas.restore()
+        i = end
+      } else if (op.op === 'pushTransform') {
+        const end = close(ops, i)
+        const [a, b, c, d, e, f] = op.transform
+        canvas.save()
+        canvas.concat([a, c, e, b, d, f, 0, 0, 1])
         this.drawOps(canvas, ops, i + 1, end, bounds)
         canvas.restore()
         i = end

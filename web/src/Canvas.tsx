@@ -4,7 +4,7 @@ import { MM, bounds, ends, insertion, useEditor, type Editor, type Point, type T
 import type { Container, NewKind, Node, Page, TextNode } from './model'
 import { radii } from './model'
 import { penPath } from './pen'
-import { handleAt, portAt, portsOf, radiusHandles, rect, resized } from './handles'
+import { handleAt, portAt, portsOf, radiusHandles, rect, resized, spin, upright } from './handles'
 import { Renderer, fitView, HANDLE, type Box, type View } from './renderer'
 import { pick } from './select'
 import { guides, measure, nearest, snap, targets, type Guide, type Lines, type Measure } from './snap'
@@ -18,6 +18,7 @@ const DRAG = 3
 const HIT = 6
 /** Distance in px within which layers snap. */
 const SNAP = 5
+const TURN = 'M6 18a12 12 0 0 1 12-12M3 15l3 3 3-3M15 3l3 3-3 3'
 const CURSORS: Record<string, string> = {
   nw: 'nwse-resize',
   se: 'nwse-resize',
@@ -29,6 +30,10 @@ const CURSORS: Record<string, string> = {
   w: 'ew-resize',
   end0: 'crosshair',
   end1: 'crosshair',
+  rotate: `url("data:image/svg+xml,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="${TURN}" stroke="#000" stroke-width="3.5"/><path d="${TURN}" stroke="#fff" stroke-width="1.5"/></svg>`,
+  )}") 12 12, crosshair`,
 }
 /** Size in mm of a layer made with a click; a clicked text is auto width, a dragged one fixed. */
 const DEFAULT_SIZE: Record<Exclude<Tool, 'move' | 'pen'>, [number, number]> = {
@@ -42,9 +47,10 @@ type Snaps = { lines: Lines; others: Box[] }
 type Drag =
   | { kind: 'pan'; last: Point }
   | { kind: 'move'; start: Point; frames: Node[]; active: boolean; flow?: Container; to?: ReturnType<typeof insertion>; box?: Box; snaps?: Snaps }
-  | { kind: 'resize'; start: Point; handle: string; box: Box; frames: Node[]; snaps: Snaps; by: number }
+  | { kind: 'resize'; start: Point; handle: string; box: Box; frames: Node[]; snaps: Snaps; by: number; turn: number; own: number }
+  | { kind: 'rotate'; c: Point; from: number; nodes: Node[] }
   | { kind: 'end'; start: Point; id: string; ends: [Point, Point]; index: number }
-  | { kind: 'radius'; start: Point; id: string; box: Box; radii: number[]; index: number }
+  | { kind: 'radius'; start: Point; id: string; box: Box; radii: number[]; index: number; turn: number }
   | { kind: 'marquee'; start: Point; end: Point; base: string[] }
   | { kind: 'draw'; start: Point; id: string; dx: number; moved: boolean; tool: keyof typeof DEFAULT_SIZE; thread?: string; snaps?: Snaps }
   | { kind: 'pen'; start: Point }
@@ -52,6 +58,11 @@ type Drag =
   | { kind: 'text' }
 
 /** Snaps a vector to the nearest multiple of 45°. */
+/** Degrees counterclockwise of `p` around `c`. */
+function angle(c: Point, p: Point) {
+  return (Math.atan2(c.y - p.y, p.x - c.x) * 180) / Math.PI
+}
+
 function snap45(dx: number, dy: number) {
   const a = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4)
   const d = Math.hypot(dx, dy)
@@ -168,6 +179,11 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
     })
     /** A layer where it sits on the spread. */
     const placed = <T extends Node>(n: T): T => ({ ...n, x: n.x + editor.dx(n.id) })
+    /** The index in the text `id` nearest `p`. */
+    const textAt = (id: string, p: Point) => {
+      const q = editor.local(id, p)
+      return editor.engine.textIndex(id, q.x, q.y)
+    }
     /** The page of the spread under `p`, or the nearest. */
     const pageAt = (p: Point) => {
       const away = (q: Page) => Math.max(q.x - p.x, p.x - q.x - q.width, 0)
@@ -209,6 +225,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
       const [n] = editor.selected()
       if (editor.tool !== 'move' || editor.selection.length !== 1 || editor.editing || n?.kind !== 'text') return undefined
       if (n.sizing.horizontal === 'hug' && n.sizing.vertical === 'hug' && !n.prev && !n.next) return undefined
+      if (editor.shown(n).rotation) return undefined
       return { node: n, ...portsOf(view, placed(n)) }
     }
     const portUnder = (e: Pointer) => {
@@ -223,7 +240,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
       const n = nodes.length === 1 ? nodes[0] : undefined
       const line = n && ends(n)
       if (line) return { line }
-      const box = bounds(nodes)
+      const box = n ? editor.shown(editor.selected()[0]) : bounds(nodes)
       return { box, radii: n?.kind === 'shape' && n.shape === 'rect' ? radiusHandles(view, box, radii(n)) : undefined }
     }
 
@@ -295,7 +312,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
       const { box, line, radii: corners } = drag?.kind === 'marquee' ? {} : handles()
       const h = editor.hover ?? hover
       const over = h && !editor.selection.includes(h) ? editor.nodes.get(h)?.node : undefined
-      const hovered = over && placed(over)
+      const hovered = over && editor.shown(over)
       const marquee =
         drag?.kind === 'marquee'
           ? rect(
@@ -329,7 +346,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
       const image = editor.placing[0]
       renderer.draw(surface.getCanvas(), lists, editor.sheets, view, canvas.width / canvas.clientWidth, {
         text,
-        selection: editor.selection.length > 1 || ed || drag?.kind === 'draw' ? editor.selected().map(placed) : [],
+        selection: editor.selection.length > 1 || ed || drag?.kind === 'draw' ? editor.selected().map((n) => editor.shown(n)) : [],
         hover: image && cursor ? { x: cursor.x - image.w / 2, y: cursor.y - image.h / 2, w: image.w, h: image.h } : hovered,
         marquee,
         handles: box,
@@ -343,7 +360,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
       }, editor.preflight, editor.snapshot.colorMode === 'cmyk')
       surface.flush()
       const left = Math.min(...editor.sheets.map((s) => s.x))
-      const sel = editor.selection.length ? bounds(editor.selected().map(placed)) : undefined
+      const sel = editor.selection.length ? bounds(editor.selected().map((n) => upright(editor.shown(n)))) : undefined
       const x0 = view.x + left * view.zoom
       const bar = quick.current!
       bar.hidden =
@@ -486,7 +503,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
         e.preventDefault()
         editor.dragging = true
         canvas.setPointerCapture(e.pointerId)
-        const i = editor.engine.textIndex(edited.id, p.x - editor.dx(edited.id), p.y)
+        const i = textAt(edited.id, p)
         select(editor, e.shiftKey ? editor.editing!.anchor : i, i)
         drag = { kind: 'text' }
         return
@@ -632,13 +649,23 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
       }
       if (handle?.startsWith('radius')) {
         const n = placed(editor.selected()[0])
-        if (n.kind === 'shape' && n.shape === 'rect') drag = { kind: 'radius', start: p, id: n.id, box: n, radii: radii(n), index: Number(handle.slice(6)) }
+        const turn = editor.shown(n).rotation!
+        if (n.kind === 'shape' && n.shape === 'rect') drag = { kind: 'radius', start: p, id: n.id, box: n, radii: radii(n), index: Number(handle.slice(6)), turn }
+        editor.beginGroup()
+        return
+      }
+      if (handle === 'rotate') {
+        const nodes = editor.selected()
+        const b = nodes.length === 1 ? editor.shown(nodes[0]) : bounds(nodes.map(placed))
+        const c = { x: b.x + b.w / 2, y: b.y + b.h / 2 }
+        drag = { kind: 'rotate', c, from: angle(c, p), nodes }
         editor.beginGroup()
         return
       }
       if (handle) {
         const frames = editor.selected()
-        drag = { kind: 'resize', start: p, handle, box: bounds(frames.map(placed)), frames, snaps: snapsNow(), by: 1 }
+        const [turn, own] = frames.length === 1 ? [editor.shown(frames[0]).rotation!, frames[0].rotation] : [0, 0]
+        drag = { kind: 'resize', start: p, handle, box: bounds(frames.map(placed)), frames, snaps: snapsNow(), by: 1, turn, own }
         editor.beginGroup()
         return
       }
@@ -682,7 +709,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
       if (drag.kind === 'text') {
         const ed = editor.editing
         const id = inEdited(p)?.id ?? ed?.id
-        if (ed && id) select(editor, ed.anchor, editor.engine.textIndex(id, p.x - editor.dx(id), p.y))
+        if (ed && id) select(editor, ed.anchor, textAt(id, p))
       } else if (drag.kind === 'pan') {
         view.x += e.clientX - drag.last.x
         view.y += e.clientY - drag.last.y
@@ -762,10 +789,15 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
         for (const n of drag.frames) editor.apply({ type: 'setFrame', id: n.id, x: n.x + dx, y: n.y + dy, w: n.w, h: n.h })
       } else if (drag.kind === 'knot') {
         editor.setKnots(shift(drag.cs, drag.at, drag.part, p.x - drag.start.x, p.y - drag.start.y), drag.at)
+      } else if (drag.kind === 'rotate') {
+        let by = angle(drag.c, p) - drag.from
+        if (e.shiftKey) by = Math.round(by / 15) * 15
+        editor.turn(drag.nodes, by, drag.c)
       } else if (drag.kind === 'radius') {
         const { box: b, index: i } = drag
         const [sx, sy] = [i === 1 || i === 2 ? -1 : 1, i < 2 ? 1 : -1]
-        const r = Math.max(0, Math.min(drag.radii[i] + ((p.x - drag.start.x) * sx + (p.y - drag.start.y) * sy) / 2, b.w / 2, b.h / 2))
+        const d = spin({ x: p.x - drag.start.x, y: p.y - drag.start.y }, -drag.turn)
+        const r = Math.max(0, Math.min(drag.radii[i] + (d.x * sx + d.y * sy) / 2, b.w / 2, b.h / 2))
         const corners = drag.radii.map((v, j) => (j === i ? r : v))
         editor.apply({ type: 'set', id: drag.id, ...(e.ctrlKey || e.metaKey ? { corners } : { radius: r, corners: [] }) })
       } else if (drag.kind === 'end') {
@@ -779,16 +811,20 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
         const off = editor.dx(drag.id)
         editor.apply({ type: 'setPath', id: drag.id, path: [0, a.x - off, a.y, 1, b.x - off, b.y] })
       } else if (drag.kind === 'resize') {
-        const d = { x: p.x - drag.start.x, y: p.y - drag.start.y }
-        const { box: b, handle: h, snaps } = drag
+        const d = spin({ x: p.x - drag.start.x, y: p.y - drag.start.y }, -drag.turn)
+        const { box: b, handle: h, snaps, own } = drag
         const edge = (side: string, at: number) => (h.includes(side) ? [at] : [])
-        if (free) {
+        if (free && !drag.turn) {
           d.x += snap([...edge('w', b.x + d.x), ...edge('e', b.x + b.w + d.x)], snaps.lines.x, SNAP / view.zoom)
           d.y += snap([...edge('n', b.y + d.y), ...edge('s', b.y + b.h + d.y)], snaps.lines.y, SNAP / view.zoom)
         }
-        const boxes = resized(b, h, d, e, drag.frames.map(placed))
+        const boxes = resized(b, h, d, e, drag.frames.map(placed)).map((f) => {
+          const c = { x: f.x + f.w / 2 - b.x - b.w / 2, y: f.y + f.h / 2 - b.y - b.h / 2 }
+          const m = spin(c, own)
+          return { ...f, x: f.x + m.x - c.x, y: f.y + m.y - c.y }
+        })
         const r = bounds(boxes)
-        snapped = free ? guides(r, snaps.lines, [...edge('w', r.x), ...edge('e', r.x + r.w)], [...edge('n', r.y), ...edge('s', r.y + r.h)]) : []
+        snapped = free && !drag.turn ? guides(r, snaps.lines, [...edge('w', r.x), ...edge('e', r.x + r.w)], [...edge('n', r.y), ...edge('s', r.y + r.h)]) : []
         const by = h === 'e' || h === 'w' ? r.w / b.w : r.h / b.h
         const scale = (e.ctrlKey || e.metaKey) && by > 0 ? by / drag.by : 1
         drag.by *= scale
@@ -832,7 +868,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
         }
         for (const [to, ids] of moves) editor.apply({ type: 'move', ids, parent: to.id, index: to.children.length })
       }
-      if (drag?.kind === 'draw' || drag?.kind === 'resize' || drag?.kind === 'end' || drag?.kind === 'radius' || drag?.kind === 'knot' || (drag?.kind === 'move' && drag.active)) {
+      if (drag?.kind === 'draw' || drag?.kind === 'resize' || drag?.kind === 'end' || drag?.kind === 'radius' || drag?.kind === 'rotate' || drag?.kind === 'knot' || (drag?.kind === 'move' && drag.active)) {
         editor.endGroup()
       }
       if (drag?.kind === 'move' && !drag.active && !e.shiftKey) {
@@ -860,14 +896,14 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
       const p = toDoc(e)
       const edited = inEdited(p)
       if (edited) {
-        const [a, b] = wordAt(editor.storyOf(edited).text, editor.engine.textIndex(edited.id, p.x - editor.dx(edited.id), p.y))
+        const [a, b] = wordAt(editor.storyOf(edited).text, textAt(edited.id, p))
         select(editor, a, b)
         return
       }
       const id = pickAt(p, 'double')
       const n = id && editor.nodes.get(id)?.node
       if (n && n.kind === 'text' && editor.selection.includes(id)) {
-        const i = editor.engine.textIndex(n.id, p.x - editor.dx(n.id), p.y)
+        const i = textAt(n.id, p)
         editor.set({ editing: { id: n.id, anchor: i, focus: i } })
       } else if (n && n.kind === 'shape' && editor.selection.includes(id)) editor.editPath(id)
       else if (id) editor.set({ selection: [id] })

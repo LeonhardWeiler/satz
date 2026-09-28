@@ -61,6 +61,11 @@ pub enum Op {
         shadows: Vec<Shadow>,
     },
     PopLayer,
+    /// The ops up to `PopTransform` are drawn through `transform` [a b c d e f].
+    PushTransform {
+        transform: [f32; 6],
+    },
+    PopTransform,
     /// The ops up to `EndMask` are an alpha mask for the ops up to `PopMask`.
     BeginMask,
     EndMask,
@@ -174,6 +179,12 @@ pub fn shift(mut ops: Vec<Op>, dx: f32, dy: f32) -> Vec<Op> {
                 transform[4] += dx;
                 transform[5] += dy;
             }
+            Op::PushTransform {
+                transform: [a, b, c, d, e, f],
+            } => {
+                *e += dx - (*a * dx + *c * dy);
+                *f += dy - (*b * dx + *d * dy);
+            }
             _ => {}
         }
     }
@@ -212,7 +223,12 @@ pub fn close(ops: &[Op], at: usize) -> usize {
     let mut depth = 1;
     for (i, op) in ops.iter().enumerate().skip(at + 1) {
         match op {
-            Op::PopClip | Op::PopLayer | Op::PopMask | Op::EndItem | Op::EndMask => {
+            Op::PopClip
+            | Op::PopLayer
+            | Op::PopMask
+            | Op::PopTransform
+            | Op::EndItem
+            | Op::EndMask => {
                 depth -= 1;
                 if depth == 0 {
                     return i;
@@ -221,9 +237,11 @@ pub fn close(ops: &[Op], at: usize) -> usize {
                     depth += 1;
                 }
             }
-            Op::PushClip { .. } | Op::PushLayer { .. } | Op::BeginMask | Op::BeginItem { .. } => {
-                depth += 1
-            }
+            Op::PushClip { .. }
+            | Op::PushLayer { .. }
+            | Op::PushTransform { .. }
+            | Op::BeginMask
+            | Op::BeginItem { .. } => depth += 1,
             _ => {}
         }
     }
@@ -327,6 +345,11 @@ pub fn encode(ops: &[Op]) -> Vec<u32> {
             Op::BeginMask => out.push(11),
             Op::EndMask => out.push(12),
             Op::PopMask => out.push(13),
+            Op::PushTransform { transform } => {
+                out.push(14);
+                floats(&mut out, transform);
+            }
+            Op::PopTransform => out.push(15),
         }
     }
     out

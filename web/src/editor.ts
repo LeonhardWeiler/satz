@@ -4,7 +4,8 @@ import type { Command, Container, Modes, Node, Page, Palette, Scope, Snapshot, T
 import type { Previewed } from './exportWorker'
 import type { Handle } from './file'
 import { penPath, type Anchor } from './pen'
-import type { Sheet } from './renderer'
+import { spin } from './handles'
+import type { Box, Sheet } from './renderer'
 import { index, type Entry } from './select'
 import { contours, toPath, type At, type Contour } from './vector'
 import type { Editing } from './textEdit'
@@ -125,6 +126,45 @@ export class Editor {
   /** How far the page of the layer `id` sits right of the spine on its spread. */
   dx(id: string) {
     return this.nodes.get(id)?.page?.x ?? 0
+  }
+
+  /** The box of `n` as it shows on the spread, turned by its rotation and its ancestors'. */
+  shown(n: Node): Box {
+    const [a, b, c, d, e, f] = this.engine.turn(n.id)
+    const [cx, cy] = [n.x + n.w / 2, n.y + n.h / 2]
+    const [x, y] = [a * cx + c * cy + e + this.dx(n.id), b * cx + d * cy + f]
+    return { x: x - n.w / 2, y: y - n.h / 2, w: n.w, h: n.h, rotation: (Math.atan2(-b, a) * 180) / Math.PI }
+  }
+
+  /** `p` on the spread in the unturned space of the layer `id` on its page. */
+  local(id: string, p: Point): Point {
+    const [a, b, c, d, e, f] = this.engine.turn(id)
+    const [x, y] = [p.x - this.dx(id) - e, p.y - f]
+    return { x: a * x + b * y, y: c * x + d * y }
+  }
+
+  /**
+   * Turns `nodes` as they were by `degrees` counterclockwise around `c` on the spread:
+   * a group through its layers, a line by its ends.
+   */
+  turn(nodes: Node[], degrees: number, c: Point) {
+    for (const n of nodes) {
+      if (n.kind === 'group') {
+        this.turn(n.children, degrees, c)
+        continue
+      }
+      const at = { x: c.x - this.dx(n.id), y: c.y }
+      const line = ends(n)
+      if (line) {
+        const [a, b] = line.map((p) => spin(p, degrees, at))
+        this.apply({ type: 'setPath', id: n.id, path: [0, a.x, a.y, 1, b.x, b.y] })
+        continue
+      }
+      const m = spin({ x: n.x + n.w / 2, y: n.y + n.h / 2 }, degrees, at)
+      const rotation = (((n.rotation + degrees) % 360) + 360) % 360
+      this.apply({ type: 'set', id: n.id, rotation })
+      this.apply({ type: 'setFrame', id: n.id, x: m.x - n.w / 2, y: m.y - n.h / 2, w: n.w, h: n.h })
+    }
   }
 
   /** The layers of the current spread. */
@@ -321,7 +361,7 @@ export class Editor {
   editPath(id: string) {
     const n = this.nodes.get(id)?.node
     if (n?.kind !== 'shape') return
-    if (n.shape !== 'path') this.apply({ type: 'flatten', id })
+    if (n.shape !== 'path' || n.rotation) this.apply({ type: 'flatten', id })
     this.set({ selection: [id], vector: { id, mode: 'move', at: null } })
   }
 

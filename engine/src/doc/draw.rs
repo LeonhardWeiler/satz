@@ -139,6 +139,8 @@ pub struct Node {
     pub hidden: bool,
     /// Not hit on the canvas, with its children.
     pub locked: bool,
+    /// Degrees counterclockwise around the centre, with its children.
+    pub rotation: f64,
     #[serde(flatten)]
     pub style: Style,
     #[serde(flatten)]
@@ -435,6 +437,12 @@ pub(super) fn draw(n: &Node, ops: &mut Vec<Op>, pal: &Palette) {
     let layer = n.style.layer(s);
     let wrapped = layer.is_some();
     ops.extend(layer);
+    let turned = n.rotation != 0.0;
+    if turned {
+        ops.push(Op::PushTransform {
+            transform: geom::rotation(n.rotation, frame),
+        });
+    }
     match &n.kind {
         Kind::Shape(shape) => item(ops, n.style.shape(&outline(shape, frame), frame, s)),
         Kind::Text {
@@ -470,6 +478,9 @@ pub(super) fn draw(n: &Node, ops: &mut Vec<Op>, pal: &Palette) {
             }
         }
     }
+    if turned {
+        ops.push(Op::PopTransform);
+    }
     if wrapped {
         ops.push(Op::PopLayer);
     }
@@ -502,6 +513,9 @@ pub(super) fn hit(
         }) {
             continue;
         }
+        let [a, b, c, d, e, f] =
+            geom::rotation(-n.rotation, [n.x, n.y, n.w, n.h].map(|v| v as f32)).map(f64::from);
+        let (x, y) = (a * x + c * y + e, b * x + d * y + f);
         let inside = x >= n.x && x <= n.x + n.w && y >= n.y && y <= n.y + n.h;
         path.push(n.id.clone());
         let found = match &n.kind {
@@ -957,6 +971,7 @@ impl Doc {
             override_of: v[OVERRIDE_OF].as_str().map(String::from),
             hidden: v["hidden"] == true,
             locked: v["locked"] == true,
+            rotation: v["rotation"].as_f64().unwrap_or(0.0),
             ppi: style
                 .fills
                 .iter()
@@ -1123,6 +1138,50 @@ mod tests {
             assert!((a - b).abs() < 1e-3, "{a} {b}");
         }
         assert!(d.apply(Command::Flatten { id: p }).is_err());
+    }
+
+    #[test]
+    fn a_rotated_layer_is_drawn_and_hit_turned_around_its_centre() {
+        let (mut d, p) = empty();
+        let r = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 20.0, 4.0]);
+        set(
+            &mut d,
+            &r,
+            Props {
+                rotation: Some(90.0),
+                ..Props::default()
+            },
+        );
+        assert_eq!(hits(&d, 10.0, 10.0, 0.0), std::slice::from_ref(&r));
+        assert!(hits(&d, 18.0, 2.0, 0.0).is_empty());
+        let ops = page_ops(&d);
+        let Some(Op::PushTransform { transform }) =
+            ops.iter().find(|o| matches!(o, Op::PushTransform { .. }))
+        else {
+            panic!("no transform");
+        };
+        let [a, b, c, dd, e, f] = *transform;
+        let (x, y) = (a * 20.0 + c * 2.0 + e, b * 20.0 + dd * 2.0 + f);
+        assert!((x - 10.0).abs() < 1e-4 && (y + 8.0).abs() < 1e-4, "{x} {y}");
+        assert!(ops.contains(&Op::PopTransform));
+        let moved = shift(ops.clone(), 5.0, 0.0);
+        let Some(Op::PushTransform { transform: t }) =
+            moved.iter().find(|o| matches!(o, Op::PushTransform { .. }))
+        else {
+            panic!("no transform");
+        };
+        assert!((t[0] * 25.0 + t[2] * 2.0 + t[4] - 15.0).abs() < 1e-4);
+
+        d.apply(Command::Flatten { id: r.clone() }).unwrap();
+        let n = &page(&d).children[0];
+        assert_eq!(n.rotation, 0.0);
+        assert!(
+            frame(n)
+                .iter()
+                .zip([8.0, -8.0, 4.0, 20.0])
+                .all(|(a, b)| (a - b).abs() < 1e-3)
+        );
+        assert_eq!(hits(&d, 10.0, 10.0, 0.0), [r]);
     }
 
     #[test]
