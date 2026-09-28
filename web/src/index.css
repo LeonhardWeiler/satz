@@ -2478,3 +2478,20 @@ kbd {
     padding: 0 5px;
   }
 }
+
+.tooltip {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  max-width: 240px;
+  padding: 4px 8px;
+  border: 1px solid var(--edge);
+  border-radius: 6px;
+  background: var(--menu);
+  color: var(--text);
+  font-size: 11px;
+  line-height: 16px;
+  box-shadow: 0 6px 16px rgb(0 0 0 / 0.35);
+  pointer-events: none;
+  animation: pop 0.1s var(--ease);
+}

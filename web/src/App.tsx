@@ -14,6 +14,7 @@ import { Properties } from './Properties'
 import { Start } from './Start'
 import { Swatches } from './Swatches'
 import { Toolbar } from './Toolbar'
+import { Tooltip } from './Tooltip'
 
 export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; first: boolean }) {
   const status = useEditor(editor, (e) => e.status)
@@ -188,6 +189,7 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
       )}
       {dialog === 'palette' && <Palette editor={editor} onClose={() => setDialog(null)} />}
       {dialog === 'help' && <Help onClose={() => setDialog(null)} />}
+      <Tooltip />
       <p className="status" role="status">
         {status}
       </p>
