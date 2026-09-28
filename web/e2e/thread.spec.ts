@@ -62,6 +62,16 @@ test('a click on the out-port and then on a frame threads the story on into it',
   expect(await overset(page, await port(page, A, true))).toBe(false)
 })
 
+test('the in-port of a threaded frame shows the frame it comes from while hovered', async ({ page }) => {
+  await threaded(page)
+  const [x, y] = await screen(page, (A[0] + A[2]) / 2, A[1])
+  const edge = async () => (await pixels(page, x, y - 2, 1, 5)).some(([r, g, b]) => b > 200 && r < 100 && g > 140)
+  await page.mouse.move(1, 1)
+  expect(await edge()).toBe(false)
+  await page.mouse.move(...(await port(page, B, false)))
+  await expect.poll(edge).toBe(true)
+})
+
 test('a thread runs on into a frame on the other page of the spread', async ({ page }) => {
   const { second, third } = await acrossPages(page)
   expect(STORY.indexOf(third.slice(0, 20))).toBeGreaterThan(STORY.indexOf(second.slice(0, 20)))

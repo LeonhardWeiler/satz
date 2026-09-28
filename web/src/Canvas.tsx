@@ -140,6 +140,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
     let cursor: Point | undefined
     /** Last pointer position and Ctrl state over the canvas, for hover and cursor. */
     let pointer: Pointer | undefined
+    let port: 'in' | 'out' | undefined
     let alt = false
     let snapped: Guide[] = []
     let measures: Measure[] = []
@@ -255,12 +256,12 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
       return svg
     }
 
-    /** Ports of the selected text frame, and lines from each frame of its thread on this page to the next. */
+    /** Ports of the selected text frame; over a port, the lines of its thread on this spread and the frame the port links to. */
     const threadOverlay = () => {
       const p = drag ? undefined : ports()
       if (!p) return {}
       const n = p.node
-      const state = (threaded: boolean, overset = false) => (overset ? 'overset' : threaded ? 'threaded' : 'empty') as 'overset' | 'threaded' | 'empty'
+      const link = port && editor.nodes.get((port === 'in' ? n.prev : n.next) ?? '')?.node
       const frames = [...editor.nodes.values()].flatMap(({ node }) => (node.kind === 'text' && node.story === n.story ? [node] : []))
       const lines = frames.flatMap((f) => {
         const next = f.next && frames.find((g) => g.id === f.next)
@@ -268,10 +269,11 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
       })
       return {
         ports: [
-          { ...p.in, state: state(!!n.prev) },
-          { ...p.out, state: state(!!n.next, n.overset) },
-        ],
-        threads: lines,
+          { ...p.in, state: n.prev ? 'threaded' : 'empty' },
+          { ...p.out, state: n.overset ? 'overset' : n.next ? 'threaded' : 'open' },
+        ] as const,
+        threads: port ? lines : [],
+        ...(link && { hover: placed(link) }),
       }
     }
 
@@ -399,11 +401,13 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
     const handleUnder = (e: Pointer) => handleAt(view, e.offsetX, e.offsetY, handles())
     const track = () => {
       if (!pointer || drag || editor.pen) return
-      canvas.style.cursor = portUnder(pointer) ? 'pointer' : (CURSORS[handleUnder(pointer) ?? ''] ?? '')
+      const side = portUnder(pointer)?.side
+      canvas.style.cursor = side ? 'pointer' : (CURSORS[handleUnder(pointer) ?? ''] ?? '')
       const mode = pointer.ctrlKey ? 'deep' : 'click'
       const id = editor.tool === 'move' ? pickAt(toDoc(pointer), mode) : undefined
-      if (id !== hover) {
+      if (id !== hover || side !== port) {
         hover = id
+        port = side
         redraw()
       }
     }

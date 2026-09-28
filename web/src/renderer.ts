@@ -21,8 +21,8 @@ export type Overlay = {
   pen?: { anchors: { x: number; y: number; hx: number; hy: number }[]; cursor?: { x: number; y: number } } | null
   /** Display lists of the caret or selection in the text being edited, each in the space of a page at `x`. */
   text?: { ops: Uint32Array; x: number }[]
-  /** In- and out-ports of a text frame in screen space: empty, threaded, or holding overset text. */
-  ports?: { x: number; y: number; state: 'empty' | 'threaded' | 'overset' }[]
+  /** In- and out-ports of a text frame in screen space: empty, threaded, holding overset text, or open to thread on. */
+  ports?: readonly { x: number; y: number; state: 'empty' | 'threaded' | 'overset' | 'open' }[]
   /** Lines in screen space from each frame of a thread to the next. */
   threads?: [{ x: number; y: number }, { x: number; y: number }][]
 }
@@ -322,9 +322,9 @@ export class Renderer {
     for (const p of ports ?? []) {
       square(p.x, p.y, PORT)
       const [x, y] = [Math.floor(p.x) + 0.5, Math.floor(p.y) + 0.5]
-      if (p.state === 'overset') {
-        paint.setColor(ck.parseColorString(OVERSET))
-        paint.setStrokeWidth(2)
+      if (p.state === 'overset' || p.state === 'open') {
+        if (p.state === 'overset') paint.setColor(ck.parseColorString(OVERSET))
+        paint.setStrokeWidth(p.state === 'overset' ? 2 : 1.5)
         canvas.drawLine(x - 3, y, x + 3, y, paint)
         canvas.drawLine(x, y - 3, x, y + 3, paint)
         paint.setStrokeWidth(1)
