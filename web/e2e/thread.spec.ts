@@ -14,7 +14,7 @@ async function story(page: Page) {
   await frameOnNewPage(page, A)
   await page.keyboard.type(STORY)
   await page.keyboard.press('Escape')
-  await expect(title(page)).toHaveText(STORY.slice(0, 40))
+  await expect(title(page)).toHaveText('Lorem ipsum dolor sit amet, consetetur…')
 }
 
 /** The story threaded from frame A into frame B on page 2, which is selected; returns B's title. */
@@ -22,7 +22,7 @@ async function threaded(page: Page) {
   await story(page)
   await page.mouse.click(...(await port(page, A, true)))
   await page.mouse.click(...(await screen(page, B[0], B[1])))
-  await expect(title(page)).not.toHaveText(STORY.slice(0, 40))
+  await expect(title(page)).not.toHaveText('Lorem ipsum dolor sit amet, consetetur…')
   return (await title(page).textContent())!
 }
 
@@ -85,7 +85,7 @@ test('the caret follows the story back into its first frame on the other page, w
   await page.keyboard.press('Control+Home')
   await expect(current(page, 2)).toHaveAttribute('aria-pressed', 'true')
   await page.keyboard.type('X')
-  await expect(page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: `X${STORY.slice(0, 39)}`, exact: true })).toBeVisible()
+  await expect(page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'XLorem ipsum dolor sit amet, consetetur…', exact: true })).toBeVisible()
 })
 
 test('a double click on an out-port unthreads the frames after it, and undo threads them again', async ({ page }) => {
