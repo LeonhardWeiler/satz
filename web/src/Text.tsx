@@ -153,13 +153,15 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
           </button>
         )}
       </div>
-      <Select
-        label="Font"
-        value={font}
-        options={fontNames}
-        disabled={missing.map((m) => m.font.hash)}
-        onChange={(hash) => format({ font: faces.find((f) => f.hash === hash) })}
-      />
+      <Bindable editor={editor} id={node.id} prop="font" title="Font" label={<Icon name="text" />}>
+        <Select
+          label="Font"
+          value={font}
+          options={fontNames}
+          disabled={missing.map((m) => m.font.hash)}
+          onChange={(hash) => format({ font: faces.find((f) => f.hash === hash) })}
+        />
+      </Bindable>
       <div className="grid">
         {STYLED.map(([prop, title, label, unit, zero]) => {
           const field = (

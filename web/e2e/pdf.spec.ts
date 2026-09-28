@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { type Page } from '@playwright/test'
 import { PNG } from 'pngjs'
 import { fitView, type Sheet } from '../src/renderer'
-import { expect, test, STORY, addMaster, addPage, drag, drawn, exportButton, frameOnNewPage, near, open, openExample, pixels, place, png, port, screen, showPage, choose } from './util'
+import { expect, test, STORY, addMaster, addPage, drag, drawn, exportButton, frameOnNewPage, near, open, openExample, pixels, place, png, port, screen, showPage, choose, addVariable } from './util'
 
 const EDGE = 4
 const BLOCK = 4
@@ -331,11 +331,7 @@ test('an auto layout frame with a colour variable in a second mode matches the c
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
   const layers = page.getByRole('tree', { name: 'Layers' })
-  await panel.getByRole('button', { name: 'Local variables' }).click()
-  const dialog = page.getByRole('dialog', { name: 'Local variables' })
-  await dialog.getByRole('button', { name: 'Create collection' }).click()
-  await dialog.getByRole('button', { name: 'Create variable' }).click()
-  await page.getByRole('menuitem', { name: 'Color' }).click()
+  const dialog = await addVariable(page, 'Color')
   await dialog.getByRole('button', { name: 'Add mode' }).click()
   await dialog.getByRole('button', { name: 'Color 1 in Mode 2' }).click()
   const hex = page.getByRole('dialog', { name: 'Color 1 in Mode 2' }).getByRole('textbox', { name: 'Hex' })

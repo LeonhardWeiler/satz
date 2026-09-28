@@ -193,7 +193,8 @@ export type Swatch = { id: string; name: string; color: Color; spot: boolean }
 /** Chosen mode per collection; collections not listed use their first mode. */
 export type Modes = Record<string, string>
 export type Collection = { id: string; name: string; modes: { id: string; name: string }[] }
-export type Value = { color: Color } | { number: number }
+/** A font `null` is the bundled one. */
+export type Value = { color: Color } | { number: number } | { font: Typeface | null }
 /** One value per mode of its collection, all of one kind. */
 export type Variable = { id: string; collection: string; name: string; values: Record<string, Value> }
 export type Palette = { swatches: Swatch[]; collections: Collection[]; variables: Variable[]; textStyles: TextStyle[] }
@@ -201,7 +202,7 @@ export type Palette = { swatches: Swatch[]; collections: Collection[]; variables
 export type Scope = Omit<Palette, 'textStyles'> & { modes: Modes }
 /** Lengths count in mm, opacity and letter spacing in %, type in pt. */
 export type Bindable =
-  | 'w' | 'h' | 'radius' | 'strokeWeight' | 'opacity'
+  | 'font' | 'w' | 'h' | 'radius' | 'strokeWeight' | 'opacity'
   | 'gap' | 'paddingTop' | 'paddingRight' | 'paddingBottom' | 'paddingLeft'
   | Styled
 

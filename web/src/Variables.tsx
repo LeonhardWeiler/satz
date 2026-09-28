@@ -1,206 +1,200 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { ColorPicker } from './ColorPicker'
+import { createPortal } from 'react-dom'
+import { Chip, ColorPicker } from './ColorPicker'
+import { ContextMenu } from './ContextMenu'
 import { neutral } from './color'
-import { Field, NameInput, nextName, Select } from './controls'
+import { Field, NameInput, nextName, Section, Select } from './controls'
 import { scopeOf, useEditor, type Editor } from './editor'
 import { Icon } from './icons'
-import type { Bindable as Prop, Modes, Value } from './model'
+import type { Bindable as Prop, Modes, Typeface, Value } from './model'
 import { Popover } from './Popover'
 
-/** The local variables dialog: collections on the left, a variable per row and a mode per column. */
-export function Variables({ editor, onClose }: { editor: Editor; onClose: () => void }) {
+type Kind = 'color' | 'number' | 'font'
+const KINDS: Record<Kind, string> = { color: 'Color', number: 'Number', font: 'Font' }
+const kindOf = (v: Value): Kind => ('color' in v ? 'color' : 'number' in v ? 'number' : 'font')
+
+/** The document's variables by collection: the plus makes one, a click edits it in a popover. */
+export function Variables({ editor }: { editor: Editor }) {
   const snapshot = useEditor(editor, (e) => e.snapshot)
-  const ref = useRef<HTMLDialogElement>(null)
-  const create = useRef<HTMLButtonElement>(null)
-  const [selected, setSelected] = useState<string | null>(null)
-  const [menu, setMenu] = useState(false)
-  const { collections, colorMode } = snapshot
-  const collection = collections.find((c) => c.id === selected) ?? collections[0]
-  const variables = snapshot.variables.filter((v) => v.collection === collection?.id)
+  const [menu, setMenu] = useState<DOMRect | null>(null)
+  const [open, setOpen] = useState<string | null>(null)
+  const { collections, variables, colorMode } = snapshot
   const scope = { ...scopeOf(snapshot), variables: [] }
+  const fonts = [...snapshot.fonts, ...snapshot.missingFonts.map((m) => m.font)]
+  const target = collections.find((c) => c.id === variables.find((v) => v.id === open)?.collection) ?? collections.at(-1)
 
-  useEffect(() => ref.current!.showModal(), [])
-
-  const addVariable = (kind: 'color' | 'number') => {
-    setMenu(false)
-    const prefix = kind === 'color' ? 'Color' : 'Number'
-    const value: Value = kind === 'color' ? { color: neutral('black', colorMode) } : { number: 0 }
-    const name = nextName(prefix, variables.map((v) => v.name))
-    editor.apply({ type: 'addVariable', collection: collection!.id, name, value })
-  }
+  const addCollection = () => editor.apply({ type: 'addCollection', name: nextName('Collection', collections.map((c) => c.name)) })[0]
+  const add = (kind: Kind) =>
+    editor.batch(() => {
+      const collection = target?.id ?? addCollection()
+      const value: Value = kind === 'color' ? { color: neutral('black', colorMode) } : kind === 'number' ? { number: 0 } : { font: null }
+      const name = nextName(KINDS[kind], variables.filter((v) => v.collection === collection).map((v) => v.name))
+      setOpen(editor.apply({ type: 'addVariable', collection, name, value })[0] ?? null)
+    })
+  const preview = (v: Value) =>
+    'color' in v ? <Chip color={v.color} scope={scope} /> : 'number' in v ? <span>{v.number}</span> : <span>{v.font?.name ?? fonts[0].name}</span>
 
   return (
-    <dialog ref={ref} className="variables" aria-label="Local variables" onClose={onClose} onPointerDown={editor.gesture}>
-      <header className="panel-header">
-        <h2>Local variables</h2>
-        <button type="button" className="icon-button" aria-label="Close" title="Close" onClick={() => ref.current!.close()}>
-          <Icon name="close" />
-        </button>
-      </header>
-      <div className="variables-body">
-        <nav aria-label="Collections" className="collections">
-          <header className="section-header">
-            <h3>Collections</h3>
+    <Section title="Variables" onAdd={(e) => setMenu(e.currentTarget.getBoundingClientRect())}>
+      {collections.length === 0 && <p className="empty">No variables yet.</p>}
+      {collections.map((c) => (
+        <div key={c.id} role="group" aria-label={c.name} className="var-group">
+          <div className="row">
+            <NameInput label="Collection name" value={c.name} onCommit={(name) => editor.apply({ type: 'setCollection', id: c.id, name })} />
             <button
               type="button"
               className="icon-button"
-              aria-label="Create collection"
-              title="Create collection"
-              onClick={() => {
-                const name = nextName('Collection', collections.map((c) => c.name))
-                setSelected(editor.apply({ type: 'addCollection', name })[0])
-              }}
+              aria-label={`Delete collection ${c.name}`}
+              title="Delete collection"
+              onClick={() => editor.apply({ type: 'deleteCollection', id: c.id })}
             >
-              <Icon name="plus" />
+              <Icon name="minus" />
             </button>
-          </header>
-          {collections.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              className="collection"
-              aria-current={c.id === collection?.id}
-              onClick={() => setSelected(c.id)}
-            >
-              {c.name}
-            </button>
-          ))}
-        </nav>
-        {collection ? (
-          <div className="variables-main">
-            <div className="row">
-              <NameInput
-                label="Collection name"
-                value={collection.name}
-                onCommit={(name) => editor.apply({ type: 'setCollection', id: collection.id, name })}
-              />
-              <button type="button" className="button" onClick={() => editor.apply({ type: 'deleteCollection', id: collection.id })}>
-                Delete collection
-              </button>
-            </div>
-            <div className="variables-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th scope="col">Name</th>
-                    {collection.modes.map((m) => (
-                      <th key={m.id} scope="col">
-                        <div className="row">
-                          <NameInput
-                            label="Mode name"
-                            value={m.name}
-                            onCommit={(name) => editor.apply({ type: 'setMode', collection: collection.id, id: m.id, name })}
-                          />
-                          {collection.modes.length > 1 && (
-                            <button
-                              type="button"
-                              className="icon-button"
-                              aria-label={`Delete mode ${m.name}`}
-                              title={`Delete mode ${m.name}`}
-                              onClick={() => editor.apply({ type: 'deleteMode', collection: collection.id, id: m.id })}
-                            >
-                              <Icon name="minus" />
-                            </button>
-                          )}
-                        </div>
-                      </th>
-                    ))}
-                    <th>
-                      <button
-                        type="button"
-                        className="icon-button"
-                        aria-label="Add mode"
-                        title="Add mode"
-                        onClick={() =>
-                          editor.apply({
-                            type: 'addMode',
-                            collection: collection.id,
-                            name: nextName('Mode', collection.modes.map((m) => m.name)),
-                          })
-                        }
-                      >
-                        <Icon name="plus" />
-                      </button>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {variables.map((v) => (
-                    <tr key={v.id}>
-                      <th scope="row">
-                        <NameInput label="Variable name" value={v.name} onCommit={(name) => editor.apply({ type: 'setVariable', id: v.id, name })} />
-                      </th>
-                      {collection.modes.map((m) => {
-                        const value = v.values[m.id]
-                        const label = `${v.name} in ${m.name}`
-                        const set = (value: Value) => editor.apply({ type: 'setVariable', id: v.id, mode: m.id, value })
-                        return (
-                          <td key={m.id}>
-                            {'color' in value ? (
-                              <div className="row">
-                                <ColorPicker label={label} color={value.color} mode={colorMode} scope={scope} bindable onChange={(color) => set({ color })} />
-                              </div>
-                            ) : (
-                              <Field label="" title={label} unit="" value={value.number} onCommit={(number) => set({ number })} />
-                            )}
-                          </td>
-                        )
-                      })}
-                      <td>
-                        <button
-                          type="button"
-                          className="icon-button"
-                          aria-label={`Delete variable ${v.name}`}
-                          title={`Delete variable ${v.name}`}
-                          onClick={() => editor.apply({ type: 'deleteVariable', id: v.id })}
-                        >
-                          <Icon name="minus" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div
-              className="create-variable"
-              onBlur={(e) => {
-                if (!e.currentTarget.contains(e.relatedTarget)) setMenu(false)
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape' && menu) {
-                  e.preventDefault()
-                  setMenu(false)
-                }
-              }}
-            >
-              <button
-                ref={create}
-                type="button"
-                className="button"
-                aria-haspopup="menu"
-                aria-expanded={menu}
-                onClick={() => setMenu((o) => !o)}
-              >
-                <Icon name="plus" />
-                Create variable
-              </button>
-              {menu && (
-                <Popover anchor={() => create.current!.getBoundingClientRect()} side="top" className="menu" role="menu" aria-label="Variable type">
-                  {(['color', 'number'] as const).map((kind) => (
-                    <button key={kind} type="button" role="menuitem" className="menu-item" onClick={() => addVariable(kind)}>
-                      <span>{kind === 'color' ? 'Color' : 'Number'}</span>
-                    </button>
-                  ))}
-                </Popover>
-              )}
-            </div>
           </div>
-        ) : (
-          <p className="empty">No collections yet. Create one to add variables.</p>
+          {variables
+            .filter((v) => v.collection === c.id)
+            .map((v) => (
+              <button
+                key={v.id}
+                type="button"
+                className="var"
+                data-variable={v.id}
+                aria-haspopup="dialog"
+                aria-expanded={open === v.id}
+                onClick={() => setOpen(open === v.id ? null : v.id)}
+              >
+                <Icon name={kindOf(Object.values(v.values)[0]) === 'font' ? 'text' : 'variable'} />
+                <span className="var-name">{v.name}</span>
+                <span className="var-value">{preview(v.values[c.modes[0].id])}</span>
+              </button>
+            ))}
+        </div>
+      ))}
+      {menu &&
+        createPortal(
+          <ContextMenu
+            anchor={() => menu}
+            side="bottom"
+            label="Create variable"
+            onClose={() => setMenu(null)}
+            items={[
+              ...(Object.keys(KINDS) as Kind[]).map((k): [string, () => void, boolean] => [KINDS[k], () => add(k), true]),
+              ['Collection', addCollection, true],
+            ]}
+          />,
+          document.body,
         )}
+      {open &&
+        variables.some((v) => v.id === open) &&
+        createPortal(<VariableEditor editor={editor} id={open} fonts={fonts} onClose={() => setOpen(null)} />, document.body)}
+    </Section>
+  )
+}
+
+/** Name and value per mode of the variable `id`, beside its row. */
+function VariableEditor({ editor, id, fonts, onClose }: { editor: Editor; id: string; fonts: Typeface[]; onClose: () => void }) {
+  const snapshot = useEditor(editor, (e) => e.snapshot)
+  const ref = useRef<HTMLDivElement>(null)
+  const v = snapshot.variables.find((v) => v.id === id)!
+  const c = snapshot.collections.find((c) => c.id === v.collection)!
+  const scope = { ...scopeOf(snapshot), variables: [] }
+  const row = () => document.querySelector(`[data-variable="${id}"]`)
+
+  useEffect(() => ref.current?.focus(), [])
+  useEffect(() => {
+    const aside = (t: EventTarget | null) => t instanceof Element && !!t.closest('.picker:not(.var-editor), .menu-backdrop')
+    const down = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node) && !row()?.contains(e.target as Node) && !aside(e.target)) onClose()
+    }
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented || aside(document.activeElement)) return
+      e.preventDefault()
+      e.stopPropagation()
+      onClose()
+    }
+    document.addEventListener('pointerdown', down, true)
+    document.addEventListener('keydown', key, true)
+    return () => {
+      document.removeEventListener('pointerdown', down, true)
+      document.removeEventListener('keydown', key, true)
+    }
+  })
+
+  return (
+    <Popover
+      ref={ref}
+      anchor={() => {
+        const b = row()?.getBoundingClientRect() ?? new DOMRect()
+        const panel = row()?.closest('.panel')?.getBoundingClientRect() ?? b
+        return new DOMRect(panel.x, b.y, panel.width, b.height)
+      }}
+      side="left"
+      className="picker var-editor"
+      role="dialog"
+      aria-label={`Edit ${v.name}`}
+      tabIndex={-1}
+    >
+      <header className="picker-header">
+        <h2>Edit variable</h2>
+        <button type="button" className="icon-button" aria-label="Close" title="Close" onClick={onClose}>
+          <Icon name="close" />
+        </button>
+      </header>
+      <NameInput label="Variable name" value={v.name} onCommit={(name) => editor.apply({ type: 'setVariable', id, name })} />
+      {c.modes.map((m) => {
+        const value = v.values[m.id]
+        const label = `${v.name} in ${m.name}`
+        const set = (value: Value) => editor.apply({ type: 'setVariable', id, mode: m.id, value })
+        return (
+          <div key={m.id} className="var-mode">
+            <NameInput label="Mode name" value={m.name} onCommit={(name) => editor.apply({ type: 'setMode', collection: c.id, id: m.id, name })} />
+            {'color' in value ? (
+              <ColorPicker label={label} color={value.color} mode={snapshot.colorMode} scope={scope} bindable onChange={(color) => set({ color })} />
+            ) : 'number' in value ? (
+              <Field label="" title={label} unit="" value={value.number} onCommit={(number) => set({ number })} />
+            ) : (
+              <Select
+                label={label}
+                value={(value.font ?? fonts[0]).hash}
+                options={Object.fromEntries(fonts.map((f) => [f.hash, f.name]))}
+                onChange={(hash) => set({ font: fonts.find((f) => f.hash === hash)! })}
+              />
+            )}
+            {c.modes.length > 1 && (
+              <button
+                type="button"
+                className="icon-button"
+                aria-label={`Delete mode ${m.name}`}
+                title={`Delete mode ${m.name}`}
+                onClick={() => editor.apply({ type: 'deleteMode', collection: c.id, id: m.id })}
+              >
+                <Icon name="minus" />
+              </button>
+            )}
+          </div>
+        )
+      })}
+      <div className="row">
+        <button
+          type="button"
+          className="button"
+          onClick={() => editor.apply({ type: 'addMode', collection: c.id, name: nextName('Mode', c.modes.map((m) => m.name)) })}
+        >
+          <Icon name="plus" />
+          Add mode
+        </button>
+        <button
+          type="button"
+          className="button"
+          onClick={() => {
+            onClose()
+            editor.apply({ type: 'deleteVariable', id })
+          }}
+        >
+          Delete variable
+        </button>
       </div>
-    </dialog>
+    </Popover>
   )
 }
 
@@ -224,7 +218,7 @@ export function ModeSelects({ editor, id, own, inherited }: { editor: Editor; id
     })
 }
 
-/** Wraps the field `children` of `prop` on layer `id` with a button that binds a number variable to it. */
+/** Wraps the field `children` of `prop` on layer `id` with a button that binds a number or font variable to it. */
 export function Bindable({
   editor,
   id,
@@ -245,7 +239,8 @@ export function Bindable({
   const ref = useRef<HTMLDivElement>(null)
   const bound = (snapshot.textStyles.find((s) => s.id === id)?.bindings ?? editor.nodes.get(id)?.node.bindings)?.[prop]
   const variable = snapshot.variables.find((v) => v.id === bound)
-  const numbers = snapshot.variables.filter((v) => 'number' in Object.values(v.values)[0])
+  const kind = prop === 'font' ? 'font' : 'number'
+  const numbers = snapshot.variables.filter((v) => kindOf(Object.values(v.values)[0]) === kind)
   const bind = (variable: string | null) => {
     setOpen(false)
     editor.apply({ type: 'bind', id, prop, variable })
@@ -306,8 +301,8 @@ export function Bindable({
         </>
       )}
       {open && (
-        <Popover anchor={() => ref.current!.getBoundingClientRect()} side="left" className="menu" role="listbox" aria-label="Number variables">
-          {numbers.length === 0 && <p className="empty">No number variables yet. Add them under Local variables.</p>}
+        <Popover anchor={() => ref.current!.getBoundingClientRect()} side="left" className="menu" role="listbox" aria-label={`${KINDS[kind]} variables`}>
+          {numbers.length === 0 && <p className="empty">No {kind} variables yet. Add them under Variables.</p>}
           {snapshot.collections.map((c) => {
             const vars = numbers.filter((v) => v.collection === c.id)
             return (

@@ -1,7 +1,6 @@
 import { neutral, type Color, type ColorMode } from './color'
 import { Field, Section, Segmented, Select } from './controls'
-import { useState, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
+import { type ReactNode } from 'react'
 import { bounds, ends, MM, scopeOf, useEditor, type Editor } from './editor'
 import { Icon, KindIcon } from './icons'
 import { FORMATS, ORIENTATIONS } from './Start'
@@ -61,7 +60,6 @@ export function Properties({
   const overview = useEditor(editor, (e) => e.overview)
   const snapshot = useEditor(editor, (e) => e.snapshot)
   const { fonts, missingFonts } = snapshot
-  const [variables, setVariables] = useState(false)
   const selection = useEditor(editor, (e) => e.selection)
   const nodes = selection.flatMap((id) => editor.nodes.get(id)?.node ?? [])
 
@@ -222,12 +220,7 @@ export function Properties({
         </Section>
       )}
       {!box && (
-        <Section title="Variables">
-          <button type="button" className="button" onClick={() => setVariables(true)}>
-            Local variables
-          </button>
-          {variables && createPortal(<Variables editor={editor} onClose={() => setVariables(false)} />, document.body)}
-        </Section>
+        <Variables editor={editor} />
       )}
       {!box && <TextStyles editor={editor} />}
       {box && (

@@ -204,3 +204,13 @@ export async function openExample(page: Page, name: string) {
   await expect(page).toHaveTitle(`${name} — Satz`)
   await page.mouse.move(1, 1)
 }
+
+/** Makes a variable of `kind` with the plus of the variables section and returns its popover. */
+export async function addVariable(page: Page, kind: 'Color' | 'Number' | 'Font') {
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  await panel.getByRole('button', { name: 'Add variable' }).click()
+  await page.getByRole('menu', { name: 'Create variable' }).getByRole('menuitem', { name: kind }).click()
+  const edit = page.getByRole('dialog', { name: /^Edit / })
+  await expect(edit).toBeVisible()
+  return edit
+}

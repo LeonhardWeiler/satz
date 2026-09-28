@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
 import { MM } from './editor'
@@ -231,7 +231,7 @@ export function Section({
 }: {
   title: string
   id?: string
-  onAdd?: () => void
+  onAdd?: (e: MouseEvent<HTMLButtonElement>) => void
   children?: ReactNode
 }) {
   const [open, setOpen] = useState(!closed.has(id))

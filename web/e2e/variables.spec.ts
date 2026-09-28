@@ -1,57 +1,72 @@
 import { type Locator, type Page } from '@playwright/test'
-import { expect, test, colors, open, screen, choose } from './util'
+import { expect, test, addVariable, colors, open, screen, choose } from './util'
 
 const near = ([r, g, b]: number[], [R, G, B]: number[]) => Math.max(Math.abs(r - R), Math.abs(g - G), Math.abs(b - B)) <= 24
 
-test('collections, modes and variables are made and edited in the local variables dialog', async ({ page }) => {
+test('collections, modes and variables are made with the plus and edited in a popover', async ({ page }) => {
   await open(page)
-  await page.getByRole('button', { name: 'Local variables' }).click()
-  const dialog = page.getByRole('dialog', { name: 'Local variables' })
-  await dialog.getByRole('button', { name: 'Create collection' }).click()
-  await expect(dialog.getByRole('textbox', { name: 'Collection name' })).toHaveValue('Collection 1')
-
-  await dialog.getByRole('button', { name: 'Create variable' }).click()
-  await page.getByRole('menuitem', { name: 'Color' }).click()
-  const name = dialog.getByRole('textbox', { name: 'Variable name' })
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  const edit = await addVariable(page, 'Color')
+  await expect(panel.getByRole('textbox', { name: 'Collection name' })).toHaveValue('Collection 1')
+  const name = edit.getByRole('textbox', { name: 'Variable name' })
   await expect(name).toHaveValue('Color 1')
   await name.fill('Brand')
   await name.press('Enter')
-  await dialog.getByRole('button', { name: 'Add mode' }).click()
-  await expect(dialog.getByRole('textbox', { name: 'Mode name' })).toHaveCount(2)
-  await expect(dialog.getByRole('textbox', { name: 'Mode name' }).last()).toHaveValue('Mode 2')
+  const brand = page.getByRole('dialog', { name: 'Edit Brand' })
+  await brand.getByRole('button', { name: 'Add mode' }).click()
+  await expect(brand.getByRole('textbox', { name: 'Mode name' })).toHaveCount(2)
+  await expect(brand.getByRole('textbox', { name: 'Mode name' }).last()).toHaveValue('Mode 2')
 
-  await dialog.getByRole('button', { name: 'Brand in Mode 2' }).click()
+  await brand.getByRole('button', { name: 'Brand in Mode 2' }).click()
   const picker = page.getByRole('dialog', { name: 'Brand in Mode 2' })
   await picker.getByRole('textbox', { name: 'Hex' }).fill('ff0000')
   await picker.getByRole('textbox', { name: 'Hex' }).press('Enter')
   await page.keyboard.press('Escape')
   await expect(picker).toBeHidden()
-  await expect(dialog).toBeVisible()
-  await expect(dialog.getByRole('button', { name: 'Brand in Mode 2' }).locator('.chip')).toHaveCSS('--color', '#ff0000ff')
+  await expect(brand).toBeVisible()
+  await expect(brand.getByRole('button', { name: 'Brand in Mode 2' }).locator('.chip')).toHaveCSS('--color', '#ff0000ff')
+  await page.keyboard.press('Escape')
+  await expect(brand).toBeHidden()
 
-  await dialog.getByRole('button', { name: 'Create variable' }).click()
-  await page.getByRole('menuitem', { name: 'Number' }).click()
-  const size = dialog.getByRole('textbox', { name: 'Number 1 in Mode 1' })
+  const number = await addVariable(page, 'Number')
+  const size = number.getByRole('textbox', { name: 'Number 1 in Mode 1' })
   await size.fill('4')
   await size.press('Enter')
   await expect(size).toHaveValue('4')
-  await expect(dialog.getByRole('textbox', { name: 'Number 1 in Mode 2' })).toHaveValue('0')
-
+  await expect(number.getByRole('textbox', { name: 'Number 1 in Mode 2' })).toHaveValue('0')
   await page.keyboard.press('Escape')
-  await expect(dialog).toBeHidden()
+  await expect(number).toBeHidden()
   await page.keyboard.press('Control+z')
-  await page.getByRole('button', { name: 'Local variables' }).click()
-  await expect(dialog.getByRole('textbox', { name: 'Number 1 in Mode 1' })).toHaveValue('0')
-  await dialog.getByRole('button', { name: 'Delete variable Number 1' }).click()
-  await expect(dialog.getByRole('textbox', { name: 'Variable name' })).toHaveCount(1)
+  await panel.getByRole('button', { name: /^Number 1/ }).click()
+  await expect(size).toHaveValue('0')
+  await number.getByRole('button', { name: 'Delete variable' }).click()
+  await expect(panel.getByRole('button', { name: /^Number 1/ })).toHaveCount(0)
+  await expect(panel.getByRole('button', { name: /^Brand/ })).toHaveCount(1)
+})
+
+test('a font variable sets the font of a text in the mode of its page', async ({ page }) => {
+  await open(page)
+  const chooser = page.waitForEvent('filechooser')
+  await page.getByRole('region', { name: 'Fonts' }).getByRole('button', { name: 'Add font' }).click()
+  await (await chooser).setFiles(new URL('../../engine/fonts/DMMono-Regular.ttf', import.meta.url).pathname)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  const edit = await addVariable(page, 'Font')
+  await edit.getByRole('button', { name: 'Add mode' }).click()
+  await choose(edit.getByRole('combobox', { name: 'Font 1 in Mode 2' }), 'DM Mono Regular')
+  await page.keyboard.press('Escape')
+  await expect(edit).toBeHidden()
+  await choose(panel.getByRole('combobox', { name: 'Collection 1 mode' }), 'Mode 2')
+
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
+  await panel.getByRole('button', { name: 'Apply variable to Font', exact: true }).click()
+  await page.getByRole('listbox', { name: 'Font variables' }).getByRole('option', { name: 'Font 1' }).click()
+  await expect(panel.getByRole('button', { name: 'Font: Font 1' })).toBeVisible()
+  await panel.getByRole('button', { name: 'Detach variable from Font', exact: true }).click()
+  await expect(panel.getByRole('combobox', { name: 'Font' })).toHaveText('DM Mono Regular')
 })
 
 async function theme(page: Page) {
-  await page.getByRole('button', { name: 'Local variables' }).click()
-  const dialog = page.getByRole('dialog', { name: 'Local variables' })
-  await dialog.getByRole('button', { name: 'Create collection' }).click()
-  await dialog.getByRole('button', { name: 'Create variable' }).click()
-  await page.getByRole('menuitem', { name: 'Color' }).click()
+  const dialog = await addVariable(page, 'Color')
   await dialog.getByRole('button', { name: 'Add mode' }).click()
   for (const [mode, hex] of [['Mode 1', 'ff0000'], ['Mode 2', '0000ff']]) {
     await dialog.getByRole('button', { name: `Color 1 in ${mode}` }).click()
@@ -104,11 +119,7 @@ test('a fill bound to a colour variable follows the mode of its frame and page',
 
 test('a number variable binds to width and detaches with the value of the current mode', async ({ page }) => {
   await open(page)
-  await page.getByRole('button', { name: 'Local variables' }).click()
-  const dialog = page.getByRole('dialog', { name: 'Local variables' })
-  await dialog.getByRole('button', { name: 'Create collection' }).click()
-  await dialog.getByRole('button', { name: 'Create variable' }).click()
-  await page.getByRole('menuitem', { name: 'Number' }).click()
+  const dialog = await addVariable(page, 'Number')
   await dialog.getByRole('button', { name: 'Add mode' }).click()
   for (const [mode, v] of [['Mode 1', '10'], ['Mode 2', '20']]) {
     await dialog.getByRole('textbox', { name: `Number 1 in ${mode}` }).fill(v)
