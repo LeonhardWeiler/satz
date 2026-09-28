@@ -1,4 +1,4 @@
-import { expect, test, drag, open, screen } from './util'
+import { expect, test, drag, open, screen, choose } from './util'
 
 test('shift+a adds a hugging auto layout whose padding, sizing and alignment move the child', async ({ page }) => {
   await open(page)
@@ -14,18 +14,18 @@ test('shift+a adds a hugging auto layout whose padding, sizing and alignment mov
   await expect(panel.getByRole('radio', { name: 'Horizontal layout' })).toBeChecked()
   await expect(field('W in mm')).toHaveValue('140')
   await expect(field('H in mm')).toHaveValue('48')
-  await expect(panel.getByRole('combobox', { name: 'Width sizing' })).toHaveValue('hug')
+  await expect(panel.getByRole('combobox', { name: 'Width sizing' })).toHaveText('Hug')
 
   await type('Left padding in mm', '10')
   await expect(field('W in mm')).toHaveValue('70')
-  await panel.getByRole('combobox', { name: 'Width sizing' }).selectOption('Fixed')
+  await choose(panel.getByRole('combobox', { name: 'Width sizing' }), 'Fixed')
   await type('W in mm', '100')
   await panel.getByRole('radio', { name: 'Align top right' }).click()
 
   await layers.getByRole('button', { name: 'Rectangle', exact: true }).first().click()
   await expect(field('X in mm')).toHaveValue('55')
   await expect(panel.getByRole('combobox', { name: 'Horizontal constraint' })).toHaveCount(0)
-  await panel.getByRole('combobox', { name: 'Width sizing' }).selectOption('Fill')
+  await choose(panel.getByRole('combobox', { name: 'Width sizing' }), 'Fill')
   await expect(field('W in mm')).toHaveValue('90')
   await expect(field('X in mm')).toHaveValue('25')
 
@@ -65,7 +65,7 @@ test('ctrl while resizing a frame leaves its children where they are', async ({ 
   const layers = page.getByRole('tree', { name: 'Layers' })
   const panel = page.getByRole('complementary', { name: 'Properties' })
   await layers.getByRole('button', { name: 'Rectangle', exact: true }).first().click()
-  await panel.getByRole('combobox', { name: 'Horizontal constraint' }).selectOption('Right')
+  await choose(panel.getByRole('combobox', { name: 'Horizontal constraint' }), 'Right')
   await layers.getByRole('button', { name: 'Frame', exact: true }).click()
   await page.keyboard.down('Control')
   await drag(page, await screen(page, 133, 183.5), await screen(page, 143, 183.5))
@@ -87,6 +87,6 @@ test('deleting the last child of a hugging frame keeps its size and makes it fix
   await layers.getByRole('button', { name: 'Frame', exact: true }).click()
   await expect(panel.getByRole('textbox', { name: 'W in mm' })).toHaveValue('140')
   await expect(panel.getByRole('textbox', { name: 'H in mm' })).toHaveValue('48')
-  await expect(panel.getByRole('combobox', { name: 'Width sizing' })).toHaveValue('fixed')
-  await expect(panel.getByRole('combobox', { name: 'Height sizing' })).toHaveValue('fixed')
+  await expect(panel.getByRole('combobox', { name: 'Width sizing' })).toHaveText('Fixed')
+  await expect(panel.getByRole('combobox', { name: 'Height sizing' })).toHaveText('Fixed')
 })

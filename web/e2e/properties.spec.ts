@@ -1,4 +1,4 @@
-import { expect, test, addMaster, addPage, open, option, overview } from './util'
+import { expect, test, addMaster, addPage, open, option, overview, choose } from './util'
 
 test('a closed section stays closed for other selections', async ({ page }) => {
   await open(page)
@@ -22,8 +22,8 @@ test('the document section sets the format, orientation and page count of all pa
   const document = panel.getByRole('region', { name: 'Document' })
   const width = document.getByRole('textbox', { name: 'Width of all pages in mm' })
   await addPage(page)
-  await expect(document.getByRole('combobox', { name: 'Format' })).toHaveValue('A5')
-  await document.getByRole('combobox', { name: 'Format' }).selectOption('A4')
+  await expect(document.getByRole('combobox', { name: 'Format' })).toHaveText('A5')
+  await choose(document.getByRole('combobox', { name: 'Format' }), 'A4')
   await expect(width).toHaveValue('210')
   await document.getByRole('radio', { name: 'Landscape' }).click()
   await expect(width).toHaveValue('297')
@@ -48,13 +48,12 @@ test('the master select sets the master of the pages selected in the overview an
   await addPage(page)
   await overview(page)
   await option(page, 2).click()
-  await master.selectOption('A-Master')
+  await choose(master, 'A-Master')
   await option(page, 1).click({ modifiers: ['Shift'] })
   await expect(panel.getByRole('region', { name: 'Pages 1, 2' })).toBeVisible()
-  await expect(master.locator('option:checked')).toHaveText('Mixed')
-  await master.selectOption('A-Master')
-  await expect(master).toHaveValue(/./)
-  await expect(master.locator('option:checked')).toHaveText('A-Master')
+  await expect(master).toHaveText('Mixed')
+  await choose(master, 'A-Master')
+  await expect(master).toHaveText('A-Master')
 })
 
 test('the text style specimen opens a menu of the styles set at their size', async ({ page }) => {

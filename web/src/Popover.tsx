@@ -23,7 +23,7 @@ export function Popover({
   ...props
 }: {
   anchor: Anchor
-  side: 'left' | 'right' | 'top'
+  side: 'left' | 'right' | 'top' | 'bottom'
   ref?: RefObject<HTMLDivElement | null>
 } & HTMLAttributes<HTMLDivElement>) {
   const own = useRef<HTMLDivElement>(null)
@@ -39,7 +39,7 @@ export function Popover({
       const { offsetWidth: w, offsetHeight: h } = el
       const [vw, vh] = [window.innerWidth, window.innerHeight]
       const [x, y] =
-        side === 'top' ? [a.left, flip(a.top, a.bottom, h, vh, false)] : [flip(a.left, a.right, w, vw, side === 'right'), a.top]
+        side === 'top' || side === 'bottom' ? [a.left, flip(a.top, a.bottom, h, vh, side === 'bottom')] : [flip(a.left, a.right, w, vw, side === 'right'), a.top]
       el.style.left = `${shift(x, w, vw)}px`
       el.style.top = `${shift(y, h, vh)}px`
     }

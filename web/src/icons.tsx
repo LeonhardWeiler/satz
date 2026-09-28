@@ -62,6 +62,7 @@ const ICONS = {
     </>
   ),
   close: <path d="m4 4 8 8M12 4l-8 8" />,
+  check: <path d="m3.5 8.5 3 3 6-7" />,
   plus: <path d="M8 4.5v7M4.5 8h7" />,
   minus: <path d="M4.5 8h7" />,
   eye: (

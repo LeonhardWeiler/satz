@@ -71,7 +71,8 @@ export function Specimen({ editor, style, onPick }: { editor: Editor; style: str
       {menu &&
         createPortal(
           <ContextMenu
-            menu={{ x: menu.left, y: menu.bottom + 4 }}
+            anchor={() => menu}
+            side="bottom"
             label="Text styles"
             onClose={() => setMenu(null)}
             items={[

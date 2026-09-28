@@ -906,17 +906,37 @@ span.swatch {
 }
 
 .select {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
   height: 24px;
   min-width: 0;
-  padding: 0 4px;
+  padding: 0 4px 0 8px;
   border: 1px solid transparent;
   border-radius: 5px;
   background: var(--input);
   color: var(--text);
   font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.12s var(--ease);
 }
 
-.select:hover {
+.select > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.select > svg {
+  flex: none;
+  color: var(--text-3);
+  transform: rotate(90deg);
+}
+
+.select:hover,
+.select[aria-expanded='true'] {
   border-color: var(--border);
 }
 

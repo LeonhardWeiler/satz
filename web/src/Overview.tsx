@@ -327,7 +327,7 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       {menu &&
         createPortal(
           <ContextMenu
-            menu={menu}
+            anchor={() => new DOMRect(menu.x, menu.y)}
             label={menu.master ? 'Master' : 'Page'}
             onClose={() => setMenu(null)}
             items={

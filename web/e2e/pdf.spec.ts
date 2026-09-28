@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { type Page } from '@playwright/test'
 import { PNG } from 'pngjs'
 import { fitView, type Sheet } from '../src/renderer'
-import { expect, test, STORY, addMaster, addPage, drag, drawn, exportButton, frameOnNewPage, near, open, openExample, pixels, place, png, port, screen, showPage } from './util'
+import { expect, test, STORY, addMaster, addPage, drag, drawn, exportButton, frameOnNewPage, near, open, openExample, pixels, place, png, port, screen, showPage, choose } from './util'
 
 const EDGE = 4
 const BLOCK = 4
@@ -245,7 +245,7 @@ test('a cmyk document exports cmyk and spot colours and matches the canvas', asy
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
   const rects = page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true })
-  await panel.getByRole('combobox', { name: 'Color mode' }).selectOption('CMYK')
+  await choose(panel.getByRole('combobox', { name: 'Color mode' }), 'CMYK')
 
   await page.getByRole('region', { name: 'Swatches' }).getByRole('button', { name: 'Add swatch' }).click()
   const editor = page.getByRole('dialog', { name: 'Edit swatch' })
@@ -295,15 +295,17 @@ test('each preset exports as its standard', async ({ page }) => {
   const preset = panel.getByRole('combobox', { name: 'Preset' })
   const show = (pdf: string) => execFileSync('mutool', ['show', '-b', pdf, 'trailer/Root/OutputIntents/1']).toString()
   const trace = (pdf: string) => execFileSync('mutool', ['draw', '-F', 'trace', '-o', '-', pdf]).toString()
-  await expect(preset).toHaveValue('x4')
-  await expect(preset.getByRole('option', { name: 'PDF/X-1a, print, CMYK documents only' })).toBeDisabled()
+  await expect(preset).toHaveText('PDF/X-4, print')
+  await preset.click()
+  await expect(page.getByRole('menuitemradio', { name: 'PDF/X-1a, print, CMYK documents only' })).toBeDisabled()
+  await page.keyboard.press('Escape')
 
   const x4 = await save()
   expect(show(x4)).toContain('/S /GTS_PDFX')
   expect(readFileSync(x4).toString('latin1')).toContain('/GTS_PDFXVersion(PDF/X-4)')
   expect(execFileSync('mutool', ['pages', x4, '1']).toString()).toContain('<BleedBox')
 
-  await preset.selectOption('screen')
+  await choose(preset, 'PDF, screen')
   await expect(panel.getByRole('checkbox', { name: 'Crop marks' })).toBeDisabled()
   const screen = await save()
   const boxes = execFileSync('mutool', ['pages', screen, '1']).toString()
@@ -311,9 +313,9 @@ test('each preset exports as its standard', async ({ page }) => {
   expect(readFileSync(screen).toString('latin1')).not.toContain('GTS_PDFX')
 
   await page.keyboard.press('Escape')
-  await page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Color mode' }).selectOption('CMYK')
+  await choose(page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Color mode' }), 'CMYK')
   await exportButton(page)
-  await preset.selectOption('x1a')
+  await choose(preset, 'PDF/X-1a, print')
   await panel.getByRole('checkbox', { name: 'Crop marks' }).uncheck()
   await panel.getByRole('checkbox', { name: /Include \d+ mm bleed/ }).uncheck()
   const x1a = await save()
@@ -344,7 +346,7 @@ test('an auto layout frame with a colour variable in a second mode matches the c
 
   await layers.getByRole('button', { name: 'Frame', exact: true }).click()
   await page.keyboard.press('Shift+A')
-  await panel.getByRole('combobox', { name: 'Collection 1 mode' }).selectOption('Mode 2')
+  await choose(panel.getByRole('combobox', { name: 'Collection 1 mode' }), 'Mode 2')
   await panel.getByRole('textbox', { name: 'Top padding in mm' }).fill('4')
   await panel.getByRole('textbox', { name: 'Top padding in mm' }).press('Enter')
   await layers.getByRole('button', { name: 'Rectangle', exact: true }).first().click()
@@ -371,7 +373,7 @@ test('formatted text matches the canvas', async ({ page }) => {
     await panel.getByRole('textbox', { name }).press('Enter')
   }
   await panel.getByRole('radio', { name: 'Align right' }).click()
-  await panel.getByRole('combobox', { name: 'Hyphenation language' }).selectOption('German')
+  await choose(panel.getByRole('combobox', { name: 'Hyphenation language' }), 'German')
   for (const [name, value] of [['Top inset in mm', '3'], ['Columns', '2'], ['Gutter in mm', '4'], ['Baseline grid in pt', '21']]) {
     await panel.getByRole('textbox', { name }).fill(value)
     await panel.getByRole('textbox', { name }).press('Enter')
@@ -413,7 +415,7 @@ test('a master drawn under a page matches the canvas', async ({ page }) => {
   await page.mouse.move(...at(0.8, 0.95), { steps: 4 })
   await page.mouse.up()
   await showPage(page, 1)
-  await page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Master' }).selectOption('A-Master')
+  await choose(page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Master' }), 'A-Master')
   await page.mouse.move(1, 1)
   await expectCanvasMatchesPdf(page)
 })
@@ -460,7 +462,7 @@ test('the pages of a spread show their sides of a master spread and match the ca
   await drag(page, await screen(page, 10, 10, 0), await screen(page, 40, 25, 0))
   for (let i = 0; i < 2; i++) {
     await addPage(page)
-    await panel.getByRole('combobox', { name: 'Master' }).selectOption('A-Master')
+    await choose(panel.getByRole('combobox', { name: 'Master' }), 'A-Master')
   }
   await page.mouse.move(1, 1)
   await expectCanvasMatchesPdf(page, 2, [2, 3])

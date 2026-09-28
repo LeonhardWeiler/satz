@@ -77,7 +77,8 @@ export function Quick({ editor, onMore }: { editor: Editor; onMore: () => void }
       {menu &&
         createPortal(
           <ContextMenu
-            menu={{ x: menu.left, y: menu.bottom + 4 }}
+            anchor={() => menu}
+            side="bottom"
             label="Swatches"
             onClose={() => setMenu(null)}
             items={snapshot.swatches.length ? snapshot.swatches.map((s): [ReactNode, () => void, boolean, boolean] => [

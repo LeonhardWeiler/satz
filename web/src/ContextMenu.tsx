@@ -1,28 +1,33 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { roam } from './controls'
-import { Popover } from './Popover'
+import { Icon } from './icons'
+import { Popover, type Anchor } from './Popover'
 
-/** A menu at the pointer that closes on a pick, Escape or a click elsewhere; an item with a fourth value is a radio item. */
+/** A menu beside `anchor` that closes on a pick, Escape or a click elsewhere; an item with a fourth value is a radio item. */
 export function ContextMenu({
-  menu,
+  anchor,
+  side = 'right',
   label,
   items,
   onClose,
 }: {
-  menu: { x: number; y: number }
+  anchor: Anchor
+  side?: 'right' | 'bottom'
   label: string
   items: [ReactNode, () => void, boolean, boolean?][]
   onClose: () => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    if (!ref.current!.contains(document.activeElement)) ref.current!.focus()
+    const back = document.activeElement as HTMLElement | null
+    if (!ref.current!.contains(back)) ref.current!.focus()
+    return () => back?.focus({ preventScroll: true })
   }, [])
   return (
     <div className="menu-backdrop" onPointerDown={onClose} onContextMenu={(e) => e.preventDefault()}>
       <Popover
-        anchor={() => new DOMRect(menu.x, menu.y, 0, 0)}
-        side="right"
+        anchor={anchor}
+        side={side}
         ref={ref}
         tabIndex={-1}
         className="menu"
@@ -30,7 +35,11 @@ export function ContextMenu({
         aria-label={label}
         onPointerDown={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
-          if (e.key === 'Escape') onClose()
+          if (e.key === 'Escape') {
+            e.preventDefault()
+            e.stopPropagation()
+            onClose()
+          }
           else roam(e, [...e.currentTarget.querySelectorAll('[role^=menuitem]:not(:disabled)')])
         }}
       >
@@ -48,7 +57,7 @@ export function ContextMenu({
               run()
             }}
           >
-            <span />
+            <span>{checked && <Icon name="check" />}</span>
             <span>{label}</span>
           </button>
         ))}

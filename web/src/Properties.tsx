@@ -119,28 +119,12 @@ export function Properties({
             <ModeSelects editor={editor} id={page.id} own={page.modes} inherited={{}} />
           </div>
           {isPage && (
-            <select
-              className="select"
-              aria-label="Master"
-              title="Master"
-              value={master === null ? 'mixed' : master}
-              onChange={(e) => {
-                const m = e.currentTarget.value || null
-                editor.batch(() => targets.forEach((id) => editor.apply({ type: 'useMaster', page: id, master: m })))
-              }}
-            >
-              <option value="">None</option>
-              {snapshot.masters.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-              {master === null && (
-                <option value="mixed" disabled>
-                  Mixed
-                </option>
-              )}
-            </select>
+            <Select
+              label="Master"
+              value={master}
+              options={Object.fromEntries([['', 'None'], ...snapshot.masters.map((m) => [m.id, m.name])])}
+              onChange={(m) => editor.batch(() => targets.forEach((id) => editor.apply({ type: 'useMaster', page: id, master: m || null })))}
+            />
           )}
           {isPage && page.detached.length > 0 && (
             <button type="button" className="button" onClick={() => editor.apply({ type: 'resetToMaster', ids: [page.id] })}>
@@ -368,21 +352,16 @@ function DocumentSection({ editor }: { editor: Editor }) {
   return (
     <Section title="Document">
       <div className="row">
-        <select
-          className="select"
-          aria-label="Format"
-          title="Format"
+        <Select
+          label="Format"
           value={format}
-          onChange={(e) => {
-            const [, a, b] = FORMATS.find(([n]) => n === e.currentTarget.value)!
+          options={Object.fromEntries([...FORMATS.map(([n]) => [n, n]), ['Custom', 'Custom']])}
+          disabled={['Custom']}
+          onChange={(n) => {
+            const [, a, b] = FORMATS.find(([f]) => f === n)!
             each(() => (landscape ? { width: b * MM, height: a * MM } : { width: a * MM, height: b * MM }))
           }}
-        >
-          {FORMATS.map(([n]) => (
-            <option key={n}>{n}</option>
-          ))}
-          <option disabled>Custom</option>
-        </select>
+        />
         <div role="radiogroup" aria-label="Orientation" className="segmented">
           {(['portrait', 'landscape'] as const).map((o) => (
             <button

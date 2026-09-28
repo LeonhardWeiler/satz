@@ -1,4 +1,4 @@
-import { expect, test, open, pixels, screen } from './util'
+import { expect, test, open, pixels, screen, choose } from './util'
 
 test('type attributes and a text style are set in the text section and edited on the page', async ({ page }) => {
   await open(page)
@@ -41,12 +41,12 @@ test('hyphenation is switched per paragraph with its language', async ({ page })
   const hyphenate = panel.getByRole('checkbox', { name: 'Hyphenate' })
   const lang = panel.getByRole('combobox', { name: 'Hyphenation language' })
   await expect(hyphenate).toBeChecked()
-  await expect(lang).toHaveValue('en')
-  await lang.selectOption('German')
+  await expect(lang).toHaveText('English')
+  await choose(lang, 'German')
   await hyphenate.uncheck()
   await page.keyboard.press('Control+z')
   await expect(hyphenate).toBeChecked()
-  await expect(lang).toHaveValue('de')
+  await expect(lang).toHaveText('German')
 })
 
 test('insets, columns, vertical alignment and baseline grid are set in the text frame section', async ({ page }) => {
@@ -85,7 +85,7 @@ test('a clicked text is auto width, a dragged one a fixed empty box shown while 
   await expect(mode('Auto width')).toBeChecked()
   await expect(field('W in mm')).toHaveValue('0')
   await expect(field('H in mm')).toHaveValue('5.8')
-  await expect(panel.getByRole('combobox', { name: 'Width sizing' })).toHaveValue('hug')
+  await expect(panel.getByRole('combobox', { name: 'Width sizing' })).toHaveText('Hug')
 
   await page.keyboard.press('Escape')
   await page.keyboard.press('t')
@@ -107,7 +107,7 @@ test('a clicked text is auto width, a dragged one a fixed empty box shown while 
   await expect(mode('Fixed size')).toBeChecked()
   await mode('Auto height').click()
   await expect(field('H in mm')).toHaveValue('5.8')
-  await panel.getByRole('combobox', { name: 'Width sizing' }).selectOption('Hug')
+  await choose(panel.getByRole('combobox', { name: 'Width sizing' }), 'Hug')
   await expect(mode('Auto width')).toBeChecked()
   await expect(field('W in mm')).not.toHaveValue('40')
 })

@@ -1,5 +1,5 @@
 import { type Locator, type Page } from '@playwright/test'
-import { expect, test, colors, open, screen } from './util'
+import { expect, test, colors, open, screen, choose } from './util'
 
 const near = ([r, g, b]: number[], [R, G, B]: number[]) => Math.max(Math.abs(r - R), Math.abs(g - G), Math.abs(b - B)) <= 24
 
@@ -92,13 +92,13 @@ test('a fill bound to a colour variable follows the mode of its frame and page',
 
   await page.keyboard.press('Escape')
   await page.keyboard.press('Escape')
-  await panel.getByRole('combobox', { name: 'Collection 1 mode' }).selectOption('Mode 2')
+  await choose(panel.getByRole('combobox', { name: 'Collection 1 mode' }), 'Mode 2')
   await expectColors(blue, blue)
 
   await layers.getByRole('button', { name: 'Frame', exact: true }).click()
   const frameMode = panel.getByRole('combobox', { name: 'Collection 1 mode' })
-  await expect(frameMode.getByRole('option', { selected: true })).toHaveText('Auto (Mode 2)')
-  await frameMode.selectOption('Mode 1')
+  await expect(frameMode).toHaveText('Auto (Mode 2)')
+  await choose(frameMode, 'Mode 1')
   await expectColors(blue, red)
 })
 
@@ -117,7 +117,7 @@ test('a number variable binds to width and detaches with the value of the curren
   await page.keyboard.press('Escape')
 
   const panel = page.getByRole('complementary', { name: 'Properties' })
-  await panel.getByRole('combobox', { name: 'Collection 1 mode' }).selectOption('Mode 2')
+  await choose(panel.getByRole('combobox', { name: 'Collection 1 mode' }), 'Mode 2')
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).last().click()
   await panel.getByRole('button', { name: 'Apply variable to W in mm' }).click()
   await page.getByRole('listbox', { name: 'Number variables' }).getByRole('option', { name: 'Number 1' }).click()

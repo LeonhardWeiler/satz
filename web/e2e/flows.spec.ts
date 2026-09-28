@@ -1,5 +1,5 @@
 import { type Page } from '@playwright/test'
-import { expect, test, addMaster, autosaved, current, open, option, overview } from './util'
+import { expect, test, addMaster, autosaved, current, open, option, overview, choose } from './util'
 
 const start = (page: Page) => page.getByRole('dialog', { name: 'New document' })
 
@@ -55,19 +55,19 @@ test('the overview lists masters above vertical spreads, assigns a master and re
 
   const master = page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Master' })
   await option(page, 3).click()
-  await master.selectOption('A-Master')
+  await choose(master, 'A-Master')
   await option(page, 4).click({ modifiers: ['Shift'] })
-  await expect(master.locator('option:checked')).toHaveText('Mixed')
-  await master.selectOption('B-Master')
-  await expect(master.locator('option:checked')).toHaveText('B-Master')
+  await expect(master).toHaveText('Mixed')
+  await choose(master, 'B-Master')
+  await expect(master).toHaveText('B-Master')
 
   await option(page, 6).dragTo(option(page, 2), { targetPosition: { x: 20, y: 2 } })
   await option(page, 3).click()
-  await expect(master.locator('option:checked')).not.toHaveText('B-Master')
+  await expect(master).not.toHaveText('B-Master')
   await option(page, 4).click()
-  await expect(master.locator('option:checked')).toHaveText('B-Master')
+  await expect(master).toHaveText('B-Master')
   await option(page, 5).click()
-  await expect(master.locator('option:checked')).toHaveText('B-Master')
+  await expect(master).toHaveText('B-Master')
   await page.keyboard.press('Escape')
   await expect(region).toHaveCount(0)
 })

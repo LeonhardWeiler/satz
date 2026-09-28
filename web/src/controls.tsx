@@ -1,4 +1,6 @@
-import { useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
+import { ContextMenu } from './ContextMenu'
 import { MM } from './editor'
 import { evalExpr, step } from './field'
 import { Icon } from './icons'
@@ -133,10 +135,12 @@ export function Field({
 }
 
 /** A text input that commits a changed, non-empty value on blur or Enter. */
-export function NameInput({ label, value, onCommit }: { label: string; value: string; onCommit: (v: string) => void }) {
+export function NameInput({ label, value, autoFocus, onCommit }: { label: string; value: string; autoFocus?: boolean; onCommit: (v: string) => void }) {
   return (
     <input
       key={value}
+      autoFocus={autoFocus}
+      onFocus={(e) => autoFocus && e.currentTarget.select()}
       className="name-input"
       name={label.toLowerCase().replaceAll(' ', '-')}
       aria-label={label}
@@ -149,8 +153,9 @@ export function NameInput({ label, value, onCommit }: { label: string; value: st
         else e.currentTarget.value = value
       }}
       onKeyDown={(e) => {
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' || e.key === 'Escape') {
           e.preventDefault()
+          if (e.key === 'Escape') e.currentTarget.value = value
           e.currentTarget.blur()
         }
       }}
@@ -162,6 +167,7 @@ export function NameInput({ label, value, onCommit }: { label: string; value: st
 export const nextName = (prefix: string, names: string[]) =>
   `${prefix} ${Math.max(0, ...names.map((n) => (n.startsWith(`${prefix} `) ? Number(n.slice(prefix.length + 1)) || 0 : 0))) + 1}`
 
+/** A button that shows the option of `value`, or Mixed for null, and picks another from a menu. */
 export function Select<T extends string>({
   label,
   value,
@@ -170,19 +176,46 @@ export function Select<T extends string>({
   onChange,
 }: {
   label: string
-  value: T
-  options: Record<T, string>
+  value: T | null
+  options: Record<T, ReactNode>
   disabled?: T[]
   onChange: (v: T) => void
 }) {
+  const ref = useRef<HTMLButtonElement>(null)
+  const [host, setHost] = useState<Element | null>(null)
+  const open = (e: { currentTarget: Element }) => setHost(e.currentTarget.closest('dialog') ?? document.body)
   return (
-    <select className="select" aria-label={label} title={label} value={value} onChange={(e) => onChange(e.currentTarget.value as T)}>
-      {Object.entries<string>(options).map(([v, text]) => (
-        <option key={v} value={v} disabled={disabled.includes(v as T)}>
-          {text}
-        </option>
-      ))}
-    </select>
+    <>
+      <button
+        ref={ref}
+        type="button"
+        className="select"
+        role="combobox"
+        aria-label={label}
+        aria-expanded={!!host}
+        aria-haspopup="menu"
+        onClick={open}
+        onKeyDown={(e) => {
+          if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+          e.preventDefault()
+          open(e)
+        }}
+      >
+        <span>{value === null ? 'Mixed' : options[value]}</span>
+        <Icon name="chevron" />
+      </button>
+      {host &&
+        createPortal(
+          <ContextMenu
+            anchor={() => ref.current!.getBoundingClientRect()}
+            side="bottom"
+            label={label}
+            onClose={() => setHost(null)}
+            items={(Object.keys(options) as T[]).map((v) => [options[v], () => onChange(v), !disabled.includes(v), v === value])}
+          />,
+          host,
+        )}
+    </>
   )
 }
 

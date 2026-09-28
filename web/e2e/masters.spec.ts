@@ -3,7 +3,7 @@ import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type Page } from '@playwright/test'
-import { expect, test, addMaster, addPage, colors, current, drag, exportButton, open, overview, screen, showPage } from './util'
+import { expect, test, addMaster, addPage, colors, current, drag, exportButton, open, overview, screen, showPage, choose } from './util'
 
 const gray = ([r, g, b]: number[]) => [r, g, b].every((c) => Math.abs(c - 0xd9) < 8)
 
@@ -21,7 +21,7 @@ async function applied(page: Page) {
   await drag(page, await screen(page, 20, 197), await screen(page, 60, 207))
   await expect(rects(page)).toHaveCount(1)
   await showPage(page, 1)
-  await page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Master' }).selectOption('A-Master')
+  await choose(page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Master' }), 'A-Master')
   await expect((await overview(page)).getByTitle('Master A-Master', { exact: true })).toHaveText('A')
   await page.keyboard.press('.')
 }
@@ -94,7 +94,7 @@ test('a page shows the prefix of its master as its page numbers do, in any scrip
   await pages.getByRole('textbox', { name: 'Master name' }).fill('ÄB-Master')
   await pages.getByRole('textbox', { name: 'Master name' }).press('Enter')
   await showPage(page, 1)
-  await page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Master' }).selectOption('ÄB-Master')
+  await choose(page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Master' }), 'ÄB-Master')
   await expect((await overview(page)).getByTitle('Master ÄB-Master', { exact: true })).toHaveText('ÄB')
 })
 
@@ -110,7 +110,7 @@ async function sides(page: Page) {
   await expect(rects(page)).toHaveCount(2)
   for (let i = 0; i < 2; i++) {
     await addPage(page)
-    await panel.getByRole('combobox', { name: 'Master' }).selectOption('A-Master')
+    await choose(panel.getByRole('combobox', { name: 'Master' }), 'A-Master')
   }
 }
 
@@ -173,7 +173,7 @@ test('a page number on the pages of a master spread shows the number of each pag
   await expect(layers.getByRole('button', { name: '#', exact: true })).toHaveCount(2)
   for (let i = 0; i < 2; i++) {
     await addPage(page)
-    await panel.getByRole('combobox', { name: 'Master' }).selectOption('A-Master')
+    await choose(panel.getByRole('combobox', { name: 'Master' }), 'A-Master')
   }
   const pdf = join(mkdtempSync(join(tmpdir(), 'satz-')), 'satz.pdf')
   const download = page.waitForEvent('download')

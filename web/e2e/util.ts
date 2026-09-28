@@ -1,4 +1,4 @@
-import { expect, test as base, type Page } from '@playwright/test'
+import { expect, test as base, type Locator, type Page } from '@playwright/test'
 import { join } from 'node:path'
 import { PNG } from 'pngjs'
 import { fitView, type Sheet } from '../src/renderer'
@@ -35,6 +35,12 @@ export async function open(page: Page, width = 1400) {
  * Screen position of a point in mm on page `i` of the fitted spread the canvas shows,
  * by default the right or only one.
  */
+/** Picks `option` in the custom select `select`. */
+export async function choose(select: Locator, option: string) {
+  await select.click()
+  await select.page().getByRole('menu', { name: (await select.getAttribute('aria-label'))! }).getByRole('menuitemradio', { name: option, exact: true }).click()
+}
+
 export async function screen(page: Page, x: number, y: number, i?: number) {
   const canvas = page.getByLabel('Page canvas')
   const box = (await canvas.boundingBox())!

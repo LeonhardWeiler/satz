@@ -1,5 +1,5 @@
 import { type Locator, type Page } from '@playwright/test'
-import { expect, test, open, pixels, screen } from './util'
+import { expect, test, open, pixels, screen, choose } from './util'
 
 const near = ([r, g, b]: number[], [R, G, B]: number[]) => Math.max(Math.abs(r - R), Math.abs(g - G), Math.abs(b - B)) <= 24
 
@@ -85,7 +85,7 @@ test('a cmyk document shows and takes cmyk values in the picker', async ({ page 
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
   const rects = page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true })
-  await panel.getByRole('combobox', { name: 'Color mode' }).selectOption('CMYK')
+  await choose(panel.getByRole('combobox', { name: 'Color mode' }), 'CMYK')
 
   await rects.last().click()
   await panel.getByRole('button', { name: 'Fill color' }).click()

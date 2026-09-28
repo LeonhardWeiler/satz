@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { type Page } from '@playwright/test'
-import { expect, test, addMaster, colors, drag, exportButton, open, preflight, screen, showPage } from './util'
+import { expect, test, addMaster, colors, drag, exportButton, open, preflight, screen, showPage, choose } from './util'
 
 const layers = (page: Page) => page.getByRole('tree', { name: 'Layers' })
 const rect = (page: Page) => layers(page).getByRole('treeitem', { name: 'Rectangle' }).first()
@@ -90,7 +90,7 @@ test('a hidden master layer is not drawn on its pages', async ({ page }) => {
   await rect(page).hover()
   await rect(page).getByRole('button', { name: 'Hide' }).click()
   await showPage(page, 1)
-  await page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Master' }).selectOption('A-Master')
+  await choose(page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Master' }), 'A-Master')
   await expect(page.getByText('A-Master master items')).toBeVisible()
   await page.mouse.move(1, 1)
   expect(await at(page, await screen(page, 40, 202))).toBe(paper)
