@@ -61,3 +61,14 @@ Open:
 - Masters based on other masters; overriding layers nested in a master's groups
   and frames.
 - Threading: click an in-port to thread a frame in before another, as InDesign does.
+- Rotation: resize cursors turned with the layer, a turned multi-selection resized
+  in its own frame, ports on turned text frames.
+- Text wrap around layers, with an offset, for text frames under images and shapes.
+- Baseline grid per document that text snaps to, shown with the layout grids.
+- Find and replace across all stories, with text styles as a filter.
+- Spell check in the language of the text (Hunspell dictionaries in WASM).
+- Place SVG and PDF as vectors, kept as vectors in the exported PDF.
+- Export pages as PNG or JPEG next to PDF.
+- Package: one ZIP with the document, its fonts and images for the printer.
+- Version history from the Loro history: browse and restore earlier states.
+- Works offline as an installable PWA.
