@@ -7,6 +7,17 @@ import { scopeOf, useEditor, type Editor } from './editor'
 import type { Fill } from './model'
 import { Icon } from './icons'
 
+/** Fills the selection with the swatch `id`; false when nothing is selected. */
+export function fillWith(editor: Editor, id: string) {
+  const nodes = editor.selected()
+  if (!nodes.length) return false
+  const fill: Fill = { type: 'solid', color: { swatch: id, tint: 1, alpha: 1 }, stops: [], transform: [1, 0, 0, 1, 0, 0], visible: true }
+  editor.batch(() => {
+    for (const n of nodes) editor.apply({ type: 'set', id: n.id, fills: [fill] })
+  })
+  return true
+}
+
 export function Swatches({ editor }: { editor: Editor }) {
   const snapshot = useEditor(editor, (e) => e.snapshot)
   const swatches = snapshot.swatches
@@ -22,12 +33,7 @@ export function Swatches({ editor }: { editor: Editor }) {
     const name = nextName('Swatch', swatches.map((s) => s.name))
     setEditing(editor.apply({ type: 'addSwatch', name, color, spot: false })[0])
   }
-  const pick = (id: string) => {
-    const nodes = editor.selected()
-    if (nodes.length === 0) return setEditing(id)
-    const fill: Fill = { type: 'solid', color: { swatch: id, tint: 1, alpha: 1 }, stops: [], transform: [1, 0, 0, 1, 0, 0], visible: true }
-    for (const n of nodes) editor.apply({ type: 'set', id: n.id, fills: [fill] })
-  }
+  const pick = (id: string) => fillWith(editor, id) || setEditing(id)
   const set = (patch: { name?: string; color?: Color; spot?: boolean }) =>
     editing && editor.apply({ type: 'setSwatch', id: editing, ...patch })
 

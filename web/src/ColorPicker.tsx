@@ -40,13 +40,24 @@ export function Chip({ color, scope }: { color: Color; scope: Scope }) {
 
 export const NO_SCOPE: Scope = { swatches: [], collections: [], variables: [], modes: {} }
 
+/** A swatch colour's CMYK values in %, or RGB. */
+export const ink = (c: Color) => (typeof c === 'object' && 'cmyk' in c ? c.cmyk.map((v) => Math.round(v * 100)).join(' ') : 'RGB')
+
 export function SwatchOption({ swatch, selected, onPick }: { swatch: Swatch; selected: boolean; onPick: () => void }) {
-  const kind = swatch.spot ? 'Spot color' : `Process color (${typeof swatch.color === 'number' ? 'RGB' : 'CMYK'})`
+  const values = ink(swatch.color)
+  const kind = swatch.spot ? 'Spot color' : `Process color (${values === 'RGB' ? 'RGB' : 'CMYK'})`
   return (
-    <button type="button" role="option" aria-selected={selected} className="swatch-option" title={`${swatch.name} · ${kind}`} onClick={onPick}>
+    <button type="button" role="option" aria-selected={selected} className="swatch-option" title={`${swatch.name} · ${kind} · ${values}`} onClick={onPick}>
       <Chip color={swatch.color} scope={NO_SCOPE} />
       <span className="swatch-name">{swatch.name}</span>
-      <Icon name={swatch.spot ? 'spot' : 'process'} />
+      <span className="swatch-ink" data-ink={values} />
+      {values === 'RGB' ? (
+        <span className="swatch-warn" title="RGB only, converted when printed">
+          <Icon name="warn" />
+        </span>
+      ) : (
+        swatch.spot && <Icon name="spot" />
+      )}
     </button>
   )
 }

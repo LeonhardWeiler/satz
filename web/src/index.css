@@ -2090,3 +2090,159 @@ kbd {
   color: var(--text-3);
   transform: rotate(90deg);
 }
+
+.palette[open],
+.help[open] {
+  margin-top: 12vh;
+  padding: 0;
+  border: 1px solid var(--edge);
+  border-radius: 10px;
+  background: var(--menu);
+  color: var(--text);
+  box-shadow: 0 24px 64px rgb(0 0 0 / 0.5);
+  animation: pop 0.14s var(--ease);
+}
+
+.palette::backdrop,
+.help::backdrop {
+  background: rgb(12 13 14 / 0.45);
+}
+
+.palette {
+  width: min(560px, 92vw);
+  overflow: hidden;
+}
+
+.pal-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 46px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-3);
+}
+
+.pal-in {
+  flex: 1;
+  height: 100%;
+  border: 0;
+  background: none;
+  color: var(--text);
+  outline: none;
+  font: inherit;
+  font-size: 14px;
+}
+
+.pal-list {
+  max-height: 50vh;
+  padding: 4px;
+  overflow: auto;
+}
+
+.pal-g {
+  padding: 8px 10px 4px;
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.pal-it {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.pal-it span:not(.chip) {
+  flex: 1;
+}
+
+.pal-it .chip {
+  width: 14px;
+  height: 14px;
+}
+
+.pal-it svg {
+  flex: none;
+  color: var(--text-3);
+}
+
+.pal-it[aria-selected='true'] {
+  background: var(--selected);
+}
+
+.pal-it[aria-selected='true'] svg {
+  color: var(--accent);
+}
+
+.pal-empty {
+  margin: 0;
+  padding: 16px;
+  color: var(--text-2);
+}
+
+.help {
+  width: min(920px, 94vw);
+  max-height: 76vh;
+  overflow: auto;
+}
+
+.help-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 12px 0 20px;
+}
+
+.help-head h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.help-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 8px 28px;
+  padding: 12px 20px 20px;
+}
+
+.help-grid h3 {
+  margin: 8px 0 6px;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.help-r {
+  display: flex;
+  gap: 12px;
+  padding: 3px 0;
+}
+
+.help-r kbd {
+  min-width: 110px;
+  margin: 0;
+  color: var(--accent);
+}
+
+.help-r span {
+  color: var(--text-2);
+}
+
+.swatch-ink::after {
+  content: attr(data-ink);
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.swatch-option .swatch-warn svg {
+  color: var(--warn);
+}
