@@ -134,7 +134,7 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     editor.showPage(id)
     select([id])
   }
-  const addPage = () => show(editor.apply({ type: 'addPage', after: ids.filter((id) => selected.includes(id)).at(-1) ?? null })[0])
+  const addPage = () => show(editor.apply({ type: 'addPage', after: ids.at(-1) ?? null })[0])
   const addMaster = (like: string) => {
     const [id] = editor.apply({ type: 'addMaster', like })
     if (id) openPage(id)
@@ -223,6 +223,14 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     )
   }
 
+  const rows = facing ? spreads : ids.map((id) => [id])
+  const joins = facing && rows.length > 1 && rows.at(-1)!.length === 1
+  const add = (
+    <button type="button" className="ov-add ov-add-page" aria-label="Add page" title="Add page" style={{ width: width(pages.at(-1)!), height: PAGE }} onClick={addPage}>
+      <Icon name="plus" />
+    </button>
+  )
+
   return (
     <section className="overview" aria-label="Page overview" onPointerDown={editor.gesture}>
       <h2>
@@ -295,7 +303,7 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         tabIndex={0}
         onKeyDown={onKey}
       >
-        {(facing ? spreads : ids.map((id) => [id])).map((spread, k) => (
+        {rows.map((spread, k) => (
           <div
             key={spread.join()}
             className="ov-item"
@@ -305,6 +313,7 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           >
             <div className="ov-pages" style={facing && k === 0 && spread.length === 1 ? { paddingLeft: width(pages[0]) } : undefined}>
               {spread.map((id) => pageThumb(pages[ids.indexOf(id)]))}
+              {k === rows.length - 1 && joins && add}
             </div>
             <span className="ov-cap">
               {spread.map((id) => {
@@ -319,10 +328,11 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
             </span>
           </div>
         ))}
-        <button type="button" className="ov-add" onClick={addPage}>
-          <Icon name="plus" />
-          Add page
-        </button>
+        {!joins && (
+          <div className="ov-item">
+            <div className="ov-pages">{add}</div>
+          </div>
+        )}
       </div>
       {menu &&
         createPortal(
