@@ -170,7 +170,7 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
         })}
       </div>
       <Segmented label="Text align" value={align} options={ALIGNS} onChange={(textAlign) => format({ textAlign })} />
-      <div className="row">
+      <div className="grid">
         <label className="check">
           <input
             type="checkbox"
