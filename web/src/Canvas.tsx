@@ -195,6 +195,8 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
       return editor.spread.reduce((a, b) => (away(b) < away(a) ? b : a))
     }
     /** The path of layers at `p` on the topmost page of the spread that has one there. */
+    /** The text frame under `p`, innermost first. */
+    const textUnder = (p: Point) => hit(p).path.findLast((id) => editor.nodes.get(id)?.node.kind === 'text')
     const hit = (p: Point) => {
       for (const page of [...editor.spread].reverse()) {
         const path = editor.engine.hit(page.id, p.x - page.x, p.y, HIT / view.zoom)
@@ -445,7 +447,10 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
     const track = () => {
       if (!pointer || drag || editor.pen) return
       const side = portUnder(pointer)?.side
-      canvas.style.cursor = side ? 'pointer' : editor.vector?.mode === 'add' ? 'crosshair' : (CURSORS[handleUnder(pointer) ?? ''] ?? '')
+      const to = editor.threading && textUnder(toDoc(pointer))
+      canvas.style.cursor = side ? 'pointer'
+        : to ? (editor.engine.canThread(editor.threading!, to) ? '' : 'not-allowed')
+        : editor.vector?.mode === 'add' ? 'crosshair' : (CURSORS[handleUnder(pointer) ?? ''] ?? '')
       const mode = pointer.ctrlKey ? 'deep' : 'click'
       const id = editor.tool === 'move' ? pickAt(toDoc(pointer), mode) : undefined
       if (id !== hover || side !== port) {
@@ -548,11 +553,12 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
         // A loaded out-port threads into the text frame clicked, or a new one drawn.
         const from = editor.threading
         if (portUnder(e)) return
-        const to = hit(p).path.findLast((id) => editor.nodes.get(id)?.node.kind === 'text')
+        const to = textUnder(p)
         if (to === from) return
         if (to) {
+          const ok = editor.engine.canThread(from, to)
           editor.apply({ type: 'thread', from, to })
-          editor.set({ threading: null, selection: [to] })
+          if (ok) editor.set({ threading: null, selection: [to] })
           return
         }
         editor.beginGroup()

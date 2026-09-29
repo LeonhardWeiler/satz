@@ -753,8 +753,9 @@ impl Doc {
         Ok(vec![])
     }
 
-    pub(super) fn thread_after(&self, from: String, to: String) -> Res<Vec<String>> {
-        let (a, b) = (self.node(&from)?, self.node(&to)?);
+    /// The text frames `from` and `to` if `to` can join the thread after `from`.
+    pub fn threadable(&self, from: &str, to: &str) -> Res<(TreeID, TreeID)> {
+        let (a, b) = (self.node(from)?, self.node(to)?);
         if self.kind(a) != Some(NodeKind::Text) || self.kind(b) != Some(NodeKind::Text) {
             return Err("only text frames thread".into());
         }
@@ -767,6 +768,11 @@ impl Doc {
         {
             return Err("frames thread within the pages or within one master".into());
         }
+        Ok((a, b))
+    }
+
+    pub(super) fn thread_after(&self, from: String, to: String) -> Res<Vec<String>> {
+        let (a, b) = self.threadable(&from, &to)?;
         let own = self.own_text(b)?;
         if own.len_utf16() > 0 {
             let story = self.text(a)?;

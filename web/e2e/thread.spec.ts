@@ -62,6 +62,18 @@ test('a click on the out-port and then on a frame threads the story on into it',
   expect(await overset(page, await port(page, A, true))).toBe(false)
 })
 
+test('a frame that cannot take the thread shows a not-allowed cursor and a click on it keeps threading', async ({ page }) => {
+  await threaded(page)
+  const canvas = page.getByLabel('Page canvas')
+  await page.mouse.click(...(await screen(page, A[0] + 5, A[1] + 5)))
+  await page.mouse.click(...(await port(page, A, true)))
+  await expect(canvas).toHaveAttribute('data-threading')
+  await page.mouse.move(...(await screen(page, B[0] + 5, B[1] + 5)))
+  await expect(canvas).toHaveCSS('cursor', 'not-allowed')
+  await page.mouse.click(...(await screen(page, B[0] + 5, B[1] + 5)))
+  await expect(canvas).toHaveAttribute('data-threading')
+})
+
 test('the in-port of a threaded frame shows the frame it comes from while hovered', async ({ page }) => {
   await threaded(page)
   const [x, y] = await screen(page, (A[0] + A[2]) / 2, A[1])

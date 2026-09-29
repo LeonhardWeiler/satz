@@ -127,6 +127,12 @@ impl Engine {
         Ok(self.doc.turn_of(id).map_err(|e| JsError::new(&e))?.to_vec())
     }
 
+    /// Whether the text frame `to` can join the thread after `from`.
+    #[wasm_bindgen(js_name = canThread)]
+    pub fn can_thread(&self, from: &str, to: &str) -> bool {
+        self.doc.threadable(from, to).is_ok()
+    }
+
     /// The frame of the thread of the text `id` that holds the UTF-16 `index`.
     #[wasm_bindgen(js_name = textFrame)]
     pub fn text_frame(&self, id: &str, index: u32) -> Result<String, JsError> {
