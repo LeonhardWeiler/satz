@@ -1096,7 +1096,7 @@ mod tests {
 
     #[test]
     fn render_emits_items_and_clips_frame_children() {
-        let ops = page_ops(&Doc::new());
+        let ops = page_ops(&Doc::sample());
         assert!(matches!(ops[0], Op::Page { .. }));
         assert_eq!(ops.iter().filter(|o| **o == Op::EndItem).count(), 11);
         assert!(ops.iter().any(|o| matches!(o, Op::GlyphRun { .. })));
@@ -1109,7 +1109,7 @@ mod tests {
             ops.iter()
                 .any(|o| matches!(o, Op::PushLayer { blur, .. } if *blur > 0.0))
         );
-        assert!(Doc::new().render("9@9").is_empty());
+        assert!(Doc::sample().render("9@9").is_empty());
     }
 
     #[test]

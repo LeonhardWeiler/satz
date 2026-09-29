@@ -8,7 +8,7 @@ import { Renderer } from './renderer'
 test('layers with shadows are recorded again only when their content changes', async () => {
   const ck = await CanvasKitInit()
   initSync({ module: readFileSync(new URL('engine/engine_bg.wasm', import.meta.url)) })
-  const engine = new Engine()
+  const engine = Engine.sample()
   let recorded = 0
   Object.assign(ck, {
     PictureRecorder: new Proxy(ck.PictureRecorder, {
@@ -47,7 +47,7 @@ test('layers with shadows are recorded again only when their content changes', a
 test('text in several sizes shares one typeface per font, freed with the renderer', async () => {
   const ck = await CanvasKitInit()
   initSync({ module: readFileSync(new URL('engine/engine_bg.wasm', import.meta.url)) })
-  const engine = new Engine()
+  const engine = Engine.sample()
   const typefaces: { delete: () => void }[] = []
   let freed = 0
   const make = ck.Typeface.MakeTypefaceFromData
@@ -75,7 +75,7 @@ test('text in several sizes shares one typeface per font, freed with the rendere
 test('text in a missing font is highlighted pink', async () => {
   const ck = await CanvasKitInit()
   initSync({ module: readFileSync(new URL('engine/engine_bg.wasm', import.meta.url)) })
-  const engine = new Engine()
+  const engine = Engine.sample()
   const renderer = new Renderer(ck, engine)
   const surface = ck.MakeSurface(300, 400)!
   const [page] = (JSON.parse(engine.snapshot()) as Snapshot).pages

@@ -522,7 +522,7 @@ mod tests {
 
     #[test]
     fn the_document_rasterizes_at_300_ppi_until_changed() {
-        let mut d = Doc::new();
+        let mut d = Doc::sample();
         assert_eq!(d.snapshot().raster_ppi, 300.0);
         d.apply(ppi(150.0)).unwrap();
         assert_eq!(d.snapshot().raster_ppi, 150.0);
@@ -533,7 +533,7 @@ mod tests {
 
     #[test]
     fn the_pdf_exports_as_x4_with_crop_marks_and_bleed_until_changed() {
-        let mut d = Doc::new();
+        let mut d = Doc::sample();
         let export = |d: &Doc| {
             let s = d.snapshot();
             (s.preset, s.crop_marks, s.include_bleed)
@@ -556,7 +556,7 @@ mod tests {
 
     #[test]
     fn pdf_x1a_is_for_cmyk_documents_only() {
-        let mut d = Doc::new();
+        let mut d = Doc::sample();
         let x1a = |color_mode| {
             Command::SetDocument(Settings {
                 preset: Some(Preset::X1a),
@@ -579,7 +579,7 @@ mod tests {
 
     #[test]
     fn the_raster_ppi_stays_within_72_to_1200() {
-        let mut d = Doc::new();
+        let mut d = Doc::sample();
         for bad in [0.0, 71.0, 1201.0] {
             assert!(d.apply(ppi(bad)).is_err());
             assert_eq!(d.snapshot().raster_ppi, 300.0);

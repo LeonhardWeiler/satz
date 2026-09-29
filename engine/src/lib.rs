@@ -39,6 +39,15 @@ impl Engine {
         Engine::default()
     }
 
+    /// The document Satz shows on its first start.
+    pub fn sample() -> Engine {
+        Engine {
+            doc: Doc::sample(),
+            list: Vec::new(),
+            overlay: Vec::new(),
+        }
+    }
+
     /// An empty document of `pages` pages `w` × `h` pt.
     pub fn blank(w: f64, h: f64, pages: usize, facing: bool) -> Engine {
         Engine {

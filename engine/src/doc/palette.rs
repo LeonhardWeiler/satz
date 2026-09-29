@@ -509,7 +509,7 @@ mod tests {
 
     #[test]
     fn a_document_is_rgb_until_switched_to_cmyk_and_keeps_its_colours() {
-        let mut d = Doc::new();
+        let mut d = Doc::sample();
         assert_eq!(d.snapshot().color_mode, ColorMode::Rgb);
         cmyk(&mut d);
         let s = d.snapshot();
@@ -584,7 +584,7 @@ mod tests {
 
     #[test]
     fn swatch_names_are_unique() {
-        let mut d = Doc::new();
+        let mut d = Doc::sample();
         let red = swatch(&mut d, "Red", Color::Rgb(0xff0000ff), false).unwrap();
         swatch(&mut d, "Blue", Color::Rgb(0x0000ffff), false).unwrap();
         assert!(swatch(&mut d, "Red", process(0.0, 1.0, 1.0, 0.0), true).is_err());
@@ -608,7 +608,7 @@ mod tests {
 
     #[test]
     fn swatches_are_added_renamed_and_deleted_with_undo() {
-        let mut d = Doc::new();
+        let mut d = Doc::sample();
         assert_eq!(d.snapshot().palette.swatches, []);
         let id = swatch(&mut d, "Red", Color::Rgb(0xff0000ff), false).unwrap();
         d.apply(Command::SetSwatch {

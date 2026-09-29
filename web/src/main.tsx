@@ -31,7 +31,7 @@ if (!document.createElement('canvas').getContext('webgl2')) {
       stored().catch(() => undefined),
       storedFonts().catch(() => []),
     ])
-    const engine = new Engine()
+    const engine = saved ? new Engine() : Engine.sample()
     for (const bytes of fonts) engine.addFont(bytes)
     const editor = new Editor(engine)
     let first = !saved

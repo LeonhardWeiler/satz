@@ -656,9 +656,6 @@ with harfrust, breaks it into lines with the Knuth-Plass algorithm and justifies
 every line but the last to the width of its frame. The canvas and the PDF draw \
 the same glyphs from the same font.";
 
-/// Draws siblings; a mask masks the siblings above it.
-/// How far the master spread `m` moves to show its side on the page `p`: a left
-/// page shows the master's left page.
 fn undo_manager(doc: &LoroDoc) -> UndoManager {
     let mut undo = UndoManager::new(doc);
     undo.add_exclude_origin_prefix(IMAGE_ORIGIN);
@@ -782,8 +779,9 @@ impl Doc {
         d
     }
 
-    pub fn new() -> Doc {
-        let mut d = Doc::blank(148.0 * MM, 210.0 * MM, 1, true, ColorMode::Rgb);
+    /// The document Satz shows on its first start.
+    pub fn sample() -> Doc {
+        let mut d = Doc::default();
         let page = d.build_snapshot().pages[0].id.clone();
         let mut add = |parent: &str, kind, [x, y, w, h]: [f64; 4], props: Props| {
             let id = d
@@ -2149,7 +2147,7 @@ impl Doc {
 
 impl Default for Doc {
     fn default() -> Self {
-        Doc::new()
+        Doc::blank(148.0 * MM, 210.0 * MM, 1, true, ColorMode::Rgb)
     }
 }
 
@@ -2186,7 +2184,7 @@ mod tests {
     }
 
     pub(super) fn empty() -> (Doc, String) {
-        let mut d = Doc::new();
+        let mut d = Doc::sample();
         let p = page(&d);
         let ids = p.children.iter().map(|n| n.id.clone()).collect();
         d.apply(Command::Delete { ids }).unwrap();
@@ -2934,7 +2932,7 @@ mod tests {
 
     #[test]
     fn default_doc_has_a_page_with_rect_text_and_clipped_frame() {
-        let s = Doc::new().snapshot();
+        let s = Doc::sample().snapshot();
         assert_eq!(s.pages.len(), 1);
         let p = &s.pages[0];
         assert!((p.width - 419.53).abs() < 0.01);
@@ -3245,7 +3243,7 @@ mod tests {
 
     #[test]
     fn undo_reverts_one_command_and_redo_reapplies_it() {
-        let mut d = Doc::new();
+        let mut d = Doc::sample();
         let before = d.snapshot();
         assert!(!before.can_undo);
         let id = page(&d).children[0].id.clone();
@@ -3262,7 +3260,7 @@ mod tests {
 
     #[test]
     fn an_undo_group_is_undone_in_one_step() {
-        let mut d = Doc::new();
+        let mut d = Doc::sample();
         let before = d.build_snapshot().pages;
         let id = page(&d).children[0].id.clone();
         d.apply(Command::BeginUndoGroup).unwrap();
@@ -3291,7 +3289,7 @@ mod tests {
 
     #[test]
     fn undo_restores_structure_and_text_with_the_same_ids() {
-        let mut d = Doc::new();
+        let mut d = Doc::sample();
         let ids = ids(&page(&d).children);
         let g = d
             .apply(Command::Group {

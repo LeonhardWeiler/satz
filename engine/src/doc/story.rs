@@ -490,7 +490,6 @@ impl Doc {
         Ok(())
     }
 
-    /// How the story of every thread flows through its frames.
     /// The flows through all text layers, kept since the last command.
     pub(super) fn flows(&self) -> Rc<HashMap<TreeID, Flow>> {
         match &*self.flows.borrow() {
@@ -814,7 +813,7 @@ mod tests {
 
     #[test]
     fn set_text_changes_text() {
-        let mut d = Doc::new();
+        let mut d = Doc::sample();
         let id = page(&d).children[1].id.clone();
         d.apply(Command::SetText {
             id: id.clone(),

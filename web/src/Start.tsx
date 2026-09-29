@@ -46,7 +46,7 @@ export function Start({ editor, first, say, onClose }: { editor: Editor; first: 
   const example = async (url: string | null, name: string) => {
     if (!discard(editor)) return
     if (url) editor.load(new Uint8Array(await (await fetch(url)).arrayBuffer()), { name, handle: null })
-    else load(new Engine())
+    else load(Engine.sample())
     onClose()
   }
   const load = (e: Engine) => {

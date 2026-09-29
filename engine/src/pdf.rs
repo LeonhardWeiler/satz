@@ -721,7 +721,7 @@ mod tests {
     }
 
     fn default_pdf() -> String {
-        let d = Doc::new();
+        let d = Doc::sample();
         let page = d.render(&d.snapshot().pages[0].id);
         write(&[page], Preset::X4, 300.0, ColorMode::Rgb)
     }
