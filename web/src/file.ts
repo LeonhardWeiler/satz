@@ -49,7 +49,9 @@ export function autosave(editor: Editor) {
     if (state() === last) return
     last = state()
     const { name, handle } = editor.file
-    ;(await store('files')).put({ bytes: editor.engine.save(), name, handle, dirty: editor.dirty } satisfies Saved, 'doc')
+    const files = await store('files')
+    files.put({ bytes: editor.engine.save(), name, handle, dirty: editor.dirty } satisfies Saved, 'doc')
+    files.transaction.commit()
   }
   const later = () => {
     clearTimeout(timer)
