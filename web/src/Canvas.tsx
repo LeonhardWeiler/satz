@@ -88,8 +88,10 @@ function drawRuler(c: HTMLCanvasElement, horizontal: boolean, origin: number, sc
   g.setTransform(dpr, 0, 0, dpr, 0, 0)
   g.clearRect(0, 0, w, h)
   const at = (p: number, from: number, to: number) => (horizontal ? g.rect(p, from, 1, to - from) : g.rect(from, p, to - from, 1))
+  const style = getComputedStyle(c)
+  g.fillStyle = style.color
   if (extent) {
-    g.fillStyle = 'rgb(56 174 224 / 0.22)'
+    g.globalAlpha = 0.14
     g.beginPath()
     if (horizontal) g.rect(extent[0], 0, extent[1] - extent[0], RULER)
     else g.rect(0, extent[0], RULER, extent[1] - extent[0])
@@ -97,7 +99,7 @@ function drawRuler(c: HTMLCanvasElement, horizontal: boolean, origin: number, sc
   }
   const step = [1, 2, 5, 10, 20, 50, 100, 200].find((s) => s * scale >= 7) ?? 500
   const major = step * (step === 1 || step === 10 || step === 100 ? 10 : 5)
-  g.fillStyle = '#5a5d62'
+  g.globalAlpha = 0.45
   g.beginPath()
   const len = horizontal ? w : h
   for (let v = Math.floor(-origin / scale / step) * step; v * scale + origin < len; v += step) {
@@ -105,7 +107,7 @@ function drawRuler(c: HTMLCanvasElement, horizontal: boolean, origin: number, sc
     at(Math.round(v * scale + origin), RULER - t, RULER)
   }
   g.fill()
-  g.fillStyle = '#9a9da2'
+  g.globalAlpha = 1
   g.font = "500 9px 'Hanken Grotesk', system-ui, sans-serif"
   for (let v = Math.floor(-origin / scale / major) * major; v * scale + origin < len; v += major) {
     const p = Math.round(v * scale + origin)
@@ -118,7 +120,7 @@ function drawRuler(c: HTMLCanvasElement, horizontal: boolean, origin: number, sc
       g.restore()
     }
   }
-  g.fillStyle = '#cc2f83'
+  g.fillStyle = style.getPropertyValue('--magenta')
   g.beginPath()
   for (const p of guides) at(Math.round(p) - 0.5, 0, RULER)
   g.fill()
@@ -998,7 +1000,10 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
     canvas.addEventListener('click', onClick)
     window.addEventListener('keydown', onKey)
     window.addEventListener('keyup', onKey)
+    const scheme = matchMedia('(prefers-color-scheme: light)')
+    scheme.addEventListener('change', redraw)
     return () => {
+      scheme.removeEventListener('change', redraw)
       cancelAnimationFrame(frame)
       cancelAnimationFrame(anim)
       clearInterval(blink)

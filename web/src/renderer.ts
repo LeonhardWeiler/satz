@@ -59,7 +59,6 @@ export function fitView(sheets: Sheet[], width: number, height: number): View {
   return { x: (width - w * zoom) / 2 - left * zoom, y: (height - h * zoom) / 2, zoom }
 }
 
-const BACKGROUND = '#37393c'
 const BLEED = [56, 174, 224, 0.45] as const
 const GRID = [255, 72, 72, 0.12] as const
 const OVERSET = '#ff6b5e'
@@ -134,7 +133,7 @@ export class Renderer {
       this.proof = proof
       this.clear()
     }
-    canvas.clear(ck.parseColorString(BACKGROUND))
+    canvas.clear(ck.TRANSPARENT)
     const place = (c: Canvas) => {
       c.save()
       c.scale(dpr, dpr)

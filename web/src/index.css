@@ -16,24 +16,25 @@
 
 :root {
   color-scheme: dark;
-  --canvas: #37393c;
-  --panel: #242527;
-  --raised: #2d2f32;
-  --menu: #2a2c2f;
-  --input: #2e3033;
-  --hover: #35383b;
-  --selected: rgb(56 174 224 / 0.16);
-  --text: #ececed;
-  --text-2: #b6b8bc;
-  --text-3: #9a9da2;
-  --border: #333538;
-  --edge: #3d4044;
+  --bg: #1e1e21;
+  --fg: #d8dbe1;
+  --canvas: #19191c;
+  --raised: color-mix(in srgb, var(--fg) 6%, var(--bg));
+  --input: color-mix(in srgb, var(--fg) 3%, var(--bg));
   --accent: #38aee0;
-  --on-accent: #06202c;
-  --magenta: #cc2f83;
-  --yellow: #f1d13a;
   --bad: #ff6b5e;
   --warn: #f1b43a;
+  --shadow: rgb(0 0 0 / 0.5);
+  --panel: var(--bg);
+  --hover: color-mix(in srgb, var(--fg) 7%, transparent);
+  --selected: color-mix(in srgb, var(--fg) 12%, transparent);
+  --text: var(--fg);
+  --text-2: color-mix(in srgb, var(--fg) 72%, var(--bg));
+  --text-3: color-mix(in srgb, var(--fg) 50%, var(--bg));
+  --border: color-mix(in srgb, var(--fg) 10%, var(--bg));
+  --edge: color-mix(in srgb, var(--fg) 18%, var(--bg));
+  --scrim: color-mix(in srgb, var(--bg) 70%, transparent);
+  --magenta: #cc2f83;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --doc-font: 'Source Serif 4', Georgia, serif;
   --checker: repeating-conic-gradient(#ffffff 0 25%, #cccccc 0 50%) 0 0 / 8px 8px;
@@ -41,6 +42,23 @@
   font-variant-numeric: tabular-nums;
   color: var(--text);
   background: var(--panel);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --bg: #d8dbe1;
+    --fg: #1e1e21;
+    --canvas: #cbced5;
+    --raised: color-mix(in srgb, #fff 55%, var(--bg));
+    --input: color-mix(in srgb, #fff 30%, var(--bg));
+    --accent: #0b87bd;
+    --bad: #d63a2c;
+    --warn: #a86b00;
+    --shadow: rgb(30 30 33 / 0.18);
+    --border: color-mix(in srgb, var(--fg) 13%, var(--bg));
+    --edge: color-mix(in srgb, var(--fg) 22%, var(--bg));
+  }
 }
 
 *,
@@ -113,6 +131,7 @@ body,
   min-width: 0;
   min-height: 0;
   background: var(--canvas);
+  color: var(--text-3);
 }
 
 .no-ui .stage {
@@ -250,8 +269,8 @@ button {
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
+  outline: 1.5px solid var(--accent);
+  outline-offset: -1.5px;
 }
 
 .primary {
@@ -260,18 +279,23 @@ button {
   padding: 0 12px;
   border: 0;
   border-radius: 6px;
-  background: var(--accent);
-  color: var(--on-accent);
+  background: var(--text);
+  color: var(--bg);
   font-weight: 600;
   cursor: pointer;
+  transition: opacity 0.1s;
 }
 
 .primary:hover {
-  background: #57bde8;
+  opacity: 0.86;
+}
+
+.primary:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .primary:focus-visible {
-  outline: 2px solid #ffffff;
   outline-offset: 2px;
 }
 
@@ -420,8 +444,8 @@ textarea {
   min-width: 0;
   height: 24px;
   padding: 0 4px;
-  border: 1px solid var(--accent);
-  border-radius: 3px;
+  border: 1px solid var(--text-3);
+  border-radius: 4px;
   background: var(--input);
   outline: none;
 }
@@ -505,16 +529,16 @@ textarea {
   padding-right: 8px;
   border-radius: 6px;
   background: var(--input);
-  transition: background 0.12s;
+  box-shadow: inset 0 0 0 1px var(--border);
+  transition: box-shadow 0.12s;
 }
 
 .field:hover {
-  background: var(--hover);
+  box-shadow: inset 0 0 0 1px var(--edge);
 }
 
 .field:focus-within {
-  background: var(--input);
-  box-shadow: inset 0 0 0 1px var(--accent);
+  box-shadow: inset 0 0 0 1px var(--text-3), 0 0 0 3px var(--hover);
 }
 
 .field-label {
@@ -530,7 +554,7 @@ textarea {
 }
 
 .field.scrub .field-label {
-  color: var(--accent);
+  color: var(--text);
 }
 
 :root:has(.field.scrub) * {
@@ -573,7 +597,7 @@ textarea {
 }
 
 .field-step:hover {
-  background: var(--edge);
+  background: var(--hover);
   color: var(--text);
 }
 
@@ -624,7 +648,7 @@ textarea {
 
 .check input {
   margin: 0;
-  accent-color: var(--accent);
+  accent-color: var(--text);
 }
 
 .rows {
@@ -689,25 +713,25 @@ textarea {
   width: 24px;
   height: 24px;
   padding: 4px;
-  border: 1px solid transparent;
-  border-radius: 5px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
   background: var(--input);
   cursor: pointer;
 }
 
 .swatch:hover {
-  border-color: var(--border);
+  border-color: var(--edge);
 }
 
 .swatch:focus-visible {
-  border-color: var(--accent);
+  border-color: var(--text-3);
   outline: none;
 }
 
 .chip,
 span.swatch {
   border-radius: 2px;
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
+  box-shadow: inset 0 0 0 1px var(--selected);
 }
 
 .chip {
@@ -830,10 +854,10 @@ span.swatch {
   box-sizing: border-box;
   width: 240px;
   padding: 0 12px 12px;
-  border: 1px solid var(--border);
-  border-radius: 13px;
-  background: var(--panel);
-  box-shadow: 0 2px 12px rgb(0 0 0 / 0.5);
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+  background: var(--raised);
+  box-shadow: 0 8px 30px var(--shadow);
 }
 
 .picker-header {
@@ -941,8 +965,8 @@ span.swatch {
   height: 24px;
   min-width: 0;
   padding: 0 4px 0 8px;
-  border: 1px solid transparent;
-  border-radius: 5px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
   background: var(--input);
   color: var(--text);
   font: inherit;
@@ -964,7 +988,7 @@ span.swatch {
 
 .select:hover,
 .select[aria-expanded='true'] {
-  border-color: var(--border);
+  border-color: var(--edge);
 }
 
 .section-header {
@@ -979,8 +1003,8 @@ span.swatch {
   height: 24px;
   padding: 0 8px;
   border: 1px solid var(--border);
-  border-radius: 5px;
-  background: none;
+  border-radius: 6px;
+  background: var(--input);
   cursor: pointer;
 }
 
@@ -1059,13 +1083,13 @@ span.swatch {
 }
 
 .tool:hover {
-  background: var(--raised);
+  background: var(--hover);
   color: var(--text);
 }
 
 .tool[aria-pressed='true'] {
   background: var(--selected);
-  color: var(--accent);
+  color: var(--text);
 }
 
 .toggle[aria-pressed='true'] {
@@ -1111,9 +1135,9 @@ span.swatch {
   min-width: 220px;
   padding: 4px;
   border: 1px solid var(--edge);
-  border-radius: 8px;
-  background: var(--menu);
-  box-shadow: 0 12px 32px rgb(0 0 0 / 0.45);
+  border-radius: 10px;
+  background: var(--raised);
+  box-shadow: 0 12px 32px var(--shadow);
   animation: pop 0.12s var(--ease);
 }
 
@@ -1152,7 +1176,7 @@ span.swatch {
 }
 
 .menu-item[aria-checked='true'] {
-  color: var(--accent);
+  font-weight: 600;
 }
 
 .menu-item kbd {
@@ -1179,7 +1203,7 @@ span.swatch {
 }
 
 .fonts .missing {
-  color: #ff5fb0;
+  color: var(--magenta);
 }
 
 .status {
@@ -1189,10 +1213,11 @@ span.swatch {
   z-index: 95;
   max-width: min(560px, 90vw);
   padding: 8px 14px;
+  border: 1px solid var(--edge);
   border-radius: 8px;
-  background: #3a3d41;
+  background: var(--raised);
   color: var(--text);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.4);
+  box-shadow: 0 8px 24px var(--shadow);
   transform: translateX(-50%);
   animation: toast 0.15s var(--ease);
   pointer-events: none;
@@ -1227,7 +1252,7 @@ span.swatch {
 
 .notice p {
   margin: 0;
-  color: #b3b3b3;
+  color: var(--text-2);
 }
 
 .notice button {
@@ -1281,11 +1306,11 @@ span.swatch {
 }
 
 .left > .edge:is(:hover, :active) {
-  box-shadow: inset -2px 0 var(--accent);
+  box-shadow: inset -1px 0 var(--text-3);
 }
 
 .right > .edge:is(:hover, :active) {
-  box-shadow: inset 2px 0 var(--accent);
+  box-shadow: inset 1px 0 var(--text-3);
 }
 
 .left > .panel {
@@ -1322,36 +1347,21 @@ span.swatch {
 }
 
 .mark {
-  position: relative;
+  display: grid;
   flex: none;
+  place-items: center;
   width: 16px;
   height: 16px;
+  border-radius: 2.4px;
+  background: var(--fg);
 }
 
-.mark i {
-  position: absolute;
-  width: 10px;
-  height: 10px;
+.mark::after {
+  width: 6.4px;
+  height: 6.4px;
   border-radius: 50%;
-  mix-blend-mode: screen;
-}
-
-.mark i:nth-child(1) {
-  top: 0;
-  left: 0;
-  background: var(--accent);
-}
-
-.mark i:nth-child(2) {
-  top: 0;
-  right: 0;
-  background: var(--magenta);
-}
-
-.mark i:nth-child(3) {
-  bottom: 0;
-  left: 3px;
-  background: var(--yellow);
+  background: var(--bg);
+  content: '';
 }
 
 .switcher,
@@ -1364,9 +1374,9 @@ span.swatch {
   gap: 2px;
   padding: 3px;
   border: 1px solid var(--edge);
-  border-radius: 8px;
-  background: var(--menu);
-  box-shadow: 0 6px 20px rgb(0 0 0 / 0.35);
+  border-radius: 10px;
+  background: var(--raised);
+  box-shadow: 0 6px 20px var(--shadow);
 }
 
 .quick {
@@ -1441,7 +1451,7 @@ span.swatch {
 
 .switcher button[aria-pressed='true'] {
   background: var(--selected);
-  color: var(--accent);
+  color: var(--text);
   font-weight: 600;
 }
 
@@ -1539,18 +1549,18 @@ kbd {
 }
 
 .pf-count[data-sev='error'] {
-  background: rgb(255 107 94 / 0.18);
+  background: color-mix(in srgb, var(--bad) 18%, transparent);
   color: var(--bad);
 }
 
 .pf-count[data-sev='warn'] {
-  background: rgb(241 180 58 / 0.18);
+  background: color-mix(in srgb, var(--warn) 18%, transparent);
   color: var(--warn);
 }
 
 .pf-count[data-sev='ok'] {
   background: var(--selected);
-  color: var(--accent);
+  color: var(--text-2);
 }
 
 .preflight {
@@ -1600,6 +1610,7 @@ kbd {
   border: 0;
   border-radius: 6px;
   background: var(--input);
+  box-shadow: inset 0 0 0 1px var(--border);
   color: var(--text-2);
   text-align: left;
 }
@@ -1609,7 +1620,7 @@ kbd {
 }
 
 .iss[aria-current='true'] {
-  box-shadow: inset 0 0 0 1px var(--accent);
+  box-shadow: inset 0 0 0 1px var(--text-3);
 }
 
 .iss strong {
@@ -1641,7 +1652,7 @@ kbd {
 }
 
 .pf-empty svg {
-  color: var(--accent);
+  color: var(--text);
 }
 
 .plates {
@@ -1658,11 +1669,12 @@ kbd {
   padding: 0 8px;
   border-radius: 6px;
   background: var(--input);
+  box-shadow: inset 0 0 0 1px var(--border);
 }
 
 .plate input {
   margin: 0;
-  accent-color: var(--accent);
+  accent-color: var(--text);
 }
 
 .plate .ink {
@@ -1686,7 +1698,7 @@ kbd {
 
 .plate-k .ink {
   background: #1d1d1b;
-  box-shadow: 0 0 0 1px #555;
+  box-shadow: 0 0 0 1px var(--edge);
 }
 
 .plate span:first-of-type {
@@ -1721,7 +1733,7 @@ kbd {
   display: block;
   width: 0;
   height: 100%;
-  background: var(--accent);
+  background: var(--text);
 }
 
 .pf-bar.run i {
@@ -1748,7 +1760,7 @@ kbd {
 }
 
 .name-input:focus {
-  border-color: var(--accent);
+  border-color: var(--text-3);
 }
 
 .field .name-input {
@@ -1873,15 +1885,16 @@ kbd {
 }
 
 .pill:hover {
-  background: var(--text-3);
+  background: var(--edge);
 }
 
 .segmented {
   display: flex;
   flex: 1;
   padding: 2px;
-  border-radius: 5px;
+  border-radius: 6px;
   background: var(--input);
+  box-shadow: inset 0 0 0 1px var(--border);
 }
 
 .segmented button {
@@ -1906,9 +1919,8 @@ kbd {
 }
 
 .segmented button[aria-checked='true'] {
-  background: var(--hover);
+  background: var(--selected);
   color: var(--text);
-  box-shadow: 0 0 0 1px var(--border);
 }
 
 .auto-layout {
@@ -1923,8 +1935,9 @@ kbd {
   height: 72px;
   padding: 4px;
   box-sizing: border-box;
-  border-radius: 5px;
+  border-radius: 6px;
   background: var(--input);
+  box-shadow: inset 0 0 0 1px var(--border);
 }
 
 .align-grid button {
@@ -1955,7 +1968,7 @@ kbd {
   width: 10px;
   height: 10px;
   border-radius: 2px;
-  background: var(--accent);
+  background: var(--text);
 }
 
 .auto-layout-gap {
@@ -1991,14 +2004,14 @@ kbd {
   overflow: hidden;
   border: 1px solid var(--edge);
   border-radius: 12px;
-  background: var(--raised);
+  background: var(--panel);
   color: var(--text);
-  box-shadow: 0 24px 64px rgb(0 0 0 / 0.5);
+  box-shadow: 0 24px 64px var(--shadow);
   animation: pop 0.16s var(--ease);
 }
 
 .start::backdrop {
-  background: rgb(20 21 22 / 0.82);
+  background: var(--scrim);
 }
 
 .start-main {
@@ -2047,13 +2060,13 @@ kbd {
 }
 
 .format-box span {
-  background: #f4f4f2;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.5);
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--edge);
   transition: width 0.2s var(--ease), height 0.2s var(--ease);
 }
 
 .format[aria-checked='true'] .format-box span {
-  box-shadow: 0 0 0 2px var(--accent);
+  box-shadow: 0 0 0 1.5px var(--text);
 }
 
 .format strong {
@@ -2099,7 +2112,7 @@ kbd {
   gap: 6px;
   padding: 26px 16px;
   border-left: 1px solid var(--border);
-  background: var(--panel);
+  background: var(--input);
 }
 
 .start-side h3 {
@@ -2131,7 +2144,7 @@ kbd {
 }
 
 .example .icon {
-  color: var(--accent);
+  color: var(--text-2);
 }
 
 .example small {
@@ -2212,7 +2225,7 @@ kbd {
   padding: 0;
   border: 0;
   background: none;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+  box-shadow: 0 0 0 1px var(--border);
   cursor: pointer;
 }
 
@@ -2255,7 +2268,7 @@ kbd {
 
 .ov-cap b {
   margin-left: 2px;
-  color: #ff7ac0;
+  color: var(--magenta);
   font-weight: 600;
 }
 
@@ -2270,7 +2283,7 @@ kbd {
   gap: 4px;
   width: 90px;
   height: 110px;
-  border: 1px dashed #5a5d62;
+  border: 1px dashed var(--edge);
   border-radius: 6px;
   background: none;
   color: var(--text-2);
@@ -2279,8 +2292,8 @@ kbd {
 }
 
 .ov-add:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--text-3);
+  color: var(--text);
 }
 
 .kv {
@@ -2305,6 +2318,7 @@ kbd {
   border: 0;
   border-radius: 6px;
   background: var(--input);
+  box-shadow: inset 0 0 0 1px var(--border);
   text-align: left;
 }
 
@@ -2347,16 +2361,16 @@ kbd {
   margin-top: 12vh;
   padding: 0;
   border: 1px solid var(--edge);
-  border-radius: 10px;
-  background: var(--menu);
+  border-radius: 12px;
+  background: var(--raised);
   color: var(--text);
-  box-shadow: 0 24px 64px rgb(0 0 0 / 0.5);
+  box-shadow: 0 24px 64px var(--shadow);
   animation: pop 0.14s var(--ease);
 }
 
 .palette::backdrop,
 .help::backdrop {
-  background: rgb(12 13 14 / 0.45);
+  background: var(--scrim);
 }
 
 .palette {
@@ -2432,7 +2446,7 @@ kbd {
 }
 
 .pal-it[aria-selected='true'] svg {
-  color: var(--accent);
+  color: var(--text);
 }
 
 .pal-empty {
@@ -2481,7 +2495,7 @@ kbd {
 .help-r kbd {
   min-width: 110px;
   margin: 0;
-  color: var(--accent);
+  color: var(--text);
 }
 
 .help-r span {
@@ -2554,11 +2568,11 @@ kbd {
   padding: 4px 8px;
   border: 1px solid var(--edge);
   border-radius: 6px;
-  background: var(--menu);
+  background: var(--raised);
   color: var(--text);
   font-size: 11px;
   line-height: 16px;
-  box-shadow: 0 6px 16px rgb(0 0 0 / 0.35);
+  box-shadow: 0 6px 16px var(--shadow);
   pointer-events: none;
   animation: pop 0.1s var(--ease);
 }

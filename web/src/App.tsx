@@ -178,11 +178,7 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
       <div className="left" inert={off('left')}>
         <Edge side="left" />
         <div className="brand">
-          <span className="mark" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-          </span>
+          <span className="mark" aria-hidden="true" />
           <h1>{name}</h1>
         </div>
         <Layers editor={editor} />

@@ -3,8 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="color-scheme" content="dark" />
-    <meta name="theme-color" content="#1e1e1e" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#1e1e21" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#d8dbe1" media="(prefers-color-scheme: light)" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <title>Satz</title>
     <style>
@@ -17,7 +18,15 @@
       body {
         height: 100%;
         margin: 0;
-        background: #1e1e1e;
+        background: #1e1e21;
+        color: #d8dbe1;
+      }
+      @media (prefers-color-scheme: light) {
+        html,
+        body {
+          background: #d8dbe1;
+          color: #1e1e21;
+        }
       }
       .loading {
         display: grid;
@@ -28,7 +37,6 @@
       }
       .loading h1 {
         margin: 0;
-        color: #fff;
         font: 400 56px/1 'Source Serif 4', Georgia, 'Times New Roman', serif;
       }
       .loading .progress {
@@ -36,14 +44,14 @@
         height: 4px;
         border-radius: 2px;
         overflow: hidden;
-        background: rgb(255 255 255 / 0.12);
+        background: color-mix(in srgb, currentColor 12%, transparent);
       }
       .loading .progress::after {
         content: '';
         display: block;
         height: 100%;
         border-radius: inherit;
-        background: linear-gradient(90deg, #c8c8c8, #fff);
+        background: currentColor;
         transform: translateX(-100%);
         animation: fill 30s cubic-bezier(0.05, 0.7, 0.1, 1) forwards;
       }

@@ -9,7 +9,7 @@ import { expect, test, STORY, addMaster, addPage, drag, drawn, exportButton, fra
 
 const EDGE = 4
 const BLOCK = 4
-const BACKGROUND = [0x37, 0x39, 0x3c]
+const BACKGROUND = [0x19, 0x19, 0x1c]
 const MAX_DIFF = 48
 const MAX_SHARE = 0.0005
 // Skia boosts the contrast of light text on a dark ground, which MuPDF does not.
