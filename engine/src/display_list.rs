@@ -1,7 +1,7 @@
 use crate::color::Ink;
 use crate::geom::map;
 use crate::style::Blend;
-use serde::Serialize;
+use serde::{Serialize, Serializer};
 
 pub const MOVE: f32 = 0.0;
 pub const LINE: f32 = 1.0;
@@ -58,6 +58,7 @@ pub enum Op {
     /// Blur and shadow blurs are Gaussian sigmas in pt.
     PushLayer {
         opacity: f32,
+        #[serde(serialize_with = "number")]
         blend: Blend,
         blur: f32,
         shadows: Vec<Shadow>,
@@ -370,6 +371,10 @@ pub fn recolor(ops: &[Op], f: &impl Fn(&[f32; 4], &Ink) -> [f32; 4]) -> Vec<Op> 
             op
         })
         .collect()
+}
+
+fn number<S: Serializer>(blend: &Blend, s: S) -> Result<S::Ok, S::Error> {
+    s.serialize_u32(*blend as u32)
 }
 
 #[cfg(test)]
