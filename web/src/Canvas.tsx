@@ -855,8 +855,13 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
       if (drag?.kind === 'draw' && drag.thread) {
         const from = editor.lookup(drag.thread)?.node
         if (!drag.moved && from) editor.apply({ type: 'setFrame', id: drag.id, x: drag.start.x - drag.dx, y: drag.start.y, w: from.w, h: from.h })
+        const ok = editor.engine.canThread(drag.thread, drag.id)
         editor.apply({ type: 'thread', from: drag.thread, to: drag.id })
-        editor.set({ threading: null, selection: [drag.id] })
+        if (ok) editor.set({ threading: null, selection: [drag.id] })
+        else {
+          editor.apply({ type: 'delete', ids: [drag.id] })
+          editor.set({ selection: [] })
+        }
       } else if (drag?.kind === 'draw') {
         if (drag.tool !== 'text' && !drag.moved) {
           const [w, h] = DEFAULT_SIZE[drag.tool]
