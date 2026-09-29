@@ -4,8 +4,8 @@ use crate::geom::segments;
 use crate::image::{self, plate};
 use crate::pdfx;
 use crate::raster::{blur, extent, rasterize, tint};
+use crate::style::Blend;
 use crate::text::{MISSING, font_bytes, fonts};
-use krilla::blend::BlendMode;
 use krilla::color::separation::{SeparationColorant, SeparationSpace};
 use krilla::color::{cmyk, rgb, separation};
 use krilla::configure::{ConfigurationBuilder, PdfVersion};
@@ -160,7 +160,11 @@ fn flatten(ops: &[Op]) -> (Vec<Op>, Vec<[f32; 4]>) {
                 blend,
                 blur,
                 shadows,
-            } if *opacity < 1.0 || *blend != 0 || *blur > 0.0 || !shadows.is_empty() => {
+            } if *opacity < 1.0
+                || *blend != Blend::Normal
+                || *blur > 0.0
+                || !shadows.is_empty() =>
+            {
                 close(ops, i)
             }
             Op::BeginMask => close(ops, close(ops, i)),
@@ -201,25 +205,6 @@ fn flatten(ops: &[Op]) -> (Vec<Op>, Vec<[f32; 4]>) {
     }
     (opaque, areas)
 }
-
-const BLENDS: [BlendMode; 16] = [
-    BlendMode::Normal,
-    BlendMode::Multiply,
-    BlendMode::Screen,
-    BlendMode::Overlay,
-    BlendMode::Darken,
-    BlendMode::Lighten,
-    BlendMode::ColorDodge,
-    BlendMode::ColorBurn,
-    BlendMode::HardLight,
-    BlendMode::SoftLight,
-    BlendMode::Difference,
-    BlendMode::Exclusion,
-    BlendMode::Hue,
-    BlendMode::Saturation,
-    BlendMode::Color,
-    BlendMode::Luminosity,
-];
 
 struct Env<'a> {
     fonts: &'a [Font],
@@ -347,8 +332,8 @@ fn draw(s: &mut Surface, env: &Env, ops: &[Op]) {
                 shadows,
             } => {
                 let mut n = 1;
-                if *blend != 0 {
-                    s.push_blend_mode(BLENDS[*blend as usize]);
+                if *blend != Blend::Normal {
+                    s.push_blend_mode(blend.krilla());
                     s.push_isolated();
                     n += 2;
                 }
@@ -707,6 +692,7 @@ mod tests {
     use crate::Doc;
     use crate::color::{ColorMode, Ink};
     use crate::display_list::{Op, Paint, Shadow, Stop, rect};
+    use crate::style::Blend;
 
     fn export(pages: &[Vec<Op>], preset: Preset, marks: bool, mode: ColorMode) -> Vec<u8> {
         let x = Export {
@@ -836,7 +822,7 @@ mod tests {
             },
             Op::PushLayer {
                 opacity: 1.0,
-                blend: 0,
+                blend: Blend::Normal,
                 blur: 0.0,
                 shadows: vec![Shadow {
                     offset: [0.0, 0.0],
@@ -912,7 +898,7 @@ mod tests {
             },
             Op::PushLayer {
                 opacity: 1.0,
-                blend: 0,
+                blend: Blend::Normal,
                 blur: 0.0,
                 shadows: vec![Shadow {
                     offset: [2.0, 2.0],

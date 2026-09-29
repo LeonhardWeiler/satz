@@ -6,29 +6,10 @@ use skrifa::outline::{DrawSettings, OutlinePen};
 use skrifa::{FontRef, GlyphId, MetadataProvider};
 use std::rc::Rc;
 use tiny_skia::{
-    BlendMode, Color, FillRule, FilterQuality, GradientStop, LineCap, LineJoin, LinearGradient,
-    Mask, MaskType, Paint, Path, PathBuilder, Pixmap, PixmapPaint, Point, RadialGradient, Shader,
+    Color, FillRule, FilterQuality, GradientStop, LineCap, LineJoin, LinearGradient, Mask,
+    MaskType, Paint, Path, PathBuilder, Pixmap, PixmapPaint, Point, RadialGradient, Shader,
     SpreadMode, Stroke, Transform,
 };
-
-const BLENDS: [BlendMode; 16] = [
-    BlendMode::SourceOver,
-    BlendMode::Multiply,
-    BlendMode::Screen,
-    BlendMode::Overlay,
-    BlendMode::Darken,
-    BlendMode::Lighten,
-    BlendMode::ColorDodge,
-    BlendMode::ColorBurn,
-    BlendMode::HardLight,
-    BlendMode::SoftLight,
-    BlendMode::Difference,
-    BlendMode::Exclusion,
-    BlendMode::Hue,
-    BlendMode::Saturation,
-    BlendMode::Color,
-    BlendMode::Luminosity,
-];
 
 pub type Images<'a> = &'a dyn Fn(u32) -> Option<Rc<Pixmap>>;
 
@@ -338,7 +319,7 @@ fn render(px: &mut Pixmap, ops: &[Op], t: Transform, clip: Option<&Mask>, images
                 );
                 let paint = PixmapPaint {
                     opacity: *opacity,
-                    blend_mode: BLENDS[*blend as usize],
+                    blend_mode: blend.skia(),
                     ..PixmapPaint::default()
                 };
                 px.draw_pixmap(0, 0, out.as_ref(), &paint, Transform::identity(), clip);
@@ -488,6 +469,7 @@ mod tests {
     use super::*;
     use crate::display_list::{Shadow, rect};
     use crate::image;
+    use crate::style::Blend;
 
     const BLACK: ListPaint = ListPaint::Solid {
         color: [0.0, 0.0, 0.0, 1.0],
@@ -617,7 +599,7 @@ mod tests {
         let ops = [
             Op::PushLayer {
                 opacity: 1.0,
-                blend: 0,
+                blend: Blend::Normal,
                 blur: 0.0,
                 shadows: vec![Shadow {
                     offset: [4.0, 0.0],
@@ -646,7 +628,7 @@ mod tests {
             },
             Op::PushLayer {
                 opacity: 1.0,
-                blend: 0,
+                blend: Blend::Normal,
                 blur: 0.0,
                 shadows: vec![Shadow {
                     offset: [4.0, 0.0],

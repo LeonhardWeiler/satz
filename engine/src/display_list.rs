@@ -1,5 +1,6 @@
 use crate::color::Ink;
 use crate::geom::map;
+use crate::style::Blend;
 use serde::Serialize;
 
 pub const MOVE: f32 = 0.0;
@@ -57,7 +58,7 @@ pub enum Op {
     /// Blur and shadow blurs are Gaussian sigmas in pt.
     PushLayer {
         opacity: f32,
-        blend: u32,
+        blend: Blend,
         blur: f32,
         shadows: Vec<Shadow>,
     },
@@ -317,7 +318,7 @@ pub fn encode(ops: &[Op]) -> Vec<u32> {
             } => {
                 out.extend([9, 0]);
                 open.push(out.len());
-                out.extend([opacity.to_bits(), *blend, blur.to_bits()]);
+                out.extend([opacity.to_bits(), *blend as u32, blur.to_bits()]);
                 out.push(shadows.len() as u32);
                 for s in shadows {
                     floats(&mut out, &s.offset);
@@ -458,13 +459,13 @@ mod tests {
             encode(&[
                 Op::PushLayer {
                     opacity: 1.0,
-                    blend: 0,
+                    blend: Blend::Normal,
                     blur: 0.0,
                     shadows: vec![],
                 },
                 Op::PushLayer {
                     opacity,
-                    blend: 0,
+                    blend: Blend::Normal,
                     blur: 0.0,
                     shadows: vec![],
                 },
@@ -504,7 +505,7 @@ mod tests {
             },
             Op::PushLayer {
                 opacity: 0.5,
-                blend: 1,
+                blend: Blend::Multiply,
                 blur: 2.0,
                 shadows: vec![Shadow {
                     offset: [1.0, 2.0],

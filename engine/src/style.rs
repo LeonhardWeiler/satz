@@ -222,6 +222,52 @@ pub enum Blend {
     Luminosity,
 }
 
+impl Blend {
+    pub fn krilla(self) -> krilla::blend::BlendMode {
+        use krilla::blend::BlendMode as B;
+        match self {
+            Blend::Normal => B::Normal,
+            Blend::Multiply => B::Multiply,
+            Blend::Screen => B::Screen,
+            Blend::Overlay => B::Overlay,
+            Blend::Darken => B::Darken,
+            Blend::Lighten => B::Lighten,
+            Blend::ColorDodge => B::ColorDodge,
+            Blend::ColorBurn => B::ColorBurn,
+            Blend::HardLight => B::HardLight,
+            Blend::SoftLight => B::SoftLight,
+            Blend::Difference => B::Difference,
+            Blend::Exclusion => B::Exclusion,
+            Blend::Hue => B::Hue,
+            Blend::Saturation => B::Saturation,
+            Blend::Color => B::Color,
+            Blend::Luminosity => B::Luminosity,
+        }
+    }
+
+    pub fn skia(self) -> tiny_skia::BlendMode {
+        use tiny_skia::BlendMode as B;
+        match self {
+            Blend::Normal => B::SourceOver,
+            Blend::Multiply => B::Multiply,
+            Blend::Screen => B::Screen,
+            Blend::Overlay => B::Overlay,
+            Blend::Darken => B::Darken,
+            Blend::Lighten => B::Lighten,
+            Blend::ColorDodge => B::ColorDodge,
+            Blend::ColorBurn => B::ColorBurn,
+            Blend::HardLight => B::HardLight,
+            Blend::SoftLight => B::SoftLight,
+            Blend::Difference => B::Difference,
+            Blend::Exclusion => B::Exclusion,
+            Blend::Hue => B::Hue,
+            Blend::Saturation => B::Saturation,
+            Blend::Color => B::Color,
+            Blend::Luminosity => B::Luminosity,
+        }
+    }
+}
+
 /// The paint of a colour or gradient fill.
 fn paint(f: &Fill, frame: [f32; 4], s: &Scope) -> Option<Paint> {
     let transform = f.place(frame);
@@ -336,7 +382,7 @@ impl Style {
         (self.opacity < 1.0 || self.blend != Blend::Normal || blur > 0.0 || !shadows.is_empty())
             .then(|| Op::PushLayer {
                 opacity: self.opacity.clamp(0.0, 1.0),
-                blend: self.blend as u32,
+                blend: self.blend,
                 blur,
                 shadows,
             })
