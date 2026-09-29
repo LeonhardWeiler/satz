@@ -497,7 +497,7 @@ mod tests {
     }
 
     #[test]
-    fn writes_fixture_for_the_ts_decoder() {
+    fn the_fixture_of_the_ts_decoder_is_current() {
         let ops = vec![
             Op::Page {
                 width: 420.5,
@@ -584,13 +584,20 @@ mod tests {
         ];
         let words = encode(&ops);
         let bytes: Vec<u8> = words.iter().flat_map(|w| w.to_le_bytes()).collect();
+        let json = serde_json::to_string_pretty(&ops).unwrap();
         let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../web/src/testdata");
-        std::fs::create_dir_all(dir).unwrap();
-        std::fs::write(format!("{dir}/display-list.bin"), bytes).unwrap();
-        std::fs::write(
-            format!("{dir}/display-list.json"),
-            serde_json::to_string_pretty(&ops).unwrap(),
-        )
-        .unwrap();
+        for (name, data) in [
+            ("display-list.bin", bytes),
+            ("display-list.json", json.into()),
+        ] {
+            let path = format!("{dir}/{name}");
+            if std::env::var_os("SATZ_WRITE_FIXTURES").is_some() {
+                std::fs::write(&path, &data).unwrap();
+            }
+            assert!(
+                std::fs::read(&path).is_ok_and(|f| f == data),
+                "{path} is stale; SATZ_WRITE_FIXTURES=1 cargo test fixture writes it"
+            );
+        }
     }
 }

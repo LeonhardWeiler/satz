@@ -20,4 +20,7 @@ nix develop
 ./check              # fmt, clippy, tests, wasm build, tsc, lint, build, canvas-vs-pdf e2e
 pnpm -C web dev
 SATZ_WRITE_EXAMPLES=1 cargo test examples   # writes examples/*.satz again
+SATZ_WRITE_FIXTURES=1 cargo test fixture    # writes web/src/testdata again
 ```
+
+`pnpm -C web test` needs the WASM build in `web/src/engine`, which `./check build` makes.

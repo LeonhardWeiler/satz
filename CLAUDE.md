@@ -9,7 +9,8 @@ Rust engine (`engine/`, compiled to WASM) owns the Loro document; the React UI
 `-D warnings`, `cargo test`, the WASM build into `web/src/engine`, then in `web/`
 tsc, eslint, vitest, vite build and Playwright. `./check build` stops before
 Playwright, `./check e2e [args]` runs only Playwright against `web/dist`.
-`cargo test` writes `web/src/testdata`, which vitest reads, so run it first.
+`web/src/testdata` holds the display-list fixture that vitest reads; `cargo test` fails when it
+is stale, and `SATZ_WRITE_FIXTURES=1 cargo test fixture` writes it again.
 `cargo test --release -p engine bench -- --ignored --nocapture` measures the engine
 (`engine/src/doc/bench.rs`); it is not in CI.
 
