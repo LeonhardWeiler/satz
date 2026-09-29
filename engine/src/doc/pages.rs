@@ -94,17 +94,17 @@ impl Doc {
         Ok(())
     }
 
-    /// Makes each master one page again without the layers of its left page; left
-    /// pages that override one of its copies override the original again.
+    /// Makes each master one page again without the copies of its layers and the
+    /// layers wholly left of its spine; left pages that override one of its copies override the original again.
     pub(super) fn join_masters(&self) -> Res<()> {
         let lefts = self.left_pages();
         for m in self.masters() {
             for c in self.children(m) {
+                let of = value(&self.meta(c), LEFT_OF).and_then(|v| v.into_string().ok());
                 let [x, _, w, _] = self.bounds(c);
-                if x + w > 0.0 {
+                if of.is_none() && x + w > 0.0 {
                     continue;
                 }
-                let of = value(&self.meta(c), LEFT_OF).and_then(|v| v.into_string().ok());
                 if let Some(o) = of.and_then(|o| self.node(&o).ok()) {
                     self.relink(&lefts, m, c, o)?;
                 }
@@ -1119,6 +1119,20 @@ mod tests {
         assert_eq!(master(&d), [[10.0, 0.0, 10.0, 10.0]]);
         assert_eq!(detached(&d), [vec![r.clone()], vec![r.clone()]]);
         assert_eq!(of(&d), [r.clone(), r]);
+    }
+
+    #[test]
+    fn a_master_layer_across_the_spine_comes_back_once() {
+        let (mut d, _) = empty();
+        facing(&mut d, false);
+        let m = add_master(&mut d);
+        set_width(&mut d, &m, 100.0);
+        create(&mut d, &m, NewKind::Rect, [90.0, 0.0, 20.0, 10.0]);
+        facing(&mut d, true);
+        create(&mut d, &m, NewKind::Rect, [-50.0, 0.0, 10.0, 10.0]);
+        facing(&mut d, false);
+        let frames: Vec<_> = d.snapshot().masters[0].children.iter().map(frame).collect();
+        assert_eq!(frames, [[90.0, 0.0, 20.0, 10.0]]);
     }
 
     #[test]
