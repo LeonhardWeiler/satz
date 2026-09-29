@@ -60,6 +60,7 @@ export function fitView(sheets: Sheet[], width: number, height: number): View {
 }
 
 const BLEED = [56, 174, 224, 0.45] as const
+const CROP = [128, 131, 139, 1] as const
 const GRID = [255, 72, 72, 0.12] as const
 const OVERSET = '#ff6b5e'
 const ACCENT = '#38aee0'
@@ -230,6 +231,16 @@ export class Renderer {
     canvas.drawPath(bleed, paint)
     paint.setPathEffect(null)
     dash?.delete()
+    paint.setColor(ck.Color(...CROP))
+    const l = sheets[0].x
+    const r = Math.max(...sheets.map((s) => s.x + s.width))
+    const b = Math.max(...sheets.map((s) => s.height))
+    const off = Math.max(...sheets.map((s) => s.bleed)) + 4 / view.zoom
+    const len = 14 / view.zoom
+    for (const [x, y, dx, dy] of [[l, 0, -1, -1], [r, 0, 1, -1], [l, b, -1, 1], [r, b, 1, 1]]) {
+      canvas.drawLine(x + dx * off, y, x + dx * (off + len), y, paint)
+      canvas.drawLine(x, y + dy * off, x, y + dy * (off + len), paint)
+    }
     bleed.delete()
     canvas.restore()
     this.drawOverlay(canvas, view, dpr, overlay)

@@ -1376,7 +1376,6 @@ span.swatch {
   border: 1px solid var(--edge);
   border-radius: 10px;
   background: var(--raised);
-  box-shadow: 0 6px 20px var(--shadow);
 }
 
 .quick {
