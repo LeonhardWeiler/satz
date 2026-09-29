@@ -308,7 +308,7 @@ fn render(px: &mut Pixmap, ops: &[Op], t: Transform, clip: Option<&Mask>, images
                 shadows,
             } => {
                 let end = close(ops, i);
-                let scale = t.sx;
+                let scale = t.sx.hypot(t.ky);
                 let mut content = layer(px);
                 render(&mut content, &ops[i + 1..end], t, None, images);
                 let mut out = layer(px);
@@ -316,7 +316,8 @@ fn render(px: &mut Pixmap, ops: &[Op], t: Transform, clip: Option<&Mask>, images
                     let mut shadow = content.clone();
                     tint(&mut shadow, s.color);
                     blur(&mut shadow, s.blur * scale);
-                    let (dx, dy) = (s.offset[0] * scale, s.offset[1] * scale);
+                    let [ox, oy] = s.offset;
+                    let (dx, dy) = (t.sx * ox + t.kx * oy, t.ky * ox + t.sy * oy);
                     out.draw_pixmap(
                         0,
                         0,
@@ -635,6 +636,35 @@ mod tests {
         let p = px.pixel(6, 2).unwrap();
         assert_eq!((p.red(), p.alpha()), (255, 255));
         assert_eq!(px.pixel(2, 2).unwrap().red(), 0);
+    }
+
+    #[test]
+    fn a_shadow_turns_with_its_parent() {
+        let ops = [
+            Op::PushTransform {
+                transform: [0.0, 1.0, -1.0, 0.0, 4.0, 0.0],
+            },
+            Op::PushLayer {
+                opacity: 1.0,
+                blend: 0,
+                blur: 0.0,
+                shadows: vec![Shadow {
+                    offset: [4.0, 0.0],
+                    blur: 0.0,
+                    color: [1.0, 0.0, 0.0, 1.0],
+                    ink: crate::color::Ink::Rgb,
+                }],
+            },
+            Op::FillPath {
+                paint: BLACK,
+                path: rect(0.0, 0.0, 4.0, 4.0),
+            },
+            Op::PopLayer,
+            Op::PopTransform,
+        ];
+        let px = rasterize(&ops, [0.0, 0.0, 4.0, 8.0], 72.0, &image::pixmap).unwrap();
+        let p = px.pixel(2, 6).unwrap();
+        assert_eq!((p.red(), p.alpha()), (255, 255));
     }
 
     #[test]
