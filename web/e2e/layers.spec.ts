@@ -141,6 +141,23 @@ test('the keyboard walks the layers: tab siblings, enter children, shift enter p
   await expect(layers(page).getByRole('treeitem', { name: 'Forms' })).toHaveAttribute('aria-selected', 'true')
 })
 
+test('dragging a layer row reorders it among its siblings and drops it into a group', async ({ page }) => {
+  await open(page)
+  const tops = () => layers(page).locator('[aria-level="1"] > .layer .layer-name').allTextContents()
+  const row = (name: string) => layers(page).locator('.layer', { has: page.getByRole('button', { name, exact: true }) })
+  const onto = async (from: string, to: string, f: number) => {
+    const box = (await row(to).boundingBox())!
+    await row(from).dragTo(row(to), { targetPosition: { x: box.width / 2, y: box.height * f } })
+  }
+  const [a, b, ...rest] = (await tops()).filter((n) => n !== 'Shapes')
+  await onto(a, b, 0.9)
+  expect((await tops()).filter((n) => n !== 'Shapes')).toEqual([b, a, ...rest])
+  await onto(a, 'Shapes', 0.5)
+  expect(await tops()).not.toContain(a)
+  const shapes = layers(page).getByRole('treeitem', { name: 'Shapes' })
+  await expect(shapes.getByRole('treeitem', { level: 2 }).getByRole('button', { name: a, exact: true })).toBeVisible()
+})
+
 test('an empty page says how to draw', async ({ page }) => {
   await open(page)
   await addMaster(page)
