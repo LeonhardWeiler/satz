@@ -11,7 +11,7 @@ const layout: Layout = {
   direction: 'none', gap: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0,
   alignMain: 'start', alignCross: 'start', sizing: { horizontal: 'fixed', vertical: 'fixed' }, absolute: false,
 }
-const base = (id: string) => ({ id, name: id, x: 0, y: 0, w: 1, h: 1, modes: {}, activeModes: {}, bindings: {}, hidden: false, locked: false, rotation: 0, ...style, ...layout })
+const base = (id: string) => ({ id, name: id, x: 0, y: 0, w: 1, h: 1, modes: {}, activeModes: {}, bindings: {}, hidden: false, locked: false, rotation: 0, bounds: [0, 0, 1, 1] as [number, number, number, number], ...style, ...layout })
 const rect = (id: string): Node => ({ ...base(id), kind: 'shape', shape: 'rect', radius: 0 })
 const group = (id: string, children: Node[]): Node => ({ ...base(id), kind: 'group', children })
 const frame = (id: string, children: Node[]): Node => ({ ...base(id), kind: 'frame', clip: true, children })

@@ -179,6 +179,11 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
     })
     /** A layer where it sits on the spread. */
     const placed = <T extends Node>(n: T): T => ({ ...n, x: n.x + editor.dx(n.id) })
+    /** `n` at the upright box it covers on the spread. */
+    const covered = (n: Node): Node => {
+      const [x, y, w, h] = n.bounds
+      return { ...n, x: x + editor.dx(n.id), y, w, h }
+    }
     /** The index in the text `id` nearest `p`. */
     const textAt = (id: string, p: Point) => {
       const q = editor.local(id, p)
@@ -252,8 +257,8 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
         return e?.node.id
       }
       const skip = new Set([...editor.selection, ...editor.selection.map(top)])
-      const siblings = editor.selected().flatMap((n) => editor.nodes.get(n.id)?.parent?.children ?? []).map(placed)
-      const tops = editor.spread.flatMap((page) => page.children.map((n) => ({ ...n, x: n.x + page.x })))
+      const siblings = editor.selected().flatMap((n) => editor.nodes.get(n.id)?.parent?.children ?? []).map(covered)
+      const tops = editor.spread.flatMap((page) => page.children.map(covered))
       const others = [...new Map([...tops, ...siblings].map((n) => [n.id, n])).values()].filter((n) => !n.hidden && !skip.has(n.id))
       return { lines: targets(editor.sheets, others, editor.grids), others }
     }
@@ -764,7 +769,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
             editor.duplicate(drag.frames.map((n) => n.id), false)
             drag.frames = editor.selected()
           }
-          drag.box = bounds(drag.frames.map(placed))
+          drag.box = bounds(drag.frames.map(covered))
           drag.snaps = snapsNow()
         }
         if (drag.flow) {

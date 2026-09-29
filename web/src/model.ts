@@ -143,6 +143,8 @@ export type Node = {
   locked: boolean
   /** Degrees counterclockwise around the centre, with the children. */
   rotation: number
+  /** The upright box on the page that the layer and what it does not clip cover, turned by its rotation and its ancestors'. */
+  bounds: [number, number, number, number]
 } & Style &
   Layout &
   (

@@ -123,6 +123,9 @@ pub struct Node {
     pub y: f64,
     pub w: f64,
     pub h: f64,
+    /// The upright box on the page that the layer and what it does not clip cover,
+    /// turned by its rotation and its ancestors'.
+    pub bounds: [f64; 4],
     /// Modes chosen on this layer.
     pub modes: Modes,
     /// Modes this layer's variables resolve in, its own and inherited.
@@ -280,14 +283,15 @@ pub(super) fn visit(
         Kind::Group { children: c } | Kind::Frame { children: c, .. } => children = c,
         Kind::Shape(_) => {}
     }
+    let [x, y, w, h] = n.bounds;
     if let Some([x0, x1]) = trim
         && !matches!(n.kind, Kind::Text { .. })
-        && n.x < x1
-        && n.x + n.w > x0
-        && n.y < p.height
-        && n.y + n.h > 0.0
+        && x < x1
+        && x + w > x0
+        && y < p.height
+        && y + h > 0.0
     {
-        let insets = [n.x - x0, x1 - n.x - n.w, n.y, p.height - n.y - n.h];
+        let insets = [x - x0, x1 - x - w, y, p.height - y - h];
         let near = insets
             .iter()
             .copied()
@@ -965,6 +969,21 @@ impl Doc {
                 Kind::Frame { .. } => "Frame".into(),
             });
         let [x, y, w, h] = self.bounds(id);
+        let turn = self.turn(id);
+        let own = union(
+            [[x, y], [x + w, y], [x, y + h], [x + w, y + h]]
+                .into_iter()
+                .map(|p| geom::apply(turn, p))
+                .map(|[x, y]| [x, y, 0.0, 0.0]),
+        );
+        let bounds = match &kind {
+            Kind::Group { children } => union(children.iter().map(|c| c.bounds)),
+            Kind::Frame {
+                clip: false,
+                children,
+            } => union([own].into_iter().chain(children.iter().map(|c| c.bounds))),
+            _ => own,
+        };
         Node {
             id: id.to_string(),
             name,
@@ -972,6 +991,7 @@ impl Doc {
             y,
             w,
             h,
+            bounds,
             modes,
             active_modes,
             bindings: self.bindings(id),
@@ -1482,7 +1502,8 @@ mod tests {
     }
 
     #[test]
-    fn preflight_reports_colours_out_of_gamut_ink_over_the_limit_and_layers_near_the_trim() {
+    fn preflight_reports_colours_out_of_gamut_ink_over_the_limit_and_layers_near_the_trim_where_they_show()
+     {
         let (mut d, p) = empty();
         facing(&mut d, false);
         let solid = |color| Props {
@@ -1502,6 +1523,16 @@ mod tests {
             problems(&d),
             [(near.clone(), Problem::NearTrim { distance: 5.0 })]
         );
+        let turned = create(&mut d, &p, NewKind::Rect, [3.0, 150.0, 20.0, 20.0]);
+        set(
+            &mut d,
+            &turned,
+            Props {
+                rotation: Some(45.0),
+                ..Props::default()
+            },
+        );
+        assert!(problems(&d).contains(&(turned, Problem::ShortOfBleed)));
         cmyk(&mut d);
         let found = problems(&d);
         assert!(found.contains(&(red.clone(), Problem::Gamut)));

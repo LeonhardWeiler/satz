@@ -33,7 +33,7 @@ export function gridSpans(s: Sheet) {
 
 /**
  * What layers snap to on a spread: edges and centres of the pages and of `nodes`, of text
- * frames also their insets, column edges and baseline grid, and with `grids` the layout grids.
+ * frames also their insets, column edges and baseline grid unless turned, and with `grids` the layout grids.
  * Everything is in the space of the spread.
  */
 export function targets(sheets: Sheet[], nodes: Node[], grids = false): Lines {
@@ -52,7 +52,7 @@ export function targets(sheets: Sheet[], nodes: Node[], grids = false): Lines {
   }
   for (const n of nodes) {
     box(n)
-    if (n.kind !== 'text') continue
+    if (n.kind !== 'text' || n.rotation) continue
     const [l, r, t, b] = [n.x + n.insetLeft, n.x + n.w - n.insetRight, n.y + n.insetTop, n.y + n.h - n.insetBottom]
     const column = (r - l - n.gutter * (n.columns - 1)) / n.columns
     for (let c = 0; c < n.columns; c++) {
