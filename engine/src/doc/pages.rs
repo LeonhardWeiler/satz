@@ -108,7 +108,6 @@ impl Doc {
                 if let Some(o) = of.and_then(|o| self.node(&o).ok()) {
                     self.relink(&lefts, m, c, o)?;
                 }
-                self.unlink_all(c)?;
                 self.remove(c)?;
             }
         }
@@ -374,7 +373,6 @@ impl Doc {
         if self.pages().len() == 1 {
             return Err("a document keeps one page".into());
         }
-        self.unlink_all(p)?;
         self.remove(p)?;
         Ok(vec![])
     }
@@ -435,7 +433,6 @@ impl Doc {
                 self.meta(p).delete(MASTER).map_err(err)?;
             }
         }
-        self.unlink_all(m)?;
         self.remove(m)?;
         Ok(vec![])
     }
@@ -1017,6 +1014,27 @@ mod tests {
         let pg = page(&d);
         assert_eq!((ids(&pg.children), pg.detached.len()), (vec![top], 0));
         assert_eq!(d.master_hit(&p1, 15.0, 15.0, 0.0), Some(r));
+    }
+
+    #[test]
+    fn a_threaded_override_reset_to_the_master_passes_its_story_on() {
+        let (mut d, p) = empty();
+        let m = add_master(&mut d);
+        let t = fixed_text(&mut d, &m, [0.0, 0.0, 100.0, 100.0]);
+        use_master(&mut d, &p, Some(&m)).unwrap();
+        let copy = d
+            .apply(Command::Override {
+                page: p.clone(),
+                id: t,
+            })
+            .unwrap()
+            .remove(0);
+        let f = fixed_text(&mut d, &p, [0.0, 150.0, 100.0, 100.0]);
+        set_text(&mut d, &copy, "Hi");
+        thread(&mut d, &copy, &f).unwrap();
+        d.apply(Command::ResetToMaster { ids: vec![copy] }).unwrap();
+        let (text, _, _, prev, ..) = flow(&d, &f);
+        assert_eq!((text.as_str(), prev), ("Hi", None));
     }
 
     #[test]

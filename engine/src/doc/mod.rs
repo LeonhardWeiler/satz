@@ -1654,8 +1654,10 @@ impl Doc {
         Ok(())
     }
 
-    /// Deleted nodes move under a trash root so that undo restores them with their id.
+    /// Deleted nodes leave their threads and move under a trash root so that undo
+    /// restores them with their id.
     fn remove(&self, id: TreeID) -> Res<()> {
+        self.unlink_all(id)?;
         let trash = match self
             .tree
             .roots()
@@ -1919,7 +1921,6 @@ impl Doc {
     fn delete(&self, ids: Vec<String>) -> Res<Vec<String>> {
         for id in self.nodes(&ids)? {
             let parent = self.tree.parent(id);
-            self.unlink_all(id)?;
             self.remove(id)?;
             self.prune(parent)?;
         }
