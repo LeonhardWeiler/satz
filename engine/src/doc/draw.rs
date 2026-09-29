@@ -531,8 +531,7 @@ pub(super) fn hit(
                 } else {
                     0.0
                 };
-                p.contains(&CLOSE) && contains(&p, x, y)
-                    || near(&p, x, y, tolerance as f32 + stroke)
+                closed(&p) && contains(&p, x, y) || near(&p, x, y, tolerance as f32 + stroke)
             }
             _ => inside,
         };

@@ -1,4 +1,5 @@
 use crate::color::Ink;
+use crate::geom::map;
 use serde::Serialize;
 
 pub const MOVE: f32 = 0.0;
@@ -133,21 +134,7 @@ pub fn shift(mut ops: Vec<Op>, dx: f32, dy: f32) -> Vec<Op> {
     if dx == 0.0 && dy == 0.0 {
         return ops;
     }
-    let path = |p: &mut Vec<f32>| {
-        let mut i = 0;
-        while i < p.len() {
-            let n = match p[i] {
-                MOVE | LINE => 1,
-                CUBIC => 3,
-                _ => 0,
-            };
-            for k in 0..n {
-                p[i + 1 + 2 * k] += dx;
-                p[i + 2 + 2 * k] += dy;
-            }
-            i += 1 + 2 * n;
-        }
-    };
+    let path = |p: &mut Vec<f32>| *p = map(p, |[x, y]| [x + dx, y + dy]);
     let paint = |p: &mut Paint| {
         if let Paint::Linear { transform, .. } | Paint::Radial { transform, .. } = p {
             transform[4] += dx;

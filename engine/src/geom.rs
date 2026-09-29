@@ -209,40 +209,48 @@ pub fn bounds(path: &[f32]) -> [f32; 4] {
     [b[0], b[1], b[2] - b[0], b[3] - b[1]]
 }
 
+/// The verbs of `path` with their coordinates, up to the first malformed one.
+pub fn segments(path: &[f32]) -> impl Iterator<Item = (f32, &[f32])> {
+    let mut i = 0;
+    std::iter::from_fn(move || {
+        let v = *path.get(i)?;
+        let n = match v {
+            MOVE | LINE => 2,
+            CUBIC => 6,
+            CLOSE => 0,
+            _ => return None,
+        };
+        let p = path.get(i + 1..i + 1 + n)?;
+        i += 1 + n;
+        Some((v, p))
+    })
+}
+
+/// Whether a subpath of `path` is closed.
+pub fn closed(path: &[f32]) -> bool {
+    segments(path).any(|(v, _)| v == CLOSE)
+}
+
 /// Whether `path` is well formed: finite points, each subpath opened by a move.
 pub fn valid(path: &[f32]) -> bool {
-    let mut i = 0;
-    while i < path.len() {
-        let n = match path[i] {
-            MOVE => 2,
-            LINE if i > 0 => 2,
-            CUBIC if i > 0 => 6,
-            CLOSE if i > 0 => 0,
-            _ => return false,
-        };
-        match path.get(i + 1..i + 1 + n) {
-            Some(p) if p.iter().all(|v| v.is_finite()) => i += 1 + n,
-            _ => return false,
+    let mut len = 0;
+    for (k, (v, p)) in segments(path).enumerate() {
+        if k == 0 && v != MOVE || !p.iter().all(|c| c.is_finite()) {
+            return false;
         }
+        len += 1 + p.len();
     }
-    true
+    len == path.len()
 }
 
 /// Applies `f` to every point of a path.
 pub fn map(path: &[f32], f: impl Fn([f32; 2]) -> [f32; 2]) -> Vec<f32> {
     let mut out = Vec::with_capacity(path.len());
-    let mut i = 0;
-    while i < path.len() {
-        let n = match path[i] {
-            MOVE | LINE => 2,
-            CUBIC => 6,
-            _ => 0,
-        };
-        out.push(path[i]);
-        for p in path[i + 1..i + 1 + n].chunks(2) {
-            out.extend(f([p[0], p[1]]));
+    for (v, p) in segments(path) {
+        out.push(v);
+        for q in p.chunks(2) {
+            out.extend(f([q[0], q[1]]));
         }
-        i += 1 + n;
     }
     out
 }
@@ -250,24 +258,16 @@ pub fn map(path: &[f32], f: impl Fn([f32; 2]) -> [f32; 2]) -> Vec<f32> {
 /// Subpaths as polylines, cubics split into straight segments.
 pub fn flatten(path: &[f32]) -> Vec<Vec<[f32; 2]>> {
     let mut out: Vec<Vec<[f32; 2]>> = Vec::new();
-    let mut i = 0;
-    while i < path.len() {
+    for (v, c) in segments(path) {
         let last = out
             .last()
             .and_then(|s| s.last())
             .copied()
             .unwrap_or([0.0; 2]);
-        match path[i] {
-            MOVE => {
-                out.push(vec![[path[i + 1], path[i + 2]]]);
-                i += 3;
-            }
-            LINE => {
-                out.last_mut().unwrap().push([path[i + 1], path[i + 2]]);
-                i += 3;
-            }
+        match v {
+            MOVE => out.push(vec![[c[0], c[1]]]),
+            LINE => out.last_mut().unwrap().push([c[0], c[1]]),
             CUBIC => {
-                let c = &path[i + 1..i + 7];
                 let sub = out.last_mut().unwrap();
                 for n in 1..=FLATNESS {
                     let t = n as f32 / FLATNESS as f32;
@@ -278,13 +278,11 @@ pub fn flatten(path: &[f32]) -> Vec<Vec<[f32; 2]>> {
                         a * last[1] + b * c[1] + c2 * c[3] + d * c[5],
                     ]);
                 }
-                i += 7;
             }
             _ => {
                 let first = out.last().unwrap()[0];
                 out.last_mut().unwrap().push(first);
                 out.push(vec![first]);
-                i += 1;
             }
         }
     }
@@ -359,6 +357,12 @@ pub fn contains(path: &[f32], x: f32, y: f32) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_path_is_closed_by_its_verbs_not_by_a_coordinate_equal_to_close() {
+        assert!(!closed(&[MOVE, CLOSE, 0.0, LINE, 10.0, CLOSE]));
+        assert!(closed(&rect(0.0, 0.0, 1.0, 1.0)));
+    }
 
     #[test]
     fn a_rect_without_radius_is_its_frame() {

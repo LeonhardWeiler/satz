@@ -1,7 +1,7 @@
 use crate::color::{self, Ink};
 use crate::color::{Color, ColorMode, Swatch};
-use crate::display_list::{CLOSE, LINE, MOVE, Op, Paint, recolor, rect, shift};
-use crate::geom::{self, Shape, bounds, contains, fit, near, outline};
+use crate::display_list::{LINE, MOVE, Op, Paint, recolor, rect, shift};
+use crate::geom::{self, Shape, bounds, closed, contains, fit, near, outline};
 use crate::image::{self, ImageInfo};
 use crate::inks::Inks;
 use crate::layout::{Align3, Direction, Layout, MainAlign, Size, Sizing, arrange};
@@ -2084,7 +2084,7 @@ impl Default for Doc {
 mod tests {
     use super::*;
 
-    pub(super) use crate::display_list::{CUBIC, Paint};
+    pub(super) use crate::display_list::Paint;
 
     pub(super) fn page(d: &Doc) -> Page {
         d.build_snapshot().pages.remove(0)
@@ -2435,17 +2435,9 @@ mod tests {
         ops.iter()
             .filter_map(|o| match o {
                 Op::FillPath { path, .. } => {
-                    let mut xs = Vec::new();
-                    let mut i = 0;
-                    while i < path.len() {
-                        let n = match path[i] {
-                            CLOSE => 0,
-                            CUBIC => 3,
-                            _ => 1,
-                        };
-                        xs.extend((0..n).map(|k| path[i + 1 + 2 * k]));
-                        i += 1 + 2 * n;
-                    }
+                    let xs: Vec<f32> = crate::geom::segments(path)
+                        .flat_map(|(_, p)| p.iter().step_by(2).copied())
+                        .collect();
                     let min = xs.iter().copied().fold(f32::MAX, f32::min);
                     Some([min, xs.iter().copied().fold(f32::MIN, f32::max)])
                 }

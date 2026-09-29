@@ -1,4 +1,4 @@
-use crate::display_list::{CLOSE, CUBIC, LINE, MOVE, Op, Paint as ListPaint, close};
+use crate::display_list::{CUBIC, LINE, MOVE, Op, Paint as ListPaint, close};
 use crate::geom;
 use crate::text::font_bytes;
 use skrifa::instance::{LocationRef, Size};
@@ -427,21 +427,13 @@ fn convert(p: &ListPaint) -> Option<Paint<'static>> {
 
 fn build(cmds: &[f32]) -> Option<Path> {
     let mut pb = PathBuilder::new();
-    let mut i = 0;
-    while i < cmds.len() {
-        let c = &cmds[i..];
-        match c[0] {
-            MOVE => pb.move_to(c[1], c[2]),
-            LINE => pb.line_to(c[1], c[2]),
-            CUBIC => pb.cubic_to(c[1], c[2], c[3], c[4], c[5], c[6]),
-            CLOSE => pb.close(),
-            _ => return None,
+    for (v, c) in geom::segments(cmds) {
+        match v {
+            MOVE => pb.move_to(c[0], c[1]),
+            LINE => pb.line_to(c[0], c[1]),
+            CUBIC => pb.cubic_to(c[0], c[1], c[2], c[3], c[4], c[5]),
+            _ => pb.close(),
         }
-        i += match c[0] {
-            CUBIC => 7,
-            CLOSE => 1,
-            _ => 3,
-        };
     }
     pb.finish()
 }

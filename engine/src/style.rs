@@ -1,6 +1,6 @@
 use crate::color::Color;
-use crate::display_list::{CLOSE, Op, Paint, Shadow, Stop};
-use crate::geom::arrow;
+use crate::display_list::{Op, Paint, Shadow, Stop};
+use crate::geom::{arrow, closed};
 use crate::image;
 use crate::variable::Scope;
 use serde::{Deserialize, Serialize};
@@ -281,7 +281,7 @@ impl Style {
                 ]);
             }
         }
-        let closed = path.contains(&CLOSE);
+        let closed = closed(path);
         let align = if closed {
             self.stroke_align
         } else {
@@ -346,6 +346,7 @@ impl Style {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::display_list::{CLOSE, LINE, MOVE};
     use crate::variable::{Modes, Palette};
 
     fn scope<T>(f: impl FnOnce(&Scope) -> T) -> T {
@@ -356,7 +357,7 @@ mod tests {
         })
     }
 
-    const SQUARE: [f32; 11] = [0.0, 0.0, 0.0, 1.0, 10.0, 0.0, 1.0, 10.0, 10.0, CLOSE, 0.0];
+    const SQUARE: [f32; 10] = [MOVE, 0.0, 0.0, LINE, 10.0, 0.0, LINE, 10.0, 10.0, CLOSE];
 
     #[test]
     fn a_gradient_maps_its_unit_box_into_the_frame() {

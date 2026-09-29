@@ -1,7 +1,6 @@
 use crate::color::{ColorMode, Ink};
-use crate::display_list::{
-    CLOSE, CUBIC, LINE, MOVE, Op, Paint, Shadow, Stop as ListStop, close, recolor,
-};
+use crate::display_list::{CUBIC, LINE, MOVE, Op, Paint, Shadow, Stop as ListStop, close, recolor};
+use crate::geom::segments;
 use crate::image::{self, plate};
 use crate::pdfx;
 use crate::raster::{blur, extent, rasterize, tint};
@@ -692,24 +691,12 @@ fn build(cmds: &[f32]) -> Option<Path> {
 }
 
 fn append(pb: &mut PathBuilder, cmds: &[f32]) {
-    let mut i = 0;
-    while i < cmds.len() {
-        let v = cmds[i];
-        if v == MOVE {
-            pb.move_to(cmds[i + 1], cmds[i + 2]);
-            i += 3;
-        } else if v == LINE {
-            pb.line_to(cmds[i + 1], cmds[i + 2]);
-            i += 3;
-        } else if v == CUBIC {
-            let c = &cmds[i + 1..i + 7];
-            pb.cubic_to(c[0], c[1], c[2], c[3], c[4], c[5]);
-            i += 7;
-        } else if v == CLOSE {
-            pb.close();
-            i += 1;
-        } else {
-            return;
+    for (v, c) in segments(cmds) {
+        match v {
+            MOVE => pb.move_to(c[0], c[1]),
+            LINE => pb.line_to(c[0], c[1]),
+            CUBIC => pb.cubic_to(c[0], c[1], c[2], c[3], c[4], c[5]),
+            _ => pb.close(),
         }
     }
 }
