@@ -42,14 +42,14 @@ fn one() -> f32 {
 const FLATNESS: usize = 16;
 
 /// The transform [a b c d e f] that turns `frame` by `degrees` counterclockwise around its centre.
-pub fn rotation(degrees: f64, [x, y, w, h]: [f32; 4]) -> [f32; 6] {
-    let (s, c) = (degrees.to_radians() as f32).sin_cos();
+pub fn rotation(degrees: f64, [x, y, w, h]: [f64; 4]) -> [f64; 6] {
+    let (s, c) = degrees.to_radians().sin_cos();
     let (cx, cy) = (x + w / 2.0, y + h / 2.0);
     [c, -s, s, c, cx - c * cx - s * cy, cy + s * cx - c * cy]
 }
 
 /// The transform that applies `n`, then `m`.
-pub fn then([a, b, c, d, e, f]: [f32; 6], m: [f32; 6]) -> [f32; 6] {
+pub fn then([a, b, c, d, e, f]: [f64; 6], m: [f64; 6]) -> [f64; 6] {
     let [p, q, r, s, t, u] = m;
     [
         p * a + r * b,
@@ -59,6 +59,17 @@ pub fn then([a, b, c, d, e, f]: [f32; 6], m: [f32; 6]) -> [f32; 6] {
         p * e + r * f + t,
         q * e + s * f + u,
     ]
+}
+
+/// The transform that undoes `m`.
+pub fn invert([a, b, c, d, e, f]: [f64; 6]) -> [f64; 6] {
+    let det = a * d - b * c;
+    let [a, b, c, d] = [d / det, -b / det, -c / det, a / det];
+    [a, b, c, d, -(a * e + c * f), -(b * e + d * f)]
+}
+
+pub fn apply([a, b, c, d, e, f]: [f64; 6], [x, y]: [f64; 2]) -> [f64; 2] {
+    [a * x + c * y + e, b * x + d * y + f]
 }
 
 pub fn outline(shape: &Shape, [x, y, w, h]: [f32; 4]) -> Vec<f32> {

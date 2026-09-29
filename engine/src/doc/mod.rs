@@ -1591,19 +1591,87 @@ impl Doc {
         }
     }
 
-    /// Moves the layer `id` to where it keeps its place on the spread once it is on
-    /// the page of `to`.
-    fn onto(&self, id: TreeID, to: TreeID) -> Res<()> {
+    /// Moves `ids` under `to` from `index` on, where they keep the place and the angle
+    /// they show on the spread.
+    fn reparent(&self, ids: &[TreeID], to: TreeID, index: usize) -> Res<()> {
         let places = self.places();
         let place = |n: TreeID| places.iter().find(|q| q.id == self.root(n));
-        if let (Some(a), Some(b)) = (place(id), place(to))
-            && a.spread == b.spread
-            && a.x != b.x
-        {
+        let back = geom::invert(self.turn(to));
+        let angle = self.angle(to);
+        let mut moves = Vec::new();
+        for &id in ids {
+            let p = self
+                .tree
+                .parent(id)
+                .and_then(parent_node)
+                .ok_or("no parent")?;
             let [x, y, w, h] = self.bounds(id);
-            self.set_frame(id, [x + a.x - b.x, y, w, h])?;
+            let c = [x + w / 2.0, y + h / 2.0];
+            let [sx, sy] = geom::apply(self.turn(p), c);
+            let spread = match (place(id), place(to)) {
+                (Some(a), Some(b)) if a.spread == b.spread => a.x - b.x,
+                _ => 0.0,
+            };
+            let [nx, ny] = geom::apply(back, [sx + spread, sy]);
+            let (dx, dy) = (nx - c[0], ny - c[1]);
+            let r = num(&self.meta(id), "rotation") + self.angle(p) - angle;
+            let r = if r.abs() > 360.0 { r % 360.0 } else { r };
+            moves.push((id, [x + dx, y + dy, w, h], r));
+        }
+        let mut groups: Vec<(TreeID, [f64; 4])> = Vec::new();
+        for id in ids
+            .iter()
+            .filter_map(|&id| self.tree.parent(id)?.tree_id())
+            .chain([to])
+        {
+            let mut g = Some(id);
+            while let Some(n) = g.filter(|&n| self.kind(n) == Some(NodeKind::Group)) {
+                if !groups.iter().any(|&(o, _)| o == n) {
+                    groups.push((n, self.bounds(n)));
+                }
+                g = self.tree.parent(n).and_then(parent_node);
+            }
+        }
+        groups.sort_by_key(|&(g, _)| std::cmp::Reverse(self.depth(g)));
+        for (i, (id, frame, r)) in moves.into_iter().enumerate() {
+            self.tree.mov_to(id, to, index + i).map_err(err)?;
+            self.set_frame(id, frame)?;
+            if r != num(&self.meta(id), "rotation") {
+                self.meta(id).insert("rotation", r).map_err(err)?;
+            }
+        }
+        // A group turns around the centre of its children, which moved: its children
+        // move so that they show where they did.
+        for (g, [x, y, w, h]) in groups {
+            let r = num(&self.meta(g), "rotation");
+            let [nx, ny, nw, nh] = self.bounds(g);
+            if r == 0.0 || self.children(g).is_empty() {
+                continue;
+            }
+            let d = [nx + nw / 2.0 - x - w / 2.0, ny + nh / 2.0 - y - h / 2.0];
+            let [tx, ty] = geom::apply(geom::rotation(r, [0.0; 4]), d);
+            self.set_frame(g, [nx + tx - d[0], ny + ty - d[1], nw, nh])?;
         }
         Ok(())
+    }
+
+    fn depth(&self, mut id: TreeID) -> usize {
+        let mut n = 0;
+        while let Some(TreeParentId::Node(p)) = self.tree.parent(id) {
+            id = p;
+            n += 1;
+        }
+        n
+    }
+
+    /// The sum of the rotations of `id` and its ancestors.
+    fn angle(&self, mut id: TreeID) -> f64 {
+        let mut a = num(&self.meta(id), "rotation");
+        while let Some(TreeParentId::Node(p)) = self.tree.parent(id) {
+            id = p;
+            a += num(&self.meta(id), "rotation");
+        }
+        a
     }
 
     /// Wraps `ids`, in document order, in a group or frame at the place of the topmost.
@@ -1611,22 +1679,19 @@ impl Doc {
         let top = *ids.last().ok_or("nothing to group")?;
         let parent = self.tree.parent(top).ok_or("no parent")?;
         let index = self.index(top) + 1;
-        for &id in ids {
-            self.onto(id, top)?;
-        }
-        let bounds = union(ids.iter().map(|&id| self.bounds(id)));
         let g = self.tree.create_at(parent, index).map_err(err)?;
         let m = self.meta(g);
-        if frame {
-            m.insert(KIND, NodeKind::Frame.as_str()).map_err(err)?;
-            m.insert("clip", true).map_err(err)?;
-            self.set_frame(g, bounds)?;
+        let kind = if frame {
+            NodeKind::Frame
         } else {
-            m.insert(KIND, NodeKind::Group.as_str()).map_err(err)?;
-        }
+            NodeKind::Group
+        };
+        m.insert(KIND, kind.as_str()).map_err(err)?;
         let olds: Vec<_> = ids.iter().map(|&id| self.tree.parent(id)).collect();
-        for (i, &id) in ids.iter().enumerate() {
-            self.tree.mov_to(id, g, i).map_err(err)?;
+        self.reparent(ids, g, 0)?;
+        if frame {
+            m.insert("clip", true).map_err(err)?;
+            self.resize(g, union(ids.iter().map(|&id| self.bounds(id))), false)?;
         }
         for p in olds {
             self.prune(p)?;
@@ -1677,12 +1742,13 @@ impl Doc {
     }
 
     /// The transform that turns `id` and its content by its rotation and its ancestors'.
-    pub(super) fn turn(&self, mut id: TreeID) -> [f32; 6] {
+    pub(super) fn turn(&self, mut id: TreeID) -> [f64; 6] {
         let mut m = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0];
         loop {
             let r = num(&self.meta(id), "rotation");
-            let b = self.bounds(id).map(|v| v as f32);
-            m = geom::then(m, geom::rotation(r, b));
+            if r != 0.0 {
+                m = geom::then(m, geom::rotation(r, self.bounds(id)));
+            }
             match self.tree.parent(id) {
                 Some(TreeParentId::Node(p)) => id = p,
                 _ => return m,
@@ -1691,7 +1757,7 @@ impl Doc {
     }
 
     pub fn turn_of(&self, id: &str) -> Res<[f32; 6]> {
-        Ok(self.turn(self.node(id)?))
+        Ok(self.turn(self.node(id)?).map(|v| v as f32))
     }
 
     /// The page or other root that `id` is on.
@@ -1897,7 +1963,7 @@ impl Doc {
             return Ok(vec![]);
         }
         let frame = self.bounds(id).map(|v| v as f32);
-        let [a, b, c, d, e, f] = geom::rotation(rotation, frame);
+        let [a, b, c, d, e, f] = geom::rotation(rotation, frame.map(f64::from)).map(|v| v as f32);
         let path = geom::map(&outline(&shape, frame), |[u, v]| {
             [a * u + c * v + e, b * u + d * v + f]
         });
@@ -1933,12 +1999,14 @@ impl Doc {
             if !matches!(self.kind(g), Some(NodeKind::Group | NodeKind::Frame)) {
                 continue;
             }
-            let parent = self.tree.parent(g).ok_or("no parent")?;
-            let index = self.index(g);
-            for (i, c) in self.children(g).into_iter().enumerate() {
-                self.tree.mov_to(c, parent, index + i).map_err(err)?;
-                out.push(c.to_string());
-            }
+            let parent = self
+                .tree
+                .parent(g)
+                .and_then(parent_node)
+                .ok_or("no parent")?;
+            let kids = self.children(g);
+            self.reparent(&kids, parent, self.index(g))?;
+            out.extend(kids.iter().map(|c| c.to_string()));
             self.remove(g)?;
         }
         Ok(out)
@@ -2035,19 +2103,12 @@ impl Doc {
             up = self.tree.parent(n).and_then(parent_node);
         }
         let olds: Vec<_> = ids.iter().map(|&id| self.tree.parent(id)).collect();
-        for &id in &ids {
-            self.onto(id, p)?;
-        }
         let others = self
             .children(p)
             .into_iter()
             .filter(|c| !ids.contains(c))
             .count();
-        for (i, &id) in ids.iter().enumerate() {
-            self.tree
-                .mov_to(id, p, index.min(others) + i)
-                .map_err(err)?;
-        }
+        self.reparent(&ids, p, index.min(others))?;
         for p in olds {
             self.prune(p)?;
         }
@@ -2961,6 +3022,48 @@ mod tests {
 
         d.apply(Command::Ungroup { ids: vec![g] }).unwrap();
         assert_eq!(ids(&page(&d).children), [b, a, c]);
+    }
+
+    /// Where the centre of `id` shows on its page, and the angle it shows at.
+    fn placed(d: &Doc, id: &str) -> [f64; 3] {
+        let n = d.node(id).unwrap();
+        let [x, y, w, h] = d.bounds(n);
+        let [cx, cy] = geom::apply(d.turn(n), [x + w / 2.0, y + h / 2.0]);
+        [cx, cy, d.angle(n)].map(|v| (v * 1e6).round() / 1e6)
+    }
+
+    #[test]
+    fn layers_taken_out_of_a_turned_group_or_frame_stay_where_they_show() {
+        for frame in [false, true] {
+            let (mut d, p) = empty();
+            let a = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 20.0, 4.0]);
+            let b = create(&mut d, &p, NewKind::Rect, [0.0, 16.0, 20.0, 4.0]);
+            let g = d
+                .apply(Command::Group {
+                    ids: vec![a.clone(), b.clone()],
+                    frame,
+                })
+                .unwrap()
+                .remove(0);
+            for id in [&g, &a] {
+                let turned = Props {
+                    rotation: Some(90.0),
+                    ..Props::default()
+                };
+                set(&mut d, id, turned);
+            }
+            let before = [placed(&d, &a), placed(&d, &b)];
+            d.apply(Command::Move {
+                ids: vec![a.clone()],
+                parent: p.clone(),
+                index: 0,
+            })
+            .unwrap();
+            assert_eq!(placed(&d, &a), before[0], "{frame}");
+            assert_eq!(placed(&d, &a)[2], 180.0);
+            d.apply(Command::Ungroup { ids: vec![g] }).unwrap();
+            assert_eq!(placed(&d, &b), before[1], "{frame}");
+        }
     }
 
     #[test]

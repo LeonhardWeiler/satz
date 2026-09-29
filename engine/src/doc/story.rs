@@ -278,7 +278,7 @@ impl Doc {
 
     /// `ops` drawn turned as the layer `id` is.
     fn turned(&self, id: TreeID, ops: Vec<Op>) -> Vec<Op> {
-        let transform = self.turn(id);
+        let transform = self.turn(id).map(|v| v as f32);
         if transform == [1.0, 0.0, 0.0, 1.0, 0.0, 0.0] {
             return ops;
         }

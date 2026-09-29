@@ -440,7 +440,7 @@ pub(super) fn draw(n: &Node, ops: &mut Vec<Op>, pal: &Palette) {
     let turned = n.rotation != 0.0;
     if turned {
         ops.push(Op::PushTransform {
-            transform: geom::rotation(n.rotation, frame),
+            transform: geom::rotation(n.rotation, frame.map(f64::from)).map(|v| v as f32),
         });
     }
     match &n.kind {
@@ -513,8 +513,7 @@ pub(super) fn hit(
         }) {
             continue;
         }
-        let [a, b, c, d, e, f] =
-            geom::rotation(-n.rotation, [n.x, n.y, n.w, n.h].map(|v| v as f32)).map(f64::from);
+        let [a, b, c, d, e, f] = geom::rotation(-n.rotation, [n.x, n.y, n.w, n.h]);
         let (x, y) = (a * x + c * y + e, b * x + d * y + f);
         let inside = x >= n.x && x <= n.x + n.w && y >= n.y && y <= n.y + n.h;
         path.push(n.id.clone());
