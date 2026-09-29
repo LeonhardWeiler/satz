@@ -373,7 +373,7 @@ impl Doc {
                             .filter(|(k, _)| k == "size" || k == "font"),
                     );
                     if b != own {
-                        to.insert("bindings", loro(b)?).map_err(err)?;
+                        to.insert(BINDINGS, loro(b)?).map_err(err)?;
                     }
                 }
                 (None, None) => {}
@@ -782,7 +782,7 @@ impl Doc {
                 },
             };
             if sizing != old {
-                self.meta(f).insert("sizing", loro(sizing)?).map_err(err)?;
+                self.meta(f).insert(SIZING, loro(sizing)?).map_err(err)?;
             }
         }
         Ok(vec![])

@@ -160,16 +160,14 @@ impl Doc {
             let len = modes.len();
             modes.retain(|c, m| !f(c, m));
             if modes.len() < len {
-                self.meta(n).insert("modes", loro(modes)?).map_err(err)?;
+                self.meta(n).insert(MODES, loro(modes)?).map_err(err)?;
             }
             Ok(())
         })
     }
 
     pub(super) fn bindings(&self, id: TreeID) -> BTreeMap<String, String> {
-        value(&self.meta(id), "bindings")
-            .and_then(|v| serde_json::from_value(serde_json::to_value(v).ok()?).ok())
-            .unwrap_or_default()
+        self.json(id, BINDINGS)
     }
 
     pub(super) fn unbind(&self, id: TreeID, drop: impl Fn(&str) -> bool) -> Res<()> {
@@ -178,7 +176,7 @@ impl Doc {
         bindings.retain(|p, _| !drop(p));
         if bindings.len() < n {
             self.meta(id)
-                .insert("bindings", loro(bindings)?)
+                .insert(BINDINGS, loro(bindings)?)
                 .map_err(err)?;
         }
         Ok(())
@@ -206,9 +204,7 @@ impl Doc {
     }
 
     pub(super) fn modes(&self, id: TreeID) -> Modes {
-        value(&self.meta(id), "modes")
-            .and_then(|v| serde_json::from_value(serde_json::to_value(v).ok()?).ok())
-            .unwrap_or_default()
+        self.json(id, MODES)
     }
 
     pub(super) fn new_id(&self) -> String {
@@ -482,7 +478,7 @@ impl Doc {
             None => bindings.remove(&prop),
         };
         self.meta(n)
-            .insert("bindings", loro(bindings)?)
+            .insert(BINDINGS, loro(bindings)?)
             .map_err(err)?;
         Ok(vec![])
     }
@@ -501,7 +497,7 @@ impl Doc {
             Some(m) => return Err(format!("no mode {m}")),
             None => modes.remove(&collection),
         };
-        self.meta(n).insert("modes", loro(modes)?).map_err(err)?;
+        self.meta(n).insert(MODES, loro(modes)?).map_err(err)?;
         Ok(vec![])
     }
 }

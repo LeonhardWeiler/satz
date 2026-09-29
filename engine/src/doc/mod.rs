@@ -639,6 +639,11 @@ const DETACHED: &str = "detached";
 const GRIDS: &str = "grids";
 const OVERRIDE_OF: &str = "overrideOf";
 const LEFT_OF: &str = "leftOf";
+/// Keys of a node whose values are JSON of their own.
+const MODES: &str = "modes";
+const BINDINGS: &str = "bindings";
+const CONSTRAINTS: &str = "constraints";
+const SIZING: &str = "sizing";
 /// Figma's selection blue at 30 %.
 const SELECTION: [f32; 4] = [0.051, 0.6, 1.0, 0.3];
 
@@ -1391,7 +1396,7 @@ impl Doc {
                 vertical: fixed(l.sizing.vertical),
             };
             if sizing != l.sizing {
-                self.meta(id).insert("sizing", loro(sizing)?).map_err(err)?;
+                self.meta(id).insert(SIZING, loro(sizing)?).map_err(err)?;
             }
             return Ok(());
         }
@@ -1451,7 +1456,12 @@ impl Doc {
     }
 
     fn constraints(&self, id: TreeID) -> Constraints {
-        value(&self.meta(id), "constraints")
+        self.json(id, CONSTRAINTS)
+    }
+
+    /// The value of the key `key` of `id`, or its default when it is missing.
+    fn json<T: DeserializeOwned + Default>(&self, id: TreeID, key: &str) -> T {
+        value(&self.meta(id), key)
             .and_then(|v| serde_json::from_value(serde_json::to_value(v).ok()?).ok())
             .unwrap_or_default()
     }
@@ -1901,7 +1911,7 @@ impl Doc {
             };
         }
         if sizing != old {
-            self.meta(id).insert("sizing", loro(sizing)?).map_err(err)?;
+            self.meta(id).insert(SIZING, loro(sizing)?).map_err(err)?;
         }
         self.resize(id, [x, y, w, h], !ignore_constraints)?;
         Ok(vec![])
