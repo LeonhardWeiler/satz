@@ -1067,6 +1067,7 @@ impl Doc {
         {
             return Err("not a Satz document".into());
         }
+        let mut hashes = vec![];
         for v in d
             .doc
             .get_map("images")
@@ -1076,9 +1077,10 @@ impl Doc {
             .values()
         {
             if let LoroValue::Binary(bytes) = v {
-                image::register(bytes.clone())?;
+                hashes.push(image::register(bytes.clone())?.hash);
             }
         }
+        image::forget(&hashes);
         d.doc.set_next_commit_origin(LAYOUT_ORIGIN);
         d.finish(vec![], false)?;
         Ok(d)

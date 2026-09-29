@@ -344,6 +344,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
       const insert = drag?.kind === 'move' ? drag.to?.line.map((q) => ({ x: q.x + flowDx, y: q.y })) : undefined
       const lists = spread.map((p) => ({ id: p.id, x: p.x, inks: editor.preflight ? inkedOf(p) : undefined }))
       const image = editor.placing[0]
+      renderer.keepImages(Object.keys(editor.snapshot.images).join())
       renderer.draw(surface.getCanvas(), lists, editor.sheets, view, canvas.width / canvas.clientWidth, {
         text,
         selection: editor.selection.length > 1 || ed || drag?.kind === 'draw' ? editor.selected().map((n) => editor.shown(n)) : [],

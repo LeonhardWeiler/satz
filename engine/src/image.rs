@@ -148,6 +148,16 @@ pub fn register(bytes: LoroBinaryValue) -> Result<ImageInfo, String> {
     Ok(info)
 }
 
+/// Drops the decoded pixels of every image but `keep`.
+pub fn forget(keep: &[String]) {
+    IMAGES.with_borrow(|images| {
+        for e in images.iter().filter(|e| !keep.contains(&e.info.hash)) {
+            e.pixels.take();
+            e.cmyk.take();
+        }
+    })
+}
+
 fn space(format: Format, bytes: &[u8]) -> Space {
     match format {
         Format::Png => match png::Decoder::new(Cursor::new(bytes)).read_info() {
@@ -434,6 +444,17 @@ pub mod tests {
                 &c.color[..4]
             );
         }
+    }
+
+    #[test]
+    fn forgotten_images_drop_their_pixels() {
+        let info = register(png(3, 1).into()).unwrap();
+        let e = entry(id(&info.hash).unwrap()).unwrap();
+        pixmap(id(&info.hash).unwrap()).unwrap();
+        forget(std::slice::from_ref(&info.hash));
+        assert!(e.pixels.borrow().is_some());
+        forget(&[]);
+        assert!(e.pixels.borrow().is_none());
     }
 
     #[test]

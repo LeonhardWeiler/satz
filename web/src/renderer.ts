@@ -103,6 +103,7 @@ export class Renderer {
   private fonts = new Map<string, Font>()
   /** Decoded images by display-list id; `null` when the file does not decode. */
   private images = new Map<number, Image | null>()
+  private hashes = ''
   /** Images of the inks over pages by their pixels. */
   private inks = new Map<Uint8Array, Image>()
   /** The pages show as they print. */
@@ -541,6 +542,14 @@ export class Renderer {
     }
     paint.setShader(null)
     shader?.delete()
+  }
+
+  /** Forgets the decoded images when the document's images are no longer `hashes`. */
+  keepImages(hashes: string) {
+    if (hashes === this.hashes) return
+    this.hashes = hashes
+    for (const image of this.images.values()) image?.delete()
+    this.images.clear()
   }
 
   /** Decodes the images of `ops` not decoded yet. */
