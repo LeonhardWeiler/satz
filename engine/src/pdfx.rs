@@ -25,16 +25,17 @@ pub fn pdfx(mut pdf: Vec<u8>, preset: Preset, rgb: bool, title: &str, date: &str
     let did = id[5..].split(')').next().unwrap();
 
     let catalog = dict(&pdf, root);
-    let pages: Vec<usize> = pdf
+    let pages: Vec<(usize, usize)> = pdf
         .windows(PAGE.len())
         .enumerate()
         .filter(|(_, w)| *w == PAGE)
         .map(|(at, _)| {
             let start = pdf[..at].iter().rposition(|&b| b == b'\n').unwrap() + 1;
-            std::str::from_utf8(&pdf[start..at])
+            let n = std::str::from_utf8(&pdf[start..at])
                 .unwrap()
                 .parse()
-                .unwrap()
+                .unwrap();
+            (n, at + b" 0 obj\n".len())
         })
         .collect();
 
@@ -126,10 +127,10 @@ xmlns:pdfxid=\"http://www.npes.org/pdfx/ns/id/\">\
                 &srgb,
             ),
         ));
-        for &n in &pages {
+        for &(n, at) in &pages {
             let group = format!(
                 "{}/Group<</Type/Group/S/Transparency/CS[/ICCBased {} 0 R]>>>>",
-                dict(&pdf, n),
+                body(&pdf, at),
                 size + 4
             );
             objects.push((n, group.into_bytes()));
@@ -171,7 +172,14 @@ xmlns:pdfxid=\"http://www.npes.org/pdfx/ns/id/\">\
 /// The dictionary of the object `n` in `pdf` without its closing `>>`.
 fn dict(pdf: &[u8], n: usize) -> String {
     let start = format!("\n{n} 0 obj\n");
-    let at = rfind(pdf, start.as_bytes()).expect("krilla writes the object") + start.len();
+    body(
+        pdf,
+        rfind(pdf, start.as_bytes()).expect("krilla writes the object") + start.len(),
+    )
+}
+
+/// The dictionary of the object whose body starts at `at`, without its closing `>>`.
+fn body(pdf: &[u8], at: usize) -> String {
     let body = &pdf[at..];
     let body = &body[..find(body, b"endobj").unwrap()];
     String::from_utf8_lossy(&body[..rfind(body, b">>").unwrap()]).into_owned()

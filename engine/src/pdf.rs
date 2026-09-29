@@ -21,6 +21,8 @@ use krilla::surface::Surface;
 use krilla::text::{Font, GlyphId, KrillaGlyph};
 use krilla::{Document, SerializeSettings};
 use serde::{Deserialize, Serialize};
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 use tiny_skia::Pixmap;
 
@@ -72,6 +74,7 @@ pub fn pdf(pages: &[Vec<Op>], x: &Export) -> Vec<u8> {
             .unwrap(),
         ..SerializeSettings::default()
     });
+    let rasters = RefCell::new(HashMap::new());
     for ops in pages {
         let Some(&Op::Page {
             width,
@@ -118,6 +121,7 @@ pub fn pdf(pages: &[Vec<Op>], x: &Export) -> Vec<u8> {
             preset: x.preset,
             proof: !print && x.mode == ColorMode::Cmyk,
             page: area,
+            rasters: &rasters,
         };
         if x.preset == Preset::X1a {
             let (opaque, areas) = flatten(&ops[1..]);
@@ -215,6 +219,8 @@ struct Env<'a> {
     /// Images are drawn as the canvas shows them in a CMYK document.
     proof: bool,
     page: [f32; 4],
+    /// Rasterized groups by their ops and area, so that a master's are made once.
+    rasters: &'a RefCell<HashMap<String, Option<Image>>>,
 }
 
 fn draw(s: &mut Surface, env: &Env, ops: &[Op]) {
@@ -401,23 +407,25 @@ fn raster(
         return;
     };
     let rect = [l - offset[0], t - offset[1], w, h];
-    let image = if env.cmyk {
-        separate(ops, rect, env.ppi, shadow, sigma, false)
-            .map(|c| Image::from_custom(c, true).unwrap())
-    } else {
-        plane(
-            ops,
-            rect,
-            env.ppi,
-            &image::pixmap,
-            shadow.map(|s| s.color),
-            sigma,
-        )
-        .map(|px| {
-            let (w, h) = (px.width(), px.height());
-            Image::from_rgba8(px.take_demultiplied(), w, h)
-        })
-    };
+    let image = cached(env, ops, (rect, sigma, shadow), || {
+        if env.cmyk {
+            separate(ops, rect, env.ppi, shadow, sigma, false)
+                .map(|c| Image::from_custom(c, true).unwrap())
+        } else {
+            plane(
+                ops,
+                rect,
+                env.ppi,
+                &image::pixmap,
+                shadow.map(|s| s.color),
+                sigma,
+            )
+            .map(|px| {
+                let (w, h) = (px.width(), px.height());
+                Image::from_rgba8(px.take_demultiplied(), w, h)
+            })
+        }
+    });
     if let Some(image) = image {
         place(s, image, l, t, env.ppi);
     }
@@ -439,6 +447,22 @@ fn paper(s: &mut Surface, env: &Env, ops: &[Op], area: [f32; 4]) {
     if let Some(c) = separate(&all, [x, y, w, h], env.ppi, None, 0.0, true) {
         place(s, Image::from_custom(c, true).unwrap(), x, y, env.ppi);
     }
+}
+
+/// The image `make` rasterizes from `ops` with `params`, made once per export.
+fn cached(
+    env: &Env,
+    ops: &[Op],
+    params: impl Serialize,
+    make: impl FnOnce() -> Option<Image>,
+) -> Option<Image> {
+    let key = serde_json::to_string(&(ops, params)).unwrap();
+    if let Some(image) = env.rasters.borrow().get(&key) {
+        return image.clone();
+    }
+    let image = make();
+    env.rasters.borrow_mut().insert(key, image.clone());
+    image
 }
 
 /// The part of `area` on `page`, both as [x, y, w, h].
