@@ -333,8 +333,13 @@ fn draw(s: &mut Surface, env: &Env, ops: &[Op]) {
                 } else {
                     FillRule::NonZero
                 };
-                s.push_clip_path(&pb.finish().unwrap(), &rule);
-                pops.push(1);
+                match pb.finish() {
+                    Some(p) => {
+                        s.push_clip_path(&p, &rule);
+                        pops.push(1);
+                    }
+                    None => i = close(ops, i),
+                }
             }
             Op::PushLayer {
                 opacity,
@@ -808,6 +813,30 @@ mod tests {
             },
         ];
         assert_eq!(image_width(&ops, 72.0), Some(40));
+    }
+
+    #[test]
+    fn a_clip_to_a_single_point_exports() {
+        let ops = vec![
+            Op::Page {
+                width: 100.0,
+                height: 100.0,
+                bleed: 0.0,
+            },
+            Op::PushClip {
+                path: vec![crate::display_list::MOVE, 0.5, 0.5],
+                invert: false,
+            },
+            Op::FillPath {
+                paint: Paint::Solid {
+                    color: [1.0, 0.0, 0.0, 1.0],
+                    ink: Ink::Rgb,
+                },
+                path: rect(0.0, 0.0, 10.0, 10.0),
+            },
+            Op::PopClip,
+        ];
+        write(&[ops], Preset::X4, 72.0, ColorMode::Rgb);
     }
 
     #[test]
