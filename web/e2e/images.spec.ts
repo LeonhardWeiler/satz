@@ -51,6 +51,6 @@ test('a chosen image follows the pointer as a frame until a click places it, and
 test('a file that is not an image is not placed and says why', async ({ page }) => {
   await open(page)
   await place(page, { name: 'notes.png', mimeType: 'image/png', buffer: Buffer.from('notes') })
-  await expect(page.getByText('Could not place notes.png: not a PNG or JPEG image. Choose a PNG or JPEG file.')).toBeVisible()
+  await expect(page.getByText('Could not place notes.png: not a PNG or JPEG image.')).toBeVisible()
   await expect(page.getByRole('tree', { name: 'Layers' }).getByRole('treeitem', { name: 'notes.png' })).toHaveCount(0)
 })

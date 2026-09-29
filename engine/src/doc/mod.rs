@@ -590,6 +590,8 @@ const MM: f64 = 72.0 / 25.4;
 
 /// Pixels per inch that images need to print sharp.
 const PRINT_PPI: f64 = 300.0;
+/// The most pixels of an image that `Doc::add_image` takes.
+const MAX_PIXELS: u64 = 50_000_000;
 
 /// The origin of commits that add images, which undo leaves alone: the bytes stay
 /// for whatever uses them now or after an undo.
@@ -1031,10 +1033,17 @@ impl Doc {
             .expect("export")
     }
 
-    /// Adds a PNG or JPEG file to the images of the document, for `PlaceImage`;
-    /// undo does not take it out again.
+    /// Adds a PNG or JPEG file of at most `MAX_PIXELS` to the images of the document,
+    /// for `PlaceImage`; undo does not take it out again.
     pub fn add_image(&mut self, bytes: &[u8]) -> Res<ImageInfo> {
         let bytes = LoroBinaryValue::from(bytes.to_vec());
+        let (w, h) = image::size(&bytes)?;
+        if u64::from(w) * u64::from(h) > MAX_PIXELS {
+            return Err(format!(
+                "the image has more than {} megapixels",
+                MAX_PIXELS / 1_000_000
+            ));
+        }
         let info = image::register(bytes.clone())?;
         let images = self.doc.get_map("images");
         if images.get(&info.hash).is_none() {
@@ -4230,6 +4239,14 @@ mod tests {
         };
         assert!(apply(&t, fills(Fill::image(&hash))).is_err());
         assert!(d.add_image(b"GIF89a").is_err());
+        let mut huge = Vec::new();
+        let mut w = png::Encoder::new(&mut huge, 10_000, 5_001)
+            .write_header()
+            .unwrap();
+        w.write_chunk(png::chunk::IDAT, &[]).unwrap();
+        drop(w);
+        let e = d.add_image(&huge).unwrap_err();
+        assert_eq!(e, "the image has more than 50 megapixels");
         let unknown = Command::PlaceImage {
             parent: p,
             image: "0123456789abcdef".into(),

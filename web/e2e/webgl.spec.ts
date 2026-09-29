@@ -34,6 +34,14 @@ test('a notice tells when the engine fails to load', { annotation: { type: 'erro
   await expect(page.getByRole('progressbar')).toHaveCount(0)
 })
 
+test('a trap in the engine stops Satz with a notice whose button reloads it', { annotation: { type: 'errors' } }, async ({ page }) => {
+  await open(page)
+  await page.evaluate(() => setTimeout(() => { throw new WebAssembly.RuntimeError('unreachable') }))
+  await expect(page.getByRole('alert')).toContainText('Satz stopped')
+  await page.getByRole('button', { name: 'Reload' }).click()
+  await expect(page.getByLabel('Page canvas')).toBeVisible()
+})
+
 test('each wasm file is preloaded and fetched once', async ({ page }) => {
   const wasm: string[] = []
   page.on('request', (r) => r.url().endsWith('.wasm') && wasm.push(r.url()))

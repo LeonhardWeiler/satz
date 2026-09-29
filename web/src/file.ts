@@ -46,7 +46,7 @@ export function autosave(editor: Editor) {
   let timer = 0
   const put = async () => {
     clearTimeout(timer)
-    if (state() === last) return
+    if (editor.broken || state() === last) return
     last = state()
     const { name, handle } = editor.file
     const files = await store('files')
@@ -192,7 +192,8 @@ async function placeImage(editor: Editor, file: File, say: (message: string) => 
   try {
     editor.loadImage(new Uint8Array(await file.arrayBuffer()), file.name)
   } catch (e) {
-    say(`Could not place ${file.name}: ${(e as Error).message}. Choose a PNG or JPEG file.`)
+    if (e instanceof WebAssembly.RuntimeError) throw e
+    say(`Could not place ${file.name}: ${(e as Error).message}.`)
   }
 }
 

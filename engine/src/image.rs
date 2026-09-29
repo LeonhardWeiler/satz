@@ -148,6 +148,25 @@ pub fn register(bytes: LoroBinaryValue) -> Result<ImageInfo, String> {
     Ok(info)
 }
 
+/// The width and height in the header of the PNG or JPEG file `bytes`.
+pub fn size(bytes: &[u8]) -> Result<(u32, u32), String> {
+    let bad = || "not a PNG or JPEG image".to_string();
+    match format(bytes)? {
+        Format::Png => {
+            let r = png::Decoder::new(Cursor::new(bytes))
+                .read_info()
+                .map_err(|_| bad())?;
+            Ok((r.info().width, r.info().height))
+        }
+        Format::Jpeg => {
+            let mut d = JpegDecoder::new(Cursor::new(bytes));
+            d.decode_headers().map_err(|_| bad())?;
+            let (w, h) = d.dimensions().ok_or_else(bad)?;
+            Ok((w as u32, h as u32))
+        }
+    }
+}
+
 /// Drops the decoded pixels of every image but `keep`.
 pub fn forget(keep: &[String]) {
     IMAGES.with_borrow(|images| {

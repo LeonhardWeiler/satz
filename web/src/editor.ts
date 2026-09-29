@@ -67,6 +67,8 @@ export class Editor {
   dirty = false
   /** The message in the status bar. */
   status = ''
+  /** The engine trapped; nothing is saved any more. */
+  broken = false
   /** Typing into the edited text is one undo step until the caret moves. */
   private typing = false
   /** The plain text the last copy of layers put on the clipboard; other text there came from outside. */
@@ -190,7 +192,7 @@ export class Editor {
     return this.snapshot.masters.find((m) => m.id === page.master)
   }
 
-  /** Applies `cmd`; a command the engine rejects shows in the status bar and returns nothing. */
+  /** Applies `cmd`; a command the engine rejects shows in the status bar and returns nothing, a trap throws. */
   apply(cmd: Command): string[] {
     if (cmd.type === 'undo' || cmd.type === 'redo') {
       this.typing = false
@@ -199,6 +201,7 @@ export class Editor {
     try {
       return this.change(() => this.engine.apply(cmd))
     } catch (e) {
+      if (e instanceof WebAssembly.RuntimeError) throw e
       this.say((e as Error).message)
       return []
     }

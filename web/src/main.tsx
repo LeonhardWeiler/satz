@@ -10,11 +10,12 @@ import './index.css'
 
 const root = createRoot(document.getElementById('root')!)
 
-const notice = (title: string, text: string) =>
+const notice = (title: string, text: string, reload = false) =>
   root.render(
     <main className="notice" role="alert">
       <h1>{title}</h1>
       <p>{text}</p>
+      {reload && <button onClick={() => location.reload()}>Reload</button>}
     </main>,
   )
 
@@ -46,8 +47,15 @@ if (!document.createElement('canvas').getContext('webgl2')) {
         <App ck={ck} editor={editor} first={first} />
       </StrictMode>,
     )
+    const trapped = (e: unknown) => {
+      if (!(e instanceof WebAssembly.RuntimeError)) return
+      editor.broken = true
+      notice('Satz stopped', 'The engine failed. Reload the page to go on from the last autosave.', true)
+    }
+    window.addEventListener('error', (e) => trapped(e.error))
+    window.addEventListener('unhandledrejection', (e) => trapped(e.reason))
   } catch (e) {
     console.error(e)
-    notice('Satz could not start', 'Loading the engine failed. Check your connection and reload the page.')
+    notice('Satz could not start', 'Loading the engine failed. Check your connection and reload the page.', true)
   }
 }
