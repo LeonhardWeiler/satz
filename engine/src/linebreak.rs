@@ -62,18 +62,19 @@ pub fn break_lines(items: &[Item], width: f32) -> Vec<(usize, f32)> {
             };
             (d, r)
         };
-        let best = starts
+        let lines: Vec<_> = starts
             .iter()
             .map(|&(i, d)| {
                 let (ld, r) = line(i.map_or(0, |i| i + 1));
                 (i, d + ld, r)
             })
-            .min_by(|a, b| a.1.total_cmp(&b.1))
-            .unwrap();
+            .collect();
+        let best = *lines.iter().min_by(|a, b| a.1.total_cmp(&b.1)).unwrap();
         prev[j] = Some((best.0, best.2 as f32));
-        if cost == f64::NEG_INFINITY {
-            starts.clear();
-        }
+        let mut fits = lines
+            .iter()
+            .map(|l| l.2 >= -1.0 && cost != f64::NEG_INFINITY);
+        starts.retain(|_| fits.next().unwrap());
         starts.push((Some(j), best.1));
     }
     let mut breaks = Vec::new();
