@@ -576,6 +576,8 @@ pub struct Doc {
     /// command on.
     flows: RefCell<Option<Rc<HashMap<TreeID, Flow>>>>,
     snapshot: RefCell<Option<Rc<Snapshot>>>,
+    /// The text layer each text layer follows in its thread.
+    prevs: RefCell<Option<Rc<HashMap<TreeID, TreeID>>>>,
     /// Each story as last set, by its first frame.
     sets: RefCell<HashMap<TreeID, Set>>,
     /// The version of the last change other than text set again for a new font.
@@ -751,6 +753,7 @@ impl Doc {
             clipboard: Vec::new(),
             flows: RefCell::new(None),
             snapshot: RefCell::new(None),
+            prevs: RefCell::new(None),
             sets: RefCell::new(HashMap::new()),
         }
     }
@@ -1357,6 +1360,7 @@ impl Doc {
     fn invalidate(&self) {
         self.flows.take();
         self.snapshot.take();
+        self.prevs.take();
     }
 
     fn layout(&self, id: TreeID) -> Layout {
@@ -1748,6 +1752,7 @@ impl Doc {
                 t
             }
         };
+        self.prevs.take();
         self.tree.mov(id, trash).map_err(err)
     }
 

@@ -69,7 +69,7 @@ impl Doc {
             .collect();
         for (_, new, next) in pairs {
             if let Some(&to) = next.and_then(|n| copies.get(&n)) {
-                self.meta(new).insert(NEXT, to.to_string()).map_err(err)?;
+                self.set_next(new, Some(to))?;
                 let own = self.own_text(to)?;
                 own.delete_utf16(0, own.len_utf16()).map_err(err)?;
             }
