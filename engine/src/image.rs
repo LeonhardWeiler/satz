@@ -266,11 +266,20 @@ pub fn pixmap(id: u32) -> Option<Rc<Pixmap>> {
         .clone()
 }
 
-/// The pixels of the image `id` separated through FOGRA51.
+/// The pixels of the image `id` in CMYK: a CMYK JPEG's own, others separated
+/// through FOGRA51.
 pub fn cmyk(id: u32) -> Option<Cmyk> {
     let e = entry(id)?;
     let mut cmyk = e.cmyk.borrow_mut();
     cmyk.get_or_insert_with(|| {
+        if e.info.space == Space::Cmyk {
+            let (color, w, h) = decode_cmyk(&e.bytes)?;
+            return Some(Cmyk {
+                color: color.into(),
+                alpha: vec![255; (w * h) as usize].into(),
+                size: (w, h),
+            });
+        }
         let (rgba, w, h) = decode(e.format, &e.bytes)?;
         Some(Cmyk {
             color: separate_pixels(&rgba).into(),
@@ -313,6 +322,37 @@ fn decode(format: Format, bytes: &[u8]) -> Option<(Vec<u8>, u32, u32)> {
             (rgba, w as u32, h as u32)
         }
     })
+}
+
+/// The inks of a CMYK or YCCK JPEG, which store them inverted as Adobe writes them,
+/// and its size.
+fn decode_cmyk(bytes: &[u8]) -> Option<(Vec<u8>, u32, u32)> {
+    let mut decoder = JpegDecoder::new(Cursor::new(bytes));
+    decoder.decode_headers().ok()?;
+    let space = decoder.input_colorspace()?;
+    let options = DecoderOptions::default().jpeg_set_out_colorspace(space);
+    let mut decoder = JpegDecoder::new_with_options(Cursor::new(bytes), options);
+    let raw = decoder.decode().ok()?;
+    let (w, h) = decoder.dimensions()?;
+    let ink = |v: f32| v.round().clamp(0.0, 255.0) as u8;
+    let color = match space {
+        ColorSpace::CMYK => raw.iter().map(|v| 255 - v).collect(),
+        ColorSpace::YCCK => raw
+            .chunks(4)
+            .flat_map(|p| {
+                let [y, cb, cr] = [p[0], p[1], p[2]].map(f32::from);
+                let (cb, cr) = (cb - 128.0, cr - 128.0);
+                [
+                    ink(y + 1.402 * cr),
+                    ink(y - 0.344136 * cb - 0.714136 * cr),
+                    ink(y + 1.772 * cb),
+                    255 - p[3],
+                ]
+            })
+            .collect(),
+        _ => return None,
+    };
+    Some((color, w as u32, h as u32))
 }
 
 /// The CMYK pixels `c` with the channels `pick` takes as RGB, premultiplied.
@@ -371,6 +411,29 @@ pub mod tests {
     fn pixmap_of(png: &[u8]) -> tiny_skia::ColorU8 {
         let (rgba, ..) = decode(Format::Png, png).unwrap();
         tiny_skia::ColorU8::from_rgba(rgba[0], rgba[1], rgba[2], rgba[3])
+    }
+
+    #[test]
+    fn a_cmyk_jpeg_keeps_its_own_inks() {
+        for (file, want) in [
+            (
+                &include_bytes!("../testdata/cmyk-black.jpg")[..],
+                [0, 0, 0, 255],
+            ),
+            (include_bytes!("../testdata/ycck-cyan.jpg"), [255, 0, 0, 0]),
+        ] {
+            let info = register(file.to_vec().into()).unwrap();
+            assert_eq!(info.space, Space::Cmyk);
+            let c = cmyk(id(&info.hash).unwrap()).unwrap();
+            assert!(
+                c.color[..4]
+                    .iter()
+                    .zip(want)
+                    .all(|(&a, b)| a.abs_diff(b) <= 2),
+                "{:?}",
+                &c.color[..4]
+            );
+        }
     }
 
     #[test]
