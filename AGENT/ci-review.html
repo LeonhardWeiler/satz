@@ -33,121 +33,89 @@
   td.n { text-align: right; }
   .fix { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
   .fix > b { color: var(--acc); }
-</style>
-</head>
-<body>
-<main>
+</style></head><body><main>
 <h1>Satz – CI-Review</h1>
-<p class="dim">Analyse auf <code>d7e3477</code> (Run <code>36243448242</code>), umgesetzt in <code>f630d8f</code>…<code>2381b17</code>. Gemessen mit Run <code>36277577658</code> (Cargo-Cache kalt) und <code>36279839894</code> (warm, grün inkl. Deploy), 27.09.2026.</p>
+<p class="dim">Stand <code>1c632fa</code>, 29.09.2026. Erledigt und entfernt: Playwright-Shards, Rust-Cache, <code>opt-level</code> für Tests, schlanke Dev-Shell, getrennte Jobs, Trigger, Datei-Öffnen-Race, Shard-Balance (jetzt 5:07 / 5:15 / 5:55 inkl. Setup).</p>
 
 <div class="grid">
-  <div class="tile"><span class="dim">CI vorher</span><b>11:50 min</b></div>
-  <div class="tile"><span class="dim">CI nachher, Cache warm (gemessen)</span><b>5:45 min</b></div>
-  <div class="tile"><span class="dim">nach Lockfile-Änderung, Cache kalt</span><b>≈ 10 min</b></div>
-  <div class="tile"><span class="dim">Tests übersprungen</span><b>0</b></div>
+  <div class="tile"><span class="dim">Run warm, zuletzt (27.09.)</span><b>5:45 min</b></div>
+  <div class="tile"><span class="dim">Run heute, jeder Push</span><b>8–10 min</b></div>
+  <div class="tile"><span class="dim">Job build, davon WASM-Deps neu</span><b>4:05 / ≈2 min</b></div>
+  <div class="tile"><span class="dim">rote Runs seit 28.09., alle flaky</span><b>3 von 12</b></div>
 </div>
 
 <h2>Wie gemessen wurde</h2>
 <ul>
-  <li>Vorher: Log-Zeitstempel des Runs <code>36243448242</code> und der 14 Runs davor (8:23 → 12:00, wachsend mit der Zahl der Tests).</li>
-  <li>Lokal in einem sauberen Worktree, 16 Kerne; der CI-Runner (öffentliches Repo, <code>ubuntu-latest</code>) hat 4 vCPUs und wurde mit <code>taskset -c 0-3</code> nachgestellt. CPU pro Prozesstyp über <code>ps</code>-Stichproben.</li>
-  <li>Nachher: die beiden Runs oben. Der kalte Run war rot durch einen flaky e2e-Test (#7), der warme grün.</li>
+  <li>Job-Zeiten und Logs der letzten 12 Runs mit <code>gh run view</code>, v. a. <code>36479803054</code> (rot, <code>ceaca76</code>) und <code>36477646691</code> (grün).</li>
+  <li><code>ci.yml</code>, <code>check</code>, <code>flake.nix</code>, <code>playwright.config.ts</code> und die e2e-Helfer gelesen; die Flake-Ursache in <code>fonts.spec.ts</code> aus Code und Log hergeleitet, nicht lokal reproduziert.</li>
+  <li>Nicht getestet: die Fixes selbst; wie oft die Flakes lokal auftreten.</li>
 </ul>
 
-<h2>Vorher / nachher</h2>
-<table>
-  <tr><th>Phase</th><th class="n">vorher</th><th class="n">nachher (warm)</th><th>Maßnahme</th></tr>
-  <tr><td>Nix-Shell laden</td><td class="n">54 s</td><td class="n">≈30 s</td><td>#4</td></tr>
-  <tr><td>Cargo-Cache wiederherstellen (665 MB)</td><td class="n">–</td><td class="n">9 s</td><td>#2</td></tr>
-  <tr><td><code>cargo clippy</code></td><td class="n">35 s</td><td class="n">3 s</td><td>#2</td></tr>
-  <tr><td><code>cargo test</code> bauen</td><td class="n">59 s</td><td class="n">32 s</td><td>#2, nur noch die Engine</td></tr>
-  <tr><td><code>cargo test</code> ausführen</td><td class="n">74 s</td><td class="n">6 s</td><td>#3</td></tr>
-  <tr><td><code>wasm-pack build</code></td><td class="n">122 s</td><td class="n">33 s</td><td>#2, davon ≈20 s wasm-opt</td></tr>
-  <tr><td>pnpm, tsc, eslint, vitest, vite build</td><td class="n">15 s</td><td class="n">15 s</td><td>–</td></tr>
-  <tr><td>Job <code>build</code> gesamt</td><td class="n">–</td><td class="n">2:20</td><td>#5</td></tr>
-  <tr><td>Playwright</td><td class="n">5:14</td><td class="n">2:24 / 1:18 / 1:48</td><td>#1, 3 Shards parallel, je ≈35 s Setup davor</td></tr>
-  <tr><td>Deploy</td><td class="n">17 s</td><td class="n">9 s</td><td>–</td></tr>
-  <tr><td><b>Run gesamt</b></td><td class="n"><b>11:50</b></td><td class="n"><b>5:45</b></td><td></td></tr>
-</table>
-
-<h2>1. Playwright ist CPU-gebunden – mehr Worker helfen nicht</h2>
-<div class="card good">
-  <span class="tag good">umgesetzt</span>
-  <p>Die Suite verbraucht ≈1230 CPU-Sekunden, 83 % davon im GPU-Prozess: Swiftshader rendert WebGL (CanvasKit) in Software. Auf 4 Kernen: 2 Worker 245 s, 4 Worker 246 s mit 2 Timeouts. Die App ist nicht schuld (kein Dauer-Render-Loop, <code>antialias</code> aus).</p>
-  <div class="fix"><b>Umgesetzt:</b> e2e in 3 Shards auf eigenen Runnern, <code>fullyParallel: true</code>. <code>workers: 2</code> gilt jetzt auch lokal: Mit dem Default (Hälfte der Kerne, hier 8) war die Suite lokal kaum schneller (1,6 statt 2,0 min), aber überlastet und flaky.
-  <br><b>Gemessen:</b> 5:14 → längster Shard 2:24 (+≈35 s Setup).</div>
+<h2>1. Cache-Key kennt die Cargo-Profile nicht</h2>
+<div class="card high">
+  <span class="tag high">≈2 min pro Run</span>
+  <p>Key ist <code>hashFiles('Cargo.lock', 'flake.lock')</code>. Seit <code>codegen-units = 1</code> im Release-Profil (<code>f324182</code>) passt der Cache nicht mehr zu den Flags: <code>wasm-pack</code> baut in jedem Run alle Release-Abhängigkeiten neu (≈1:40 plus ≈20 s wasm-opt). Der Cache wird nie neu geschrieben, weil der Key schon existiert. Deshalb 4:05 statt 2:20 im Job build.</p>
+  <div class="fix"><b>Fix:</b> <code>hashFiles('Cargo.lock', 'flake.lock', '**/Cargo.toml')</code>. Dann erneuert jede Profil- oder Dependency-Änderung den Cache einmal, danach ist er warm.</div>
 </div>
 
-<h2>2. Kein Rust-Cache</h2>
-<div class="card good">
-  <span class="tag good">umgesetzt</span>
-  <p>clippy, Test- und wasm-Build kompilierten jedes Mal alle Crates kalt: 3:16.</p>
-  <div class="fix"><b>Umgesetzt:</b> <code>actions/cache@v6</code> auf <code>~/.cargo/registry</code>, <code>~/.cargo/git</code>, <code>target</code>; Key aus <code>Cargo.lock</code> und <code>flake.lock</code>, ohne <code>restore-keys</code>; <code>CARGO_INCREMENTAL: 0</code>. Der Cache (665 MB) wird einmal pro Lockfile-Stand geschrieben und wächst nicht.
-  <br><b>Gemessen:</b> 3:16 → 1:17 inkl. Restore; nur die Engine wird gebaut.</div>
+<h2>2. Flaky e2e: Startdialog nach Reload</h2>
+<div class="card high">
+  <span class="tag high">rot in 36479803054</span>
+  <p><code>fonts.spec.ts:12</code> lädt neu, drückt Escape und hovert die Schriftliste; der modale <code>&lt;dialog class="start"&gt;</code> fängt den Hover ab. Der Dialog erscheint nur, wenn nach dem Reload kein Dokument gespeichert ist: Das Autosave läuft 1 s nach der letzten Änderung oder im <code>pagehide</code>, und dort ist die IndexedDB-Transaktion beim Entladen nicht sicher abgeschlossen. Das Escape im Test umgeht das und verliert das Rennen, wenn <code>showModal()</code> erst nach dem Tastendruck läuft. Der Fehler dahinter ist ein App-Fehler (siehe Code-Review #3): Wer kurz nach einer Änderung neu lädt, kann sie verlieren.</p>
+  <div class="fix"><b>Fix:</b> <code>put</code> in <code>file.ts</code> ruft nach dem <code>put()</code> <code>transaction.commit()</code> auf, damit der Schreibvorgang vor dem Entladen abgegeben wird. Das Escape in <code>fonts.spec.ts</code> fällt weg, und der Test erwartet wie <code>flows.spec.ts</code> nach dem Reload keinen Startdialog.</div>
 </div>
 
-<h2>3. Rust-Tests liefen unoptimiert</h2>
-<div class="card good">
-  <span class="tag good">umgesetzt</span>
-  <p>Ein Test kodierte ein Bild mit 60000 × 3000 px im Debug-Build: 72 s.</p>
-  <div class="fix"><b>Umgesetzt:</b> <code>[profile.test] opt-level = 1</code>.
-  <br><b>Gemessen:</b> Ausführung 74 s → 6 s in CI, lokal 51 s → 4 s. Preis: Der kalte Test-Build dauert 3:04 statt 0:59; das trifft nur den ersten Run nach einer Änderung an <code>Cargo.lock</code> oder <code>flake.lock</code> (siehe #9).</div>
+<h2>3. Weitere Flakes, Timeout nur hochgesetzt</h2>
+<div class="card mid">
+  <span class="tag mid">3 von 12 Runs rot</span>
+  <p>Gesehen: <code>pdf.spec.ts:209</code> Timeout, <code>layers.spec.ts:26</code> Screenshot-Timeout, <code>canvas.spec.ts:48</code>. Der Test-Timeout wurde von 30 auf 60 s erhöht (<code>d9c14c2</code>); das behandelt das Symptom. Die Shards dauern jetzt 3:30–4:20 für 149 Tests auf SwiftShader.</p>
+  <div class="fix"><b>Fix:</b> In <code>playwright.config.ts</code> <code>retries: process.env.CI ? 1 : 0</code> mit <code>reporter</code> <code>github</code> plus <code>list</code>. Ein Retry, der grün wird, erscheint im Report als <i>flaky</i>. So bleibt jeder Flake sichtbar und kann an der Ursache behoben werden wie #2, ohne dass er den Deploy blockiert.</div>
 </div>
 
-<h2>4. Dev-Shell lud 2,4 GiB, die nie benutzt wurden</h2>
-<div class="card good">
-  <span class="tag good">umgesetzt</span>
-  <p>Firefox, WebKit und volles Chromium aus <code>playwright-driver.browsers</code> sowie <code>rust-docs</code>.</p>
-  <div class="fix"><b>Umgesetzt:</b> <code>rust-bin…minimal</code> mit <code>clippy rustfmt rust-src rust-analyzer</code>; <code>playwright-driver.browsers.override</code> nur mit <code>chromium-headless-shell</code>. Closure 4,5 → 2,1 GiB.
-  <br><b>Gemessen:</b> 54 s → ≈30 s pro Job, in 4 Jobs.</div>
+<h2>4. Commits nur unter AGENT/ starten die ganze CI</h2>
+<div class="card mid">
+  <span class="tag mid">≈9 min pro Commit</span>
+  <p>Von den letzten 12 Runs betrafen 5 nur <code>AGENT/</code>, 1 weiterer nur <code>AGENT/</code> und <code>CLAUDE.md</code> („bugs added“, „agent: …“). Jeder baut, testet und deployt dasselbe Produkt noch einmal.</p>
+  <div class="fix"><b>Fix:</b> <code>on.push.paths-ignore: ['AGENT/**', '*.md']</code> in <code>ci.yml</code>.</div>
 </div>
 
-<h2>5. Alles in einem seriellen Step</h2>
-<div class="card good">
-  <span class="tag good">umgesetzt</span>
-  <p>Die Kette bis <code>pnpm build</code> muss zusammenbleiben (<code>tsc</code> braucht die wasm-Typen, <code>vitest</code> die Fixture aus <code>cargo test</code>); nur e2e ist abtrennbar.</p>
-  <div class="fix"><b>Umgesetzt:</b> <code>./check</code> bleibt die eine Stelle für alle Schritte: ohne Argument alles, <code>./check build</code> bis <code>pnpm build</code>, <code>./check e2e …</code> nur Playwright mit den restlichen Argumenten. Workflow: <code>build</code> → <code>e2e</code> (Matrix 1–3, lädt <code>web/dist</code> als Artefakt) → <code>deploy</code>.
-  <br><b>Gemessen:</b> Rust- und Lint-Fehler zeigen sich nach ≈1–2 min statt am Ende.</div>
-</div>
-
-<h2>6. CI lief nur von Hand</h2>
-<div class="card good">
-  <span class="tag good">umgesetzt</span>
-  <div class="fix"><b>Umgesetzt:</b> <code>push: branches: [main]</code> plus <code>workflow_dispatch</code>, <code>concurrency: ci-${{ github.ref }}</code> mit <code>cancel-in-progress</code>.</div>
-</div>
-
-<h2>7. Beim Umbau gefunden: Datei öffnen ging ohne File System Access API manchmal verloren</h2>
-<div class="card good">
-  <span class="tag good">behoben</span>
-  <p>Mit <code>fullyParallel</code> liefen die beiden Beispiel-Tests (Poster, Booklet) erstmals gleichzeitig und scheiterten in CI und lokal in ≈1 von 4 Runden. Zwei Ursachen, beide mit Instrumentierung nachgewiesen:</p>
-  <ul>
-    <li><b>App-Bug:</b> <code>open</code>, <code>addFonts</code> und <code>placeImages</code> legten ein <code>&lt;input type="file"&gt;</code> an, das nirgends hing. Der Garbage Collector konnte es einsammeln, bevor der Nutzer wählte; dann feuerte <code>change</code> nie. Mit erzwungenem GC scheiterten 4 von 4 Läufen. Trifft echte Nutzer in Firefox. <b>Fix:</b> ein modulweites Input für alle drei Picker in <code>web/src/file.ts</code>.</li>
-    <li><b>Test-Race:</b> <code>page.waitForEvent('filechooser')</code> schaltet das Abfangen in Playwright ohne Rückmeldung ein; unter Last kam Strg+O vorher an, Chrome öffnete einen echten Dialog und brach ihn nach 0,7 ms ab. <b>Fix:</b> <code>open()</code> in <code>web/e2e/util.ts</code> registriert vor dem Laden einen <code>filechooser</code>-Listener. Danach 15 von 15 Stressrunden grün.</li>
-  </ul>
-</div>
-
-<h2>8. Offen: Shards sind unausgewogen</h2>
+<h2>5. Jeder e2e-Shard installiert alles neu</h2>
 <div class="card low">
-  <span class="tag low">≈30 s</span>
-  <p>Playwright teilt Tests in zusammenhängenden Blöcken nach Datei-Reihenfolge: 2:24 / 1:18 / 1:48. Gleichmäßig wären ≈1:50. Gewichten geht nur über die undokumentierte Variable <code>PWTEST_SHARD_WEIGHTS</code>; darauf würde ich nicht bauen. Wächst die Suite, ist eine weitere Shard-Nummer in der Matrix der einfache Hebel.</p>
+  <span class="tag low">≈30 s × 3</span>
+  <p>Nix-Shell und <code>pnpm install</code> (CanvasKit, rolldown) laufen in jedem Shard erneut, Playwright braucht aber nur Node, Chromium und <code>web/dist</code>. Das kostet weniger als #1 und #4 zusammen. Ich würde es erst angehen, wenn die Shards weiter wachsen. Dann ist eine weitere Matrix-Nummer der einfachere Hebel.</p>
 </div>
 
-<h2>9. Offen: kalter Build nach Lockfile-Änderung</h2>
+<h2>6. Actions per Tag statt SHA</h2>
 <div class="card low">
-  <span class="tag low">einmal pro Lockfile-Stand</span>
-  <p>Der kalte Job <code>build</code> dauerte 7:02 (Test-Build 3:04 mit <code>opt-level = 1</code>, wasm 2:08). Das trifft nur den ersten Run nach einem Update von <code>Cargo.lock</code> oder <code>flake.lock</code>; alle folgenden sind warm.</p>
+  <span class="tag low">SEC-1</span>
+  <p>Steht schon im Health-Report. <code>actions/checkout@v7</code> usw. können vom Herausgeber umgehängt werden.</p>
+  <div class="fix"><b>Fix:</b> Voll-SHAs mit Tag als Kommentar und Dependabot für <code>github-actions</code>, damit sie aktuell bleiben.</div>
 </div>
 
-<h2>10. Gemessen und verworfen</h2>
+<h2>7. Kalter Build nach Lockfile-Änderung</h2>
+<div class="card low">
+  <span class="tag low">einmal pro Stand</span>
+  <p>Wie bisher ≈7 min im ersten Run nach einem Update von <code>Cargo.lock</code>, <code>flake.lock</code> und mit #1 auch <code>Cargo.toml</code>. Danach ist der Cache warm. Kein Handlungsbedarf.</p>
+</div>
+
+<h2>Gemessen und verworfen (27.09.)</h2>
 <table>
   <tr><th>Idee</th><th>Ergebnis</th></tr>
   <tr><td>4 statt 2 Playwright-Worker</td><td>246 s statt 245 s, 2 Timeouts</td></tr>
-  <tr><td><code>--disable-gpu-compositing</code></td><td>−6 %, im Rauschen, ändert den Compositing-Pfad der Canvas-Screenshots</td></tr>
-  <tr><td>Nur Abhängigkeiten optimieren (<code>[profile.dev.package."*"]</code>)</td><td>Tests 17 s statt 4 s</td></tr>
-  <tr><td>Nix-Store in den Actions-Cache</td><td>2,1 GiB Restore ist nicht schneller als cache.nixos.org</td></tr>
+  <tr><td><code>--disable-gpu-compositing</code></td><td>−6 %, im Rauschen</td></tr>
+  <tr><td>Nur Abhängigkeiten optimieren</td><td>Tests 17 s statt 4 s</td></tr>
+  <tr><td>Nix-Store im Actions-Cache</td><td>2,1 GiB Restore, nicht schneller</td></tr>
   <tr><td>pnpm-Store cachen</td><td><code>pnpm install</code> dauert 2 s</td></tr>
-  <tr><td>wasm-opt in CI weglassen</td><td>spart ≈20 s, testet aber ein anderes Artefakt als das deployte</td></tr>
-  <tr><td>Größerer Runner</td><td>kostenpflichtig; Shards erreichen dasselbe kostenlos</td></tr>
+</table>
+
+<h2>Reihenfolge</h2>
+<table>
+  <tr><th>#</th><th>Änderung</th><th>Aufwand</th></tr>
+  <tr><td>1</td><td>Cache-Key um <code>**/Cargo.toml</code></td><td>1 Zeile</td></tr>
+  <tr><td>4</td><td><code>paths-ignore</code></td><td>2 Zeilen</td></tr>
+  <tr><td>2</td><td>Autosave mit <code>commit()</code>, Escape aus dem Test</td><td>2 Zeilen</td></tr>
+  <tr><td>3</td><td>1 Retry in CI, Flakes im Report</td><td>2 Zeilen</td></tr>
+  <tr><td>6</td><td>SHA-Pins plus Dependabot</td><td>klein</td></tr>
 </table>
 </main>
 </body>

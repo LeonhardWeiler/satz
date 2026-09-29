@@ -32,86 +32,128 @@
   th { color: var(--dim); font-weight: 500; }
   .fix { margin-top: 8px; color: var(--dim); }
   .fix::before { content: "→ "; color: var(--acc); }
-</style>
-</head>
-<body>
-<main>
+</style></head><body><main>
 <h1>Satz – Code- und Struktur-Review</h1>
-<p class="dim">Stand <code>d3b9d25</code> (main), 26.09.2026 · 110 Commits · Rust-Engine → WASM, React-UI, CanvasKit, krilla-PDF · Performance steht in <code>performance-review.html</code>, UI/UX in <code>ui-ux-review.html</code>, offene Kleinbefunde in <code>project-health-report.html</code></p>
+<p class="dim">Stand <code>1c632fa</code>, 29.09.2026. Performance steht in performance-review.html, CI in ci-review.html, Kleinbefunde im Health-Report. Erledigt und entfernt: alte Befunde 1–4, 9–13 (atomare Kommandos, gecachter Snapshot, typisierte Link-Keys), Editor.lookup (nicht mehr heiß: 3 Aufrufer, keiner pro Tastendruck).</p>
 
 <div class="grid">
-  <div class="tile"><span class="dim">Gesamturteil</span><b>gut, B+</b></div>
-  <div class="tile"><span class="dim">Rust-Tests</span><b>176 grün</b></div>
-  <div class="tile"><span class="dim">E2E (Playwright)</span><b>84 in 16 Specs</b></div>
-  <div class="tile"><span class="dim">vitest</span><b>18 grün</b></div>
-  <div class="tile"><span class="dim">Größte Datei</span><b>doc.rs 7666 Z.</b></div>
+  <div class="tile"><span class="dim">Rust-Tests</span><b>227</b></div>
+  <div class="tile"><span class="dim">E2E</span><b>149</b></div>
+  <div class="tile"><span class="dim">neue Fehler, per Test bestätigt</span><b>6</b></div>
+  <div class="tile"><span class="dim">davon Absturz / Datenverlust</span><b>1 / 2</b></div>
 </div>
-
-<p>Seit dem letzten Stand (<code>79a329b</code>) sind Autosave, <code>.satz</code>-Dateien und eigene Fonts dazugekommen. Die Flows werden jetzt einmal pro Kommando gesetzt, und die Canvas-Mathematik liegt in <code>handles.ts</code> mit Unit-Tests. Die Architektur trägt weiterhin: Die Engine besitzt das Dokument, und die UI schickt nur Kommandos. Das größte Risiko hat sich verschoben. Es liegt jetzt weniger in der Performance als in der <b>Atomarität der Kommandos</b>: Ein Kommando, das mit einem Fehler abbricht, hinterlässt halbe Änderungen im Dokument. Das ist nachgewiesen, siehe Befund 1. Daneben wächst <code>doc.rs</code> weiter, und der Doppelseiten-Umbau erzeugt Folgefehler.</p>
-<p><b>Nachtrag 27.09.2026:</b> Befunde 1–4, 9–11 und 13 sind behoben und entfernt, 5 und 6 auf den offenen Rest gekürzt. <code>doc.rs</code> ist jetzt <code>engine/src/doc/</code>; Zeilenangaben unten beziehen sich auf den alten Stand.</p>
 
 <h2>Geprüft</h2>
 <table>
-  <tr><th>Check</th><th>Ergebnis</th></tr>
-  <tr><td><code>./check</code> komplett: fmt, clippy <code>-D warnings</code>, <code>cargo test</code>, WASM-Build, <code>tsc</code>, eslint, vitest, <code>vite build</code></td><td>sauber; 176 Rust-Tests, 18 vitest</td></tr>
-  <tr><td>Playwright-E2E</td><td>84 bestanden. Port 4173 war von einem alten <code>vite preview</code> belegt, deshalb liefen sie mit <code>reuseExistingServer</code> gegen den frisch gebauten <code>dist</code>.</td></tr>
-  <tr><td>Verdachtsfälle als temporäre Rust-Tests</td><td>8 Fälle geprüft, 6 bestätigt (Befunde 1, 3, 5, 9); die Tests sind wieder entfernt</td></tr>
-  <tr><td>Gelesen</td><td>alle Engine-Module, <code>lib.rs</code>, alle Dateien in <code>web/src</code> außer den Panels ColorPicker, Variables und Swatches im Detail (dort nur Aufrufe der Engine)</td></tr>
-  <tr><td>UI im Browser, Firefox</td><td class="dim">nein</td></tr>
+  <tr><th>Was</th><th>Ergebnis</th></tr>
+  <tr><td>Alle Engine-Module gelesen; lib.rs, main.tsx, file.ts, editor.ts, renderer.ts (Caches), exportWorker.ts</td><td>Befunde unten</td></tr>
+  <tr><td>Verdachtsfälle als temporäre Rust-Tests, danach entfernt</td><td>1, 2, 4, 5 und 6 bestätigt; Seitenbreite 0 im PDF und <code>Engine.blank</code> ohne Panic-Hook ohne Befund</td></tr>
+  <tr><td>Nicht getestet</td><td>Befund 3 (Autosave beim Entladen) nur aus Code und CI-Log; Move in eine gedrehte Gruppe (gleiche Ursache wie 5); UI in Firefox</td></tr>
 </table>
 
-<h2>1. Was stark ist</h2>
+<h2>1. Neue Fehler, nach Schwere</h2>
 
-<div class="card good"><h3>Eine Grenze, eine Display List</h3>
-<p>Alle Mutationen laufen über das <code>Command</code>-Enum, Lesen über <code>Snapshot</code>. Canvas und PDF lesen dieselbe Display List, und <code>pdf.spec.ts</code> vergleicht beide Pixel für Pixel. Undo, Loro und Validierung sitzen damit an einer Stelle. Genau deshalb lässt sich Befund 1 auch an einer Stelle beheben.</p></div>
+<div class="card high">
+  <span class="tag high">Absturz</span><h3>1. PDF-Export stürzt bei entartetem Pfad mit Bildfüllung ab</h3>
+  <p><code>pdf.rs:336</code> ruft beim <code>PushClip</code> <code>pb.finish().unwrap()</code> auf. Ein Pfad mit nur einem Punkt (z. B. <code>[MOVE, 0.5, 0.5]</code>, erreichbar über die Punktbearbeitung) mit Bildfüllung lässt den Export panicken. krilla panickt dann noch einmal im Drop, und die ganze PDF-Datei fehlt. <code>raster.rs</code> überspringt diesen Fall schon richtig.</p>
+  <div class="fix">Baut der Pfad nicht, springt <code>PushClip</code> wie in raster zu <code>close(ops, i)</code>. Die beiden anderen <code>unwrap()</code> (Z. 559, 680) prüfen, ob sie dieselbe Eingabe erreichen kann.</div>
+</div>
 
-<div class="card good"><h3>Tests, die Verhalten beschreiben</h3>
-<p>Die Testnamen lesen sich wie eine Spezifikation, etwa <code>deleting_the_page_with_the_head_of_the_booklet_story_hands_it_to_the_next_frame</code>. Die 8-seitige Broschüre als Fixture prüft Seiten, Master, Threads und Modes zusammen. Jeder Feature-Commit bringt Tests mit, und <code>./check</code> ist lokal und in CI dasselbe Gate.</p></div>
+<div class="card high">
+  <span class="tag high">falsches Bild</span><h3>2. „Pfad ist geschlossen“ sucht CLOSE auch in den Koordinaten</h3>
+  <p><code>style.rs:284</code> und <code>draw.rs:534</code> prüfen <code>path.contains(&amp;CLOSE)</code> über das ganze Array aus Verben und Koordinaten. Eine offene Linie mit einer Koordinate gleich dem Wert von CLOSE (bestätigt: x = 5 pt) gilt als geschlossen: Sie verliert ihre Pfeilspitze, wird bei <code>strokeAlign: inside</code> weggeclippt und ist innen treffbar. Die Pfad-Dekodierung steht 6-mal im Code: <code>display_list::shift</code>, <code>geom::map</code>, <code>geom::flatten</code>, <code>geom::valid</code>, <code>pdf::append</code> und <code>raster::build</code>.</p>
+  <div class="fix">1 Iterator in <code>geom</code> über (Verb, Punkte) für alle 6 Stellen, <code>closed</code> ist „letztes Verb ist CLOSE“. So kann derselbe Fehler nirgends ein zweites Mal entstehen.</div>
+</div>
 
-<div class="card good"><h3>Reine Funktionen, wo es zählt</h3>
-<p><code>layout::arrange</code>, <code>linebreak</code>, <code>geom</code>, <code>handles.ts</code>, <code>select.ts</code> und <code>pen.ts</code> sind reine Funktionen mit eigenen Tests. Die Abhängigkeiten sind knapp, und die Toolchain ist über <code>flake.nix</code> vollständig gepinnt.</p></div>
+<div class="card high">
+  <span class="tag high">Datenverlust</span><h3>3. Autosave beim Entladen ist nicht sicher</h3>
+  <p><code>autosave</code> (<code>file.ts:43</code>) speichert 1 s nach der letzten Änderung und im <code>pagehide</code>. Dort wird die IndexedDB-Transaktion nur angestoßen, nicht abgeschlossen. Wer kurz nach einer Änderung neu lädt oder den Tab schließt, kann sie verlieren. Das ist die Ursache des e2e-Flakes in <code>fonts.spec.ts</code>: Nach dem Reload erscheint der Startdialog, weil kein Dokument gespeichert war.</p>
+  <div class="fix">Nach dem <code>put()</code> <code>transaction.commit()</code> aufrufen. Den Workaround mit Escape im Test löschen.</div>
+</div>
 
-<h2>2. Befunde, nach Schwere</h2>
+<div class="card mid">
+  <span class="tag mid">falsches Bild</span><h3>4. Schatten unter gedrehten Eltern im Raster</h3>
+  <p><code>raster.rs:311</code> nimmt <code>scale = t.sx</code>. Bei 90° Drehung eines Elternknotens ist <code>sx</code> gleich 0, und Schatten-Offset und -Blur verschwinden (Test: alle Pixel mit Alpha 0). Bei 180° ist die Skalierung negativ: Der Blur fällt weg und der Offset wird gespiegelt. Das betrifft Preflight-Inks und die X-1a-Flattening. CanvasKit rechnet richtig im lokalen Raum, deshalb sehen Canvas und PDF anders aus.</p>
+  <div class="fix"><code>scale = hypot(sx, ky)</code>, den Offset durch den linearen Teil von <code>t</code> abbilden.</div>
+</div>
 
-<div class="card mid"><h3><span class="tag mid">mittel</span>5. Abgeleitete Größen liegen im Dokument</h3>
-<p>Die Hug-Größen von Text und Auto-Layout werden in <code>finish</code> berechnet und als <code>w</code>/<code>h</code> in Loro geschrieben. Sie hängen aber von lokal vorhandenen Fonts ab, und die Font-Liste ist globaler Zustand außerhalb des Dokuments (<code>thread_local FONTS</code>). Das Neusetzen nach <code>add_font</code> liegt inzwischen außerhalb der Undo-Historie und ändert <code>version()</code> nicht. Mit Kollaboration würden 2 Peers mit verschiedenen Fonts dieselben Größen aber gegeneinander überschreiben.</p>
-<p class="fix">Vor Kollaboration entscheiden, ob Hug-Größen überhaupt gespeichert oder nur im Snapshot berechnet werden.</p></div>
+<div class="card mid">
+  <span class="tag mid">Layout springt</span><h3>5. Ungroup vergisst die Drehung der Gruppe</h3>
+  <p><code>ungroup</code> (<code>mod.rs:1929</code>) hängt die Kinder nur um. Bei einer um 90° gedrehten Gruppe (und bei einem gedrehten Frame) stehen die Kinder danach ungedreht an ihrer alten Stelle (bestätigt über <code>turn_of</code> und <code>hit</code>). <code>move_layers</code> hängt ebenfalls ohne Ausgleich um.</p>
+  <div class="fix">1 Funktion zum Umhängen, die die sichtbare Lage erhält: Drehung der alten Eltern minus der neuen addieren, Mittelpunkt durch <code>turn</code> abbilden und x/y so setzen, dass er bleibt. <code>ungroup</code> und <code>move_layers</code> nutzen nur sie.</div>
+</div>
 
-<div class="card low"><h3><span class="tag low">niedrig</span>6. Teile des Speicher-Schemas laufen über JSON</h3>
-<p><code>NodeKind</code> und die Link-Keys (<code>KIND</code>, <code>NEXT</code>, <code>OVERRIDE_OF</code> …) sind jetzt typisiert und stehen in <code>doc/mod.rs</code>. <code>layout()</code>, <code>modes()</code>, <code>bindings()</code> und <code>constraints()</code> laufen aber weiter über einen <code>serde_json</code>-Roundtrip mit <code>unwrap_or_default</code>, und Property-Keys wie <code>"sizing"</code> oder <code>"fills"</code> sind Literale. Ein Tippfehler ergibt still einen Default.</p>
-<p class="fix">Beim nächsten Umbau dieser Stellen die Keys aus den serde-Namen von <code>Props</code> ableiten, statt sie als Literale zu wiederholen.</p></div>
+<div class="card mid">
+  <span class="tag mid">Text verloren</span><h3>6. Reset auf Master lässt verkettete Rahmen leer</h3>
+  <p><code>reset_to_master</code> (<code>pages.rs:487</code>) verschiebt Override-Kopien ohne <code>unlink_all</code> in den Papierkorb. Fließt die Kopie eines Master-Textrahmens in einen Seitenrahmen weiter, ist dieser danach leer, und die Geschichte hängt am Papierkorb (bestätigt). <code>Delete</code> gibt sie in diesem Fall an den nächsten Rahmen weiter.</p>
+  <div class="fix"><code>unlink_all</code> in <code>Doc::remove</code> (<code>mod.rs:1658</code>) ziehen. Dann macht jedes Löschen dasselbe, und die Aufrufe in <code>pages.rs</code> und <code>mod.rs:1922</code> fallen weg.</div>
+</div>
 
-<div class="card mid"><h3><span class="tag mid">mittel</span>7. Doppelte Verträge Rust ↔ TypeScript</h3>
-<p><code>model.ts</code> spiegelt <code>Command</code>, <code>Snapshot</code>, <code>Node</code>, <code>Style</code> und <code>Layout</code> von Hand, inklusive <code>camelCase</code> und <code>flatten</code>. Dazu kommen der Binärvertrag der Display List (<code>display_list.rs</code> ↔ <code>displayList.ts</code>) und die Blend-Reihenfolge, die 4-mal gleich sein muss: im <code>Blend</code>-Enum und in <code>BLENDS</code> in <code>pdf.rs:74</code>, <code>raster.rs:13</code> und <code>renderer.ts:53</code>. Der Display-List-Vertrag ist über die Fixture getestet, <code>model.ts</code> nur so weit, wie E2E-Tests reichen.</p>
-<p class="fix">Die TS-Typen mit <code>tsify</code> aus Rust generieren (vorher die Kompatibilität mit <code>wasm-bindgen 0.2.127</code> prüfen). Die Blend-Tabellen in Rust aus einem <code>impl Blend</code> ableiten statt aus parallelen Arrays.</p></div>
+<div class="card mid">
+  <span class="tag mid">Druckqualität</span><h3>7. CMYK-JPEGs werden im CMYK-Export neu separiert</h3>
+  <p><code>image::pdf(id, cmyk = true)</code> dekodiert ein CMYK-JPEG zu RGBA und separiert es über FOGRA51 zurück. Die Originalwerte gehen verloren, reines K wird 4-farbig. Für ein Druck-DTP ist das ein echter Mangel.</p>
+  <div class="fix">Ist das Bild ein CMYK-JPEG und nicht der Proof, bettet <code>pdf_image</code> die Datei direkt ein. Nur RGB-Bilder werden separiert.</div>
+</div>
 
-<div class="card mid"><h3><span class="tag mid">mittel</span>8. „Facing pages“ baut das Dokument um</h3>
-<p><code>split_masters</code> und <code>join_masters</code> (<code>doc.rs:2825–2899</code>) kopieren Master-Ebenen, markieren sie mit <code>leftOf</code> und verlinken Overrides und Threads um. Seit dem letzten Review gab es 3 Fix-Commits genau hier (<code>52bfb67</code>, <code>d0a5c93</code>, <code>f181f5e</code>). Die Zuordnung beim Zurückschalten hängt weiter an der Heuristik <code>x + w &gt; 0</code>. Bei Kollaboration erzeugen 2 gleichzeitige Umschaltungen doppelte Kopien.</p>
-<p class="fix">Einen Master immer als Doppelseite speichern und bei „facing off“ nur die rechte Hälfte zeigen, sodass der Schalter reine Darstellung ist. Das ist eine Designentscheidung und sollte vor Kollaboration fallen.</p></div>
+<div class="card low">
+  <span class="tag low">Speicher</span><h3>8. Dekodierte Bilder bleiben für immer im Speicher</h3>
+  <p>Der <code>thread_local</code> <code>IMAGES</code> (<code>image.rs:89</code>) hält die Caches <code>pixels</code> und <code>cmyk</code> jedes Bildes, auch nach dem Laden eines anderen Dokuments, im Haupt-Thread und im Worker. <code>Renderer.images</code> in <code>renderer.ts:105</code> ebenso. Bei Fotos sind das schnell 100 MB und mehr.</p>
+  <div class="fix">Die dekodierten Caches in <code>Doc::load</code> leeren. Der Renderer löscht seine <code>Image</code>s, wenn sich die Menge der Bild-Ids ändert.</div>
+</div>
 
-<div class="card low"><h3><span class="tag low">niedrig</span>12. Zwischenstände werden teils gecacht, teils nicht</h3>
-<p>Die Flows sind jetzt gecacht (<code>Doc::flows</code>, <code>doc.rs:601</code>) und werden an 2 Stellen invalidiert (<code>apply</code>, <code>add_font</code>). <code>render</code>, <code>hit</code> und <code>master_hit</code> bauen dagegen für jeden Aufruf einen vollständigen Snapshot. <code>prev_of</code> (<code>doc.rs:2164</code>) hat 2 Pfade, je nachdem, ob der Cache gerade gefüllt ist: im Cache aus der Kette ab dem Kopf, ohne Cache per Baumsuche. Zahlen und Messungen stehen in <code>performance-review.html</code> §2.</p>
-<p class="fix">Einen Cache für alles Abgeleitete (Flows und Snapshot), geleert an genau einer Stelle. Dann gibt es auch in <code>prev_of</code> nur noch einen Pfad.</p></div>
+<h2>2. Offene Strukturbefunde</h2>
 
-<div class="card low"><h3><span class="tag low">niedrig</span>14. Kleinigkeiten</h3>
-<ul>
-  <li>Pfadbefehle werden an 5 Stellen dekodiert: <code>display_list::shift</code>, <code>geom::map</code>, <code>geom::flatten</code>, <code>pdf::append</code>, <code>raster::build</code>. Ein gemeinsamer Iterator über (Verb, Punkte) in <code>geom</code> ersetzt 4 davon.</li>
-  <li><code>Doc::new</code> baut das Beispieldokument auf 220 Zeilen im Konstruktor. Jeder Test startet damit und löscht es über <code>empty()</code> wieder. Eine eigene <code>fn sample()</code> und ein leeres <code>Doc::new</code> machen die Tests einfacher und schneller; <code>cargo test</code> braucht heute 23 s.</li>
-  <li><code>Editor.lookup</code> (<code>editor.ts:170</code>) baut für jede Suche den Index aller Seiten neu. <code>follow()</code> ruft es nach jedem Tastendruck auf, der den Frame wechselt.</li>
-</ul></div>
+<div class="card mid">
+  <span class="tag mid">mittel</span><h3>9. Doppelte Verträge Rust ↔ TypeScript</h3>
+  <p><code>model.ts</code> spiegelt Command, Snapshot, Node, Style und Layout von Hand. Die Blend-Reihenfolge steht 4-mal: im Enum <code>Blend</code>, in <code>BLENDS</code> in <code>pdf.rs:206</code>, <code>raster.rs:14</code> und <code>renderer.ts:67</code>.</p>
+  <div class="fix">TS-Typen mit tsify aus Rust generieren (Kompatibilität mit wasm-bindgen 0.2.127 vorher prüfen). In Rust <code>impl Blend { fn krilla(self), fn skia(self) }</code> statt paralleler Arrays.</div>
+</div>
 
-<h2>3. Nicht mehr verfolgt</h2>
+<div class="card mid">
+  <span class="tag mid">mittel</span><h3>10. Doppelseiten-Umbau über Heuristik</h3>
+  <p><code>split_masters</code> und <code>join_masters</code> (<code>pages.rs:76–130</code>) ordnen beim Zurückschalten über <code>x + w &gt; 0</code> zu. Master-Ebenen, die über den Bund reichen, landen auf einer Seite.</p>
+  <div class="fix">Jede Kopie merkt sich beim Teilen ihre Herkunft in einem Meta-Key, und <code>join_masters</code> liest nur den.</div>
+</div>
+
+<div class="card low">
+  <span class="tag low">niedrig</span><h3>11. Abgeleitete Hug-Größen im Dokument</h3>
+  <p>Text- und Auto-Layout-Größen werden in <code>finish</code> berechnet und in Loro geschrieben. Sie hängen aber von lokalen Fonts ab. Vor Kollaboration relevant, heute harmlos.</p>
+  <div class="fix">Beim Einbau von Kollaboration nur im Snapshot berechnen.</div>
+</div>
+
+<div class="card low">
+  <span class="tag low">niedrig</span><h3>12. Teile des Schemas laufen über JSON-Literale</h3>
+  <p><code>layout()</code>, <code>modes()</code>, <code>bindings()</code> und <code>constraints()</code> gehen durch <code>serde_json</code> mit <code>unwrap_or_default</code>. Keys wie <code>"sizing"</code> sind Literale, und ein Tippfehler ergibt still einen Default.</p>
+  <div class="fix">Keys als Konstanten neben <code>KIND</code> und <code>NEXT</code> führen.</div>
+</div>
+
+<div class="card low">
+  <span class="tag low">niedrig</span><h3>13. Kleinigkeiten</h3>
+  <ul>
+    <li><code>Doc::new</code> baut das 220-zeilige Beispiel, auch in <code>new Engine()</code> vor jedem Laden und im Export-Worker. Besser: ein leeres <code>Doc::new</code> und eine <code>fn sample()</code>.</li>
+    <li>Verwaiste Doc-Kommentare in <code>mod.rs:654–656</code> über <code>fn undo_manager</code> und ein doppelter in <code>story.rs:493</code>. Löschen.</li>
+    <li><code>web/load-tmp.mjs</code> ist ein eingechecktes Wegwerf-Skript (<code>dfa45c7</code>). Löschen.</li>
+    <li><code>pdfx.rs</code> findet Seiten-Dicts per Bytesuche in krillas Ausgabe. Ein Test auf <code>/Group</code> fängt Formatänderungen ab, das reicht.</li>
+  </ul>
+</div>
+
+<h2>3. Nicht verfolgt</h2>
 <table>
-  <tr><th>Früherer Vorschlag</th><th>Warum nicht mehr</th></tr>
-  <tr><td>Den 650-Zeilen-Effekt in <code>Canvas.tsx</code> zerlegen</td><td>Die Mathematik liegt jetzt in <code>handles.ts</code> mit Tests. Was im Effekt bleibt, ist Event-Verdrahtung mit Closure-Zustand. Ein weiteres Zerlegen brächte Indirektion ohne Testgewinn. Die verbleibende Schwäche ist die Fehlerbehandlung, siehe Befund 4.</td></tr>
-  <tr><td><code>index.css</code> (1277 Zeilen) auf Komponenten verteilen</td><td>Eine flache CSS-Datei mit Klassen pro Panel ist bei 16 Komponenten gut auffindbar. Aufteilen verschiebt nur Code.</td></tr>
+  <tr><th>Punkt</th><th>Warum nicht</th></tr>
+  <tr><td>Overrides behalten ihre Seite, wenn eine Seite die Seite wechselt</td><td>Verhält sich wie InDesign, eine Designfrage und kein Fehler</td></tr>
+  <tr><td><code>Op</code> leitet <code>Serialize</code> ab</td><td>Wird von der Display-List-Fixture genutzt</td></tr>
+  <tr><td>Canvas.tsx-Effekt zerlegen, index.css aufteilen</td><td>Verschiebt nur Code</td></tr>
 </table>
 
-<h2>4. Empfohlene Reihenfolge</h2>
+<h2>4. Reihenfolge</h2>
 <table>
-  <tr><th>#</th><th>Schritt</th><th>Aufwand</th><th>Nutzen</th></tr>
-  <tr><td>1</td><td>TS-Typen aus Rust generieren (7)</td><td>mittel</td><td>ein Schema statt 2</td></tr>
-  <tr><td>2</td><td>Master immer als Doppelseite, gespeicherte vs. berechnete Hug-Größen (5, 8)</td><td>mittel</td><td>Designentscheidungen vor Kollaboration</td></tr>
+  <tr><th>#</th><th>Schritt</th><th>Aufwand</th></tr>
+  <tr><td>1, 3</td><td>PDF-Absturz, Autosave-<code>commit()</code></td><td>je 2 Zeilen</td></tr>
+  <tr><td>6</td><td><code>unlink_all</code> in <code>remove</code></td><td>klein</td></tr>
+  <tr><td>2</td><td>Pfad-Iterator in geom</td><td>mittel, ersetzt Code</td></tr>
+  <tr><td>4, 5</td><td>Raster-Schatten, Umhängen mit Drehung</td><td>klein</td></tr>
+  <tr><td>7, 8</td><td>CMYK-JPEG direkt, Bild-Caches leeren</td><td>klein</td></tr>
+  <tr><td>9–13</td><td>Struktur</td><td>bei Gelegenheit</td></tr>
 </table>
 </main>
 </body>
