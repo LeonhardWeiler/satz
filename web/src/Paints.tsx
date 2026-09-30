@@ -164,6 +164,7 @@ export function PaintList({
                           label="Angle"
                           unit="°"
                           min={-Infinity}
+                          reset={0}
                           value={angle(p.transform)}
                           onCommit={(v) => set({ ...p, transform: linear(v) })}
                         />

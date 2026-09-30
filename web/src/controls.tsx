@@ -22,8 +22,8 @@ const PT: Record<string, number> = { mm: MM }
 
 /**
  * A number input that takes expressions with units. ↑/↓ step it, Shift by 10 and Alt by 0.1;
- * dragging its label scrubs it; invalid input shakes and keeps the value. Values stay within `min`
- * and `max`, in `unit`.
+ * dragging its label scrubs it and double-clicking it sets `reset`; invalid input shakes and keeps the
+ * value. Values stay within `min` and `max`, in `unit`.
  */
 export function Field({
   label,
@@ -35,6 +35,7 @@ export function Field({
   int,
   min = 0,
   max = Infinity,
+  reset,
   title = typeof label === 'string' ? `${label} in ${unit}` : unit,
 }: {
   label: ReactNode
@@ -49,6 +50,8 @@ export function Field({
   int?: boolean
   min?: number
   max?: number
+  /** The default value, in pt for lengths. */
+  reset?: number
   title?: string
 }) {
   const [draft, setDraft] = useState<string | null>(null)
@@ -76,6 +79,7 @@ export function Field({
         <span
           className="field-label"
           onClick={(e) => e.preventDefault()}
+          onDoubleClick={() => edit && reset !== undefined && onCommit(reset)}
           onPointerDown={(e) => {
             if (!edit) return
             e.preventDefault()

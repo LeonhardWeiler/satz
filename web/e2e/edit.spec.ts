@@ -177,4 +177,6 @@ test('a layer turns by its corner and is hit where it shows', async ({ page }) =
   await field.fill('-45')
   await field.press('Enter')
   await expect(field).toHaveValue('315')
+  await props.getByTitle('Rotation in °').locator('.field-label').dblclick()
+  await expect(field).toHaveValue('0')
 })

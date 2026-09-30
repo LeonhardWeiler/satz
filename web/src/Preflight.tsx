@@ -143,7 +143,7 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
         </Section>
         <Section title="Ink coverage">
           <div className="grid">
-            <Field label="Limit" title="Ink limit in %" unit="%" int min={200} max={400} value={limit} onCommit={(inkLimit) => editor.apply({ type: 'setDocument', inkLimit })} />
+            <Field label="Limit" title="Ink limit in %" unit="%" int min={200} max={400} reset={300} value={limit} onCommit={(inkLimit) => editor.apply({ type: 'setDocument', inkLimit })} />
             <label className="check">
               <input type="checkbox" checked={inks.over} onChange={(e) => set({ over: e.currentTarget.checked })} />
               Mark above limit

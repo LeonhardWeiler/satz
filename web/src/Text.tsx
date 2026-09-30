@@ -173,6 +173,7 @@ export function TypeOptions({ spans, set }: { spans: Pick<Attrs, Styled>[]; set:
                   label={<Icon name="paragraphIndent" />}
                   title="Paragraph indent in pt"
                   unit="pt"
+                  reset={0}
                   value={same((a) => a.paragraphIndent)}
                   onCommit={(paragraphIndent) => set({ paragraphIndent })}
                 />
@@ -313,6 +314,7 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
               unit={unit}
               min={min}
               zero={zero}
+              reset={prop === 'size' ? undefined : 0}
               value={same((a) => a[prop])}
               onCommit={(v) => format({ [prop]: v })}
             />
@@ -392,6 +394,7 @@ function StyleRow({ editor, style }: { editor: Editor; style: TextStyle }) {
               unit={unit}
               min={min}
               zero={zero}
+              reset={prop === 'size' ? undefined : 0}
               value={style[prop]}
               onCommit={(v) => editor.apply({ type: 'setTextStyle', id: style.id, [prop]: v })}
             />
@@ -425,12 +428,12 @@ export function TextFrameSection({ node, set }: { node: TextNode; set: (p: Props
       />
       <div className="grid">
         {INSETS.map(([prop, title, label]) => (
-          <Field key={prop} label={<Icon name={label} />} title={`${title} in mm`} unit="mm" value={node[prop]} onCommit={(v) => set({ [prop]: v })} />
+          <Field key={prop} label={<Icon name={label} />} title={`${title} in mm`} unit="mm" reset={0} value={node[prop]} onCommit={(v) => set({ [prop]: v })} />
         ))}
-        <Field label={<Icon name="columns" />} title="Columns" unit="" int min={1} max={20} value={node.columns} onCommit={(columns) => set({ columns })} />
+        <Field label={<Icon name="columns" />} title="Columns" unit="" int min={1} max={20} reset={1} value={node.columns} onCommit={(columns) => set({ columns })} />
         <Field label={<Icon name="gutter" />} title="Gutter in mm" unit="mm" value={node.gutter} onCommit={(gutter) => set({ gutter })} />
-        <Field label={<Icon name="baselineGrid" />} title="Baseline grid in pt" unit="pt" zero="Off" value={node.baselineGrid} onCommit={(baselineGrid) => set({ baselineGrid })} />
-        <Field label={<Icon name="baselineStart" />} title="Baseline grid start in pt" unit="pt" value={node.baselineStart} onCommit={(baselineStart) => set({ baselineStart })} />
+        <Field label={<Icon name="baselineGrid" />} title="Baseline grid in pt" unit="pt" zero="Off" reset={0} value={node.baselineGrid} onCommit={(baselineGrid) => set({ baselineGrid })} />
+        <Field label={<Icon name="baselineStart" />} title="Baseline grid start in pt" unit="pt" reset={0} value={node.baselineStart} onCommit={(baselineStart) => set({ baselineStart })} />
       </div>
       <Segmented label="Vertical align" value={node.verticalAlign} options={VERTICAL} onChange={(verticalAlign) => set({ verticalAlign })} />
     </Section>

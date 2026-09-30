@@ -248,7 +248,7 @@ export function Properties({
               </>
             )}
             {!line && nodes.every((n) => n.kind !== 'group') && (
-              <Field label="∠" title="Rotation in °" unit="°" min={-Infinity} value={same((n) => n.rotation)} onCommit={(v) => set({ rotation: ((v % 360) + 360) % 360 })} />
+              <Field label="∠" title="Rotation in °" unit="°" min={-Infinity} reset={0} value={same((n) => n.rotation)} onCommit={(v) => set({ rotation: ((v % 360) + 360) % 360 })} />
             )}
             {one?.kind === 'frame' && (
               <label className="check">
@@ -265,6 +265,7 @@ export function Properties({
                   label="R"
                   title="Corner radius in mm"
                   unit="mm"
+                  reset={0}
                   value={same((n) => ('radius' in n ? (radiusOf(n) ?? undefined) : 0))}
                   onCommit={(radius) => set({ radius, corners: [] })}
                 />,
@@ -275,9 +276,9 @@ export function Properties({
             )}
             {one?.kind === 'shape' && one.shape === 'ellipse' && (
               <>
-                <Field label="Start" title="Arc start in °" unit="°" min={-Infinity} value={one.start} onCommit={(v) => set({ start: ((v % 360) + 360) % 360 })} />
-                <Field label="Sweep" title="Arc sweep in %" unit="%" max={100} value={one.sweep * 100} onCommit={(v) => set({ sweep: v / 100 })} />
-                <Field label="Ratio" title="Inner radius in %" unit="%" max={100} value={one.inner * 100} onCommit={(v) => set({ inner: v / 100 })} />
+                <Field label="Start" title="Arc start in °" unit="°" min={-Infinity} reset={0} value={one.start} onCommit={(v) => set({ start: ((v % 360) + 360) % 360 })} />
+                <Field label="Sweep" title="Arc sweep in %" unit="%" max={100} reset={100} value={one.sweep * 100} onCommit={(v) => set({ sweep: v / 100 })} />
+                <Field label="Ratio" title="Inner radius in %" unit="%" max={100} reset={0} value={one.inner * 100} onCommit={(v) => set({ inner: v / 100 })} />
               </>
             )}
             {one?.kind === 'shape' && one.shape === 'star' && (
@@ -423,7 +424,7 @@ function DocumentSection({ editor }: { editor: Editor }) {
           <span>Profile</span>
           <strong>{colorMode === 'cmyk' ? 'FOGRA51' : 'sRGB'}</strong>
         </div>
-        <Field label="Raster" value={rasterPpi} unit="ppi" min={72} max={1200} onCommit={(v) => editor.apply({ type: 'setDocument', rasterPpi: v })} />
+        <Field label="Raster" reset={300} value={rasterPpi} unit="ppi" min={72} max={1200} onCommit={(v) => editor.apply({ type: 'setDocument', rasterPpi: v })} />
       </div>
     </Section>
   )
