@@ -122,6 +122,25 @@ test('the cursor follows keyboard edits without a pointer move', async ({ page }
   await expect(canvas).not.toHaveCSS('cursor', 'ns-resize')
 })
 
+test('resize cursors turn with the layer', async ({ page }) => {
+  await open(page)
+  const canvas = page.getByLabel('Page canvas')
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  const field = (title: string) => panel.getByTitle(title, { exact: true }).getByRole('textbox')
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).last().click()
+  const [x, y, w, h] = await Promise.all(['X in mm', 'Y in mm', 'W in mm', 'H in mm'].map(async (t) => Number(await field(t).inputValue())))
+  const top = async (degrees: number) => {
+    await field('Rotation in °').fill(String(degrees))
+    await field('Rotation in °').press('Enter')
+    const r = (degrees * Math.PI) / 180
+    await page.mouse.move(...(await screen(page, x + w / 2 - (h / 2) * Math.sin(r), y + h / 2 - (h / 2) * Math.cos(r))))
+  }
+  await top(90)
+  await expect(canvas).toHaveCSS('cursor', 'ew-resize')
+  await top(30)
+  await expect(canvas).toHaveCSS('cursor', /url.*rotate\(-120/)
+})
+
 test('typed values round to two decimals and stay within the bounds of their field', async ({ page }) => {
   await open(page)
   const layers = page.getByRole('tree', { name: 'Layers' })

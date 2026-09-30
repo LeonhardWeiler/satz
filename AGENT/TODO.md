@@ -59,7 +59,7 @@ Open:
 - Performance of `settle` and `lay_out`, which walk the whole tree after every
   command.
 - Threading: click an in-port to thread a frame in before another, as InDesign does. (versteh ich nicht ganz bitte erklären bevor es umgesetzt wird)
-- Rotation: resize cursors turned with the layer, a turned multi-selection resized
+- Rotation: a turned multi-selection resized
   in its own frame, ports on turned text frames.
 - Text wrap around layers, with an offset, for text frames under images and shapes.
 - Find and replace across all stories, with text styles as a filter.

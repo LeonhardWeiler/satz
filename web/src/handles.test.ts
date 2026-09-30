@@ -13,6 +13,8 @@ test('corners win over edges, edges are grabbed a little outside, the middle is 
   expect(at(57, 100)).toBe('w')
   expect(at(163, 100)).toBe('e')
   expect(at(110, 100)).toBeUndefined()
+  expect(at(50, 60)).toBe('rotatenw')
+  expect(at(170, 160)).toBe('rotatese')
   expect(at(50, 100)).toBeUndefined()
 })
 

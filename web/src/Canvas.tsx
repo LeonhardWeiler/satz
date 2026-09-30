@@ -19,21 +19,24 @@ const HIT = 6
 /** Distance in px within which layers snap. */
 const SNAP = 5
 const TURN = 'M6 18a12 12 0 0 1 12-12M3 15l3 3 3-3M15 3l3 3-3 3'
-const CURSORS: Record<string, string> = {
-  nw: 'nwse-resize',
-  se: 'nwse-resize',
-  ne: 'nesw-resize',
-  sw: 'nesw-resize',
-  n: 'ns-resize',
-  s: 'ns-resize',
-  e: 'ew-resize',
-  w: 'ew-resize',
-  end0: 'crosshair',
-  end1: 'crosshair',
-  rotate: `url("data:image/svg+xml,${encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <path d="${TURN}" stroke="#000" stroke-width="3.5"/><path d="${TURN}" stroke="#fff" stroke-width="1.5"/></svg>`,
-  )}") 12 12, crosshair`,
+const ARROW = 'M4 12h16M7 9l-3 3 3 3M17 9l3 3-3 3'
+/** Degrees counterclockwise of the arrow of each resize handle and of the turn arrow at each corner. */
+const RESIZE: Record<string, number> = { e: 0, ne: 45, n: 90, nw: 135, w: 180, sw: 225, s: 270, se: 315 }
+const TURNS: Record<string, number> = { nw: 0, sw: 90, se: 180, ne: 270 }
+const NATIVE = ['ew-resize', 'nesw-resize', 'ns-resize', 'nwse-resize']
+
+/** The cursor over the handle `handle` of a selection turned `turn` degrees counterclockwise. */
+function cursorOf(handle: string, turn: number) {
+  const svg = (path: string, degrees: number, fallback: string) =>
+    `url("data:image/svg+xml,${encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <g transform="rotate(${-Math.round(degrees)} 12 12)"><path d="${path}" stroke="#000" stroke-width="3.5"/><path d="${path}" stroke="#fff" stroke-width="1.5"/></g></svg>`,
+    )}") 12 12, ${fallback}`
+  if (handle.startsWith('rotate')) return svg(TURN, TURNS[handle.slice(6)] + turn, 'crosshair')
+  if (!(handle in RESIZE)) return handle.startsWith('end') ? 'crosshair' : ''
+  const a = (((RESIZE[handle] + turn) % 180) + 180) % 180
+  const k = Math.round(a / 45)
+  return Math.abs(a - k * 45) < 1 ? NATIVE[k % 4] : svg(ARROW, a, NATIVE[k % 4])
 }
 /** Size in mm of a layer made with a click; a clicked text is auto width, a dragged one fixed. */
 const DEFAULT_SIZE: Record<Exclude<Tool, 'move' | 'pen'>, [number, number]> = {
@@ -48,7 +51,7 @@ type Drag =
   | { kind: 'pan'; last: Point }
   | { kind: 'move'; start: Point; frames: Node[]; active: boolean; flow?: Container; to?: ReturnType<typeof insertion>; box?: Box; snaps?: Snaps }
   | { kind: 'resize'; start: Point; handle: string; box: Box; frames: Node[]; snaps: Snaps; by: number; turn: number; own: number }
-  | { kind: 'rotate'; c: Point; from: number; nodes: Node[] }
+  | { kind: 'rotate'; c: Point; from: number; nodes: Node[]; handle: string; turn: number }
   | { kind: 'end'; start: Point; id: string; ends: [Point, Point]; index: number }
   | { kind: 'radius'; start: Point; id: string; box: Box; radii: number[]; index: number; turn: number }
   | { kind: 'marquee'; start: Point; end: Point; base: string[] }
@@ -249,7 +252,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const n = nodes.length === 1 ? nodes[0] : undefined
       const line = n && ends(n)
       if (line) return { line }
-      const box = n ? editor.shown(editor.selected()[0]) : bounds(nodes)
+      const box: Box = n ? editor.shown(editor.selected()[0]) : bounds(nodes)
       return { box, radii: n?.kind === 'shape' && n.shape === 'rect' ? radiusHandles(view, box, radii(n)) : undefined }
     }
 
@@ -452,7 +455,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const to = editor.threading && textUnder(toDoc(pointer))
       canvas.style.cursor = side ? 'pointer'
         : to ? (editor.engine.canThread(editor.threading!, to) ? '' : 'not-allowed')
-        : editor.vector?.mode === 'add' ? 'crosshair' : (CURSORS[handleUnder(pointer) ?? ''] ?? '')
+        : editor.vector?.mode === 'add' ? 'crosshair' : cursorOf(handleUnder(pointer) ?? '', handles().box?.rotation ?? 0)
       const mode = pointer.ctrlKey ? 'deep' : 'click'
       const id = editor.tool === 'move' ? pickAt(toDoc(pointer), mode) : undefined
       if (id !== hover || side !== port) {
@@ -668,11 +671,11 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         editor.beginGroup()
         return
       }
-      if (handle === 'rotate') {
+      if (handle?.startsWith('rotate')) {
         const nodes = editor.selected()
-        const b = nodes.length === 1 ? editor.shown(nodes[0]) : bounds(nodes.map(placed))
+        const b: Box = nodes.length === 1 ? editor.shown(nodes[0]) : bounds(nodes.map(placed))
         const c = { x: b.x + b.w / 2, y: b.y + b.h / 2 }
-        drag = { kind: 'rotate', c, from: angle(c, p), nodes }
+        drag = { kind: 'rotate', c, from: angle(c, p), nodes, handle, turn: b.rotation ?? 0 }
         editor.beginGroup()
         return
       }
@@ -807,6 +810,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         let by = angle(drag.c, p) - drag.from
         if (e.shiftKey) by = Math.round(by / 15) * 15
         editor.turn(drag.nodes, by, drag.c)
+        canvas.style.cursor = cursorOf(drag.handle, drag.turn + by)
       } else if (drag.kind === 'radius') {
         const { box: b, index: i } = drag
         const [sx, sy] = [i === 1 || i === 2 ? -1 : 1, i < 2 ? 1 : -1]

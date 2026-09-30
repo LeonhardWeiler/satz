@@ -30,8 +30,8 @@ export function upright(b: Box): Box {
 
 /**
  * What the screen point (x, y) grabs of the selection handles: `end0` or `end1` of a
- * line, a corner such as `nw` or an edge such as `e` of the box, `rotate` just outside
- * a corner, or nothing. Radius handles are in the unturned space of the box.
+ * line, a corner such as `nw` or an edge such as `e` of the box, `rotate` and the corner
+ * just outside a corner, such as `rotatene`, or nothing. Radius handles are in the unturned space of the box.
  */
 export function handleAt(view: View, x: number, y: number, { box, line, radii }: { box?: Box; line?: [Point, Point]; radii?: Point[] }) {
   if (box?.rotation) {
@@ -54,8 +54,10 @@ export function handleAt(view: View, x: number, y: number, { box, line, radii }:
   const h = !box.w ? '' : near(x, l, HANDLE / 2) ? 'w' : near(x, r, HANDLE / 2) ? 'e' : ''
   if (v && h) return v + h
   if (!within(x, l, r) || !within(y, t, b)) {
-    const corner = [l, r].some((cx) => [t, b].some((cy) => Math.hypot(x - cx, y - cy) <= TURN))
-    return corner ? 'rotate' : undefined
+    for (const [cy, v] of [[t, 'n'], [b, 's']] as const) {
+      for (const [cx, h] of [[l, 'w'], [r, 'e']] as const) if (Math.hypot(x - cx, y - cy) <= TURN) return `rotate${v}${h}`
+    }
+    return undefined
   }
   if (box.h && near(y, t, EDGE)) return 'n'
   if (box.h && near(y, b, EDGE)) return 's'
