@@ -23,7 +23,7 @@ test('layers with shadows are recorded again only when their content changes', a
   const draw = () => {
     recorded = 0
     const [page] = (JSON.parse(engine.snapshot()) as Snapshot).pages
-    renderer.draw(surface.getCanvas(), [page], [page], { x: 0, y: 0, zoom: 0.5 }, 1, { selection: [] })
+    renderer.draw(surface.getCanvas(), [page], [page], { x: 0, y: 0, zoom: 0.5 }, 1, null)
     return recorded
   }
   const shapes = () => ((JSON.parse(engine.snapshot()) as Snapshot).pages[0].children[3] as Extract<Node, { kind: 'group' }>).children
@@ -64,7 +64,7 @@ test('text in several sizes shares one typeface per font, freed with the rendere
   const text = page.children.find((n) => n.kind === 'text')!
   for (const size of [12, 24]) {
     engine.apply({ type: 'format', id: text.id, range: null, size })
-    renderer.draw(surface.getCanvas(), [page], [page], { x: 0, y: 0, zoom: 0.5 }, 1, { selection: [] })
+    renderer.draw(surface.getCanvas(), [page], [page], { x: 0, y: 0, zoom: 0.5 }, 1, null)
   }
   expect(typefaces).toHaveLength(1)
   renderer.delete()
@@ -81,7 +81,7 @@ test('text in a missing font is highlighted pink', async () => {
   const [page] = (JSON.parse(engine.snapshot()) as Snapshot).pages
   const text = page.children.find((n) => n.kind === 'text')!
   const pink = () => {
-    renderer.draw(surface.getCanvas(), [page], [page], { x: 0, y: 0, zoom: 0.5 }, 1, { selection: [] })
+    renderer.draw(surface.getCanvas(), [page], [page], { x: 0, y: 0, zoom: 0.5 }, 1, null)
     const px = surface.getCanvas().readPixels(0, 0, { width: 300, height: 400, colorType: ck.ColorType.RGBA_8888, alphaType: ck.AlphaType.Unpremul, colorSpace: ck.ColorSpace.SRGB })!
     let n = 0
     for (let i = 0; i < px.length; i += 4) if (px[i] > 220 && px[i + 1] < 150 && px[i + 2] > 120) n++

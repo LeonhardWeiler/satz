@@ -14,6 +14,8 @@ export type View = { x: number; y: number; zoom: number }
 /** A box turned `rotation` degrees counterclockwise around its centre. */
 export type Box = { x: number; y: number; w: number; h: number; rotation?: number }
 export type Overlay = {
+  /** The colour of the selection chrome, the theme's accent. */
+  accent: string
   selection: Box[]
   hover?: Box
   marquee?: Box
@@ -63,7 +65,6 @@ const BLEED = [56, 174, 224, 0.45] as const
 const CROP = [128, 131, 139, 1] as const
 const GRID = [255, 72, 72, 0.12] as const
 const OVERSET = '#ff6b5e'
-const ACCENT = '#38aee0'
 const BLENDS = [
   'SrcOver', 'Multiply', 'Screen', 'Overlay', 'Darken', 'Lighten', 'ColorDodge', 'ColorBurn',
   'HardLight', 'SoftLight', 'Difference', 'Exclusion', 'Hue', 'Saturation', 'Color', 'Luminosity',
@@ -128,7 +129,7 @@ export class Renderer {
    * pages show as they print, with their `inks` over them; `cmyk` pages blend their
    * inks as they print.
    */
-  draw(canvas: Canvas, lists: { id: string; x: number; inks?: Inked }[], sheets: Sheet[], view: View, dpr: number, overlay: Overlay, proof = false, cmyk = false) {
+  draw(canvas: Canvas, lists: { id: string; x: number; inks?: Inked }[], sheets: Sheet[], view: View, dpr: number, overlay: Overlay | null, proof = false, cmyk = false) {
     const { ck, chrome: paint } = this
     if (proof !== this.proof) {
       this.proof = proof
@@ -201,7 +202,7 @@ export class Renderer {
       this.inks.delete(pixels)
     }
     canvas.restore()
-    if (overlay.grids) {
+    if (overlay?.grids) {
       paint.setColor(ck.Color(...GRID))
       paint.setStrokeWidth(1 / view.zoom)
       for (const s of sheets) {
@@ -216,7 +217,7 @@ export class Renderer {
         }
       }
     }
-    for (const { ops, x } of overlay.text ?? []) {
+    for (const { ops, x } of overlay?.text ?? []) {
       canvas.save()
       canvas.translate(x, 0)
       const list = decode(ops)
@@ -244,7 +245,7 @@ export class Renderer {
     }
     bleed.delete()
     canvas.restore()
-    this.drawOverlay(canvas, view, dpr, overlay)
+    if (overlay) this.drawOverlay(canvas, view, dpr, overlay)
     for (const cache of this.caches.flatMap((c) => [c.pictures, c.layers])) {
       for (const [key, { picture }] of cache) {
         if (live.has(key)) continue
@@ -293,7 +294,7 @@ export class Renderer {
     canvas: Canvas,
     view: View,
     dpr: number,
-    { selection, hover, marquee, handles, radii, ends, pen, insert, ports, threads, vector }: Overlay,
+    { accent: color, selection, hover, marquee, handles, radii, ends, pen, insert, ports, threads, vector }: Overlay,
   ) {
     const { ck, chrome: paint } = this
     const screen = (b: Box) =>
@@ -303,7 +304,7 @@ export class Renderer {
         Math.round(b.w * view.zoom),
         Math.round(b.h * view.zoom),
       )
-    const accent = ck.parseColorString(ACCENT)
+    const accent = ck.parseColorString(color)
     const at = (x: number, y: number) => [view.x + x * view.zoom, view.y + y * view.zoom] as const
     const square = (x: number, y: number, size: number) => {
       const h = ck.XYWHRect(Math.floor(x - size / 2) + 0.5, Math.floor(y - size / 2) + 0.5, size, size)
@@ -335,7 +336,7 @@ export class Renderer {
     if (marquee) {
       const r = ck.XYWHRect(marquee.x + 0.5, marquee.y + 0.5, marquee.w, marquee.h)
       paint.setStyle(ck.PaintStyle.Fill)
-      paint.setColor(ck.Color(56, 174, 224, 0.08))
+      paint.setColor(ck.Color4f(accent[0], accent[1], accent[2], 0.08))
       canvas.drawRect(r, paint)
       paint.setStyle(ck.PaintStyle.Stroke)
       paint.setColor(accent)

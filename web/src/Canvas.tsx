@@ -360,6 +360,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       renderer.keepImages(Object.keys(editor.snapshot.images).join())
       renderer.draw(surface.getCanvas(), lists, editor.sheets, view, canvas.width / canvas.clientWidth, {
         text,
+        accent: getComputedStyle(canvas).getPropertyValue('--accent'),
         selection: editor.selection.length > 1 || ed || drag?.kind === 'draw' ? editor.selected().map((n) => editor.shown(n)) : [],
         hover: image && cursor ? { x: cursor.x - image.w / 2, y: cursor.y - image.h / 2, w: image.w, h: image.h } : hovered,
         marquee,
