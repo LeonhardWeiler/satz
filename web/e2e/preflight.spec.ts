@@ -38,7 +38,7 @@ test('preflight opens from its shortcut, the counter and export, and esc ends it
   await open(page)
   const region = await preflight(page)
   await expect(region).toBeVisible()
-  await expect.poll(async () => (await page.locator('.right').boundingBox())?.width).toBe(384)
+  await expect.poll(async () => (await page.locator('.right').boundingBox())?.width).toBe(284)
   await page.keyboard.press('Escape')
   await expect(region).toHaveCount(0)
 

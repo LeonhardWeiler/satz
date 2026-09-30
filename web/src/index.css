@@ -1584,10 +1584,6 @@ kbd {
   }
 }
 
-.app.preflighting:not(.no-right, .no-ui) {
-  --r: 384px;
-}
-
 .pf-count {
   min-width: 18px;
   padding: 0 5px;

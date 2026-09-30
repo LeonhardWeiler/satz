@@ -165,7 +165,7 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
   )
 
   return (
-    <main className={`app${off('left') ? ' no-left' : ''}${off('right') ? ' no-right' : ''}${hidden.ui ? ' no-ui' : ''}${preflight ? ' preflighting' : ''}`}>
+    <main className={`app${off('left') ? ' no-left' : ''}${off('right') ? ' no-right' : ''}${hidden.ui ? ' no-ui' : ''}`}>
       <div className="left" inert={off('left')}>
         <Edge side="left" />
         <div className="brand">
