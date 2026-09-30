@@ -339,7 +339,25 @@ impl Doc {
             }
             let frames: Vec<_> = all.iter().map(|&n| (n, self.bounds(n))).collect();
             for (n, [x, y, w, h]) in frames {
-                self.reframe(n.to_string(), x * sx, y * sy, w * sx, h * sy, true)?;
+                self.resize(n, [x * sx, y * sy, w * sx, h * sy], false)?;
+                let m = self.meta(n);
+                let gap = if self.layout(n).direction == Direction::Horizontal {
+                    sx
+                } else {
+                    sy
+                };
+                for (k, by) in [
+                    ("gap", gap),
+                    ("paddingTop", sy),
+                    ("paddingRight", sx),
+                    ("paddingBottom", sy),
+                    ("paddingLeft", sx),
+                ] {
+                    let v = num(&m, k);
+                    if v != 0.0 {
+                        m.insert(k, v * by).map_err(err)?;
+                    }
+                }
             }
             for &n in heads {
                 self.scale_text(n, (sx * sy).sqrt())?;
@@ -701,6 +719,59 @@ mod tests {
         d.apply(Command::ScaleText { id: t, by: 0.5 }).unwrap();
         assert_eq!(lens_and(&d, |a| a.size), [(2, 20.0)]);
         assert_eq!(ids(&s.children[..1]), [r]);
+    }
+
+    #[test]
+    fn a_scaled_page_keeps_auto_layout_and_scales_its_gap_and_padding() {
+        let (mut d, p) = empty();
+        let f = create(&mut d, &p, NewKind::Frame, [10.0, 10.0, 100.0, 10.0]);
+        let r = create(&mut d, &f, NewKind::Rect, [0.0, 0.0, 20.0, 10.0]);
+        create(&mut d, &f, NewKind::Rect, [0.0, 0.0, 20.0, 10.0]);
+        set(
+            &mut d,
+            &f,
+            Props {
+                direction: Some(Direction::Vertical),
+                gap: Some(4.0),
+                padding_top: Some(5.0),
+                padding_right: Some(5.0),
+                padding_bottom: Some(5.0),
+                padding_left: Some(5.0),
+                sizing: sizing(Size::Hug, Size::Hug),
+                ..Props::default()
+            },
+        );
+        set(
+            &mut d,
+            &r,
+            Props {
+                sizing: sizing(Size::Fill, Size::Fixed),
+                ..Props::default()
+            },
+        );
+        assert_eq!(frames(&d, &f)[0], [10.0, 10.0, 30.0, 34.0]);
+        let [w, h] = [page(&d).width, page(&d).height];
+        d.apply(Command::SetPage {
+            id: p,
+            width: Some(w * 2.0),
+            height: Some(h * 2.0),
+            bleed: None,
+            scale: true,
+        })
+        .unwrap();
+        assert_eq!(
+            frames(&d, &f),
+            [
+                [20.0, 20.0, 60.0, 68.0],
+                [30.0, 30.0, 40.0, 20.0],
+                [30.0, 58.0, 40.0, 20.0]
+            ]
+        );
+        assert_eq!(node_sizing(&d, &f), sizing(Size::Hug, Size::Hug).unwrap());
+        assert_eq!(
+            node_sizing(&d, &r),
+            sizing(Size::Fill, Size::Fixed).unwrap()
+        );
     }
 
     #[test]
