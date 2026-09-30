@@ -229,16 +229,17 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       return pick(page.children, path, editor.selection, mode)
     }
     /**
-     * The in- and out-port in screen space of a single selected text frame that can
-     * thread, as in InDesign: on its left edge below the top and its right edge above
-     * the bottom.
+     * The out-port in screen space of a single selected text frame that can thread, as in
+     * InDesign, on its right edge above the bottom, and its in-port below the top of the
+     * left edge if a frame threads into it.
      */
     const ports = () => {
       const [n] = editor.selected()
       if (editor.tool !== 'move' || editor.selection.length !== 1 || editor.editing || n?.kind !== 'text') return undefined
       if (n.sizing.horizontal === 'hug' && n.sizing.vertical === 'hug' && !n.prev && !n.next) return undefined
       if (editor.shown(n).rotation) return undefined
-      return { node: n, ...portsOf(view, placed(n)) }
+      const p = portsOf(view, placed(n))
+      return { node: n, out: p.out, in: n.prev ? p.in : undefined }
     }
     const portUnder = (e: Pointer) => {
       const p = ports()
@@ -305,7 +306,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       })
       return {
         ports: [
-          { ...p.in, state: n.prev ? 'threaded' : 'empty' },
+          ...(p.in ? [{ ...p.in, state: 'threaded' as const }] : []),
           { ...p.out, state: n.overset ? 'overset' : n.next ? 'threaded' : 'open' },
         ] as const,
         threads: port ? lines : [],

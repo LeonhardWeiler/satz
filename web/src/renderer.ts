@@ -27,8 +27,8 @@ export type Overlay = {
   pen?: { anchors: { x: number; y: number; hx: number; hy: number }[]; cursor?: { x: number; y: number } } | null
   /** Display lists of the caret or selection in the text being edited, each in the space of a page at `x`. */
   text?: { ops: Uint32Array; x: number }[]
-  /** In- and out-ports of a text frame in screen space: empty, threaded, holding overset text, or open to thread on. */
-  ports?: readonly { x: number; y: number; state: 'empty' | 'threaded' | 'overset' | 'open' }[]
+  /** Ports of a text frame in screen space: threaded, holding overset text, or open to thread on. */
+  ports?: readonly { x: number; y: number; state: 'threaded' | 'overset' | 'open' }[]
   /** The knots of the path being edited and the one picked. */
   vector?: { contours: Contour[]; at: At | null }
   /** Show the layout grids of the pages. */

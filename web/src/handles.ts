@@ -89,8 +89,8 @@ export function portsOf(view: View, n: Box) {
 }
 
 /** The port of `ports` at the screen point (x, y). */
-export function portAt(ports: { in: Point; out: Point }, x: number, y: number) {
-  const near = (q: Point) => Math.abs(q.x - x) <= PORT / 2 + 1 && Math.abs(q.y - y) <= PORT / 2 + 1
+export function portAt(ports: { in?: Point; out: Point }, x: number, y: number) {
+  const near = (q?: Point) => !!q && Math.abs(q.x - x) <= PORT / 2 + 1 && Math.abs(q.y - y) <= PORT / 2 + 1
   return near(ports.out) ? ('out' as const) : near(ports.in) ? ('in' as const) : undefined
 }
 
