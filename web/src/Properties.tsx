@@ -250,6 +250,12 @@ export function Properties({
             {!line && nodes.every((n) => n.kind !== 'group') && (
               <Field label="∠" title="Rotation in °" unit="°" min={-Infinity} value={same((n) => n.rotation)} onCommit={(v) => set({ rotation: ((v % 360) + 360) % 360 })} />
             )}
+            {one?.kind === 'frame' && (
+              <label className="check">
+                <input type="checkbox" checked={one.clip} onChange={(e) => set({ clip: e.currentTarget.checked })} />
+                Clip content
+              </label>
+            )}
             {nodes.length > 0 && nodes.every((n) => n.kind === 'shape' && n.shape === 'rect') && (
               bindable(
                 'radius',
@@ -309,16 +315,6 @@ export function Properties({
                 />
               ))}
             </div>
-          )}
-          {one?.kind === 'frame' && (
-            <label className="check">
-              <input
-                type="checkbox"
-                checked={one.clip}
-                onChange={(e) => editor.apply({ type: 'set', id: one.id, clip: e.currentTarget.checked })}
-              />
-              Clip content
-            </label>
           )}
         </Section>
       )}
