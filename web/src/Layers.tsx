@@ -212,7 +212,6 @@ export function Layers({ editor }: { editor: Editor }) {
       >
         {rows(page.children, 1)}
       </ul>
-      {!page.children.length && <p className="tree-note">Draw with R, O or T</p>}
       {master && (
         <p className="tree-note master-row">
           <Icon name="master" />

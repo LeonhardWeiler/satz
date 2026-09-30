@@ -157,10 +157,3 @@ test('dragging a layer row reorders it among its siblings and drops it into a gr
   const shapes = layers(page).getByRole('treeitem', { name: 'Shapes' })
   await expect(shapes.getByRole('treeitem', { level: 2 }).getByRole('button', { name: a, exact: true })).toBeVisible()
 })
-
-test('an empty page says how to draw', async ({ page }) => {
-  await open(page)
-  await addMaster(page)
-  await expect(layers(page).getByRole('treeitem')).toHaveCount(0)
-  await expect(page.getByText('Draw with R, O or T')).toBeVisible()
-})
