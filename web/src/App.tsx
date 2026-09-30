@@ -116,7 +116,7 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
     }
     window.addEventListener('contextmenu', onMenu)
     return () => window.removeEventListener('contextmenu', onMenu)
-  }, [])
+  }, [editor])
 
   useEffect(() => {
     const clip = (e: ClipboardEvent) => {
