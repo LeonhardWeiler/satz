@@ -419,12 +419,12 @@ function DocumentSection({ editor }: { editor: Editor }) {
         <Field label="Bleed" title="Bleed of all pages in mm" unit="mm" value={sameOf(pages, (p) => p.bleed)} onCommit={(bleed) => each(() => ({ bleed }))} />
         <Field label="Pages" title="Pages" unit="" int min={1} value={pages.length} onCommit={count} />
         <Select label="Spreads" value={facingPages ? 'facing' : 'single'} options={SPREADS} onChange={(v) => editor.apply({ type: 'setDocument', facingPages: v === 'facing' })} />
+        <Field label="Raster" reset={300} value={rasterPpi} unit="ppi" min={72} max={1200} onCommit={(v) => editor.apply({ type: 'setDocument', rasterPpi: v })} />
         <Select label="Color mode" value={colorMode} options={MODES} onChange={(colorMode) => editor.apply({ type: 'setDocument', colorMode })} />
         <div className="kv" title="Output profile">
           <span>Profile</span>
           <strong>{colorMode === 'cmyk' ? 'FOGRA51' : 'sRGB'}</strong>
         </div>
-        <Field label="Raster" reset={300} value={rasterPpi} unit="ppi" min={72} max={1200} onCommit={(v) => editor.apply({ type: 'setDocument', rasterPpi: v })} />
       </div>
     </Section>
   )
