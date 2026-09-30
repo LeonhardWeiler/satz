@@ -50,18 +50,12 @@ test('preflight opens from its shortcut, the counter and export, and esc ends it
   await expect(region.getByRole('button', { name: 'Export PDF' })).toBeFocused()
 })
 
-test('preflight in the booklet zooms to an issue, separates the plates and reports ink over the limit', async ({ page }) => {
+test('preflight in the booklet separates the plates, reports ink over the limit and zooms to an issue', async ({ page }) => {
   await openExample(page, 'booklet.satz')
   const region = await preflight(page)
   const issues = region.locator('.iss')
-  await expect(issues).not.toHaveCount(0)
+  await expect(issues).toHaveCount(0)
 
-  const zoom = await page.getByLabel('Zoom').textContent()
-  await issues.first().click()
-  await expect(page.getByLabel('Zoom')).not.toHaveText(zoom!)
-  await expect(page.getByRole('tree', { name: 'Layers' }).getByRole('treeitem', { selected: true })).toHaveCount(1)
-
-  await page.keyboard.press('Shift+1')
   await expect(region.getByText(/^max \d+ %$/).first()).toBeVisible({ timeout: 30000 })
   const box = (await page.getByLabel('Page canvas').boundingBox())!
   const area = [box.x, box.y, box.width, box.height] as const
@@ -78,6 +72,11 @@ test('preflight in the booklet zooms to an issue, separates the plates and repor
   await limit.press('Enter')
   await expect(region.getByRole('button', { name: /above the limit/ }).first()).toBeVisible()
   await expect(region.locator('.kv strong.bad')).toHaveText(/^\d+ %/)
+
+  const zoom = await page.getByLabel('Zoom').textContent()
+  await issues.first().click()
+  await expect(page.getByLabel('Zoom')).not.toHaveText(zoom!)
+  await expect(page.getByRole('tree', { name: 'Layers' }).getByRole('treeitem', { selected: true })).toHaveCount(1)
 
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
   await expect(region.getByText(/^\d+ %$/).last()).toBeVisible()

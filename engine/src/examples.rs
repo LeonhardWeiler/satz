@@ -3,7 +3,7 @@
 
 use crate::color::{Color, ColorMode, to_cmyk};
 use crate::display_list::Op;
-use crate::doc::{Command, Doc, Kind, NewKind, Node, Problem, Props, TextProps};
+use crate::doc::{Command, Doc, NewKind, Problem, Props, TextProps};
 use crate::layout::{Direction, MainAlign, Size, Sizing};
 use crate::style::{Effect, EffectKind, Fill, FillKind, FillStop};
 use crate::text::{PAGE_NUMBER, TextAlign};
@@ -667,31 +667,10 @@ fn booklet() -> Doc {
     b.0
 }
 
-fn flatten(nodes: &[Node]) -> Vec<&Node> {
-    nodes
-        .iter()
-        .flat_map(|n| match &n.kind {
-            Kind::Group { children } | Kind::Frame { children, .. } => {
-                [vec![n], flatten(children)].concat()
-            }
-            _ => vec![n],
-        })
-        .collect()
-}
-
-/// The preflight issues other than the RGB photographs, which the PDF separates.
 fn issues(d: &Doc) -> Vec<(String, Problem)> {
-    let snap = d.build_snapshot();
-    let photos: Vec<String> = snap
-        .pages
-        .iter()
-        .flat_map(|p| flatten(&p.children))
-        .filter(|n| n.name == "Earthrise")
-        .map(|n| n.id.clone())
-        .collect();
-    snap.preflight
+    d.build_snapshot()
+        .preflight
         .into_iter()
-        .filter(|i| !(i.problem == Problem::Rgb && photos.contains(&i.layer)))
         .map(|i| (i.name, i.problem))
         .collect()
 }

@@ -306,10 +306,7 @@ pub(super) fn visit(
         palette: &snap.palette,
         modes: &n.active_modes,
     };
-    let image = paints().any(|f| f.kind == FillKind::Image);
-    if snap.color_mode == ColorMode::Cmyk
-        && (image || colors.iter().any(|c| c.ink(&scope) == Ink::Rgb))
-    {
+    if snap.color_mode == ColorMode::Cmyk && colors.iter().any(|c| c.ink(&scope) == Ink::Rgb) {
         problems.push(Problem::Rgb);
     }
     if snap.color_mode == ColorMode::Cmyk {

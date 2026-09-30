@@ -4159,13 +4159,7 @@ mod tests {
             |o| matches!(o, Op::Image { image, .. } if *image == image::id(&hash).unwrap() | image::CMY),
         );
         assert!(proofed);
-        assert_eq!(
-            problems(&d),
-            [
-                (id.clone(), Problem::Rgb),
-                (id.clone(), Problem::LowPpi { ppi: 150.0 })
-            ]
-        );
+        assert_eq!(problems(&d), [(id.clone(), Problem::LowPpi { ppi: 150.0 })]);
         set(
             &mut d,
             &id,
