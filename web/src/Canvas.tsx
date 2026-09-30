@@ -148,7 +148,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     const renderer = new Renderer(ck, editor.engine)
     const view: View = { x: 0, y: 0, zoom: 1 }
     /** The view of each spread left for another, as Figma keeps it for pages. */
-    const spreadKey = () => `${editor.spread.map((p) => p.id).join()}/${editor.sheets.length}`
+    const spreadKey = () => `${editor.spread.map((p) => p.id).join()}/${editor.sheets.map((s) => `${s.width}x${s.height}`).join()}`
     let shown = spreadKey()
     const gl = ck.MakeWebGLContext(ck.GetWebGLContext(canvas))!
     let surface: Surface | null = null
