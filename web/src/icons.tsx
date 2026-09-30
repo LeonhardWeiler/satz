@@ -1,5 +1,16 @@
 import type { Node } from './model'
 
+function aligned(edge: string, ...bars: [number, number, number, number][]) {
+  return (
+    <>
+      <path d={edge} />
+      {bars.map(([x, y, width, height]) => (
+        <rect key={`${x} ${y}`} x={x} y={y} width={width} height={height} rx="1" fill="currentColor" stroke="none" />
+      ))}
+    </>
+  )
+}
+
 const ICONS = {
   move: <path d="M3.6 3.3c-.2-.6.3-1 .8-.7l8.1 4.9c.5.3.4 1-.2 1.1L8.8 9.2l-1.7 3.7c-.3.6-1 .5-1.1-.1z" />,
   frame: <path d="M5 2v12M11 2v12M2 5h12M2 11h12" />,
@@ -132,22 +143,15 @@ const ICONS = {
   alignCenter: <path d="M3 4h10M5 7h6M3 10h10M5 13h6" />,
   alignRight: <path d="M3 4h10M7 7h6M3 10h10M7 13h6" />,
   alignJustify: <path d="M3 4h10M3 7h10M3 10h10M3 13h6" />,
-  alignLeftEdges: <path d="M2.5 2v12M5 4.5h8v2.5H5zM5 9h5v2.5H5z" />,
-  alignCenters: <path d="M8 2v12M3.5 4.5h9v2.5h-9zM5 9h6v2.5H5z" />,
-  alignRightEdges: <path d="M13.5 2v12M3 4.5h8v2.5H3zM6 9h5v2.5H6z" />,
-  alignTopEdges: <path d="M2 2.5h12M4.5 5v8h2.5V5zM9 5v5h2.5V5z" />,
-  alignMiddles: <path d="M2 8h12M4.5 3.5v9h2.5v-9zM9 5v6h2.5V5z" />,
-  alignBottomEdges: <path d="M2 13.5h12M4.5 3v8h2.5V3zM9 6v5h2.5V6z" />,
-  distributeX: <path d="M2.5 2v12M13.5 2v12M6.5 5h3v6h-3z" />,
-  distributeY: <path d="M2 2.5h12M2 13.5h12M5 6.5h6v3H5z" />,
-  tidy: (
-    <>
-      <rect x="3" y="3" width="4" height="4" rx="1" />
-      <rect x="9" y="3" width="4" height="4" rx="1" />
-      <rect x="3" y="9" width="4" height="4" rx="1" />
-      <rect x="9" y="9" width="4" height="4" rx="1" />
-    </>
-  ),
+  alignLeftEdges: aligned('M2.5 2v12', [5, 4, 8, 3], [5, 9, 5, 3]),
+  alignCenters: aligned('M8 2v12', [3, 4, 10, 3], [5, 9, 6, 3]),
+  alignRightEdges: aligned('M13.5 2v12', [3, 4, 8, 3], [6, 9, 5, 3]),
+  alignTopEdges: aligned('M2 2.5h12', [4, 5, 3, 8], [9, 5, 3, 5]),
+  alignMiddles: aligned('M2 8h12', [4, 3, 3, 10], [9, 5, 3, 6]),
+  alignBottomEdges: aligned('M2 13.5h12', [4, 3, 3, 8], [9, 6, 3, 5]),
+  distributeX: aligned('M2.5 2v12M13.5 2v12', [6.5, 4, 3, 8]),
+  distributeY: aligned('M2 2.5h12M2 13.5h12', [4, 6.5, 8, 3]),
+  tidy: aligned('', [3, 3, 4, 4], [9, 3, 4, 4], [3, 9, 4, 4], [9, 9, 4, 4]),
   alignTop: <path d="M3 3h10M8 5.5v8M5.5 8 8 5.5 10.5 8" />,
   alignMiddle: <path d="M3 8h10M8 2v4M8 10v4M6 4l2 2 2-2M6 12l2-2 2 2" />,
   alignBottom: <path d="M3 13h10M8 2.5v8M5.5 8 8 10.5 10.5 8" />,

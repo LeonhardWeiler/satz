@@ -150,15 +150,6 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
     }
   }, [editor, say])
 
-  const more = () => {
-    setHidden((h) => ({ ...h, right: false, ui: false }))
-    requestAnimationFrame(() => {
-      const input = document.querySelector<HTMLElement>('.properties .section input:not([type=checkbox])')
-      input?.focus()
-      input?.closest('.section')?.animate([{ background: 'rgb(56 174 224 / 0.25)' }, { background: 'transparent' }], 600)
-    })
-  }
-
   const off = (panel: 'left' | 'right') => hidden.ui || hidden[panel]
   const toggle = (panel: 'left' | 'right', label: string, key: string) => (
     <button
@@ -220,7 +211,7 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
           Export
         </button>
       </header>
-      <Canvas ck={ck} editor={editor} onMore={more} />
+      <Canvas ck={ck} editor={editor} />
       {overview && <Overview ck={ck} editor={editor} />}
       <div className="right" inert={off('right')}>
         <Edge side="right" />

@@ -533,6 +533,10 @@ textarea {
   transition: box-shadow 0.12s;
 }
 
+.field:not(:has(.field-label, .field-step)) {
+  padding-left: 8px;
+}
+
 .field:hover {
   box-shadow: inset 0 0 0 1px var(--edge);
 }
@@ -547,7 +551,7 @@ textarea {
   align-items: center;
   align-self: stretch;
   min-width: 24px;
-  padding: 0 4px 0 9px;
+  padding: 0 6px 0 8px;
   color: var(--text-3);
   cursor: ew-resize;
   user-select: none;
@@ -1037,9 +1041,13 @@ span.swatch {
 
 .align {
   display: flex;
-  justify-content: space-between;
+  gap: 2px;
   padding: 2px 8px 8px;
   border-bottom: 1px solid var(--border);
+}
+
+.align > :nth-child(7) {
+  margin-left: auto;
 }
 
 .icon-button:disabled {
@@ -1394,6 +1402,20 @@ span.swatch {
 
 .quick .segmented {
   flex: none;
+}
+
+.quick .segmented button {
+  width: 28px;
+  height: 24px;
+}
+
+.quick .icon-button {
+  width: 28px;
+  height: 28px;
+}
+
+.quick:empty {
+  display: none;
 }
 
 .quick .field {

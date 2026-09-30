@@ -9,7 +9,7 @@ import { radiusOf, type Fill, type Props } from './model'
 import { ALIGNS, sameOf, Specimen } from './Text'
 
 /** The most used properties of the selection, above it on the canvas. */
-export function Quick({ editor, onMore }: { editor: Editor; onMore: () => void }) {
+export function Quick({ editor }: { editor: Editor }) {
   useEditor(editor, (e) => e.selection)
   const snapshot = useEditor(editor, (e) => e.snapshot)
   const [menu, setMenu] = useState<DOMRect | null>(null)
@@ -36,7 +36,7 @@ export function Quick({ editor, onMore }: { editor: Editor; onMore: () => void }
           <Segmented label="Text align" value={align} options={ALIGNS} onChange={(textAlign) => editor.apply({ type: 'format', id: one.id, range: null, textAlign })} />
         </>
       )}
-      {!nodes.some((n) => n.kind === 'group') && (
+      {!nodes.some((n) => n.kind === 'group' || n.ppi !== undefined) && (
         <button
           type="button"
           className="icon-button"
@@ -54,12 +54,6 @@ export function Quick({ editor, onMore }: { editor: Editor; onMore: () => void }
         <Field label="N" title="Count" unit="" int value={one.count} onCommit={(v) => set({ count: Math.round(v) })} />
       )}
       {one?.ppi !== undefined && <span className="quick-info">{Math.round(one.ppi)} ppi</span>}
-      {one && one.kind !== 'text' && (
-        <Field label="" title="Opacity" unit="%" value={one.opacity * 100} onCommit={(v) => set({ opacity: v / 100 })} />
-      )}
-      <button type="button" className="button" onClick={onMore}>
-        More
-      </button>
       {menu &&
         createPortal(
           <ContextMenu

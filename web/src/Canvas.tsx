@@ -129,7 +129,7 @@ function drawRuler(c: HTMLCanvasElement, horizontal: boolean, origin: number, sc
 /** Half a blink period of the caret in ms. */
 const BLINK = 530
 
-export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; onMore: () => void }) {
+export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   const ref = useRef<HTMLCanvasElement>(null)
   const rulerX = useRef<HTMLCanvasElement>(null)
   const rulerY = useRef<HTMLCanvasElement>(null)
@@ -1086,7 +1086,7 @@ export function Canvas({ ck, editor, onMore }: { ck: CanvasKit; editor: Editor; 
           {Math.round((zoom / PX_PER_PT) * 100)}%
         </output>
         <div ref={quick} className="quick" role="toolbar" aria-label="Quick edit">
-          <Quick editor={editor} onMore={onMore} />
+          <Quick editor={editor} />
         </div>
         <Switcher editor={editor} />
       </div>

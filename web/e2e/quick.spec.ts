@@ -1,6 +1,6 @@
 import { expect, test, drag, open, screen } from './util'
 
-test('quick edit sits above the selection, sets radius, opacity and fill, and hides while dragging, editing and in preflight', async ({ page }) => {
+test('quick edit sits above the selection, sets radius and fill, and hides while dragging, editing and in preflight', async ({ page }) => {
   await open(page)
   const quick = page.getByRole('toolbar', { name: 'Quick edit' })
   const panel = page.getByRole('complementary', { name: 'Properties' })
@@ -16,10 +16,6 @@ test('quick edit sits above the selection, sets radius, opacity and fill, and hi
   await radius.fill('4')
   await radius.press('Enter')
   await expect(panel.getByRole('textbox', { name: 'Corner radius in mm' }).first()).toHaveValue('4')
-  const opacity = quick.getByRole('textbox', { name: 'Opacity' })
-  await opacity.fill('50')
-  await opacity.press('Enter')
-  await expect(panel.getByRole('textbox', { name: 'Opacity' }).first()).toHaveValue('50')
 
   const swatches = page.getByRole('menu', { name: 'Swatches' })
   await quick.getByTitle('Fill swatch').click()
@@ -40,10 +36,6 @@ test('quick edit sits above the selection, sets radius, opacity and fill, and hi
   await page.mouse.up()
   await expect(quick).toBeVisible()
 
-  await quick.getByRole('button', { name: 'More' }).click()
-  await expect(panel.locator(':focus')).toHaveCount(1)
-
-  await page.keyboard.press('Escape')
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle' }).first().click()
   await expect(quick).toBeVisible()
   await page.keyboard.press('Control+Alt+Y')
