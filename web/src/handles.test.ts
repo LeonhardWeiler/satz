@@ -28,11 +28,14 @@ test('a box without height has no top or bottom handles', () => {
   expect(handleAt(view, 60, 70, { box: { ...box, h: 0 } })).toBe('w')
 })
 
-test('the ends of a line are grabbed within half a handle', () => {
+test('the ends of a line are grabbed within half a handle, and turned beyond them', () => {
   const line: [{ x: number; y: number }, { x: number; y: number }] = [{ x: -10, y: 0 }, { x: 10, y: 0 }]
   expect(handleAt(view, 84, 50, { line })).toBe('end0')
   expect(handleAt(view, 124, 53, { line })).toBe('end1')
   expect(handleAt(view, 100, 50, { line })).toBeUndefined()
+  expect(handleAt(view, 70, 50, { line })).toBe('rotatenw')
+  expect(handleAt(view, 130, 55, { line })).toBe('rotatese')
+  expect(handleAt(view, 90, 50, { line })).toBeUndefined()
 })
 
 test('the ports sit inside the frame edges, and closer to the middle of a low frame', () => {

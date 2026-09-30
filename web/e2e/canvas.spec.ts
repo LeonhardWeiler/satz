@@ -59,6 +59,21 @@ test('a line moves when dragged in the middle and changes one end at a time', as
   await expect(field('X in mm')).toHaveValue('30')
 })
 
+test('a line turns about its middle when dragged beyond an end', async ({ page }) => {
+  await open(page)
+  const layout = page.getByRole('region', { name: 'Layout' })
+  const field = (title: string) => layout.getByTitle(title).getByRole('textbox')
+  const [ax, ay] = await screen(page, 30, 86)
+  const [bx] = await screen(page, 90, 86)
+  await page.keyboard.press('l')
+  await drag(page, [ax, ay], [bx, ay])
+  const [, by] = await screen(page, 60, 116)
+  await drag(page, [bx + 8, ay], [(ax + bx) / 2, by])
+  await expect(field('Length in mm')).toHaveValue('60')
+  await expect(field('X in mm')).toHaveValue('60')
+  await expect(field('Y in mm')).toHaveValue('56')
+})
+
 test('property sections space their rows evenly', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })

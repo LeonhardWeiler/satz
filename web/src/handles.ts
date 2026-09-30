@@ -41,8 +41,11 @@ export function handleAt(view: View, x: number, y: number, { box, line, radii }:
   const i = radii?.findIndex((p) => Math.hypot(p.x - x, p.y - y) <= HANDLE + 1) ?? -1
   if (i >= 0) return `radius${i}`
   if (line) {
-    const i = line.findIndex((p) => Math.hypot(screen(view, p).x - x, screen(view, p).y - y) <= HANDLE / 2 + 1)
-    return i < 0 ? undefined : `end${i}`
+    const [a, b] = line.map((p) => screen(view, p))
+    const i = [a, b].findIndex((p) => Math.hypot(p.x - x, p.y - y) <= HANDLE / 2 + 1)
+    if (i >= 0) return `end${i}`
+    const beyond = ([e, o]: Point[]) => Math.hypot(e.x - x, e.y - y) <= TURN && (x - e.x) * (e.x - o.x) + (y - e.y) * (e.y - o.y) > 0
+    return beyond([a, b]) ? 'rotatenw' : beyond([b, a]) ? 'rotatese' : undefined
   }
   if (!box) return undefined
   const { x: l, y: t } = screen(view, box)
