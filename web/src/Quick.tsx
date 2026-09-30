@@ -63,7 +63,6 @@ export function Quick({ editor }: { editor: Editor }) {
       {one?.kind === 'shape' && (one.shape === 'polygon' || one.shape === 'star') && (
         <Field label="N" title="Count" unit="" int min={3} max={60} value={one.count} onCommit={(count) => set({ count })} />
       )}
-      {one?.ppi !== undefined && <span className="quick-info">{Math.round(one.ppi)} ppi</span>}
       {menu &&
         createPortal(
           <ContextMenu

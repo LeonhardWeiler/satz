@@ -1472,12 +1472,6 @@ span.swatch {
   background: linear-gradient(to top right, transparent 45%, var(--text-3) 45% 55%, transparent 55%);
 }
 
-.quick-info {
-  padding: 0 4px;
-  color: var(--text-2);
-  font-variant-numeric: tabular-nums;
-}
-
 .menu-item .chip {
   display: inline-block;
   width: 12px;
