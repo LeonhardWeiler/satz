@@ -507,6 +507,24 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       }
       return inside(n) ? n : [...editor.nodes.values()].map((e) => e.node).find(inside)
     }
+    /** The frame or page under `p` that a new layer goes into, and how far its page sits right of the spine. */
+    const parentAt = (p: Point) => {
+      const h = hit(p)
+      const frame = h.path.findLast((id) => editor.nodes.get(id)?.node.kind === 'frame')
+      const page = frame ? h.page : pageAt(p)
+      return { parent: frame ?? page.id, dx: page.x }
+    }
+    const create = (kind: NewKind, p: Point) => {
+      const { parent, dx } = parentAt(p)
+      const [id] = editor.apply({ type: 'create', parent, kind, x: p.x - dx, y: p.y, w: 0, h: 0 })
+      return { id, dx }
+    }
+    /** Starts to draw with `drag.tool`, which a click beside the pages leaves undone. */
+    const draw = (drag: Extract<Drag, { kind: 'draw' }>) => {
+      editor.beginGroup()
+      Object.assign(drag, create(drag.tool, drag.start))
+      editor.set({ selection: [drag.id] })
+    }
     const onPointerDown = (e: PointerEvent) => {
       settle()
       let p = toDoc(e)
@@ -535,21 +553,9 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         canvas.dataset.panning = ''
         return
       }
-      /** The frame or page under `p` that a new layer goes into, and how far its page sits right of the spine. */
-      const target = () => {
-        const h = hit(p)
-        const frame = h.path.findLast((id) => editor.nodes.get(id)?.node.kind === 'frame')
-        const page = frame ? h.page : pageAt(p)
-        return { parent: frame ?? page.id, dx: page.x }
-      }
-      const create = (kind: NewKind) => {
-        const { parent, dx } = target()
-        const [id] = editor.apply({ type: 'create', parent, kind, x: p.x - dx, y: p.y, w: 0, h: 0 })
-        return { id, dx }
-      }
       const image = editor.placing[0]
       if (image) {
-        const { parent, dx } = target()
+        const { parent, dx } = parentAt(p)
         const { hash, name, w, h } = image
         const placed = editor.apply({ type: 'placeImage', parent, image: hash, name, x: p.x - dx - w / 2, y: p.y - h / 2, w, h })
         editor.set({ selection: placed, placing: editor.placing.slice(1) })
@@ -568,7 +574,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           return
         }
         editor.beginGroup()
-        const { id, dx } = create('text')
+        const { id, dx } = create('text', p)
         drag = { kind: 'draw', start: p, id, dx, moved: false, tool: 'text', thread: from }
         editor.set({ selection: [id] })
         return
@@ -578,7 +584,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         drag = { kind: 'pen', start: p }
         if (!pen) {
           editor.beginGroup()
-          const { id, dx } = create('path')
+          const { id, dx } = create('path', p)
           editor.set({ pen: { id, anchors: [{ x: p.x - dx, y: p.y, hx: 0, hy: 0 }] }, selection: [] })
           return
         }
@@ -598,10 +604,9 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         const tool = editor.tool
         const snaps = snapsNow()
         p = snapPoint(p, snaps, e.ctrlKey || e.metaKey).p
-        editor.beginGroup()
-        const { id, dx } = create(tool)
-        drag = { kind: 'draw', start: p, id, dx, moved: false, tool, snaps }
-        editor.set({ selection: [id] })
+        drag = { kind: 'draw', start: p, id: '', dx: 0, moved: false, tool, snaps }
+        const bleeds = (q: Page) => p.x >= q.x - q.bleed && p.x <= q.x + q.width + q.bleed && p.y >= -q.bleed && p.y <= q.height + q.bleed
+        if (editor.spread.some(bleeds)) draw(drag)
         return
       }
       const v = editor.vector
@@ -752,6 +757,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       } else if (drag.kind === 'draw') {
         drag.moved ||= Math.hypot(p.x - drag.start.x, p.y - drag.start.y) * view.zoom > DRAG
         if (!drag.moved) return
+        if (!drag.id) draw(drag)
         const s = snapPoint(p, drag.snaps, !free || e.shiftKey)
         snapped = s.guides
         let dx = s.p.x - drag.start.x
@@ -869,6 +875,9 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           editor.apply({ type: 'delete', ids: [drag.id] })
           editor.set({ selection: [] })
         }
+      } else if (drag?.kind === 'draw' && !drag.id) {
+        editor.setTool('move')
+        editor.set({ selection: [] })
       } else if (drag?.kind === 'draw') {
         if (drag.tool !== 'text' && !drag.moved) {
           const [w, h] = DEFAULT_SIZE[drag.tool]
@@ -892,7 +901,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         }
         for (const [to, ids] of moves) editor.apply({ type: 'move', ids, parent: to.id, index: to.children.length })
       }
-      if (drag?.kind === 'draw' || drag?.kind === 'resize' || drag?.kind === 'end' || drag?.kind === 'radius' || drag?.kind === 'rotate' || drag?.kind === 'knot' || (drag?.kind === 'move' && drag.active)) {
+      if ((drag?.kind === 'draw' && drag.id) || drag?.kind === 'resize' || drag?.kind === 'end' || drag?.kind === 'radius' || drag?.kind === 'rotate' || drag?.kind === 'knot' || (drag?.kind === 'move' && drag.active)) {
         editor.endGroup()
       }
       if (drag?.kind === 'move' && !drag.active && !e.shiftKey) {

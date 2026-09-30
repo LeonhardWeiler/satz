@@ -16,6 +16,21 @@ test('moving a gradient layer leaves the page and the handles alone', async ({ p
   expect(edge.some((p) => near(p, [56, 174, 224]))).toBe(true)
 })
 
+test('a click beside the pages with a tool picks the move tool, a drag from there draws', async ({ page }) => {
+  await open(page)
+  const tools = page.getByRole('toolbar', { name: 'Tools' })
+  const items = page.getByRole('tree', { name: 'Layers' }).getByRole('treeitem')
+  const before = await items.count()
+  await page.keyboard.press('r')
+  const [x, y] = await screen(page, -20, 50)
+  await page.mouse.click(x, y)
+  await expect(tools.getByRole('button', { name: 'Move', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(items).toHaveCount(before)
+  await page.keyboard.press('r')
+  await drag(page, [x, y], await screen(page, 10, 70))
+  await expect(items).toHaveCount(before + 1)
+})
+
 test('a line moves when dragged in the middle and changes one end at a time', async ({ page }) => {
   await open(page)
   const layout = page.getByRole('region', { name: 'Layout' })
