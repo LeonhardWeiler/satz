@@ -45,9 +45,11 @@ Open:
   File System Access (Chromium) with handles in IndexedDB, so links need a click
   per session and are missing on other computers; Firefox shows the option
   disabled with a hint. Preflight reports missing links with relink.
-- Font picker as in Figma (family and style), with local fonts (Local Font Access)
-  in the list; a font in text styles. Today fonts are added by upload, and Local
-  Font Access only finds missing ones.
+- Local fonts (Local Font Access) in the font list. Today fonts are added by upload,
+  and Local Font Access only finds missing ones.
+- Type as in Figma: bulleted and numbered lists, truncation after a number of lines,
+  vertical trim to cap height and baseline, axes of variable fonts, a glyph panel
+  with search for all characters of a font.
 - WOFF2 fonts.
 - Colour profiles: choose or upload a CMYK profile (e.g. PSO Coated v3) instead of the
   built-in FOGRA51.
