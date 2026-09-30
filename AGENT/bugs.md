@@ -41,6 +41,7 @@
 41. überlege dir für alle elemente noch einmal tief und schlau welche optionen alle sinnvoll und praktisch wären und implementiere sie
 42. überlege dir features die noch gemacht werden sollen und schreibe sie unter later in TODO.md
 43. Mach einene ausführlichen performance audit sowie einen audit der bundle size und der ci time. schreibe deine findings in die jeweiligen dateien unter AGENT
+44. wenn ich im text doppelklicke und dann ziehe, dann soll es nicht das wort markieren sondern die section machen, also der double click wird ignoriert, wenn ich ziehe
 
 --- LATER
 1. Figma import with file and or account
