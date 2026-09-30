@@ -6,7 +6,7 @@ import { useEditor, type Editor } from './editor'
 import { Icon, type IconName } from './icons'
 import { Popover } from './Popover'
 import { PAGE_NUMBER, insert, range } from './textEdit'
-import { STYLED, type Attrs, type Props, type Sizing, type Styled, type TextNode, type TextProps, type TextStyle, type Typeface } from './model'
+import { STYLED, type Attrs, type Props, type Styled, type TextNode, type TextProps, type TextStyle, type Typeface, textSizing } from './model'
 import { Bindable } from './Variables'
 
 
@@ -27,7 +27,6 @@ const VERTICAL = [
   ['center', 'Align middle', 'alignMiddle'],
   ['bottom', 'Align bottom', 'alignBottom'],
 ] as const
-/** Figma's text resize modes as sizing: auto width hugs both sides, auto height the height. */
 const RESIZING = [
   ['autoWidth', 'Auto width', 'autoWidth'],
   ['autoHeight', 'Auto height', 'autoHeight'],
@@ -409,14 +408,6 @@ function StyleRow({ editor, style }: { editor: Editor; style: TextStyle }) {
 export function TextFrameSection({ node, set }: { node: TextNode; set: (p: Props) => void }) {
   const { horizontal, vertical } = node.sizing
   const resizing = horizontal === 'hug' ? 'autoWidth' : vertical === 'hug' ? 'autoHeight' : 'fixedSize'
-  const resize = (mode: (typeof RESIZING)[number][0]) => {
-    const width = horizontal === 'hug' ? 'fixed' : horizontal
-    const sizing: Sizing =
-      mode === 'autoWidth' ? { horizontal: 'hug', vertical: 'hug' }
-      : mode === 'autoHeight' ? { horizontal: width, vertical: 'hug' }
-      : { horizontal: width, vertical: vertical === 'fill' ? 'fill' : 'fixed' }
-    set({ sizing })
-  }
   return (
     <Section title="Text frame">
       <Segmented
@@ -424,7 +415,7 @@ export function TextFrameSection({ node, set }: { node: TextNode; set: (p: Props
         value={resizing}
         options={RESIZING}
         disabled={(v) => (v === 'autoWidth' && !!(node.prev || node.next)) || (v === 'autoHeight' && !!node.next)}
-        onChange={resize}
+        onChange={(mode) => set({ sizing: textSizing(node.sizing, mode) })}
       />
       <div className="grid">
         {INSETS.map(([prop, title, label]) => (

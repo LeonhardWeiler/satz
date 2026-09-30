@@ -75,6 +75,8 @@ export const ACTIONS: Action[] = [
   { title: 'Hide selection', keys: 'Ctrl Shift H', group: 'Arrange' },
   { title: 'Lock selection', keys: 'Ctrl Shift L', group: 'Arrange' },
   { title: 'Rename', keys: 'F2', group: 'Edit' },
+  { title: 'Auto width', keys: 'Shift W', group: 'Text' },
+  { title: 'Auto height', keys: 'Shift H', group: 'Text' },
   { title: 'Move tool', keys: 'V', group: 'Tools' },
   { title: 'Frame tool', keys: 'F', group: 'Tools' },
   { title: 'Rectangle tool', keys: 'R', group: 'Tools' },

@@ -115,7 +115,7 @@ test('insets, columns, vertical alignment and baseline grid are set in the text 
   await expect(frame.getByRole('radio', { name: 'Align bottom' })).toBeChecked()
 })
 
-test('a clicked text is auto width, a dragged one a fixed empty box shown while dragging, resizing sets the mode and nudging keeps it', async ({ page }) => {
+test('a clicked text is auto width, a dragged one a fixed empty box shown while dragging, resizing and shift w or h set the mode and nudging keeps it', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
   const field = (name: string) => panel.getByRole('textbox', { name })
@@ -162,6 +162,10 @@ test('a clicked text is auto width, a dragged one a fixed empty box shown while 
   await expect(field('X in mm')).toHaveValue(String(Math.round(x * 10 + 1) / 10))
   await expect(mode('Auto width')).toBeChecked()
   await expect(field('W in mm')).toHaveValue(w)
+  await page.keyboard.press('Shift+H')
+  await expect(mode('Auto height')).toBeChecked()
+  await page.keyboard.press('Shift+W')
+  await expect(mode('Auto width')).toBeChecked()
 })
 
 test('a fixed text frame pulled narrower than its text becomes auto height', async ({ page }) => {

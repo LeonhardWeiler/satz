@@ -302,6 +302,15 @@ export type Snapshot = Palette & {
 }
 
 /** The radii of a rectangle's top left, top right, bottom right and bottom left corner. */
+export type Resizing = 'autoWidth' | 'autoHeight' | 'fixedSize'
+/** Figma's text resize modes as sizing: auto width hugs both sides, auto height the height. */
+export function textSizing({ horizontal, vertical }: Sizing, mode: Resizing): Sizing {
+  const width = horizontal === 'hug' ? 'fixed' : horizontal
+  return mode === 'autoWidth' ? { horizontal: 'hug', vertical: 'hug' }
+    : mode === 'autoHeight' ? { horizontal: width, vertical: 'hug' }
+    : { horizontal: width, vertical: vertical === 'fill' ? 'fill' : 'fixed' }
+}
+
 export const radii = ({ radius, corners }: { radius: number; corners?: number[] }) => (corners?.length ? corners : [radius, radius, radius, radius])
 /** The radius of all corners of a rectangle, or null if they differ. */
 export const isOpen = (n: Node) => n.kind === 'shape' && n.shape === 'path' && !n.path.includes(5)

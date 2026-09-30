@@ -1,5 +1,6 @@
 import { align, ALIGNS } from './align'
 import { MM, type Editor, type Tool } from './editor'
+import { textSizing } from './model'
 import { remove } from './vector'
 
 const TOOLS: Record<string, Tool> = {
@@ -94,6 +95,10 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
   else if (!mod && e.shiftKey && e.altKey && key === 'a') {
     editor.batch(() => {
       for (const n of editor.selected()) if (n.direction !== 'none') editor.apply({ type: 'set', id: n.id, direction: 'none' })
+    })
+  } else if (!mod && !e.altKey && e.shiftKey && (key === 'w' || key === 'h') && editor.selected().every((n) => n.kind === 'text')) {
+    editor.batch(() => {
+      for (const n of editor.selected()) editor.apply({ type: 'set', id: n.id, sizing: textSizing(n.sizing, key === 'w' ? 'autoWidth' : 'autoHeight') })
     })
   } else if (!mod && e.shiftKey && key === 'a') editor.set({ selection: editor.apply({ type: 'autoLayout', ids }) })
   else if (mod && e.altKey && key === 'm') editor.set({ selection: editor.apply({ type: 'mask', ids }) })
