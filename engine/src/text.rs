@@ -115,7 +115,13 @@ pub fn fonts() -> Vec<Typeface> {
 }
 
 /// The keys of `Attrs` a text style sets.
-pub const STYLED: [&str; 4] = ["size", "lineHeight", "letterSpacing", "paragraphSpacing"];
+pub const STYLED: [&str; 5] = [
+    "size",
+    "lineHeight",
+    "letterSpacing",
+    "paragraphSpacing",
+    "font",
+];
 /// The keys of `Attrs` that hold for a whole paragraph, taken from its first character.
 pub const PARAGRAPH: [&str; 4] = ["textAlign", "paragraphSpacing", "hyphenate", "lang"];
 
@@ -194,16 +200,14 @@ pub struct Span {
     pub attrs: Attrs,
 }
 
-/// Named values for the `STYLED` attributes; `bindings` holds number variables by key.
+/// Named values for the `STYLED` attributes of `attrs`; `bindings` holds variables by key.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TextStyle {
     pub id: String,
     pub name: String,
-    pub size: f64,
-    pub line_height: f64,
-    pub letter_spacing: f64,
-    pub paragraph_spacing: f64,
+    #[serde(flatten)]
+    pub attrs: Attrs,
     #[serde(default)]
     pub bindings: BTreeMap<String, String>,
 }
@@ -211,16 +215,17 @@ pub struct TextStyle {
 impl TextStyle {
     /// The `STYLED` attributes with bound variables resolved in `scope`.
     pub fn values(&self, scope: &Scope) -> Map<String, serde_json::Value> {
-        let own = serde_json::to_value(self).unwrap();
+        let own = serde_json::to_value(&self.attrs).unwrap();
         STYLED
             .iter()
             .map(|&k| {
                 let bound = self.bindings.get(k).and_then(|v| match scope.value(v) {
-                    Some(&Value::Number(n)) if k == "letterSpacing" => Some(n),
-                    Some(&Value::Number(n)) => Some(n.max(0.0)),
+                    Some(&Value::Number(n)) if k == "letterSpacing" => Some(n.into()),
+                    Some(&Value::Number(n)) => Some(n.max(0.0).into()),
+                    Some(Value::Font(f)) => serde_json::to_value(f).ok(),
                     _ => None,
                 });
-                (k.into(), bound.or(own[k].as_f64()).unwrap_or(0.0).into())
+                (k.into(), bound.unwrap_or_else(|| own[k].clone()))
             })
             .collect()
     }

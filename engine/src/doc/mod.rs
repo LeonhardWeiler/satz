@@ -117,20 +117,17 @@ pub enum Command {
         id: String,
         by: f64,
     },
+    /// Adds a text style with the styled attributes of `props`.
     AddTextStyle {
         name: String,
-        size: f64,
-        line_height: f64,
-        letter_spacing: f64,
-        paragraph_spacing: f64,
+        #[serde(flatten)]
+        props: TextProps,
     },
     SetTextStyle {
         id: String,
         name: Option<String>,
-        size: Option<f64>,
-        line_height: Option<f64>,
-        letter_spacing: Option<f64>,
-        paragraph_spacing: Option<f64>,
+        #[serde(flatten)]
+        props: TextProps,
     },
     /// Removes a text style; text using it keeps its values.
     DeleteTextStyle {
@@ -1150,28 +1147,8 @@ impl Doc {
                 self.scale_text(self.node(&id)?, by)?;
                 Ok(vec![])
             }
-            Command::AddTextStyle {
-                name,
-                size,
-                line_height,
-                letter_spacing,
-                paragraph_spacing,
-            } => self.add_text_style(name, size, line_height, letter_spacing, paragraph_spacing),
-            Command::SetTextStyle {
-                id,
-                name,
-                size,
-                line_height,
-                letter_spacing,
-                paragraph_spacing,
-            } => self.set_text_style(
-                id,
-                name,
-                size,
-                line_height,
-                letter_spacing,
-                paragraph_spacing,
-            ),
+            Command::AddTextStyle { name, props } => self.add_text_style(name, props),
+            Command::SetTextStyle { id, name, props } => self.set_text_style(id, name, props),
             Command::DeleteTextStyle { id } => self.delete_text_style(id),
             Command::Set { id, props } => self.set_props(id, props),
             Command::SetPath { id, path } => self.set_path(id, path),
@@ -2415,10 +2392,13 @@ mod tests {
     pub(super) fn style(d: &mut Doc, name: &str, size: f64) -> String {
         d.apply(Command::AddTextStyle {
             name: name.into(),
-            size,
-            line_height: 14.0,
-            letter_spacing: 0.0,
-            paragraph_spacing: 4.0,
+            props: TextProps {
+                size: Some(size),
+                line_height: Some(14.0),
+                letter_spacing: Some(0.0),
+                paragraph_spacing: Some(4.0),
+                ..TextProps::default()
+            },
         })
         .unwrap()
         .remove(0)
@@ -2884,10 +2864,10 @@ mod tests {
                 7 => Command::SetTextStyle {
                     id: body.clone(),
                     name: None,
-                    size: Some(6.0 + rand(20) as f64),
-                    line_height: None,
-                    letter_spacing: None,
-                    paragraph_spacing: None,
+                    props: TextProps {
+                        size: Some(6.0 + rand(20) as f64),
+                        ..TextProps::default()
+                    },
                 },
                 8 => {
                     let face = text::typeface(MONO).unwrap();
@@ -3572,10 +3552,13 @@ mod tests {
             },
             Command::AddTextStyle {
                 name: "Body".into(),
-                size: f64::INFINITY,
-                line_height: 0.0,
-                letter_spacing: 0.0,
-                paragraph_spacing: 0.0,
+                props: TextProps {
+                    size: Some(f64::INFINITY),
+                    line_height: Some(0.0),
+                    letter_spacing: Some(0.0),
+                    paragraph_spacing: Some(0.0),
+                    ..TextProps::default()
+                },
             },
             Command::DeleteMode {
                 collection: c.clone(),

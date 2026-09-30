@@ -47,3 +47,17 @@ test('a file that is not a font is not added and says why', async ({ page }) => 
   ).toBeVisible()
   await expect(fonts(page).getByRole('listitem')).toHaveText(['Source Serif 4'])
 })
+
+test('a text style sets the font of its text', async ({ page }) => {
+  await open(page)
+  await add(page, new URL('../../engine/fonts/DMMono-Regular.ttf', import.meta.url).pathname)
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  await panel.getByTitle('Text style', { exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Create text style' }).click()
+  await page.keyboard.press('Escape')
+  await choose(panel.getByRole('group', { name: 'Text style 1' }).getByRole('combobox', { name: 'Font', exact: true }), 'DM Mono')
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
+  await expect(panel.getByRole('combobox', { name: 'Font', exact: true })).toHaveText('DM Mono')
+  await expect(panel.getByTitle('Text style', { exact: true })).toContainText('Text style 1')
+})

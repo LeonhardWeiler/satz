@@ -425,10 +425,13 @@ fn booklet() -> Doc {
         .map(|(name, size, line_height, paragraph_spacing)| {
             b.one(Command::AddTextStyle {
                 name: name.into(),
-                size,
-                line_height,
-                letter_spacing: 0.0,
-                paragraph_spacing,
+                props: TextProps {
+                    size: Some(size),
+                    line_height: Some(line_height),
+                    letter_spacing: Some(0.0),
+                    paragraph_spacing: Some(paragraph_spacing),
+                    ..TextProps::default()
+                },
             })
         })
         .collect();

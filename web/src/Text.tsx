@@ -5,7 +5,7 @@ import { Field, FontSelect, NameInput, nextName, Section, Segmented, Select } fr
 import { useEditor, type Editor } from './editor'
 import { Icon, type IconName } from './icons'
 import { PAGE_NUMBER, insert, range } from './textEdit'
-import type { Attrs, Props, Sizing, Styled, TextNode, TextProps, TextStyle } from './model'
+import { STYLED, type Attrs, type Props, type Sizing, type Styled, type TextNode, type TextProps, type TextStyle, type Typeface } from './model'
 import { Bindable } from './Variables'
 
 
@@ -33,8 +33,8 @@ const RESIZING = [
   ['fixedSize', 'Fixed size', 'fixedSize'],
 ] as const
 const LANGS = { en: 'English', de: 'German' } as const
-/** Styled attributes: title, label, unit and the text shown for 0. */
-const STYLED: [Styled, string, IconName, string, number, string?][] = [
+/** Styled numbers: title, label, unit, least value and the text shown for 0. */
+const METRICS: [Exclude<Styled, 'font'>, string, IconName, string, number, string?][] = [
   ['size', 'Font size', 'fontSize', 'pt', 0.1],
   ['lineHeight', 'Line height', 'lineHeight', 'pt', 0, 'Auto'],
   ['letterSpacing', 'Letter spacing', 'letterSpacing', '%', -100],
@@ -61,10 +61,7 @@ export function Specimen({ editor, spans, format }: { editor: Editor; spans: Att
     const [id] = editor.apply({
       type: 'addTextStyle',
       name: nextName('Text style', styles.map((s) => s.name)),
-      size: a.size,
-      lineHeight: a.lineHeight,
-      letterSpacing: a.letterSpacing,
-      paragraphSpacing: a.paragraphSpacing,
+      ...Object.fromEntries(STYLED.map((k) => [k, a[k]])),
     })
     format({ textStyle: id })
   }
@@ -106,10 +103,26 @@ export function Specimen({ editor, spans, format }: { editor: Editor; spans: Att
   )
 }
 
+/** Family and style of `fonts`, null for the bundled one, bindable to a font variable on `id`. */
+function Font({ editor, id, fonts, set }: { editor: Editor; id: string; fonts: (Typeface | null)[]; set: (f: Typeface) => void }) {
+  const added = useEditor(editor, (e) => e.snapshot.fonts)
+  const missing = useEditor(editor, (e) => e.snapshot.missingFonts).map((m) => m.font)
+  const hashes = fonts.map((f) => (f ?? added[0]).hash)
+  return (
+    <Bindable editor={editor} id={id} prop="font" title="Font" label={<Icon name="text" />}>
+      <FontSelect
+        label="Font"
+        faces={[...added, ...missing]}
+        missing={missing.map((f) => f.hash)}
+        value={hashes.every((h) => h === hashes[0]) ? hashes[0] : null}
+        onChange={set}
+      />
+    </Bindable>
+  )
+}
+
 /** Text style, type and alignment of a text layer. */
 export function TextSection({ editor, node }: { editor: Editor; node: TextNode }) {
-  const fonts = useEditor(editor, (e) => e.snapshot.fonts)
-  const missing = useEditor(editor, (e) => e.snapshot.missingFonts)
   const spans = useEditor(editor, (e) => e.snapshot.stories[node.story])?.spans ?? []
   const same = <T,>(get: (a: Attrs) => T) => sameOf(spans, get)
   const edited = useEditor(editor, (e) => (e.editing?.id === node.id && e.editing.anchor !== e.editing.focus ? e.editing : null))
@@ -117,8 +130,6 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
   /** Formats the selection of the text being edited, or else all of it. */
   const format = (props: TextProps) => editor.apply({ type: 'format', id: node.id, range: edited && range(edited), ...props })
   const align = same((a) => a.textAlign)
-  const font = same((a) => (a.font ?? fonts[0]).hash)
-  const faces = [...fonts, ...missing.map((m) => m.font)]
   const hyphenate = same((a) => a.hyphenate)
   const lang = same((a) => a.lang)
   const langs: Record<string, string> = { ...LANGS }
@@ -142,11 +153,9 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
           </button>
         )}
       </div>
-      <Bindable editor={editor} id={node.id} prop="font" title="Font" label={<Icon name="text" />}>
-        <FontSelect label="Font" faces={faces} missing={missing.map((m) => m.font.hash)} value={font} onChange={(font) => format({ font })} />
-      </Bindable>
+      <Font editor={editor} id={node.id} fonts={spans.map((a) => a.font)} set={(font) => format({ font })} />
       <div className="grid">
-        {STYLED.map(([prop, title, label, unit, min, zero]) => {
+        {METRICS.map(([prop, title, label, unit, min, zero]) => {
           const field = (
             <Field
               label={<Icon name={label} />}
@@ -191,7 +200,7 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
   )
 }
 
-/** The document's text styles with their values, each bindable to a number variable. */
+/** The document's text styles with their values, each bindable to a variable. */
 export function TextStyles({ editor }: { editor: Editor }) {
   const styles = useEditor(editor, (e) => e.snapshot.textStyles)
   if (styles.length === 0) return null
@@ -219,8 +228,9 @@ function StyleRow({ editor, style }: { editor: Editor; style: TextStyle }) {
           <Icon name="minus" />
         </button>
       </div>
+      <Font editor={editor} id={style.id} fonts={[style.font]} set={(font) => editor.apply({ type: 'setTextStyle', id: style.id, font })} />
       <div className="grid">
-        {STYLED.map(([prop, title, label, unit, min, zero]) => (
+        {METRICS.map(([prop, title, label, unit, min, zero]) => (
           <Bindable key={prop} editor={editor} id={style.id} prop={prop} title={`${title} in ${unit}`} label={<Icon name={label} />}>
             <Field
               label={<Icon name={label} />}

@@ -78,8 +78,8 @@ export type Command =
   | { type: 'setText'; id: string; text: string }
   | { type: 'editText'; id: string; range: [number, number]; text: string }
   | ({ type: 'format'; id: string; range: [number, number] | null } & TextProps)
-  | { type: 'addTextStyle'; name: string; size: number; lineHeight: number; letterSpacing: number; paragraphSpacing: number }
-  | ({ type: 'setTextStyle'; id: string; name?: string } & Partial<Pick<TextStyle, Styled>>)
+  | ({ type: 'addTextStyle'; name: string } & Partial<Pick<Attrs, Styled>>)
+  | ({ type: 'setTextStyle'; id: string; name?: string } & Partial<Pick<Attrs, Styled>>)
   | { type: 'deleteTextStyle'; id: string }
   | ({ type: 'set'; id: string } & Props)
   | { type: 'setPath'; id: string; path: number[] }
@@ -255,8 +255,10 @@ export type TextFrame = {
 }
 /** `len` characters in UTF-16 code units that share their attributes. */
 export type Span = Attrs & { len: number }
-export type Styled = 'size' | 'lineHeight' | 'letterSpacing' | 'paragraphSpacing'
-export type TextStyle = { id: string; name: string; bindings: Partial<Record<Bindable, string>> } & Record<Styled, number>
+/** The attributes a text style sets. */
+export const STYLED = ['size', 'lineHeight', 'letterSpacing', 'paragraphSpacing', 'font'] as const
+export type Styled = (typeof STYLED)[number]
+export type TextStyle = { id: string; name: string; bindings: Partial<Record<Bindable, string>> } & Pick<Attrs, Styled>
 
 /** Something about the layer `layer` on the page or master `page` that may print wrong. */
 export type Issue = { page: string; layer: string; name: string } & (

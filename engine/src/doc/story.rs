@@ -470,12 +470,6 @@ impl Doc {
     }
 
     pub(super) fn put_text_style(&self, i: Option<usize>, s: TextStyle) -> Res<()> {
-        check_text(
-            Some(s.size),
-            Some(s.line_height),
-            Some(s.letter_spacing),
-            Some(s.paragraph_spacing),
-        )?;
         let taken = self
             .list::<TextStyle>("textStyles")
             .iter()
@@ -689,27 +683,16 @@ impl Doc {
         Ok(vec![])
     }
 
-    pub(super) fn add_text_style(
-        &self,
-        name: String,
-        size: f64,
-        line_height: f64,
-        letter_spacing: f64,
-        paragraph_spacing: f64,
-    ) -> Res<Vec<String>> {
+    pub(super) fn add_text_style(&self, name: String, props: TextProps) -> Res<Vec<String>> {
         let id = self.new_id();
-        self.put_text_style(
-            None,
-            TextStyle {
-                id: id.clone(),
-                name,
-                size,
-                line_height,
-                letter_spacing,
-                paragraph_spacing,
-                bindings: BTreeMap::new(),
-            },
-        )?;
+        let mut s = TextStyle {
+            id: id.clone(),
+            name,
+            attrs: Attrs::default(),
+            bindings: BTreeMap::new(),
+        };
+        restyle(&mut s, props)?;
+        self.put_text_style(None, s)?;
         Ok(vec![id])
     }
 
@@ -717,28 +700,11 @@ impl Doc {
         &self,
         id: String,
         name: Option<String>,
-        size: Option<f64>,
-        line_height: Option<f64>,
-        letter_spacing: Option<f64>,
-        paragraph_spacing: Option<f64>,
+        props: TextProps,
     ) -> Res<Vec<String>> {
         let (i, mut s) = self.find::<TextStyle>("textStyles", &id)?;
         s.name = name.unwrap_or(s.name);
-        for (k, v, to) in [
-            ("size", size, &mut s.size),
-            ("lineHeight", line_height, &mut s.line_height),
-            ("letterSpacing", letter_spacing, &mut s.letter_spacing),
-            (
-                "paragraphSpacing",
-                paragraph_spacing,
-                &mut s.paragraph_spacing,
-            ),
-        ] {
-            if let Some(v) = v {
-                *to = v;
-                s.bindings.remove(k);
-            }
-        }
+        restyle(&mut s, props)?;
         self.put_text_style(Some(i), s)?;
         Ok(vec![])
     }
@@ -821,6 +787,24 @@ impl Doc {
         }
         Ok(vec![])
     }
+}
+
+/// Sets the `STYLED` attributes of `props` on `s` and unbinds them.
+fn restyle(s: &mut TextStyle, props: TextProps) -> Res<()> {
+    props.check()?;
+    let mut attrs = serde_json::to_value(&s.attrs).map_err(err)?;
+    let serde_json::Value::Object(set) = serde_json::to_value(props).map_err(err)? else {
+        return Err("props are not a map".into());
+    };
+    for (k, v) in set.into_iter().filter(|(_, v)| !v.is_null()) {
+        if !STYLED.contains(&k.as_str()) {
+            return Err(format!("a text style does not set {k}"));
+        }
+        s.bindings.remove(&k);
+        attrs[&k] = v;
+    }
+    s.attrs = serde_json::from_value(attrs).map_err(err)?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -953,10 +937,10 @@ mod tests {
         d.apply(Command::SetTextStyle {
             id: body.clone(),
             name: None,
-            size: Some(11.0),
-            line_height: None,
-            letter_spacing: None,
-            paragraph_spacing: None,
+            props: TextProps {
+                size: Some(11.0),
+                ..TextProps::default()
+            },
         })
         .unwrap();
         assert_eq!(lens_and(&d, |a| a.size), [(5, 11.0), (6, 12.0)]);
@@ -1779,6 +1763,31 @@ mod tests {
             }]
         );
         assert!(d.pdf("Satz", "2026-09-28T12:00:00Z").starts_with(b"%PDF"));
+    }
+
+    #[test]
+    fn a_text_style_sets_its_font_but_not_what_it_does_not_style() {
+        let (mut d, _) = empty();
+        let t = text(&mut d, "Hello world");
+        let mono = d.add_font(MONO).unwrap();
+        let mut style = |props| {
+            d.apply(Command::AddTextStyle {
+                name: "Mono".into(),
+                props,
+            })
+        };
+        let centred = TextProps {
+            text_align: Some(TextAlign::Center),
+            ..TextProps::default()
+        };
+        assert!(style(centred).is_err());
+        let id = style(in_font(mono.clone())).unwrap().remove(0);
+        let styled = TextProps {
+            text_style: Some(id),
+            ..TextProps::default()
+        };
+        format(&mut d, &t, None, styled).unwrap();
+        assert_eq!(spans(&d)[0].attrs.font, Some(mono));
     }
 
     #[test]
