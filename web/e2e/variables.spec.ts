@@ -3,11 +3,11 @@ import { expect, test, addVariable, colors, open, screen, choose } from './util'
 
 const near = ([r, g, b]: number[], [R, G, B]: number[]) => Math.max(Math.abs(r - R), Math.abs(g - G), Math.abs(b - B)) <= 24
 
-test('collections, modes and variables are made with the plus and edited in a popover', async ({ page }) => {
+test('modes and variables are made with the plus and edited in a popover', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
   const edit = await addVariable(page, 'Color')
-  await expect(panel.getByRole('textbox', { name: 'Collection name' })).toHaveValue('Collection 1')
+  await expect(panel.getByRole('textbox', { name: 'Collection name' })).toHaveCount(0)
   const name = edit.getByRole('textbox', { name: 'Variable name' })
   await expect(name).toHaveValue('Color 1')
   await name.fill('Brand')
@@ -55,7 +55,7 @@ test('a font variable sets the font of a text in the mode of its page', async ({
   await choose(edit.getByRole('combobox', { name: 'Font 1 in Mode 2', exact: true }), 'DM Mono')
   await page.keyboard.press('Escape')
   await expect(edit).toBeHidden()
-  await choose(panel.getByRole('combobox', { name: 'Collection 1 mode' }), 'Collection 1: Mode 2')
+  await choose(panel.getByRole('combobox', { name: 'Mode', exact: true }), 'Mode 2')
 
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
   await panel.getByRole('button', { name: 'Apply variable to Font', exact: true }).click()
@@ -107,13 +107,13 @@ test('a fill bound to a colour variable follows the mode of its frame and page',
 
   await page.keyboard.press('Escape')
   await page.keyboard.press('Escape')
-  await choose(panel.getByRole('combobox', { name: 'Collection 1 mode' }), 'Collection 1: Mode 2')
+  await choose(panel.getByRole('combobox', { name: 'Mode', exact: true }), 'Mode 2')
   await expectColors(blue, blue)
 
   await layers.getByRole('button', { name: 'Frame', exact: true }).click()
-  const frameMode = panel.getByRole('combobox', { name: 'Collection 1 mode' })
-  await expect(frameMode).toHaveText('Collection 1: auto (Mode 2)')
-  await choose(frameMode, 'Collection 1: Mode 1')
+  const frameMode = panel.getByRole('combobox', { name: 'Mode', exact: true })
+  await expect(frameMode).toHaveText('auto (Mode 2)')
+  await choose(frameMode, 'Mode 1')
   await expectColors(blue, red)
 })
 
@@ -128,7 +128,7 @@ test('a number variable binds to width and detaches with the value of the curren
   await page.keyboard.press('Escape')
 
   const panel = page.getByRole('complementary', { name: 'Properties' })
-  await choose(panel.getByRole('combobox', { name: 'Collection 1 mode' }), 'Collection 1: Mode 2')
+  await choose(panel.getByRole('combobox', { name: 'Mode', exact: true }), 'Mode 2')
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).last().click()
   await panel.getByRole('button', { name: 'Apply variable to W in mm' }).click()
   await page.getByRole('listbox', { name: 'Number variables' }).getByRole('option', { name: 'Number 1' }).click()

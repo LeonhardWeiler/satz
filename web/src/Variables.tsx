@@ -13,7 +13,7 @@ type Kind = 'color' | 'number' | 'font'
 const KINDS: Record<Kind, string> = { color: 'Color', number: 'Number', font: 'Font' }
 const kindOf = (v: Value): Kind => ('color' in v ? 'color' : 'number' in v ? 'number' : 'font')
 
-/** The document's variables by collection: the plus makes one, a click edits it in a popover. */
+/** The document's variables: the plus makes one, a click edits it in a popover. */
 export function Variables({ editor }: { editor: Editor }) {
   const snapshot = useEditor(editor, (e) => e.snapshot)
   const [menu, setMenu] = useState<DOMRect | null>(null)
@@ -21,14 +21,12 @@ export function Variables({ editor }: { editor: Editor }) {
   const { collections, variables, colorMode } = snapshot
   const scope = { ...scopeOf(snapshot), variables: [] }
   const fonts = [...snapshot.fonts, ...snapshot.missingFonts.map((m) => m.font)]
-  const target = collections.find((c) => c.id === variables.find((v) => v.id === open)?.collection) ?? collections.at(-1)
 
-  const addCollection = () => editor.apply({ type: 'addCollection', name: nextName('Collection', collections.map((c) => c.name)) })[0]
   const add = (kind: Kind) =>
     editor.batch(() => {
-      const collection = target?.id ?? addCollection()
+      const collection = collections[0]?.id ?? editor.apply({ type: 'addCollection', name: 'Variables' })[0]
       const value: Value = kind === 'color' ? { color: neutral('black', colorMode) } : kind === 'number' ? { number: 0 } : { font: null }
-      const name = nextName(KINDS[kind], variables.filter((v) => v.collection === collection).map((v) => v.name))
+      const name = nextName(KINDS[kind], variables.map((v) => v.name))
       setOpen(editor.apply({ type: 'addVariable', collection, name, value })[0] ?? null)
     })
   const preview = (v: Value) =>
@@ -36,40 +34,25 @@ export function Variables({ editor }: { editor: Editor }) {
 
   return (
     <Section title="Variables" onAdd={(e) => setMenu(e.currentTarget.getBoundingClientRect())}>
-      {collections.length === 0 && <p className="empty">No variables yet.</p>}
-      {collections.map((c) => (
-        <div key={c.id} role="group" aria-label={c.name} className="var-group">
-          <div className="row">
-            <NameInput label="Collection name" value={c.name} onCommit={(name) => editor.apply({ type: 'setCollection', id: c.id, name })} />
+      {variables.length > 0 && (
+        <div className="var-group">
+          {variables.map((v) => (
             <button
+              key={v.id}
               type="button"
-              className="icon-button"
-              aria-label={`Delete collection ${c.name}`}
-              title="Delete collection"
-              onClick={() => editor.apply({ type: 'deleteCollection', id: c.id })}
+              className="var"
+              data-variable={v.id}
+              aria-haspopup="dialog"
+              aria-expanded={open === v.id}
+              onClick={() => setOpen(open === v.id ? null : v.id)}
             >
-              <Icon name="minus" />
+              <Icon name={kindOf(Object.values(v.values)[0]) === 'font' ? 'text' : 'variable'} />
+              <span className="var-name">{v.name}</span>
+              <span className="var-value">{preview(v.values[collections.find((c) => c.id === v.collection)!.modes[0].id])}</span>
             </button>
-          </div>
-          {variables
-            .filter((v) => v.collection === c.id)
-            .map((v) => (
-              <button
-                key={v.id}
-                type="button"
-                className="var"
-                data-variable={v.id}
-                aria-haspopup="dialog"
-                aria-expanded={open === v.id}
-                onClick={() => setOpen(open === v.id ? null : v.id)}
-              >
-                <Icon name={kindOf(Object.values(v.values)[0]) === 'font' ? 'text' : 'variable'} />
-                <span className="var-name">{v.name}</span>
-                <span className="var-value">{preview(v.values[c.modes[0].id])}</span>
-              </button>
-            ))}
+          ))}
         </div>
-      ))}
+      )}
       {menu &&
         createPortal(
           <ContextMenu
@@ -77,10 +60,7 @@ export function Variables({ editor }: { editor: Editor }) {
             side="bottom"
             label="Create variable"
             onClose={() => setMenu(null)}
-            items={[
-              ...(Object.keys(KINDS) as Kind[]).map((k): [string, () => void, boolean] => [KINDS[k], () => add(k), true]),
-              ['Collection', addCollection, true],
-            ]}
+            items={(Object.keys(KINDS) as Kind[]).map((k): [string, () => void, boolean] => [KINDS[k], () => add(k), true])}
           />,
           document.body,
         )}
@@ -200,11 +180,12 @@ export function ModeSelects({ editor, id, own, inherited }: { editor: Editor; id
     .filter((c) => c.modes.length > 1)
     .map((c) => {
       const auto = c.modes.find((m) => m.id === inherited[c.id]) ?? c.modes[0]
-      const options = Object.fromEntries([['', `${c.name}: auto (${auto.name})`], ...c.modes.map((m) => [m.id, `${c.name}: ${m.name}`])])
+      const prefix = collections.length > 1 ? `${c.name}: ` : ''
+      const options = Object.fromEntries([['', `${prefix}auto (${auto.name})`], ...c.modes.map((m) => [m.id, `${prefix}${m.name}`])])
       return (
         <Select
           key={c.id}
-          label={`${c.name} mode`}
+          label={prefix ? `${c.name} mode` : 'Mode'}
           value={c.modes.some((m) => m.id === own[c.id]) ? own[c.id] : ''}
           options={options}
           onChange={(mode) => editor.apply({ type: 'useMode', id, collection: c.id, mode: mode || null })}
@@ -297,22 +278,12 @@ export function Bindable({
       )}
       {open && (
         <Popover anchor={() => ref.current!.getBoundingClientRect()} side="left" className="menu" role="listbox" aria-label={`${KINDS[kind]} variables`}>
-          {numbers.length === 0 && <p className="empty">No {kind} variables yet. Add them under Variables.</p>}
-          {snapshot.collections.map((c) => {
-            const vars = numbers.filter((v) => v.collection === c.id)
-            return (
-              vars.length > 0 && (
-                <div key={c.id} role="group" aria-label={c.name} className="swatch-group">
-                  <h3>{c.name}</h3>
-                  {vars.map((v) => (
-                    <button key={v.id} type="button" role="option" aria-selected={v.id === bound} className="menu-item" onClick={() => bind(v.id)}>
-                      <span>{v.name}</span>
-                    </button>
-                  ))}
-                </div>
-              )
-            )
-          })}
+          {numbers.length === 0 && <p className="menu-empty">No {kind} variables yet. Add them under Variables.</p>}
+          {numbers.map((v) => (
+            <button key={v.id} type="button" role="option" aria-selected={v.id === bound} className="menu-item" onClick={() => bind(v.id)}>
+              <span>{v.name}</span>
+            </button>
+          ))}
         </Popover>
       )}
     </div>

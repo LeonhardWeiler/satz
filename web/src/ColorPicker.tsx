@@ -216,32 +216,23 @@ export function Picker({
       {tab === 'swatches' ? (
         <div role="listbox" aria-label="Swatches" className="swatch-list">
           {scope.swatches.length + colors.length === 0 && (
-            <p className="empty">No swatches or colour variables yet. Add them in the Swatches panel or under Local variables.</p>
+            <p className="empty">No swatches or colour variables yet. Add them under Swatches or Variables.</p>
           )}
-          {scope.collections.map((c) => {
-            const vars = colors.filter((v) => v.collection === c.id)
-            return (
-              vars.length > 0 && (
-                <div key={c.id} role="group" aria-label={c.name} className="swatch-group">
-                  <h3>{c.name}</h3>
-                  {vars.map((v) => (
-                    <button
-                      key={v.id}
-                      type="button"
-                      role="option"
-                      aria-selected={v.id === bound}
-                      className="swatch-option"
-                      title={`${c.name} / ${v.name}`}
-                      onClick={() => onChange({ variable: v.id, alpha: 1 })}
-                    >
-                      <Chip color={{ variable: v.id, alpha: 1 }} scope={scope} />
-                      <span className="swatch-name">{v.name}</span>
-                    </button>
-                  ))}
-                </div>
-              )
-            )
-          })}
+          {colors.length > 0 && <h3>Variables</h3>}
+          {colors.map((v) => (
+            <button
+              key={v.id}
+              type="button"
+              role="option"
+              aria-selected={v.id === bound}
+              className="swatch-option"
+              title={v.name}
+              onClick={() => onChange({ variable: v.id, alpha: 1 })}
+            >
+              <Chip color={{ variable: v.id, alpha: 1 }} scope={scope} />
+              <span className="swatch-name">{v.name}</span>
+            </button>
+          ))}
           {colors.length > 0 && scope.swatches.length > 0 && <h3>Swatches</h3>}
           {scope.swatches.map((sw) => (
             <SwatchOption

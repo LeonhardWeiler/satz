@@ -342,7 +342,7 @@ test('an auto layout frame with a colour variable in a second mode matches the c
 
   await layers.getByRole('button', { name: 'Frame', exact: true }).click()
   await page.keyboard.press('Shift+A')
-  await choose(panel.getByRole('combobox', { name: 'Collection 1 mode' }), 'Collection 1: Mode 2')
+  await choose(panel.getByRole('combobox', { name: 'Mode', exact: true }), 'Mode 2')
   await panel.getByRole('textbox', { name: 'Top padding in mm' }).fill('4')
   await panel.getByRole('textbox', { name: 'Top padding in mm' }).press('Enter')
   await layers.getByRole('button', { name: 'Rectangle', exact: true }).first().click()
