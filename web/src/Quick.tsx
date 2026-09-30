@@ -6,8 +6,8 @@ import { ContextMenu } from './ContextMenu'
 import { Field, Segmented } from './controls'
 import { scopeOf, useEditor, type Editor } from './editor'
 import { Icon } from './icons'
-import { isOpen, type Props } from './model'
-import { ALIGNS, sameOf, Specimen } from './Text'
+import { isOpen, type Props, type TextProps } from './model'
+import { ALIGNS, Font, sameOf, Specimen, TypeOptions } from './Text'
 
 type Paint = 'fills' | 'strokes'
 
@@ -22,6 +22,7 @@ export function Quick({ editor }: { editor: Editor }) {
   const set = (props: Props) => editor.batch(() => nodes.forEach((n) => editor.apply({ type: 'set', id: n.id, ...props })))
   const spans = one?.kind === 'text' ? (snapshot.stories[one.story]?.spans ?? []) : []
   const align = sameOf(spans, (a) => a.textAlign)
+  const format = (p: TextProps) => editor.apply({ type: 'format', id: one!.id, range: null, ...p })
   const current = (paint: Paint) => nodes[0][paint].find((f) => f.visible && f.type === 'solid')?.color
   const colors: [string, Color | null, ReactNode?][] = [
     ['None', null],
@@ -48,8 +49,10 @@ export function Quick({ editor }: { editor: Editor }) {
     <>
       {one?.kind === 'text' && (
         <>
-          <Specimen editor={editor} spans={spans} format={(p) => editor.apply({ type: 'format', id: one.id, range: null, ...p })} />
-          <Segmented label="Text align" value={align} options={ALIGNS} onChange={(textAlign) => editor.apply({ type: 'format', id: one.id, range: null, textAlign })} />
+          <Specimen editor={editor} spans={spans} format={format} />
+          <Font editor={editor} fonts={spans.map((a) => a.font)} set={(font) => format({ font })} />
+          <Segmented label="Text align" value={align} options={ALIGNS} onChange={(textAlign) => format({ textAlign })} />
+          <TypeOptions spans={spans} set={format} />
         </>
       )}
       {!nodes.some((n) => n.kind === 'group' || n.ppi !== undefined || isOpen(n)) && button('fills', 'Fill color')}

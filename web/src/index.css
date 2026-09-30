@@ -1374,6 +1374,10 @@ span.swatch {
   width: 160px;
 }
 
+.quick > .grid {
+  width: 240px;
+}
+
 .quick .segmented {
   flex: none;
 }

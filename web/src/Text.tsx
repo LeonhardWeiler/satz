@@ -126,7 +126,7 @@ export function Specimen({ editor, spans, format }: { editor: Editor; spans: Att
 }
 
 /** A button that opens the case, decoration, indent and OpenType features of `spans`. */
-function TypeOptions({ spans, set }: { spans: Pick<Attrs, Styled>[]; set: (p: TextProps) => void }) {
+export function TypeOptions({ spans, set }: { spans: Pick<Attrs, Styled>[]; set: (p: TextProps) => void }) {
   const [at, setAt] = useState<DOMRect | null>(null)
   const same = <T,>(get: (a: Pick<Attrs, Styled>) => T) => sameOf(spans, get)
   const features = same((a) => a.features.join(' '))
@@ -260,21 +260,26 @@ function Characters({ editor }: { editor: Editor }) {
   )
 }
 
-/** Family and style of `fonts`, null for the bundled one, bindable to a font variable on `id`. */
-function Font({ editor, id, fonts, set }: { editor: Editor; id: string; fonts: (Typeface | null)[]; set: (f: Typeface) => void }) {
+/** Family and style of `fonts`, null for the bundled one, bindable to a font variable on `id` if given. */
+export function Font({ editor, id, fonts, set }: { editor: Editor; id?: string; fonts: (Typeface | null)[]; set: (f: Typeface) => void }) {
   const added = useEditor(editor, (e) => e.snapshot.fonts)
   const missing = useEditor(editor, (e) => e.snapshot.missingFonts).map((m) => m.font)
   const hashes = fonts.map((f) => (f ?? added[0]).hash)
-  return (
+  const select = (
+    <FontSelect
+      label="Font"
+      faces={[...added, ...missing]}
+      missing={missing.map((f) => f.hash)}
+      value={hashes.every((h) => h === hashes[0]) ? hashes[0] : null}
+      onChange={set}
+    />
+  )
+  return id ? (
     <Bindable editor={editor} id={id} prop="font" title="Font" label={<Icon name="text" />}>
-      <FontSelect
-        label="Font"
-        faces={[...added, ...missing]}
-        missing={missing.map((f) => f.hash)}
-        value={hashes.every((h) => h === hashes[0]) ? hashes[0] : null}
-        onChange={set}
-      />
+      {select}
     </Bindable>
+  ) : (
+    select
   )
 }
 

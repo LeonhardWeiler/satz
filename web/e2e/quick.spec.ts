@@ -1,4 +1,4 @@
-import { expect, test, drag, open, screen } from './util'
+import { expect, test, choose, drag, open, screen } from './util'
 
 test('quick edit sits above the selection, sets stroke and fill, and hides while dragging, editing and in preflight', async ({ page }) => {
   await open(page)
@@ -84,4 +84,20 @@ test('an ellipse opens to an arc and hollows to a ring', async ({ page }) => {
   await expect(props.getByRole('textbox', { name: 'Arc sweep in %' })).toHaveValue('50')
   await expect(props.getByRole('textbox', { name: 'Inner radius in %' })).toHaveValue('40')
   await expect(props.getByRole('textbox', { name: 'Arc start in °' })).toHaveValue('270')
+})
+
+test('quick edit above a text shows its font and sets its type options', async ({ page }) => {
+  await open(page)
+  const quick = page.getByRole('toolbar', { name: 'Quick edit' })
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
+  await expect(quick.getByRole('combobox', { name: 'Font', exact: true })).toHaveText('Source Serif 4')
+  await expect(quick.getByRole('combobox', { name: 'Font style' })).toHaveText('Regular')
+  await quick.getByRole('button', { name: 'Type options' }).click()
+  const textCase = page.getByRole('dialog', { name: 'Type options' }).getByRole('combobox', { name: 'Case' })
+  await choose(textCase, 'Upper case')
+  await expect(textCase).toBeFocused()
+  await page.keyboard.press('Escape')
+  await panel.getByRole('button', { name: 'Type options' }).click()
+  await expect(page.getByRole('dialog', { name: 'Type options' }).getByRole('combobox', { name: 'Case' })).toHaveText('Upper case')
 })
