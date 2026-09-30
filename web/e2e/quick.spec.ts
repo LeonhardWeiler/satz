@@ -1,6 +1,6 @@
 import { expect, test, drag, open, screen } from './util'
 
-test('quick edit sits above the selection, sets radius and fill, and hides while dragging, editing and in preflight', async ({ page }) => {
+test('quick edit sits above the selection, sets stroke and fill, and hides while dragging, editing and in preflight', async ({ page }) => {
   await open(page)
   const quick = page.getByRole('toolbar', { name: 'Quick edit' })
   const panel = page.getByRole('complementary', { name: 'Properties' })
@@ -12,10 +12,7 @@ test('quick edit sits above the selection, sets radius and fill, and hides while
   const box = (await quick.boundingBox())!
   expect(box.y + box.height).toBeLessThan((await screen(page, 20, 20))[1])
 
-  const radius = quick.getByRole('textbox', { name: 'Corner radius in mm' })
-  await radius.fill('4')
-  await radius.press('Enter')
-  await expect(panel.getByRole('textbox', { name: 'Corner radius in mm' }).first()).toHaveValue('4')
+  await expect(quick.getByRole('textbox', { name: 'Corner radius in mm' })).toHaveCount(0)
 
   const stroke = page.getByRole('menu', { name: 'Stroke color' })
   await expect(quick.getByRole('textbox', { name: 'Stroke weight' })).toHaveCount(0)
@@ -69,7 +66,6 @@ test('the circles inside a rectangle round its corners, with ctrl only the one d
   await drag(page, [r - 5 * mm, b - 5 * mm], [r - 8 * mm, b - 8 * mm])
   await page.keyboard.up('Control')
   await expect(radius).toHaveValue('Mixed')
-  await expect(page.getByRole('toolbar', { name: 'Quick edit' }).getByRole('textbox', { name: 'Corner radius in mm' })).toHaveValue('Mixed')
   await radius.fill('2')
   await radius.press('Enter')
   await expect(radius).toHaveValue('2')

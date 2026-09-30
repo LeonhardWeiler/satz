@@ -6,7 +6,7 @@ import { ContextMenu } from './ContextMenu'
 import { Field, Segmented } from './controls'
 import { scopeOf, useEditor, type Editor } from './editor'
 import { Icon } from './icons'
-import { isOpen, radiusOf, type Props } from './model'
+import { isOpen, type Props } from './model'
 import { ALIGNS, sameOf, Specimen } from './Text'
 
 type Paint = 'fills' | 'strokes'
@@ -56,9 +56,6 @@ export function Quick({ editor }: { editor: Editor }) {
       {stroked && button('strokes', 'Stroke color')}
       {stroked && one && one.strokes.length > 0 && (
         <Field label={<Icon name="strokeWeight" />} title="Stroke weight" unit="pt" value={one.strokeWeight} onCommit={(strokeWeight) => set({ strokeWeight })} />
-      )}
-      {one?.kind === 'shape' && one.shape === 'rect' && (
-        <Field label="R" title="Corner radius in mm" unit="mm" value={radiusOf(one)} onCommit={(radius) => set({ radius, corners: [] })} />
       )}
       {one?.kind === 'shape' && (one.shape === 'polygon' || one.shape === 'star') && (
         <Field label="N" title="Count" unit="" int min={3} max={60} value={one.count} onCommit={(count) => set({ count })} />
