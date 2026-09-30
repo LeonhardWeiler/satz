@@ -466,6 +466,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     }
     const handleUnder = (e: Pointer) => handleAt(view, e.offsetX, e.offsetY, handles())
     const track = () => {
+      editor.pointer = pointer && toDoc(pointer)
       if (!pointer || drag || editor.pen) return
       const side = portUnder(pointer)?.side
       const to = editor.threading && textUnder(toDoc(pointer))
@@ -966,6 +967,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     }
     const onLeave = () => {
       pointer = undefined
+      editor.pointer = undefined
       hover = undefined
       cursor = undefined
       if (editor.pointerInk !== null) editor.set({ pointerInk: null })

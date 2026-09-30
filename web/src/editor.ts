@@ -55,6 +55,8 @@ export class Editor {
   pen: Pen | null = null
   /** The pointer is down on the canvas, possibly inside a drag's undo group. */
   dragging = false
+  /** Where the pointer is over the canvas, in spread coordinates. */
+  pointer: Point | undefined
   /** The text layer edited in its frame, which is then the selection. */
   editing: Editing | null = null
   /** The text frame whose out-port was clicked, to thread into the next one clicked. */
@@ -338,6 +340,21 @@ export class Editor {
     })
     this.copies = { ids: copies, from }
     this.set({ selection: copies })
+  }
+
+  /** Pastes the copied layers above the selection, centred under the pointer when it is away from where they were. */
+  paste() {
+    const ids = this.batch(() => {
+      const ids = this.apply({ type: 'paste', above: this.selection, page: this.page.id })
+      const nodes = ids.map((id) => this.nodes.get(id)!.node)
+      const b = bounds(nodes.map((n) => ({ ...n, x: n.x + this.dx(n.id) })))
+      const p = this.pointer
+      if (!nodes.length || !p || (p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h)) return ids
+      const [dx, dy] = [p.x - b.x - b.w / 2, p.y - b.y - b.h / 2]
+      for (const n of nodes) this.apply({ type: 'setFrame', id: n.id, x: n.x + dx, y: n.y + dy, w: n.w, h: n.h })
+      return ids
+    })
+    this.set({ selection: ids })
   }
 
   /** Replaces the text of the one selected text layer with `text` from outside, or places it as a new text layer amid the current page, at most 80 % of its width wide. */

@@ -106,6 +106,22 @@ test('a triple click in a text selects all of it', async ({ page }) => {
   await expect(layers.getByRole('button', { name: 'Z', exact: true })).toBeVisible()
 })
 
+test('a paste away from the copied layers centres them under the pointer', async ({ page }) => {
+  await open(page)
+  const layout = page.getByRole('complementary', { name: 'Properties' }).getByRole('region', { name: 'Layout' })
+  const field = (name: string) => layout.getByRole('textbox', { name: `${name} in mm` })
+  await page.keyboard.press('r')
+  await drag(page, await screen(page, 20, 20), await screen(page, 40, 30))
+  await page.keyboard.press('Control+c')
+  await page.mouse.move(...(await screen(page, 30, 25)))
+  await page.keyboard.press('Control+v')
+  await expect(field('X')).toHaveValue('20')
+  await page.mouse.move(...(await screen(page, 100, 150)))
+  await page.keyboard.press('Control+v')
+  await expect(field('X')).toHaveValue('90')
+  await expect(field('Y')).toHaveValue('145')
+})
+
 test('a double click that drags selects by character, not by word', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   await open(page)

@@ -127,7 +127,7 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
         const text = e.clipboardData.getData('text/plain').replace(/\r\n?/g, '\n')
         if (images.length) drop(editor, images, say)
         else if (text.trim() && text !== editor.copied) editor.pasteText(text)
-        else editor.set({ selection: editor.apply({ type: 'paste', above: ids, page: editor.page.id }) })
+        else editor.paste()
       } else {
         if (!ids.length) return
         e.clipboardData.setData('text/plain', editor.copy(ids))
