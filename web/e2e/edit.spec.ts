@@ -85,9 +85,9 @@ test('copied layers paste back, text from outside pastes as a text layer and a m
   const at = Number(await x.inputValue())
   await page.keyboard.press('Control+d')
   await page.keyboard.press('Shift+ArrowRight')
-  await expect.poll(async () => Number(await x.inputValue())).toBeCloseTo(at + 10)
+  await expect.poll(async () => Number(await x.inputValue())).toBeCloseTo(at + 1)
   await page.keyboard.press('Control+d')
-  await expect.poll(async () => Number(await x.inputValue())).toBeCloseTo(at + 20)
+  await expect.poll(async () => Number(await x.inputValue())).toBeCloseTo(at + 2)
   await expect(suns).toHaveCount(4)
 })
 

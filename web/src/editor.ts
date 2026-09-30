@@ -15,6 +15,21 @@ export type Tool = 'move' | 'frame' | 'text' | 'pen' | Shape
 export type Pen = { id: string; anchors: Anchor[] }
 
 export const MM = 72 / 25.4
+const FRAMED = ['create', 'placeImage', 'setFrame']
+const GRID: Record<string, number> = { x: 10, y: 10, w: 100, h: 100 }
+
+/** Puts x and y on a 0.1 mm grid, w and h on 0.01 mm and the other numbers of `cmd` on 2 decimals, except the factor `by`. */
+function rounded(cmd: Command): Command {
+  const cents = (v: number) => Math.round(v * 100) / 100
+  const out: Record<string, unknown> = { ...cmd }
+  for (const [k, v] of Object.entries(cmd)) {
+    const per = FRAMED.includes(cmd.type) ? GRID[k] : undefined
+    if (typeof v === 'number' && k !== 'by') out[k] = per ? (Math.round((v / MM) * per) / per) * MM : cents(v)
+    else if (Array.isArray(v) && v.every((n) => typeof n === 'number')) out[k] = v.map(cents)
+  }
+  return out as Command
+}
+
 const UNTITLED: { name: string; handle: Handle | null } = { name: 'Untitled.satz', handle: null }
 
 export const scopeOf = ({ swatches, collections, variables }: Palette, modes: Modes = {}): Scope => ({
@@ -199,7 +214,7 @@ export class Editor {
       this.groups = 0
     }
     try {
-      return this.change(() => this.engine.apply(cmd))
+      return this.change(() => this.engine.apply(rounded(cmd)))
     } catch (e) {
       if (e instanceof WebAssembly.RuntimeError) throw e
       this.say((e as Error).message)

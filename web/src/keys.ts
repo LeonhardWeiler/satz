@@ -101,7 +101,7 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
   else if (mod && e.code in ORDER) {
     editor.apply({ type: 'order', ids, to: ORDER[e.code as keyof typeof ORDER][e.shiftKey ? 1 : 0] })
   } else if (!mod && ARROWS[e.key]) {
-    const step = (e.shiftKey ? 10 : 1) * MM
+    const step = (e.shiftKey ? 1 : 0.1) * MM
     const [dx, dy] = ARROWS[e.key]
     editor.batch(() => {
       for (const n of editor.selected()) {
