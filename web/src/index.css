@@ -2360,6 +2360,11 @@ kbd {
   font-weight: 500;
 }
 
+.text-style {
+  display: grid;
+  gap: 8px;
+}
+
 .specimen {
   display: flex;
   align-items: center;
