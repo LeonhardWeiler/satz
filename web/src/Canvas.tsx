@@ -972,8 +972,8 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         const zoom = Math.min(256, (canvas.clientWidth - 240) / Math.max(sel.w, 1), (canvas.clientHeight - 240) / Math.max(sel.h, 1))
         glide({ x: cx - (sel.x + sel.w / 2) * zoom, y: cy - (sel.y + sel.h / 2) * zoom, zoom })
       } else if ((e.shiftKey || mod) && e.code === 'Digit0') glide(around(cx, cy, PX_PER_PT))
-      else if (mod && (e.key === '=' || e.key === '+')) zoomAt(cx, cy, view.zoom * 2)
-      else if (mod && e.key === '-') zoomAt(cx, cy, view.zoom / 2)
+      else if (mod && (e.key === '=' || e.key === '+')) zoomAt(cx, cy, view.zoom * 1.25)
+      else if (mod && e.key === '-') zoomAt(cx, cy, view.zoom / 1.25)
       else return
       track()
       e.preventDefault()
