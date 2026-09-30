@@ -1102,6 +1102,10 @@ span.swatch {
   cursor: pointer;
 }
 
+.bar > .primary {
+  margin-left: 2px;
+}
+
 .tool:hover {
   background: var(--hover);
   color: var(--text);
@@ -1604,6 +1608,7 @@ kbd {
 .pf-btn {
   grid-auto-flow: column;
   gap: 5px;
+  padding-right: 2px;
 }
 
 .pf-count[data-sev='error'] {
