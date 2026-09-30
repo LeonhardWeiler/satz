@@ -36,7 +36,7 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
   const [renaming, setRenaming] = useState(false)
   const selected = useEditor(editor, (e) => e.selection.length > 0)
-  const [hidden, setHidden] = useState({ left: false, right: false, ui: false })
+  const [hidden, setHidden] = useState({ left: false, right: false, ui: false, rulers: false })
   const hide = (panel: keyof typeof hidden) => setHidden((h) => ({ ...h, [panel]: !h[panel] }))
 
   const exportPdf = () => {
@@ -87,7 +87,8 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
       else if (mod && e.code === 'Backslash') {
         hide('ui')
         requestAnimationFrame(() => press('Shift 1'))
-      } else if (mod && e.shiftKey && e.code === 'KeyE') openExport()
+      } else if (e.shiftKey && !mod && !e.altKey && e.code === 'KeyR') hide('rulers')
+      else if (mod && e.shiftKey && e.code === 'KeyE') openExport()
       else if (mod && e.altKey && e.code === 'KeyY') editor.togglePreflight()
       else if (mod && !e.altKey && e.code === 'KeyS') saveFile(e.shiftKey)
       else if (mod && !e.altKey && !e.shiftKey && e.code === 'KeyO') open(editor, say)
@@ -170,7 +171,7 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
   )
 
   return (
-    <main className={`app${off('left') ? ' no-left' : ''}${off('right') ? ' no-right' : ''}${hidden.ui ? ' no-ui' : ''}`}>
+    <main className={`app${off('left') ? ' no-left' : ''}${off('right') ? ' no-right' : ''}${hidden.ui ? ' no-ui' : ''}${hidden.rulers ? ' no-rulers' : ''}`}>
       <div className="left" inert={off('left')}>
         <Edge side="left" />
         <div className="brand" onBlur={() => setRenaming(false)}>

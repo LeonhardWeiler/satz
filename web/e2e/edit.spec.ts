@@ -128,6 +128,12 @@ test('a right click selects the layer under it and offers the actions for it', a
   await page.keyboard.press('Escape')
   await page.mouse.click(...(await screen(page, 5, 150)), { button: 'right' })
   await expect(menu.getByRole('menuitem', { name: /Select all/ })).toBeVisible()
+  const ruler = async () => (await page.locator('.ruler-x').boundingBox())?.height ?? 0
+  expect(await ruler()).toBeGreaterThan(0)
+  await menu.getByRole('menuitem', { name: /Show or hide rulers/ }).click()
+  await expect.poll(ruler).toBe(0)
+  await page.keyboard.press('Shift+R')
+  await expect.poll(ruler).toBeGreaterThan(0)
 })
 
 test('enter edits the points of a shape, moving, adding and deleting them', async ({ page }) => {

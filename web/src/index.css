@@ -134,9 +134,15 @@ body,
   color: var(--text-3);
 }
 
-.no-ui .stage {
+.no-ui .stage,
+.no-rulers .stage {
   grid-template-columns: 0 minmax(0, 1fr);
   grid-template-rows: 0 minmax(0, 1fr);
+}
+
+.no-ui .stage > :not(.view),
+.no-rulers .stage > :not(.view) {
+  border: 0;
 }
 
 .ruler {

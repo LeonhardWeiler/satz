@@ -19,6 +19,7 @@ export const ACTIONS: Action[] = [
   { title: 'Show or hide right panel', keys: 'Alt 2', group: 'View' },
   { title: 'Show or hide interface', keys: 'Ctrl \\', group: 'View' },
   { title: 'Show or hide layout grids', keys: 'Shift G', group: 'View' },
+  { title: 'Show or hide rulers', keys: 'Shift R', group: 'View' },
   { title: 'Zoom to fit', keys: 'Shift 1', group: 'View' },
   { title: 'Zoom to selection', keys: 'Shift 2', group: 'View' },
   { title: 'Zoom to 100 %', keys: 'Ctrl 0', group: 'View' },
@@ -88,7 +89,7 @@ export const ACTIONS: Action[] = [
 /** The titles of the actions the context menu offers with and without a selection, `null` between groups. */
 export const MENU = {
   selected: ['Cut', 'Copy', 'Paste', 'Duplicate', 'Delete', null, 'Group', 'Frame selection', 'Ungroup', 'Use as mask', 'Add auto layout', null, 'Bring to front', 'Send to back', null, 'Hide selection', 'Lock selection', 'Rename'],
-  none: ['Paste', 'Select all', null, 'Undo', 'Redo', null, 'Zoom to fit', 'Add page', 'Page overview', null, 'Command palette', 'Keyboard shortcuts'],
+  none: ['Paste', 'Select all', null, 'Undo', 'Redo', null, 'Zoom to fit', 'Show or hide rulers', 'Add page', 'Page overview', null, 'Command palette', 'Keyboard shortcuts'],
 }
 
 const MAC = /Mac|iP/.test(navigator.platform)
