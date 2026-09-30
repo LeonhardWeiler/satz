@@ -151,7 +151,7 @@ function VariableEditor({ editor, id, fonts, onClose }: { editor: Editor; id: st
             {'color' in value ? (
               <ColorPicker label={label} color={value.color} mode={snapshot.colorMode} scope={scope} bindable onChange={(color) => set({ color })} />
             ) : 'number' in value ? (
-              <Field label="" title={label} unit="" value={value.number} onCommit={(number) => set({ number })} />
+              <Field label="" title={label} unit="" min={-Infinity} value={value.number} onCommit={(number) => set({ number })} />
             ) : (
               <Select
                 label={label}

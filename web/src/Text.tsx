@@ -34,11 +34,11 @@ const RESIZING = [
 ] as const
 const LANGS = { en: 'English', de: 'German' } as const
 /** Styled attributes: title, label, unit and the text shown for 0. */
-const STYLED: [Styled, string, IconName, string, string?][] = [
-  ['size', 'Font size', 'fontSize', 'pt'],
-  ['lineHeight', 'Line height', 'lineHeight', 'pt', 'Auto'],
-  ['letterSpacing', 'Letter spacing', 'letterSpacing', '%'],
-  ['paragraphSpacing', 'Paragraph spacing', 'paragraphSpacing', 'pt'],
+const STYLED: [Styled, string, IconName, string, number, string?][] = [
+  ['size', 'Font size', 'fontSize', 'pt', 0.1],
+  ['lineHeight', 'Line height', 'lineHeight', 'pt', 0, 'Auto'],
+  ['letterSpacing', 'Letter spacing', 'letterSpacing', '%', -100],
+  ['paragraphSpacing', 'Paragraph spacing', 'paragraphSpacing', 'pt', 0],
 ]
 
 /** The text style's name set at its size, within what a panel row takes. */
@@ -163,12 +163,13 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
         />
       </Bindable>
       <div className="grid">
-        {STYLED.map(([prop, title, label, unit, zero]) => {
+        {STYLED.map(([prop, title, label, unit, min, zero]) => {
           const field = (
             <Field
               label={<Icon name={label} />}
               title={`${title} in ${unit}`}
               unit={unit}
+              min={min}
               zero={zero}
               value={same((a) => a[prop])}
               onCommit={(v) => format({ [prop]: v })}
@@ -236,12 +237,13 @@ function StyleRow({ editor, style }: { editor: Editor; style: TextStyle }) {
         </button>
       </div>
       <div className="grid">
-        {STYLED.map(([prop, title, label, unit, zero]) => (
+        {STYLED.map(([prop, title, label, unit, min, zero]) => (
           <Bindable key={prop} editor={editor} id={style.id} prop={prop} title={`${title} in ${unit}`} label={<Icon name={label} />}>
             <Field
               label={<Icon name={label} />}
               title={`${title} in ${unit}`}
               unit={unit}
+              min={min}
               zero={zero}
               value={style[prop]}
               onCommit={(v) => editor.apply({ type: 'setTextStyle', id: style.id, [prop]: v })}
@@ -278,7 +280,7 @@ export function TextFrameSection({ node, set }: { node: TextNode; set: (p: Props
         {INSETS.map(([prop, title, label]) => (
           <Field key={prop} label={<Icon name={label} />} title={`${title} in mm`} unit="mm" value={node[prop]} onCommit={(v) => set({ [prop]: v })} />
         ))}
-        <Field label={<Icon name="columns" />} title="Columns" unit="" int value={node.columns} onCommit={(v) => set({ columns: Math.round(v) })} />
+        <Field label={<Icon name="columns" />} title="Columns" unit="" int min={1} max={20} value={node.columns} onCommit={(columns) => set({ columns })} />
         <Field label={<Icon name="gutter" />} title="Gutter in mm" unit="mm" value={node.gutter} onCommit={(gutter) => set({ gutter })} />
         <Field label={<Icon name="baselineGrid" />} title="Baseline grid in pt" unit="pt" zero="Off" value={node.baselineGrid} onCommit={(baselineGrid) => set({ baselineGrid })} />
         <Field label={<Icon name="baselineStart" />} title="Baseline grid start in pt" unit="pt" value={node.baselineStart} onCommit={(baselineStart) => set({ baselineStart })} />

@@ -225,12 +225,12 @@ export function Properties({
       {box && (
         <Section title="Layout">
           <div className="grid">
-            <Field label="X" value={nodes.length > 1 ? same((n) => n.x) : box.x} unit="mm" onCommit={frame('x')} />
-            <Field label="Y" value={nodes.length > 1 ? same((n) => n.y) : box.y} unit="mm" onCommit={frame('y')} />
+            <Field label="X" min={-Infinity} value={nodes.length > 1 ? same((n) => n.x) : box.x} unit="mm" onCommit={frame('x')} />
+            <Field label="Y" min={-Infinity} value={nodes.length > 1 ? same((n) => n.y) : box.y} unit="mm" onCommit={frame('y')} />
             {line ? (
               <>
-                <Field label="L" title="Length in mm" value={length!} unit="mm" onCommit={(v) => setLine(Math.max(0, v), angle!)} />
-                <Field label="∠" title="Angle in °" value={angle!} unit="°" onCommit={(v) => setLine(length!, v)} />
+                <Field label="L" title="Length in mm" value={length!} unit="mm" onCommit={(v) => setLine(v, angle!)} />
+                <Field label="∠" title="Angle in °" min={-Infinity} value={angle!} unit="°" onCommit={(v) => setLine(length!, v)} />
               </>
             ) : (
               <>
@@ -239,7 +239,7 @@ export function Properties({
               </>
             )}
             {!line && nodes.every((n) => n.kind !== 'group') && (
-              <Field label="∠" title="Rotation in °" unit="°" value={same((n) => n.rotation)} onCommit={(v) => set({ rotation: ((v % 360) + 360) % 360 })} />
+              <Field label="∠" title="Rotation in °" unit="°" min={-Infinity} value={same((n) => n.rotation)} onCommit={(v) => set({ rotation: ((v % 360) + 360) % 360 })} />
             )}
             {nodes.length > 0 && nodes.every((n) => n.kind === 'shape' && n.shape === 'rect') && (
               bindable(
@@ -256,17 +256,17 @@ export function Properties({
               )
             )}
             {one?.kind === 'shape' && (one.shape === 'polygon' || one.shape === 'star') && (
-              <Field label="N" title="Count" unit="" int value={one.count} onCommit={(v) => set({ count: Math.round(v) })} />
+              <Field label="N" title="Count" unit="" int min={3} max={60} value={one.count} onCommit={(count) => set({ count })} />
             )}
             {one?.kind === 'shape' && one.shape === 'ellipse' && (
               <>
-                <Field label="Start" title="Arc start in °" unit="°" value={one.start} onCommit={(v) => set({ start: ((v % 360) + 360) % 360 })} />
-                <Field label="Sweep" title="Arc sweep in %" unit="%" value={one.sweep * 100} onCommit={(v) => set({ sweep: Math.min(Math.max(v, 0), 100) / 100 })} />
-                <Field label="Ratio" title="Inner radius in %" unit="%" value={one.inner * 100} onCommit={(v) => set({ inner: Math.min(Math.max(v, 0), 100) / 100 })} />
+                <Field label="Start" title="Arc start in °" unit="°" min={-Infinity} value={one.start} onCommit={(v) => set({ start: ((v % 360) + 360) % 360 })} />
+                <Field label="Sweep" title="Arc sweep in %" unit="%" max={100} value={one.sweep * 100} onCommit={(v) => set({ sweep: v / 100 })} />
+                <Field label="Ratio" title="Inner radius in %" unit="%" max={100} value={one.inner * 100} onCommit={(v) => set({ inner: v / 100 })} />
               </>
             )}
             {one?.kind === 'shape' && one.shape === 'star' && (
-              <Field label="Ratio" title="Star ratio in %" unit="%" value={one.ratio * 100} onCommit={(v) => set({ ratio: v / 100 })} />
+              <Field label="Ratio" title="Star ratio in %" unit="%" min={1} max={100} value={one.ratio * 100} onCommit={(v) => set({ ratio: v / 100 })} />
             )}
           </div>
           {one && (hugs || flows) && (
@@ -321,7 +321,7 @@ export function Properties({
               'opacity',
               'Opacity',
               '',
-              <Field label="" title="Opacity" unit="%" value={same((n) => n.opacity * 100)} onCommit={(v) => set({ opacity: v / 100 })} />,
+              <Field label="" title="Opacity" unit="%" max={100} value={same((n) => n.opacity * 100)} onCommit={(v) => set({ opacity: v / 100 })} />,
             )}
             <Select label="Blend mode" value={same((n) => n.blend)} options={BLENDS} onChange={(blend) => set({ blend })} />
             {one?.kind === 'frame' && (
@@ -411,7 +411,7 @@ function DocumentSection({ editor }: { editor: Editor }) {
         <Field label="W" title="Width of all pages in mm" unit="mm" value={w} onCommit={(width) => each(() => ({ width }))} />
         <Field label="H" title="Height of all pages in mm" unit="mm" value={h} onCommit={(height) => each(() => ({ height }))} />
         <Field label="Bleed" title="Bleed of all pages in mm" unit="mm" value={sameOf(pages, (p) => p.bleed)} onCommit={(bleed) => each(() => ({ bleed }))} />
-        <Field label="Pages" title="Pages" unit="" int value={pages.length} onCommit={count} />
+        <Field label="Pages" title="Pages" unit="" int min={1} value={pages.length} onCommit={count} />
       </div>
       <label className="check">
         <input type="checkbox" checked={facingPages} onChange={(e) => editor.apply({ type: 'setDocument', facingPages: e.currentTarget.checked })} />
@@ -423,7 +423,7 @@ function DocumentSection({ editor }: { editor: Editor }) {
           <span>Profile</span>
           <strong>{colorMode === 'cmyk' ? 'FOGRA51' : 'sRGB'}</strong>
         </div>
-        <Field label="Raster" value={rasterPpi} unit="ppi" onCommit={(v) => editor.apply({ type: 'setDocument', rasterPpi: v })} />
+        <Field label="Raster" value={rasterPpi} unit="ppi" min={72} max={1200} onCommit={(v) => editor.apply({ type: 'setDocument', rasterPpi: v })} />
       </div>
     </Section>
   )
@@ -457,8 +457,8 @@ function GridSection({ editor, sheets, all }: { editor: Editor; sheets: Page[]; 
                     <Field label="Size" title="Cell size in mm" unit="mm" value={g.size} onCommit={(size) => size > 0 && set({ size })} />
                   ) : (
                     <>
-                      <Field label="N" title={GRIDS[g.kind]} unit="" int value={g.count} onCommit={(count) => set({ count: Math.max(1, Math.round(count)) })} />
-                      <Field label="Gutter" title="Gutter in mm" unit="mm" value={g.gutter} onCommit={(gutter) => set({ gutter: Math.max(0, gutter) })} />
+                      <Field label="N" title={GRIDS[g.kind]} unit="" int min={1} value={g.count} onCommit={(count) => set({ count })} />
+                      <Field label="Gutter" title="Gutter in mm" unit="mm" value={g.gutter} onCommit={(gutter) => set({ gutter })} />
                       <Field label="Margin" title="Margin in mm" unit="mm" value={g.margin} onCommit={(margin) => set({ margin: Math.max(0, margin) })} />
                     </>
                   )}

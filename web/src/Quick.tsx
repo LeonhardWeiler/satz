@@ -65,7 +65,7 @@ export function Quick({ editor }: { editor: Editor }) {
         <Field label="R" title="Corner radius in mm" unit="mm" value={radiusOf(one)} onCommit={(radius) => set({ radius, corners: [] })} />
       )}
       {one?.kind === 'shape' && (one.shape === 'polygon' || one.shape === 'star') && (
-        <Field label="N" title="Count" unit="" int value={one.count} onCommit={(v) => set({ count: Math.round(v) })} />
+        <Field label="N" title="Count" unit="" int min={3} max={60} value={one.count} onCommit={(count) => set({ count })} />
       )}
       {one?.ppi !== undefined && <span className="quick-info">{Math.round(one.ppi)} ppi</span>}
       {menu &&

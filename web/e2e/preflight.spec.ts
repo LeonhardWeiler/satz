@@ -73,7 +73,7 @@ test('preflight in the booklet zooms to an issue, separates the plates and repor
   const limit = region.getByRole('textbox', { name: 'Ink limit in %' })
   await limit.fill('500')
   await limit.press('Enter')
-  await expect(limit).toHaveValue('300')
+  await expect(limit).toHaveValue('400')
   await limit.fill('200')
   await limit.press('Enter')
   await expect(region.getByRole('button', { name: /above the limit/ }).first()).toBeVisible()

@@ -27,7 +27,7 @@ export function AutoLayout({ editor, node, set }: { editor: Editor; node: Node &
   const between = node.alignMain === 'spaceBetween'
   const length = (prop: 'gap' | (typeof PADDING)[number][0], title: string, label: string) => (
     <Bindable editor={editor} id={node.id} prop={prop} title={`${title} in mm`} label={label}>
-      <Field label={label} title={`${title} in mm`} unit="mm" value={node[prop]} onCommit={(v) => set({ [prop]: v })} />
+      <Field label={label} title={`${title} in mm`} unit="mm" min={prop === 'gap' ? -Infinity : 0} value={node[prop]} onCommit={(v) => set({ [prop]: v })} />
     </Bindable>
   )
   return (

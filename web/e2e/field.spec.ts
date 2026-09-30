@@ -58,3 +58,17 @@ test('an integer field has minus and plus buttons', async ({ page }) => {
   await frame.getByRole('button', { name: 'Decrease Columns' }).click()
   await expect(columns).toHaveValue('1')
 })
+
+test('dragging a label stops at the bounds of its field', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Star' }).click()
+  const count = panel.getByRole('textbox', { name: 'Count' })
+  const label = (await panel.getByTitle('Count').getByText('N', { exact: true }).boundingBox())!
+  await page.mouse.move(label.x + label.width / 2, label.y + label.height / 2)
+  await page.mouse.down()
+  for (const dx of [-10, -40, -80]) await page.mouse.move(label.x + label.width / 2 + dx, label.y + label.height / 2)
+  await page.mouse.up()
+  await expect(count).toHaveValue('3')
+  await expect(page.locator('.status')).toBeEmpty()
+})

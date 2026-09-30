@@ -126,9 +126,10 @@ export function PaintList({
                           label=""
                           title={`${title} ${swatch?.spot ? 'tint' : 'opacity'}`}
                           unit="%"
+                          max={100}
                           value={swatch?.spot ? bound.tint * 100 : bound.alpha * 100}
                           onCommit={(v) => {
-                            const x = Math.min(1, Math.max(0, v / 100))
+                            const x = v / 100
                             set({ ...p, color: swatch?.spot ? { ...bound, tint: x } : { ...bound, alpha: x } })
                           }}
                         />
@@ -162,6 +163,7 @@ export function PaintList({
                         <Field
                           label="Angle"
                           unit="°"
+                          min={-Infinity}
                           value={angle(p.transform)}
                           onCommit={(v) => set({ ...p, transform: linear(v) })}
                         />
@@ -175,8 +177,9 @@ export function PaintList({
                               label=""
                               title={`Stop ${k + 1} position`}
                               unit="%"
+                              max={100}
                               value={s.at * 100}
-                              onCommit={(v) => stop({ at: Math.min(1, Math.max(0, v / 100)) })}
+                              onCommit={(v) => stop({ at: v / 100 })}
                             />
                             <Field
                               label=""
@@ -239,8 +242,8 @@ export function EffectList({
                 <div className="grid">
                   {e.type === 'dropShadow' && (
                     <>
-                      <Field label="X" title="Shadow X in mm" unit="mm" value={e.x} onCommit={(x) => set({ x })} />
-                      <Field label="Y" title="Shadow Y in mm" unit="mm" value={e.y} onCommit={(y) => set({ y })} />
+                      <Field label="X" title="Shadow X in mm" unit="mm" min={-Infinity} value={e.x} onCommit={(x) => set({ x })} />
+                      <Field label="Y" title="Shadow Y in mm" unit="mm" min={-Infinity} value={e.y} onCommit={(y) => set({ y })} />
                     </>
                   )}
                   <Field

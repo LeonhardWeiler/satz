@@ -131,7 +131,7 @@ export function Start({ editor, first, say, onClose }: { editor: Editor; first: 
               <Field label="H" title="Height" value={h} unit="mm" onCommit={(v) => v > 0 && setCustom(land ? [v, custom[1]] : [custom[0], v])} />
             </>
           )}
-          <Field label="Pages" title="Pages" value={pages} unit="" onCommit={(v) => setPages(Math.max(1, Math.min(999, Math.round(v))))} />
+          <Field label="Pages" title="Pages" value={pages} unit="" min={1} max={999} onCommit={(v) => setPages(Math.round(v))} />
           <label className="check">
             <input type="checkbox" checked={pages > 1 && facing} disabled={pages < 2} onChange={(e) => setFacing(e.currentTarget.checked)} />
             Facing pages

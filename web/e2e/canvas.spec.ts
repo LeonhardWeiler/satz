@@ -122,7 +122,7 @@ test('the cursor follows keyboard edits without a pointer move', async ({ page }
   await expect(canvas).not.toHaveCSS('cursor', 'ns-resize')
 })
 
-test('typed values round to two decimals and out-of-range values are rejected', async ({ page }) => {
+test('typed values round to two decimals and stay within the bounds of their field', async ({ page }) => {
   await open(page)
   const layers = page.getByRole('tree', { name: 'Layers' })
   const panel = page.getByRole('complementary', { name: 'Properties' })
@@ -142,11 +142,11 @@ test('typed values round to two decimals and out-of-range values are rejected', 
 
   await layers.getByRole('button', { name: /^Satz sets type/ }).click()
   await type('Font size in pt', '0.05')
+  await expect(field('Font size in pt')).toHaveValue('0.1')
+  await page.keyboard.press('Control+z')
   await expect(field('Font size in pt')).toHaveValue('14')
   await type('Opacity', '150')
   await expect(field('Opacity')).toHaveValue('100')
-  await page.keyboard.press('Control+z')
-  await expect(field('Font size in pt')).toHaveValue('14')
   await expect(layers.getByRole('button', { name: 'Rectangle', exact: true })).toHaveCount(2)
 })
 

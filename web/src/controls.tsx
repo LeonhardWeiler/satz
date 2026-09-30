@@ -21,7 +21,8 @@ const PT: Record<string, number> = { mm: MM }
 
 /**
  * A number input that takes expressions with units. ↑/↓ step it, Shift by 10 and Alt by 0.1;
- * dragging its label scrubs it; invalid input shakes and keeps the value.
+ * dragging its label scrubs it; invalid input shakes and keeps the value. Values stay within `min`
+ * and `max`, in `unit`.
  */
 export function Field({
   label,
@@ -31,6 +32,8 @@ export function Field({
   readOnly,
   zero,
   int,
+  min = 0,
+  max = Infinity,
   title = typeof label === 'string' ? `${label} in ${unit}` : unit,
 }: {
   label: ReactNode
@@ -43,6 +46,8 @@ export function Field({
   zero?: string
   /** Whole numbers with − and + buttons. */
   int?: boolean
+  min?: number
+  max?: number
   title?: string
 }) {
   const [draft, setDraft] = useState<string | null>(null)
@@ -50,7 +55,10 @@ export function Field({
   const [scrub, setScrub] = useState(false)
   const per = PT[unit] ?? 1
   const shown = value === null ? null : round(value / per, unit)
-  const put = (v: number) => onCommit?.((int ? Math.round(v) : round(v, unit)) * per)
+  const put = (v: number) => {
+    const c = Math.min(max, Math.max(min, v))
+    onCommit?.((int ? Math.round(c) : round(c, unit)) * per)
+  }
   const edit = !readOnly && onCommit && shown !== null
   const cur = shown ?? 0
   const commit = () => {
