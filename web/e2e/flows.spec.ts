@@ -37,7 +37,7 @@ test('a first visit creates an a5 booklet, a reload opens it and ctrl+n opens a 
   await expect(page).toHaveTitle('poster.satz — Satz')
 })
 
-test('the overview lists masters above vertical spreads, assigns a master and reorders by drag', async ({ page }) => {
+test('the overview lists masters beside vertical spreads, assigns a master and reorders by drag', async ({ page }) => {
   await a5Booklet(page)
   await addMaster(page)
   await page.keyboard.press('Escape')
@@ -47,14 +47,15 @@ test('the overview lists masters above vertical spreads, assigns a master and re
   const box = async (name: string) => (await region.getByRole('group', { name, exact: true }).boundingBox())!
   const masters = await box('Masters')
   const [one, two, four] = [await box('Spread 1'), await box('Spread 2–3'), await box('Spread 4–5')]
-  expect(masters.y + masters.height).toBeLessThanOrEqual(one.y)
+  expect(masters.x + masters.width).toBeLessThanOrEqual(one.x)
   expect(one.y).toBeLessThan(two.y)
   expect(two.y).toBeLessThan(four.y)
   expect(two.x).toBe(four.x)
   expect((await option(page, 1).boundingBox())!.x).toBeGreaterThan((await option(page, 2).boundingBox())!.x)
 
   const master = page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Master' })
-  await option(page, 3).click()
+  await option(page, 1).click({ modifiers: ['Control'] })
+  await option(page, 3).click({ modifiers: ['Control'] })
   await choose(master, 'A-Master')
   await option(page, 4).click({ modifiers: ['Shift'] })
   await expect(master).toHaveText('Mixed')
@@ -62,14 +63,13 @@ test('the overview lists masters above vertical spreads, assigns a master and re
   await expect(master).toHaveText('B-Master')
 
   await option(page, 6).dragTo(option(page, 2), { targetPosition: { x: 20, y: 2 } })
-  await option(page, 3).click()
-  await expect(master).not.toHaveText('B-Master')
-  await option(page, 4).click()
-  await expect(master).toHaveText('B-Master')
-  await option(page, 5).click()
-  await expect(master).toHaveText('B-Master')
-  await page.keyboard.press('Escape')
-  await expect(region).toHaveCount(0)
+  for (const [n, b] of [[3, false], [4, true], [5, true]] as const) {
+    await overview(page)
+    await option(page, n).click()
+    await expect(region).toHaveCount(0)
+    if (b) await expect(master).toHaveText('B-Master')
+    else await expect(master).not.toHaveText('B-Master')
+  }
 })
 
 test('at 880 px the top bar fits with every button', async ({ page }) => {

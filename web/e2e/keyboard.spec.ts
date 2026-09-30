@@ -41,7 +41,9 @@ test('the page overview is one tab stop; arrows select a page and Alt with an ar
   await expect(pages.getByRole('listbox', { name: 'Pages' })).toBeFocused()
   await expect(row(3)).toHaveAttribute('aria-selected', 'true')
 
-  await row(1).click()
+  await page.keyboard.press('ArrowUp')
+  await page.keyboard.press('ArrowUp')
+  await expect(row(1)).toHaveAttribute('aria-selected', 'true')
   await page.keyboard.press('ArrowDown')
   await expect(row(2)).toHaveAttribute('aria-selected', 'true')
   await page.keyboard.press('ArrowLeft')

@@ -82,9 +82,9 @@ const sheet = (p: Page, x = 0): Sheet => ({ x, width: p.width, height: p.height,
 const width = (p: Page) => Math.round((PAGE * p.width) / p.height)
 
 /**
- * The page overview over the canvas: the masters in a row, then the spreads one under
- * another. Click selects pages, double-click or Enter opens one; they are dragged or
- * moved with Alt ←/→ to reorder, deleted with Del and have a context menu.
+ * The page overview over the canvas: the masters in a column, the spreads beside them one
+ * under another. Click or Enter opens a page, Ctrl and Shift click select; pages are dragged
+ * or moved with Alt ←/→ to reorder, deleted with Del and have a context menu.
  */
 export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   const snapshot = useEditor(editor, (e) => e.snapshot)
@@ -110,14 +110,13 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   }
   const click = (e: MouseEvent, id: string) => {
     list.current?.focus()
-    if (e.detail === 2) return openPage(id)
     if (e.shiftKey) {
       const [a, b] = [ids.indexOf(anchor ?? id), ids.indexOf(id)].sort((x, y) => x - y)
       return select(ids.slice(a, b + 1))
     }
     setAnchor(id)
     if (e.ctrlKey || e.metaKey) select(selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id])
-    else select([id])
+    else openPage(id)
   }
   /** Moves the pages `moving` so that they follow each other at `at` among the other pages. */
   const move = (moving: string[], at: number) => {
@@ -233,106 +232,105 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
 
   return (
     <section className="overview" aria-label="Page overview" onPointerDown={editor.gesture}>
-      <h2>
-        Masters<span>Double-click to edit</span>
-      </h2>
-      <div className="ov-row" role="group" aria-label="Masters" onKeyDown={(e) => roam(e, [...e.currentTarget.querySelectorAll('.ov-master')])}>
-        {masters.map((m, k) => (
-          <div key={m.id} className="ov-item" data-current={m.id === current || undefined}>
-            <button
-              type="button"
-              className="ov-master"
-              aria-label={m.name}
-              aria-current={m.id === current ? 'page' : undefined}
-              title={`Double-click to edit ${m.name}`}
-              tabIndex={k ? -1 : 0}
-              onClick={(e) => e.detail === 2 && openPage(m.id)}
-              onContextMenu={(e) => openMenu(e, m.id, true)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') openPage(m.id)
-                else if (e.key === 'F2') setRenaming(m.id)
-                else return
-                e.preventDefault()
-              }}
-            >
-              <Thumb
-                paint={paint}
-                snapshot={snapshot}
-                lists={[{ id: m.id, x: 0 }]}
-                sheets={facing ? [sheet(m, -m.width), sheet(m)] : [sheet(m)]}
-                height={MASTER}
-              />
-            </button>
-            {renaming === m.id ? (
-              <input
-                className="rename"
-                aria-label="Master name"
-                defaultValue={m.name}
-                autoFocus
-                onFocus={(e) => e.currentTarget.select()}
-                onBlur={(e) => rename(m.id, e.currentTarget.value.trim())}
+      <div className="ov-col">
+        <h2>Masters</h2>
+        <div className="ov-row" role="group" aria-label="Masters" onKeyDown={(e) => roam(e, [...e.currentTarget.querySelectorAll('.ov-master')])}>
+          {masters.map((m, k) => (
+            <div key={m.id} className="ov-item" data-current={m.id === current || undefined}>
+              <button
+                type="button"
+                className="ov-master"
+                aria-label={m.name}
+                aria-current={m.id === current ? 'page' : undefined}
+                title={`Edit ${m.name}`}
+                tabIndex={k ? -1 : 0}
+                onClick={() => openPage(m.id)}
+                onContextMenu={(e) => openMenu(e, m.id, true)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') e.currentTarget.blur()
-                  if (e.key === 'Escape') rename(m.id, null)
-                  e.stopPropagation()
+                  if (e.key === 'Enter') openPage(m.id)
+                  else if (e.key === 'F2') setRenaming(m.id)
+                  else return
+                  e.preventDefault()
                 }}
-              />
-            ) : (
-              <span className="ov-cap" onDoubleClick={() => setRenaming(m.id)}>
-                {m.name}
-              </span>
-            )}
-          </div>
-        ))}
-        <button type="button" className="ov-add" onClick={() => addMaster(selected.at(-1) ?? current)}>
-          <Icon name="plus" />
-          New master
-        </button>
-      </div>
-      <h2>
-        Pages {pages.length}
-        <span>Click selects, double-click opens, Alt ←/→ moves, Del deletes</span>
-      </h2>
-      <div
-        ref={list}
-        className="ov-spreads"
-        role="listbox"
-        aria-label="Pages"
-        aria-multiselectable
-        aria-activedescendant={selected.length ? `ov-${selected.at(-1)}` : undefined}
-        tabIndex={0}
-        onKeyDown={onKey}
-      >
-        {rows.map((spread, k) => (
-          <div
-            key={spread.join()}
-            className="ov-item"
-            role={facing ? 'group' : undefined}
-            aria-label={facing ? `Spread ${spread.map((id) => ids.indexOf(id) + 1).join('–')}` : undefined}
-            data-current={spread.includes(current) || undefined}
-          >
-            <div className="ov-pages" style={facing && k === 0 && spread.length === 1 ? { paddingLeft: width(pages[0]) } : undefined}>
-              {spread.map((id) => pageThumb(pages[ids.indexOf(id)]))}
-              {k === rows.length - 1 && joins && add}
+              >
+                <Thumb
+                  paint={paint}
+                  snapshot={snapshot}
+                  lists={[{ id: m.id, x: 0 }]}
+                  sheets={facing ? [sheet(m, -m.width), sheet(m)] : [sheet(m)]}
+                  height={MASTER}
+                />
+              </button>
+              {renaming === m.id ? (
+                <input
+                  className="rename"
+                  aria-label="Master name"
+                  defaultValue={m.name}
+                  autoFocus
+                  onFocus={(e) => e.currentTarget.select()}
+                  onBlur={(e) => rename(m.id, e.currentTarget.value.trim())}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') e.currentTarget.blur()
+                    if (e.key === 'Escape') rename(m.id, null)
+                    e.stopPropagation()
+                  }}
+                />
+              ) : (
+                <span className="ov-cap" onDoubleClick={() => setRenaming(m.id)}>
+                  {m.name}
+                </span>
+              )}
             </div>
-            <span className="ov-cap">
-              {spread.map((id) => {
-                const m = masters.find((m) => m.id === pages[ids.indexOf(id)].master)
-                return (
-                  <span key={id}>
-                    {ids.indexOf(id) + 1}
-                    {m && <b title={`Master ${m.name}`}>{prefix(m.name)}</b>}
-                  </span>
-                )
-              })}
-            </span>
-          </div>
-        ))}
-        {!joins && (
-          <div className="ov-item">
-            <div className="ov-pages">{add}</div>
-          </div>
-        )}
+          ))}
+          <button type="button" className="ov-add" onClick={() => addMaster(selected.at(-1) ?? current)}>
+            <Icon name="plus" />
+            New master
+          </button>
+        </div>
+      </div>
+      <div className="ov-col">
+        <h2>Pages</h2>
+        <div
+          ref={list}
+          className="ov-spreads"
+          role="listbox"
+          aria-label="Pages"
+          aria-multiselectable
+          aria-activedescendant={selected.length ? `ov-${selected.at(-1)}` : undefined}
+          tabIndex={0}
+          onKeyDown={onKey}
+        >
+          {rows.map((spread, k) => (
+            <div
+              key={spread.join()}
+              className="ov-item"
+              role={facing ? 'group' : undefined}
+              aria-label={facing ? `Spread ${spread.map((id) => ids.indexOf(id) + 1).join('–')}` : undefined}
+              data-current={spread.includes(current) || undefined}
+            >
+              <div className="ov-pages" style={facing && k === 0 && spread.length === 1 ? { paddingLeft: width(pages[0]) } : undefined}>
+                {spread.map((id) => pageThumb(pages[ids.indexOf(id)]))}
+                {k === rows.length - 1 && joins && add}
+              </div>
+              <span className="ov-cap">
+                {spread.map((id) => {
+                  const m = masters.find((m) => m.id === pages[ids.indexOf(id)].master)
+                  return (
+                    <span key={id}>
+                      {ids.indexOf(id) + 1}
+                      {m && <b title={`Master ${m.name}`}>{prefix(m.name)}</b>}
+                    </span>
+                  )
+                })}
+              </span>
+            </div>
+          ))}
+          {!joins && (
+            <div className="ov-item">
+              <div className="ov-pages">{add}</div>
+            </div>
+          )}
+        </div>
       </div>
       {menu &&
         createPortal(

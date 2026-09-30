@@ -33,7 +33,6 @@ test('the master select sets the master of the pages selected in the overview an
   await addMaster(page)
   await addPage(page)
   await overview(page)
-  await option(page, 2).click()
   await choose(master, 'A-Master')
   await option(page, 1).click({ modifiers: ['Shift'] })
   await expect(panel.getByRole('region', { name: 'Pages 1, 2' })).toBeVisible()
