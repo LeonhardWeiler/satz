@@ -340,8 +340,10 @@ export class Editor {
     this.set({ selection: copies })
   }
 
-  /** Places `text` from outside as a new text layer amid the current page, at most 80 % of its width wide. */
+  /** Replaces the text of the one selected text layer with `text` from outside, or places it as a new text layer amid the current page, at most 80 % of its width wide. */
   pasteText(text: string) {
+    const one = this.selection.length === 1 && this.nodes.get(this.selection[0])?.node
+    if (one && one.kind === 'text') return void this.apply({ type: 'setText', id: one.id, text })
     const page = this.page
     const id = this.batch(() => {
       const [id] = this.apply({ type: 'create', parent: page.id, kind: 'text', x: 0, y: 0, w: 0, h: 0 })

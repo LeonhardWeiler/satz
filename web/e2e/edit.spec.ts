@@ -79,6 +79,10 @@ test('copied layers paste back, text from outside pastes as a text layer and a m
   await page.evaluate(() => navigator.clipboard.writeText('Hello from elsewhere'))
   await page.keyboard.press('Control+v')
   await expect(layers.getByRole('button', { name: 'Hello from elsewhere', exact: true })).toBeVisible()
+  await page.evaluate(() => navigator.clipboard.writeText('Replaced'))
+  await page.keyboard.press('Control+v')
+  await expect(layers.getByRole('button', { name: 'Replaced', exact: true })).toHaveCount(1)
+  await expect(layers.getByRole('button', { name: 'Hello from elsewhere', exact: true })).toHaveCount(0)
 
   await suns.first().click()
   const x = page.getByRole('complementary', { name: 'Properties' }).getByRole('textbox', { name: 'X in mm' }).first()
