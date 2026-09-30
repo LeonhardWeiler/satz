@@ -36,7 +36,7 @@ const move = <T,>(list: T[], from: number, to: number) => {
   return out
 }
 
-function gradient(p: Fill, scope: Scope) {
+export function gradient(p: Fill, scope: Scope) {
   const stops = p.stops.map((s) => `${css(s.color, scope)} ${s.at * 100}%`)
   const shape = p.type === 'linear' ? `linear-gradient(${angle(p.transform) + 90}deg` : 'radial-gradient(circle'
   return `${shape}, ${stops.join(', ')})`
@@ -110,7 +110,9 @@ export function PaintList({
                         onChange={(color) => set({ ...p, color })}
                       />
                     ) : (
-                      <span className="swatch" aria-hidden="true" style={{ background: gradient(p, scope) }} />
+                      <span className="swatch" aria-hidden="true">
+                        <span className="chip" style={{ background: gradient(p, scope) }} />
+                      </span>
                     )}
                     {p.type === 'image' ? (
                       <span className="bound-name">
