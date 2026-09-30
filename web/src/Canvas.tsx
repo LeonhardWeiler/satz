@@ -257,15 +257,15 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       return { box, radii: n?.kind === 'shape' && n.shape === 'rect' ? radiusHandles(view, box, radii(n)) : undefined }
     }
 
-    /** What the selection snaps to: the pages of the spread and the visible layers beside the selection. */
-    const snapsNow = (): Snaps => {
+    /** What the layers `ids` snap to: the pages of the spread and the visible layers beside them. */
+    const snapsNow = (ids = editor.selection): Snaps => {
       const top = (id: string) => {
         let e = editor.nodes.get(id)
         while (e?.parent) e = editor.nodes.get(e.parent.id)
         return e?.node.id
       }
-      const skip = new Set([...editor.selection, ...editor.selection.map(top)])
-      const siblings = editor.selected().flatMap((n) => editor.nodes.get(n.id)?.parent?.children ?? []).map(covered)
+      const skip = new Set([...ids, ...ids.map(top)])
+      const siblings = ids.flatMap((id) => editor.nodes.get(id)?.parent?.children ?? []).map(covered)
       const tops = editor.spread.flatMap((page) => page.children.map(covered))
       const others = [...new Map([...tops, ...siblings].map((n) => [n.id, n])).values()].filter((n) => !n.hidden && !skip.has(n.id))
       return { lines: targets(editor.sheets, others, editor.grids), others }
@@ -275,6 +275,16 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       if (!snaps || off) return { p, guides: [] }
       const q = { x: p.x + snap([p.x], snaps.lines.x, SNAP / view.zoom), y: p.y + snap([p.y], snaps.lines.y, SNAP / view.zoom) }
       return { p: q, guides: guides({ ...q, w: 0, h: 0 }, snaps.lines, [q.x], [q.y]) }
+    }
+    /** The centre of the image being placed at `p`, moved onto what it snaps to unless `off`, with the guides through it. */
+    const placeAt = (p: Point, off: boolean) => {
+      const { w, h } = editor.placing[0]
+      const { lines } = snapsNow([])
+      const [x, y] = [p.x - w / 2, p.y - h / 2]
+      const dx = off ? 0 : snap([x, x + w / 2, x + w], lines.x, SNAP / view.zoom)
+      const dy = off ? 0 : snap([y, y + h / 2, y + h], lines.y, SNAP / view.zoom)
+      const [xs, ys] = [[x + dx, x + dx + w / 2, x + dx + w], [y + dy, y + dy + h / 2, y + dy + h]]
+      return { p: { x: p.x + dx, y: p.y + dy }, guides: off ? [] : guides({ x: x + dx, y: y + dy, w, h }, lines, xs, ys) }
     }
     const svgOf = (target?: Box) => {
       const [X, Y] = [(x: number) => view.x + x * view.zoom, (y: number) => view.y + y * view.zoom]
@@ -560,9 +570,11 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       }
       const image = editor.placing[0]
       if (image) {
-        const { parent, dx } = parentAt(p)
+        const at = placeAt(p, e.ctrlKey || e.metaKey).p
+        const { parent, dx } = parentAt(at)
         const { hash, name, w, h } = image
-        const placed = editor.apply({ type: 'placeImage', parent, image: hash, name, x: p.x - dx - w / 2, y: p.y - h / 2, w, h })
+        snapped = []
+        const placed = editor.apply({ type: 'placeImage', parent, image: hash, name, x: at.x - dx - w / 2, y: at.y - h / 2, w, h })
         editor.set({ selection: placed, placing: editor.placing.slice(1) })
         return
       }
@@ -729,6 +741,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       }
       if ((editor.pen || editor.placing.length) && !drag) {
         cursor = p
+        if (editor.placing.length) ({ p: cursor, guides: snapped } = placeAt(p, e.ctrlKey || e.metaKey))
         canvas.toggleAttribute('data-close', closes(p))
         redraw()
         return

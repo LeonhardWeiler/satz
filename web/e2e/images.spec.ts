@@ -26,6 +26,13 @@ test('a placed image draws at 300 ppi, preflight reports it enlarged, and it sta
   expect((await colors(page, [middle])).map(isRed)).toEqual([true])
 })
 
+test('a placed image snaps to the page edge', async ({ page }) => {
+  await open(page)
+  await place(page, red(600, 300), [25.4 + 0.7, 50])
+  const x = page.getByRole('complementary', { name: 'Properties' }).getByRole('textbox', { name: 'X in mm' })
+  await expect(x).toHaveValue('0')
+})
+
 test('a chosen image follows the pointer as a frame until a click places it, and escape drops it', async ({ page }) => {
   await open(page)
   const chooser = page.waitForEvent('filechooser')
@@ -35,7 +42,9 @@ test('a chosen image follows the pointer as a frame until a click places it, and
   const [x, y] = await screen(page, 40, 40)
   await page.mouse.move(x, y)
   await expect(layers.getByRole('treeitem', { name: 'red.png' })).toHaveCount(0)
+  await page.keyboard.down('Control')
   await page.mouse.click(x, y)
+  await page.keyboard.up('Control')
   await expect(layers.getByRole('treeitem', { name: 'red.png', selected: true })).toBeVisible()
   const properties = page.getByRole('complementary', { name: 'Properties' })
   await expect(properties.getByRole('textbox', { name: 'X in mm' })).toHaveValue('14.6')
