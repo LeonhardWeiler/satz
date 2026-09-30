@@ -318,7 +318,8 @@ button {
   display: flex;
   align-items: center;
   gap: 4px;
-  height: 32px;
+  height: 30px;
+  margin-bottom: 2px;
   padding-right: 8px;
   border-radius: 5px;
   color: var(--text-2);
