@@ -935,7 +935,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const edited = inEdited(p)
       if (edited) {
         const [a, b] = wordAt(editor.storyOf(edited).text, textAt(edited.id, p))
-        select(editor, a, b)
+        if (editor.editing!.anchor === editor.editing!.focus) select(editor, a, b)
         return
       }
       const id = pickAt(p, 'double')

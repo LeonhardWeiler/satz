@@ -106,6 +106,28 @@ test('a triple click in a text selects all of it', async ({ page }) => {
   await expect(layers.getByRole('button', { name: 'Z', exact: true })).toBeVisible()
 })
 
+test('a double click that drags selects by character, not by word', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  await open(page)
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
+  const at = await screen(page, 69, 100)
+  await page.mouse.dblclick(...at)
+  await page.mouse.dblclick(...at)
+  await page.keyboard.press('Control+c')
+  const word = await page.evaluate(() => navigator.clipboard.readText())
+  await page.mouse.click(...at)
+  await page.mouse.down()
+  await page.mouse.up()
+  await page.mouse.down({ clickCount: 2 })
+  await page.mouse.move(at[0] + 10, at[1], { steps: 3 })
+  await page.mouse.up({ clickCount: 2 })
+  await page.keyboard.press('Control+c')
+  const part = await page.evaluate(() => navigator.clipboard.readText())
+  expect(word).toContain(part)
+  expect(part.length).toBeGreaterThan(0)
+  expect(part.length).toBeLessThan(word.length)
+})
+
 test('a right click selects the layer under it and offers the actions for it', async ({ page }) => {
   await open(page)
   const layers = page.getByRole('tree', { name: 'Layers' })
