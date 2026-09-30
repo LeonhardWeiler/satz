@@ -150,8 +150,8 @@ test('a spot swatch is made in the swatches panel, bound in the picker, tinted a
   await panel.getByRole('textbox', { name: 'Fill tint' }).fill('100')
   await panel.getByRole('textbox', { name: 'Fill tint' }).press('Enter')
 
-  await swatches.getByRole('option', { name: 'HKS 43' }).press('Enter')
-  await editor.getByRole('button', { name: 'Delete swatch' }).click()
+  await swatches.getByRole('option', { name: 'HKS 43' }).hover()
+  await swatches.getByRole('button', { name: 'Delete HKS 43' }).click()
   await expect(swatches.getByRole('option')).toHaveCount(0)
   await expect(panel.getByRole('combobox', { name: 'Fill type' })).toHaveText('Solid')
   const [r2, , b2] = (await pixels(page, x, y, 1, 1))[0]

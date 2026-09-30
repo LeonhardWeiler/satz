@@ -50,6 +50,7 @@ export function Swatches({ editor }: { editor: Editor }) {
         {swatches.map((s) => (
           <div
             key={s.id}
+            className="swatch-row"
             data-id={s.id}
             onDoubleClick={() => {
               setEditing(null)
@@ -66,6 +67,20 @@ export function Swatches({ editor }: { editor: Editor }) {
               </div>
             ) : (
               <SwatchOption swatch={s} selected={s.id === editing} onPick={() => pick(s.id)} />
+            )}
+            {renaming !== s.id && (
+              <button
+                type="button"
+                className="swatch-delete"
+                aria-label={`Delete ${s.name}`}
+                title="Delete swatch"
+                onClick={() => {
+                  editor.apply({ type: 'deleteSwatch', id: s.id })
+                  if (editing === s.id) setEditing(null)
+                }}
+              >
+                <Icon name="minus" />
+              </button>
             )}
           </div>
         ))}
