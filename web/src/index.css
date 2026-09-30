@@ -470,7 +470,7 @@ textarea {
   line-height: 22px;
 }
 
-.section-header .icon-button {
+.section-header .icon-button:last-child {
   margin-right: 8px;
 }
 

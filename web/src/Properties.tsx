@@ -146,7 +146,24 @@ export function Properties({
       )}
       {!box && <DocumentSection editor={editor} />}
       {!box && (
-        <Section title={isPage ? (targets.length > 1 ? `Pages ${numbers.join(', ')}` : `Page ${numbers[0]}`) : 'Master'}>
+        <Section
+          title={isPage ? (targets.length > 1 ? `Pages ${numbers.join(', ')}` : `Page ${numbers[0]}`) : 'Master'}
+          actions={
+            isPage &&
+            targets.length === 1 &&
+            snapshot.pages.some((p) => p.width !== page.width || p.height !== page.height || p.bleed !== page.bleed) && (
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="Apply size to all pages"
+                title="Apply size to all pages"
+                onClick={() => editor.batch(() => snapshot.pages.forEach((p) => editor.apply({ type: 'setPage', id: p.id, width: page.width, height: page.height, bleed: page.bleed })))}
+              >
+                <Icon name="pages" />
+              </button>
+            )
+          }
+        >
           <FormatRow page sheets={sheets} each={setSheets} />
           <div className="grid">
             {(['width', 'height', 'bleed'] as const).map((k) => (
@@ -158,25 +175,16 @@ export function Properties({
                 onCommit={(v) => setSheets(() => ({ [k]: v }))}
               />
             ))}
+            {isPage && (
+              <Select
+                label="Master"
+                value={master}
+                options={Object.fromEntries([['', 'No master'], ...snapshot.masters.map((m) => [m.id, m.name])])}
+                onChange={(m) => editor.batch(() => targets.forEach((id) => editor.apply({ type: 'useMaster', page: id, master: m || null })))}
+              />
+            )}
             <ModeSelects editor={editor} id={page.id} own={page.modes} inherited={{}} />
           </div>
-          {isPage && (
-            <Select
-              label="Master"
-              value={master}
-              options={Object.fromEntries([['', 'No master'], ...snapshot.masters.map((m) => [m.id, m.name])])}
-              onChange={(m) => editor.batch(() => targets.forEach((id) => editor.apply({ type: 'useMaster', page: id, master: m || null })))}
-            />
-          )}
-          {isPage && targets.length === 1 && snapshot.pages.some((p) => p.width !== page.width || p.height !== page.height || p.bleed !== page.bleed) && (
-            <button
-              type="button"
-              className="button"
-              onClick={() => editor.batch(() => snapshot.pages.forEach((p) => editor.apply({ type: 'setPage', id: p.id, width: page.width, height: page.height, bleed: page.bleed })))}
-            >
-              Apply to all pages
-            </button>
-          )}
           {isPage && page.detached.length > 0 && (
             <button type="button" className="button" onClick={() => editor.apply({ type: 'resetToMaster', ids: [page.id] })}>
               Reset overrides
@@ -438,7 +446,18 @@ function GridSection({ editor, sheets, all }: { editor: Editor; sheets: Page[]; 
   const setGrids = (grids: Grid[], to = sheets) => editor.batch(() => to.forEach((p) => editor.apply({ type: 'setGrids', id: p.id, grids })))
   const fresh: Grid = { kind: 'columns', count: 2, gutter: 5 * MM, margin: 15 * MM, size: 5 * MM }
   return (
-    <Section title="Layout grids" onAdd={() => setGrids([...(grids ?? []), fresh])}>
+    <Section
+      title="Layout grids"
+      onAdd={() => setGrids([...(grids ?? []), fresh])}
+      actions={
+        grids &&
+        all.some((p) => key(p) !== key(sheets[0])) && (
+          <button type="button" className="icon-button" aria-label="Apply grids to all pages" title="Apply grids to all pages" onClick={() => setGrids(grids, all)}>
+            <Icon name="pages" />
+          </button>
+        )
+      }
+    >
       {!grids && <p className="empty">Click + to replace mixed grids</p>}
       {grids && grids.length > 0 && (
         <ul className="rows">
@@ -467,11 +486,6 @@ function GridSection({ editor, sheets, all }: { editor: Editor; sheets: Page[]; 
             )
           })}
         </ul>
-      )}
-      {grids && all.some((p) => key(p) !== key(sheets[0])) && (
-        <button type="button" className="button" onClick={() => setGrids(grids, all)}>
-          Apply grids to all pages
-        </button>
       )}
     </Section>
   )

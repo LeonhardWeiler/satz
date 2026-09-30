@@ -254,12 +254,23 @@ export function FontSelect({ label, faces, missing = [], value, onChange }: { la
   )
 }
 
-export function Section({ title, onAdd, children }: { title: string; onAdd?: (e: MouseEvent<HTMLButtonElement>) => void; children?: ReactNode }) {
+export function Section({
+  title,
+  onAdd,
+  actions,
+  children,
+}: {
+  title: string
+  onAdd?: (e: MouseEvent<HTMLButtonElement>) => void
+  actions?: ReactNode
+  children?: ReactNode
+}) {
   const add = `Add ${title.toLowerCase().replace(/s$/, '')}`
   return (
     <section className="section" aria-label={title}>
       <header className="section-header">
         <h3>{title}</h3>
+        {actions}
         {onAdd && (
           <button type="button" className="icon-button" aria-label={add} title={add} onClick={onAdd}>
             <Icon name="plus" />
