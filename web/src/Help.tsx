@@ -6,7 +6,7 @@ import { Icon } from './icons'
 const GESTURES: Record<string, [string, string][]> = {
   Canvas: [['Ctrl click', 'Select inside a group'], ['Ctrl Shift click', 'Override a master layer'], ['Double-click', 'Edit text, enter a group'], ['Alt drag', 'Resize from the centre'], ['Space drag', 'Pan'], ['Ctrl wheel', 'Zoom'], ['Ctrl drag', 'No snapping'], ['Shift drag', 'Lock to an axis'], ['Drag beside a corner', 'Turn, Shift by 15°'], ['Enter on a shape', 'Edit its points'], ['Ctrl D on a moved copy', 'Copy again as far on'], ['Ctrl V of outside text', 'New text layer'], ['Alt', 'Distances to the layer under the pointer'], ['Arrows', 'Nudge 0.1 mm, Shift 1 mm']],
   Align: ALIGNS.map(([, title, , keys]) => [keys.replaceAll('+', ' '), title]),
-  Text: [['Enter', 'Edit the selected text'], ['Esc', 'Stop editing'], ['Ctrl Alt Shift N', 'Insert the page number'], ['Double-click a port', 'Unthread']],
+  Text: [['Enter', 'Edit the selected text'], ['Esc', 'Stop editing'], ['Ctrl Alt Shift N', 'Insert the page number'], ['Double-click a port', 'Unthread'], ['lorem Tab', 'Lorem ipsum, lorem50 for 50 words']],
   Layers: [['↑ ↓', 'Previous, next layer'], ['→ ←', 'Open, close a group'], ['Enter', 'Select children'], ['Shift Enter', 'Select parent'], ['Tab', 'Next sibling'], ['Shift Tab', 'Previous sibling']],
   Pages: [['Alt ← →', 'Move the page in the overview'], ['Double-click master', 'Edit master']],
   Fields: [['Drag the label', 'Change the value'], ['Double-click the label', 'Default value'], ['↑ ↓', '1, Shift 10, Alt 0.1'], ['118/2', 'Calculates on Enter'], ['12pt', 'Converts the unit']],

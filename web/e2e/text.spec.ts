@@ -77,6 +77,24 @@ test('the insert character menu puts dashes and quotes into the edited text', as
   await expect(page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'a\u2013\u201eb', exact: true })).toBeVisible()
 })
 
+test('lorem with a count and tab types that many words of lorem ipsum', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  await open(page)
+  const layers = page.getByRole('tree', { name: 'Layers' })
+  await page.keyboard.press('t')
+  await page.mouse.click(...(await screen(page, 10, 200, 0)))
+  await page.keyboard.type('Hi lorem3')
+  await page.keyboard.press('Tab')
+  await expect(layers.getByRole('button', { name: 'Hi Lorem ipsum dolor.', exact: true })).toBeVisible()
+  await page.keyboard.type(' lorem')
+  await page.keyboard.press('Tab')
+  await page.keyboard.press('Control+a')
+  await page.keyboard.press('Control+c')
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    'Hi Lorem ipsum dolor. Lorem ipsum dolor sit amet consectetur adipiscing elit sed do.',
+  )
+})
+
 test('hyphenation is switched per paragraph with its language', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })

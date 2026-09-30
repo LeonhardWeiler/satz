@@ -62,6 +62,12 @@ export function select(editor: Editor, anchor: number, focus: number) {
   editor.set({ editing: { id: e.id, anchor, focus } })
 }
 
+const LOREM =
+  'lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat'.split(' ')
+
+/** `n` words of lorem ipsum as a sentence. */
+const lorem = (n: number) => `L${Array.from({ length: n }, (_, i) => LOREM[i % LOREM.length]).join(' ').slice(1)}.`
+
 /** Moves the caret to `to`, or the focus when `extend`. */
 function move(editor: Editor, to: number, extend: boolean) {
   const e = editor.editing!
@@ -111,7 +117,12 @@ export function handleTextKey(editor: Editor, e: KeyboardEvent): boolean {
   else if (mod && (key === 'z' || key === 'y')) {
     editor.endTyping()
     editor.apply({ type: key === 'y' || e.shiftKey ? 'redo' : 'undo' })
-  } else if (e.key === 'Tab') return true
+  } else if (e.key === 'Tab') {
+    const m = a === b && /\blorem(\d*)$/i.exec(text.slice(0, a))
+    if (!m) return true
+    select(editor, a - m[0].length, a)
+    insert(editor, lorem(Math.min(Number(m[1] || 10), 10000)))
+  }
   else return false
   return true
 }
