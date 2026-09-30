@@ -838,6 +838,11 @@ span.swatch {
   box-shadow: 0 8px 30px var(--shadow);
 }
 
+.type-options {
+  width: 272px;
+  padding-top: 12px;
+}
+
 .picker-header {
   display: flex;
   align-items: center;
