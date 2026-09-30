@@ -4,6 +4,7 @@ import { ContextMenu } from './ContextMenu'
 import { Field, FontSelect, NameInput, nextName, Section, Segmented, Select } from './controls'
 import { useEditor, type Editor } from './editor'
 import { Icon, type IconName } from './icons'
+import { Popover } from './Popover'
 import { PAGE_NUMBER, insert, range } from './textEdit'
 import { STYLED, type Attrs, type Props, type Sizing, type Styled, type TextNode, type TextProps, type TextStyle, type Typeface } from './model'
 import { Bindable } from './Variables'
@@ -34,18 +35,39 @@ const RESIZING = [
 ] as const
 const LANGS = { en: 'English', de: 'German' } as const
 /** Styled numbers: title, label, unit, least value and the text shown for 0. */
-const METRICS: [Exclude<Styled, 'font'>, string, IconName, string, number, string?][] = [
+const METRICS: [Exclude<Styled, 'font' | 'textCase' | 'textDecoration' | 'features' | 'paragraphIndent'>, string, IconName, string, number, string?][] = [
   ['size', 'Font size', 'fontSize', 'pt', 0.1],
   ['lineHeight', 'Line height', 'lineHeight', 'pt', 0, 'Auto'],
   ['letterSpacing', 'Letter spacing', 'letterSpacing', '%', -100],
   ['paragraphSpacing', 'Paragraph spacing', 'paragraphSpacing', 'pt', 0],
 ]
 
+const CASES = { original: 'As typed', upper: 'Upper case', lower: 'Lower case', title: 'Title case' } as const
+const DECORATIONS = { none: 'No decoration', underline: 'Underline', strikethrough: 'Strikethrough' } as const
+/** OpenType features: tag, title and whether fonts apply it unless turned off. */
+const FEATURES: [string, string, boolean?][] = [
+  ['kern', 'Kerning', true],
+  ['liga', 'Ligatures', true],
+  ['dlig', 'Discretionary ligatures'],
+  ['smcp', 'Small caps'],
+  ['c2sc', 'Capitals to small caps'],
+  ['case', 'Case-sensitive forms'],
+  ['lnum', 'Lining figures'],
+  ['onum', 'Oldstyle figures'],
+  ['pnum', 'Proportional figures'],
+  ['tnum', 'Tabular figures'],
+  ['frac', 'Fractions'],
+  ['zero', 'Slashed zero'],
+  ['sups', 'Superscript'],
+  ['subs', 'Subscript'],
+  ['ordn', 'Ordinals'],
+]
+
 /** The text style's name set at its size, within what a panel row takes. */
 const specimen = (s?: TextStyle) => (s ? { fontSize: Math.min(Math.max(s.size * 0.95, 9), 22), fontFamily: 'var(--doc-font)' } : undefined)
 
 /** The value all spans share, or null. */
-export function sameOf<T>(spans: Attrs[], get: (a: Attrs) => T): T | null {
+export function sameOf<A, T>(spans: A[], get: (a: A) => T): T | null {
   const values = spans.map(get)
   return values.every((v) => v === values[0]) ? values[0] : null
 }
@@ -97,6 +119,84 @@ export function Specimen({ editor, spans, format }: { editor: Editor; spans: Att
               ['Create text style', create, spans.length > 0],
             ]}
           />,
+          document.body,
+        )}
+    </>
+  )
+}
+
+/** A button that opens the case, decoration, indent and OpenType features of `spans`. */
+function TypeOptions({ spans, set }: { spans: Pick<Attrs, Styled>[]; set: (p: TextProps) => void }) {
+  const [at, setAt] = useState<DOMRect | null>(null)
+  const same = <T,>(get: (a: Pick<Attrs, Styled>) => T) => sameOf(spans, get)
+  const features = same((a) => a.features.join(' '))
+  const on = (tag: string, dflt?: boolean) => (a: Pick<Attrs, Styled>) => (dflt ? !a.features.includes(`${tag}=0`) : a.features.includes(tag))
+  const toggle = (tag: string, dflt: boolean | undefined, checked: boolean) => {
+    const rest = (spans[0]?.features ?? []).filter((f) => f !== tag && f !== `${tag}=0`)
+    const own = dflt ? (checked ? [] : [`${tag}=0`]) : checked ? [tag] : []
+    set({ features: [...rest, ...own].sort() })
+  }
+  return (
+    <>
+      <button
+        type="button"
+        className="icon-button"
+        aria-label="Type options"
+        title="Type options"
+        aria-haspopup="dialog"
+        aria-expanded={!!at}
+        onClick={(e) => setAt(e.currentTarget.getBoundingClientRect())}
+      >
+        <Icon name="more" />
+      </button>
+      {at &&
+        createPortal(
+          <div className="menu-backdrop" onPointerDown={() => setAt(null)}>
+            <Popover
+              anchor={() => at}
+              side="bottom"
+              className="picker type-options"
+              role="dialog"
+              aria-label="Type options"
+              tabIndex={-1}
+              onPointerDown={(e) => e.stopPropagation()}
+              onKeyDown={(e) => {
+                if (e.key !== 'Escape') return
+                e.stopPropagation()
+                setAt(null)
+              }}
+            >
+              <div className="grid">
+                <Select label="Case" value={same((a) => a.textCase)} options={CASES} onChange={(textCase) => set({ textCase })} />
+                <Select label="Decoration" value={same((a) => a.textDecoration)} options={DECORATIONS} onChange={(textDecoration) => set({ textDecoration })} />
+                <Field
+                  label={<Icon name="paragraphIndent" />}
+                  title="Paragraph indent in pt"
+                  unit="pt"
+                  value={same((a) => a.paragraphIndent)}
+                  onCommit={(paragraphIndent) => set({ paragraphIndent })}
+                />
+              </div>
+              <div className="grid" role="group" aria-label="OpenType features">
+                {FEATURES.map(([tag, title, dflt]) => {
+                  const checked = same(on(tag, dflt))
+                  return (
+                    <label key={tag} className="check">
+                      <input
+                        type="checkbox"
+                        checked={checked === true}
+                        ref={(el) => {
+                          if (el) el.indeterminate = features === null && checked === null
+                        }}
+                        onChange={(e) => toggle(tag, dflt, e.currentTarget.checked)}
+                      />
+                      {title}
+                    </label>
+                  )
+                })}
+              </div>
+            </Popover>
+          </div>,
           document.body,
         )}
     </>
@@ -176,7 +276,10 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
           )
         })}
       </div>
-      <Segmented label="Text align" value={align} options={ALIGNS} onChange={(textAlign) => format({ textAlign })} />
+      <div className="row">
+        <Segmented label="Text align" value={align} options={ALIGNS} onChange={(textAlign) => format({ textAlign })} />
+        <TypeOptions spans={spans} set={format} />
+      </div>
       <div className="grid">
         <label className="check">
           <input
@@ -218,6 +321,7 @@ function StyleRow({ editor, style }: { editor: Editor; style: TextStyle }) {
     <div role="group" aria-label={style.name} className="text-style">
       <div className="row">
         <NameInput label="Text style name" value={style.name} onCommit={(name) => editor.apply({ type: 'setTextStyle', id: style.id, name })} />
+        <TypeOptions spans={[style]} set={(p) => editor.apply({ type: 'setTextStyle', id: style.id, ...p })} />
         <button
           type="button"
           className="icon-button"

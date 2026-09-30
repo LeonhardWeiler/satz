@@ -600,6 +600,7 @@ impl Doc {
                 size: Some(s.attrs.size * by),
                 line_height: Some(s.attrs.line_height * by),
                 paragraph_spacing: Some(s.attrs.paragraph_spacing * by),
+                paragraph_indent: Some(s.attrs.paragraph_indent * by),
                 ..TextProps::default()
             };
             props.check()?;

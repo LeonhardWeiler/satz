@@ -11,10 +11,11 @@ use crate::style::{
     Style,
 };
 use crate::text::{
-    self, Attrs, Lang, PARAGRAPH, STYLED, Span, TextAlign, TextFrame, TextStyle, Typeface,
-    VerticalAlign,
+    self, Attrs, Lang, PARAGRAPH, STYLED, Span, TextAlign, TextCase, TextDecoration, TextFrame,
+    TextStyle, Typeface, VerticalAlign,
 };
 use crate::variable::{Collection, Mode, Modes, Palette, Scope, Value, Variable};
+use harfrust::Feature;
 use loro::{
     Container, ExpandType, ExportMode, LoroBinaryValue, LoroDoc, LoroMap, LoroText, LoroTree,
     LoroValue, StyleConfig, TextDelta, TreeID, TreeParentId, UndoManager, UpdateOptions,
@@ -475,6 +476,10 @@ pub struct TextProps {
     pub hyphenate: Option<bool>,
     pub lang: Option<Lang>,
     pub font: Option<Typeface>,
+    pub paragraph_indent: Option<f64>,
+    pub text_case: Option<TextCase>,
+    pub text_decoration: Option<TextDecoration>,
+    pub features: Option<Vec<String>>,
 }
 
 impl TextProps {
@@ -485,6 +490,20 @@ impl TextProps {
             self.letter_spacing,
             self.paragraph_spacing,
         )?;
+        if self
+            .paragraph_indent
+            .is_some_and(|v| !(v >= 0.0 && v.is_finite()))
+        {
+            return Err("paragraph indent must be at least 0".into());
+        }
+        if let Some(f) = self
+            .features
+            .iter()
+            .flatten()
+            .find(|f| f.parse::<Feature>().is_err())
+        {
+            return Err(format!("{f} is not an OpenType feature"));
+        }
         self.fill.as_ref().map_or(Ok(()), Color::check)
     }
 }
@@ -615,11 +634,15 @@ const BINDABLE: [&str; 12] = [
 ];
 
 /// The keys of a text layer that belong to its story and move with it.
-const STORY: [&str; 11] = [
+const STORY: [&str; 15] = [
     "size",
     "lineHeight",
     "letterSpacing",
     "paragraphSpacing",
+    "paragraphIndent",
+    "textCase",
+    "textDecoration",
+    "features",
     "fill",
     "textStyle",
     "textAlign",

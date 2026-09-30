@@ -1040,6 +1040,7 @@ impl Doc {
                 let a = Attrs {
                     text_align: p.text_align,
                     paragraph_spacing: p.paragraph_spacing,
+                    paragraph_indent: p.paragraph_indent,
                     hyphenate: p.hyphenate,
                     lang: p.lang,
                     ..attrs.clone()

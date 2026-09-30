@@ -1,10 +1,10 @@
 use crate::color::Color;
 use crate::content_hash;
-use crate::display_list::{Op, Paint};
+use crate::display_list::{Op, Paint, rect};
 use crate::linebreak::{Item, break_lines};
 use crate::style::{Fill, paints};
 use crate::variable::{Scope, Value};
-use harfrust::{FontRef, ShapeOptions, ShaperData, UnicodeBuffer};
+use harfrust::{Feature, FontRef, ShapeOptions, ShaperData, UnicodeBuffer};
 use read_fonts::TableProvider;
 use serde::{Deserialize, Serialize};
 use serde_json::Map;
@@ -115,15 +115,25 @@ pub fn fonts() -> Vec<Typeface> {
 }
 
 /// The keys of `Attrs` a text style sets.
-pub const STYLED: [&str; 5] = [
+pub const STYLED: [&str; 9] = [
     "size",
     "lineHeight",
     "letterSpacing",
     "paragraphSpacing",
+    "paragraphIndent",
     "font",
+    "textCase",
+    "textDecoration",
+    "features",
 ];
 /// The keys of `Attrs` that hold for a whole paragraph, taken from its first character.
-pub const PARAGRAPH: [&str; 4] = ["textAlign", "paragraphSpacing", "hyphenate", "lang"];
+pub const PARAGRAPH: [&str; 5] = [
+    "textAlign",
+    "paragraphSpacing",
+    "paragraphIndent",
+    "hyphenate",
+    "lang",
+];
 
 /// TeX's \hyphenpenalty.
 const HYPHEN_COST: f32 = 50.0;
@@ -156,9 +166,30 @@ pub enum Lang {
     De,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TextCase {
+    #[default]
+    Original,
+    Upper,
+    Lower,
+    /// Each word's first letter in upper case.
+    Title,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TextDecoration {
+    #[default]
+    None,
+    Underline,
+    Strikethrough,
+}
+
 /// What a character looks like. Sizes and spacing are in pt, `letter_spacing` in % of
 /// the size; `line_height` 0 is auto, the font's ascent plus descent. `fill` replaces
-/// the layer's fills; `text_style` "" means none.
+/// the layer's fills; `text_style` "" means none. `features` are OpenType features as
+/// harfrust parses them, e.g. "smcp" or "liga=0".
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Attrs {
@@ -173,6 +204,10 @@ pub struct Attrs {
     pub lang: Lang,
     /// `None` is the bundled font.
     pub font: Option<Typeface>,
+    pub paragraph_indent: f64,
+    pub text_case: TextCase,
+    pub text_decoration: TextDecoration,
+    pub features: Vec<String>,
 }
 
 impl Default for Attrs {
@@ -188,6 +223,10 @@ impl Default for Attrs {
             hyphenate: false,
             lang: Lang::En,
             font: None,
+            paragraph_indent: 0.0,
+            text_case: TextCase::Original,
+            text_decoration: TextDecoration::None,
+            features: Vec::new(),
         }
     }
 }
@@ -349,7 +388,8 @@ pub fn draw(
         })
         .collect();
     let mut ops = Vec::new();
-    for line in lay_out(text, spans, frame, tf, from) {
+    let placed = set(text, spans, frame, tf, from).0;
+    for (line, geometry) in placed.lines.into_iter().zip(&placed.geometry) {
         let mut at = 0;
         for run in line.chunk_by(|a, b| {
             spans[a.span].attrs.size == spans[b.span].attrs.size
@@ -370,8 +410,49 @@ pub fn draw(
                 });
             }
         }
+        for run in line.chunk_by(|a, b| {
+            let (a, b) = (&spans[a.span].attrs, &spans[b.span].attrs);
+            a.text_decoration == b.text_decoration && a.size == b.size && a.fill == b.fill
+        }) {
+            let a = &spans[run[0].span].attrs;
+            let Some([at, thick]) = decoration(font_id(&a.font), a.text_decoration) else {
+                continue;
+            };
+            let last = run[run.len() - 1].cluster;
+            let end = geometry.stops.iter().find(|s| s.0 > last);
+            let x1 = end.or(geometry.stops.last()).map_or(0.0, |s| s.1);
+            let (x0, size) = (run[0].x, a.size as f32);
+            for paint in &span_paints[run[0].span] {
+                ops.push(Op::FillPath {
+                    paint: paint.clone(),
+                    path: rect(x0, run[0].y - at * size, x1 - x0, thick * size),
+                });
+            }
+        }
     }
     ops
+}
+
+/// Top and thickness in em of the line that `decoration` draws in the font `id`, with
+/// the top above the baseline.
+fn decoration(id: u32, decoration: TextDecoration) -> Option<[f32; 2]> {
+    let bytes = font_bytes(id);
+    let f = FontRef::new(&bytes).ok()?;
+    let upem = f.head().ok()?.units_per_em() as f32;
+    let [at, thick] = match decoration {
+        TextDecoration::None => return None,
+        TextDecoration::Underline => f.post().ok().map_or([-100, 50], |p| {
+            [
+                p.underline_position().to_i16(),
+                p.underline_thickness().to_i16(),
+            ]
+        }),
+        TextDecoration::Strikethrough => f.os2().ok().map_or([300, 50], |o| {
+            [o.y_strikeout_position(), o.y_strikeout_size()]
+        }),
+    }
+    .map(|v| v as f32 / upem);
+    Some([at, thick.max(0.02)])
 }
 
 /// The text that the glyphs `run` of `line` stand for and each glyph's range in it:
@@ -408,6 +489,7 @@ fn source(
 }
 
 /// The lines of `text` from the byte `from` that fit in `frame`, each a list of glyphs.
+#[cfg(test)]
 pub fn lay_out(
     text: &str,
     spans: &[Span],
@@ -668,7 +750,9 @@ fn rows(
                     if matches!(items[k], Item::Penalty { .. }) && k != end {
                         continue;
                     }
+                    let indent = matches!(items[k], Item::Box(_)) && glyphs[k].is_none();
                     if !matches!(items[k], Item::Penalty { .. })
+                        && !indent
                         && stops.last().is_none_or(|s| s.0 < clusters[k])
                     {
                         stops.push((clusters[k], cx));
@@ -715,17 +799,30 @@ fn rows(
         let first = &spans[span_at(start)].attrs;
         let mut shaped = Vec::new();
         let mut chars = para.char_indices().peekable();
+        let mut prev = None;
         while let Some(&(i, _)) = chars.peek() {
-            let k = slot[span_at(start + i)];
+            let first = span_at(start + i);
+            let (k, a) = (slot[first], &spans[first].attrs);
+            let same = |i: usize| {
+                let s = span_at(start + i);
+                slot[s] == k && spans[s].attrs.features == a.features
+            };
             let mut buf = UnicodeBuffer::new();
-            while let Some((i, c)) = chars.next_if(|&(i, _)| slot[span_at(start + i)] == k) {
-                match c {
-                    PAGE_NUMBER => number.chars().for_each(|d| buf.add(d, i as u32)),
-                    c => buf.add(c, i as u32),
+            while let Some((i, c)) = chars.next_if(|&(i, _)| same(i)) {
+                let mut add = |c| buf.add(c, i as u32);
+                let word = prev.is_some_and(char::is_alphanumeric);
+                match (c, spans[span_at(start + i)].attrs.text_case) {
+                    (PAGE_NUMBER, _) => number.chars().for_each(add),
+                    (c, TextCase::Upper) => c.to_uppercase().for_each(add),
+                    (c, TextCase::Title) if !word => c.to_uppercase().for_each(add),
+                    (c, TextCase::Lower) => c.to_lowercase().for_each(add),
+                    (c, _) => add(c),
                 }
+                prev = Some(c);
             }
             buf.guess_segment_properties();
-            let out = shapers[k].shape(buf, ShapeOptions::new());
+            let features: Vec<Feature> = a.features.iter().filter_map(|f| f.parse().ok()).collect();
+            let out = shapers[k].shape(buf, ShapeOptions::new().features(&features));
             shaped.extend(out.glyph_infos().iter().zip(out.glyph_positions()).map(
                 |(info, pos)| {
                     let scale = 1.0 / metrics[k].upem;
@@ -770,6 +867,11 @@ fn rows(
                 items.push(Item::Box(adv));
                 glyphs.push(Some((id, dx * size, dy * size, span, cluster, false)));
             }
+        }
+        if first.paragraph_indent > 0.0 {
+            items.insert(0, Item::Box(first.paragraph_indent as f32));
+            glyphs.insert(0, None);
+            clusters.insert(0, start);
         }
         let natural: f32 = items
             .iter()
@@ -1214,6 +1316,72 @@ mod tests {
         };
         let r = plain("Hi", a, [0.0, 0.0, 100.0, 50.0]);
         assert_close(&r[0].1, &[0.0, ASCENT, 8.88, ASCENT]);
+    }
+
+    #[test]
+    fn case_features_and_indent_change_the_glyphs_and_where_they_sit() {
+        let with = |a: Attrs| plain("Hi fi", a, [0.0, 0.0, 100.0, 50.0])[0].clone();
+        let upper = with(Attrs {
+            text_case: TextCase::Upper,
+            ..attrs(10.0)
+        });
+        assert_eq!(upper.0[0], H);
+        assert_ne!(upper.0[1], I);
+        let no_liga = with(Attrs {
+            features: vec!["liga=0".into()],
+            ..attrs(10.0)
+        });
+        assert_eq!(no_liga.0.len(), 4);
+        assert_eq!(with(attrs(10.0)).0.len(), 3);
+        let indented = with(Attrs {
+            paragraph_indent: 20.0,
+            ..attrs(10.0)
+        });
+        assert_close(&indented.1[..1], &[20.0]);
+    }
+
+    #[test]
+    fn underline_and_strikethrough_draw_a_line_under_and_through_the_text() {
+        let palette = Palette::default();
+        let modes = Modes::new();
+        let s = Scope {
+            palette: &palette,
+            modes: &modes,
+        };
+        let lines = |text_decoration| {
+            let a = Attrs {
+                text_decoration,
+                ..attrs(10.0)
+            };
+            let black = [Fill::solid(0x000000ffu32)];
+            draw(
+                "Hi Hi",
+                &one("Hi Hi", a),
+                &black,
+                [0.0, 0.0, 100.0, 50.0],
+                &TextFrame::default(),
+                &s,
+                0,
+            )
+            .into_iter()
+            .filter_map(|op| match op {
+                Op::FillPath { path, .. } => Some([path[1], path[2], path[4]]),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+        };
+        assert!(lines(TextDecoration::None).is_empty());
+        let [under] = lines(TextDecoration::Underline)[..] else {
+            panic!()
+        };
+        let [through] = lines(TextDecoration::Strikethrough)[..] else {
+            panic!()
+        };
+        assert!(
+            under[1] > ASCENT && through[1] < ASCENT,
+            "{under:?} {through:?}"
+        );
+        assert!(under[2] > 20.0, "{under:?}");
     }
 
     #[test]

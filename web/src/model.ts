@@ -234,6 +234,11 @@ export type Attrs = {
   lang: 'en' | 'de'
   /** `null` is the bundled font. */
   font: Typeface | null
+  paragraphIndent: number
+  textCase: 'original' | 'upper' | 'lower' | 'title'
+  textDecoration: 'none' | 'underline' | 'strikethrough'
+  /** OpenType features as harfrust parses them, e.g. "smcp" or "liga=0". */
+  features: string[]
 }
 /** A font by its full name, family and style, and a hash of its bytes. */
 export type Typeface = { name: string; family: string; style: string; hash: string }
@@ -256,7 +261,7 @@ export type TextFrame = {
 /** `len` characters in UTF-16 code units that share their attributes. */
 export type Span = Attrs & { len: number }
 /** The attributes a text style sets. */
-export const STYLED = ['size', 'lineHeight', 'letterSpacing', 'paragraphSpacing', 'font'] as const
+export const STYLED = ['size', 'lineHeight', 'letterSpacing', 'paragraphSpacing', 'paragraphIndent', 'font', 'textCase', 'textDecoration', 'features'] as const
 export type Styled = (typeof STYLED)[number]
 export type TextStyle = { id: string; name: string; bindings: Partial<Record<Bindable, string>> } & Pick<Attrs, Styled>
 
