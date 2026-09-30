@@ -96,9 +96,7 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
     <section className="preflight" aria-label="Preflight">
       <header className="pf-head">
         <h2>Preflight</h2>
-        <span className="pf-sum">
-          {issues.length ? `${count(errors, 'error')}, ${count(issues.length - errors, 'warning')}` : 'Ready to print'}
-        </span>
+        <span className="pf-sum">{issues.length > 0 && `${count(errors, 'error')}, ${count(issues.length - errors, 'warning')}`}</span>
         <button type="button" className="icon-button" aria-label="Close preflight (Esc)" title="Close preflight (Esc)" onClick={() => editor.togglePreflight()}>
           <Icon name="close" />
         </button>
