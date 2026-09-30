@@ -53,4 +53,11 @@ test('alt shows the distances to the layer under the pointer or to the page', as
   await expect(labels(page)).toHaveText(['40 mm'])
   await page.keyboard.up('Alt')
   await expect(labels(page)).toHaveCount(0)
+
+  const bar = page.getByRole('toolbar', { name: 'Quick edit' })
+  await bar.hover()
+  await page.keyboard.down('Alt')
+  await expect(bar).toBeVisible()
+  await expect(labels(page)).toHaveCount(0)
+  await page.keyboard.up('Alt')
 })
