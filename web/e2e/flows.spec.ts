@@ -34,7 +34,7 @@ test('a first visit creates an a5 booklet, a reload opens it and ctrl+n opens a 
   const chooser = page.waitForEvent('filechooser')
   await start(page).getByRole('button', { name: /Open file/ }).click()
   await (await chooser).setFiles(`${import.meta.dirname}/../../examples/poster.satz`)
-  await expect(page).toHaveTitle('poster.satz — Satz')
+  await expect(page).toHaveTitle('poster.satz - Satz')
 })
 
 test('the overview lists masters beside vertical spreads, assigns a master and reorders by drag', async ({ page }) => {

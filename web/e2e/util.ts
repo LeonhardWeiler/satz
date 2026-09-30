@@ -203,7 +203,7 @@ export async function openExample(page: Page, name: string) {
   const chooser = page.waitForEvent('filechooser')
   await page.keyboard.press('Control+o')
   await (await chooser).setFiles(join(import.meta.dirname, '../../examples', name))
-  await expect(page).toHaveTitle(`${name} — Satz`)
+  await expect(page).toHaveTitle(`${name} - Satz`)
   await page.mouse.move(1, 1)
 }
 

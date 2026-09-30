@@ -9,7 +9,7 @@ test('the start screen shows without an autosave and escape opens the booklet', 
   await expect(start(page).getByText('Esc opens the booklet')).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(start(page)).toHaveCount(0)
-  await expect(page).toHaveTitle('booklet.satz — Satz')
+  await expect(page).toHaveTitle('booklet.satz - Satz')
   await pageCount(page, 8)
 })
 
@@ -56,7 +56,7 @@ test('escape returns to the document and an example asks before it discards chan
   await expect(start(page).getByText('Esc returns to the document')).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(start(page)).toHaveCount(0)
-  await expect(page).toHaveTitle('* Untitled.satz — Satz')
+  await expect(page).toHaveTitle('* Untitled.satz - Satz')
 
   await page.keyboard.press('Control+n')
   page.once('dialog', (d) => d.dismiss())
@@ -64,7 +64,7 @@ test('escape returns to the document and an example asks before it discards chan
   await expect(start(page)).toBeVisible()
   page.once('dialog', (d) => d.accept())
   await start(page).getByRole('button', { name: 'Poster' }).click()
-  await expect(page).toHaveTitle('poster.satz — Satz')
+  await expect(page).toHaveTitle('poster.satz - Satz')
 })
 
 test('open file on the start screen asks for a file as ctrl+o does', async ({ page }) => {
@@ -84,5 +84,5 @@ test('ctrl+o on the start screen opens the file it asks for', async ({ page }) =
   const chooser = page.waitForEvent('filechooser')
   await page.keyboard.press('Control+o')
   await (await chooser).setFiles(`${import.meta.dirname}/../../examples/poster.satz`)
-  await expect(page).toHaveTitle('poster.satz — Satz')
+  await expect(page).toHaveTitle('poster.satz - Satz')
 })

@@ -27,7 +27,7 @@ test('saving asks for a file once and then saves into it again', async ({ page }
   for (let i = 0; i < 2; i++) {
     await addPage(page)
     await page.keyboard.press('Control+s')
-    await expect(page).toHaveTitle('Untitled.satz — Satz')
+    await expect(page).toHaveTitle('Untitled.satz - Satz')
   }
   expect(await asked(page)).toBe(1)
   const size = await page.evaluate(async () => (await (await (await navigator.storage.getDirectory()).getFileHandle('Untitled.satz')).getFile()).size)
@@ -39,12 +39,12 @@ test('a file picked to open replaces the document with it', async ({ page }) => 
   await open(page)
   await addPage(page)
   await page.keyboard.press('Control+s')
-  await expect(page).toHaveTitle('Untitled.satz — Satz')
+  await expect(page).toHaveTitle('Untitled.satz - Satz')
   await addPage(page)
   page.once('dialog', (d) => d.accept())
   await page.keyboard.press('Control+o')
   await pageCount(page, 2)
-  await expect(page).toHaveTitle('Untitled.satz — Satz')
+  await expect(page).toHaveTitle('Untitled.satz - Satz')
 })
 
 test('missing fonts are found among the fonts of this computer', async ({ page }) => {

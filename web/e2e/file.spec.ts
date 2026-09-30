@@ -26,16 +26,16 @@ test.beforeEach(async ({ page }) => {
     delete w.showOpenFilePicker
   })
   await open(page)
-  await expect(page).toHaveTitle('Untitled.satz — Satz')
+  await expect(page).toHaveTitle('Untitled.satz - Satz')
 })
 
 test('a reload keeps the document and its unsaved mark', async ({ page }) => {
   await addPage(page)
-  await expect(page).toHaveTitle('* Untitled.satz — Satz')
+  await expect(page).toHaveTitle('* Untitled.satz - Satz')
   await autosaved(page)
   await page.reload()
   await pageCount(page, 2)
-  await expect(page).toHaveTitle('* Untitled.satz — Satz')
+  await expect(page).toHaveTitle('* Untitled.satz - Satz')
 })
 
 test('a reloaded document has nothing to undo', async ({ page }) => {
@@ -51,7 +51,7 @@ test('a reloaded document has nothing to undo', async ({ page }) => {
 test('saving downloads the file and clears the unsaved mark', async ({ page }) => {
   await addPage(page)
   await save(page)
-  await expect(page).toHaveTitle('Untitled.satz — Satz')
+  await expect(page).toHaveTitle('Untitled.satz - Satz')
 })
 
 test('a double click on the name renames the document for the next save', async ({ page }) => {
@@ -59,9 +59,9 @@ test('a double click on the name renames the document for the next save', async 
   await page.getByRole('textbox', { name: 'Document name' }).fill('Report')
   await page.keyboard.press('Enter')
   await expect(page.getByRole('heading', { name: 'Report.satz' })).toBeVisible()
-  await expect(page).toHaveTitle('* Report.satz — Satz')
+  await expect(page).toHaveTitle('* Report.satz - Satz')
   await save(page, 'Report.satz')
-  await expect(page).toHaveTitle('Report.satz — Satz')
+  await expect(page).toHaveTitle('Report.satz - Satz')
 })
 
 test('opening a file replaces the document with it', async ({ page }) => {
@@ -69,7 +69,7 @@ test('opening a file replaces the document with it', async ({ page }) => {
   const file = await save(page)
   await addPage(page)
   await choose(page, file)
-  await expect(page).toHaveTitle('Untitled.satz — Satz')
+  await expect(page).toHaveTitle('Untitled.satz - Satz')
   await pageCount(page, 2)
 })
 
@@ -99,7 +99,7 @@ test('a dropped document opens and a dropped image is placed with a click', asyn
   }
   page.once('dialog', (d) => d.accept())
   await dropFile(file.name, file.buffer)
-  await expect(page).toHaveTitle('Untitled.satz — Satz')
+  await expect(page).toHaveTitle('Untitled.satz - Satz')
   await pageCount(page, 2)
   await dropFile('earthrise.jpg', image)
   const [x, y] = await screen(page, 74, 105)
@@ -120,5 +120,5 @@ test('new asks before it discards changes and then starts over', async ({ page }
   await page.keyboard.press('Control+Alt+n')
   await sample.click()
   await pageCount(page, 1)
-  await expect(page).toHaveTitle('Untitled.satz — Satz')
+  await expect(page).toHaveTitle('Untitled.satz - Satz')
 })

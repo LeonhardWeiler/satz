@@ -71,7 +71,7 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
 
   useEffect(() => autosave(editor), [editor])
   useEffect(() => {
-    document.title = `${dirty ? '* ' : ''}${name} — Satz`
+    document.title = `${dirty ? '* ' : ''}${name} - Satz`
   }, [dirty, name])
   useEffect(() => {
     const t = setTimeout(() => say(''), 5000)
