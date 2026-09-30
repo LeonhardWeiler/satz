@@ -282,12 +282,16 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         `<line class="${cls}" x1="${X(x1)}" y1="${Y(y1)}" x2="${X(x2)}" y2="${Y(y2)}"/>`
       let svg = snapped.map((g) => (g.axis === 'x' ? line(g.at, g.from, g.at, g.to) : line(g.from, g.at, g.to, g.at))).join('')
       if (target) svg += `<rect class="target" x="${X(target.x)}" y="${Y(target.y)}" width="${target.w * view.zoom}" height="${target.h * view.zoom}"/>`
+      const labels: Box[] = []
       for (const m of measures) {
         svg += line(m.x1, m.y1, m.x2, m.y2, m.dashed ? 'dashed' : '')
         if (m.dashed) continue
         const t = `${Math.round((m.length / MM) * 10) / 10} mm`
         const w = t.length * 6.2 + 10
-        const [cx, cy] = m.y1 === m.y2 ? [X((m.x1 + m.x2) / 2), Y(m.y1) + 13] : [X(m.x1) + 9 + w / 2, Y((m.y1 + m.y2) / 2)]
+        const cx = m.y1 === m.y2 ? X((m.x1 + m.x2) / 2) : X(m.x1) + 9 + w / 2
+        let cy = m.y1 === m.y2 ? Y(m.y1) + 13 : Y((m.y1 + m.y2) / 2)
+        while (labels.some((l) => Math.abs(l.x - cx) < (l.w + w) / 2 && Math.abs(l.y - cy) < 20)) cy += 20
+        labels.push({ x: cx, y: cy, w, h: 18 })
         svg += `<rect class="label" x="${cx - w / 2}" y="${cy - 9}" width="${w}" height="18" rx="4"/><text x="${cx}" y="${cy}">${t}</text>`
       }
       return svg

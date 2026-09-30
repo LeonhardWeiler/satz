@@ -61,3 +61,22 @@ test('alt shows the distances to the layer under the pointer or to the page', as
   await expect(labels(page)).toHaveCount(0)
   await page.keyboard.up('Alt')
 })
+
+test('distance labels never cover each other', async ({ page }) => {
+  await open(page)
+  await addMaster(page)
+  for (const [x, y, w, h] of [[20, 50, 10, 2], [20, 53, 10, 2], [40, 50, 10, 5]]) {
+    await page.keyboard.press('r')
+    await page.keyboard.down('Control')
+    await drag(page, await screen(page, x, y), await screen(page, x + w, y + h))
+    await page.keyboard.up('Control')
+  }
+  await page.mouse.move(...(await screen(page, 45, 52)))
+  await page.mouse.down()
+  await page.mouse.move(...(await screen(page, 47, 52)), { steps: 3 })
+  await expect(labels(page)).toHaveText(['12 mm', '12 mm'])
+  const boxes = await page.locator('.marks rect.label').evaluateAll((rs) => rs.map((r) => r.getBoundingClientRect().toJSON() as DOMRect))
+  for (const [i, a] of boxes.entries())
+    for (const b of boxes.slice(i + 1)) expect(a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top).toBe(true)
+  await page.mouse.up()
+})
