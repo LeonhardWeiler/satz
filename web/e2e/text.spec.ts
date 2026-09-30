@@ -18,7 +18,8 @@ test('type attributes and a text style are set in the text section and edited on
   await commit('Line height in pt', '15')
   await panel.getByRole('radio', { name: 'Align center' }).click()
   await expect(panel.getByRole('radio', { name: 'Align center' })).toBeChecked()
-  await panel.getByRole('button', { name: 'Create text style' }).click()
+  await panel.getByTitle('Text style', { exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Create text style' }).click()
   await page.mouse.move(0, 0)
   await expect(panel.getByTitle('Text style', { exact: true })).toContainText('Text style 1')
 

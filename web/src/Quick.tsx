@@ -48,11 +48,7 @@ export function Quick({ editor }: { editor: Editor }) {
     <>
       {one?.kind === 'text' && (
         <>
-          <Specimen
-            editor={editor}
-            style={sameOf(spans, (a) => a.textStyle)}
-            onPick={(textStyle) => editor.apply({ type: 'format', id: one.id, range: null, textStyle })}
-          />
+          <Specimen editor={editor} spans={spans} format={(p) => editor.apply({ type: 'format', id: one.id, range: null, ...p })} />
           <Segmented label="Text align" value={align} options={ALIGNS} onChange={(textAlign) => editor.apply({ type: 'format', id: one.id, range: null, textAlign })} />
         </>
       )}

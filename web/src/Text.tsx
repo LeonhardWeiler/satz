@@ -50,12 +50,24 @@ export function sameOf<T>(spans: Attrs[], get: (a: Attrs) => T): T | null {
   return values.every((v) => v === values[0]) ? values[0] : null
 }
 
-/** A button with the text style's name set at its size that opens a menu of the styles. */
-export function Specimen({ editor, style, onPick }: { editor: Editor; style: string | null; onPick: (id: string) => void }) {
+/** A button with the text style's name set at its size that opens a menu of the styles, and creates one from the text. */
+export function Specimen({ editor, spans, format }: { editor: Editor; spans: Attrs[]; format: (p: TextProps) => void }) {
   const styles = useEditor(editor, (e) => e.snapshot.textStyles)
+  const style = sameOf(spans, (a) => a.textStyle)
   const current = styles.find((s) => s.id === style)
   const [menu, setMenu] = useState<DOMRect | null>(null)
-  if (!styles.length) return null
+  const create = () => {
+    const a = spans[0]
+    const [id] = editor.apply({
+      type: 'addTextStyle',
+      name: nextName('Text style', styles.map((s) => s.name)),
+      size: a.size,
+      lineHeight: a.lineHeight,
+      letterSpacing: a.letterSpacing,
+      paragraphSpacing: a.paragraphSpacing,
+    })
+    format({ textStyle: id })
+  }
   return (
     <>
       <button
@@ -77,13 +89,15 @@ export function Specimen({ editor, style, onPick }: { editor: Editor; style: str
             label="Text styles"
             onClose={() => setMenu(null)}
             items={[
-              ['No style', () => onPick(''), true, style === ''],
+              ['No style', () => format({ textStyle: '' }), true, style === ''],
               ...styles.map((s): [ReactNode, () => void, boolean, boolean] => [
                 <span style={specimen(s)}>{s.name}</span>,
-                () => onPick(s.id),
+                () => format({ textStyle: s.id }),
                 true,
                 style === s.id,
               ]),
+              null,
+              ['Create text style', create, spans.length > 0],
             ]}
           />,
           document.body,
@@ -94,7 +108,6 @@ export function Specimen({ editor, style, onPick }: { editor: Editor; style: str
 
 /** Text style, type and alignment of a text layer. */
 export function TextSection({ editor, node }: { editor: Editor; node: TextNode }) {
-  const styles = useEditor(editor, (e) => e.snapshot.textStyles)
   const fonts = useEditor(editor, (e) => e.snapshot.fonts)
   const missing = useEditor(editor, (e) => e.snapshot.missingFonts)
   const spans = useEditor(editor, (e) => e.snapshot.stories[node.story])?.spans ?? []
@@ -103,19 +116,6 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
   const editing = useEditor(editor, (e) => e.editing?.id === node.id)
   /** Formats the selection of the text being edited, or else all of it. */
   const format = (props: TextProps) => editor.apply({ type: 'format', id: node.id, range: edited && range(edited), ...props })
-  const style = same((a) => a.textStyle)
-  const create = () => {
-    const a = spans[0]
-    const [id] = editor.apply({
-      type: 'addTextStyle',
-      name: nextName('Text style', styles.map((s) => s.name)),
-      size: a.size,
-      lineHeight: a.lineHeight,
-      letterSpacing: a.letterSpacing,
-      paragraphSpacing: a.paragraphSpacing,
-    })
-    format({ textStyle: id })
-  }
   const align = same((a) => a.textAlign)
   const font = same((a) => (a.font ?? fonts[0]).hash)
   const faces = [...fonts, ...missing.map((m) => m.font)]
@@ -128,17 +128,7 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
   return (
     <Section title="Text">
       <div className="row">
-        <Specimen editor={editor} style={style} onPick={(textStyle) => format({ textStyle })} />
-        <button
-          type="button"
-          className={styles.length ? 'icon-button' : 'button add'}
-          aria-label="Create text style"
-          title="Create text style"
-          onClick={create}
-        >
-          <Icon name="plus" />
-          {!styles.length && 'Text style'}
-        </button>
+        <Specimen editor={editor} spans={spans} format={format} />
         {editing && (
           <button
             type="button"
