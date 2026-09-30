@@ -18,12 +18,16 @@ export const MM = 72 / 25.4
 const FRAMED = ['create', 'placeImage', 'setFrame']
 const GRID: Record<string, number> = { x: 10, y: 10, w: 100, h: 100 }
 
-/** Puts x and y on a 0.1 mm grid, w and h on 0.01 mm and the other numbers of `cmd` on 2 decimals, except the factor `by`. */
-function rounded(cmd: Command): Command {
+/**
+ * Puts x and y on a 0.1 mm grid and w and h on 0.01 mm unless they stay as in `was`, and the
+ * other numbers of `cmd` on 2 decimals, except the factor `by`.
+ */
+function rounded(cmd: Command, was?: Node): Command {
   const cents = (v: number) => Math.round(v * 100) / 100
   const out: Record<string, unknown> = { ...cmd }
   for (const [k, v] of Object.entries(cmd)) {
     const per = FRAMED.includes(cmd.type) ? GRID[k] : undefined
+    if (per && was?.[k as keyof Node] === v) continue
     if (typeof v === 'number' && k !== 'by') out[k] = per ? (Math.round((v / MM) * per) / per) * MM : cents(v)
     else if (Array.isArray(v) && v.every((n) => typeof n === 'number')) out[k] = v.map(cents)
   }
@@ -214,7 +218,7 @@ export class Editor {
       this.groups = 0
     }
     try {
-      return this.change(() => this.engine.apply(rounded(cmd)))
+      return this.change(() => this.engine.apply(rounded(cmd, 'id' in cmd ? this.nodes.get(cmd.id)?.node : undefined)))
     } catch (e) {
       if (e instanceof WebAssembly.RuntimeError) throw e
       this.say((e as Error).message)
