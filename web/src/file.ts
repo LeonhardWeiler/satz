@@ -3,7 +3,7 @@ import type { Editor } from './editor'
 import type { Typeface } from './model'
 import type { Preview, Previewed } from './exportWorker'
 
-export type Handle = FileSystemFileHandle & { requestPermission(o: { mode: 'readwrite' }): Promise<PermissionState> }
+export type Handle = FileSystemFileHandle & { requestPermission(o: { mode: 'readwrite' }): Promise<PermissionState>; move?(name: string): Promise<void> }
 export type Saved = { bytes: Uint8Array; name: string; handle: Handle | null; dirty: boolean }
 
 const TYPES = [{ description: 'Satz document', accept: { 'application/x-satz': ['.satz'] } }]
@@ -124,17 +124,20 @@ export const pdf = (editor: Editor, title: string) => run<{ pdf: Uint8Array }>(e
 /** The inks of pages as the preflight shows them, rasterized in a worker. */
 export const preview = (editor: Editor, p: Preview) => run<Previewed>(previewer, editor, p)
 
-/** Saves into the document's file, or into one the user picks; Firefox downloads it. */
+/** Saves into the document's file, renamed to the document's name, or into one the user picks; Firefox downloads it. */
 export async function save(editor: Editor, as: boolean) {
   const bytes = editor.engine.save()
   const version = editor.engine.version()
+  const { name } = editor.file
   if (!pickers.showSaveFilePicker) {
-    download(bytes, editor.file.name, 'application/x-satz')
+    download(bytes, name, 'application/x-satz')
     return editor.saved(editor.file, version)
   }
   let handle = as ? null : editor.file.handle
   if (handle && (await handle.requestPermission({ mode: 'readwrite' })) !== 'granted') handle = null
-  handle ??= await pickers.showSaveFilePicker({ suggestedName: editor.file.name, types: TYPES })
+  if (handle && handle.name !== name) await handle.move?.(name).catch(() => {})
+  if (handle?.name !== name) handle = null
+  handle ??= await pickers.showSaveFilePicker({ suggestedName: name, types: TYPES })
   const out = await handle.createWritable()
   await out.write(bytes as Uint8Array<ArrayBuffer>)
   await out.close()

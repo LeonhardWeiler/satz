@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { CanvasKit } from 'canvaskit-wasm'
 import { Canvas, isTyping } from './Canvas'
+import { NameInput } from './controls'
 import { ACTIONS, keyLabel, MENU, press } from './commands'
 import { ContextMenu } from './ContextMenu'
 import { useEditor, type Editor } from './editor'
@@ -33,6 +34,7 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
   const [started, setStarted] = useState(!first)
   const [dialog, setDialog] = useState<'palette' | 'help' | null>(null)
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
+  const [renaming, setRenaming] = useState(false)
   const selected = useEditor(editor, (e) => e.selection.length > 0)
   const [hidden, setHidden] = useState({ left: false, right: false, ui: false })
   const hide = (panel: keyof typeof hidden) => setHidden((h) => ({ ...h, [panel]: !h[panel] }))
@@ -168,9 +170,20 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
     <main className={`app${off('left') ? ' no-left' : ''}${off('right') ? ' no-right' : ''}${hidden.ui ? ' no-ui' : ''}`}>
       <div className="left" inert={off('left')}>
         <Edge side="left" />
-        <div className="brand">
+        <div className="brand" onBlur={() => setRenaming(false)}>
           <span className="mark" aria-hidden="true" />
-          <h1>{name}</h1>
+          {renaming ? (
+            <NameInput
+              label="Document name"
+              value={name}
+              autoFocus
+              onCommit={(v) => editor.saved({ ...editor.file, name: v.endsWith('.satz') ? v : `${v}.satz` }, '')}
+            />
+          ) : (
+            <h1 title="Double-click to rename" onDoubleClick={() => setRenaming(true)}>
+              {name}
+            </h1>
+          )}
         </div>
         <Layers editor={editor} />
         <Swatches editor={editor} />

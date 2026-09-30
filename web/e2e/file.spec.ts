@@ -4,11 +4,11 @@ import { expect, test, addPage, autosaved, drawn, open, pageCount, screen } from
 
 
 /** Saves the document as Firefox does, by a download, and returns the file. */
-async function save(page: Page) {
+async function save(page: Page, name = 'Untitled.satz') {
   const download = page.waitForEvent('download')
   await page.keyboard.press('Control+s')
   const file = await download
-  expect(file.suggestedFilename()).toBe('Untitled.satz')
+  expect(file.suggestedFilename()).toBe(name)
   return { name: file.suggestedFilename(), mimeType: 'application/x-satz', buffer: await readFile(await file.path()) }
 }
 
@@ -52,6 +52,16 @@ test('saving downloads the file and clears the unsaved mark', async ({ page }) =
   await addPage(page)
   await save(page)
   await expect(page).toHaveTitle('Untitled.satz — Satz')
+})
+
+test('a double click on the name renames the document for the next save', async ({ page }) => {
+  await page.getByRole('heading', { name: 'Untitled.satz' }).dblclick()
+  await page.getByRole('textbox', { name: 'Document name' }).fill('Report')
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('heading', { name: 'Report.satz' })).toBeVisible()
+  await expect(page).toHaveTitle('* Report.satz — Satz')
+  await save(page, 'Report.satz')
+  await expect(page).toHaveTitle('Report.satz — Satz')
 })
 
 test('opening a file replaces the document with it', async ({ page }) => {

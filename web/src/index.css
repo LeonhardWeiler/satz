@@ -1378,6 +1378,12 @@ span.swatch {
   white-space: nowrap;
 }
 
+.brand .name-input {
+  margin-left: -9px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .mark {
   display: grid;
   flex: none;
