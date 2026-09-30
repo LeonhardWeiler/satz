@@ -110,6 +110,7 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
     const onMenu = (e: MouseEvent) => {
       if (e.defaultPrevented || isTyping(e)) return
       e.preventDefault()
+      if (!(e.target as Element).closest('.stage, .layers')) editor.set({ selection: [] })
       setMenu({ x: e.clientX, y: e.clientY })
     }
     window.addEventListener('contextmenu', onMenu)
