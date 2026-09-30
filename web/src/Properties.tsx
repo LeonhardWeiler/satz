@@ -88,7 +88,7 @@ export function Properties({
   const numbers = targets.map((id) => ids.indexOf(id) + 1)
   const sheets = targets.flatMap((id) => (id === page.id ? page : (snapshot.pages.find((p) => p.id === id) ?? [])))
   const master = sameOf(sheets, (p) => p.master ?? '')
-  const setSheets = (props: PageProps) => editor.batch(() => sheets.forEach((p) => editor.apply({ type: 'setPage', id: p.id, scale: true, ...props(p) })))
+  const setSheets = (props: PageProps) => editor.batch(() => sheets.forEach((p) => editor.apply({ type: 'setPage', id: p.id, ...props(p) })))
   const scope = scopeOf(snapshot, one?.activeModes)
   const parent = one && editor.nodes.get(one.id)?.parent
   const flows = !!one && parent?.kind === 'frame' && parent.direction !== 'none' && !one.absolute
@@ -172,7 +172,7 @@ export function Properties({
             <button
               type="button"
               className="button"
-              onClick={() => editor.batch(() => snapshot.pages.forEach((p) => editor.apply({ type: 'setPage', id: p.id, width: page.width, height: page.height, bleed: page.bleed, scale: true })))}
+              onClick={() => editor.batch(() => snapshot.pages.forEach((p) => editor.apply({ type: 'setPage', id: p.id, width: page.width, height: page.height, bleed: page.bleed })))}
             >
               Apply to all pages
             </button>
@@ -398,7 +398,7 @@ function DocumentSection({ editor }: { editor: Editor }) {
   const sheets = [...pages, ...masters]
   const w = sameOf(pages, (p) => p.width)
   const h = sameOf(pages, (p) => p.height)
-  const each = (props: PageProps) => editor.batch(() => sheets.forEach((p) => editor.apply({ type: 'setPage', id: p.id, scale: true, ...props(p) })))
+  const each = (props: PageProps) => editor.batch(() => sheets.forEach((p) => editor.apply({ type: 'setPage', id: p.id, ...props(p) })))
   const count = (n: number) =>
     editor.batch(() => {
       for (let i = pages.length; i < n; i++) editor.apply({ type: 'addPage', after: editor.snapshot.pages.at(-1)!.id })
@@ -486,7 +486,7 @@ function FormatRow({ page, sheets, each }: { page?: boolean; sheets: Page[]; eac
   const landscape = w !== null && h !== null ? w > h : null
   const format =
     w !== null && h !== null ? (FORMATS.find(([, a, b]) => near(Math.min(w, h), a * MM) && near(Math.max(w, h), b * MM))?.[0] ?? 'Custom') : 'Custom'
-  const orient = (wide: boolean) => each((p) => (p.width > p.height === wide ? {} : { width: p.height, height: p.width, scale: false }))
+  const orient = (wide: boolean) => each((p) => (p.width > p.height === wide ? {} : { width: p.height, height: p.width }))
   return (
       <div className="row">
         <Select
@@ -496,7 +496,8 @@ function FormatRow({ page, sheets, each }: { page?: boolean; sheets: Page[]; eac
           disabled={['Custom']}
           onChange={(n) => {
             const [, a, b] = FORMATS.find(([f]) => f === n)!
-            each(() => (landscape ? { width: b * MM, height: a * MM } : { width: a * MM, height: b * MM }))
+            const [width, height] = landscape ? [b, a] : [a, b]
+            each(() => ({ width: width * MM, height: height * MM, scale: true }))
           }}
         />
         <Segmented

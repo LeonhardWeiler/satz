@@ -192,7 +192,7 @@ test('a space typed at the end of an auto width text stays on its line', async (
   await expect(field('H in mm')).toHaveValue('5.8')
 })
 
-test('ctrl while resizing a text scales its type, and a resized document scales its layers and text', async ({ page }) => {
+test('ctrl while resizing a text scales its type, and a new format scales the layers and text, a new width does not', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
   const field = (name: string) => panel.getByRole('textbox', { name })
@@ -208,10 +208,15 @@ test('ctrl while resizing a text scales its type, and a resized document scales 
   await expect(field('W in mm')).toHaveValue('150')
   await expect(field('Font size in pt')).toHaveValue('15')
   await page.keyboard.press('Escape')
+  await choose(panel.getByRole('combobox', { name: 'Format', exact: true }), 'A6')
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz$/ }).click()
+  await expect(field('X in mm')).toHaveValue('14.19')
+  await expect(field('W in mm')).toHaveValue('106.42')
+  await expect(field('Font size in pt')).toHaveValue('10.61')
+  await page.keyboard.press('Escape')
   await field('Width of all pages in mm').fill('74')
   await field('Width of all pages in mm').press('Enter')
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz$/ }).click()
-  await expect(field('X in mm')).toHaveValue('10')
-  await expect(field('W in mm')).toHaveValue('75')
-  await expect(field('Font size in pt')).toHaveValue('10.61')
+  await expect(field('X in mm')).toHaveValue('14.19')
+  await expect(field('W in mm')).toHaveValue('106.42')
 })
