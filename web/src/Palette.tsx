@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { ACTIONS, fuzzy, press } from './commands'
+import { ACTIONS, fuzzy, keyLabel, press } from './commands'
 import { Chip, ink, NO_SCOPE } from './ColorPicker'
 import type { Editor } from './editor'
 import { Icon, KindIcon } from './icons'
@@ -125,7 +125,7 @@ export function Palette({ editor, onClose }: { editor: Editor; onClose: () => vo
             <button type="button" tabIndex={-1} className="pal-it" role="option" aria-selected={i === at} onClick={() => run(x)}>
               {x.icon}
               <span>{x.title}</span>
-              {x.keys && <kbd>{x.keys}</kbd>}
+              {x.keys && <kbd>{keyLabel(x.keys)}</kbd>}
             </button>
           </div>
         ))}
