@@ -64,7 +64,7 @@ const FEATURES: [string, string, boolean?][] = [
 ]
 
 /** The text style's name set at its size, within what a panel row takes. */
-const specimen = (s?: TextStyle) => (s ? { fontSize: Math.min(Math.max(s.size * 0.95, 9), 22), fontFamily: 'var(--doc-font)' } : undefined)
+const specimen = (s?: TextStyle) => (s ? { fontSize: Math.min(Math.max(s.size * 0.95, 9), 18), fontFamily: 'var(--doc-font)' } : undefined)
 
 /** The value all spans share, or null. */
 export function sameOf<A, T>(spans: A[], get: (a: A) => T): T | null {
