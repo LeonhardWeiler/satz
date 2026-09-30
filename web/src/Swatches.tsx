@@ -103,35 +103,25 @@ export function Swatches({ editor }: { editor: Editor }) {
             scope={scopeOf(snapshot)}
             onChange={(color) => set({ color })}
             onClose={() => setEditing(null)}
-            footer={
-              <button
-                type="button"
-                className="button"
-                onClick={() => {
-                  editor.apply({ type: 'deleteSwatch', id: swatch.id })
-                  setEditing(null)
-                }}
-              >
-                Delete swatch
-              </button>
-            }
           >
-            <label className="field">
-              <span className="field-label">Name</span>
-              <NameInput label="Name" value={swatch.name} onCommit={(name) => set({ name })} />
-            </label>
-            <label className="check">
-              <input
-                type="checkbox"
-                checked={swatch.spot}
-                onChange={(e) => {
-                  const spot = e.currentTarget.checked
-                  const c = swatch.color
-                  set({ spot, color: spot && typeof c === 'number' ? fromRgb(rgb(c, scopeOf(snapshot)), c, 'cmyk') : c })
-                }}
-              />
-              Spot color
-            </label>
+            <div className="grid">
+              <label className="field">
+                <span className="field-label">Name</span>
+                <NameInput label="Name" value={swatch.name} onCommit={(name) => set({ name })} />
+              </label>
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={swatch.spot}
+                  onChange={(e) => {
+                    const spot = e.currentTarget.checked
+                    const c = swatch.color
+                    set({ spot, color: spot && typeof c === 'number' ? fromRgb(rgb(c, scopeOf(snapshot)), c, 'cmyk') : c })
+                  }}
+                />
+                Spot color
+              </label>
+            </div>
           </Picker>,
           document.body,
         )}

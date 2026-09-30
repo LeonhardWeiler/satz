@@ -117,7 +117,6 @@ export function Picker({
   tabs,
   title = 'Custom',
   children,
-  footer,
   onChange,
   onClose,
 }: Props & {
@@ -127,7 +126,6 @@ export function Picker({
   tabs?: boolean
   title?: string
   children?: ReactNode
-  footer?: ReactNode
   onClose: (refocus: boolean) => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -325,7 +323,6 @@ export function Picker({
           )}
         </>
       )}
-      {footer}
     </Popover>
   )
 }
