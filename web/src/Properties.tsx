@@ -43,6 +43,7 @@ const ENDS = [
   ['arrow', 'End arrow', 'arrowRight'],
 ] as const
 const MODES: Record<ColorMode, string> = { rgb: 'RGB', cmyk: 'CMYK' }
+const SPREADS = { single: 'Single pages', facing: 'Facing pages' }
 const HORIZONTAL: Record<Constraint, string> = { min: 'Left', max: 'Right', stretch: 'Left & right', center: 'Center', scale: 'Scale' }
 const SIZES: Record<Size, string> = { fixed: 'Fixed', hug: 'Hug', fill: 'Fill' }
 const VERTICAL: Record<Constraint, string> = { min: 'Top', max: 'Bottom', stretch: 'Top & bottom', center: 'Center', scale: 'Scale' }
@@ -420,12 +421,7 @@ function DocumentSection({ editor }: { editor: Editor }) {
         <Field label="H" title="Height of all pages in mm" unit="mm" value={h} onCommit={(height) => each(() => ({ height }))} />
         <Field label="Bleed" title="Bleed of all pages in mm" unit="mm" value={sameOf(pages, (p) => p.bleed)} onCommit={(bleed) => each(() => ({ bleed }))} />
         <Field label="Pages" title="Pages" unit="" int min={1} value={pages.length} onCommit={count} />
-      </div>
-      <label className="check">
-        <input type="checkbox" checked={facingPages} onChange={(e) => editor.apply({ type: 'setDocument', facingPages: e.currentTarget.checked })} />
-        Facing pages
-      </label>
-      <div className="grid">
+        <Select label="Spreads" value={facingPages ? 'facing' : 'single'} options={SPREADS} onChange={(v) => editor.apply({ type: 'setDocument', facingPages: v === 'facing' })} />
         <Select label="Color mode" value={colorMode} options={MODES} onChange={(colorMode) => editor.apply({ type: 'setDocument', colorMode })} />
         <div className="kv" title="Output profile">
           <span>Profile</span>

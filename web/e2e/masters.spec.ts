@@ -139,19 +139,19 @@ test('a layer of the left master page is overridden in its place on a left page'
 
 test('with facing pages a one-page master gets its layers on both of its pages', async ({ page }) => {
   await open(page)
-  const facing = page.getByRole('complementary', { name: 'Properties' }).getByRole('checkbox', { name: 'Facing pages' })
+  const facing = page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Spreads' })
   const rects = page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true })
-  await facing.uncheck()
+  await choose(facing, 'Single pages')
   await addMaster(page)
   await page.keyboard.press('r')
   await drag(page, await screen(page, 20, 20), await screen(page, 60, 40))
   await page.keyboard.press('Escape')
-  await facing.check()
+  await choose(facing, 'Facing pages')
   await expect(rects).toHaveCount(2)
   await page.mouse.move(1, 1)
   const shown = await colors(page, [await screen(page, 40, 30, 0), await screen(page, 40, 30)])
   expect(shown.map(gray)).toEqual([true, true])
-  await facing.uncheck()
+  await choose(facing, 'Single pages')
   await expect(rects).toHaveCount(1)
 })
 

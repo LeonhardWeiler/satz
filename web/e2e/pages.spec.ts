@@ -1,4 +1,4 @@
-import { expect, test, addPage, colors, current, drag, open, option, overview, screen, showPage } from './util'
+import { expect, test, addPage, colors, current, drag, open, option, overview, screen, showPage, choose } from './util'
 
 test('pages are added, shown, reordered, duplicated and deleted with undo', async ({ page }) => {
   await open(page)
@@ -60,10 +60,10 @@ test('the page size is set per page in the properties panel', async ({ page }) =
 test('with facing pages the page overview shows spreads from a first right page, without them single pages', async ({ page }) => {
   await open(page)
   const row = (n: number) => option(page, n)
-  const facing = page.getByRole('complementary', { name: 'Properties' }).getByRole('checkbox', { name: 'Facing pages' })
+  const facing = page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Spreads' })
   for (let i = 0; i < 3; i++) await addPage(page)
   await showPage(page, 1)
-  await expect(facing).toBeChecked()
+  await expect(facing).toHaveText('Facing pages')
   const pages = await overview(page)
   const spread = (name: string) => pages.getByRole('group', { name, exact: true })
   const names = (name: string) => spread(name).getByRole('option').evaluateAll((es) => es.map((e) => e.getAttribute('aria-label')))
@@ -74,11 +74,11 @@ test('with facing pages the page overview shows spreads from a first right page,
   expect(three.x).toBeGreaterThan(two.x)
   expect(Math.abs(one.x - three.x)).toBeLessThan(1)
 
-  await facing.uncheck()
+  await choose(facing, 'Single pages')
   await expect(pages.getByRole('group', { name: /^Spread/ })).toHaveCount(0)
   await expect(row(4)).toBeVisible()
   await page.keyboard.press('Control+z')
-  await expect(facing).toBeChecked()
+  await expect(facing).toHaveText('Facing pages')
   await expect(spread('Spread 2–3')).toBeVisible()
 })
 
