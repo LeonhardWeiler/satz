@@ -464,31 +464,10 @@ textarea {
 .section h3 {
   flex: 1;
   margin: 0;
+  padding: 0 12px;
   font-size: 12px;
   font-weight: 600;
-}
-
-.section-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  height: 22px;
-  padding: 0 12px;
-  border: 0;
-  background: none;
-  font-weight: 600;
-  text-align: left;
-}
-
-.section-toggle svg {
-  color: var(--text-3);
-  transform: rotate(90deg);
-  transition: transform 0.18s var(--ease);
-}
-
-.section.closed .section-toggle svg {
-  transform: none;
+  line-height: 22px;
 }
 
 .section-header .icon-button {
@@ -497,22 +476,13 @@ textarea {
 
 .section-body {
   display: grid;
-  grid-template-rows: 1fr;
-  margin-top: 8px;
-  transition: grid-template-rows 0.18s var(--ease), margin-top 0.18s var(--ease);
-}
-
-.section.closed .section-body {
-  grid-template-rows: 0fr;
-  margin-top: 0;
-}
-
-.section-inner {
-  display: grid;
   gap: 8px;
-  min-height: 0;
+  margin-top: 8px;
   padding: 0 12px;
-  overflow: hidden;
+}
+
+.section-body:empty {
+  display: none;
 }
 
 .grid {
@@ -753,6 +723,10 @@ span.swatch {
 .swatches .swatch-list {
   max-height: 200px;
   padding: 8px;
+}
+
+.swatches .swatch-list:empty {
+  display: none;
 }
 
 .picker .swatch-list {

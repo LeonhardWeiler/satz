@@ -52,7 +52,7 @@ test('property sections space their rows evenly', async ({ page }) => {
     const sections = await panel.evaluate((el) =>
       [...el.querySelectorAll('.section')].map((s) => {
         const r = s.getBoundingClientRect()
-        const kids = [...s.children].map((c) => c.getBoundingClientRect())
+        const kids = [...s.children].filter((c) => c.getClientRects().length).map((c) => c.getBoundingClientRect())
         return {
           name: s.getAttribute('aria-label'),
           top: kids[0].top - r.top,

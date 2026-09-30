@@ -149,7 +149,7 @@ export function Properties({
       )}
       {!box && <DocumentSection editor={editor} />}
       {!box && (
-        <Section id="page" title={isPage ? (targets.length > 1 ? `Pages ${numbers.join(', ')}` : `Page ${numbers[0]}`) : 'Master'}>
+        <Section title={isPage ? (targets.length > 1 ? `Pages ${numbers.join(', ')}` : `Page ${numbers[0]}`) : 'Master'}>
           <FormatRow page sheets={sheets} each={setSheets} />
           <div className="grid">
             {(['width', 'height', 'bleed'] as const).map((k) => (

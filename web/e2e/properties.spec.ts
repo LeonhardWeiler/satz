@@ -1,21 +1,5 @@
 import { expect, test, addMaster, addPage, open, option, overview, choose } from './util'
 
-test('a closed section stays closed for other selections', async ({ page }) => {
-  await open(page)
-  const panel = page.getByRole('complementary', { name: 'Properties' })
-  const layers = page.getByRole('tree', { name: 'Layers' })
-  const toggle = panel.getByRole('button', { name: 'Layout' })
-  await layers.getByRole('button', { name: 'Sun' }).click()
-  await expect(panel.getByRole('heading', { level: 2 })).toHaveText('Sun')
-  await toggle.click()
-  await expect(toggle).toHaveAttribute('aria-expanded', 'false')
-  await expect(panel.getByRole('region', { name: 'Layout' }).locator('.section-body')).toHaveAttribute('inert')
-  await layers.getByRole('button', { name: 'Rectangle', exact: true }).first().click()
-  await expect(toggle).toHaveAttribute('aria-expanded', 'false')
-  await toggle.click()
-  await expect(panel.getByRole('region', { name: 'Layout' }).locator('.section-body')).not.toHaveAttribute('inert')
-})
-
 test('the document section sets the format, orientation and page count of all pages', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })

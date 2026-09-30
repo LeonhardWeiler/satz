@@ -219,46 +219,19 @@ export function Select<T extends string>({
   )
 }
 
-/** The sections the user closed, by id; they stay closed for other selections. */
-const closed = new Set<string>()
-
-/** A collapsible panel section; `id` keys its open state and defaults to the title. */
-export function Section({
-  title,
-  id = title,
-  onAdd,
-  children,
-}: {
-  title: string
-  id?: string
-  onAdd?: (e: MouseEvent<HTMLButtonElement>) => void
-  children?: ReactNode
-}) {
-  const [open, setOpen] = useState(!closed.has(id))
+export function Section({ title, onAdd, children }: { title: string; onAdd?: (e: MouseEvent<HTMLButtonElement>) => void; children?: ReactNode }) {
   const add = `Add ${title.toLowerCase().replace(/s$/, '')}`
-  const toggle = () => {
-    if (open) closed.add(id)
-    else closed.delete(id)
-    setOpen(!open)
-  }
   return (
-    <section className={`section${open ? '' : ' closed'}`} aria-label={title}>
+    <section className="section" aria-label={title}>
       <header className="section-header">
-        <h3>
-          <button type="button" className="section-toggle" aria-expanded={open} onClick={toggle}>
-            {title}
-            <Icon name="chevron" />
-          </button>
-        </h3>
+        <h3>{title}</h3>
         {onAdd && (
           <button type="button" className="icon-button" aria-label={add} title={add} onClick={onAdd}>
             <Icon name="plus" />
           </button>
         )}
       </header>
-      <div className="section-body" inert={!open}>
-        <div className="section-inner">{children}</div>
-      </div>
+      <div className="section-body">{children}</div>
     </section>
   )
 }
