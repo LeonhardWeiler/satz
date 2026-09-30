@@ -64,6 +64,19 @@ test('case, decoration, indent and OpenType features are set in the type options
   await expect(options.getByRole('checkbox', { name: 'Oldstyle figures' })).toBeChecked()
 })
 
+test('the insert character menu puts dashes and quotes into the edited text', async ({ page }) => {
+  await open(page)
+  await page.keyboard.press('t')
+  await page.mouse.click(...(await screen(page, 10, 200, 0)))
+  await page.keyboard.type('a')
+  for (const name of ['En dash', 'Low quote']) {
+    await page.getByRole('complementary', { name: 'Properties' }).getByRole('button', { name: 'Insert character' }).click()
+    await page.getByRole('menuitem', { name }).click()
+  }
+  await page.keyboard.type('b')
+  await expect(page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'a\u2013\u201eb', exact: true })).toBeVisible()
+})
+
 test('hyphenation is switched per paragraph with its language', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })

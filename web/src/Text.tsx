@@ -203,6 +203,63 @@ function TypeOptions({ spans, set }: { spans: Pick<Attrs, Styled>[]; set: (p: Te
   )
 }
 
+const CHARACTERS = [
+  ['Em dash', '\u2014'],
+  ['En dash', '\u2013'],
+  ['Ellipsis', '\u2026'],
+  ['Bullet', '\u2022'],
+  ['Non-breaking space', '\u00a0'],
+  ['Thin space', '\u2009'],
+  ['Low quote', '\u201e'],
+  ['Left quote', '\u201c'],
+  ['Right quote', '\u201d'],
+  ['Apostrophe', '\u2019'],
+  ['Right-pointing guillemet', '\u00bb'],
+  ['Left-pointing guillemet', '\u00ab'],
+  ['Copyright', '\u00a9'],
+  ['Registered', '\u00ae'],
+  ['Trademark', '\u2122'],
+  ['Section', '\u00a7'],
+  ['Degree', '\u00b0'],
+  ['Multiplication', '\u00d7'],
+] as const
+
+/** Inserts the page number or a character that keyboards lack into the edited text. */
+function Characters({ editor }: { editor: Editor }) {
+  const [at, setAt] = useState<DOMRect | null>(null)
+  return (
+    <>
+      <button
+        type="button"
+        className="icon-button page-number"
+        aria-label="Insert character"
+        title="Insert character"
+        aria-haspopup="menu"
+        // Keeps the focus in the edited text.
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={(e) => setAt(e.currentTarget.getBoundingClientRect())}
+      >
+        <Icon name="pageNumber" />
+      </button>
+      {at &&
+        createPortal(
+          <ContextMenu
+            anchor={() => at}
+            side="bottom"
+            label="Insert character"
+            onClose={() => setAt(null)}
+            items={[
+              ['Page number', () => insert(editor, PAGE_NUMBER), true, undefined, 'Ctrl Alt Shift N'],
+              null,
+              ...CHARACTERS.map(([name, c]): [string, () => void, boolean, undefined, string] => [name, () => insert(editor, c), true, undefined, c.trim() || '␣']),
+            ]}
+          />,
+          document.body,
+        )}
+    </>
+  )
+}
+
 /** Family and style of `fonts`, null for the bundled one, bindable to a font variable on `id`. */
 function Font({ editor, id, fonts, set }: { editor: Editor; id: string; fonts: (Typeface | null)[]; set: (f: Typeface) => void }) {
   const added = useEditor(editor, (e) => e.snapshot.fonts)
@@ -239,19 +296,7 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
     <Section title="Text">
       <div className="row">
         <Specimen editor={editor} spans={spans} format={format} />
-        {editing && (
-          <button
-            type="button"
-            className="icon-button page-number"
-            aria-label="Insert page number"
-            title="Insert page number (Ctrl+Alt+Shift+N)"
-            // Keeps the focus in the edited text.
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => insert(editor, PAGE_NUMBER)}
-          >
-            <Icon name="pageNumber" />
-          </button>
-        )}
+        {editing && <Characters editor={editor} />}
       </div>
       <Font editor={editor} id={node.id} fonts={spans.map((a) => a.font)} set={(font) => format({ font })} />
       <div className="grid">
