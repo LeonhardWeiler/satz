@@ -23,8 +23,9 @@ export const isError = (i: Issue) => ['overset', 'missingFont', 'shortOfBleed', 
 const count = (n: number, what: string) => `${n} ${what}${n === 1 ? '' : 's'}`
 
 /** Keeps the inks of the shown pages from the worker in `editor.previewed` while mounted. */
-function usePreview(editor: Editor) {
+function usePreview(editor: Editor, on: boolean) {
   useEffect(() => {
+    if (!on) return
     let [key, busy, again, gone] = ['', false, false, false]
     const request = () => {
       const pages = editor.spread.map((p) => p.id).filter((id) => editor.snapshot.pages.some((p) => p.id === id))
@@ -52,7 +53,7 @@ function usePreview(editor: Editor) {
       off()
       editor.set({ previewed: null })
     }
-  }, [editor])
+  }, [editor, on])
 }
 
 const PRESETS: Record<Preset, string> = { x4: 'PDF/X-4, print', x1a: 'PDF/X-1a, print', screen: 'PDF, screen' }
@@ -67,7 +68,7 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
   const { preset, cropMarks, includeBleed, colorMode } = useEditor(editor, (e) => e.snapshot)
   const previewed = useEditor(editor, (e) => e.previewed)
   const pointerInk = useEditor(editor, (e) => e.pointerInk)
-  usePreview(editor)
+  usePreview(editor, colorMode === 'cmyk')
 
   const sorted = [...issues].sort((a, b) => Number(isError(b)) - Number(isError(a)))
   const errors = issues.filter(isError).length
@@ -128,39 +129,43 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
             </p>
           )}
         </Section>
-        <Section title="Proof">
-          <p className="pf-note">Simulates print, FOGRA51</p>
-          <label className="check">
-            <input type="checkbox" checked={inks.gamut} onChange={(e) => set({ gamut: e.currentTarget.checked })} />
-            Mark colours outside the gamut
-          </label>
-        </Section>
-        <Section title="Separations">
-          <div className="plates">
-            {PLATES.map(([name, cls], bit) => plate(bit, name, cls))}
-            {previewed?.spots.map((name, i) => plate(4 + i, name, 'spot'))}
-          </div>
-        </Section>
-        <Section title="Ink coverage">
-          <div className="grid">
-            <Field label="Limit" title="Ink limit in %" unit="%" int min={200} max={400} reset={300} value={limit} onCommit={(inkLimit) => editor.apply({ type: 'setDocument', inkLimit })} />
+        {colorMode === 'cmyk' && (
+          <>
+          <Section title="Proof">
+            <p className="pf-note">Simulates print, FOGRA51</p>
             <label className="check">
-              <input type="checkbox" checked={inks.over} onChange={(e) => set({ over: e.currentTarget.checked })} />
-              Mark above limit
+              <input type="checkbox" checked={inks.gamut} onChange={(e) => set({ gamut: e.currentTarget.checked })} />
+              Mark colours outside the gamut
             </label>
-          </div>
-          <div className="kv">
-            <span>Highest</span>
-            <strong className={highest && highest.ink > limit + 0.5 ? 'bad' : ''}>
-              {highest ? `${Math.round(highest.ink)} %` : '0 %'}
-              {highest && <span className="plate-max"> {[highName, where(highest.page)?.toLowerCase()].filter(Boolean).join(', ')}</span>}
-            </strong>
-          </div>
-          <div className="kv">
-            <span>Under pointer</span>
-            <strong>{pointerInk === null ? 'Point at a colour' : `${pointerInk} %`}</strong>
-          </div>
-        </Section>
+          </Section>
+          <Section title="Separations">
+            <div className="plates">
+              {PLATES.map(([name, cls], bit) => plate(bit, name, cls))}
+              {previewed?.spots.map((name, i) => plate(4 + i, name, 'spot'))}
+            </div>
+          </Section>
+          <Section title="Ink coverage">
+            <div className="grid">
+              <Field label="Limit" title="Ink limit in %" unit="%" int min={200} max={400} reset={300} value={limit} onCommit={(inkLimit) => editor.apply({ type: 'setDocument', inkLimit })} />
+              <label className="check">
+                <input type="checkbox" checked={inks.over} onChange={(e) => set({ over: e.currentTarget.checked })} />
+                Mark above limit
+              </label>
+            </div>
+            <div className="kv">
+              <span>Highest</span>
+              <strong className={highest && highest.ink > limit + 0.5 ? 'bad' : ''}>
+                {highest ? `${Math.round(highest.ink)} %` : '0 %'}
+                {highest && <span className="plate-max"> {[highName, where(highest.page)?.toLowerCase()].filter(Boolean).join(', ')}</span>}
+              </strong>
+            </div>
+            <div className="kv">
+              <span>Under pointer</span>
+              <strong>{pointerInk === null ? 'Point at a colour' : `${pointerInk} %`}</strong>
+            </div>
+          </Section>
+          </>
+        )}
         <Section title="Export">
           <Select
             label="Preset"

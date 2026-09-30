@@ -1,8 +1,10 @@
 import { expect, test, addPage, current, drag, exportButton, open, openExample, pixels, preflight, screen } from './util'
 
-test('preflight lists a layer short of the bleed and a click selects it on its page', async ({ page }) => {
+test('preflight of an rgb document leaves out the inks and lists a layer short of the bleed and a click selects it on its page', async ({ page }) => {
   await open(page)
-  const short = (await preflight(page)).getByRole('button', { name: /Short of the bleed/ })
+  const pf = await preflight(page)
+  await expect(pf.getByRole('region', { name: 'Separations' })).toHaveCount(0)
+  const short = pf.getByRole('button', { name: /Short of the bleed/ })
   await expect(short).toHaveCount(0)
 
   await page.keyboard.press('r')
