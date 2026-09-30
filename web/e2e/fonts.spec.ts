@@ -29,14 +29,14 @@ test('text is set in a font picked in the text section', async ({ page }) => {
   await add(page, new URL('../../engine/fonts/DMMono-Regular.ttf', import.meta.url).pathname)
   await expect(fonts(page).getByRole('listitem')).toHaveText(['Source Serif 4', 'DM Mono Regular'])
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
-  const font = page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Font' })
+  const font = page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Font', exact: true })
   await expect(font).toHaveText('Source Serif 4')
-  await choose(font, 'DM Mono Regular')
-  await expect(font).toHaveText('DM Mono Regular')
+  await choose(font, 'DM Mono')
+  await expect(font).toHaveText('DM Mono')
   await choose(font, 'Source Serif 4')
   await expect(font).toHaveText('Source Serif 4')
   await page.keyboard.press('Control+z')
-  await expect(font).toHaveText('DM Mono Regular')
+  await expect(font).toHaveText('DM Mono')
 })
 
 test('a file that is not a font is not added and says why', async ({ page }) => {

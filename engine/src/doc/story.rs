@@ -1762,6 +1762,8 @@ mod tests {
         let plain = runs(&d);
         let gone = Typeface {
             name: "Gone Sans Bold".into(),
+            family: "Gone Sans".into(),
+            style: "Bold".into(),
             hash: "0123456789abcdef".into(),
         };
         format(&mut d, &t, None, in_font(gone.clone())).unwrap();
@@ -1785,6 +1787,8 @@ mod tests {
         let t = text(&mut d, "Hello world");
         let mono = Typeface {
             name: "DM Mono Regular".into(),
+            family: "DM Mono".into(),
+            style: "Regular".into(),
             hash: "c7ad9b42c84d5685".into(),
         };
         format(&mut d, &t, None, in_font(mono.clone())).unwrap();
@@ -1800,6 +1804,8 @@ mod tests {
         let t = text(&mut d, "Hello world");
         let mono = Typeface {
             name: "DM Mono Regular".into(),
+            family: "DM Mono".into(),
+            style: "Regular".into(),
             hash: "c7ad9b42c84d5685".into(),
         };
         format(&mut d, &t, None, in_font(mono)).unwrap();

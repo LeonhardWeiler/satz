@@ -18,10 +18,14 @@ pub const FONT: &[u8] = include_bytes!("../fonts/SourceSerif4-Regular.ttf");
 /// Marks the font of a glyph run whose own font is missing, drawn in the bundled one.
 pub const MISSING: u32 = 1 << 31;
 
-/// A font by its full name and a hash of its bytes.
+/// A font by its full name, family and style, and a hash of its bytes.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Typeface {
     pub name: String,
+    #[serde(default)]
+    pub family: String,
+    #[serde(default)]
+    pub style: String,
     pub hash: String,
 }
 
@@ -42,14 +46,20 @@ pub fn typeface(bytes: &[u8]) -> Result<Typeface, String> {
     if !sets || krilla::text::Font::new(bytes.to_vec().into(), 0).is_none() {
         return Err(bad());
     }
-    let name = skrifa::FontRef::new(bytes)
-        .map_err(|_| bad())?
-        .localized_strings(StringId::FULL_NAME)
-        .english_or_first()
-        .ok_or_else(bad)?
-        .to_string();
+    let f = skrifa::FontRef::new(bytes).map_err(|_| bad())?;
+    let get = |ids: &[StringId]| {
+        ids.iter()
+            .find_map(|&id| f.localized_strings(id).english_or_first())
+            .map(|s| s.to_string())
+            .ok_or_else(bad)
+    };
     Ok(Typeface {
-        name,
+        name: get(&[StringId::FULL_NAME])?,
+        family: get(&[StringId::TYPOGRAPHIC_FAMILY_NAME, StringId::FAMILY_NAME])?,
+        style: get(&[
+            StringId::TYPOGRAPHIC_SUBFAMILY_NAME,
+            StringId::SUBFAMILY_NAME,
+        ])?,
         hash: content_hash(bytes),
     })
 }
@@ -998,6 +1008,15 @@ mod tests {
                 str::from_utf8(table).unwrap()
             );
         }
+    }
+
+    #[test]
+    fn a_font_is_named_by_its_family_and_style() {
+        let f = typeface(FONT).unwrap();
+        assert_eq!(
+            (f.family.as_str(), f.style.as_str()),
+            ("Source Serif 4", "Regular")
+        );
     }
 
     const H: u16 = 9;

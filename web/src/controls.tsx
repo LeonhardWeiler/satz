@@ -4,6 +4,7 @@ import { ContextMenu } from './ContextMenu'
 import { MM } from './editor'
 import { evalExpr, step } from './field'
 import { Icon, type IconName } from './icons'
+import type { Typeface } from './model'
 
 /** Moves the focus from the event's target to the item before or after it for the keys `back` and `forth`. */
 export function roam(e: KeyboardEvent, items: Element[], back = ['ArrowUp'], forth = ['ArrowDown']) {
@@ -224,6 +225,32 @@ export function Select<T extends string>({
           host,
         )}
     </>
+  )
+}
+
+/** Family and style of the font `value`, a hash of `faces`, or Mixed for null; the missing ones are listed but not picked. */
+export function FontSelect({ label, faces, missing = [], value, onChange }: { label: string; faces: Typeface[]; missing?: string[]; value: string | null; onChange: (f: Typeface) => void }) {
+  const family = (f: Typeface) => f.family || f.name
+  const face = faces.find((f) => f.hash === value)
+  const families = Object.fromEntries(faces.map((f) => [family(f), family(f)]))
+  const styles = faces.filter((f) => face && family(f) === family(face))
+  const pick = (name: string) => {
+    const all = faces.filter((f) => family(f) === name && !missing.includes(f.hash))
+    const styled = (s?: string) => all.find((f) => f.style === s)
+    const f = styled(face?.style) ?? styled('Regular') ?? all[0]
+    if (f) onChange(f)
+  }
+  return (
+    <div className="grid">
+      <Select label={label} value={face ? family(face) : null} options={families} onChange={pick} />
+      <Select
+        label={`${label} style`}
+        value={face?.hash ?? null}
+        options={Object.fromEntries(styles.map((f) => [f.hash, f.style || f.name]))}
+        disabled={missing}
+        onChange={(hash) => onChange(faces.find((f) => f.hash === hash)!)}
+      />
+    </div>
   )
 }
 

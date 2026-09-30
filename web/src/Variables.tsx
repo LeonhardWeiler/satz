@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Chip, ColorPicker } from './ColorPicker'
 import { ContextMenu } from './ContextMenu'
 import { neutral } from './color'
-import { Field, NameInput, nextName, Section, Select } from './controls'
+import { Field, FontSelect, NameInput, nextName, Section, Select } from './controls'
 import { scopeOf, useEditor, type Editor } from './editor'
 import { Icon } from './icons'
 import type { Bindable as Prop, Modes, Typeface, Value } from './model'
@@ -153,12 +153,7 @@ function VariableEditor({ editor, id, fonts, onClose }: { editor: Editor; id: st
             ) : 'number' in value ? (
               <Field label="" title={label} unit="" min={-Infinity} value={value.number} onCommit={(number) => set({ number })} />
             ) : (
-              <Select
-                label={label}
-                value={(value.font ?? fonts[0]).hash}
-                options={Object.fromEntries(fonts.map((f) => [f.hash, f.name]))}
-                onChange={(hash) => set({ font: fonts.find((f) => f.hash === hash)! })}
-              />
+              <FontSelect label={label} faces={fonts} value={(value.font ?? fonts[0]).hash} onChange={(font) => set({ font })} />
             )}
             {c.modes.length > 1 && (
               <button

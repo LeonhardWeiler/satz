@@ -59,7 +59,7 @@ test('missing fonts are found among the fonts of this computer', async ({ page }
   await fonts.getByRole('button', { name: 'Add font' }).click()
   await (await chooser).setFiles(new URL('../../engine/fonts/DMMono-Regular.ttf', import.meta.url).pathname)
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
-  await choose(page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Font' }), 'DM Mono Regular')
+  await choose(page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Font', exact: true }), 'DM Mono')
   await page.keyboard.press('Escape')
   await fonts.getByRole('listitem').last().hover()
   await fonts.getByRole('button', { name: 'Remove DM Mono Regular' }).click()

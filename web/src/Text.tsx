@@ -1,7 +1,7 @@
 import { Fragment, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
-import { Field, NameInput, nextName, Section, Segmented, Select } from './controls'
+import { Field, FontSelect, NameInput, nextName, Section, Segmented, Select } from './controls'
 import { useEditor, type Editor } from './editor'
 import { Icon, type IconName } from './icons'
 import { PAGE_NUMBER, insert, range } from './textEdit'
@@ -119,7 +119,6 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
   const align = same((a) => a.textAlign)
   const font = same((a) => (a.font ?? fonts[0]).hash)
   const faces = [...fonts, ...missing.map((m) => m.font)]
-  const fontNames: Record<string, string> = Object.fromEntries(faces.map((f) => [f.hash, f.name]))
   const hyphenate = same((a) => a.hyphenate)
   const lang = same((a) => a.lang)
   const langs: Record<string, string> = { ...LANGS }
@@ -144,13 +143,7 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
         )}
       </div>
       <Bindable editor={editor} id={node.id} prop="font" title="Font" label={<Icon name="text" />}>
-        <Select
-          label="Font"
-          value={font}
-          options={fontNames}
-          disabled={missing.map((m) => m.font.hash)}
-          onChange={(hash) => format({ font: faces.find((f) => f.hash === hash) })}
-        />
+        <FontSelect label="Font" faces={faces} missing={missing.map((m) => m.font.hash)} value={font} onChange={(font) => format({ font })} />
       </Bindable>
       <div className="grid">
         {STYLED.map(([prop, title, label, unit, min, zero]) => {

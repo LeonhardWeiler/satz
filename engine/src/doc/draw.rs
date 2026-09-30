@@ -1460,6 +1460,8 @@ mod tests {
         set_text(&mut d, &t, SAMPLE);
         let gone = Typeface {
             name: "Gone Sans".into(),
+            family: "Gone Sans".into(),
+            style: "Regular".into(),
             hash: "0123456789abcdef".into(),
         };
         format(&mut d, &t, None, in_font(gone)).unwrap();
