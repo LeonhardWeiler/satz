@@ -38,7 +38,7 @@ export function handleAt(view: View, x: number, y: number, { box, line, radii }:
     const c = screen(view, { x: box.x + box.w / 2, y: box.y + box.h / 2 })
     ;({ x, y } = spin({ x, y }, -box.rotation, c))
   }
-  const i = radii?.findIndex((p) => Math.hypot(p.x - x, p.y - y) <= HANDLE / 2 + 1) ?? -1
+  const i = radii?.findIndex((p) => Math.hypot(p.x - x, p.y - y) <= HANDLE + 1) ?? -1
   if (i >= 0) return `radius${i}`
   if (line) {
     const i = line.findIndex((p) => Math.hypot(screen(view, p).x - x, screen(view, p).y - y) <= HANDLE / 2 + 1)

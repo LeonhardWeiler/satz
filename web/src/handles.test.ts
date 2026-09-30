@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { handleAt, portAt, portsOf, resized } from './handles'
+import { handleAt, portAt, portsOf, radiusHandles, resized } from './handles'
 
 const view = { x: 100, y: 50, zoom: 2 }
 /** A box across the spine of a spread: from x -20 on the left page to 30 on the right. */
@@ -16,6 +16,12 @@ test('corners win over edges, edges are grabbed a little outside, the middle is 
   expect(at(50, 60)).toBe('rotatenw')
   expect(at(170, 160)).toBe('rotatese')
   expect(at(50, 100)).toBeUndefined()
+})
+
+test('a radius handle is grabbed a handle wide around it and leaves the corner alone', () => {
+  const radii = radiusHandles(view, box, [0, 0, 0, 0])
+  expect(handleAt(view, 79, 82, { box, radii })).toBe('radius0')
+  expect(handleAt(view, 60, 70, { box, radii })).toBe('nw')
 })
 
 test('a box without height has no top or bottom handles', () => {
