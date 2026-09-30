@@ -42,8 +42,12 @@
 42. überlege dir features die noch gemacht werden sollen und schreibe sie unter later in TODO.md
 43. Mach einene ausführlichen performance audit sowie einen audit der bundle size und der ci time. schreibe deine findings in die jeweiligen dateien unter AGENT
 44. wenn ich im text doppelklicke und dann ziehe, dann soll es nicht das wort markieren sondern die section machen, also der double click wird ignoriert, wenn ich ziehe
+45. das no variables popup, wenn ich eine variable auswählen will, es aber noch keine gibt so schöner ausschauen und mehr zum restlichen style dazupassen. gerade hat es vor allem zu wenig padding
+46. bei den variablen soll es kein collection geben, es werden einfach nur die variablen angezeigt
+47. bei den text styles ist kein margin zwischen dem namen der schrift und darunter, auch da gleiche bei dem schnitt, es soll einheitlich aussehen
 
 --- LATER
 1. Figma import with file and or account
 2. InDesign import with file
 3. Imports from other Design programs
+4. geh jeden part des designs ausführlich durch und schau genau wo es inkonsitezen gibt. es soll überall einheitlich aussehen, schau das auch bei den icons, dass die dazu passen, etc.
