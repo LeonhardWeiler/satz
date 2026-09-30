@@ -668,8 +668,8 @@ const MODES: &str = "modes";
 const BINDINGS: &str = "bindings";
 const CONSTRAINTS: &str = "constraints";
 const SIZING: &str = "sizing";
-/// Figma's selection blue at 30 %.
-const SELECTION: [f32; 4] = [0.051, 0.6, 1.0, 0.3];
+/// The UI's accent, #38aee0, at 30 %.
+const SELECTION: [f32; 4] = [0.22, 0.68, 0.88, 0.3];
 
 const WHITE: u32 = 0xffffffff;
 
