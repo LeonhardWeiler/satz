@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { fromRgb, neutral, resolve, rgb, type Color } from './color'
 import { Chip, NO_SCOPE, Picker, SwatchOption } from './ColorPicker'
+import { ContextMenu } from './ContextMenu'
 import { NameInput, nextName } from './controls'
 import { scopeOf, useEditor, type Editor } from './editor'
 import type { Fill } from './model'
@@ -24,6 +25,7 @@ export function Swatches({ editor }: { editor: Editor }) {
   const mode = useEditor(editor, (e) => e.snapshot.colorMode)
   const [editing, setEditing] = useState<string | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
+  const [menu, setMenu] = useState<{ x: number; y: number; id: string } | null>(null)
   const list = useRef<HTMLDivElement>(null)
   const swatch = swatches.find((s) => s.id === editing)
 
@@ -35,6 +37,18 @@ export function Swatches({ editor }: { editor: Editor }) {
     setEditing(editor.apply({ type: 'addSwatch', name, color, spot: false })[0])
   }
   const pick = (id: string) => fillWith(editor, id) || setEditing(id)
+  const remove = (id: string) => {
+    editor.apply({ type: 'deleteSwatch', id })
+    if (editing === id) setEditing(null)
+  }
+  const rename = (id: string) => {
+    setEditing(null)
+    setRenaming(id)
+  }
+  const duplicate = (id: string) => {
+    const s = swatches.find((s) => s.id === id)!
+    editor.apply({ type: 'addSwatch', name: nextName(s.name.replace(/ \d+$/, ''), swatches.map((s) => s.name)), color: s.color, spot: s.spot })
+  }
   const set = (patch: { name?: string; color?: Color; spot?: boolean }) =>
     editing && editor.apply({ type: 'setSwatch', id: editing, ...patch })
 
@@ -52,9 +66,10 @@ export function Swatches({ editor }: { editor: Editor }) {
             key={s.id}
             className="swatch-row"
             data-id={s.id}
-            onDoubleClick={() => {
-              setEditing(null)
-              setRenaming(s.id)
+            onDoubleClick={() => rename(s.id)}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              setMenu({ x: e.clientX, y: e.clientY, id: s.id })
             }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && renaming !== s.id) setEditing(s.id)
@@ -74,10 +89,7 @@ export function Swatches({ editor }: { editor: Editor }) {
                 className="swatch-delete"
                 aria-label={`Delete ${s.name}`}
                 title="Delete swatch"
-                onClick={() => {
-                  editor.apply({ type: 'deleteSwatch', id: s.id })
-                  if (editing === s.id) setEditing(null)
-                }}
+                onClick={() => remove(s.id)}
               >
                 <Icon name="minus" />
               </button>
@@ -85,6 +97,21 @@ export function Swatches({ editor }: { editor: Editor }) {
           </div>
         ))}
       </div>
+      {menu &&
+        createPortal(
+          <ContextMenu
+            anchor={() => new DOMRect(menu.x, menu.y)}
+            label="Swatch"
+            onClose={() => setMenu(null)}
+            items={[
+              ['Edit', () => setEditing(menu.id), true],
+              ['Rename', () => rename(menu.id), true],
+              ['Duplicate', () => duplicate(menu.id), true],
+              ['Delete', () => remove(menu.id), true],
+            ]}
+          />,
+          document.body,
+        )}
       {swatch &&
         createPortal(
           <Picker

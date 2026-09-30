@@ -209,6 +209,18 @@ test('a new swatch never repeats the name of an existing one', async ({ page }) 
   await swatches.getByRole('button', { name: 'Delete Swatch 1' }).click()
   await add()
   await expect(swatches.getByRole('option')).toHaveText(['Swatch 2', 'Swatch 3'])
+
+  const menu = page.getByRole('menu', { name: 'Swatch' })
+  await swatches.getByRole('option', { name: 'Swatch 2' }).click({ button: 'right' })
+  await menu.getByRole('menuitem', { name: 'Duplicate' }).click()
+  await expect(swatches.getByRole('option')).toHaveText(['Swatch 2', 'Swatch 3', 'Swatch 4'])
+  await swatches.getByRole('option', { name: 'Swatch 4' }).click({ button: 'right' })
+  await menu.getByRole('menuitem', { name: 'Rename' }).click()
+  await swatches.getByRole('textbox', { name: 'Swatch name' }).fill('Ink')
+  await page.keyboard.press('Enter')
+  await swatches.getByRole('option', { name: 'Swatch 3' }).click({ button: 'right' })
+  await menu.getByRole('menuitem', { name: 'Delete' }).click()
+  await expect(swatches.getByRole('option')).toHaveText(['Swatch 2', 'Ink'])
 })
 
 test('opacity shows whole percent', async ({ page }) => {
