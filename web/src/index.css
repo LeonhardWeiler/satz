@@ -1401,6 +1401,23 @@ span.swatch {
   height: 16px;
 }
 
+.quick .strokes .chip {
+  position: relative;
+}
+
+.quick .strokes .chip::after {
+  position: absolute;
+  inset: 4px;
+  border-radius: 1px;
+  background: var(--raised);
+  box-shadow: 0 0 0 1px var(--selected);
+  content: '';
+}
+
+.chip.none {
+  background: linear-gradient(to top right, transparent 45%, var(--text-3) 45% 55%, transparent 55%);
+}
+
 .quick-info {
   padding: 0 4px;
   color: var(--text-2);

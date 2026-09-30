@@ -1,5 +1,5 @@
 import { neutral as engineNeutral, preview, resolve as engineResolve, toCmyk } from './engine/engine'
-import type { Scope } from './model'
+import type { Fill, Scope } from './model'
 
 export type ColorMode = 'rgb' | 'cmyk'
 /**
@@ -57,5 +57,7 @@ export function fromHsv([h, s, v]: Hsv) {
   }
   return (f(5) << 16) | (f(3) << 8) | f(1)
 }
+
+export const solid = (color: Color): Fill => ({ type: 'solid', color, stops: [], transform: [1, 0, 0, 1, 0, 0], visible: true })
 
 export const neutral = (name: 'black' | 'white' | 'gray', mode: ColorMode) => engineNeutral(name, mode) as Color

@@ -297,6 +297,8 @@ export type Snapshot = Palette & {
 /** The radii of a rectangle's top left, top right, bottom right and bottom left corner. */
 export const radii = ({ radius, corners }: { radius: number; corners?: number[] }) => (corners?.length ? corners : [radius, radius, radius, radius])
 /** The radius of all corners of a rectangle, or null if they differ. */
+export const isOpen = (n: Node) => n.kind === 'shape' && n.shape === 'path' && !n.path.includes(5)
+
 export const radiusOf = (s: { radius: number; corners?: number[] }) => {
   const r = radii(s)
   return r.every((v) => v === r[0]) ? r[0] : null

@@ -74,6 +74,13 @@ const ICONS = {
   arrowRight: <path d="M3 8h10M9.5 4.5 13 8l-3.5 3.5" />,
   arrowLeft: <path d="M13 8H3M6.5 4.5 3 8l3.5 3.5" />,
   plainLine: <path d="M3 8h10" />,
+  strokeWeight: (
+    <>
+      <path d="M3 3.5h10" strokeWidth="0.75" />
+      <path d="M3 7.5h10" strokeWidth="1.5" />
+      <path d="M3 12h10" strokeWidth="2.5" />
+    </>
+  ),
   strokeInside: (
     <>
       <rect x="2.5" y="8" width="11" height="5" fill="currentColor" stroke="none" opacity=".5" />

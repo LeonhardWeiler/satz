@@ -1,12 +1,12 @@
-import { neutral, type Color, type ColorMode } from './color'
+import { neutral, solid, type ColorMode } from './color'
 import { Field, Section, Segmented, Select } from './controls'
 import { type ReactNode } from 'react'
 import { bounds, ends, MM, scopeOf, useEditor, type Editor } from './editor'
 import { Icon, KindIcon } from './icons'
 import { FORMATS, ORIENTATIONS } from './Start'
 import { addFonts, canFindFonts, findFonts, removeFont } from './file'
-import type { Bindable as Prop, Blend, Constraint, Command, Fill, Grid, Node, Page, Props, Size } from './model'
-import { radiusOf } from './model'
+import type { Bindable as Prop, Blend, Constraint, Command, Grid, Node, Page, Props, Size } from './model'
+import { isOpen, radiusOf } from './model'
 import { align, ALIGNS } from './align'
 import { AutoLayout } from './AutoLayout'
 import { EffectList, PaintList } from './Paints'
@@ -46,8 +46,6 @@ const MODES: Record<ColorMode, string> = { rgb: 'RGB', cmyk: 'CMYK' }
 const HORIZONTAL: Record<Constraint, string> = { min: 'Left', max: 'Right', stretch: 'Left & right', center: 'Center', scale: 'Scale' }
 const SIZES: Record<Size, string> = { fixed: 'Fixed', hug: 'Hug', fill: 'Fill' }
 const VERTICAL: Record<Constraint, string> = { min: 'Top', max: 'Bottom', stretch: 'Top & bottom', center: 'Center', scale: 'Scale' }
-const solid = (color: Color): Fill => ({ type: 'solid', color, stops: [], transform: [1, 0, 0, 1, 0, 0], visible: true })
-
 export function Properties({
   editor,
   say,
@@ -106,7 +104,6 @@ export function Properties({
       field
     )
   const set = (props: Props) => each((n) => ({ type: 'set', id: n.id, ...props }))
-  const isOpen = (n: Node) => n.kind === 'shape' && n.shape === 'path' && !n.path.includes(5)
   const open = nodes.length > 0 && nodes.every(isOpen)
   const stroked = nodes.length > 0 && nodes.every((n) => n.kind === 'shape' || n.kind === 'frame')
   const strokes = stroked ? sameList((n) => n.strokes) : null
