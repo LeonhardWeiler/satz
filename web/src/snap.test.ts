@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import type { Node } from './model'
-import { guides, measure, nearest, snap, targets } from './snap'
+import { equals, guides, measure, nearest, snap, spacings, targets } from './snap'
 
 const box = (x: number, y: number, w: number, h: number) => ({ kind: 'shape', x, y, w, h }) as Node
 const sheet = { x: 0, width: 100, height: 200, bleed: 3 }
@@ -79,4 +79,11 @@ test('a box inside another is measured to the nearest box beside it on each side
     { x1: 25, y1: 0, x2: 25, y2: 20, length: 20 },
     { x1: 22.5, y1: 60, x2: 22.5, y2: 100, length: 40 },
   ])
+})
+
+test('a box snaps to the gap of its column and shows the gaps that equal it', () => {
+  const others = [box(0, 0, 20, 10), box(0, 20, 20, 10), box(0, 60, 20, 10)]
+  expect(spacings(box(0, 38, 20, 10), others, 'y')).toEqual([40, 40, 40])
+  expect(equals(box(0, 40, 20, 10), others, 'y').map((m) => [m.y1, m.y2]).sort((a, b) => a[0] - b[0])).toEqual([[10, 20], [30, 40], [50, 60]])
+  expect(equals(box(0, 42, 20, 10), others, 'y')).toEqual([])
 })

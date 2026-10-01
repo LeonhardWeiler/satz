@@ -7,7 +7,7 @@ import { penPath } from './pen'
 import { handleAt, portAt, portsOf, radiusHandles, rect, resized, spin, upright } from './handles'
 import { Renderer, fitView, HANDLE, type Box, type View } from './renderer'
 import { pick } from './select'
-import { guides, measure, nearest, snap, targets, type Guide, type Lines, type Measure } from './snap'
+import { equals, guides, measure, nearest, snap, spacings, targets, type Guide, type Lines, type Measure } from './snap'
 import { nearest as nearestSegment, remove, shift, split, type At, type Contour, type Knot } from './vector'
 import { handleTextKey, insert, range, select, textOf, wordAt } from './textEdit'
 import { Switcher } from './Switcher'
@@ -824,12 +824,20 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         const xs = (d: number) => (lock === 'x' ? [] : [b.x + d, b.x + d + b.w / 2, b.x + d + b.w])
         const ys = (d: number) => (lock === 'y' ? [] : [b.y + d, b.y + d + b.h / 2, b.y + d + b.h])
         if (free) {
-          dx += snap(xs(dx), lines.x, SNAP / view.zoom)
-          dy += snap(ys(dy), lines.y, SNAP / view.zoom)
+          const tolerance = SNAP / view.zoom
+          const by = (axis: 'x' | 'y', values: number[]) => {
+            const line = snap(values, lines[axis], tolerance)
+            if (!values.length) return line
+            const gap = snap([values[0]], spacings({ ...b, x: b.x + dx, y: b.y + dy }, others, axis).map((at) => ({ at, from: 0, to: 0 })), tolerance)
+            return gap && (!line || Math.abs(gap) < Math.abs(line)) ? gap : line
+          }
+          dx += by('x', xs(dx))
+          dy += by('y', ys(dy))
         }
         const moved = { ...b, x: b.x + dx, y: b.y + dy }
         snapped = free ? guides(moved, lines, xs(dx), ys(dy)) : []
-        measures = nearest(moved, others).flatMap((o) => measure(moved, o))
+        const all = [...nearest(moved, others).flatMap((o) => measure(moved, o)), ...equals(moved, others, 'x'), ...equals(moved, others, 'y')]
+        measures = [...new Map(all.map((m) => [`${m.x1} ${m.y1} ${m.x2} ${m.y2}`, m])).values()]
         for (const n of drag.frames) editor.apply({ type: 'setFrame', id: n.id, x: n.x + dx, y: n.y + dy, w: n.w, h: n.h })
       } else if (drag.kind === 'knot') {
         editor.setKnots(shift(drag.cs, drag.at, drag.part, p.x - drag.start.x, p.y - drag.start.y), drag.at)

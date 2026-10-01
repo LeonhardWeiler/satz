@@ -164,3 +164,40 @@ export function measure(a: Box, b: Box, others: Box[] = []): Measure[] {
   }
   return out
 }
+
+/**
+ * On `axis`, the layers of `others` in the row or column of `box` before and after it, and the
+ * gaps between neighbouring others in that row or column that `box` does not lie in.
+ */
+function row(box: Box, others: Box[], axis: 'x' | 'y') {
+  const [p, s, q, t] = axis === 'x' ? (['x', 'w', 'y', 'h'] as const) : (['y', 'h', 'x', 'w'] as const)
+  const end = (o: Box) => o[p] + o[s]
+  const line = others.filter((o) => o[q] < box[q] + box[t] && o[q] + o[t] > box[q]).sort((a, b) => a[p] - b[p])
+  const before = line.filter((o) => end(o) <= box[p] + EPSILON).sort((a, b) => end(b) - end(a))[0]
+  const after = line.find((o) => o[p] >= end(box) - EPSILON)
+  const gaps = line.slice(1).flatMap((n, i) => {
+    const m = line[i]
+    const d = n[p] - end(m)
+    return d > EPSILON && (end(box) <= end(m) + EPSILON || box[p] >= n[p] - EPSILON) ? [{ m, n, d }] : []
+  })
+  return { p, s, end, before, after, gaps }
+}
+
+/** Starts of `box` on `axis` that leave it as far from a neighbour as two others in its row or column are apart, or midway between its neighbours. */
+export function spacings(box: Box, others: Box[], axis: 'x' | 'y') {
+  const { s, end, before, after, gaps } = row(box, others, axis)
+  const out = gaps.flatMap((g) => [...(before ? [end(before) + g.d] : []), ...(after ? [after[axis] - g.d - box[s]] : [])])
+  if (before && after) out.push((end(before) + after[axis] - box[s]) / 2)
+  return out
+}
+
+/** The distances on `axis` from `box` to its neighbours that equal the other one or a gap between others in its row or column, with those gaps. */
+export function equals(box: Box, others: Box[], axis: 'x' | 'y'): Measure[] {
+  const { p, end, before, after, gaps } = row(box, others, axis)
+  const near = [before && { m: before, n: box, d: box[p] - end(before) }, after && { m: box, n: after, d: after[p] - end(box) }]
+  const all = [...gaps, ...near.filter((g) => g && g.d > EPSILON)] as { m: Box; n: Box; d: number }[]
+  const same = new Set(near.flatMap((g) => (g ? all.filter((o) => o !== g && Math.abs(o.d - g.d) < 1e-3) : [])))
+  if (!same.size) return []
+  for (const g of near) if (g && [...same].some((o) => Math.abs(o.d - g.d) < 1e-3)) same.add(g)
+  return [...same].flatMap((g) => measure(g.m, g.n).filter((m) => !m.dashed && (axis === 'x' ? m.y1 === m.y2 : m.x1 === m.x2)))
+}
