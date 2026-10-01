@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { AlignBar } from './align'
+import { Sizing } from './AutoLayout'
 import { Chip, NO_SCOPE } from './ColorPicker'
 import { neutral, solid, type Color } from './color'
 import { ContextMenu } from './ContextMenu'
@@ -57,6 +58,7 @@ export function Quick({ editor }: { editor: Editor }) {
   return (
     <>
       {nodes.length > 1 && <AlignBar editor={editor} />}
+      {one && <Sizing editor={editor} node={one} set={set} />}
       {one?.kind === 'text' && (
         <>
           <Specimen editor={editor} spans={spans} format={format} />

@@ -1,4 +1,3 @@
-1. elemente in einem autolayout sollen in ihrer toolbar über dem element die option für hug, fill für horizontal und vertical auswählen können
 2. man soll wenn man double clickt und dann auf die seite zieht horizontal bzw. vertikale rouler machen an den dann die items snappen können
 3. in dem path edit mode, soll man mit ctrl + klick die bezier kurven entweder hinzufügen oder entfernen können, für beide soll es jeweils einen button auch in der toolbar geben
 4. texte sollen auch eine stroke bekommen, die um den text herum geht

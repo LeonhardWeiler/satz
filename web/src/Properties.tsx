@@ -5,10 +5,10 @@ import { bounds, ends, MM, scopeOf, useEditor, type Editor } from './editor'
 import { Icon, KindIcon } from './icons'
 import { FORMATS, ORIENTATIONS } from './Start'
 import { addFonts, canFindFonts, findFonts, removeFont } from './file'
-import type { Bindable as Prop, Blend, Constraint, Command, Grid, Node, Page, Props, Size } from './model'
+import type { Bindable as Prop, Blend, Constraint, Command, Grid, Node, Page, Props } from './model'
 import { isOpen, radiusOf } from './model'
 import { AlignBar } from './align'
-import { AutoLayout } from './AutoLayout'
+import { AutoLayout, flows, Sizing } from './AutoLayout'
 import { EffectList, PaintList } from './Paints'
 import { TextFrameSection, TextSection, TextStyles } from './Text'
 import { Bindable, ModeSelects, Variables } from './Variables'
@@ -45,7 +45,6 @@ const ENDS = [
 const MODES: Record<ColorMode, string> = { rgb: 'RGB', cmyk: 'CMYK' }
 const SPREADS = { single: 'Single pages', facing: 'Facing pages' }
 const HORIZONTAL: Record<Constraint, string> = { min: 'Left', max: 'Right', stretch: 'Left & right', center: 'Center', scale: 'Scale' }
-const SIZES: Record<Size, string> = { fixed: 'Fixed', hug: 'Hug', fill: 'Fill' }
 const VERTICAL: Record<Constraint, string> = { min: 'Top', max: 'Bottom', stretch: 'Top & bottom', center: 'Center', scale: 'Scale' }
 export function Properties({
   editor,
@@ -92,9 +91,6 @@ export function Properties({
   const setSheets = (props: PageProps) => editor.batch(() => sheets.forEach((p) => editor.apply({ type: 'setPage', id: p.id, ...props(p) })))
   const scope = scopeOf(snapshot, one?.activeModes)
   const parent = one && editor.nodes.get(one.id)?.parent
-  const flows = !!one && parent?.kind === 'frame' && parent.direction !== 'none' && !one.absolute
-  const hugs = (one?.kind === 'frame' && one.direction !== 'none') || (one?.kind === 'text' && flows)
-  const sizes = Object.fromEntries(Object.entries(SIZES).filter(([s]) => s === 'fixed' || (s === 'hug' ? hugs : flows))) as Record<Size, string>
   const box = nodes.length ? bounds(nodes) : undefined
   const bindable = (prop: Prop, title: string, label: string, field: ReactNode) =>
     one ? (
@@ -269,26 +265,14 @@ export function Properties({
               <Field label="Ratio" title="Star ratio in %" unit="%" min={1} max={100} value={one.ratio * 100} onCommit={(v) => set({ ratio: v / 100 })} />
             )}
           </div>
-          {one && (hugs || flows) && (
-            <div className="grid">
-              {(['horizontal', 'vertical'] as const).map((axis) => (
-                <Select
-                  key={axis}
-                  label={`${axis === 'horizontal' ? 'Width' : 'Height'} sizing`}
-                  value={one.sizing[axis]}
-                  options={sizes}
-                  onChange={(s) => set({ sizing: { ...one.sizing, [axis]: s } })}
-                />
-              ))}
-            </div>
-          )}
+          {one && <Sizing editor={editor} node={one} set={set} />}
           {one && parent?.kind === 'frame' && parent.direction !== 'none' && (
             <label className="check">
               <input type="checkbox" checked={one.absolute} onChange={(e) => set({ absolute: e.currentTarget.checked })} />
               Absolute position
             </label>
           )}
-          {one && parent?.kind === 'frame' && !flows && (
+          {one && parent?.kind === 'frame' && !flows(editor, one) && (
             <div className="grid">
               {(['horizontal', 'vertical'] as const).map((axis) => (
                 <Select

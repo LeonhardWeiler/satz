@@ -1,7 +1,7 @@
 import { Field, Section, Segmented, Select } from './controls'
 import type { Editor } from './editor'
 import { Icon } from './icons'
-import type { Layout, Node, Props } from './model'
+import type { Layout, Node, Props, Size } from './model'
 import { Bindable } from './Variables'
 
 const SPOTS = ['start', 'center', 'end'] as const
@@ -15,12 +15,40 @@ const PADDING = [
   ['paddingLeft', 'Left padding', 'L'],
 ] as const
 
-/** Direction, alignment, gap and padding of an auto layout frame, or a button that adds one. */
+const SIZES: Record<Size, string> = { fixed: 'Fixed', hug: 'Hug', fill: 'Fill' }
 const DIRECTIONS = [
   ['vertical', 'Vertical layout', 'arrowDown'],
   ['horizontal', 'Horizontal layout', 'arrowRight'],
 ] as const
 
+/** `node` is laid out by the auto layout of its parent. */
+export function flows(editor: Editor, node: Node) {
+  const parent = editor.nodes.get(node.id)?.parent
+  return parent?.kind === 'frame' && parent.direction !== 'none' && !node.absolute
+}
+
+/** Width and height sizing of `node`: hug for auto layout frames and text in one, fill in one. */
+export function Sizing({ editor, node, set }: { editor: Editor; node: Node; set: (p: Props) => void }) {
+  const fills = flows(editor, node)
+  const hugs = (node.kind === 'frame' && node.direction !== 'none') || (node.kind === 'text' && fills)
+  if (!hugs && !fills) return null
+  const sizes = Object.fromEntries(Object.entries(SIZES).filter(([s]) => s === 'fixed' || (s === 'hug' ? hugs : fills))) as Record<Size, string>
+  return (
+    <div className="grid">
+      {(['horizontal', 'vertical'] as const).map((axis) => (
+        <Select
+          key={axis}
+          label={`${axis === 'horizontal' ? 'Width' : 'Height'} sizing`}
+          value={node.sizing[axis]}
+          options={sizes}
+          onChange={(s) => set({ sizing: { ...node.sizing, [axis]: s } })}
+        />
+      ))}
+    </div>
+  )
+}
+
+/** Direction, alignment, gap and padding of an auto layout frame, or a button that adds one. */
 export function AutoLayout({ editor, node, set }: { editor: Editor; node: Node & Layout; set: (p: Props) => void }) {
   if (node.direction === 'none') return <Section title="Auto layout" onAdd={() => editor.apply({ type: 'autoLayout', ids: [node.id] })} />
   const horizontal = node.direction === 'horizontal'
