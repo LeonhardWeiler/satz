@@ -59,6 +59,7 @@ type Drag =
   | { kind: 'pen'; start: Point }
   | { kind: 'knot'; start: Point; cs: Contour[]; at: At; part: 'point' | 'in' | 'out' }
   | { kind: 'text' }
+  | { kind: 'swap'; id: string; at: Point }
 
 /** Snaps a vector to the nearest multiple of 45°. */
 /** Degrees counterclockwise of `p` around `c`. */
@@ -305,6 +306,11 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         labels.push({ x: cx, y: cy, w, h: 18 })
         tags += `<rect class="label" x="${cx - w / 2}" y="${cy - 9}" width="${w}" height="18" rx="4"/><text x="${cx}" y="${cy}">${t}</text>`
       }
+      const moving = drag?.kind === 'swap' ? drag : undefined
+      for (const s of swaps()) {
+        const on = moving?.id === s.id
+        svg += `<circle class="swap" cx="${X(on ? moving.at.x : s.x)}" cy="${Y(on ? moving.at.y : s.y)}" r="5"/>`
+      }
       return svg + tags
     }
 
@@ -464,6 +470,31 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const dx = editor.dx(v.id)
       const contours = editor.knots().map((c) => ({ ...c, knots: c.knots.map((k) => ({ ...k, x: k.x + dx, ix: k.ix + dx, ox: k.ox + dx })) }))
       return { contours, at: v.at }
+    }
+    /** The centres of several selected layers; one dragged onto another swaps their places. */
+    const swaps = () =>
+      editor.tool !== 'move' || editor.selection.length < 2 || editor.editing || editor.vector
+        ? []
+        : editor.selected().map((n) => {
+            const b = upright(editor.shown(n))
+            return { id: n.id, box: b, x: b.x + b.w / 2, y: b.y + b.h / 2 }
+          })
+    /** Swaps the places of the layers `a` and `b`, in the order of an auto layout frame they share. */
+    const swap = (a: string, b: string) => {
+      const [p, q] = [editor.nodes.get(a)!, editor.nodes.get(b)!]
+      const flow = p.parent === q.parent && p.parent?.kind === 'frame' && p.parent.direction !== 'none' ? p.parent : undefined
+      editor.beginGroup()
+      if (flow) {
+        const [i, j] = [p.node, q.node].map((n) => flow.children.indexOf(n)).sort((m, n) => m - n)
+        const [lo, hi] = [flow.children[i].id, flow.children[j].id]
+        editor.apply({ type: 'move', ids: [hi], parent: flow.id, index: i })
+        editor.apply({ type: 'move', ids: [lo], parent: flow.id, index: j })
+      } else {
+        const [m, n] = [p.node, q.node]
+        editor.apply({ type: 'setFrame', id: m.id, x: n.x, y: n.y, w: m.w, h: m.h })
+        editor.apply({ type: 'setFrame', id: n.id, x: m.x, y: m.y, w: n.w, h: n.h })
+      }
+      editor.endGroup()
     }
     const handleUnder = (e: Pointer) => handleAt(view, e.offsetX, e.offsetY, handles())
     const track = () => {
@@ -682,6 +713,11 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         drag = null
         return
       }
+      const centre = swaps().find((s) => Math.hypot(s.x - p.x, s.y - p.y) * view.zoom <= HANDLE)
+      if (centre) {
+        drag = { kind: 'swap', id: centre.id, at: p }
+        return
+      }
       const handle = handleUnder(e)
       const line = handle?.startsWith('end') && ends(placed(editor.selected()[0]))
       if (line) {
@@ -757,6 +793,9 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         view.x += e.clientX - drag.last.x
         view.y += e.clientY - drag.last.y
         drag.last = { x: e.clientX, y: e.clientY }
+        redraw()
+      } else if (drag.kind === 'swap') {
+        drag.at = p
         redraw()
       } else if (drag.kind === 'marquee') {
         drag.end = p
@@ -914,6 +953,11 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         editor.setTool('move')
         const n = editor.nodes.get(drag.id)?.node
         if (n?.kind === 'text') editor.set({ editing: { id: n.id, anchor: 0, focus: editor.storyOf(n).text.length } })
+      }
+      if (drag?.kind === 'swap') {
+        const { id, at } = drag
+        const to = swaps().find((s) => s.id !== id && at.x >= s.box.x && at.x <= s.box.x + s.box.w && at.y >= s.box.y && at.y <= s.box.y + s.box.h)
+        if (to) swap(id, to.id)
       }
       if (drag?.kind === 'move' && drag.flow && drag.to) {
         editor.apply({ type: 'move', ids: drag.frames.map((n) => n.id), parent: drag.flow.id, index: drag.to.index })

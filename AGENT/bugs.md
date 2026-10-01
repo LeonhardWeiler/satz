@@ -3,7 +3,6 @@
 4. texte sollen auch eine stroke bekommen, die um den text herum geht
 5. wenn ich von rgb auf cmyk umwandle, sollen alle farben sofort mit umgewandelt werden und dann natürlich nicht im preflight angezgeit werden
 7. es ist immer noch so, dass wenn ich auf ein z.b. r halte, dass dann mein cursor weg ist
-14. wenn man in einer gruppe, autolayout oder selection von mehreren elementen ist, soll ein kreis in der mitte der elemente sichtbar sein bei dem man durch hin und her ziehen deren position tauschen kann wie in figma
 15. implement all the points under later in TODO.md
 16. überlege dir für alle elemente noch einmal tief und schlau welche optionen alle sinnvoll und praktisch wären und implementiere sie
 17. überlege dir features die noch gemacht werden sollen und schreibe sie unter later in TODO.md

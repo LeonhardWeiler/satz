@@ -313,3 +313,18 @@ test('ctrl and the wheel over the quick edit bar zoom the canvas', async ({ page
   await page.keyboard.up('Control')
   await expect(page.getByLabel('Zoom')).not.toHaveText(zoom!)
 })
+
+test('the centre of one of several selected layers dragged onto another swaps their places', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  await page.keyboard.press('r')
+  await drag(page, await screen(page, 20, 20), await screen(page, 40, 40))
+  await page.keyboard.press('r')
+  await drag(page, await screen(page, 60, 30), await screen(page, 80, 60))
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle' }).nth(1).click({ modifiers: ['Shift'] })
+  await drag(page, await screen(page, 70, 45), await screen(page, 30, 30))
+  await page.keyboard.press('Escape')
+  await page.mouse.click(...(await screen(page, 65, 35)))
+  await expect(panel.getByRole('textbox', { name: 'X in mm' })).toHaveValue('60')
+  await expect(panel.getByRole('textbox', { name: 'W in mm' })).toHaveValue('20')
+})

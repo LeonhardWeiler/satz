@@ -2655,6 +2655,12 @@ kbd {
     fill: var(--magenta);
   }
 
+  .swap {
+    fill: #fff;
+    stroke: var(--accent);
+    stroke-width: 1.5;
+  }
+
   text {
     fill: #fff;
     font-size: 11px;
