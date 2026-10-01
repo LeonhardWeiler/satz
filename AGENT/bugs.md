@@ -17,12 +17,10 @@
 38. make it possible to make boolean operations on things like rectangles, triangles, ... (not text unless its made into an vector). the buttons/icons should be below the align buttons
 39. make it possiblel to convert text to vectors
 40. when in vector editing mode, you should be able to fill each area seperately with a bucket tool
-41. when switching between ctrl + \ the page should be recentererd/sized with shift + 1, it works but you can see like a transition of the canvas. the canvas should stay exactly the same, also the same happening with alt + 1. maybe there is a smarter way then shift + 1 so that the panels on top aren't moving the canvas
 42. the bounding box should include the stroke
 43. add a settings menu to change the unit from mm to in for example, ... and the language and ui in the future. it should be saved to local storage
 44. change, keyboard shortcuts, should be changed from the shortcut menu
 45. in the settings the option to disable the toolbar above elements should be added
-46. when un/hiding the rulers the layout ushow not change, the canvas should stay exactly the same its the same thing as with the panels with alt + 1 or ctrl + \
 47. when changing from solid to linear gradient with one of the gradients selected the layout moves up a bit, it should stay the same
 49. in the settings it should be changable if you see the elements on the left only for one page or the double page, but it should then say in the element selectino thing a small collapsable heading for one page and the other
 50. lines should have the option to be squiggly, etc. 

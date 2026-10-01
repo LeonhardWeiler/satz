@@ -523,7 +523,12 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       }
     }
 
+    let place = canvas.getBoundingClientRect()
     const resize = new ResizeObserver(([entry]) => {
+      const r = canvas.getBoundingClientRect()
+      view.x += place.left - r.left
+      view.y += place.top - r.top
+      place = r
       const box = entry.devicePixelContentBoxSize?.[0]
       canvas.width = box ? box.inlineSize : Math.round(entry.contentRect.width * devicePixelRatio)
       canvas.height = box ? box.blockSize : Math.round(entry.contentRect.height * devicePixelRatio)

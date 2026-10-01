@@ -362,3 +362,15 @@ test('a marquee outlines the lines it selects along the line, not around its box
   expect(await accent(60, 100)).toBe(false)
   await page.mouse.up()
 })
+
+test('hiding the panels, the interface or the rulers leaves the page where it is on screen', async ({ page }) => {
+  await open(page)
+  const [x, y] = await screen(page, 23, 37)
+  const sun = () => pixels(page, x - 20, y - 20, 40, 40)
+  const before = await sun()
+  for (const key of ['Alt+1', 'Alt+2', 'Shift+R', 'Control+Backslash']) {
+    await page.keyboard.press(key)
+    await page.waitForTimeout(100)
+    expect(await sun(), key).toEqual(before)
+  }
+})

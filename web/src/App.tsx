@@ -84,10 +84,8 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
       if (e.defaultPrevented || document.querySelector('dialog:modal')) return
       if (e.altKey && !mod && e.code === 'Digit1') hide('left')
       else if (e.altKey && !mod && e.code === 'Digit2') hide('right')
-      else if (mod && e.code === 'Backslash') {
-        hide('ui')
-        requestAnimationFrame(() => press('Shift 1'))
-      } else if (e.shiftKey && !mod && !e.altKey && e.code === 'KeyR') hide('rulers')
+      else if (mod && e.code === 'Backslash') hide('ui')
+      else if (e.shiftKey && !mod && !e.altKey && e.code === 'KeyR') hide('rulers')
       else if (mod && e.shiftKey && e.code === 'KeyE') openExport()
       else if (mod && e.altKey && e.code === 'KeyY') editor.togglePreflight()
       else if (mod && !e.altKey && e.code === 'KeyS') saveFile(e.shiftKey)
