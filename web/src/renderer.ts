@@ -69,17 +69,18 @@ const BLENDS = [
   'SrcOver', 'Multiply', 'Screen', 'Overlay', 'Darken', 'Lighten', 'ColorDodge', 'ColorBurn',
   'HardLight', 'SoftLight', 'Difference', 'Exclusion', 'Hue', 'Saturation', 'Color', 'Luminosity',
 ] as const
-/** Shows the inverted C, M and Y plate `cmy` and K plate `k` as their inks print on paper, through the screen colours `lut` of a grid of `n` steps per ink. */
+/** Shows the inverted C, M and Y plate `cmy` and K plate `k` as their inks print on paper, through the screen colours `lut` of a grid of `n` steps per ink; `on` keeps or drops each ink. */
 const INKS = `
 uniform shader cmy;
 uniform shader k;
 uniform shader lut;
 uniform float n;
+uniform float4 on;
 half4 main(float2 p) {
   half4 a = cmy.eval(p);
   if (a.a == 0) return half4(0);
-  float3 c = (1 - a.rgb / a.a) * (n - 1);
-  float black = (1 - k.eval(p).r / a.a) * (n - 1);
+  float3 c = (1 - a.rgb / a.a) * on.rgb * (n - 1);
+  float black = (1 - k.eval(p).r / a.a) * on.a * (n - 1);
   float m = min(floor(c.g), n - 2);
   float b = min(floor(black), n - 2);
   float2 at = float2(c.r + 0.5 + n * m, c.b + 0.5 + n * b);
@@ -127,9 +128,9 @@ export class Renderer {
    * pages `sheets`, clipped to their bleed together: a layer across the spine shows on
    * both pages, and the bleed runs around the spread's outer edges. With `proof` the
    * pages show as they print, with their `inks` over them; `cmyk` pages blend their
-   * inks as they print.
+   * inks as they print, of C, M, Y and K those whose bit is set in `on`.
    */
-  draw(canvas: Canvas, lists: { id: string; x: number; inks?: Inked }[], sheets: Sheet[], view: View, dpr: number, overlay: Overlay | null, proof = false, cmyk = false) {
+  draw(canvas: Canvas, lists: { id: string; x: number; inks?: Inked }[], sheets: Sheet[], view: View, dpr: number, overlay: Overlay | null, proof = false, cmyk = false, on = 15) {
     const { ck, chrome: paint } = this
     if (proof !== this.proof) {
       this.proof = proof
@@ -180,7 +181,7 @@ export class Renderer {
       c.restore()
     }
     if (cmyk) {
-      this.drawPlates(canvas, (c, plate) => {
+      this.drawPlates(canvas, on, (c, plate) => {
         place(c)
         pages(c, plate)
         c.restore()
@@ -256,7 +257,7 @@ export class Renderer {
   }
 
   /** Draws the plates 1 and 2 that `draw` draws, each on a surface of its own, as their inks print. */
-  private drawPlates(canvas: Canvas, draw: (c: Canvas, plate: number) => void) {
+  private drawPlates(canvas: Canvas, on: number, draw: (c: Canvas, plate: number) => void) {
     const { ck } = this
     const [, , width, height] = canvas.getDeviceClipBounds()
     if (this.plates[0]?.width() !== width || this.plates[0]?.height() !== height) {
@@ -280,7 +281,7 @@ export class Renderer {
       this.inksEffect = ck.RuntimeEffect.Make(INKS)!
     }
     const table = this.lut.makeShaderOptions(ck.TileMode.Clamp, ck.TileMode.Clamp, ck.FilterMode.Linear, ck.MipmapMode.None)
-    const shader = this.inksEffect!.makeShaderWithChildren([Math.round(Math.sqrt(this.lut.width()))], [...plates, table])
+    const shader = this.inksEffect!.makeShaderWithChildren([Math.round(Math.sqrt(this.lut.width())), ...[0, 1, 2, 3].map((b) => (on >> b) & 1)], [...plates, table])
     const paint = new ck.Paint()
     paint.setShader(shader)
     canvas.drawPaint(paint)

@@ -136,13 +136,13 @@ impl Inks {
     }
 
     /// RGBA pixels over the page: the plates `on` (bit 0 for C … bit 3 for K, then the
-    /// spots) as they print unless all are on, magenta where the coverage is above
+    /// spots) as they print if a spot is off, magenta where the coverage is above
     /// `limit` % if `over`, and hatched where a colour is out of gamut if `gamut`.
     pub fn image(&self, on: u32, limit: f32, over: bool, gamut: bool) -> Vec<u8> {
         let n = self.gamut.len();
-        let all = (0..self.plates.len()).all(|p| on & 1 << p != 0);
+        let spots = (4..self.plates.len()).all(|p| on & 1 << p != 0);
         let mut out = vec![0u8; n * 4];
-        if !all {
+        if !spots {
             let cmyk: Vec<u8> = (0..n)
                 .flat_map(|i| {
                     let mut c = [0.0f32; 4];
