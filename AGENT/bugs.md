@@ -8,7 +8,6 @@
 8. die abstand labels sollen immer über den linien darunter gezeichnet werden, gerade hab ich ein beispiel gesehen, bei dem ein label unter der linie eines anderen labels angezeigt wurde
 9. wenn ich versehentlich über der toolbar über den elementen reinzoome, dann zoome ich nicht den canvas sondern die website. bei den panels am rand, soll man aber immer noch genau gleich zoomen können, also da nicht den canvas
 10. wenn ich ein rechteck, darunter mit abstand einen text und darunter mit abstand wieder einen rechteck hab, soll der abstand über dem element auch angezeigt (smart) werden, dass ich sehe, wann es gleich ist und dann darauf auch snappen
-11. neben highest bei dem ink coverage soll nicht der name von dem element stehen und auch nicht die seite. einfach nur Highest 300% z.b.
 12. die selection color von text auf der website soll an das farbschema angepasst sein
 13. in der command pallette sollen mehr sinnvolle optionen hinzugefügt werden
 14. wenn man in einer gruppe, autolayout oder selection von mehreren elementen ist, soll ein kreis in der mitte der elemente sichtbar sein bei dem man durch hin und her ziehen deren position tauschen kann wie in figma
@@ -65,7 +64,6 @@
 7. man soll teile der website auswählen können und in diesem bereich die ki prompten, z.b. dass dieser bereich redesigned werden soll
 9. grep formate, dass bestimmter text automatisch formatiert werden kann
 10. inhaltsverzeichnis
-11. fußnoten
 12. csv import und automatisches erstellen von layouts
 13. eine markdown datei mit allen funktionen in satz
 14. datum einfügen wie seitenzahl gerade

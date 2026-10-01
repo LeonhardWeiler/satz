@@ -90,8 +90,7 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
       <span className="plate-max">{previewed ? `max ${Math.round(previewed.max[bit] ?? 0)} %` : ''}</span>
     </label>
   )
-  const highest = previewed?.highest
-  const highName = highest?.layer && editor.lookup(highest.layer)?.node.name
+  const highest = previewed?.highest ?? 0
 
   return (
     <section className="preflight" aria-label="Preflight">
@@ -154,9 +153,8 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
             </div>
             <div className="kv">
               <span>Highest</span>
-              <strong className={highest && highest.ink > limit + 0.5 ? 'bad' : ''}>
-                {highest ? `${Math.round(highest.ink)} %` : '0 %'}
-                {highest && <span className="plate-max"> {[highName, where(highest.page)?.toLowerCase()].filter(Boolean).join(', ')}</span>}
+              <strong className={highest > limit + 0.5 ? 'bad' : ''}>
+                {Math.round(highest)} %
               </strong>
             </div>
             <div className="kv">
