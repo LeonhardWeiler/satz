@@ -7,6 +7,7 @@ import { penPath } from './pen'
 import { handleAt, portAt, portsOf, radiusHandles, rect, resized, spin, upright } from './handles'
 import { Renderer, fitView, HANDLE, type Box, type View } from './renderer'
 import { pick } from './select'
+import { length, settings, subscribeSettings, UNITS } from './settings'
 import { equals, guides, measure, nearest, snap, spacings, targets, type Guide, type Lines, type Measure } from './snap'
 import { nearest as nearestSegment, remove, shift, split, type At, type Contour, type Knot } from './vector'
 import { handleTextKey, insert, range, select, textOf, wordAt } from './textEdit'
@@ -80,7 +81,7 @@ export function isTyping(e: Event) {
 const RULER = 20
 
 /**
- * Draws a ruler in mm whose 0 is at `origin` px, at `scale` px per mm, with the span
+ * Draws a ruler whose 0 is at `origin` px, at `scale` px per unit, with the span
  * `extent` in px shaded and a mark at each of `guides` in px.
  */
 function drawRuler(c: HTMLCanvasElement, horizontal: boolean, origin: number, scale: number, extent?: [number, number], guides: number[] = []) {
@@ -101,20 +102,23 @@ function drawRuler(c: HTMLCanvasElement, horizontal: boolean, origin: number, sc
     else g.rect(0, extent[0], RULER, extent[1] - extent[0])
     g.fill()
   }
-  const step = [1, 2, 5, 10, 20, 50, 100, 200].find((s) => s * scale >= 7) ?? 500
-  const major = step * (step === 1 || step === 10 || step === 100 ? 10 : 5)
+  const step = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200].find((s) => s * scale >= 7) ?? 500
+  const major = [0.1, 1, 10, 100].includes(step) ? 10 : 5
+  const first = Math.floor(-origin / scale / step)
+  const end = (len: number) => Math.ceil((len - origin) / scale / step)
   g.globalAlpha = 0.45
   g.beginPath()
   const len = horizontal ? w : h
-  for (let v = Math.floor(-origin / scale / step) * step; v * scale + origin < len; v += step) {
-    const t = v % major === 0 ? 9 : v % (step * 5) === 0 ? 5 : 3
-    at(Math.round(v * scale + origin), RULER - t, RULER)
+  for (let n = first; n < end(len); n++) {
+    const t = n % major === 0 ? 9 : n % 5 === 0 ? 5 : 3
+    at(Math.round(n * step * scale + origin), RULER - t, RULER)
   }
   g.fill()
   g.globalAlpha = 1
   g.font = "500 9px 'Hanken Grotesk', system-ui, sans-serif"
-  for (let v = Math.floor(-origin / scale / major) * major; v * scale + origin < len; v += major) {
-    const p = Math.round(v * scale + origin)
+  for (let n = Math.ceil(first / major) * major; n < end(len); n += major) {
+    const v = Math.round(n * step * 10) / 10
+    const p = Math.round(n * step * scale + origin)
     if (horizontal) g.fillText(String(v), p + 3, 9)
     else {
       g.save()
@@ -298,7 +302,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       for (const m of measures) {
         svg += line(m.x1, m.y1, m.x2, m.y2, m.dashed ? 'dashed' : '')
         if (m.dashed) continue
-        const t = `${Math.round((m.length / MM) * 10) / 10} mm`
+        const t = length(m.length)
         const w = t.length * 6.2 + 10
         const cx = m.y1 === m.y2 ? X((m.x1 + m.x2) / 2) : X(m.x1) + 9 + w / 2
         let cy = m.y1 === m.y2 ? Y(m.y1) + 13 : Y((m.y1 + m.y2) / 2)
@@ -401,7 +405,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const x0 = view.x + left * view.zoom
       const bar = quick.current!
       bar.hidden =
-        !sel || (alt && !!pointer) || !!ed || !!pen || editor.threading !== null || editor.overview !== null || editor.preflight || editor.tool !== 'move' ||
+        !sel || !settings.quickEdit || (alt && !!pointer) || !!ed || !!pen || editor.threading !== null || editor.overview !== null || editor.preflight || editor.tool !== 'move' ||
         (!!drag && drag.kind !== 'pan' && !(drag.kind === 'move' && !drag.active))
       if (sel && !bar.hidden) {
         const { clientWidth: vw, clientHeight: vh } = canvas
@@ -419,8 +423,8 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       else if (!drag) measures = []
       marks.current!.innerHTML = svgOf(target)
       const at = (axis: 'x' | 'y', o: number) => snapped.filter((g) => g.axis === axis).map((g) => o + g.at * view.zoom)
-      drawRuler(rulerX.current!, true, x0, view.zoom * MM, sel && [view.x + sel.x * view.zoom, view.x + (sel.x + sel.w) * view.zoom], at('x', view.x))
-      drawRuler(rulerY.current!, false, view.y, view.zoom * MM, sel && [view.y + sel.y * view.zoom, view.y + (sel.y + sel.h) * view.zoom], at('y', view.y))
+      drawRuler(rulerX.current!, true, x0, view.zoom * UNITS[settings.unit], sel && [view.x + sel.x * view.zoom, view.x + (sel.x + sel.w) * view.zoom], at('x', view.x))
+      drawRuler(rulerY.current!, false, view.y, view.zoom * UNITS[settings.unit], sel && [view.y + sel.y * view.zoom, view.y + (sel.y + sel.h) * view.zoom], at('y', view.y))
     }
     const show = (to: View) => {
       Object.assign(view, to)
@@ -1085,6 +1089,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     }
 
     let side = editor.side
+    const offSettings = subscribeSettings(redraw)
     const unsubscribe = editor.subscribe(() => {
       if (editor.side !== side) {
         side = editor.side
@@ -1118,6 +1123,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       cancelAnimationFrame(anim)
       clearInterval(blink)
       unsubscribe()
+      offSettings()
       resize.disconnect()
       canvas.parentElement!.removeEventListener('wheel', onWheel)
       canvas.removeEventListener('pointerdown', onPointerDown)

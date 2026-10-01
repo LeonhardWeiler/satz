@@ -212,8 +212,8 @@ test('typed values round to two decimals and stay within the bounds of their fie
   await expect(field('Font size in pt')).toHaveValue('0.1')
   await page.keyboard.press('Control+z')
   await expect(field('Font size in pt')).toHaveValue('14')
-  await type('Opacity', '150')
-  await expect(field('Opacity')).toHaveValue('100')
+  await type('Opacity in %', '150')
+  await expect(field('Opacity in %')).toHaveValue('100')
   await expect(layers.getByRole('button', { name: 'Rectangle', exact: true })).toHaveCount(2)
 })
 

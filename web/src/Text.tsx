@@ -171,7 +171,7 @@ export function TypeOptions({ spans, set }: { spans: Pick<Attrs, Styled>[]; set:
                 <Select label="Decoration" value={same((a) => a.textDecoration)} options={DECORATIONS} onChange={(textDecoration) => set({ textDecoration })} />
                 <Field
                   label={<Icon name="paragraphIndent" />}
-                  title="Paragraph indent in pt"
+                  title="Paragraph indent"
                   unit="pt"
                   reset={0}
                   value={same((a) => a.paragraphIndent)}
@@ -311,7 +311,7 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
           const field = (
             <Field
               label={<Icon name={label} />}
-              title={`${title} in ${unit}`}
+              title={title}
               unit={unit}
               min={min}
               zero={zero}
@@ -321,7 +321,7 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
             />
           )
           return prop === 'size' ? (
-            <Bindable key={prop} editor={editor} id={node.id} prop={prop} title={`${title} in ${unit}`} label={<Icon name={label} />}>
+            <Bindable key={prop} editor={editor} id={node.id} prop={prop} title={title} label={<Icon name={label} />}>
               {field}
             </Bindable>
           ) : (
@@ -388,10 +388,10 @@ function StyleRow({ editor, style }: { editor: Editor; style: TextStyle }) {
       <Font editor={editor} id={style.id} fonts={[style.font]} set={(font) => editor.apply({ type: 'setTextStyle', id: style.id, font })} />
       <div className="grid">
         {METRICS.map(([prop, title, label, unit, min, zero]) => (
-          <Bindable key={prop} editor={editor} id={style.id} prop={prop} title={`${title} in ${unit}`} label={<Icon name={label} />}>
+          <Bindable key={prop} editor={editor} id={style.id} prop={prop} title={title} label={<Icon name={label} />}>
             <Field
               label={<Icon name={label} />}
-              title={`${title} in ${unit}`}
+              title={title}
               unit={unit}
               min={min}
               zero={zero}
@@ -421,12 +421,12 @@ export function TextFrameSection({ editor, node, set }: { editor: Editor; node: 
       />
       <div className="grid">
         {INSETS.map(([prop, title, label]) => (
-          <Field key={prop} label={<Icon name={label} />} title={`${title} in mm`} unit="mm" reset={0} value={node[prop]} onCommit={(v) => set({ [prop]: v })} />
+          <Field key={prop} label={<Icon name={label} />} title={title} unit="length" reset={0} value={node[prop]} onCommit={(v) => set({ [prop]: v })} />
         ))}
         <Field label={<Icon name="columns" />} title="Columns" unit="" int min={1} max={20} reset={1} value={node.columns} onCommit={(columns) => set({ columns })} />
-        <Field label={<Icon name="gutter" />} title="Gutter in mm" unit="mm" value={node.gutter} onCommit={(gutter) => set({ gutter })} />
-        <Field label={<Icon name="baselineGrid" />} title="Baseline grid in pt" unit="pt" zero="Off" reset={0} value={node.baselineGrid} onCommit={(baselineGrid) => set({ baselineGrid })} />
-        <Field label={<Icon name="baselineStart" />} title="Baseline grid start in pt" unit="pt" reset={0} value={node.baselineStart} onCommit={(baselineStart) => set({ baselineStart })} />
+        <Field label={<Icon name="gutter" />} title="Gutter" unit="length" value={node.gutter} onCommit={(gutter) => set({ gutter })} />
+        <Field label={<Icon name="baselineGrid" />} title="Baseline grid" unit="pt" zero="Off" reset={0} value={node.baselineGrid} onCommit={(baselineGrid) => set({ baselineGrid })} />
+        <Field label={<Icon name="baselineStart" />} title="Baseline grid start" unit="pt" reset={0} value={node.baselineStart} onCommit={(baselineStart) => set({ baselineStart })} />
       </div>
       <Segmented label="Vertical align" value={node.verticalAlign} options={VERTICAL} onChange={(verticalAlign) => set({ verticalAlign })} />
     </Section>

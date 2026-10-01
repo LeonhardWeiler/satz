@@ -2577,6 +2577,23 @@ kbd {
   overflow: auto;
 }
 
+.settings {
+  width: min(420px, 92vw);
+  height: auto;
+}
+
+.settings-body {
+  display: grid;
+  gap: 12px;
+  padding: 16px 20px 20px;
+}
+
+.settings-row {
+  display: grid;
+  grid-template-columns: 1fr 160px;
+  align-items: center;
+}
+
 .help-grid {
   columns: 3 260px;
   column-gap: 32px;

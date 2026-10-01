@@ -3,6 +3,7 @@ import { Engine } from './engine/engine'
 import { MM, type Editor } from './editor'
 import { discard, open } from './file'
 import { Field, Segmented } from './controls'
+import { length } from './settings'
 import { Icon } from './icons'
 import booklet from '../../examples/booklet.satz?url'
 import poster from '../../examples/poster.satz?url'
@@ -117,7 +118,7 @@ export function Start({ editor, first, say, onClose }: { editor: Editor; first: 
                 </span>
                 <strong>{f[0]}</strong>
                 <small>
-                  {Math.round(a / MM)} × {Math.round(b / MM)} mm
+                  {length(a)} × {length(b)}
                 </small>
               </button>
             )
@@ -127,8 +128,8 @@ export function Start({ editor, first, say, onClose }: { editor: Editor; first: 
           <Segmented label="Orientation" value={land ? 'landscape' : 'portrait'} options={ORIENTATIONS} onChange={(o) => setLand(o === 'landscape')} />
           {format === 'Custom' && (
             <>
-              <Field label="W" title="Width" value={w} unit="mm" onCommit={(v) => v > 0 && setCustom(land ? [custom[0], v] : [v, custom[1]])} />
-              <Field label="H" title="Height" value={h} unit="mm" onCommit={(v) => v > 0 && setCustom(land ? [v, custom[1]] : [custom[0], v])} />
+              <Field label="W" title="Width" value={w} unit="length" onCommit={(v) => v > 0 && setCustom(land ? [custom[0], v] : [v, custom[1]])} />
+              <Field label="H" title="Height" value={h} unit="length" onCommit={(v) => v > 0 && setCustom(land ? [v, custom[1]] : [custom[0], v])} />
             </>
           )}
           <Field label="Pages" title="Pages" value={pages} unit="" min={1} max={999} onCommit={(v) => setPages(Math.round(v))} />

@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
 import { press } from './commands'
 import { Field, Section, Select } from './controls'
-import { MM, useEditor, type Editor } from './editor'
+import { useEditor, type Editor } from './editor'
+import { length, useSettings } from './settings'
 import { preview } from './file'
 import { Icon } from './icons'
 import type { Issue, Preset } from './model'
@@ -16,7 +17,7 @@ const problem = (i: Issue) =>
   : i.problem === 'lowPpi' ? `Image at ${Math.round(i.ppi)} ppi`
   : i.problem === 'gamut' ? 'Colour outside the gamut'
   : i.problem === 'ink' ? `Ink at ${Math.round(i.ink)} %, above the limit`
-  : i.problem === 'nearTrim' ? `${Math.round((i.distance / MM) * 10) / 10} mm from the trim`
+  : i.problem === 'nearTrim' ? `${length(i.distance)} from the trim`
   : 'RGB color'
 
 export const isError = (i: Issue) => ['overset', 'missingFont', 'shortOfBleed', 'ink'].includes(i.problem)
@@ -63,6 +64,7 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
   const pages = useEditor(editor, (e) => e.snapshot.pages)
   const masters = useEditor(editor, (e) => e.snapshot.masters)
   const selection = useEditor(editor, (e) => e.selection)
+  useSettings()
   const inks = useEditor(editor, (e) => e.inks)
   const limit = useEditor(editor, (e) => e.snapshot.inkLimit)
   const { preset, cropMarks, includeBleed, colorMode } = useEditor(editor, (e) => e.snapshot)
@@ -145,7 +147,7 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
           </Section>
           <Section title="Ink coverage">
             <div className="grid">
-              <Field label="Limit" title="Ink limit in %" unit="%" int min={200} max={400} reset={300} value={limit} onCommit={(inkLimit) => editor.apply({ type: 'setDocument', inkLimit })} />
+              <Field label="Limit" title="Ink limit" unit="%" int min={200} max={400} reset={300} value={limit} onCommit={(inkLimit) => editor.apply({ type: 'setDocument', inkLimit })} />
               <label className="check">
                 <input type="checkbox" checked={inks.over} onChange={(e) => set({ over: e.currentTarget.checked })} />
                 Mark above limit
@@ -178,7 +180,7 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
           </label>
           <label className="check">
             <input type="checkbox" checked={includeBleed} disabled={preset === 'screen'} onChange={(e) => editor.apply({ type: 'setDocument', includeBleed: e.currentTarget.checked })} />
-            Include {Math.round((pages[0]?.bleed ?? 0) / MM)} mm bleed
+            Include {length(pages[0]?.bleed ?? 0)} bleed
           </label>
           <button type="button" className="primary pf-go" disabled={exporting} onClick={onExport}>
             {exporting ? 'Exporting…' : errors ? `Export with ${count(errors, 'error')}` : 'Export PDF'}

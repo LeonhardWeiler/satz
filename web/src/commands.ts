@@ -111,12 +111,13 @@ export const ACTIONS: Action[] = [
   { title: 'Text tool', keys: 'T', group: 'Tools' },
   { title: 'Command palette', keys: 'Ctrl K', group: 'View' },
   { title: 'Keyboard shortcuts', keys: '?', group: 'View' },
+  { title: 'Settings', keys: 'Ctrl ,', group: 'View' },
 ]
 
 /** The titles of the actions the context menu offers with and without a selection, `null` between groups. */
 export const MENU = {
   selected: ['Cut', 'Copy', 'Paste', 'Duplicate', 'Delete', null, 'Group', 'Frame selection', 'Ungroup', 'Use as mask', 'Add auto layout', null, 'Bring to front', 'Send to back', null, 'Hide selection', 'Lock selection', 'Rename'],
-  none: ['Paste', 'Select all', null, 'Undo', 'Redo', null, 'Zoom to fit', 'Show or hide rulers', 'Add page', 'Page overview', null, 'Command palette', 'Keyboard shortcuts'],
+  none: ['Paste', 'Select all', null, 'Undo', 'Redo', null, 'Zoom to fit', 'Show or hide rulers', 'Add page', 'Page overview', null, 'Command palette', 'Keyboard shortcuts', 'Settings'],
 }
 
 const MAC = /Mac|iP/.test(navigator.platform)
@@ -132,6 +133,7 @@ const KEYS: Record<string, [key: string, code: string]> = {
   Del: ['Delete', 'Delete'],
   F2: ['F2', 'F2'],
   '.': ['.', 'Period'],
+  ',': [',', 'Comma'],
   '?': ['?', 'Slash'],
   '\\': ['\\', 'Backslash'],
   '[': ['[', 'BracketLeft'],

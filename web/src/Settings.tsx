@@ -1,0 +1,36 @@
+import { useEffect, useRef } from 'react'
+import { Select } from './controls'
+import { Icon } from './icons'
+import { setSettings, useSettings, type Unit } from './settings'
+
+const NAMES: Record<Unit, string> = { mm: 'Millimetres', cm: 'Centimetres', in: 'Inches', pt: 'Points' }
+
+/** Ctrl+,: the settings of this browser. */
+export function Settings({ onClose }: { onClose: () => void }) {
+  const ref = useRef<HTMLDialogElement>(null)
+  const { unit, quickEdit } = useSettings()
+  useEffect(() => {
+    ref.current!.showModal()
+  }, [])
+  return (
+    <dialog ref={ref} className="help settings" aria-label="Settings" onClose={onClose} onClick={(e) => e.target === e.currentTarget && ref.current!.close()}>
+      <header className="help-head">
+        <h2>Settings</h2>
+        <span className="grow" />
+        <button type="button" className="icon-button" aria-label="Close" onClick={() => ref.current!.close()}>
+          <Icon name="close" />
+        </button>
+      </header>
+      <div className="help-body settings-body">
+        <div className="settings-row">
+          Unit
+          <Select label="Unit" value={unit} options={NAMES} onChange={(u) => setSettings({ unit: u })} />
+        </div>
+        <label className="check">
+          <input type="checkbox" checked={quickEdit} onChange={(e) => setSettings({ quickEdit: e.currentTarget.checked })} />
+          Quick edit bar above the selection
+        </label>
+      </div>
+    </dialog>
+  )
+}

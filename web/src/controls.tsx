@@ -1,10 +1,10 @@
 import { useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
-import { MM } from './editor'
 import { evalExpr, step } from './field'
 import { Icon, type IconName } from './icons'
 import type { Typeface } from './model'
+import { UNITS, useSettings } from './settings'
 
 /** Moves the focus from the event's target to the item before or after it for the keys `back` and `forth`. */
 export function roam(e: KeyboardEvent, items: Element[], back = ['ArrowUp'], forth = ['ArrowDown']) {
@@ -17,8 +17,6 @@ export function roam(e: KeyboardEvent, items: Element[], back = ['ArrowUp'], for
 }
 
 const round = (v: number, unit: string) => (unit === '%' ? Math.round(v) : Math.round(v * 100) / 100)
-/** Points per unit of the lengths that fields show in another unit than they are given in. */
-const PT: Record<string, number> = { mm: MM }
 
 /**
  * A number input that takes expressions with units. ↑/↓ step it, Shift by 10 and Alt by 0.1;
@@ -28,7 +26,7 @@ const PT: Record<string, number> = { mm: MM }
 export function Field({
   label,
   value,
-  unit,
+  unit: given,
   onCommit,
   readOnly,
   zero,
@@ -36,11 +34,12 @@ export function Field({
   min = 0,
   max = Infinity,
   reset,
-  title = typeof label === 'string' ? `${label} in ${unit}` : unit,
+  title: name = typeof label === 'string' ? label : undefined,
 }: {
   label: ReactNode
   /** In pt for lengths, shown in `unit`. */
   value: number | null
+  /** "length" for the length unit of the settings. */
   unit: string
   onCommit?: (v: number) => void
   readOnly?: boolean
@@ -57,7 +56,10 @@ export function Field({
   const [draft, setDraft] = useState<string | null>(null)
   const [bad, setBad] = useState(false)
   const [scrub, setScrub] = useState(false)
-  const per = PT[unit] ?? 1
+  const lengths = useSettings().unit
+  const unit = given === 'length' ? lengths : given
+  const per = given === 'length' ? UNITS[lengths] : 1
+  const title = name && unit ? `${name} in ${unit}` : (name ?? unit)
   const shown = value === null ? null : round(value / per, unit)
   const put = (v: number) => {
     const c = Math.min(max, Math.max(min, v))

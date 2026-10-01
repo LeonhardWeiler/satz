@@ -152,7 +152,7 @@ export function Properties({
                 key={k}
                 label={k === 'bleed' ? 'Bleed' : k === 'width' ? 'W' : 'H'}
                 value={sameOf(sheets, (p) => p[k])}
-                unit="mm"
+                unit="length"
                 onCommit={(v) => setSheets(() => ({ [k]: v }))}
               />
             ))}
@@ -214,21 +214,21 @@ export function Properties({
       {box && (
         <Section title="Layout">
           <div className="grid">
-            <Field label="X" min={-Infinity} value={nodes.length > 1 ? same((n) => n.x) : box.x} unit="mm" onCommit={frame('x')} />
-            <Field label="Y" min={-Infinity} value={nodes.length > 1 ? same((n) => n.y) : box.y} unit="mm" onCommit={frame('y')} />
+            <Field label="X" min={-Infinity} value={nodes.length > 1 ? same((n) => n.x) : box.x} unit="length" onCommit={frame('x')} />
+            <Field label="Y" min={-Infinity} value={nodes.length > 1 ? same((n) => n.y) : box.y} unit="length" onCommit={frame('y')} />
             {line ? (
               <>
-                <Field label="L" title="Length in mm" value={length!} unit="mm" onCommit={(v) => setLine(v, angle!)} />
-                <Field label="∠" title="Angle in °" min={-Infinity} value={angle!} unit="°" onCommit={(v) => setLine(length!, v)} />
+                <Field label="L" title="Length" value={length!} unit="length" onCommit={(v) => setLine(v, angle!)} />
+                <Field label="∠" title="Angle" min={-Infinity} value={angle!} unit="°" onCommit={(v) => setLine(length!, v)} />
               </>
             ) : (
               <>
-                {bindable('w', 'W in mm', 'W', <Field label="W" value={same((n) => n.w)} unit="mm" onCommit={frame('w')} />)}
-                {bindable('h', 'H in mm', 'H', <Field label="H" value={same((n) => n.h)} unit="mm" onCommit={frame('h')} />)}
+                {bindable('w', 'W', 'W', <Field label="W" value={same((n) => n.w)} unit="length" onCommit={frame('w')} />)}
+                {bindable('h', 'H', 'H', <Field label="H" value={same((n) => n.h)} unit="length" onCommit={frame('h')} />)}
               </>
             )}
             {!line && nodes.every((n) => n.kind !== 'group') && (
-              <Field label="∠" title="Rotation in °" unit="°" min={-Infinity} reset={0} value={same((n) => n.rotation)} onCommit={(v) => set({ rotation: ((v % 360) + 360) % 360 })} />
+              <Field label="∠" title="Rotation" unit="°" min={-Infinity} reset={0} value={same((n) => n.rotation)} onCommit={(v) => set({ rotation: ((v % 360) + 360) % 360 })} />
             )}
             {one?.kind === 'frame' && (
               <label className="check">
@@ -239,12 +239,12 @@ export function Properties({
             {nodes.length > 0 && nodes.every((n) => n.kind === 'shape' && n.shape === 'rect') && (
               bindable(
                 'radius',
-                'Corner radius in mm',
+                'Corner radius',
                 'R',
                 <Field
                   label="R"
-                  title="Corner radius in mm"
-                  unit="mm"
+                  title="Corner radius"
+                  unit="length"
                   reset={0}
                   value={same((n) => ('radius' in n ? (radiusOf(n) ?? undefined) : 0))}
                   onCommit={(radius) => set({ radius, corners: [] })}
@@ -256,13 +256,13 @@ export function Properties({
             )}
             {one?.kind === 'shape' && one.shape === 'ellipse' && (
               <>
-                <Field label="Start" title="Arc start in °" unit="°" min={-Infinity} reset={0} value={one.start} onCommit={(v) => set({ start: ((v % 360) + 360) % 360 })} />
-                <Field label="Sweep" title="Arc sweep in %" unit="%" max={100} reset={100} value={one.sweep * 100} onCommit={(v) => set({ sweep: v / 100 })} />
-                <Field label="Ratio" title="Inner radius in %" unit="%" max={100} reset={0} value={one.inner * 100} onCommit={(v) => set({ inner: v / 100 })} />
+                <Field label="Start" title="Arc start" unit="°" min={-Infinity} reset={0} value={one.start} onCommit={(v) => set({ start: ((v % 360) + 360) % 360 })} />
+                <Field label="Sweep" title="Arc sweep" unit="%" max={100} reset={100} value={one.sweep * 100} onCommit={(v) => set({ sweep: v / 100 })} />
+                <Field label="Ratio" title="Inner radius" unit="%" max={100} reset={0} value={one.inner * 100} onCommit={(v) => set({ inner: v / 100 })} />
               </>
             )}
             {one?.kind === 'shape' && one.shape === 'star' && (
-              <Field label="Ratio" title="Star ratio in %" unit="%" min={1} max={100} value={one.ratio * 100} onCommit={(v) => set({ ratio: v / 100 })} />
+              <Field label="Ratio" title="Star ratio" unit="%" min={1} max={100} value={one.ratio * 100} onCommit={(v) => set({ ratio: v / 100 })} />
             )}
           </div>
           {one && <Sizing editor={editor} node={one} set={set} />}
@@ -382,9 +382,9 @@ function DocumentSection({ editor }: { editor: Editor }) {
     <Section title="Document">
       <FormatRow sheets={pages} each={each} />
       <div className="grid">
-        <Field label="W" title="Width of all pages in mm" unit="mm" value={w} onCommit={(width) => each(() => ({ width }))} />
-        <Field label="H" title="Height of all pages in mm" unit="mm" value={h} onCommit={(height) => each(() => ({ height }))} />
-        <Field label="Bleed" title="Bleed of all pages in mm" unit="mm" value={sameOf(pages, (p) => p.bleed)} onCommit={(bleed) => each(() => ({ bleed }))} />
+        <Field label="W" title="Width of all pages" unit="length" value={w} onCommit={(width) => each(() => ({ width }))} />
+        <Field label="H" title="Height of all pages" unit="length" value={h} onCommit={(height) => each(() => ({ height }))} />
+        <Field label="Bleed" title="Bleed of all pages" unit="length" value={sameOf(pages, (p) => p.bleed)} onCommit={(bleed) => each(() => ({ bleed }))} />
         <Field label="Pages" title="Pages" unit="" int min={1} value={pages.length} onCommit={count} />
         <Select label="Spreads" value={facingPages ? 'facing' : 'single'} options={SPREADS} onChange={(v) => editor.apply({ type: 'setDocument', facingPages: v === 'facing' })} />
         <Field label="Raster" reset={300} value={rasterPpi} unit="ppi" min={72} max={1200} onCommit={(v) => editor.apply({ type: 'setDocument', rasterPpi: v })} />
@@ -434,12 +434,12 @@ function GridSection({ editor, sheets, all }: { editor: Editor; sheets: Page[]; 
                 </div>
                 <div className="grid">
                   {g.kind === 'grid' ? (
-                    <Field label="Size" title="Cell size in mm" unit="mm" value={g.size} onCommit={(size) => size > 0 && set({ size })} />
+                    <Field label="Size" title="Cell size" unit="length" value={g.size} onCommit={(size) => size > 0 && set({ size })} />
                   ) : (
                     <>
                       <Field label="N" title={GRIDS[g.kind]} unit="" int min={1} value={g.count} onCommit={(count) => set({ count })} />
-                      <Field label="Gutter" title="Gutter in mm" unit="mm" value={g.gutter} onCommit={(gutter) => set({ gutter })} />
-                      <Field label="Margin" title="Margin in mm" unit="mm" value={g.margin} onCommit={(margin) => set({ margin: Math.max(0, margin) })} />
+                      <Field label="Gutter" title="Gutter" unit="length" value={g.gutter} onCommit={(gutter) => set({ gutter })} />
+                      <Field label="Margin" title="Margin" unit="length" value={g.margin} onCommit={(margin) => set({ margin: Math.max(0, margin) })} />
                     </>
                   )}
                 </div>

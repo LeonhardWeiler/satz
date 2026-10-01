@@ -314,7 +314,7 @@ export function Picker({
               </label>
               <Field
                 label=""
-                title="Opacity in %"
+                title="Opacity"
                 unit="%"
                 value={alpha(process)}
                 onCommit={(p) => onChange(withAlpha(process, p))}

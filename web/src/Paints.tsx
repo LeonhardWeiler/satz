@@ -245,13 +245,13 @@ export function EffectList({
                 <div className="grid">
                   {e.type === 'dropShadow' && (
                     <>
-                      <Field label="X" title="Shadow X in mm" unit="mm" min={-Infinity} value={e.x} onCommit={(x) => set({ x })} />
-                      <Field label="Y" title="Shadow Y in mm" unit="mm" min={-Infinity} value={e.y} onCommit={(y) => set({ y })} />
+                      <Field label="X" title="Shadow X" unit="length" min={-Infinity} value={e.x} onCommit={(x) => set({ x })} />
+                      <Field label="Y" title="Shadow Y" unit="length" min={-Infinity} value={e.y} onCommit={(y) => set({ y })} />
                     </>
                   )}
                   <Field
                     label="Blur"
-                    unit="mm"
+                    unit="length"
                     value={e.radius}
                     onCommit={(radius) => set({ radius })}
                   />

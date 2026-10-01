@@ -68,7 +68,7 @@ export function Quick({ editor }: { editor: Editor }) {
         <>
           <Specimen editor={editor} spans={spans} format={format} />
           <Font editor={editor} fonts={spans.map((a) => a.font)} set={(font) => format({ font })} />
-          <Field label={<Icon name="fontSize" />} title="Font size in pt" unit="pt" min={0.1} value={size} onCommit={(v) => format({ size: v })} />
+          <Field label={<Icon name="fontSize" />} title="Font size" unit="pt" min={0.1} value={size} onCommit={(v) => format({ size: v })} />
           <Segmented label="Text align" value={align} options={ALIGNS} onChange={(textAlign) => format({ textAlign })} />
           <TypeOptions spans={spans} set={format} />
         </>
