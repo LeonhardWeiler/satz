@@ -67,6 +67,10 @@
   box-sizing: border-box;
 }
 
+::selection {
+  background: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
 html,
 body,
 #root,
