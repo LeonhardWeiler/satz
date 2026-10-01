@@ -52,6 +52,9 @@
 52. when ich den preflight editor offen habe und ein element, das als outside the gamut markiert ist bewege, dann dauert es ca. 1,5s bis die selection geupdated ist, schau dass das schneller funktioniert
 53. das logo soll etwas mehr border radius haben, also die weiße box
 54. bei den Document Settings sieht man es besonders, aber es ist an vielen orten der Fall. Das dropdown menü ist breiter als die andern menüs und wieder anders sieht das landscape oder portrait mode selector aus. Alle Settings sollen genau gleich aussehen. Damit meine ich, gleiche höhe, breite, border radius, padding, margin, etc.
+55. when the line is selected when a selection is dragged, only the line should be highlighted, like when clicked, not the whole bounding box
+56. beim namen umbenennen links oben soll die input box einen margin links zu den logo haben. man soll nur den namen und nicht die extension bearbeiten können und man soll überall in dieser Zeile klicken können, aber es soll nur der name das input feld sein
+57. entfern die zeile links unten bei der z.b. Cover master items steht und auch die Linie darüber
 
 --- LATER
 1. Figma import with file and or account
@@ -70,6 +73,8 @@
 15. conditional text mit variablen
 16. tabellen
 17. verankerte objekte
+18. move pages or double pages
+19. flip horizontally and vertically
 
 --- with server (in the future)
 1. make it possible to work together on the same project with link and code share, alot of works needs to be done to make this work good
