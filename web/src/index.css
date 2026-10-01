@@ -1375,8 +1375,12 @@ textarea {
   white-space: nowrap;
 }
 
+.brand .ext {
+  color: var(--text-3);
+  font-weight: 400;
+}
+
 .brand .name-input {
-  margin-left: -9px;
   font-size: 12px;
   font-weight: 600;
 }

@@ -54,9 +54,12 @@ test('saving downloads the file and clears the unsaved mark', async ({ page }) =
   await expect(page).toHaveTitle('Untitled.satz - Satz')
 })
 
-test('a double click on the name renames the document for the next save', async ({ page }) => {
-  await page.getByRole('heading', { name: 'Untitled.satz' }).dblclick()
-  await page.getByRole('textbox', { name: 'Document name' }).fill('Report')
+test('a double click beside the name renames the document but not its extension for the next save', async ({ page }) => {
+  const box = (await page.getByRole('heading', { name: 'Untitled.satz' }).boundingBox())!
+  await page.mouse.dblclick(box.x + box.width + 20, box.y + box.height / 2)
+  const input = page.getByRole('textbox', { name: 'Document name' })
+  await expect(input).toHaveValue('Untitled')
+  await input.fill('Report')
   await page.keyboard.press('Enter')
   await expect(page.getByRole('heading', { name: 'Report.satz' })).toBeVisible()
   await expect(page).toHaveTitle('* Report.satz - Satz')

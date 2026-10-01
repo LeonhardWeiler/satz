@@ -24,6 +24,7 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
   const say = editor.say
   const dirty = useEditor(editor, (e) => e.dirty)
   const name = useEditor(editor, (e) => e.file.name)
+  const title = name.replace(/\.satz$/, '')
   const overview = useEditor(editor, (e) => e.overview !== null)
   const preflight = useEditor(editor, (e) => e.preflight)
   const issues = useEditor(editor, (e) => e.snapshot.preflight)
@@ -41,7 +42,6 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
 
   const exportPdf = () => {
     if (exporting) return
-    const title = name.replace(/\.satz$/, '')
     const file = `${title}.pdf`
     setExporting(true)
     say('Exporting PDF…')
@@ -174,18 +174,14 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
     <main className={`app${off('left') ? ' no-left' : ''}${off('right') ? ' no-right' : ''}${hidden.ui ? ' no-ui' : ''}${hidden.rulers ? ' no-rulers' : ''}`}>
       <div className="left" inert={off('left')}>
         <Edge side="left" />
-        <div className="brand" onBlur={() => setRenaming(false)}>
+        <div className="brand" title="Double-click to rename" onDoubleClick={() => setRenaming(true)} onBlur={() => setRenaming(false)}>
           <span className="mark" aria-hidden="true" />
           {renaming ? (
-            <NameInput
-              label="Document name"
-              value={name}
-              autoFocus
-              onCommit={(v) => editor.saved({ ...editor.file, name: v.endsWith('.satz') ? v : `${v}.satz` }, '')}
-            />
+            <NameInput label="Document name" value={title} autoFocus onCommit={(v) => editor.saved({ ...editor.file, name: `${v}.satz` }, '')} />
           ) : (
-            <h1 title="Double-click to rename" onDoubleClick={() => setRenaming(true)}>
-              {name}
+            <h1>
+              {title}
+              <span className="ext">.satz</span>
             </h1>
           )}
         </div>
