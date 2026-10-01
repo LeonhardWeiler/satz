@@ -183,6 +183,11 @@ impl Engine {
         self.doc.inks(page, ppi)
     }
 
+    /// A hash of the page `page` as it prints; its inks change only with it.
+    pub fn printed(&self, page: &str) -> Option<u64> {
+        self.doc.printed(page)
+    }
+
     /// The document as a PDF titled `title`, made at `date` in ISO 8601 UTC.
     pub fn pdf(&self, title: &str, date: &str) -> Vec<u8> {
         self.doc.pdf(title, date)

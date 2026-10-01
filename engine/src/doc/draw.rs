@@ -696,6 +696,15 @@ impl Doc {
         Inks::new(&self.print(&snap, p), ppi)
     }
 
+    /// A hash of the page `id` as it prints; its inks change only with it.
+    pub fn printed(&self, id: &str) -> Option<u64> {
+        let snap = self.snapshot();
+        let p = snap.pages.iter().find(|p| p.id == id)?;
+        let mut h = std::hash::DefaultHasher::new();
+        std::hash::Hash::hash(&crate::encode(&self.print(&snap, p)), &mut h);
+        Some(std::hash::Hasher::finish(&h))
+    }
+
     /// The document as a PDF titled `title`, made at `date` in ISO 8601 UTC, every
     /// page from one snapshot.
     pub fn pdf(&self, title: &str, date: &str) -> Vec<u8> {
