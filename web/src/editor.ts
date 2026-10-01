@@ -97,7 +97,7 @@ export class Editor {
   /** The last copies `duplicate` made and where their originals were. */
   private copies: { ids: string[]; from: { x: number; y: number } } | null = null
   /** How many undo groups are open; the engine holds one for all of them. */
-  private groups = 0
+  groups = 0
   private savedAt: string
   private listeners = new Set<() => void>()
 

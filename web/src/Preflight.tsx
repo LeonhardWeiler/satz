@@ -22,7 +22,7 @@ const problem = (i: Issue) =>
 export const isError = (i: Issue) => ['overset', 'missingFont', 'shortOfBleed', 'ink'].includes(i.problem)
 const count = (n: number, what: string) => `${n} ${what}${n === 1 ? '' : 's'}`
 
-/** Keeps the inks of the shown pages from the worker in `editor.previewed` while mounted. */
+/** Keeps the inks of the shown pages from the worker in `editor.previewed` while mounted, between drags. */
 function usePreview(editor: Editor, on: boolean) {
   useEffect(() => {
     if (!on) return
@@ -30,7 +30,7 @@ function usePreview(editor: Editor, on: boolean) {
     const request = () => {
       const pages = editor.spread.map((p) => p.id).filter((id) => editor.snapshot.pages.some((p) => p.id === id))
       const next = JSON.stringify([editor.engine.version(), pages, editor.inks])
-      if (next === key || gone) return
+      if (next === key || gone || editor.groups) return
       if (busy) return void (again = true)
       ;[key, busy] = [next, true]
       preview(editor, { pages, ppi: PPI, ...editor.inks, limit: editor.snapshot.inkLimit })
