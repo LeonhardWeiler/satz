@@ -44,23 +44,23 @@ const METRICS: [Exclude<Styled, 'font' | 'textCase' | 'textDecoration' | 'featur
 
 const CASES = { original: 'As typed', upper: 'Upper case', lower: 'Lower case', title: 'Title case' } as const
 const DECORATIONS = { none: 'No decoration', underline: 'Underline', strikethrough: 'Strikethrough' } as const
-/** OpenType features: tag, title and whether fonts apply it unless turned off. */
-const FEATURES: [string, string, boolean?][] = [
-  ['kern', 'Kerning', true],
-  ['liga', 'Ligatures', true],
-  ['dlig', 'Discretionary ligatures'],
-  ['smcp', 'Small caps'],
-  ['c2sc', 'Capitals to small caps'],
-  ['case', 'Case-sensitive forms'],
-  ['lnum', 'Lining figures'],
-  ['onum', 'Oldstyle figures'],
-  ['pnum', 'Proportional figures'],
-  ['tnum', 'Tabular figures'],
-  ['frac', 'Fractions'],
-  ['zero', 'Slashed zero'],
-  ['sups', 'Superscript'],
-  ['subs', 'Subscript'],
-  ['ordn', 'Ordinals'],
+/** OpenType features: tag, title, a sample it changes and whether fonts apply it unless turned off. */
+const FEATURES: [string, string, string, boolean?][] = [
+  ['kern', 'Kerning', 'AV', true],
+  ['liga', 'Ligatures', 'fi', true],
+  ['dlig', 'Discretionary ligatures', 'ct'],
+  ['smcp', 'Small caps', 'Ab'],
+  ['c2sc', 'Capitals to small caps', 'AB'],
+  ['case', 'Case-sensitive forms', '(H)'],
+  ['lnum', 'Lining figures', '196'],
+  ['onum', 'Oldstyle figures', '196'],
+  ['pnum', 'Proportional figures', '11'],
+  ['tnum', 'Tabular figures', '11'],
+  ['frac', 'Fractions', '1/2'],
+  ['zero', 'Slashed zero', '0'],
+  ['sups', 'Superscript', 'x2'],
+  ['subs', 'Subscript', 'x2'],
+  ['ordn', 'Ordinals', '1st'],
 ]
 
 /** The text style's name set at its size, within what a panel row takes. */
@@ -179,7 +179,7 @@ export function TypeOptions({ spans, set }: { spans: Pick<Attrs, Styled>[]; set:
                 />
               </div>
               <div className="grid" role="group" aria-label="OpenType features">
-                {FEATURES.map(([tag, title, dflt]) => {
+                {FEATURES.map(([tag, title, sample, dflt]) => {
                   const checked = same(on(tag, dflt))
                   return (
                     <label key={tag} className="check">
@@ -191,6 +191,7 @@ export function TypeOptions({ spans, set }: { spans: Pick<Attrs, Styled>[]; set:
                         }}
                         onChange={(e) => toggle(tag, dflt, e.currentTarget.checked)}
                       />
+                      <span className="feature" style={{ fontFeatureSettings: `"${tag}"` }} aria-hidden="true">{sample}</span>
                       {title}
                     </label>
                   )

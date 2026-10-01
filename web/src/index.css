@@ -859,8 +859,16 @@ textarea {
 }
 
 .type-options {
-  width: 272px;
+  width: 340px;
   padding-top: 12px;
+}
+
+.feature {
+  flex: none;
+  width: 24px;
+  color: var(--text-2);
+  font: 13px var(--doc-font);
+  text-align: center;
 }
 
 .picker-header {
