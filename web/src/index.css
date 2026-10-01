@@ -965,17 +965,17 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 4px;
-  height: 24px;
+  height: 28px;
   min-width: 0;
   padding: 0 4px 0 8px;
-  border: 1px solid var(--border);
+  border: 0;
   border-radius: 6px;
   background: var(--input);
+  box-shadow: inset 0 0 0 1px var(--border);
   color: var(--text);
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.12s var(--ease);
 }
 
 .select > span {
@@ -990,8 +990,9 @@ textarea {
 }
 
 .select:hover,
-.select[aria-expanded='true'] {
-  border-color: var(--edge);
+.select[aria-expanded='true'],
+.specimen:hover {
+  box-shadow: inset 0 0 0 1px var(--edge);
 }
 
 .section-header {
@@ -1441,7 +1442,6 @@ textarea {
 
 .quick .segmented button {
   width: 28px;
-  height: 24px;
 }
 
 .quick .icon-button {
@@ -1970,7 +1970,7 @@ kbd {
   display: grid;
   flex: 1;
   place-items: center;
-  height: 20px;
+  height: 24px;
   border: 0;
   border-radius: 4px;
   background: none;
@@ -2226,7 +2226,6 @@ kbd {
 
 .start-options .segmented button {
   width: 32px;
-  height: 24px;
 }
 
 .overview {
@@ -2406,10 +2405,6 @@ kbd {
   padding-left: 4px;
   border-style: dashed;
   color: var(--text-2);
-}
-
-.specimen:hover {
-  background: var(--hover);
 }
 
 .specimen > span:first-child {

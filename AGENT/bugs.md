@@ -12,7 +12,6 @@
 23. resize swatch thing horizontally
 30. on macos (firefox) the text often is faded out to the right (because of the possiblity of an overflow) that dont actually overflow. on chromium i don't have that problem
 31. add options for basic image editing, like crop (also when resizing with ctrl), contrast, brightness, etc. they should appear in the bar above the element
-33. das text style dropdown soll gleich aussehen wie alle anderen dropdowns
 34. when zooming in/out, the elements should not move but only scale
 37. show icons next to the specifig font options, like ligatures to make it easier to understand like figma does
 38. make it possible to make boolean operations on things like rectangles, triangles, ... (not text unless its made into an vector). the buttons/icons should be below the align buttons
@@ -29,7 +28,6 @@
 50. lines should have the option to be squiggly, etc. 
 51. mach eine ausführliche analyse von anderen programmen, wie figma, indesign, scribus, ... und schau welche funktionen sie bieten, die ich hier noch nicht implementiert habe, schreib das unter AGENT in eine comparison.md datei
 52. when ich den preflight editor offen habe und ein element, das als outside the gamut markiert ist bewege, dann dauert es ca. 1,5s bis die selection geupdated ist, schau dass das schneller funktioniert
-54. bei den Document Settings sieht man es besonders, aber es ist an vielen orten der Fall. Das dropdown menü ist breiter als die andern menüs und wieder anders sieht das landscape oder portrait mode selector aus. Alle Settings sollen genau gleich aussehen. Damit meine ich, gleiche höhe, breite, border radius, padding, margin, etc.
 
 --- LATER
 1. Figma import with file and or account

@@ -463,7 +463,7 @@ function FormatRow({ page, sheets, each }: { page?: boolean; sheets: Page[]; eac
     w !== null && h !== null ? (FORMATS.find(([, a, b]) => near(Math.min(w, h), a * MM) && near(Math.max(w, h), b * MM))?.[0] ?? 'Custom') : 'Custom'
   const orient = (wide: boolean) => each((p) => (p.width > p.height === wide ? {} : { width: p.height, height: p.width }))
   return (
-      <div className="row">
+      <div className="grid">
         <Select
           label={page ? 'Page format' : 'Format'}
           value={format}

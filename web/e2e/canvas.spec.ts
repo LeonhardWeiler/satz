@@ -79,7 +79,7 @@ test('a line turns about its middle when dragged beyond an end', async ({ page }
   await expect(field('Y in mm')).toHaveValue('56')
 })
 
-test('property sections space their rows evenly', async ({ page }) => {
+test('property sections space their rows evenly and size their controls alike', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
   const layers = page.getByRole('tree', { name: 'Layers' })
@@ -93,12 +93,14 @@ test('property sections space their rows evenly', async ({ page }) => {
           top: kids[0].top - r.top,
           bottom: r.bottom - parseFloat(getComputedStyle(s).borderBottomWidth) - kids.at(-1)!.bottom,
           gaps: kids.slice(1).map((k, i) => k.top - kids[i].bottom),
+          heights: [...s.querySelectorAll('.field, .select, .segmented, .specimen')].map((c) => c.getBoundingClientRect().height),
         }
       }),
     )
     for (const s of sections) {
       expect(s.bottom, s.name!).toBeCloseTo(s.top, 0)
       for (const g of s.gaps) expect(g, s.name!).toBeCloseTo(8, 0)
+      for (const h of s.heights) expect(h, s.name!).toBe(28)
     }
   }
   await expectEven()
