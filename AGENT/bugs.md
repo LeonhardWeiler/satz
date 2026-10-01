@@ -57,6 +57,8 @@
 94. when ich den preflight editor offen habe und ein element, das als outside the gamut markiert ist bewege, dann dauert es ca. 1,5s bis die selection geupdated ist, schau dass das schneller funktioniert
 95. lass die ganzen cmyk sachen im preflight weg, wenn die datei sowieso rgb ist
 96. bringe raster in die gleiche zeile wie facing pages gerade ist und integriere die checkbox besser ins layout
+97. das logo soll etwas mehr border radius haben, also die weiße box
+98. im title von der website soll kein em das sein, nur name - Satz
 
 --- LATER
 1. Figma import with file and or account
