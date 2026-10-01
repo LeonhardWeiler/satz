@@ -623,8 +623,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         const snaps = snapsNow()
         p = snapPoint(p, snaps, e.ctrlKey || e.metaKey).p
         drag = { kind: 'draw', start: p, id: '', dx: 0, moved: false, tool, snaps }
-        const bleeds = (q: Page) => p.x >= q.x - q.bleed && p.x <= q.x + q.width + q.bleed && p.y >= -q.bleed && p.y <= q.height + q.bleed
-        if (editor.spread.some(bleeds)) draw(drag)
+        if (editor.sheets.some((q) => p.x >= q.x - q.bleed && p.x <= q.x + q.width + q.bleed && p.y >= -q.bleed && p.y <= q.height + q.bleed)) draw(drag)
         return
       }
       const v = editor.vector
