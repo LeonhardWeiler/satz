@@ -158,7 +158,7 @@ test('a spot swatch is made in the swatches panel, bound in the picker, tinted a
   expect(b2 - r2).toBeGreaterThan(100)
 })
 
-test('a click on a swatch fills the selection with it, or edits it when nothing is selected', async ({ page }) => {
+test('a click on a swatch edits it, also with a selection', async ({ page }) => {
   await open(page)
   const swatches = page.getByRole('region', { name: 'Swatches' })
   const panel = page.getByRole('complementary', { name: 'Properties' })
@@ -169,19 +169,10 @@ test('a click on a swatch fills the selection with it, or edits it when nothing 
   await page.keyboard.press('Escape')
   await expect(editor).toBeHidden()
 
-  const rects = page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true })
-  await rects.first().click()
-  await rects.last().click({ modifiers: ['Shift'] })
-  await swatches.getByRole('option', { name: 'Ink' }).click()
-  await expect(editor).toBeHidden()
-  for (const r of [rects.first(), rects.last()]) {
-    await r.click()
-    await expect(panel.getByText('Ink')).toBeVisible()
-  }
-
-  await page.keyboard.press('Escape')
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).first().click()
   await swatches.getByRole('option', { name: 'Ink' }).click()
   await expect(editor).toBeVisible()
+  await expect(panel.getByText('Ink')).toHaveCount(0)
 })
 
 test('arrow keys in the saturation area do not move the layer', async ({ page }) => {

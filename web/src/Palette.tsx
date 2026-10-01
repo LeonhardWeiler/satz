@@ -3,8 +3,7 @@ import { ACTIONS, fuzzy, keyLabel, press } from './commands'
 import { Chip, ink, NO_SCOPE } from './ColorPicker'
 import type { Editor } from './editor'
 import { Icon, KindIcon } from './icons'
-import type { Node } from './model'
-import { fillWith } from './Swatches'
+import type { Fill, Node } from './model'
 
 type Item = { group: string; title: string; keys: string; icon: ReactNode; run: () => void }
 
@@ -58,6 +57,17 @@ function items(editor: Editor): Item[] {
       },
     })),
   ]
+}
+
+/** Fills the selection with the swatch `id`; false when nothing is selected. */
+function fillWith(editor: Editor, id: string) {
+  const nodes = editor.selected()
+  if (!nodes.length) return false
+  const fill: Fill = { type: 'solid', color: { swatch: id, tint: 1, alpha: 1 }, stops: [], transform: [1, 0, 0, 1, 0, 0], visible: true }
+  editor.batch(() => {
+    for (const n of nodes) editor.apply({ type: 'set', id: n.id, fills: [fill] })
+  })
+  return true
 }
 
 /** Ctrl K: finds and runs commands, layers, pages, swatches and text styles. */

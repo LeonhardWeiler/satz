@@ -10,7 +10,6 @@
 19. in der page overview soll man die vertikale master linie nach links und rechts ziehen können, die vorschaubilder von den master seiten sollen dann auch mitgescaled werden
 20. in der page overview sollen die pages (nicht master) etwas größer angezeigt werden und man soll rein und rauszoomen können, aber nicht ganz so nah, und man soll auch die option haben ob man mehrere spalten haben will in denen die pages angezeigt werden
 23. resize swatch thing horizontally
-24. auch wenn man ein element ausgewählt hat, soll man immer mit single click bei den swatch colors diese ändern können, wenn auf die swatch colors links unten klickt, sollen sie nie gesetzt werden, dafür gibt es die controls auf der rechten seite oder die toolbar über dem element
 25. auto fit (auto width when theres a single line, auto height when theres multiple lines) as an additional option for a text frame and when double clicking on the corner of a text frame and use this as the keyboardshortcut
 27. when drawing a line it should show the selection like it shows when it is selected later
 28. use as mask works for elements above, but it should work for elements below

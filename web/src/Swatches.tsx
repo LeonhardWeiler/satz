@@ -5,19 +5,7 @@ import { Chip, NO_SCOPE, Picker, SwatchOption } from './ColorPicker'
 import { ContextMenu } from './ContextMenu'
 import { NameInput, nextName } from './controls'
 import { scopeOf, useEditor, type Editor } from './editor'
-import type { Fill } from './model'
 import { Icon } from './icons'
-
-/** Fills the selection with the swatch `id`; false when nothing is selected. */
-export function fillWith(editor: Editor, id: string) {
-  const nodes = editor.selected()
-  if (!nodes.length) return false
-  const fill: Fill = { type: 'solid', color: { swatch: id, tint: 1, alpha: 1 }, stops: [], transform: [1, 0, 0, 1, 0, 0], visible: true }
-  editor.batch(() => {
-    for (const n of nodes) editor.apply({ type: 'set', id: n.id, fills: [fill] })
-  })
-  return true
-}
 
 export function Swatches({ editor }: { editor: Editor }) {
   const snapshot = useEditor(editor, (e) => e.snapshot)
@@ -36,7 +24,6 @@ export function Swatches({ editor }: { editor: Editor }) {
     const name = nextName('Swatch', swatches.map((s) => s.name))
     setEditing(editor.apply({ type: 'addSwatch', name, color, spot: false })[0])
   }
-  const pick = (id: string) => fillWith(editor, id) || setEditing(id)
   const remove = (id: string) => {
     editor.apply({ type: 'deleteSwatch', id })
     if (editing === id) setEditing(null)
@@ -81,7 +68,7 @@ export function Swatches({ editor }: { editor: Editor }) {
                 <NameInput label="Swatch name" value={s.name} autoFocus onCommit={(name) => editor.apply({ type: 'setSwatch', id: s.id, name })} />
               </div>
             ) : (
-              <SwatchOption swatch={s} selected={s.id === editing} onPick={() => pick(s.id)} />
+              <SwatchOption swatch={s} selected={s.id === editing} onPick={() => setEditing(s.id)} />
             )}
             {renaming !== s.id && (
               <button
