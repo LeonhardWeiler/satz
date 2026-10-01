@@ -12,7 +12,6 @@
 23. resize swatch thing horizontally
 30. on macos (firefox) the text often is faded out to the right (because of the possiblity of an overflow) that dont actually overflow. on chromium i don't have that problem
 31. add options for basic image editing, like crop (also when resizing with ctrl), contrast, brightness, etc. they should appear in the bar above the element
-32. what does absolute position for an element inside an auto layout mean, is it necesesary/helpful. it should not change the position when checked
 33. das text style dropdown soll gleich aussehen wie alle anderen dropdowns
 34. when zooming in/out, the elements should not move but only scale
 37. show icons next to the specifig font options, like ligatures to make it easier to understand like figma does

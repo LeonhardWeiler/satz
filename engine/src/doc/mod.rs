@@ -2110,6 +2110,7 @@ impl Doc {
                     horizontal: Size::Hug,
                     vertical: Size::Hug,
                 }),
+                clip: (!single).then_some(false),
                 ..Props::default()
             },
         )?;
@@ -3880,6 +3881,7 @@ mod tests {
             (f.clone(), Direction::Horizontal)
         );
         assert_eq!(ids(children(n)), [b, a]);
+        assert!(matches!(n.kind, Kind::Frame { clip: false, .. }));
         assert_eq!(n.layout.gap, 40.0);
         assert_eq!(
             frames(&d, &f),

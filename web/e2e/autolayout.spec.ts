@@ -1,4 +1,4 @@
-import { expect, test, drag, open, screen, choose } from './util'
+import { expect, test, drag, open, screen, choose, pixels } from './util'
 
 test('shift+a adds a hugging auto layout whose padding, sizing and alignment move the child', async ({ page }) => {
   await open(page)
@@ -58,6 +58,25 @@ test('dragging a child of an auto layout frame past its sibling reorders them', 
   await expect(panel.getByRole('textbox', { name: 'X in mm' })).toHaveValue('40')
   await page.keyboard.press('Control+z')
   await expect(panel.getByRole('textbox', { name: 'X in mm' })).toHaveValue('20')
+})
+
+test('a child made absolute keeps its place and stays visible', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  for (const x of [20, 40]) {
+    await page.keyboard.press('r')
+    await drag(page, await screen(page, x, 80), await screen(page, x + 10, 90))
+  }
+  const layers = page.getByRole('tree', { name: 'Layers' })
+  await layers.getByRole('button', { name: 'Rectangle', exact: true }).nth(0).click()
+  await layers.getByRole('button', { name: 'Rectangle', exact: true }).nth(1).click({ modifiers: ['Shift'] })
+  await page.keyboard.press('Shift+A')
+  await layers.getByRole('button', { name: 'Rectangle', exact: true }).nth(0).click()
+  await panel.getByRole('checkbox', { name: 'Absolute position' }).check()
+  await expect(panel.getByRole('textbox', { name: 'X in mm' })).toHaveValue('40')
+  await page.keyboard.press('Escape')
+  const [x, y] = await screen(page, 45, 85)
+  await expect.poll(async () => (await pixels(page, x, y, 1, 1))[0][0]).toBeLessThan(240)
 })
 
 test('ctrl while resizing a frame leaves its children where they are', async ({ page }) => {
