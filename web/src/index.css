@@ -1049,6 +1049,15 @@ textarea {
   margin-left: auto;
 }
 
+.quick > .align {
+  padding: 0;
+  border: 0;
+}
+
+.quick > .align > :nth-child(7) {
+  margin-left: 0;
+}
+
 .icon-button:disabled {
   opacity: 0.35;
   pointer-events: none;

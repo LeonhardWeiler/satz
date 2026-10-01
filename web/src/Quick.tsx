@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { AlignBar } from './align'
 import { Chip, NO_SCOPE } from './ColorPicker'
 import { neutral, solid, type Color } from './color'
 import { ContextMenu } from './ContextMenu'
@@ -55,6 +56,7 @@ export function Quick({ editor }: { editor: Editor }) {
   const stroked = nodes.every((n) => n.kind === 'shape' || n.kind === 'frame')
   return (
     <>
+      {nodes.length > 1 && <AlignBar editor={editor} />}
       {one?.kind === 'text' && (
         <>
           <Specimen editor={editor} spans={spans} format={format} />

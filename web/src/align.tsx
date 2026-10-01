@@ -1,5 +1,5 @@
 import { bounds, MM, type Editor } from './editor'
-import type { IconName } from './icons'
+import { Icon, type IconName } from './icons'
 import type { Node } from './model'
 
 export type Align = 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom' | 'distributeX' | 'distributeY' | 'tidy'
@@ -64,4 +64,26 @@ export function align(editor: Editor, how: Align) {
   editor.batch(() => {
     for (const [n, [x, y]] of moves) if (x !== n.x || y !== n.y) editor.apply({ type: 'setFrame', id: n.id, x, y, w: n.w, h: n.h })
   })
+}
+
+/** A button for each alignment of the selection, those it cannot do disabled. */
+export function AlignBar({ editor }: { editor: Editor }) {
+  const n = editor.selection.length
+  return (
+    <div role="toolbar" aria-label="Align" className="align">
+      {ALIGNS.map(([how, title, icon, key]) => (
+        <button
+          key={how}
+          type="button"
+          className="icon-button"
+          aria-label={title}
+          title={`${title} (${key})`}
+          disabled={n < (how === 'tidy' ? 2 : how.startsWith('distribute') ? 3 : 1)}
+          onClick={() => align(editor, how)}
+        >
+          <Icon name={icon} />
+        </button>
+      ))}
+    </div>
+  )
 }

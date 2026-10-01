@@ -7,7 +7,7 @@ import { FORMATS, ORIENTATIONS } from './Start'
 import { addFonts, canFindFonts, findFonts, removeFont } from './file'
 import type { Bindable as Prop, Blend, Constraint, Command, Grid, Node, Page, Props, Size } from './model'
 import { isOpen, radiusOf } from './model'
-import { align, ALIGNS } from './align'
+import { AlignBar } from './align'
 import { AutoLayout } from './AutoLayout'
 import { EffectList, PaintList } from './Paints'
 import { TextFrameSection, TextSection, TextStyles } from './Text'
@@ -128,23 +128,7 @@ export function Properties({
         {one ? <KindIcon node={one} /> : <Icon name={nodes.length ? 'group' : isPage ? 'doc' : 'master'} />}
         <h2>{one ? one.name : nodes.length ? `${nodes.length} layers` : isPage ? 'Page' : page.name}</h2>
       </header>
-      {box && (
-        <div role="toolbar" aria-label="Align" className="align">
-          {ALIGNS.map(([how, title, icon, key]) => (
-            <button
-              key={how}
-              type="button"
-              className="icon-button"
-              aria-label={title}
-              title={`${title} (${key})`}
-              disabled={nodes.length < (how === 'tidy' ? 2 : how.startsWith('distribute') ? 3 : 1)}
-              onClick={() => align(editor, how)}
-            >
-              <Icon name={icon} />
-            </button>
-          ))}
-        </div>
-      )}
+      {box && <AlignBar editor={editor} />}
       {!box && <DocumentSection editor={editor} />}
       {!box && (
         <Section

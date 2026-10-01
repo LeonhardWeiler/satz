@@ -3,7 +3,6 @@
 3. in dem path edit mode, soll man mit ctrl + klick die bezier kurven entweder hinzufügen oder entfernen können, für beide soll es jeweils einen button auch in der toolbar geben
 4. texte sollen auch eine stroke bekommen, die um den text herum geht
 5. wenn ich von rgb auf cmyk umwandle, sollen alle farben sofort mit umgewandelt werden und dann natürlich nicht im preflight angezgeit werden
-6. wenn man mehrere elemente auswählt, dann sollen die align optionen oben in der leiste angezeigt werden über den elementen
 7. es ist immer noch so, dass wenn ich auf ein z.b. r halte, dass dann mein cursor weg ist
 8. die abstand labels sollen immer über den linien darunter gezeichnet werden, gerade hab ich ein beispiel gesehen, bei dem ein label unter der linie eines anderen labels angezeigt wurde
 9. wenn ich versehentlich über der toolbar über den elementen reinzoome, dann zoome ich nicht den canvas sondern die website. bei den panels am rand, soll man aber immer noch genau gleich zoomen können, also da nicht den canvas
@@ -57,7 +56,6 @@
 3. Imports from other Design programs
 4. geh jeden part des designs ausführlich durch und schau genau wo es inkonsitezen gibt. es soll überall einheitlich aussehen, schau das auch bei den icons, dass die dazu passen, etc.
 5. overview page for all the personal projekts when opening the webapp, like in figma
-6. gute verbindung mit ki, dass agents wie claude oder gpt einfach und praktisch damit arbeiten können. Schau bei figma wie es gut funktioniern könnte
 7. man soll teile der website auswählen können und in diesem bereich die ki prompten, z.b. dass dieser bereich redesigned werden soll
 9. grep formate, dass bestimmter text automatisch formatiert werden kann
 10. inhaltsverzeichnis
