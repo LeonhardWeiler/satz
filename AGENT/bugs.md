@@ -61,6 +61,15 @@
 5. overview page for all the personal projekts when opening the webapp, like in figma
 6. gute verbindung mit ki, dass agents wie claude oder gpt einfach und praktisch damit arbeiten können. Schau bei figma wie es gut funktioniern könnte
 7. man soll teile der website auswählen können und in diesem bereich die ki prompten, z.b. dass dieser bereich redesigned werden soll
+9. grep formate, dass bestimmter text automatisch formatiert werden kann
+10. inhaltsverzeichnis
+11. fußnoten
+12. csv import und automatisches erstellen von layouts
+13. eine markdown datei mit allen funktionen in satz
+14. datum einfügen wie seitenzahl gerade
+15. conditional text mit variablen
+16. tabellen
+17. verankerte objekte
 
 --- with server (in the future)
 1. make it possible to work together on the same project with link and code share, alot of works needs to be done to make this work good
