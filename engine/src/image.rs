@@ -44,6 +44,8 @@ struct Entry {
     /// Decoded on first use by `pixmap` and `cmyk`; `None` when the file does not decode.
     pixels: RefCell<Option<Option<Rc<Pixmap>>>>,
     cmyk: RefCell<Option<Option<Cmyk>>>,
+    /// `cmyk` shrunk by the factor `plate` last needed.
+    small: RefCell<Option<(u32, Cmyk)>>,
 }
 
 /// CMYK pixels and their alpha, 8 bits each, as the PDF of a CMYK document takes them.
@@ -143,6 +145,7 @@ pub fn register(bytes: LoroBinaryValue) -> Result<ImageInfo, String> {
             bytes,
             pixels: RefCell::new(None),
             cmyk: RefCell::new(None),
+            small: RefCell::new(None),
         }))
     });
     Ok(info)
@@ -384,8 +387,24 @@ fn decode_cmyk(bytes: &[u8]) -> Option<(Vec<u8>, u32, u32)> {
     Some((color, w as u32, h as u32))
 }
 
-/// The CMYK pixels `c` with the channels `pick` takes as RGB, premultiplied.
-pub fn plate(c: &Cmyk, pick: fn([f32; 4]) -> [f32; 3]) -> Option<Pixmap> {
+/// The plate of the image `id` with the CMYK channels `pick` takes as RGB,
+/// premultiplied, shrunk by a whole factor to no less than `size` pixels.
+pub fn plate(id: u32, [w, h]: [f32; 2], pick: fn([f32; 4]) -> [f32; 3]) -> Option<Rc<Pixmap>> {
+    let c = cmyk(id)?;
+    let (cw, ch) = c.size;
+    let f = (cw as f32 / w)
+        .min(ch as f32 / h)
+        .clamp(1.0, cw.min(ch) as f32) as u32;
+    let c = if f == 1 {
+        c
+    } else {
+        let e = entry(id)?;
+        let mut small = e.small.borrow_mut();
+        match &*small {
+            Some((g, s)) if *g == f => s.clone(),
+            _ => small.insert((f, shrink(&c, f))).1.clone(),
+        }
+    };
     let data = c
         .color
         .chunks(4)
@@ -396,7 +415,35 @@ pub fn plate(c: &Cmyk, pick: fn([f32; 4]) -> [f32; 3]) -> Option<Pixmap> {
             [x * a, y * a, z * a, a].map(|v| (v.clamp(0.0, 1.0) * 255.0).round() as u8)
         })
         .collect();
-    Pixmap::from_vec(data, IntSize::from_wh(c.size.0, c.size.1)?)
+    Pixmap::from_vec(data, IntSize::from_wh(c.size.0, c.size.1)?).map(Rc::new)
+}
+
+/// `c` with each square of `f` by `f` pixels averaged into one.
+fn shrink(c: &Cmyk, f: u32) -> Cmyk {
+    let (w, h) = (c.size.0 / f, c.size.1 / f);
+    let n = f * f;
+    let (mut color, mut alpha) = (Vec::new(), Vec::new());
+    for y in 0..h {
+        for x in 0..w {
+            let mut sum = [0u32; 5];
+            for i in (y * f..(y + 1) * f)
+                .flat_map(|v| (x * f..(x + 1) * f).map(move |u| (v * c.size.0 + u) as usize))
+            {
+                let px = c.color[4 * i..4 * i + 4].iter().chain([&c.alpha[i]]);
+                for (s, &v) in sum.iter_mut().zip(px) {
+                    *s += v as u32;
+                }
+            }
+            let [a, b, d, e, g] = sum.map(|s| ((s + n / 2) / n) as u8);
+            color.extend([a, b, d, e]);
+            alpha.push(g);
+        }
+    }
+    Cmyk {
+        color: color.into(),
+        alpha: alpha.into(),
+        size: (w, h),
+    }
 }
 
 #[cfg(test)]

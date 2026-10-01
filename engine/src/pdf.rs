@@ -23,7 +23,6 @@ use krilla::{Document, SerializeSettings};
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
 use tiny_skia::Pixmap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -416,7 +415,7 @@ fn raster(
                 ops,
                 rect,
                 env.ppi,
-                &image::pixmap,
+                &|id, _| image::pixmap(id),
                 shadow.map(|s| s.color),
                 sigma,
             )
@@ -492,7 +491,7 @@ fn plane(
     ops: &[Op],
     rect: [f32; 4],
     ppi: f32,
-    images: &dyn Fn(u32) -> Option<Rc<Pixmap>>,
+    images: crate::raster::Images,
     tint_with: Option<[f32; 4]>,
     sigma: f32,
 ) -> Option<Pixmap> {
@@ -520,7 +519,7 @@ fn separate(
             let [a, b, c] = pick(ink.cmyk(rgba));
             [a, b, c, rgba[3]]
         };
-        let images = |id| image::cmyk(id).and_then(|c| plate(&c, pick)).map(Rc::new);
+        let images = |id, size| plate(id, size, pick);
         let tint_with = shadow.map(|s| to(&s.color, &s.ink));
         plane(&recolor(ops, &to), rect, ppi, &images, tint_with, sigma)
     };
@@ -987,11 +986,7 @@ mod tests {
     #[test]
     fn a_blurred_image_rasterizes_its_cmyk_plates() {
         let ops = red_image();
-        let cmy = |id| {
-            crate::image::cmyk(id)
-                .and_then(|c| super::plate(&c, |c| [c[0], c[1], c[2]]))
-                .map(std::rc::Rc::new)
-        };
+        let cmy = |id, size| super::plate(id, size, |c| [c[0], c[1], c[2]]);
         let px = crate::raster::rasterize(&ops[1..], [10.0, 10.0, 10.0, 10.0], 72.0, &cmy).unwrap();
         let p = px.pixel(5, 5).unwrap();
         assert!(p.red() < 20 && p.green() > 200 && p.blue() > 200, "{p:?}");

@@ -2,7 +2,6 @@ use crate::color::{Ink, apart, preview_pixels, separate_pixels};
 use crate::display_list::{Op, recolor};
 use crate::image::{self, plate};
 use crate::raster::rasterize;
-use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
 const OVER: [u8; 4] = [204, 47, 131, 255];
@@ -64,7 +63,7 @@ impl Inks {
                 1 => |c| [c[3], 0.0, 0.0],
                 _ => |_| [0.0; 3],
             };
-            let images = |id| image::cmyk(id).and_then(|c| plate(&c, pick)).map(Rc::new);
+            let images = |id, size| plate(id, size, pick);
             let recolored = recolor(ops, &|c, ink| {
                 [cover(c, ink, 0), cover(c, ink, 1), cover(c, ink, 2), c[3]]
             });
@@ -78,7 +77,7 @@ impl Inks {
             &recolor(ops, &|c, ink| if *ink == Ink::Rgb { *c } else { [0.0; 4] }),
             rect,
             ppi,
-            &image::pixmap,
+            &|id, _| image::pixmap(id),
         )?
         .take_demultiplied();
         let printed = preview_pixels(&separate_pixels(&rgb));

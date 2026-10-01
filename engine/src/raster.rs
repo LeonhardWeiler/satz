@@ -11,7 +11,8 @@ use tiny_skia::{
     SpreadMode, Stroke, Transform,
 };
 
-pub type Images<'a> = &'a dyn Fn(u32) -> Option<Rc<Pixmap>>;
+/// The pixels of an image by id, for drawing it the given width and height in pixels.
+pub type Images<'a> = &'a dyn Fn(u32, [f32; 2]) -> Option<Rc<Pixmap>>;
 
 /// Renders `ops` into a pixmap that covers `rect` in pt at `ppi`.
 /// `images` gives the pixels of an image by its id.
@@ -254,11 +255,10 @@ fn render(px: &mut Pixmap, ops: &[Op], t: Transform, clip: Option<&Mask>, images
                 }
             }
             Op::Image { image, transform } => {
-                if let Some(pm) = images(*image) {
-                    let [a, b, c, d, e, f] = *transform;
-                    let to = t
-                        .pre_concat(Transform::from_row(a, b, c, d, e, f))
-                        .pre_scale(1.0 / pm.width() as f32, 1.0 / pm.height() as f32);
+                let [a, b, c, d, e, f] = *transform;
+                let to = t.pre_concat(Transform::from_row(a, b, c, d, e, f));
+                if let Some(pm) = images(*image, [to.sx.hypot(to.ky), to.kx.hypot(to.sy)]) {
+                    let to = to.pre_scale(1.0 / pm.width() as f32, 1.0 / pm.height() as f32);
                     let paint = PixmapPaint {
                         quality: FilterQuality::Bilinear,
                         ..PixmapPaint::default()
@@ -486,7 +486,10 @@ mod tests {
             paint: BLACK,
             path: rect(1.0, 1.0, 2.0, 2.0),
         }];
-        let px = rasterize(&ops, [0.0, 0.0, 4.0, 4.0], 144.0, &image::pixmap).unwrap();
+        let px = rasterize(&ops, [0.0, 0.0, 4.0, 4.0], 144.0, &|id, _| {
+            image::pixmap(id)
+        })
+        .unwrap();
         assert_eq!((px.width(), px.height()), (8, 8));
         assert_eq!(alpha(&px, 3, 3), 255);
         assert_eq!(alpha(&px, 1, 1), 0);
@@ -501,7 +504,10 @@ mod tests {
             transform: [2.0, 0.0, 0.0, 2.0, 1.0, 1.0],
         }];
         assert_eq!(extent(&ops), Some([1.0, 1.0, 2.0, 2.0]));
-        let px = rasterize(&ops, [0.0, 0.0, 4.0, 4.0], 144.0, &image::pixmap).unwrap();
+        let px = rasterize(&ops, [0.0, 0.0, 4.0, 4.0], 144.0, &|id, _| {
+            image::pixmap(id)
+        })
+        .unwrap();
         assert_eq!(px.pixel(4, 4).unwrap().red(), 255);
         assert_eq!(alpha(&px, 4, 4), 255);
         assert_eq!(alpha(&px, 1, 1), 0);
@@ -585,7 +591,10 @@ mod tests {
             paint: BLACK,
             path: rect(10.0, 10.0, 2.0, 2.0),
         }];
-        let mut px = rasterize(&ops, [0.0, 0.0, 22.0, 22.0], 72.0, &image::pixmap).unwrap();
+        let mut px = rasterize(&ops, [0.0, 0.0, 22.0, 22.0], 72.0, &|id, _| {
+            image::pixmap(id)
+        })
+        .unwrap();
         let sum = |px: &Pixmap| px.pixels().iter().map(|p| p.alpha() as u32).sum::<u32>();
         let before = sum(&px);
         blur(&mut px, 2.0);
@@ -614,7 +623,7 @@ mod tests {
             },
             Op::PopLayer,
         ];
-        let px = rasterize(&ops, [0.0, 0.0, 8.0, 4.0], 72.0, &image::pixmap).unwrap();
+        let px = rasterize(&ops, [0.0, 0.0, 8.0, 4.0], 72.0, &|id, _| image::pixmap(id)).unwrap();
         let p = px.pixel(6, 2).unwrap();
         assert_eq!((p.red(), p.alpha()), (255, 255));
         assert_eq!(px.pixel(2, 2).unwrap().red(), 0);
@@ -644,7 +653,7 @@ mod tests {
             Op::PopLayer,
             Op::PopTransform,
         ];
-        let px = rasterize(&ops, [0.0, 0.0, 4.0, 8.0], 72.0, &image::pixmap).unwrap();
+        let px = rasterize(&ops, [0.0, 0.0, 4.0, 8.0], 72.0, &|id, _| image::pixmap(id)).unwrap();
         let p = px.pixel(2, 6).unwrap();
         assert_eq!((p.red(), p.alpha()), (255, 255));
     }
@@ -660,7 +669,10 @@ mod tests {
             text: String::new(),
             ranges: vec![],
         }];
-        let px = rasterize(&ops, [0.0, 0.0, 20.0, 20.0], 72.0, &image::pixmap).unwrap();
+        let px = rasterize(&ops, [0.0, 0.0, 20.0, 20.0], 72.0, &|id, _| {
+            image::pixmap(id)
+        })
+        .unwrap();
         assert!(px.pixels().iter().any(|p| p.alpha() == 255));
     }
 
