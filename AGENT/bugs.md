@@ -18,7 +18,6 @@
 23. resize swatch thing horizontally
 24. auch wenn man ein element ausgewählt hat, soll man immer mit single click bei den swatch colors diese ändern können, wenn auf die swatch colors links unten klickt, sollen sie nie gesetzt werden, dafür gibt es die controls auf der rechten seite oder die toolbar über dem element
 25. auto fit (auto width when theres a single line, auto height when theres multiple lines) as an additional option for a text frame and when double clicking on the corner of a text frame and use this as the keyboardshortcut
-26. Das Plus Icon um neue Seiten hinzuzufügen soll immer auf der gleichen position sein, dass man nicht die maus bewegen muss. gerade ändert sie die position, weil es ja zuerst nur eine und dann die zweite "doppelseite" gibt und dann der button nach rechts rutscht
 27. when drawing a line it should show the selection like it shows when it is selected later
 28. use as mask works for elements above, but it should work for elements below
 29. i cannot drag elements that are not visible because they are in a masked and are outside of that, i can only drag where the element is visible

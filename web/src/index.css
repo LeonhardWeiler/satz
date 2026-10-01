@@ -1492,6 +1492,16 @@ textarea {
   left: 10px;
 }
 
+.switcher .spread {
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+}
+
+.switcher .spread.facing {
+  min-width: 54px;
+}
+
 .switcher button {
   display: grid;
   place-items: center;

@@ -41,14 +41,16 @@ export function Switcher({ editor }: { editor: Editor }) {
       <button type="button" aria-label="Previous spread" title="Previous spread (PgUp)" disabled={k <= 0} onClick={() => go(k - 1)}>
         <Icon name="left" />
       </button>
-      {spreads[k]?.map((id) => {
-        const n = pages.findIndex((p) => p.id === id) + 1
-        return (
-          <button key={id} type="button" aria-pressed={id === current} aria-label={`Page ${n}`} title={`Page ${n}, its layers`} onClick={() => editor.showPage(id)}>
-            {n}
-          </button>
-        )
-      })}
+      <span className={`spread${snapshot.facingPages ? ' facing' : ''}`}>
+        {spreads[k]?.map((id) => {
+          const n = pages.findIndex((p) => p.id === id) + 1
+          return (
+            <button key={id} type="button" aria-pressed={id === current} aria-label={`Page ${n}`} title={`Page ${n}, its layers`} onClick={() => editor.showPage(id)}>
+              {n}
+            </button>
+          )
+        })}
+      </span>
       {k < spreads.length - 1 ? (
         <button type="button" aria-label="Next spread" title="Next spread (PgDn)" onClick={() => go(k + 1)}>
           <Icon name="chevron" />
