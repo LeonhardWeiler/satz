@@ -436,7 +436,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     const fit = (sheets = editor.sheets) => show(fitView(sheets, canvas.clientWidth, canvas.clientHeight))
     let anim = 0
     let target: View | undefined
-    /** Moves the view to `to` in 180 ms; any input ends the move at `to`. */
+    /** Moves the view to `to` in 180 ms, scaling about the point both views share; any input ends the move at `to`. */
     const glide = (to: View) => {
       settle()
       if (matchMedia('(prefers-reduced-motion: reduce)').matches) return show(to)
@@ -446,7 +446,9 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const step = (t: number) => {
         const k = Math.min(1, (t - start) / 180)
         const e = 1 - (1 - k) ** 3
-        show({ x: from.x + (to.x - from.x) * e, y: from.y + (to.y - from.y) * e, zoom: from.zoom * (to.zoom / from.zoom) ** e })
+        const zoom = from.zoom * (to.zoom / from.zoom) ** e
+        const f = to.zoom === from.zoom ? e : (zoom - from.zoom) / (to.zoom - from.zoom)
+        show({ x: from.x + (to.x - from.x) * f, y: from.y + (to.y - from.y) * f, zoom })
         if (k < 1) anim = requestAnimationFrame(step)
         else target = undefined
       }
