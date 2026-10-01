@@ -32,6 +32,11 @@ test('ctrl k finds and runs commands, layers, pages and text styles', async ({ p
   await expect(current(page, 1)).toHaveAttribute('aria-pressed', 'true')
   await expect(layers.getByRole('treeitem', { name: 'Sun' })).toHaveAttribute('aria-selected', 'true')
 
+  await run(page, 'duplicate page', /Duplicate page/)
+  await expect(current(page, 2)).toHaveAttribute('aria-pressed', 'true')
+  await expect(layers.getByRole('treeitem', { name: 'Sun' })).toBeVisible()
+  await page.keyboard.press('Control+z')
+
   await run(page, 'page 2', /Page 2/)
   await expect(current(page, 2)).toHaveAttribute('aria-pressed', 'true')
   await run(page, 'page 1', /Page 1/)

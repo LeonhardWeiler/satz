@@ -1,3 +1,4 @@
+import { align, ALIGNS } from './align'
 import type { Editor } from './editor'
 
 /** A command by its title, shortcut and group; one without `run` runs by pressing its shortcut, one whose `can` fails is greyed out in the context menu. */
@@ -45,6 +46,21 @@ export const ACTIONS: Action[] = [
     run: (editor) => editor.deletePages(editor.overview?.length ? editor.overview : [pageOrLast(editor)]),
   },
   {
+    title: 'Duplicate page',
+    keys: '',
+    group: 'Pages',
+    run: (editor) => {
+      const [id] = editor.apply({ type: 'duplicatePage', id: pageOrLast(editor) })
+      if (id) editor.showPage(id)
+    },
+  },
+  {
+    title: 'Facing pages on or off',
+    keys: '',
+    group: 'Pages',
+    run: (editor) => editor.apply({ type: 'setDocument', facingPages: !editor.snapshot.facingPages }),
+  },
+  {
     title: 'New master',
     keys: '',
     group: 'Pages',
@@ -62,6 +78,7 @@ export const ACTIONS: Action[] = [
   { title: 'Duplicate', keys: 'Ctrl D', group: 'Edit' },
   { title: 'Delete', keys: 'Del', group: 'Edit' },
   { title: 'Select all', keys: 'Ctrl A', group: 'Edit' },
+  { title: 'Select none', keys: '', group: 'Edit', run: (editor) => editor.set({ selection: [] }) },
   { title: 'Group', keys: 'Ctrl G', group: 'Arrange' },
   { title: 'Frame selection', keys: 'Ctrl Alt G', group: 'Arrange' },
   { title: 'Ungroup', keys: 'Ctrl Shift G', group: 'Arrange', can: (editor) => editor.selected().some((n) => n.kind === 'group' || n.kind === 'frame') },
@@ -75,6 +92,13 @@ export const ACTIONS: Action[] = [
   { title: 'Hide selection', keys: 'Ctrl Shift H', group: 'Arrange' },
   { title: 'Lock selection', keys: 'Ctrl Shift L', group: 'Arrange' },
   { title: 'Rename', keys: 'F2', group: 'Edit' },
+  ...ALIGNS.map(([how, title, , keys]): Action => ({ title, keys: keys.replaceAll('+', ' '), group: 'Align', run: (editor) => align(editor, how) })),
+  {
+    title: 'Color mode CMYK or RGB',
+    keys: '',
+    group: 'File',
+    run: (editor) => editor.apply({ type: 'setDocument', colorMode: editor.snapshot.colorMode === 'cmyk' ? 'rgb' : 'cmyk' }),
+  },
   { title: 'Auto width', keys: 'Shift W', group: 'Text' },
   { title: 'Auto height', keys: 'Shift H', group: 'Text' },
   { title: 'Move tool', keys: 'V', group: 'Tools' },
