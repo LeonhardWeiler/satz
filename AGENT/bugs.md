@@ -39,7 +39,6 @@
 45. in the settings the option to disable the toolbar above elements should be added
 46. when un/hiding the rulers the layout ushow not change, the canvas should stay exactly the same its the same thing as with the panels with alt + 1 or ctrl + \
 47. when changing from solid to linear gradient with one of the gradients selected the layout moves up a bit, it should stay the same
-48. it should not show none in the toolbar for the fill if a gradient is selected but it should show no checkmark like for any other color that is not one of the listed ones
 49. in the settings it should be changable if you see the elements on the left only for one page or the double page, but it should then say in the element selectino thing a small collapsable heading for one page and the other
 50. lines should have the option to be squiggly, etc. 
 51. mach eine ausführliche analyse von anderen programmen, wie figma, indesign, scribus, ... und schau welche funktionen sie bieten, die ich hier noch nicht implementiert habe, schreib das unter AGENT in eine comparison.md datei
