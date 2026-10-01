@@ -92,7 +92,7 @@ test('a hidden master layer is not drawn on its pages', async ({ page }) => {
   await rect(page).getByRole('button', { name: 'Hide' }).click()
   await showPage(page, 1)
   await choose(page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Master' }), 'A-Master')
-  await expect(page.getByText('A-Master master items')).toBeVisible()
+  await expect(page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Master' })).toHaveText(/A-Master/)
   await page.mouse.move(1, 1)
   expect(await at(page, await screen(page, 40, 202))).toBe(paper)
 })

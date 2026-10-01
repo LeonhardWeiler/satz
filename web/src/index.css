@@ -432,20 +432,6 @@ textarea {
   opacity: 0.5;
 }
 
-.tree-note {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0 8px 8px;
-  padding: 0 8px;
-  min-height: 28px;
-  color: var(--text-3);
-}
-
-.master-row {
-  border-top: 1px dashed var(--border);
-}
-
 .rename {
   flex: 1;
   min-width: 0;

@@ -196,7 +196,6 @@ export function Layers({ editor }: { editor: Editor }) {
       )
     })
 
-  const master = editor.masterOf(page)
   return (
     <nav className="panel layers" aria-label="Layers">
       <header className="panel-header">
@@ -212,12 +211,6 @@ export function Layers({ editor }: { editor: Editor }) {
       >
         {rows(page.children, 1)}
       </ul>
-      {master && (
-        <p className="tree-note master-row">
-          <Icon name="master" />
-          {master.name} master items
-        </p>
-      )}
     </nav>
   )
 }
