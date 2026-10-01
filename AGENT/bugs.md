@@ -1,64 +1,57 @@
-20. man soll wenn man double clickt und dann auf die seite zieht horizontal bzw. vertikale rouler machen an den dann die items snappen können
-21. in dem path edit mode, soll man mit ctrl + klick die bezier kurven entweder hinzufügen oder entfernen können, für beide soll es jeweils einen button auch in der toolbar geben
-23. texte sollen auch eine stroke bekommen, die um den text herum geht
-25. wenn ich von rgb auf cmyk umwandle, sollen alle farben sofort mit umgewandelt werden und dann natürlich nicht im preflight angezgeit werden
-26. wenn man mehrere elemente auswählt, dann sollen die align optionen oben in der leiste angezeigt werden über den elementen
-27. es ist immer noch so, dass wenn ich auf ein z.b. r halte, dass dann mein cursor weg ist
-29. wenn man außerhalb der page mit einem tool hinklickt soll der normale cursor (v) ausgewählt werden
-31. short of bleed soll auch auf der ersten seite angezeigt werden
-32. wenn ich ctrl + clicke und weit genug mit der maus weg bin, soll es unter dem cursor in der mitte positioniert werden
-33. wenn ich bei einem text element ctrl + v clicke, soll der text in dem textfeld ins clipboard kopiert werden
-34. es soll einen keyboard shortcut für auto width und auto height bei text geben
-35. wenn ich ein rechteck, darunter mit abstand einen text und darunter mit abstand wieder einen rechteck hab, soll der abstand über dem element auch angezeigt (smart) werden, dass ich sehe, wann es gleich ist und dann darauf auch snappen
-36. 2 von den entfernungen in mm zu anderen elementen sollen nie übereinander angezeigt werden, ich hab gerade einen fall gehalb wo dann nur eines sichtbar war, bis ich ein element ein bisschen bewegt hab, dass sie nicht mehr overlappen, es soll immer so positioniert werden, dass man alles sehen kann
-37. die selection color soll an das farbschema angepasst sein
-38. in der command pallette sollen mehr sinnvolle optionen hinzugefügt werden
-39. wenn man in einer gruppe autolayout oder selection von mehreren elementen ist, soll ein kreis in der mitte der elemente sichtbar sein bei dem man durch hin und her ziehen deren position tauschen kann wie in figma
-40. implement all the points under later in TODO.md
-41. überlege dir für alle elemente noch einmal tief und schlau welche optionen alle sinnvoll und praktisch wären und implementiere sie
-42. überlege dir features die noch gemacht werden sollen und schreibe sie unter later in TODO.md
-43. Mach einene ausführlichen performance audit sowie einen audit der bundle size und der ci time. schreibe deine findings in die jeweiligen dateien unter AGENT
-44. wenn ich im text doppelklicke und dann ziehe, dann soll es nicht das wort markieren sondern die section machen, also der double click wird ignoriert, wenn ich ziehe
-48. resize swatch thing horizontally
-51. auto fit (auto width when theres a single line, auto height when theres multiple lines) as an additional option for a text frame and when double clicking on the corner of a text frame and use this as the keyboardshortcut
-52. add a plus icon when you're on the last page and want to add another instead of a disabled arrow (page up/down should only go to existing pages)
-53. make it possible to rotate a line, path, etc. over its center
-54. when drawing a line it should not show the rectangle bounding box, only the real line
-55. use as mask works for elements above, but it should work for elements below
-56. i cannot drag elements that are not visible because they are in a masked and are outside of that, i can only drag where the element is visible
-57. on macos (firefox) the text often is faded out to the right (because of the possiblity of an overflow) that dont actually overflow. on chromium i don't have that problem
-59. add options for basic image editing, like crop (also when resizing with ctrl), contrast, brightness, etc. they should appear in the bar above the element
-60. images that i selected to import and now am placing (only with the outline) are not snapped like an existing element
-62. when zooming in/out, the elements should not move but only scale
-64. when typing lorem in a textbox and then it tab it should automatically add a 10 word lorem ipsum text if you write lorem100 it should automatically add a 100 word lorem ipsum text, etc.
-66. auto height when double clicking on the top or bottom of a textbox and auto widht when clicking on the left or right of a textbox
-72. show icons next to the specifig font options, like ligatures to make it easier to understand like figma does
-73. make it possible to make boolean operations on things like rectangles, triangles, ... (not text unless its made into an vector). the buttons/icons should be below the align buttons
-74. make it possiblel to convert text to vectors
-75. when in vector editing mode, you should be able to fill each area seperately with a bucket tool
-76. make it easier to grab the border radius handle at the corners (more space to click and drag)
-77. when switching between ctrl + \ the page should be recentererd/sized with shift + 1
-78. the bounding box should include the stroke
-79. add a settings menu to change the unit from mm to in for example, keyboard shortcuts, ... and the language and ui in the future. it should be saved to local storage
-80. change, keyboard shortcuts, should be changed from the shortcut menu
-81. ctrl + and ctrl - should work a bit more subtle
-82. when right clicking onto a swatch color it should show options for that like, duplicate, delete, rename, etc.
-83. in the settings the option to disable the toolbar above elements should be added
-84. when right clicking on the canvas you should be able to un/hide the rulers
-85. when an element is selected and you right click somewhere else, like the toolbar, the selection should be gone and it should show the correct menu
-86. when changing from solid to linear gradient it should not change the visualisation of the color, because now its bigger and has a smaller border radius
-87. at the toolbar above the element it should show if there is a gradient and not show, that there is now fill, gradients can only be created from the real menu on the right
-88. in the settings it should be changable if you see the elements on the left only for one page or the double page, but it should then say in the element selectino thing a small collapsable heading for one page and the other
-89. lines should have the option to be squiggly, etc. 
-90. you should be able to hold alt on the toolbar above the element when dragging, right now the toolbar then dissapears because it things you want to see the distance to other elements
-91. when there are multiple elements selected in the layer panel  there is no margin between them and it looks of, i think the padding can be reduced slightly and a small margin added
-92. the arrow down icon in the toolbar to select more primitive objects has a to little padding on the sides, but it should not be further away
-93. mach eine ausführliche analyse von anderen programmen, wie figma, indesign, scribus, ... und schau welche funktionen sie bieten, die ich hier noch nicht implementiert habe, schreib das unter AGENT in eine comparison.md datei
-94. when ich den preflight editor offen habe und ein element, das als outside the gamut markiert ist bewege, dann dauert es ca. 1,5s bis die selection geupdated ist, schau dass das schneller funktioniert
-95. lass die ganzen cmyk sachen im preflight weg, wenn die datei sowieso rgb ist
-96. bringe raster in die gleiche zeile wie facing pages gerade ist und integriere die checkbox besser ins layout
-97. das logo soll etwas mehr border radius haben, also die weiße box
-98. im title von der website soll kein em das sein, nur name - Satz
+1. elemente in einem autolayout sollen in ihrer toolbar über dem element die option für hug, fill für horizontal und vertical auswählen können
+2. man soll wenn man double clickt und dann auf die seite zieht horizontal bzw. vertikale rouler machen an den dann die items snappen können
+3. in dem path edit mode, soll man mit ctrl + klick die bezier kurven entweder hinzufügen oder entfernen können, für beide soll es jeweils einen button auch in der toolbar geben
+4. texte sollen auch eine stroke bekommen, die um den text herum geht
+5. wenn ich von rgb auf cmyk umwandle, sollen alle farben sofort mit umgewandelt werden und dann natürlich nicht im preflight angezgeit werden
+6. wenn man mehrere elemente auswählt, dann sollen die align optionen oben in der leiste angezeigt werden über den elementen
+7. es ist immer noch so, dass wenn ich auf ein z.b. r halte, dass dann mein cursor weg ist
+8. die abstand labels sollen immer über den linien darunter gezeichnet werden, gerade hab ich ein beispiel gesehen, bei dem ein label unter der linie eines anderen labels angezeigt wurde
+9. wenn ich versehentlich über der toolbar über den elementen reinzoome, dann zoome ich nicht den canvas sondern die website. bei den panels am rand, soll man aber immer noch genau gleich zoomen können, also da nicht den canvas
+10. wenn ich ein rechteck, darunter mit abstand einen text und darunter mit abstand wieder einen rechteck hab, soll der abstand über dem element auch angezeigt (smart) werden, dass ich sehe, wann es gleich ist und dann darauf auch snappen
+11. neben highest bei dem ink coverage soll nicht der name von dem element stehen und auch nicht die seite. einfach nur Highest 300% z.b.
+12. die selection color von text auf der website soll an das farbschema angepasst sein
+13. in der command pallette sollen mehr sinnvolle optionen hinzugefügt werden
+14. wenn man in einer gruppe, autolayout oder selection von mehreren elementen ist, soll ein kreis in der mitte der elemente sichtbar sein bei dem man durch hin und her ziehen deren position tauschen kann wie in figma
+15. implement all the points under later in TODO.md
+16. überlege dir für alle elemente noch einmal tief und schlau welche optionen alle sinnvoll und praktisch wären und implementiere sie
+17. überlege dir features die noch gemacht werden sollen und schreibe sie unter later in TODO.md
+18. Mach einene ausführlichen performance audit sowie einen audit der bundle size und der ci time. schreibe deine findings in die jeweiligen dateien unter AGENT
+19. in der page overview soll man die vertikale master linie nach links und rechts ziehen können, die vorschaubilder von den master seiten sollen dann auch mitgescaled werden
+20. in der page overview sollen die pages (nicht master) etwas größer angezeigt werden und man soll rein und rauszoomen können, aber nicht ganz so nah, und man soll auch die option haben ob man mehrere spalten haben will in denen die pages angezeigt werden
+21. warum wechselt es bei einem rgb dokument im preflight editor auch die farben so wie sie mit dem icc profil aussehen würden? es soll einfach gleich bleiben bei rgb
+22. wenn ich im preflight editor z.b. cyan wegmache oder magenta, dann wird die page verpixelt. ich weiß nicht ob es machbar ist, dass das nicht der fall ist. aber ich hätte es gerne immer genauso scharf wie normal
+23. resize swatch thing horizontally
+24. auch wenn man ein element ausgewählt hat, soll man immer mit single click bei den swatch colors diese ändern können, wenn auf die swatch colors links unten klickt, sollen sie nie gesetzt werden, dafür gibt es die controls auf der rechten seite oder die toolbar über dem element
+25. auto fit (auto width when theres a single line, auto height when theres multiple lines) as an additional option for a text frame and when double clicking on the corner of a text frame and use this as the keyboardshortcut
+26. Das Plus Icon um neue Seiten hinzuzufügen soll immer auf der gleichen position sein, dass man nicht die maus bewegen muss. gerade ändert sie die position, weil es ja zuerst nur eine und dann die zweite "doppelseite" gibt und dann der button nach rechts rutscht
+27. when drawing a line it should show the selection like it shows when it is selected later
+28. use as mask works for elements above, but it should work for elements below
+29. i cannot drag elements that are not visible because they are in a masked and are outside of that, i can only drag where the element is visible
+30. on macos (firefox) the text often is faded out to the right (because of the possiblity of an overflow) that dont actually overflow. on chromium i don't have that problem
+31. add options for basic image editing, like crop (also when resizing with ctrl), contrast, brightness, etc. they should appear in the bar above the element
+32. what does absolute position for an element inside an auto layout mean, is it necesesary/helpful. it should not change the position when checked
+33. das text style dropdown soll gleich aussehen wie alle anderen dropdowns
+34. when zooming in/out, the elements should not move but only scale
+35. text soll die größe in der toolbar über dem element haben
+36. auto height when double clicking on the top or bottom of a textbox and auto widht when clicking on the left or right of a textbox
+37. show icons next to the specifig font options, like ligatures to make it easier to understand like figma does
+38. make it possible to make boolean operations on things like rectangles, triangles, ... (not text unless its made into an vector). the buttons/icons should be below the align buttons
+39. make it possiblel to convert text to vectors
+40. when in vector editing mode, you should be able to fill each area seperately with a bucket tool
+41. when switching between ctrl + \ the page should be recentererd/sized with shift + 1, it works but you can see like a transition of the canvas. the canvas should stay exactly the same, also the same happening with alt + 1. maybe there is a smarter way then shift + 1 so that the panels on top aren't moving the canvas
+42. the bounding box should include the stroke
+43. add a settings menu to change the unit from mm to in for example, ... and the language and ui in the future. it should be saved to local storage
+44. change, keyboard shortcuts, should be changed from the shortcut menu
+45. in the settings the option to disable the toolbar above elements should be added
+46. when un/hiding the rulers the layout ushow not change, the canvas should stay exactly the same its the same thing as with the panels with alt + 1 or ctrl + \
+47. when changing from solid to linear gradient with one of the gradients selected the layout moves up a bit, it should stay the same
+48. it should not show none in the toolbar for the fill if a gradient is selected but it should show no checkmark like for any other color that is not one of the listed ones
+49. in the settings it should be changable if you see the elements on the left only for one page or the double page, but it should then say in the element selectino thing a small collapsable heading for one page and the other
+50. lines should have the option to be squiggly, etc. 
+51. mach eine ausführliche analyse von anderen programmen, wie figma, indesign, scribus, ... und schau welche funktionen sie bieten, die ich hier noch nicht implementiert habe, schreib das unter AGENT in eine comparison.md datei
+52. when ich den preflight editor offen habe und ein element, das als outside the gamut markiert ist bewege, dann dauert es ca. 1,5s bis die selection geupdated ist, schau dass das schneller funktioniert
+53. das logo soll etwas mehr border radius haben, also die weiße box
+54. bei den Document Settings sieht man es besonders, aber es ist an vielen orten der Fall. Das dropdown menü ist breiter als die andern menüs und wieder anders sieht das landscape oder portrait mode selector aus. Alle Settings sollen genau gleich aussehen. Damit meine ich, gleiche höhe, breite, border radius, padding, margin, etc.
 
 --- LATER
 1. Figma import with file and or account
