@@ -506,7 +506,8 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       settle()
       const scale = e.deltaMode === 1 ? 16 : 1
       if (e.ctrlKey || e.metaKey) {
-        zoomAt(e.offsetX, e.offsetY, view.zoom * Math.exp(-e.deltaY * scale * 0.01))
+        const r = canvas.getBoundingClientRect()
+        zoomAt(e.clientX - r.left, e.clientY - r.top, view.zoom * Math.exp(-e.deltaY * scale * 0.01))
       } else {
         view.x -= (e.shiftKey && !e.deltaX ? e.deltaY : e.deltaX) * scale
         view.y -= (e.shiftKey && !e.deltaX ? 0 : e.deltaY) * scale
@@ -1024,7 +1025,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       track()
       redraw()
     })
-    canvas.addEventListener('wheel', onWheel, { passive: false })
+    canvas.parentElement!.addEventListener('wheel', onWheel, { passive: false })
     canvas.addEventListener('pointerdown', onPointerDown)
     canvas.addEventListener('pointermove', onPointerMove)
     canvas.addEventListener('pointerup', onPointerUp)
@@ -1043,7 +1044,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       clearInterval(blink)
       unsubscribe()
       resize.disconnect()
-      canvas.removeEventListener('wheel', onWheel)
+      canvas.parentElement!.removeEventListener('wheel', onWheel)
       canvas.removeEventListener('pointerdown', onPointerDown)
       canvas.removeEventListener('pointermove', onPointerMove)
       canvas.removeEventListener('pointerup', onPointerUp)

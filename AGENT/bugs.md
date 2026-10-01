@@ -3,7 +3,6 @@
 4. texte sollen auch eine stroke bekommen, die um den text herum geht
 5. wenn ich von rgb auf cmyk umwandle, sollen alle farben sofort mit umgewandelt werden und dann natürlich nicht im preflight angezgeit werden
 7. es ist immer noch so, dass wenn ich auf ein z.b. r halte, dass dann mein cursor weg ist
-9. wenn ich versehentlich über der toolbar über den elementen reinzoome, dann zoome ich nicht den canvas sondern die website. bei den panels am rand, soll man aber immer noch genau gleich zoomen können, also da nicht den canvas
 10. wenn ich ein rechteck, darunter mit abstand einen text und darunter mit abstand wieder einen rechteck hab, soll der abstand über dem element auch angezeigt (smart) werden, dass ich sehe, wann es gleich ist und dann darauf auch snappen
 13. in der command pallette sollen mehr sinnvolle optionen hinzugefügt werden
 14. wenn man in einer gruppe, autolayout oder selection von mehreren elementen ist, soll ein kreis in der mitte der elemente sichtbar sein bei dem man durch hin und her ziehen deren position tauschen kann wie in figma
@@ -51,7 +50,6 @@
 4. geh jeden part des designs ausführlich durch und schau genau wo es inkonsitezen gibt. es soll überall einheitlich aussehen, schau das auch bei den icons, dass die dazu passen, etc.
 5. overview page for all the personal projekts when opening the webapp, like in figma
 7. man soll teile der website auswählen können und in diesem bereich die ki prompten, z.b. dass dieser bereich redesigned werden soll
-9. grep formate, dass bestimmter text automatisch formatiert werden kann
 10. inhaltsverzeichnis
 13. eine markdown datei mit allen funktionen in satz
 14. datum einfügen wie seitenzahl gerade

@@ -300,3 +300,16 @@ test('side panels are resized at their inner edge and keep their width after a r
   await page.reload()
   await expect.poll(async () => Math.round((await right.boundingBox())!.width)).toBe(Math.round(box.width) + 100)
 })
+
+test('ctrl and the wheel over the quick edit bar zoom the canvas', async ({ page }) => {
+  await open(page)
+  await page.keyboard.press('r')
+  await drag(page, await screen(page, 20, 40), await screen(page, 60, 80))
+  const box = (await page.getByRole('toolbar', { name: 'Quick edit' }).boundingBox())!
+  const zoom = await page.getByLabel('Zoom').textContent()
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.keyboard.down('Control')
+  await page.mouse.wheel(0, -100)
+  await page.keyboard.up('Control')
+  await expect(page.getByLabel('Zoom')).not.toHaveText(zoom!)
+})
