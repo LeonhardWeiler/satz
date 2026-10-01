@@ -952,15 +952,6 @@ impl Doc {
         let masked = [
             add(
                 &page,
-                NewKind::Ellipse,
-                [8.0, 56.0, 66.0, 16.0],
-                Props {
-                    mask: Some(true),
-                    ..named("Mask")
-                },
-            ),
-            add(
-                &page,
                 NewKind::Rect,
                 [8.0, 56.0, 66.0, 16.0],
                 Props {
@@ -970,6 +961,15 @@ impl Doc {
                         &[(0.0, 0x2c5fd9ff), (0.5, WHITE), (1.0, 0x1b2a6bff)],
                     )]),
                     ..named("Stripes")
+                },
+            ),
+            add(
+                &page,
+                NewKind::Ellipse,
+                [8.0, 56.0, 66.0, 16.0],
+                Props {
+                    mask: Some(true),
+                    ..named("Mask")
                 },
             ),
         ];
@@ -2038,17 +2038,17 @@ impl Doc {
 
     fn mask(&self, ids: Vec<String>) -> Res<Vec<String>> {
         let ids = self.sorted(&ids)?;
-        let lowest = *ids.first().ok_or("nothing to mask")?;
+        let highest = *ids.last().ok_or("nothing to mask")?;
         Ok(if ids.len() == 1 {
-            let on = value(&self.meta(lowest), "mask").and_then(|v| v.into_bool().ok());
-            self.meta(lowest)
+            let on = value(&self.meta(highest), "mask").and_then(|v| v.into_bool().ok());
+            self.meta(highest)
                 .insert("mask", on != Some(true))
                 .map_err(err)?;
-            vec![lowest.to_string()]
+            vec![highest.to_string()]
         } else {
             let g = self.group(&ids, false)?;
             self.meta(g).insert("name", "Mask group").map_err(err)?;
-            self.meta(lowest).insert("mask", true).map_err(err)?;
+            self.meta(highest).insert("mask", true).map_err(err)?;
             vec![g.to_string()]
         })
     }

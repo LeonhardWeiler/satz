@@ -239,6 +239,11 @@ fn poster() -> Doc {
             ..named("Background")
         },
     );
+    let photo = b.photo(
+        p,
+        [83.0, 30.0, 254.0, 254.0],
+        [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+    );
     let mask = b.add(
         p,
         NewKind::Rect,
@@ -257,13 +262,8 @@ fn poster() -> Doc {
             ..named("Vignette")
         },
     );
-    let photo = b.photo(
-        p,
-        [83.0, 30.0, 254.0, 254.0],
-        [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
-    );
     let group = b.one(Command::Group {
-        ids: vec![mask, photo],
+        ids: vec![photo, mask],
         frame: false,
     });
     b.set(&group, named("Photograph"));

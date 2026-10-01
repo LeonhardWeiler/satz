@@ -44,7 +44,7 @@ test('double-clicking a text puts the caret where it was clicked, and ime input 
   await open(page)
   const layers = page.getByRole('tree', { name: 'Layers' })
   await layers.getByRole('button', { name: /^Satz sets type/ }).click()
-  await page.mouse.dblclick(...(await screen(page, 15.2, 97)))
+  await page.mouse.dblclick(...(await screen(page, 16, 97)))
   const editor = page.getByRole('textbox', { name: 'Text editor' })
   await expect(editor).toBeFocused()
   await page.keyboard.type('X')

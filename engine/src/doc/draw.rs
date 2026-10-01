@@ -402,15 +402,18 @@ pub(super) fn page_op(p: &Page) -> Op {
 }
 
 pub(super) fn draw_all(nodes: &[Node], ops: &mut Vec<Op>, pal: &Palette) {
-    for (i, n) in nodes.iter().enumerate() {
-        if n.style.mask && !n.hidden {
-            ops.push(Op::BeginMask);
+    let Some(i) = nodes.iter().rposition(|n| n.style.mask && !n.hidden) else {
+        for n in nodes {
             draw(n, ops, pal);
-            ops.push(Op::EndMask);
-            draw_all(&nodes[i + 1..], ops, pal);
-            ops.push(Op::PopMask);
-            return;
         }
+        return;
+    };
+    ops.push(Op::BeginMask);
+    draw(&nodes[i], ops, pal);
+    ops.push(Op::EndMask);
+    draw_all(&nodes[..i], ops, pal);
+    ops.push(Op::PopMask);
+    for n in &nodes[i + 1..] {
         draw(n, ops, pal);
     }
 }
@@ -487,7 +490,8 @@ pub(super) fn draw(n: &Node, ops: &mut Vec<Op>, pal: &Palette) {
     }
 }
 
-/// Like `draw_all`, a node is only hit inside every mask below it among its siblings.
+/// Like `draw_all`, a node is only hit inside every mask above it among its siblings; masks
+/// are hit last.
 /// Locked layers are skipped unless `locks` is false, as for masks.
 pub(super) fn hit(
     nodes: &[Node],
@@ -497,11 +501,14 @@ pub(super) fn hit(
     locks: bool,
     path: &mut Vec<String>,
 ) -> bool {
-    for (i, n) in nodes.iter().enumerate().rev() {
+    let mask = |i: &usize| nodes[*i].style.mask;
+    let order = (0..nodes.len()).rev().filter(|i| !mask(i));
+    for i in order.chain((0..nodes.len()).rev().filter(mask)) {
+        let n = &nodes[i];
         if n.hidden || locks && n.locked {
             continue;
         }
-        let masks = nodes[..i].iter().filter(|m| m.style.mask && !m.hidden);
+        let masks = nodes[i + 1..].iter().filter(|m| m.style.mask && !m.hidden);
         if masks.into_iter().any(|m| {
             !hit(
                 std::slice::from_ref(m),
@@ -769,7 +776,7 @@ impl Doc {
                 ops.push(Op::PopClip);
             }
         }
-        // A mask masks the layers above it, so layers go only all together then.
+        // A mask masks the layers below it, so layers go only all together then.
         match window {
             Some(r) if !p.children.iter().any(|n| n.style.mask) => {
                 for n in p.children.iter().filter(|n| into(n, 0.0, r)) {
@@ -1320,9 +1327,9 @@ mod tests {
     }
 
     #[test]
-    fn a_mask_masks_the_siblings_above_it() {
+    fn a_mask_masks_the_siblings_below_it() {
         let (mut d, p) = empty();
-        let [a, m, b, c] = [0; 4].map(|_| create(&mut d, &p, NewKind::Ellipse, [0.0; 4]));
+        let [b, c, m, a] = [0; 4].map(|_| create(&mut d, &p, NewKind::Ellipse, [0.0; 4]));
         set(
             &mut d,
             &m,
@@ -1345,19 +1352,19 @@ mod tests {
         assert_eq!(
             kinds,
             [
-                &item(&a),
                 &Op::BeginMask,
                 &item(&m),
                 &Op::EndMask,
                 &item(&b),
                 &item(&c),
-                &Op::PopMask
+                &Op::PopMask,
+                &item(&a),
             ]
         );
     }
 
     #[test]
-    fn masking_several_layers_wraps_them_in_a_mask_group_over_the_lowest() {
+    fn masking_several_layers_wraps_them_in_a_mask_group_under_the_highest() {
         let (mut d, p) = empty();
         let [a, b, c] = [0; 3].map(|_| create(&mut d, &p, NewKind::Rect, [0.0; 4]));
         let g = d
@@ -1371,7 +1378,7 @@ mod tests {
         assert_eq!(pg.children[1].name, "Mask group");
         let kids = children(&pg.children[1]);
         assert_eq!(ids(kids), [b.clone(), c]);
-        assert_eq!((kids[0].style.mask, kids[1].style.mask), (true, false));
+        assert_eq!((kids[0].style.mask, kids[1].style.mask), (false, true));
 
         assert_eq!(
             d.apply(Command::Mask {
@@ -1394,10 +1401,11 @@ mod tests {
         let (mut d, p) = empty();
         let below = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
         let m = create(&mut d, &p, NewKind::Ellipse, [0.0, 0.0, 10.0, 10.0]);
-        let above = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
         d.apply(Command::Mask { ids: vec![m] }).unwrap();
-        assert_eq!(hits(&d, 5.0, 5.0, 0.0), [above]);
-        assert_eq!(hits(&d, 0.5, 0.5, 0.0), [below]);
+        assert_eq!(hits(&d, 5.0, 5.0, 0.0), [below]);
+        assert!(hits(&d, 0.5, 0.5, 0.0).is_empty());
+        let above = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
+        assert_eq!(hits(&d, 0.5, 0.5, 0.0), [above]);
     }
 
     #[test]
@@ -1685,8 +1693,8 @@ mod tests {
     #[test]
     fn a_locked_mask_still_masks_what_is_hit_and_a_hidden_one_masks_nothing() {
         let (mut d, p) = empty();
-        let m = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
         let a = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 20.0, 20.0]);
+        let m = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
         d.apply(Command::Mask {
             ids: vec![m.clone()],
         })
