@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { ACTIONS, fuzzy, keyLabel, press } from './commands'
+import { ACTIONS, fuzzy, keyLabel, keysOf, press } from './commands'
 import { Chip, ink, NO_SCOPE } from './ColorPicker'
 import type { Editor } from './editor'
 import { Icon, KindIcon } from './icons'
@@ -13,7 +13,7 @@ function items(editor: Editor): Item[] {
   const { pages, swatches, textStyles } = editor.snapshot
   const cmd = <Icon name="cmd" />
   return [
-    ...ACTIONS.map((a) => ({ group: 'Commands', title: a.title, keys: a.keys, icon: cmd, run: () => (a.run ? a.run(editor) : press(a.keys)) })),
+    ...ACTIONS.map((a) => ({ group: 'Commands', title: a.title, keys: keysOf(a), icon: cmd, run: () => (a.run ? a.run(editor) : press(a.keys)) })),
     ...pages.flatMap((p, i) =>
       flat(p.children).map((n) => ({
         group: 'Layers',

@@ -1,5 +1,6 @@
 import { align, ALIGNS } from './align'
 import type { Editor } from './editor'
+import { settings } from './settings'
 
 /** A command by its title, shortcut and group; one without `run` runs by pressing its shortcut, one whose `can` fails is greyed out in the context menu. */
 export type Action = { title: string; keys: string; group: string; run?: (editor: Editor) => void; can?: (editor: Editor) => boolean }
@@ -140,6 +141,18 @@ const KEYS: Record<string, [key: string, code: string]> = {
   ']': [']', 'BracketRight'],
   '+': ['+', 'Equal'],
   '-': ['-', 'Minus'],
+}
+
+/** The keys `a` runs on, as the settings remap them. */
+export const keysOf = (a: Action) => settings.keys[a.title] ?? a.keys
+
+/** The shortcut `e` presses as `keys` names it, null for a lone modifier. */
+export function comboOf(e: KeyboardEvent) {
+  if (['Control', 'Meta', 'Alt', 'Shift'].includes(e.key)) return null
+  const named = Object.entries(KEYS).find(([, [key]]) => key === e.key)?.[0]
+  const key = /^[a-z]$/i.test(e.key) ? e.key.toUpperCase() : /^Digit\d$/.test(e.code) ? e.code.at(-1)! : e.key === ' ' ? 'Space' : (named ?? e.key)
+  const shift = e.shiftKey && (key.length > 1 || /^[A-Z\d]$/.test(key))
+  return [e.ctrlKey || e.metaKey ? 'Ctrl' : '', e.altKey ? 'Alt' : '', shift ? 'Shift' : '', key].filter(Boolean).join(' ')
 }
 
 /** Presses the shortcut `keys` on the document as if typed. */

@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react'
 import type { CanvasKit } from 'canvaskit-wasm'
 import { Canvas, isTyping } from './Canvas'
 import { NameInput } from './controls'
-import { ACTIONS, keyLabel, MENU, press } from './commands'
+import { ACTIONS, comboOf, keyLabel, keysOf, MENU, press } from './commands'
 import { ContextMenu } from './ContextMenu'
 import { useEditor, type Editor } from './editor'
 import { Help } from './Help'
 import { Settings } from './SettingsDialog'
+import { settings } from './settings'
 import { autosave, download, drop, open, pdf, placeImages, save } from './file'
 import { Icon } from './icons'
 import { handleKey } from './keys'
@@ -78,6 +79,20 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
     const t = setTimeout(() => say(''), 5000)
     return () => clearTimeout(t)
   }, [say, status])
+
+  useEffect(() => {
+    const remap = (e: KeyboardEvent) => {
+      const keys = comboOf(e)
+      if (!e.isTrusted || !keys || document.querySelector('dialog:modal') || (isTyping(e) && !/Ctrl|Alt/.test(keys))) return
+      const to = ACTIONS.find((a) => settings.keys[a.title] === keys)
+      if (!to && !ACTIONS.some((a) => a.keys === keys && a.title in settings.keys)) return
+      e.preventDefault()
+      e.stopImmediatePropagation()
+      if (to) press(to.keys)
+    }
+    window.addEventListener('keydown', remap, true)
+    return () => window.removeEventListener('keydown', remap, true)
+  }, [])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -252,7 +267,7 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
           onClose={() => setMenu(null)}
           items={MENU[selected ? 'selected' : 'none'].map((title) => {
             const a = title && ACTIONS.find((a) => a.title === title)!
-            return a ? [a.title, () => (a.run ? a.run(editor) : press(a.keys)), a.can?.(editor) ?? true, undefined, keyLabel(a.keys)] : null
+            return a ? [a.title, () => (a.run ? a.run(editor) : press(a.keys)), a.can?.(editor) ?? true, undefined, keyLabel(keysOf(a))] : null
           })}
         />
       )}

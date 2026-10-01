@@ -21,3 +21,26 @@ test('the length unit and the quick edit bar are set in the settings and survive
   await expect(panel.getByRole('textbox', { name: 'X in in' })).toBeVisible()
   await expect(page.getByRole('toolbar', { name: 'Quick edit' })).toBeHidden()
 })
+
+test('a shortcut changed in the shortcut list runs its command and frees the old keys', async ({ page }) => {
+  await open(page)
+  await page.keyboard.press('?')
+  const help = page.getByRole('dialog', { name: 'Keyboard shortcuts' })
+  const keys = help.getByRole('button', { name: 'Shortcut for Rectangle tool' })
+  await keys.click()
+  await page.keyboard.press('q')
+  await expect(keys).toHaveText('Q')
+  await page.keyboard.press('Escape')
+
+  const tool = page.getByRole('toolbar', { name: 'Tools' })
+  await page.keyboard.press('q')
+  await expect(tool.getByRole('button', { name: 'Rectangle', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await page.keyboard.press('v')
+  await page.keyboard.press('r')
+  await expect(tool.getByRole('button', { name: 'Move', exact: true })).toHaveAttribute('aria-pressed', 'true')
+
+  await page.keyboard.press('?')
+  await keys.click()
+  await page.keyboard.press('Backspace')
+  await expect(keys).toHaveText('R')
+})
