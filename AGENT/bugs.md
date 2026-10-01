@@ -10,7 +10,6 @@
 19. in der page overview soll man die vertikale master linie nach links und rechts ziehen können, die vorschaubilder von den master seiten sollen dann auch mitgescaled werden
 20. in der page overview sollen die pages (nicht master) etwas größer angezeigt werden und man soll rein und rauszoomen können, aber nicht ganz so nah, und man soll auch die option haben ob man mehrere spalten haben will in denen die pages angezeigt werden
 23. resize swatch thing horizontally
-29. i cannot drag elements that are not visible because they are in a masked and are outside of that, i can only drag where the element is visible
 30. on macos (firefox) the text often is faded out to the right (because of the possiblity of an overflow) that dont actually overflow. on chromium i don't have that problem
 31. add options for basic image editing, like crop (also when resizing with ctrl), contrast, brightness, etc. they should appear in the bar above the element
 32. what does absolute position for an element inside an auto layout mean, is it necesesary/helpful. it should not change the position when checked

@@ -479,6 +479,14 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
             const b = upright(editor.shown(n))
             return { id: n.id, box: b, x: b.x + b.w / 2, y: b.y + b.h / 2 }
           })
+    /** A selected layer under `p` that a mask hides there. */
+    const maskedAt = (p: Point) =>
+      editor.selected().find((n) => {
+        const { parent, page } = editor.nodes.get(n.id)!
+        const nodes = (parent ?? page)!.children
+        const b = upright(editor.shown(n))
+        return nodes.slice(nodes.indexOf(n) + 1).some((m) => m.mask && !m.hidden) && p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h
+      })?.id
     /** Swaps the places of the layers `a` and `b`, in the order of an auto layout frame they share. */
     const swap = (a: string, b: string) => {
       const [p, q] = [editor.nodes.get(a)!, editor.nodes.get(b)!]
@@ -747,8 +755,9 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         editor.beginGroup()
         return
       }
-      const id = pickAt(p, e.ctrlKey || e.metaKey ? 'deep' : 'click')
       const sel = editor.selection
+      const hitId = pickAt(p, e.ctrlKey || e.metaKey ? 'deep' : 'click')
+      const id = (!hitId || !sel.includes(hitId)) && maskedAt(p) || hitId
       if (!id) {
         drag = { kind: 'marquee', start: p, end: p, base: e.shiftKey ? sel : [] }
         editor.set({ selection: drag.base })

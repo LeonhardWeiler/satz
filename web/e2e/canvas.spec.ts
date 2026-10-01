@@ -133,6 +133,19 @@ test('ctrl+alt+m on several layers makes a mask group under the highest', async 
   await expect(masks).toHaveCount(1)
 })
 
+test('a selected masked layer is dragged where the mask hides it', async ({ page }) => {
+  await open(page)
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Stripes', exact: true }).click()
+  const field = page.getByRole('region', { name: 'Layout' }).getByTitle('X in mm').getByRole('textbox')
+  await expect(field).toHaveValue('8')
+  const from = await screen(page, 9, 57)
+  const [to] = await screen(page, 19, 57)
+  await page.keyboard.down('Control')
+  await drag(page, from, [to, from[1]])
+  await page.keyboard.up('Control')
+  await expect(field).toHaveValue('18')
+})
+
 test('holding ctrl hovers the deepest layer under the pointer', async ({ page }) => {
   await open(page)
   const [x, y] = await screen(page, 23, 52)
