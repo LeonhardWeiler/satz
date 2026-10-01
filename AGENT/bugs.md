@@ -17,7 +17,6 @@
 40. when in vector editing mode, you should be able to fill each area seperately with a bucket tool
 42. the bounding box should include the stroke
 47. when changing from solid to linear gradient with one of the gradients selected the layout moves up a bit, it should stay the same
-49. in the settings it should be changable if you see the elements on the left only for one page or the double page, but it should then say in the element selectino thing a small collapsable heading for one page and the other
 50. lines should have the option to be squiggly, etc. 
 51. mach eine ausführliche analyse von anderen programmen, wie figma, indesign, scribus, ... und schau welche funktionen sie bieten, die ich hier noch nicht implementiert habe, schreib das unter AGENT in eine comparison.md datei
 

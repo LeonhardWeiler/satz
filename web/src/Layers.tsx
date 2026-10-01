@@ -3,6 +3,7 @@ import { roam } from './controls'
 import { useEditor, type Editor } from './editor'
 import { Icon, KindIcon } from './icons'
 import type { Node } from './model'
+import { useSettings } from './settings'
 
 type Drop = { id: string; at: 'above' | 'below' | 'into' }
 
@@ -10,6 +11,8 @@ export function Layers({ editor }: { editor: Editor }) {
   const page = useEditor(editor, (e) => e.page)
   const selection = useEditor(editor, (e) => e.selection)
   const renaming = useEditor(editor, (e) => e.renaming)
+  const all = useEditor(editor, (e) => e.snapshot.pages)
+  const pages = useSettings().layers === 'spread' ? editor.spread : [page]
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
   const [drop, setDrop] = useState<Drop | null>(null)
   const [dragging, setDragging] = useState<string[]>([])
@@ -33,7 +36,7 @@ export function Layers({ editor }: { editor: Editor }) {
 
   const shown = (nodes: Node[]): Node[] =>
     nodes.toReversed().flatMap((n) => [n, ...('children' in n && !collapsed.has(n.id) ? shown(n.children) : [])])
-  const stop = shown(page.children).find((n) => selection.includes(n.id))?.id ?? page.children.at(-1)?.id
+  const stop = pages.flatMap((p) => shown(p.children)).find((n) => selection.includes(n.id))?.id ?? pages[0].children.at(-1)?.id
 
   const onKey = (e: KeyboardEvent<HTMLUListElement>) => {
     const items = [...e.currentTarget.querySelectorAll('.layer-name')]
@@ -76,13 +79,13 @@ export function Layers({ editor }: { editor: Editor }) {
     if (at === 'into' && 'children' in target.node) {
       editor.apply({ type: 'move', ids: dragging, parent: id, index: target.node.children.length })
     } else {
-      const parent = target.parent
-      const others = (parent?.children ?? page.children).filter((n) => !dragging.includes(n.id))
+      const parent = target.parent ?? target.page ?? page
+      const others = parent.children.filter((n) => !dragging.includes(n.id))
       const i = others.findIndex((n) => n.id === id)
       editor.apply({
         type: 'move',
         ids: dragging,
-        parent: parent?.id ?? page.id,
+        parent: parent.id,
         index: at === 'above' ? i + 1 : i,
       })
     }
@@ -209,7 +212,19 @@ export function Layers({ editor }: { editor: Editor }) {
         onKeyDown={onKey}
         onMouseLeave={() => editor.set({ hover: null })}
       >
-        {rows(page.children, 1)}
+        {pages.length > 1
+          ? pages.map((p) => (
+              <li key={p.id} role="treeitem" aria-level={1} aria-expanded={!collapsed.has(p.id)}>
+                <button type="button" className="layer layer-page" tabIndex={-1} onClick={() => toggle(p.id)}>
+                  <span className="chevron" data-open={!collapsed.has(p.id) || undefined}>
+                    <Icon name="chevron" />
+                  </span>
+                  Page {all.indexOf(p) + 1}
+                </button>
+                {!collapsed.has(p.id) && <ul role="group">{rows(p.children, 2)}</ul>}
+              </li>
+            ))
+          : rows(page.children, 1)}
       </ul>
     </nav>
   )

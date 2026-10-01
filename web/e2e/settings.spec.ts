@@ -44,3 +44,18 @@ test('a shortcut changed in the shortcut list runs its command and frees the old
   await page.keyboard.press('Backspace')
   await expect(keys).toHaveText('R')
 })
+
+test('the layers of the spread are listed under a heading for each page', async ({ page }) => {
+  await open(page)
+  await page.getByRole('button', { name: 'Add page' }).click()
+  await page.getByRole('button', { name: 'Add page' }).click()
+  const tree = page.getByRole('tree', { name: 'Layers' })
+  await expect(tree.getByRole('button', { name: 'Page 2' })).toHaveCount(0)
+
+  await page.keyboard.press('Control+Comma')
+  await choose(page.getByRole('dialog', { name: 'Settings' }).getByRole('combobox', { name: 'Layers' }), 'Of the spread')
+  await page.keyboard.press('Escape')
+  await expect(tree.getByRole('button', { name: /^Page \d$/ })).toHaveText(['Page 2', 'Page 3'])
+  await tree.getByRole('button', { name: 'Page 2' }).click()
+  await expect(tree.getByRole('treeitem', { name: 'Page 2' })).toHaveAttribute('aria-expanded', 'false')
+})

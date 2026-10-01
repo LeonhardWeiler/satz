@@ -8,7 +8,7 @@ const NAMES: Record<Unit, string> = { mm: 'Millimetres', cm: 'Centimetres', in: 
 /** Ctrl+,: the settings of this browser. */
 export function Settings({ onClose }: { onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null)
-  const { unit, quickEdit } = useSettings()
+  const { unit, quickEdit, layers } = useSettings()
   useEffect(() => {
     ref.current!.showModal()
   }, [])
@@ -25,6 +25,10 @@ export function Settings({ onClose }: { onClose: () => void }) {
         <div className="settings-row">
           Unit
           <Select label="Unit" value={unit} options={NAMES} onChange={(u) => setSettings({ unit: u })} />
+        </div>
+        <div className="settings-row">
+          Layers
+          <Select label="Layers" value={layers} options={{ page: 'Of the page', spread: 'Of the spread' }} onChange={(l) => setSettings({ layers: l })} />
         </div>
         <label className="check">
           <input type="checkbox" checked={quickEdit} onChange={(e) => setSettings({ quickEdit: e.currentTarget.checked })} />
