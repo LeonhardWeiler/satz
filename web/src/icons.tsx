@@ -164,6 +164,7 @@ const ICONS = {
   alignBottom: <path d="M3 13h10M8 2.5v8M5.5 8 8 10.5 10.5 8" />,
   autoWidth: <path d="M2.5 8h11M5 5.5 2.5 8 5 10.5M11 5.5 13.5 8 11 10.5" />,
   autoHeight: <path d="M8 2.5v11M5.5 5 8 2.5 10.5 5M5.5 11 8 13.5 10.5 11" />,
+  autoFit: <path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10" />,
   fixedSize: (
     <>
       <rect x="3" y="3" width="10" height="10" rx="2" />

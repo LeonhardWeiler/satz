@@ -1,6 +1,5 @@
 import { align, ALIGNS } from './align'
 import { MM, type Editor, type Tool } from './editor'
-import { textSizing } from './model'
 import { remove } from './vector'
 
 const TOOLS: Record<string, Tool> = {
@@ -73,6 +72,7 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
   } else if (!mod && !e.altKey && e.shiftKey && key === 'g') editor.set({ grids: !editor.grids })
   else if (!ids.length) return false
   else if (e.key === 'Delete' || e.key === 'Backspace') editor.apply({ type: 'delete', ids })
+  else if (mod && e.altKey && key === 'c') editor.resize(editor.selected(), 'autoFit')
   else if (mod && (key === 'c' || key === 'x') && !e.isTrusted) {
     navigator.clipboard?.writeText(editor.copy(ids)).catch(() => {})
     if (key === 'x') editor.apply({ type: 'delete', ids })
@@ -97,9 +97,7 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
       for (const n of editor.selected()) if (n.direction !== 'none') editor.apply({ type: 'set', id: n.id, direction: 'none' })
     })
   } else if (!mod && !e.altKey && e.shiftKey && (key === 'w' || key === 'h') && editor.selected().every((n) => n.kind === 'text')) {
-    editor.batch(() => {
-      for (const n of editor.selected()) editor.apply({ type: 'set', id: n.id, sizing: textSizing(n.sizing, key === 'w' ? 'autoWidth' : 'autoHeight') })
-    })
+    editor.resize(editor.selected(), key === 'w' ? 'autoWidth' : 'autoHeight')
   } else if (!mod && e.shiftKey && key === 'a') editor.set({ selection: editor.apply({ type: 'autoLayout', ids }) })
   else if (mod && e.altKey && key === 'm') editor.set({ selection: editor.apply({ type: 'mask', ids }) })
   else if (e.altKey && alignment(e)) align(editor, alignment(e)!)

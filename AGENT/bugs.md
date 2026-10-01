@@ -10,7 +10,6 @@
 19. in der page overview soll man die vertikale master linie nach links und rechts ziehen können, die vorschaubilder von den master seiten sollen dann auch mitgescaled werden
 20. in der page overview sollen die pages (nicht master) etwas größer angezeigt werden und man soll rein und rauszoomen können, aber nicht ganz so nah, und man soll auch die option haben ob man mehrere spalten haben will in denen die pages angezeigt werden
 23. resize swatch thing horizontally
-25. auto fit (auto width when theres a single line, auto height when theres multiple lines) as an additional option for a text frame and when double clicking on the corner of a text frame and use this as the keyboardshortcut
 27. when drawing a line it should show the selection like it shows when it is selected later
 28. use as mask works for elements above, but it should work for elements below
 29. i cannot drag elements that are not visible because they are in a masked and are outside of that, i can only drag where the element is visible
@@ -19,7 +18,6 @@
 32. what does absolute position for an element inside an auto layout mean, is it necesesary/helpful. it should not change the position when checked
 33. das text style dropdown soll gleich aussehen wie alle anderen dropdowns
 34. when zooming in/out, the elements should not move but only scale
-36. auto height when double clicking on the top or bottom of a textbox and auto widht when clicking on the left or right of a textbox
 37. show icons next to the specifig font options, like ligatures to make it easier to understand like figma does
 38. make it possible to make boolean operations on things like rectangles, triangles, ... (not text unless its made into an vector). the buttons/icons should be below the align buttons
 39. make it possiblel to convert text to vectors

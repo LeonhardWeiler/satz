@@ -31,6 +31,7 @@ const RESIZING = [
   ['autoWidth', 'Auto width', 'autoWidth'],
   ['autoHeight', 'Auto height', 'autoHeight'],
   ['fixedSize', 'Fixed size', 'fixedSize'],
+  ['autoFit', 'Auto fit', 'autoFit'],
 ] as const
 const LANGS = { en: 'English', de: 'German' } as const
 /** Styled numbers: title, label, unit, least value and the text shown for 0. */
@@ -405,7 +406,7 @@ function StyleRow({ editor, style }: { editor: Editor; style: TextStyle }) {
 }
 
 /** Resizing, insets, columns, vertical alignment and baseline grid of a text layer. */
-export function TextFrameSection({ node, set }: { node: TextNode; set: (p: Props) => void }) {
+export function TextFrameSection({ editor, node, set }: { editor: Editor; node: TextNode; set: (p: Props) => void }) {
   const { horizontal, vertical } = node.sizing
   const resizing = horizontal === 'hug' ? 'autoWidth' : vertical === 'hug' ? 'autoHeight' : 'fixedSize'
   return (
@@ -414,8 +415,8 @@ export function TextFrameSection({ node, set }: { node: TextNode; set: (p: Props
         label="Resizing"
         value={resizing}
         options={RESIZING}
-        disabled={(v) => (v === 'autoWidth' && !!(node.prev || node.next)) || (v === 'autoHeight' && !!node.next)}
-        onChange={(mode) => set({ sizing: textSizing(node.sizing, mode) })}
+        disabled={(v) => (v === 'autoWidth' && !!(node.prev || node.next)) || (v !== 'autoWidth' && v !== 'fixedSize' && !!node.next)}
+        onChange={(mode) => (mode === 'autoFit' ? editor.resize([node], mode) : set({ sizing: textSizing(node.sizing, mode) }))}
       />
       <div className="grid">
         {INSETS.map(([prop, title, label]) => (

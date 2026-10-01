@@ -998,6 +998,12 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         editor.set({ threading: null })
         return
       }
+      const [one] = editor.selected()
+      const handle = editor.selection.length === 1 && one.kind === 'text' ? handleUnder(e) : undefined
+      if (handle && /^[nsew]{1,2}$/.test(handle)) {
+        editor.resize([one], handle.length === 2 ? 'autoFit' : handle === 'n' || handle === 's' ? 'autoHeight' : 'autoWidth')
+        return
+      }
       const p = toDoc(e)
       const edited = inEdited(p)
       if (edited) {

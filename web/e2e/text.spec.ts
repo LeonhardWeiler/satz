@@ -186,6 +186,35 @@ test('a clicked text is auto width, a dragged one a fixed empty box shown while 
   await expect(mode('Auto width')).toBeChecked()
 })
 
+test('auto fit and a double click on an edge or corner of a text frame fit it to its text', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  const mode = (name: string) => panel.getByRole('radio', { name })
+  const width = panel.getByRole('textbox', { name: 'W in mm' })
+  await page.keyboard.press('t')
+  await drag(page, await screen(page, 20, 100), await screen(page, 120, 110))
+  await page.keyboard.type('Satz sets type')
+  await page.keyboard.press('Escape')
+  await expect(mode('Fixed size')).toBeChecked()
+  await page.mouse.dblclick(...(await screen(page, 120, 105)))
+  await expect(mode('Auto width')).toBeChecked()
+
+  await mode('Fixed size').click()
+  await width.fill('10')
+  await width.press('Enter')
+  await page.evaluate(() => (document.activeElement as HTMLElement).blur())
+  await page.keyboard.press('Control+Alt+c')
+  await expect(mode('Auto height')).toBeChecked()
+
+  await width.fill('100')
+  await width.press('Enter')
+  await mode('Auto fit').click()
+  await expect(mode('Auto width')).toBeChecked()
+  await mode('Fixed size').click()
+  await page.mouse.dblclick(...(await screen(page, 20, 100)))
+  await expect(mode('Auto width')).toBeChecked()
+})
+
 test('a fixed text frame pulled narrower than its text becomes auto height', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })

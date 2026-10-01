@@ -355,7 +355,7 @@ export function Properties({
       )}
       {box && <EffectList effects={sameList((n) => n.effects)} mode={mode} scope={scope} onChange={(effects) => set({ effects })} />}
       {one?.kind === 'text' && <TextSection editor={editor} node={one} />}
-      {one?.kind === 'text' && <TextFrameSection node={one} set={set} />}
+      {one?.kind === 'text' && <TextFrameSection editor={editor} node={one} set={set} />}
     </aside>
   )
 }

@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import type { Engine } from './engine/engine'
-import type { Command, Container, Modes, Node, Page, Palette, Scope, Snapshot, TextNode, Typeface } from './model'
+import { textSizing, type Command, type Container, type Modes, type Node, type Page, type Palette, type Resizing, type Scope, type Snapshot, type TextNode, type Typeface } from './model'
 import type { Previewed } from './exportWorker'
 import type { Handle } from './file'
 import { penPath, type Anchor } from './pen'
@@ -311,6 +311,19 @@ export class Editor {
 
   storyOf(n: TextNode) {
     return this.snapshot.stories[n.story]
+  }
+
+  /** Resizes the text layers of `nodes` by `mode` where their thread allows; auto fit makes a text of one line auto width and else auto height. */
+  resize(nodes: Node[], mode: Resizing | 'autoFit') {
+    this.batch(() => {
+      for (const n of nodes) {
+        if (n.kind !== 'text') continue
+        const one = !n.prev && !n.next && this.engine.textLine(n.id, 0)[1] >= this.storyOf(n).text.length
+        const m = mode === 'autoFit' ? (one ? 'autoWidth' : 'autoHeight') : mode
+        if ((m === 'autoWidth' && (n.prev || n.next)) || (m === 'autoHeight' && n.next)) continue
+        this.apply({ type: 'set', id: n.id, sizing: textSizing(n.sizing, m) })
+      }
+    })
   }
 
   /** Copies the layers `ids` and returns them as plain text: the text of text layers, the names of the others. */

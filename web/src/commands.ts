@@ -101,6 +101,7 @@ export const ACTIONS: Action[] = [
   },
   { title: 'Auto width', keys: 'Shift W', group: 'Text' },
   { title: 'Auto height', keys: 'Shift H', group: 'Text' },
+  { title: 'Auto fit', keys: 'Ctrl Alt C', group: 'Text' },
   { title: 'Move tool', keys: 'V', group: 'Tools' },
   { title: 'Frame tool', keys: 'F', group: 'Tools' },
   { title: 'Rectangle tool', keys: 'R', group: 'Tools' },
