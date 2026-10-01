@@ -3,7 +3,6 @@
 4. texte sollen auch eine stroke bekommen, die um den text herum geht
 5. wenn ich von rgb auf cmyk umwandle, sollen alle farben sofort mit umgewandelt werden und dann natürlich nicht im preflight angezgeit werden
 7. es ist immer noch so, dass wenn ich auf ein z.b. r halte, dass dann mein cursor weg ist
-8. die abstand labels sollen immer über den linien darunter gezeichnet werden, gerade hab ich ein beispiel gesehen, bei dem ein label unter der linie eines anderen labels angezeigt wurde
 9. wenn ich versehentlich über der toolbar über den elementen reinzoome, dann zoome ich nicht den canvas sondern die website. bei den panels am rand, soll man aber immer noch genau gleich zoomen können, also da nicht den canvas
 10. wenn ich ein rechteck, darunter mit abstand einen text und darunter mit abstand wieder einen rechteck hab, soll der abstand über dem element auch angezeigt (smart) werden, dass ich sehe, wann es gleich ist und dann darauf auch snappen
 13. in der command pallette sollen mehr sinnvolle optionen hinzugefügt werden

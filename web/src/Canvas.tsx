@@ -293,6 +293,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       let svg = snapped.map((g) => (g.axis === 'x' ? line(g.at, g.from, g.at, g.to) : line(g.from, g.at, g.to, g.at))).join('')
       if (target) svg += `<rect class="target" x="${X(target.x)}" y="${Y(target.y)}" width="${target.w * view.zoom}" height="${target.h * view.zoom}"/>`
       const labels: Box[] = []
+      let tags = ''
       for (const m of measures) {
         svg += line(m.x1, m.y1, m.x2, m.y2, m.dashed ? 'dashed' : '')
         if (m.dashed) continue
@@ -302,9 +303,9 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         let cy = m.y1 === m.y2 ? Y(m.y1) + 13 : Y((m.y1 + m.y2) / 2)
         while (labels.some((l) => Math.abs(l.x - cx) < (l.w + w) / 2 && Math.abs(l.y - cy) < 20)) cy += 20
         labels.push({ x: cx, y: cy, w, h: 18 })
-        svg += `<rect class="label" x="${cx - w / 2}" y="${cy - 9}" width="${w}" height="18" rx="4"/><text x="${cx}" y="${cy}">${t}</text>`
+        tags += `<rect class="label" x="${cx - w / 2}" y="${cy - 9}" width="${w}" height="18" rx="4"/><text x="${cx}" y="${cy}">${t}</text>`
       }
-      return svg
+      return svg + tags
     }
 
     /** Ports of the selected text frame; over a port, the lines of its thread on this spread and the frame the port links to. */
