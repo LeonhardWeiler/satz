@@ -250,7 +250,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     /** Box handles of the selection, or the ends of a single selected line. */
     const handles = () => {
       const nodes = editor.selected().map(placed)
-      if (editor.tool !== 'move' || !nodes.length || editor.editing || editor.vector) return {}
+      if ((editor.tool !== 'move' && drag?.kind !== 'draw') || !nodes.length || editor.editing || editor.vector) return {}
       const n = nodes.length === 1 ? nodes[0] : undefined
       const line = n && ends(n)
       if (line) return { line }
@@ -382,7 +382,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       renderer.draw(surface.getCanvas(), lists, editor.sheets, view, canvas.width / canvas.clientWidth, {
         text,
         accent: getComputedStyle(canvas).getPropertyValue('--accent'),
-        selection: editor.selection.length > 1 || ed || (drag?.kind === 'draw' && drag.tool !== 'line') ? editor.selected().map((n) => editor.shown(n)) : [],
+        selection: editor.selection.length > 1 || ed ? editor.selected().map((n) => editor.shown(n)) : [],
         hover: image && cursor ? { x: cursor.x - image.w / 2, y: cursor.y - image.h / 2, w: image.w, h: image.h } : hovered,
         marquee,
         handles: box,
