@@ -27,7 +27,6 @@
 32. what does absolute position for an element inside an auto layout mean, is it necesesary/helpful. it should not change the position when checked
 33. das text style dropdown soll gleich aussehen wie alle anderen dropdowns
 34. when zooming in/out, the elements should not move but only scale
-35. text soll die größe in der toolbar über dem element haben
 36. auto height when double clicking on the top or bottom of a textbox and auto widht when clicking on the left or right of a textbox
 37. show icons next to the specifig font options, like ligatures to make it easier to understand like figma does
 38. make it possible to make boolean operations on things like rectangles, triangles, ... (not text unless its made into an vector). the buttons/icons should be below the align buttons
