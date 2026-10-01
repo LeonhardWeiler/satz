@@ -109,7 +109,6 @@ export class Renderer {
   /** Images of the inks over pages by their pixels. */
   private inks = new Map<Uint8Array, Image>()
   /** The pages show as they print. */
-  private proof = false
   /** Paint for display-list content; `chrome` draws the page, guides and overlay. */
   private paint: Paint
   private chrome: Paint
@@ -126,16 +125,11 @@ export class Renderer {
   /**
    * Draws the display list of each page of `lists` at its x on the spread, over the
    * pages `sheets`, clipped to their bleed together: a layer across the spine shows on
-   * both pages, and the bleed runs around the spread's outer edges. With `proof` the
-   * pages show as they print, with their `inks` over them; `cmyk` pages blend their
-   * inks as they print, of C, M, Y and K those whose bit is set in `on`.
+   * both pages, and the bleed runs around the spread's outer edges, with their `inks`
+   * over them; `cmyk` pages blend their inks as they print, of C, M, Y and K those whose bit is set in `on`.
    */
-  draw(canvas: Canvas, lists: { id: string; x: number; inks?: Inked }[], sheets: Sheet[], view: View, dpr: number, overlay: Overlay | null, proof = false, cmyk = false, on = 15) {
+  draw(canvas: Canvas, lists: { id: string; x: number; inks?: Inked }[], sheets: Sheet[], view: View, dpr: number, overlay: Overlay | null, cmyk = false, on = 15) {
     const { ck, chrome: paint } = this
-    if (proof !== this.proof) {
-      this.proof = proof
-      this.clear()
-    }
     canvas.clear(ck.TRANSPARENT)
     const place = (c: Canvas) => {
       c.save()
@@ -166,7 +160,7 @@ export class Renderer {
       c.save()
       c.clipPath(bleed, ck.ClipOp.Intersect, true)
       for (const { id, x } of lists) {
-        const ops = decode((plate ? this.engine.plate(id, plate === 2) : this.engine.displayList(id, proof)).slice())
+        const ops = decode((plate ? this.engine.plate(id, plate === 2) : this.engine.displayList(id)).slice())
         this.loadImages(ops)
         for (const op of ops) {
           if (op.op === 'beginItem') live.add(op.item)

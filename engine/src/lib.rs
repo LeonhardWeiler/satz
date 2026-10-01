@@ -80,12 +80,8 @@ impl Engine {
 
     /// The view is invalid after the next call into the engine.
     #[wasm_bindgen(js_name = displayList)]
-    pub fn display_list(&mut self, page: &str, proof: bool) -> Uint32Array {
-        self.list = encode(&if proof {
-            self.doc.proof(page)
-        } else {
-            self.doc.render(page)
-        });
+    pub fn display_list(&mut self, page: &str) -> Uint32Array {
+        self.list = encode(&self.doc.render(page));
         unsafe { Uint32Array::view(&self.list) }
     }
 

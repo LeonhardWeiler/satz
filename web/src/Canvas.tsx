@@ -393,7 +393,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         grids: editor.grids && !editor.preflight,
         vector: vector(),
         ...threadOverlay(),
-      }, editor.preflight, editor.snapshot.colorMode === 'cmyk', editor.preflight ? editor.inks.on : 15)
+      }, editor.snapshot.colorMode === 'cmyk', editor.preflight ? editor.inks.on : 15)
       surface.flush()
       const left = Math.min(...editor.sheets.map((s) => s.x))
       const sel = editor.selection.length ? bounds(editor.selected().map((n) => upright(editor.shown(n)))) : undefined

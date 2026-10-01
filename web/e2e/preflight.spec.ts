@@ -1,9 +1,16 @@
-import { expect, test, addPage, current, drag, exportButton, open, openExample, pixels, preflight, screen } from './util'
+import { expect, test, addPage, colors, current, drag, exportButton, near, open, openExample, pixels, preflight, screen } from './util'
 
 test('preflight of an rgb document leaves out the inks and lists a layer short of the bleed and a click selects it on its page', async ({ page }) => {
   await open(page)
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).last().click()
+  await page.getByRole('complementary', { name: 'Properties' }).getByRole('button', { name: 'Fill color' }).click()
+  await page.getByRole('dialog', { name: 'Fill color' }).getByRole('textbox', { name: 'Hex' }).fill('00ff00')
+  await page.getByRole('dialog', { name: 'Fill color' }).getByRole('textbox', { name: 'Hex' }).press('Enter')
+  await page.keyboard.press('Escape')
   const pf = await preflight(page)
   await expect(pf.getByRole('region', { name: 'Separations' })).toHaveCount(0)
+  const [green] = await colors(page, [await screen(page, 74, 7)])
+  expect(near(green, [0, 255, 0])).toBe(true)
   const short = pf.getByRole('button', { name: /Short of the bleed/ })
   await expect(short).toHaveCount(0)
 

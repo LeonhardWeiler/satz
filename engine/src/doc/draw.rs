@@ -671,24 +671,6 @@ impl Doc {
         ops
     }
 
-    /// The display list of the page `id` as it prints in FOGRA51: RGB colours and images
-    /// show separated.
-    pub fn proof(&self, id: &str) -> Vec<Op> {
-        let mut ops = recolor(&self.render(id), &|c, ink| match ink {
-            Ink::Rgb => {
-                let [r, g, b] = color::to_rgb(color::to_cmyk([c[0], c[1], c[2]]));
-                [r, g, b, c[3]]
-            }
-            _ => *c,
-        });
-        for op in &mut ops {
-            if let Op::Image { image, .. } = op {
-                *image |= image::PROOF;
-            }
-        }
-        ops
-    }
-
     /// The inks of the page `id` as it prints at `ppi`.
     pub fn inks(&self, id: &str, ppi: f32) -> Option<Inks> {
         let snap = self.snapshot();
@@ -1612,7 +1594,7 @@ mod tests {
     }
 
     #[test]
-    fn the_proof_shows_rgb_colours_as_they_print() {
+    fn the_plates_show_rgb_colours_as_they_print() {
         let (mut d, p) = empty();
         let red = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 72.0, 72.0]);
         set(
@@ -1635,10 +1617,6 @@ mod tests {
                 _ => None,
             })
         };
-        let [r, g, b, _] = solid(d.proof(&p)).unwrap();
-        let [pr, pg, pb] = color::to_rgb(color::to_cmyk([1.0, 0.0, 0.0]));
-        assert!((r - pr).abs() < 1e-4 && (g - pg).abs() < 1e-4 && (b - pb).abs() < 1e-4);
-        assert!(g > 0.1 || b > 0.1);
         assert_eq!(solid(d.render(&p)).unwrap(), [1.0, 0.0, 0.0, 1.0]);
         let [c, m, y, k] = color::to_cmyk([1.0, 0.0, 0.0]);
         let [r, g, b, a] = solid(d.plate(&p, false)).unwrap();
