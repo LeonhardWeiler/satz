@@ -13,11 +13,13 @@ type Cache = Map<number, { hash: number; picture: SkPicture }>
 export type View = { x: number; y: number; zoom: number }
 /** A box turned `rotation` degrees counterclockwise around its centre. */
 export type Box = { x: number; y: number; w: number; h: number; rotation?: number }
+type Line = [{ x: number; y: number }, { x: number; y: number }]
 export type Overlay = {
   /** The colour of the selection chrome, the theme's accent. */
   accent: string
-  selection: Box[]
-  hover?: Box
+  /** Boxes, or the ends of lines. */
+  selection: (Box | Line)[]
+  hover?: Box | Line
   marquee?: Box
   handles?: Box
   /** Corner radius handles in screen space. */
@@ -322,10 +324,12 @@ export class Renderer {
     paint.setStyle(ck.PaintStyle.Stroke)
     paint.setColor(accent)
     paint.setStrokeWidth(1)
-    for (const b of selection) turned(b, () => canvas.drawRect(screen(b), paint))
+    const outline = (b: Box | Line) =>
+      Array.isArray(b) ? canvas.drawLine(...at(b[0].x, b[0].y), ...at(b[1].x, b[1].y), paint) : turned(b, () => canvas.drawRect(screen(b), paint))
+    selection.forEach(outline)
     if (hover) {
       paint.setStrokeWidth(2)
-      turned(hover, () => canvas.drawRect(screen(hover), paint))
+      outline(hover)
       paint.setStrokeWidth(1)
     }
     if (marquee) {

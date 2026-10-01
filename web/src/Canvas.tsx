@@ -346,6 +346,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const { box, line, radii: corners } = drag?.kind === 'marquee' ? {} : handles()
       const h = editor.hover ?? hover
       const over = h && !editor.selection.includes(h) ? editor.nodes.get(h)?.node : undefined
+      const outline = (n: Node) => ends(placed(n)) ?? editor.shown(n)
       const hovered = over && editor.shown(over)
       const marquee =
         drag?.kind === 'marquee'
@@ -382,8 +383,8 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       renderer.draw(surface.getCanvas(), lists, editor.sheets, view, canvas.width / canvas.clientWidth, {
         text,
         accent: getComputedStyle(canvas).getPropertyValue('--accent'),
-        selection: editor.selection.length > 1 || ed ? editor.selected().map((n) => editor.shown(n)) : [],
-        hover: image && cursor ? { x: cursor.x - image.w / 2, y: cursor.y - image.h / 2, w: image.w, h: image.h } : hovered,
+        selection: editor.selection.length > 1 || ed || drag?.kind === 'marquee' ? editor.selected().map(outline) : [],
+        hover: image && cursor ? { x: cursor.x - image.w / 2, y: cursor.y - image.h / 2, w: image.w, h: image.h } : over && outline(over),
         marquee,
         handles: box,
         radii: corners,

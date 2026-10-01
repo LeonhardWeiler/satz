@@ -30,7 +30,6 @@
 51. mach eine ausführliche analyse von anderen programmen, wie figma, indesign, scribus, ... und schau welche funktionen sie bieten, die ich hier noch nicht implementiert habe, schreib das unter AGENT in eine comparison.md datei
 52. when ich den preflight editor offen habe und ein element, das als outside the gamut markiert ist bewege, dann dauert es ca. 1,5s bis die selection geupdated ist, schau dass das schneller funktioniert
 54. bei den Document Settings sieht man es besonders, aber es ist an vielen orten der Fall. Das dropdown menü ist breiter als die andern menüs und wieder anders sieht das landscape oder portrait mode selector aus. Alle Settings sollen genau gleich aussehen. Damit meine ich, gleiche höhe, breite, border radius, padding, margin, etc.
-55. when the line is selected when a selection is dragged, only the line should be highlighted, like when clicked, not the whole bounding box
 
 --- LATER
 1. Figma import with file and or account

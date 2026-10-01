@@ -344,3 +344,19 @@ test('the centre of one of several selected layers dragged onto another swaps th
   await expect(panel.getByRole('textbox', { name: 'X in mm' })).toHaveValue('60')
   await expect(panel.getByRole('textbox', { name: 'W in mm' })).toHaveValue('20')
 })
+
+test('a marquee outlines the lines it selects along the line, not around its box', async ({ page }) => {
+  await open(page)
+  await page.keyboard.press('l')
+  await drag(page, await screen(page, 40, 100), await screen(page, 60, 120))
+  await page.keyboard.press('Escape')
+  await page.mouse.move(...(await screen(page, 5, 92)))
+  await page.mouse.down()
+  await page.mouse.move(...(await screen(page, 65, 125)), { steps: 4 })
+  const accent = async (x: number, y: number) => {
+    const [sx, sy] = await screen(page, x, y)
+    return (await pixels(page, sx - 2, sy - 2, 5, 5)).some((p) => near(p, [56, 174, 224]))
+  }
+  expect(await accent(60, 100)).toBe(false)
+  await page.mouse.up()
+})
