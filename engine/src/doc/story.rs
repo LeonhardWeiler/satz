@@ -1717,6 +1717,10 @@ mod tests {
         assert_eq!(text::add_font(MONO).unwrap(), face);
         assert!(text::add_font(b"not a font").is_err());
         assert!(text::add_font(b"wOF2 compressed").is_err());
+        let woff2 = text::add_font(include_bytes!("../../fonts/DMMono-Regular.woff2")).unwrap();
+        assert_eq!(woff2.name, face.name);
+        let id = text::font_id(&Some(woff2));
+        assert!(text::typeface(&text::font_bytes(id)).is_ok());
     }
 
     #[test]

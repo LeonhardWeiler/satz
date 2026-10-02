@@ -64,12 +64,18 @@ pub fn typeface(bytes: &[u8]) -> Result<Typeface, String> {
     })
 }
 
-/// Adds the font `bytes` to those text can be set in, unless it is there already.
+/// Adds the font `bytes`, TrueType, OpenType, WOFF or WOFF2, to those text can be set in, unless it is there already.
 pub fn add_font(bytes: &[u8]) -> Result<Typeface, String> {
-    let face = typeface(bytes)?;
+    let sfnt = match bytes.get(..4) {
+        Some(b"wOFF") => wuff::decompress_woff1(bytes),
+        Some(b"wOF2") => wuff::decompress_woff2(bytes),
+        _ => Ok(bytes.into()),
+    }
+    .map_err(|e| e.to_string())?;
+    let face = typeface(&sfnt)?;
     FONTS.with_borrow_mut(|f| {
         if !f.iter().any(|(t, b)| t.hash == face.hash && !b.is_empty()) {
-            f.push((face.clone(), bytes.into()));
+            f.push((face.clone(), sfnt.into()));
         }
     });
     Ok(face)

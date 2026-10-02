@@ -187,7 +187,7 @@ async function addFont(editor: Editor, file: File, say: (message: string) => voi
   try {
     await keep(editor, new Uint8Array(await file.arrayBuffer()))
   } catch (e) {
-    say(`Could not add ${file.name}: ${(e as Error).message}. Choose a .ttf or .otf file.`)
+    say(`Could not add ${file.name}: ${(e as Error).message}. Choose a .ttf, .otf, .woff or .woff2 file.`)
   }
 }
 
@@ -200,9 +200,9 @@ async function placeImage(editor: Editor, file: File, say: (message: string) => 
   }
 }
 
-/** Asks for TrueType and OpenType files and adds them to the fonts. */
+/** Asks for TrueType, OpenType, WOFF and WOFF2 files and adds them to the fonts. */
 export const addFonts = (editor: Editor, say: (message: string) => void) =>
-  pick('.ttf,.otf', true, async (files) => {
+  pick('.ttf,.otf,.woff,.woff2', true, async (files) => {
     for (const file of files) await addFont(editor, file, say)
   })
 
@@ -217,9 +217,9 @@ export async function drop(editor: Editor, files: File[], say: (message: string)
   for (const file of files) {
     const ext = file.name.split('.').pop()!.toLowerCase()
     if (ext === 'satz') await load(editor, file, null, say)
-    else if (ext === 'ttf' || ext === 'otf') await addFont(editor, file, say)
+    else if (['ttf', 'otf', 'woff', 'woff2'].includes(ext)) await addFont(editor, file, say)
     else if (ext === 'png' || ext === 'jpg' || ext === 'jpeg') await placeImage(editor, file, say)
-    else say(`Could not use ${file.name}. Drop a .satz document, a PNG or JPEG image or a .ttf or .otf font.`)
+    else say(`Could not use ${file.name}. Drop a .satz document, a PNG or JPEG image or a .ttf, .otf, .woff or .woff2 font.`)
   }
 }
 

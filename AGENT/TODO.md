@@ -46,7 +46,6 @@ Open:
 - Type as in Figma: bulleted and numbered lists, truncation after a number of lines,
   vertical trim to cap height and baseline, axes of variable fonts, a glyph panel
   with search for all characters of a font.
-- WOFF2 fonts.
 - Colour profiles: choose or upload a CMYK profile (e.g. PSO Coated v3) instead of the
   built-in FOGRA51.
 - Auto layout: drag layers into and out of an auto layout frame on the canvas.

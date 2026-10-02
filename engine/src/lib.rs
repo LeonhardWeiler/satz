@@ -213,7 +213,7 @@ impl Engine {
         Uint8Array::from(&text::font_bytes(id)[..])
     }
 
-    /// Adds a TrueType or OpenType font and returns its name and hash.
+    /// Adds a TrueType, OpenType, WOFF or WOFF2 font and returns its name and hash.
     #[wasm_bindgen(js_name = addFont)]
     pub fn add_font(&mut self, bytes: &[u8]) -> Result<JsValue, JsError> {
         let face = self.doc.add_font(bytes).map_err(|e| JsError::new(&e))?;

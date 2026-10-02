@@ -9,10 +9,10 @@ async function add(page: Page, files: string | { name: string; mimeType: string;
   await (await chooser).setFiles(files)
 }
 
-test('an added font is listed, stays after a reload and is removed', async ({ page }) => {
+test('an added woff2 font is listed, stays after a reload and is removed', async ({ page }) => {
   await open(page)
   await expect(fonts(page).getByRole('listitem')).toHaveText(['Source Serif 4'])
-  await add(page, new URL('../../engine/fonts/DMMono-Regular.ttf', import.meta.url).pathname)
+  await add(page, new URL('../../engine/fonts/DMMono-Regular.woff2', import.meta.url).pathname)
   await expect(fonts(page).getByRole('listitem')).toHaveText(['Source Serif 4', 'DM Mono Regular'])
   await page.reload()
   await expect(fonts(page).getByRole('listitem')).toHaveText(['Source Serif 4', 'DM Mono Regular'])
@@ -43,7 +43,7 @@ test('a file that is not a font is not added and says why', async ({ page }) => 
   await open(page)
   await add(page, { name: 'notes.ttf', mimeType: 'font/ttf', buffer: Buffer.from('notes') })
   await expect(
-    page.getByText('Could not add notes.ttf: not a TrueType or OpenType font. Choose a .ttf or .otf file.'),
+    page.getByText('Could not add notes.ttf: not a TrueType or OpenType font. Choose a .ttf, .otf, .woff or .woff2 file.'),
   ).toBeVisible()
   await expect(fonts(page).getByRole('listitem')).toHaveText(['Source Serif 4'])
 })
