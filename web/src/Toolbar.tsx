@@ -50,6 +50,7 @@ export function Toolbar({ editor, onPlaceImage }: { editor: Editor; onPlaceImage
   if (current && current.tool !== last) setLast(current.tool)
   const shape = current ?? SHAPES.find((s) => s.tool === last)!
   const vector = useEditor(editor, (e) => e.vector)
+  const placing = useEditor(editor, (e) => e.placing.length > 0)
 
   if (vector) {
     return (
@@ -140,7 +141,7 @@ export function Toolbar({ editor, onPlaceImage }: { editor: Editor; onPlaceImage
       <ToolButton entry={PEN} active={active} editor={editor} />
       <ToolButton entry={TEXT} active={active} editor={editor} />
       <ToolButton entry={EYEDROPPER} active={active} editor={editor} />
-      <button type="button" className="tool" aria-label="Place image" title="Place image (Ctrl+Shift+K)" onClick={onPlaceImage}>
+      <button type="button" className="tool" aria-pressed={placing} aria-label="Place image" title="Place image (Ctrl+Shift+K)" onClick={onPlaceImage}>
         <Icon name="image" />
       </button>
     </div>
