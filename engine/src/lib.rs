@@ -184,6 +184,11 @@ impl Engine {
         self.doc.printed(page)
     }
 
+    /// The page `page` as a PNG at `ppi`.
+    pub fn png(&self, page: &str, ppi: f32) -> Option<Vec<u8>> {
+        self.doc.png(page, ppi)
+    }
+
     /// The document as a PDF titled `title`, made at `date` in ISO 8601 UTC.
     pub fn pdf(&self, title: &str, date: &str) -> Vec<u8> {
         self.doc.pdf(title, date)

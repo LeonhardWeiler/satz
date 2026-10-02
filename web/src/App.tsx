@@ -8,13 +8,13 @@ import { useEditor, type Editor } from './editor'
 import { Help } from './Help'
 import { Settings } from './SettingsDialog'
 import { settings } from './settings'
-import { autosave, download, drop, open, pdf, placeImages, save } from './file'
+import { autosave, download, drop, images, open, pdf, placeImages, save } from './file'
 import { Icon } from './icons'
 import { handleKey } from './keys'
 import { Layers } from './Layers'
 import { Overview } from './Overview'
 import { Palette } from './Palette'
-import { isError, Preflight } from './Preflight'
+import { type Format, isError, Preflight } from './Preflight'
 import { Properties } from './Properties'
 import { Start } from './Start'
 import { Swatches } from './Swatches'
@@ -42,18 +42,24 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
   const [hidden, setHidden] = useState({ left: false, right: false, ui: false, rulers: false })
   const hide = (panel: keyof typeof hidden) => setHidden((h) => ({ ...h, [panel]: !h[panel] }))
 
-  const exportPdf = () => {
+  const exportAs = (format: Format) => {
     if (exporting) return
-    const file = `${title}.pdf`
+    const kind = format.toUpperCase()
+    const ext = format === 'jpeg' ? 'jpg' : format
     setExporting(true)
-    say('Exporting PDF…')
-    pdf(editor, title)
+    say(`Exporting ${kind}…`)
+    const made = format === 'pdf' ? pdf(editor, title).then((bytes) => [bytes]) : images(editor, { type: `image/${format}`, ppi: editor.snapshot.rasterPpi })
+    made
       .then(
-        (bytes) => {
-          download(bytes, file, 'application/pdf')
-          say(`Exported ${file}`)
+        (files) => {
+          const names = files.map((bytes, i) => {
+            const file = files.length > 1 ? `${title}-${i + 1}.${ext}` : `${title}.${ext}`
+            download(bytes, file, format === 'pdf' ? 'application/pdf' : `image/${format}`)
+            return file
+          })
+          say(`Exported ${names.length > 1 ? `${names.length} pages` : names[0]}`)
         },
-        (e: Error) => say(`Could not export the PDF: ${e.message}. Reload the page and try again.`),
+        (e: Error) => say(`Could not export the ${kind}: ${e.message}. Reload the page and try again.`),
       )
       .finally(() => setExporting(false))
   }
@@ -243,7 +249,7 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
       {overview && <Overview ck={ck} editor={editor} />}
       <div className="right" inert={off('right')}>
         <Edge side="right" />
-        {preflight ? <Preflight editor={editor} exporting={exporting} onExport={exportPdf} /> : <Properties editor={editor} say={say} />}
+        {preflight ? <Preflight editor={editor} exporting={exporting} onExport={exportAs} /> : <Properties editor={editor} say={say} />}
       </div>
       {starting && (
         <Start

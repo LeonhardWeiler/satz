@@ -688,6 +688,21 @@ impl Doc {
         Some(std::hash::Hasher::finish(&h))
     }
 
+    /// The page `id` as a PNG of its trim box at `ppi`, on white paper.
+    pub fn png(&self, id: &str, ppi: f32) -> Option<Vec<u8>> {
+        let snap = self.snapshot();
+        let p = snap.pages.iter().find(|p| p.id == id)?;
+        let rect = [0.0, 0.0, p.width as f32, p.height as f32];
+        let mut px = crate::raster::rasterize(&self.print(&snap, p)[1..], rect, ppi, &|id, _| {
+            crate::image::pixmap(id)
+        })?;
+        for c in px.data_mut().chunks_mut(4) {
+            let paper = 255 - c[3];
+            c.iter_mut().for_each(|v| *v += paper);
+        }
+        crate::image::encode(px.data(), (px.width(), px.height()))
+    }
+
     /// The document as a PDF titled `title`, made at `date` in ISO 8601 UTC, every
     /// page from one snapshot.
     pub fn pdf(&self, title: &str, date: &str) -> Vec<u8> {
@@ -1058,6 +1073,34 @@ impl Doc {
 mod tests {
     use super::*;
     use crate::doc::tests::*;
+
+    #[test]
+    fn png_shows_the_trim_box_on_white_paper() {
+        let (mut d, p) = empty();
+        let red = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 36.0, 72.0]);
+        let solid = Props {
+            fills: Some(vec![Fill {
+                color: Color::Rgb(0xff0000ff),
+                ..Fill::default()
+            }]),
+            ..Props::default()
+        };
+        set(&mut d, &red, solid);
+        let png = d.png(&p, 72.0).unwrap();
+        let mut r = png::Decoder::new(std::io::Cursor::new(png))
+            .read_info()
+            .unwrap();
+        let mut px = vec![0; r.output_buffer_size().unwrap()];
+        r.next_frame(&mut px).unwrap();
+        let page = &d.snapshot().pages[0];
+        assert_eq!(
+            (r.info().width, r.info().height),
+            (page.width.ceil() as u32, page.height.ceil() as u32)
+        );
+        let w = r.info().width as usize;
+        assert_eq!(px[(10 * w + 10) * 4..][..4], [255, 0, 0, 255]);
+        assert_eq!(px[(10 * w + 50) * 4..][..4], [255, 255, 255, 255]);
+    }
 
     #[test]
     fn hit_returns_the_topmost_node_under_the_point() {

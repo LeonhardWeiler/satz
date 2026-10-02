@@ -1,4 +1,4 @@
-import { expect, test, addPage, colors, current, drag, exportButton, near, open, openExample, pixels, preflight, screen } from './util'
+import { expect, test, addPage, choose, colors, current, drag, exportButton, near, open, openExample, pixels, preflight, screen } from './util'
 
 test('preflight of an rgb document leaves out the inks and lists a layer short of the bleed and a click selects it on its page', async ({ page }) => {
   await open(page)
@@ -41,6 +41,33 @@ test('export names the errors of the preflight but still downloads the pdf', asy
   download = page.waitForEvent('download')
   await exportPdf.click()
   await download
+})
+
+test('export writes every page as a png or a jpeg', async ({ page }) => {
+  await open(page)
+  await addPage(page)
+  const go = await exportButton(page)
+  const region = page.getByRole('region', { name: 'Preflight' })
+  await choose(region.getByRole('combobox', { name: 'Format' }), 'PNG')
+  await expect(region.getByRole('combobox', { name: 'Preset' })).toHaveCount(0)
+  await expect(go).toHaveText('Export PNG')
+  const names: string[] = []
+  const bytes: Buffer[] = []
+  page.on('download', async (d) => {
+    names.push(d.suggestedFilename())
+    bytes.push(Buffer.from(await (await d.createReadStream()).toArray().then((c) => Buffer.concat(c))))
+  })
+  await go.click()
+  await expect(page.getByText('Exported 2 pages')).toBeVisible()
+  await expect.poll(() => bytes.length).toBe(2)
+  expect(names).toEqual(['Untitled-1.png', 'Untitled-2.png'])
+  expect(bytes[0].subarray(1, 4).toString()).toBe('PNG')
+
+  await choose(region.getByRole('combobox', { name: 'Format' }), 'JPEG')
+  await go.click()
+  await expect.poll(() => bytes.length).toBe(4)
+  expect(names.slice(2)).toEqual(['Untitled-1.jpg', 'Untitled-2.jpg'])
+  expect([...bytes[2].subarray(0, 2)]).toEqual([0xff, 0xd8])
 })
 
 test('preflight opens from its shortcut, the counter and export, and esc ends it', async ({ page }) => {

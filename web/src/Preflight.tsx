@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { press } from './commands'
 import { Field, Section, Select } from './controls'
 import { useEditor, type Editor } from './editor'
@@ -59,7 +59,11 @@ function usePreview(editor: Editor, on: boolean) {
 
 const PRESETS: Record<Preset, string> = { x4: 'PDF/X-4, print', x1a: 'PDF/X-1a, print', screen: 'PDF, screen' }
 
-export function Preflight({ editor, exporting, onExport }: { editor: Editor; exporting: boolean; onExport: () => void }) {
+const FORMATS = { pdf: 'PDF', png: 'PNG', jpeg: 'JPEG' } as const
+export type Format = keyof typeof FORMATS
+
+export function Preflight({ editor, exporting, onExport }: { editor: Editor; exporting: boolean; onExport: (format: Format) => void }) {
+  const [format, setFormat] = useState<Format>('pdf')
   const issues = useEditor(editor, (e) => e.snapshot.preflight)
   const pages = useEditor(editor, (e) => e.snapshot.pages)
   const masters = useEditor(editor, (e) => e.snapshot.masters)
@@ -167,23 +171,28 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
           </>
         )}
         <Section title="Export">
-          <Select
-            label="Preset"
-            value={preset}
-            options={colorMode === 'rgb' ? { ...PRESETS, x1a: 'PDF/X-1a, print, CMYK documents only' } : PRESETS}
-            disabled={colorMode === 'rgb' ? ['x1a'] : []}
-            onChange={(preset) => editor.apply({ type: 'setDocument', preset })}
-          />
-          <label className="check">
-            <input type="checkbox" checked={cropMarks} disabled={preset === 'screen'} onChange={(e) => editor.apply({ type: 'setDocument', cropMarks: e.currentTarget.checked })} />
-            Crop marks
-          </label>
-          <label className="check">
-            <input type="checkbox" checked={includeBleed} disabled={preset === 'screen'} onChange={(e) => editor.apply({ type: 'setDocument', includeBleed: e.currentTarget.checked })} />
-            Include {length(pages[0]?.bleed ?? 0)} bleed
-          </label>
-          <button type="button" className="primary pf-go" disabled={exporting} onClick={onExport}>
-            {exporting ? 'Exporting…' : errors ? `Export with ${count(errors, 'error')}` : 'Export PDF'}
+          <Select label="Format" value={format} options={FORMATS} onChange={setFormat} />
+          {format === 'pdf' && (
+            <>
+              <Select
+                label="Preset"
+                value={preset}
+                options={colorMode === 'rgb' ? { ...PRESETS, x1a: 'PDF/X-1a, print, CMYK documents only' } : PRESETS}
+                disabled={colorMode === 'rgb' ? ['x1a'] : []}
+                onChange={(preset) => editor.apply({ type: 'setDocument', preset })}
+              />
+              <label className="check">
+                <input type="checkbox" checked={cropMarks} disabled={preset === 'screen'} onChange={(e) => editor.apply({ type: 'setDocument', cropMarks: e.currentTarget.checked })} />
+                Crop marks
+              </label>
+              <label className="check">
+                <input type="checkbox" checked={includeBleed} disabled={preset === 'screen'} onChange={(e) => editor.apply({ type: 'setDocument', includeBleed: e.currentTarget.checked })} />
+                Include {length(pages[0]?.bleed ?? 0)} bleed
+              </label>
+            </>
+          )}
+          <button type="button" className="primary pf-go" disabled={exporting} onClick={() => onExport(format)}>
+            {exporting ? 'Exporting…' : errors ? `Export with ${count(errors, 'error')}` : `Export ${FORMATS[format]}`}
           </button>
           <div className={`pf-bar${exporting ? ' run' : ''}`}>
             <i />

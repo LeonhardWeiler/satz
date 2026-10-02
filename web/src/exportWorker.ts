@@ -3,6 +3,8 @@ import type { Snapshot } from './model'
 
 /** What the preflight shows of the pages `pages` and of the whole document. */
 export type Preview = { pages: string[]; ppi: number; on: number; limit: number; over: boolean; gamut: boolean }
+/** Every page as an image of `type` at `ppi`. */
+export type Image = { type: 'image/png' | 'image/jpeg'; ppi: number }
 export type Sheet = { page: string; width: number; height: number; image: Uint8Array; coverage: Float32Array }
 export type Previewed = { ppi: number; sheets: Sheet[]; spots: string[]; max: number[]; highest: number }
 
@@ -23,11 +25,23 @@ function pageOf(e: Engine, id: string, ppi: number) {
   return page
 }
 
-onmessage = async ({ data: { doc, fonts, preview, title } }: MessageEvent<{ doc: Uint8Array | null; fonts: Uint8Array[]; preview?: Preview; title?: string }>) => {
+onmessage = async ({ data: { doc, fonts, preview, title, image } }: MessageEvent<{ doc: Uint8Array | null; fonts: Uint8Array[]; preview?: Preview; title?: string; image?: Image }>) => {
   try {
     const e = await engine
     for (const bytes of fonts) if (bytes.length) e.addFont(bytes)
     if (doc) e.load(doc)
+    if (image) {
+      const snap: Snapshot = JSON.parse(e.snapshot())
+      const images = await Promise.all(snap.pages.map(async ({ id }) => {
+        const png = e.png(id, image.ppi)!
+        if (image.type === 'image/png') return png
+        const bitmap = await createImageBitmap(new Blob([png as Uint8Array<ArrayBuffer>]))
+        const canvas = new OffscreenCanvas(bitmap.width, bitmap.height)
+        canvas.getContext('2d')!.drawImage(bitmap, 0, 0)
+        return new Uint8Array(await (await canvas.convertToBlob({ type: image.type, quality: 0.9 })).arrayBuffer())
+      }))
+      return postMessage({ images }, { transfer: images.map((i) => i.buffer) })
+    }
     if (!preview) {
       const pdf = e.pdf(title!, new Date().toISOString().slice(0, 19) + 'Z')
       return postMessage({ pdf }, { transfer: [pdf.buffer] })

@@ -311,7 +311,7 @@ fn file(e: &Entry) -> Option<Vec<u8>> {
     }
 }
 
-fn encode(rgba: &[u8], (w, h): (u32, u32)) -> Option<Vec<u8>> {
+pub fn encode(rgba: &[u8], (w, h): (u32, u32)) -> Option<Vec<u8>> {
     let mut out = Vec::new();
     let mut encoder = png::Encoder::new(&mut out, w, h);
     encoder.set_color(png::ColorType::Rgba);
