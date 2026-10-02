@@ -292,6 +292,7 @@ name = "engine"
 version = "0.1.0"
 dependencies = [
  "console_error_panic_hook",
+ "crc32fast",
  "harfrust",
  "hypher",
  "jpeg-encoder",

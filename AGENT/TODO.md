@@ -52,6 +52,5 @@ Open:
   in its own frame, ports on turned text frames.
 - Text wrap around layers, with an offset, for text frames under images and shapes.
 - Place SVG and PDF as vectors, kept as vectors in the exported PDF.
-- Package: one ZIP with the document, its fonts and images for the printer.
 - Version history from the Loro history: browse and restore earlier states.
 - Spell check from Hunspell word lists in the engine, marked in the text.

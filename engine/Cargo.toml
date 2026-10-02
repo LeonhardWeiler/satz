@@ -9,6 +9,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 console_error_panic_hook = "0.1.7"
+crc32fast = "1.5.2"
 harfrust = "0.13.3"
 hypher = { version = "0.1.8", default-features = false, features = ["english", "german", "french", "italian", "spanish", "dutch"] }
 jpeg-encoder = "0.7.1"

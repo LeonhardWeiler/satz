@@ -43,7 +43,7 @@ test('export names the errors of the preflight but still downloads the pdf', asy
   await download
 })
 
-test('export writes every page or a range as a png or a jpeg', async ({ page }) => {
+test('export writes every page or a range as a png or a jpeg, and a package as a zip', async ({ page }) => {
   await open(page)
   await addPage(page)
   const go = await exportButton(page)
@@ -72,6 +72,15 @@ test('export writes every page or a range as a png or a jpeg', async ({ page }) 
   await expect.poll(() => bytes.length).toBe(3)
   expect(names[2]).toBe('Untitled-2.jpg')
   expect([...bytes[2].subarray(0, 2)]).toEqual([0xff, 0xd8])
+
+  await choose(region.getByRole('combobox', { name: 'Format' }), 'Package')
+  await expect(region.getByRole('combobox', { name: 'Preset' })).toBeVisible()
+  await expect(go).toHaveText('Export Package')
+  await go.click()
+  await expect.poll(() => bytes.length).toBe(4)
+  expect(names[3]).toBe('Untitled.zip')
+  expect(bytes[3].subarray(0, 4).toString('latin1')).toBe('PK\x03\x04')
+  expect(bytes[3].includes('Untitled/Untitled.pdf')).toBe(true)
 })
 
 test('preflight opens from its shortcut, the counter and export, and esc ends it', async ({ page }) => {

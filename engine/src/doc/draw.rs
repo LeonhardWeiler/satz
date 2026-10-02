@@ -736,6 +736,52 @@ impl Doc {
         )
     }
 
+    /// A ZIP for the printer of a folder `title` with the document, the PDF of the
+    /// pages at `indices`, the fonts its text is set in and its images.
+    pub fn package(&self, title: &str, date: &str, indices: &[u32]) -> Vec<u8> {
+        let saved = self.save();
+        let doc = LoroDoc::new();
+        doc.import(&saved).expect("a saved document imports");
+        let images = doc.get_map("images").get_value().into_map();
+        let mut files = vec![
+            (format!("{title}/{title}.satz"), saved),
+            (
+                format!("{title}/{title}.pdf"),
+                self.pdf(title, date, indices),
+            ),
+        ];
+        let fonts: std::collections::BTreeSet<u32> = self
+            .flows()
+            .values()
+            .flat_map(|f| f.story.spans.iter().map(|s| text::font_id(&s.attrs.font)))
+            .filter(|id| id & text::MISSING == 0)
+            .collect();
+        for id in fonts {
+            let bytes = text::font_bytes(id);
+            let Ok(face) = text::typeface(&bytes) else {
+                continue;
+            };
+            let ext = if bytes.starts_with(b"OTTO") {
+                "otf"
+            } else {
+                "ttf"
+            };
+            let name = face.name.replace(['/', '\\'], "-");
+            files.push((format!("{title}/Fonts/{name}.{ext}"), bytes.to_vec()));
+        }
+        for (hash, v) in images.unwrap_or_default().iter() {
+            if let LoroValue::Binary(bytes) = v {
+                let ext = if bytes.starts_with(b"\x89PNG") {
+                    "png"
+                } else {
+                    "jpg"
+                };
+                files.push((format!("{title}/Images/{hash}.{ext}"), bytes.to_vec()));
+            }
+        }
+        crate::zip::zip(&files, date)
+    }
+
     /// The display list of the page `p` as it prints: with the layers of the other
     /// page of its spread, so that one across the spine prints on both.
     pub(super) fn print(&self, snap: &Snapshot, p: &Page) -> Vec<Op> {

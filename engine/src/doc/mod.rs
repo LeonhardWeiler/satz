@@ -4458,6 +4458,26 @@ mod tests {
     }
 
     #[test]
+    fn a_package_holds_the_document_its_pdf_fonts_and_used_images() {
+        let mut b = booklet();
+        let (_, hash) = place(&mut b.d, &b.pages[0], 2, 2);
+        b.d.add_image(&image::tests::png(3, 3)).unwrap();
+        let files = crate::zip::unzip(&b.d.package("Satz", "2026-09-28T12:00:00Z", &[0]));
+        let names: Vec<&str> = files.iter().map(|f| f.0.as_str()).collect();
+        assert_eq!(
+            names,
+            [
+                "Satz/Satz.satz",
+                "Satz/Satz.pdf",
+                &format!("Satz/Fonts/{}.ttf", text::fonts()[0].name),
+                &format!("Satz/Images/{hash}.png"),
+            ]
+        );
+        assert!(Doc::load(&files[0].1).is_ok());
+        assert!(files[1].1.starts_with(b"%PDF"));
+    }
+
+    #[test]
     fn the_booklet_pdf_reads_as_one_story_with_a_number_on_every_page() {
         let b = booklet();
         let path = std::env::temp_dir().join(format!("satz-booklet-{}.pdf", std::process::id()));

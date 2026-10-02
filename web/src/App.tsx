@@ -46,16 +46,17 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
 
   const exportAs = (format: Format, pages: number[]) => {
     if (exporting) return
-    const kind = format.toUpperCase()
+    const kind = format === 'zip' ? 'package' : format.toUpperCase()
     const ext = format === 'jpeg' ? 'jpg' : format
+    const type = format === 'pdf' || format === 'zip' ? `application/${format}` : `image/${format}`
     setExporting(true)
     say(`Exporting ${kind}…`)
-    exportFiles(editor, format === 'pdf' ? { type: 'application/pdf', title, pages } : { type: `image/${format}`, ppi: editor.snapshot.rasterPpi, pages })
+    exportFiles(editor, format === 'pdf' || format === 'zip' ? { type: `application/${format}`, title, pages } : { type: `image/${format}`, ppi: editor.snapshot.rasterPpi, pages })
       .then(
         (files) => {
           const names = files.map((bytes, i) => {
-            const file = format !== 'pdf' && editor.snapshot.pages.length > 1 ? `${title}-${pages[i] + 1}.${ext}` : `${title}.${ext}`
-            download(bytes, file, format === 'pdf' ? 'application/pdf' : `image/${format}`)
+            const file = type.startsWith('image/') && editor.snapshot.pages.length > 1 ? `${title}-${pages[i] + 1}.${ext}` : `${title}.${ext}`
+            download(bytes, file, type)
             return file
           })
           say(`Exported ${names.length > 1 ? `${names.length} pages` : names[0]}`)

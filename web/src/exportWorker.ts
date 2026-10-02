@@ -4,7 +4,7 @@ import type { Snapshot } from './model'
 /** What the preflight shows of the pages `pages` and of the whole document. */
 export type Preview = { pages: string[]; ppi: number; on: number; limit: number; over: boolean; gamut: boolean }
 /** The pages at `pages` as one PDF titled `title`, or each as an image at `ppi`. */
-export type Out = { pages: number[] } & ({ type: 'application/pdf'; title: string } | { type: 'image/png' | 'image/jpeg'; ppi: number })
+export type Out = { pages: number[] } & ({ type: 'application/pdf' | 'application/zip'; title: string } | { type: 'image/png' | 'image/jpeg'; ppi: number })
 export type Sheet = { page: string; width: number; height: number; image: Uint8Array; coverage: Float32Array }
 export type Previewed = { ppi: number; sheets: Sheet[]; spots: string[]; max: number[]; highest: number }
 
@@ -30,9 +30,10 @@ onmessage = async ({ data: { doc, fonts, preview, out } }: MessageEvent<{ doc: U
     const e = await engine
     for (const bytes of fonts) if (bytes.length) e.addFont(bytes)
     if (doc) e.load(doc)
-    if (out?.type === 'application/pdf') {
-      const pdf = e.pdf(out.title, new Date().toISOString().slice(0, 19) + 'Z', Uint32Array.from(out.pages))
-      return postMessage({ files: [pdf] }, { transfer: [pdf.buffer] })
+    if (out && 'title' in out) {
+      const [date, chosen] = [new Date().toISOString().slice(0, 19) + 'Z', Uint32Array.from(out.pages)]
+      const file = out.type === 'application/pdf' ? e.pdf(out.title, date, chosen) : e.package(out.title, date, chosen)
+      return postMessage({ files: [file] }, { transfer: [file.buffer] })
     }
     if (out) {
       const snap: Snapshot = JSON.parse(e.snapshot())

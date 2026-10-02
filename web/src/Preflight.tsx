@@ -72,7 +72,7 @@ function pagesOf(text: string, n: number) {
   return [...out].sort((x, y) => x - y)
 }
 
-const FORMATS = { pdf: 'PDF', png: 'PNG', jpeg: 'JPEG' } as const
+const FORMATS = { pdf: 'PDF', png: 'PNG', jpeg: 'JPEG', zip: 'Package' } as const
 export type Format = keyof typeof FORMATS
 
 export function Preflight({ editor, exporting, onExport }: { editor: Editor; exporting: boolean; onExport: (format: Format, pages: number[]) => void }) {
@@ -187,7 +187,7 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
         )}
         <Section title="Export">
           <Select label="Format" value={format} options={FORMATS} onChange={setFormat} />
-          {format === 'pdf' && (
+          {(format === 'pdf' || format === 'zip') && (
             <>
               <Select
                 label="Preset"
