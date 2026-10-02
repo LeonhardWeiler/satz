@@ -17,7 +17,7 @@ pub enum ColorMode {
     Cmyk,
 }
 
-/// A colour keeps its own space whatever the document's mode.
+/// Switching the document's mode converts process colours into it.
 /// RGB is 0xRRGGBBAA; CMYK components, tint and alpha are 0..=1.
 /// The tint of a swatch only applies to spot colours; alpha multiplies what a
 /// swatch or variable holds.
@@ -125,6 +125,24 @@ impl Color {
                 cmyk: [0.0, 0.0, 0.0, k],
                 alpha: 1.0,
             },
+        }
+    }
+
+    /// `self` as a process colour of `mode`, or `None` if it is one or names a
+    /// swatch or variable.
+    pub fn convert(&self, mode: ColorMode) -> Option<Color> {
+        match (self, mode) {
+            (Color::Rgb(c), ColorMode::Cmyk) => Some(Color::Cmyk {
+                cmyk: separate(c >> 8),
+                alpha: (c & 0xff) as f32 / 255.0,
+            }),
+            (Color::Cmyk { cmyk, alpha }, ColorMode::Rgb) => {
+                let [r, g, b] = to_rgb(*cmyk);
+                Some(Color::Rgb(u32::from_be_bytes(
+                    [r, g, b, *alpha].map(|v| (v * 255.0).round() as u8),
+                )))
+            }
+            _ => None,
         }
     }
 

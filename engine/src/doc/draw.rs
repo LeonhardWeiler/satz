@@ -1485,6 +1485,9 @@ mod tests {
         let gradient = create(&mut d, &p, NewKind::Rect, [20.0, 150.0, 20.0, 20.0]);
         set(&mut d, &gradient, inks(FillKind::Linear));
         cmyk(&mut d);
+        for id in [&bleeds, &short, &inside, &t] {
+            set(&mut d, id, rgb_fill());
+        }
         assert!(!problems(&d).contains(&(gradient, Problem::Rgb)));
         let rgb: Vec<_> = problems(&d)
             .into_iter()
@@ -1527,6 +1530,7 @@ mod tests {
         );
         assert!(problems(&d).contains(&(turned, Problem::ShortOfBleed)));
         cmyk(&mut d);
+        set(&mut d, &red, solid(Color::Rgb(0xff0000ff)));
         let found = problems(&d);
         assert!(found.contains(&(red.clone(), Problem::Gamut)));
         assert!(found.contains(&(dark.clone(), Problem::Ink { ink: 400.0 })));
@@ -1641,6 +1645,7 @@ mod tests {
             .unwrap()
             .remove(0);
         cmyk(&mut d);
+        set(&mut d, &b, rgb_fill());
         assert!(!page(&d).children.iter().any(|n| n.hidden || n.locked));
         let before = page_ops(&d);
         let shown = problems(&d);

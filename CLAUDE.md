@@ -33,8 +33,9 @@ Node 22, pnpm, MuPDF (`mutool`, for the PDF tests) and
 - Pages draw their master under their own layers. A page lists the master layers it
   overrides in `detached`, and each overriding copy names its master layer in
   `overrideOf`; a page that leaves its master drops both.
-- Colours keep the space they were given (RGB, CMYK, swatch, variable); switching the
-  document's colour mode does not convert them.
+- Switching the document's colour mode converts every RGB or CMYK colour (nodes, text,
+  swatches, variables, text styles) into it; spot colours, swatch and variable
+  references stay as they are.
 - `engine/icc/FOGRA51.icc` is built by `engine/icc/build` from the ICC registry data;
   PSO Coated v3 may not be redistributed.
 - A node's `hidden` and `locked` (default false) pass to its children and hold on

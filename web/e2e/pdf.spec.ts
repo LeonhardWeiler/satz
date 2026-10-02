@@ -12,7 +12,8 @@ const BLOCK = 4
 const BACKGROUND = [0x19, 0x19, 0x1c]
 const MAX_DIFF = 48
 const MAX_SHARE = 0.0005
-// Skia boosts the contrast of light text on a dark ground, which MuPDF does not.
+// Skia boosts the contrast of light text on a dark ground and blends the edges of CMYK
+// text per plate; MuPDF does neither.
 const MAX_SHARE_DARK = 0.005
 
 function pageBox(xml: string, name: string) {
@@ -275,7 +276,7 @@ test('a cmyk document exports cmyk and spot colours and matches the canvas', asy
   await expect(panel.getByRole('heading', { level: 2 })).toHaveText('Page')
   await page.mouse.move(1, 1)
 
-  const pdf = await expectCanvasMatchesPdf(page)
+  const pdf = await expectCanvasMatchesPdf(page, 1, [1], undefined, MAX_SHARE_DARK)
   const trace = execFileSync('mutool', ['draw', '-F', 'trace', '-o', '-', pdf]).toString()
   expect(trace).toContain('colorspace="DeviceCMYK" color="0 1 1 0"')
   expect(trace).toContain('colorspace="Separation(DeviceCMYK,HKS 43)" color="1"')

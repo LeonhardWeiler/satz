@@ -254,6 +254,9 @@ impl Doc {
             m.insert("rasterPpi", ppi).map_err(err)?;
         }
         if let Some(mode) = s.color_mode {
+            if mode != self.color_mode() {
+                self.convert(mode)?;
+            }
             m.insert("colorMode", loro(mode)?).map_err(err)?;
         }
         if let Some(limit) = s.ink_limit {

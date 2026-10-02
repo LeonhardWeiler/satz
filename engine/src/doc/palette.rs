@@ -3,15 +3,17 @@ use super::*;
 /// Replaces the colours in `v` that `f` maps to another colour.
 pub(super) fn map_colors(v: &mut serde_json::Value, f: &impl Fn(&Color) -> Option<Color>) -> bool {
     match v {
-        serde_json::Value::Object(o)
-            if (o.contains_key("swatch") || o.contains_key("variable"))
-                && let Ok(c) = serde_json::from_value::<Color>(v.clone())
-                && let Some(c) = f(&c) =>
-        {
-            *v = serde_json::to_value(c).unwrap();
+        serde_json::Value::Object(o) => o.iter_mut().fold(false, |d, (k, v)| {
+            let mapped = match serde_json::from_value::<Color>(v.clone()) {
+                Ok(c) if k == "color" || k == "fill" => f(&c),
+                _ => None,
+            };
+            match mapped {
+                Some(c) => *v = serde_json::to_value(c).unwrap(),
+                None => return map_colors(v, f) | d,
+            }
             true
-        }
-        serde_json::Value::Object(o) => o.values_mut().fold(false, |d, v| map_colors(v, f) | d),
+        }),
         serde_json::Value::Array(a) => a.iter_mut().fold(false, |d, v| map_colors(v, f) | d),
         _ => false,
     }
@@ -115,15 +117,47 @@ impl Doc {
                 modes,
             };
             let m = self.meta(id);
-            for key in ["fills", "strokes", "effects"] {
+            for key in ["fills", "strokes", "effects", "fill"] {
                 let Some(v) = value(&m, key) else { continue };
                 let mut v = serde_json::to_value(v).map_err(err)?;
                 if map_colors(&mut v, &|c| f(c, &s)) {
                     m.insert(key, loro(v)?).map_err(err)?;
                 }
             }
+            let Ok(t) = self.own_text(id) else {
+                return Ok(());
+            };
+            let mut at = 0;
+            for d in t.to_delta() {
+                let TextDelta::Insert { insert, attributes } = d else {
+                    continue;
+                };
+                let r = at..at + insert.encode_utf16().count();
+                at = r.end;
+                let Some(v) = attributes.and_then(|a| a.get("fill").cloned()) else {
+                    continue;
+                };
+                let mut v = serde_json::json!({ "fill": v });
+                if map_colors(&mut v, &|c| f(c, &s)) {
+                    t.mark_utf16(r, "fill", loro(&v["fill"])?).map_err(err)?;
+                }
+            }
             Ok(())
         })
+    }
+
+    /// Turns every process colour into `mode`; spot colours stay CMYK.
+    pub(super) fn convert(&self, mode: ColorMode) -> Res<()> {
+        self.recolor(|c, _| c.convert(mode))?;
+        for name in ["swatches", "variables", "textStyles"] {
+            let all: Vec<serde_json::Value> = self.list(name);
+            for (i, mut v) in all.into_iter().enumerate() {
+                if v["spot"] != true && map_colors(&mut v, &|c| c.convert(mode)) {
+                    self.put(name, Some(i), v)?;
+                }
+            }
+        }
+        Ok(())
     }
 
     pub(super) fn delete_variable(&self, id: &str) -> Res<()> {
@@ -508,18 +542,43 @@ mod tests {
     use crate::doc::tests::*;
 
     #[test]
-    fn a_document_is_rgb_until_switched_to_cmyk_and_keeps_its_colours() {
+    fn switching_to_cmyk_converts_every_process_colour_but_spots_and_undo_restores_them() {
         let mut d = Doc::sample();
         assert_eq!(d.snapshot().color_mode, ColorMode::Rgb);
+        let t = text(&mut d, "Hi there");
+        let red = Color::Rgb(0xff0000ff);
+        let range = TextProps {
+            fill: Some(red.clone()),
+            ..TextProps::default()
+        };
+        format(&mut d, &t, Some([0, 2]), range).unwrap();
+        let spot = swatch(&mut d, "Spot", process(0.0, 1.0, 0.0, 0.0), true).unwrap();
+        let rgb = swatch(&mut d, "Red", red.clone(), false).unwrap();
+        let before = d.snapshot();
         cmyk(&mut d);
         let s = d.snapshot();
         assert_eq!((s.color_mode, s.raster_ppi), (ColorMode::Cmyk, 300.0));
         assert_eq!(
             s.pages[0].children[0].style.fills,
-            [Fill::solid(0xe8452cff)]
+            [Fill::solid(
+                Color::Rgb(0xe8452cff).convert(ColorMode::Cmyk).unwrap()
+            )]
         );
+        let color = |id: &str| {
+            s.palette
+                .swatches
+                .iter()
+                .find(|w| w.id == id)
+                .unwrap()
+                .color
+                .clone()
+        };
+        assert_eq!(color(&spot), process(0.0, 1.0, 0.0, 0.0));
+        assert_eq!(Some(color(&rgb)), red.convert(ColorMode::Cmyk));
+        assert!(!problems(&d).iter().any(|i| i.1 == Problem::Rgb));
         d.apply(Command::Undo).unwrap();
-        assert_eq!(d.snapshot().color_mode, ColorMode::Rgb);
+        let s = d.snapshot();
+        assert_eq!((&s.pages, &s.palette), (&before.pages, &before.palette));
     }
 
     #[test]

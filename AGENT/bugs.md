@@ -1,4 +1,3 @@
-5. wenn ich von rgb auf cmyk umwandle, sollen alle farben sofort mit umgewandelt werden und dann natürlich nicht im preflight angezgeit werden
 15. implement all the points under later in TODO.md
 16. überlege dir für alle elemente noch einmal tief und schlau welche optionen alle sinnvoll und praktisch wären und implementiere sie
 17. überlege dir features die noch gemacht werden sollen und schreibe sie unter later in TODO.md

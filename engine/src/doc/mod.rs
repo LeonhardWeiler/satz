@@ -2316,6 +2316,13 @@ mod tests {
         .unwrap();
     }
 
+    pub(super) fn rgb_fill() -> Props {
+        Props {
+            fills: Some(vec![Fill::solid(0xd9d9d9ffu32)]),
+            ..Props::default()
+        }
+    }
+
     pub(super) fn process(c: f32, m: f32, y: f32, k: f32) -> Color {
         Color::Cmyk {
             cmyk: [c, m, y, k],
