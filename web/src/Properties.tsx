@@ -7,7 +7,7 @@ import { FORMATS, ORIENTATIONS } from './Start'
 import { addFonts, canFindFonts, findFonts, removeFont } from './file'
 import type { Bindable as Prop, Blend, Constraint, Command, Grid, Node, Page, Props } from './model'
 import { isOpen, radiusOf } from './model'
-import { AlignBar } from './align'
+import { AlignBar, BooleanBar, combinable } from './align'
 import { AutoLayout, flows, Sizing } from './AutoLayout'
 import { EffectList, PaintList } from './Paints'
 import { TextFrameSection, TextSection, TextStyles } from './Text'
@@ -125,6 +125,7 @@ export function Properties({
         <h2>{one ? one.name : nodes.length ? `${nodes.length} layers` : isPage ? 'Page' : page.name}</h2>
       </header>
       {box && <AlignBar editor={editor} />}
+      {combinable(editor) && <BooleanBar editor={editor} />}
       {!box && <DocumentSection editor={editor} />}
       {!box && (
         <Section

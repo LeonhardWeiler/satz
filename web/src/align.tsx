@@ -2,6 +2,23 @@ import { bounds, MM, type Editor } from './editor'
 import { Icon, type IconName } from './icons'
 import type { Node } from './model'
 
+export type BooleanOp = 'union' | 'subtract' | 'intersect' | 'exclude'
+
+export const BOOLEANS: [BooleanOp, string, IconName, string][] = [
+  ['union', 'Union', 'union', 'Ctrl+Alt+U'],
+  ['subtract', 'Subtract', 'subtract', 'Ctrl+Alt+S'],
+  ['intersect', 'Intersect', 'intersect', 'Ctrl+Alt+I'],
+  ['exclude', 'Exclude', 'exclude', 'Ctrl+Alt+X'],
+]
+
+/** Whether the selection is two shapes or more, which booleans combine. */
+export const combinable = (editor: Editor) => editor.selection.length > 1 && editor.selected().every((n) => n.kind === 'shape')
+
+/** Combines the selected shapes into the bottommost by `op`. */
+export function combine(editor: Editor, op: BooleanOp) {
+  if (combinable(editor)) editor.set({ selection: editor.apply({ type: 'boolean', ids: editor.selection, op }) })
+}
+
 export type Align = 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom' | 'distributeX' | 'distributeY' | 'tidy'
 
 /** Title, icon and Alt shortcut of each alignment. */
@@ -81,6 +98,19 @@ export function AlignBar({ editor }: { editor: Editor }) {
           disabled={n < (how === 'tidy' ? 2 : how.startsWith('distribute') ? 3 : 1)}
           onClick={() => align(editor, how)}
         >
+          <Icon name={icon} />
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** A button for each boolean of the selected shapes. */
+export function BooleanBar({ editor }: { editor: Editor }) {
+  return (
+    <div role="toolbar" aria-label="Boolean" className="align">
+      {BOOLEANS.map(([op, title, icon, key]) => (
+        <button key={op} type="button" className="icon-button" aria-label={title} title={`${title} (${key})`} onClick={() => combine(editor, op)}>
           <Icon name={icon} />
         </button>
       ))}

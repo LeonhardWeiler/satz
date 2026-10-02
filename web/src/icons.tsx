@@ -170,6 +170,21 @@ const ICONS = {
   alignBottomEdges: aligned('M2 13.5h12', [4, 3, 3, 8], [9, 6, 3, 5]),
   distributeX: aligned('M2.5 2v12M13.5 2v12', [6.5, 4, 3, 8]),
   distributeY: aligned('M2 2.5h12M2 13.5h12', [4, 6.5, 8, 3]),
+  union: <path d="M3 3h7v3h3v7H6v-3H3z" />,
+  subtract: (
+    <>
+      <path d="M3 3h7v3H6v4H3z" fill="currentColor" />
+      <rect x="6" y="6" width="7" height="7" />
+    </>
+  ),
+  intersect: (
+    <>
+      <rect x="3" y="3" width="7" height="7" />
+      <rect x="6" y="6" width="7" height="7" />
+      <rect x="6" y="6" width="4" height="4" fill="currentColor" />
+    </>
+  ),
+  exclude: <path d="M3 3h7v7H3zM6 6h7v7H6z" fill="currentColor" fillRule="evenodd" />,
   tidy: aligned('', [3, 3, 4, 4], [9, 3, 4, 4], [3, 9, 4, 4], [9, 9, 4, 4]),
   alignTop: <path d="M3 3h10M8 5.5v8M5.5 8 8 5.5 10.5 8" />,
   alignMiddle: <path d="M3 8h10M8 2v4M8 10v4M6 4l2 2 2-2M6 12l2-2 2 2" />,

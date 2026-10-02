@@ -1,4 +1,4 @@
-import { align, ALIGNS } from './align'
+import { align, ALIGNS, BOOLEANS, combine } from './align'
 import { MM, type Editor, type Tool } from './editor'
 import { remove } from './vector'
 
@@ -20,10 +20,9 @@ const ARROWS: Record<string, [number, number]> = {
   ArrowDown: [0, 1],
 }
 
-const alignment = (e: KeyboardEvent) => {
-  const mods = `${e.ctrlKey || e.metaKey ? 'Ctrl+' : ''}Alt+${e.shiftKey ? 'Shift+' : ''}`
-  return ALIGNS.find(([, , , k]) => k === mods + e.key.toUpperCase())?.[0]
-}
+/** The alignment or boolean whose Alt shortcut `e` is. */
+const altKey = <T>(list: [T, string, string, string][], e: KeyboardEvent) =>
+  list.find(([, , , k]) => k === `${e.ctrlKey || e.metaKey ? 'Ctrl+' : ''}Alt+${e.shiftKey ? 'Shift+' : ''}${e.key.toUpperCase()}`)?.[0]
 
 /** Figma UI3 shortcuts with Ctrl for Cmd. Returns true when the key was handled. */
 export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
@@ -105,7 +104,8 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
       for (const n of editor.selected()) if (n.kind === 'text' || n.kind === 'shape') editor.apply({ type: 'flatten', id: n.id })
     })
   }
-  else if (e.altKey && alignment(e)) align(editor, alignment(e)!)
+  else if (e.altKey && altKey(ALIGNS, e)) align(editor, altKey(ALIGNS, e)!)
+  else if (e.altKey && altKey(BOOLEANS, e)) combine(editor, altKey(BOOLEANS, e)!)
   else if (mod && e.code in ORDER) {
     editor.apply({ type: 'order', ids, to: ORDER[e.code as keyof typeof ORDER][e.shiftKey ? 1 : 0] })
   } else if (!mod && ARROWS[e.key]) {

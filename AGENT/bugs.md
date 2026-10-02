@@ -3,7 +3,6 @@
 17. überlege dir features die noch gemacht werden sollen und schreibe sie unter later in TODO.md
 18. Mach einene ausführlichen performance audit sowie einen audit der bundle size und der ci time. schreibe deine findings in die jeweiligen dateien unter AGENT
 31. add options for basic image editing, like crop (also when resizing with ctrl), contrast, brightness, etc. they should appear in the bar above the element
-38. make it possible to make boolean operations on things like rectangles, triangles, ... (not text unless its made into an vector). the buttons/icons should be below the align buttons
 40. when in vector editing mode, you should be able to fill each area seperately with a bucket tool
 47. when changing from solid to linear gradient with one of the gradients selected the layout moves up a bit, it should stay the same
 50. lines should have the option to be squiggly, etc. 

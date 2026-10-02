@@ -1,3 +1,4 @@
+import type { BooleanOp } from './align'
 import type { Color, ColorMode } from './color'
 
 /**
@@ -97,6 +98,7 @@ export type Command =
   | { type: 'setGrids'; id: string; grids: Grid[] }
   | { type: 'setGuides'; id: string; guides: Guides }
   | { type: 'flatten'; id: string }
+  | { type: 'boolean'; ids: string[]; op: BooleanOp }
   | { type: 'scaleText'; id: string; by: number }
   | { type: 'movePage'; id: string; index: number }
   | { type: 'addMaster'; like: string | null }

@@ -26,3 +26,23 @@ test('layers align to each other, a single layer to its frame, and three distrib
   const [[sx, sw], [tx, tw], [rx]] = [await box('Sun'), await box('Triangle'), await box('Star')]
   expect(rx - tx - tw).toBeCloseTo(tx - sx - sw, 0)
 })
+
+test('booleans combine shapes into the bottommost, from the panel and the keyboard, and undo splits them again', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  const layers = page.getByRole('tree', { name: 'Layers' })
+  const shapes = layers.getByRole('button', { name: /^(Sun|Triangle)$/ })
+  await layers.getByRole('button', { name: 'Sun', exact: true }).click()
+  await expect(panel.getByRole('toolbar', { name: 'Boolean' })).toBeHidden()
+  await layers.getByRole('button', { name: 'Triangle', exact: true }).click({ modifiers: ['Shift'] })
+  await panel.getByRole('toolbar', { name: 'Boolean' }).getByRole('button', { name: 'Union' }).click()
+  await expect(shapes).toHaveCount(1)
+  await expect(panel.getByRole('toolbar', { name: 'Boolean' })).toBeHidden()
+  await page.keyboard.press('Control+z')
+  await expect(shapes).toHaveCount(2)
+
+  await layers.getByRole('button', { name: 'Sun', exact: true }).click()
+  await layers.getByRole('button', { name: 'Triangle', exact: true }).click({ modifiers: ['Shift'] })
+  await page.keyboard.press('Control+Alt+x')
+  await expect(shapes).toHaveCount(1)
+})

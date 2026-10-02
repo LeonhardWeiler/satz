@@ -15,6 +15,7 @@ use crate::text::{
     TextStyle, Typeface, VerticalAlign,
 };
 use crate::variable::{Collection, Mode, Modes, Palette, Scope, Value, Variable};
+pub use boolean::BooleanOp;
 use harfrust::Feature;
 use loro::{
     Container, ExpandType, ExportMode, LoroBinaryValue, LoroDoc, LoroMap, LoroText, LoroTree,
@@ -30,6 +31,7 @@ use std::rc::Rc;
 
 #[cfg(test)]
 mod bench;
+mod boolean;
 mod clipboard;
 mod draw;
 mod pages;
@@ -147,6 +149,12 @@ pub enum Command {
     /// Turns a shape into a path along its outline.
     Flatten {
         id: String,
+    },
+    /// Turns the bottommost of the shapes `ids` into a path along their outlines
+    /// combined by `op`, and deletes the others.
+    Boolean {
+        ids: Vec<String>,
+        op: BooleanOp,
     },
     Delete {
         ids: Vec<String>,
@@ -1182,6 +1190,7 @@ impl Doc {
             Command::Set { id, props } => self.set_props(id, props),
             Command::SetPath { id, path } => self.set_path(id, path),
             Command::Flatten { id } => self.flatten(id),
+            Command::Boolean { ids, op } => self.boolean(ids, op),
             Command::Delete { ids } => self.delete(ids),
             Command::Group { ids, frame } => {
                 Ok(vec![self.group(&self.sorted(&ids)?, frame)?.to_string()])
@@ -1984,25 +1993,38 @@ impl Doc {
 
     fn flatten(&self, id: String) -> Res<Vec<String>> {
         let id = self.layer(&id)?;
-        let rotation = num(&self.meta(id), "rotation");
+        let m = self.meta(id);
+        if value(&m, "shape") == Some("path".into()) && num(&m, "rotation") == 0.0 {
+            return Ok(vec![]);
+        }
+        let path = self.outline_of(id)?;
+        self.make_path(id, &path)?;
+        Ok(vec![])
+    }
+
+    /// The outline of the shape or text layer `id` in its parent's space.
+    fn outline_of(&self, id: TreeID) -> Res<Vec<f32>> {
         let frame = self.bounds(id).map(|v| v as f32);
         let path = match self.kind(id) {
             Some(NodeKind::Shape) => {
                 let v = serde_json::to_value(self.meta(id).get_value()).map_err(err)?;
                 let shape: Shape = serde_json::from_value(v).map_err(err)?;
-                if matches!(shape, Shape::Path { .. }) && rotation == 0.0 {
-                    return Ok(vec![]);
-                }
                 outline(&shape, frame)
             }
             Some(NodeKind::Text) => self.glyphs(&id.to_string(), frame)?,
             _ => return Err("only shapes and text flatten".into()),
         };
+        let rotation = num(&self.meta(id), "rotation");
         let [a, b, c, d, e, f] = geom::rotation(rotation, frame.map(f64::from)).map(|v| v as f32);
         let path = geom::map(&path, |[u, v]| [a * u + c * v + e, b * u + d * v + f]);
         if !geom::valid(&path) {
             return Err("not a path".into());
         }
+        Ok(path)
+    }
+
+    /// Makes the layer `id` a path shape along `path` in its parent's space.
+    fn make_path(&self, id: TreeID, path: &[f32]) -> Res<()> {
         let m = self.meta(id);
         if self.kind(id) == Some(NodeKind::Text) {
             m.delete("text").map_err(err)?;
@@ -2020,12 +2042,11 @@ impl Doc {
         self.set(
             id,
             Props {
-                path: Some(fit(&path, [0.0, 0.0, 1.0, 1.0])),
+                path: Some(fit(path, [0.0, 0.0, 1.0, 1.0])),
                 ..Props::default()
             },
         )?;
-        self.set_frame(id, bounds(&path).map(f64::from))?;
-        Ok(vec![])
+        self.set_frame(id, bounds(path).map(f64::from))
     }
 
     /// The outlines of the glyphs that the unthreaded text layer `id` sets in `frame`.

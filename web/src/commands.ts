@@ -1,4 +1,4 @@
-import { align, ALIGNS } from './align'
+import { align, ALIGNS, BOOLEANS, combinable, combine } from './align'
 import type { Editor } from './editor'
 import { settings } from './settings'
 
@@ -94,6 +94,7 @@ export const ACTIONS: Action[] = [
   { title: 'Hide selection', keys: 'Ctrl Shift H', group: 'Arrange' },
   { title: 'Lock selection', keys: 'Ctrl Shift L', group: 'Arrange' },
   { title: 'Rename', keys: 'F2', group: 'Edit' },
+  ...BOOLEANS.map(([op, title, , keys]): Action => ({ title, keys: keys.replaceAll('+', ' '), group: 'Arrange', run: (editor) => combine(editor, op), can: combinable })),
   ...ALIGNS.map(([how, title, , keys]): Action => ({ title, keys: keys.replaceAll('+', ' '), group: 'Align', run: (editor) => align(editor, how) })),
   {
     title: 'Color mode CMYK or RGB',
