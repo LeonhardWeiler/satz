@@ -17,6 +17,7 @@ const POINTS = [
   { mode: 'move', label: 'Move point', key: 'V', icon: 'move' },
   { mode: 'add', label: 'Add point', key: 'P', icon: 'addPoint' },
   { mode: 'delete', label: 'Delete point', key: '-', icon: 'deletePoint' },
+  { mode: 'fill', label: 'Fill area', key: 'B', icon: 'bucket' },
 ] as const
 const MOVE: Entry = { tool: 'move', label: 'Move', key: 'V', icon: 'move' }
 const FRAME: Entry = { tool: 'frame', label: 'Frame', key: 'F', icon: 'frame' }

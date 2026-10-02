@@ -156,6 +156,13 @@ pub enum Command {
         ids: Vec<String>,
         op: BooleanOp,
     },
+    /// Puts a path filled like the shape `id` below it, in the area that its closed
+    /// subpaths bound around the page point (`x`, `y`); returns its id.
+    FillArea {
+        id: String,
+        x: f64,
+        y: f64,
+    },
     Delete {
         ids: Vec<String>,
     },
@@ -1195,6 +1202,7 @@ impl Doc {
             Command::SetPath { id, path } => self.set_path(id, path),
             Command::Flatten { id } => self.flatten(id),
             Command::Boolean { ids, op } => self.boolean(ids, op),
+            Command::FillArea { id, x, y } => self.fill_area(id, x, y),
             Command::Delete { ids } => self.delete(ids),
             Command::Group { ids, frame } => {
                 Ok(vec![self.group(&self.sorted(&ids)?, frame)?.to_string()])
@@ -3696,6 +3704,11 @@ mod tests {
             },
             Command::Delete {
                 ids: vec![r.clone(), p.clone()],
+            },
+            Command::FillArea {
+                id: r.clone(),
+                x: 1e6,
+                y: 1e6,
             },
             Command::Format {
                 id: t.clone(),

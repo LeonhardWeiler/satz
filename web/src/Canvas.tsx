@@ -549,7 +549,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       canvas.style.cursor = guide ? (guide.axis === 'x' ? 'col-resize' : 'row-resize')
         : side ? 'pointer'
         : to ? (editor.engine.canThread(editor.threading!, to) ? '' : 'not-allowed')
-        : editor.vector?.mode === 'add' ? 'crosshair' : cursorOf(handleUnder(pointer) ?? '', handles().box?.rotation ?? 0)
+        : editor.vector?.mode === 'add' || editor.vector?.mode === 'fill' ? 'crosshair' : cursorOf(handleUnder(pointer) ?? '', handles().box?.rotation ?? 0)
       const mode = pointer.ctrlKey ? 'deep' : 'click'
       const id = editor.tool === 'move' ? pickAt(toDoc(pointer), mode) : undefined
       if (id !== hover || side !== port) {
@@ -730,6 +730,11 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         if ((e.ctrlKey || e.metaKey) && under?.part === 'point') {
           const k = cs[under.at[0]].knots[under.at[1]]
           editor.setKnots(smooth(cs, under.at, !curved(k)), under.at)
+          drag = null
+          return
+        }
+        if (v.mode === 'fill') {
+          editor.apply({ type: 'fillArea', id: v.id, x: q.x, y: q.y })
           drag = null
           return
         }

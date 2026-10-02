@@ -104,6 +104,7 @@ export type Command =
   | { type: 'setGuides'; id: string; guides: Guides }
   | { type: 'flatten'; id: string }
   | { type: 'boolean'; ids: string[]; op: BooleanOp }
+  | { type: 'fillArea'; id: string; x: number; y: number }
   | { type: 'scaleText'; id: string; by: number }
   | { type: 'movePage'; id: string; index: number }
   | { type: 'addMaster'; like: string | null }

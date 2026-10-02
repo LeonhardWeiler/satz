@@ -76,7 +76,7 @@ export class Editor {
   /** The layout grids of the pages show and layers snap to them. */
   grids = true
   /** The path being edited on the canvas, what a click on it does and its picked knot. */
-  vector: { id: string; mode: 'move' | 'add' | 'delete'; at: At | null } | null = null
+  vector: { id: string; mode: 'move' | 'add' | 'delete' | 'fill'; at: At | null } | null = null
   /** The image whose handles crop it and which a drag moves inside its frame. */
   cropping: string | null = null
   /** The plates shown (bit 0 for C to 3 for K, then the spots), and whether ink above the limit and colours out of gamut are marked. */

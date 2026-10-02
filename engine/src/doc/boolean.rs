@@ -1,6 +1,7 @@
 use super::*;
 use crate::display_list::{CLOSE, CUBIC};
-use kurbo::{BezPath, PathEl, Point};
+use kurbo::{BezPath, PathEl, Point, Shape as _};
+use linesweeper::topology::{Contour, Contours};
 use linesweeper::{BinaryOp, FillRule, binary_op};
 
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
@@ -63,7 +64,93 @@ fn path(b: &BezPath) -> Vec<f32> {
     out
 }
 
+fn combine(a: &BezPath, b: &BezPath, op: BinaryOp) -> Res<Contours> {
+    binary_op(a, b, FillRule::NonZero, op).map_err(err)
+}
+
+fn flat<'a>(c: impl Iterator<Item = &'a Contour>) -> BezPath {
+    c.flat_map(|c| c.path.elements().to_vec()).collect()
+}
+
+/// The closed subpaths of `path`.
+fn closed(path: &[f32]) -> Vec<BezPath> {
+    let mut out = Vec::new();
+    let mut sub = Vec::new();
+    for (v, p) in geom::segments(path) {
+        if v == MOVE {
+            sub.clear();
+        }
+        sub.push(v);
+        sub.extend(p);
+        if v == CLOSE {
+            out.push(bez(&sub));
+        }
+    }
+    out
+}
+
+/// The area that the closed subpaths of `path` bound around `at`, with its holes.
+fn area(path: &[f32], at: Point) -> Res<BezPath> {
+    let subs = closed(path);
+    let (ins, outs): (Vec<_>, Vec<_>) = subs.iter().partition(|s| s.winding(at) != 0);
+    let [first, ins @ ..] = &ins[..] else {
+        return Err("no area there".into());
+    };
+    let mut c = combine(first, &BezPath::new(), BinaryOp::Union)?;
+    for s in ins {
+        c = combine(&flat(c.contours()), s, BinaryOp::Intersection)?;
+    }
+    for s in outs {
+        c = combine(&flat(c.contours()), s, BinaryOp::Difference)?;
+    }
+    let face = c
+        .grouped()
+        .into_iter()
+        .flatten()
+        .filter(|&i| c[i].outer && c[i].path.winding(at) != 0)
+        .min_by(|&a, &b| c[a].path.area().abs().total_cmp(&c[b].path.area().abs()))
+        .ok_or("no area there")?;
+    Ok(flat(c.contours().filter(|k| {
+        std::ptr::eq(*k, &c[face]) || k.parent == Some(face)
+    })))
+}
+
 impl Doc {
+    pub(super) fn fill_area(&self, id: String, x: f64, y: f64) -> Res<Vec<String>> {
+        let id = self.layer(&id)?;
+        if self.kind(id) != Some(NodeKind::Shape) {
+            return Err("only shapes have areas".into());
+        }
+        if !x.is_finite() || !y.is_finite() {
+            return Err("not a point".into());
+        }
+        let parent = self.tree.parent(id).ok_or("no parent")?;
+        let p = parent_node(parent).ok_or("no parent")?;
+        let turn = self.turn(p);
+        let to_page = |[x, y]: [f32; 2]| geom::apply(turn, [x.into(), y.into()]).map(|v| v as f32);
+        let out = area(&geom::map(&self.outline_of(id)?, to_page), Point::new(x, y))?;
+        let back = geom::invert(turn);
+        let out = geom::map(&path(&out), |[x, y]| {
+            geom::apply(back, [x.into(), y.into()]).map(|v| v as f32)
+        });
+        let fills: Vec<Fill> = value(&self.meta(id), "fills")
+            .and_then(|v| serde_json::from_value(serde_json::to_value(v).ok()?).ok())
+            .unwrap_or_default();
+        let new = self.create(&p.to_string(), NewKind::Rect, bounds(&out).map(f64::from))?;
+        self.make_path(new, &out)?;
+        if !fills.is_empty() {
+            self.set(
+                new,
+                Props {
+                    fills: Some(fills),
+                    ..Props::default()
+                },
+            )?;
+        }
+        self.tree.mov_to(new, parent, self.index(id)).map_err(err)?;
+        Ok(vec![new.to_string()])
+    }
+
     pub(super) fn boolean(&self, ids: Vec<String>, op: BooleanOp) -> Res<Vec<String>> {
         let ids = self.sorted(&ids)?;
         let [bottom, rest @ ..] = &ids[..] else {
@@ -102,12 +189,7 @@ impl Doc {
         };
         let mut out = shapes[0].clone();
         for s in &shapes[1..] {
-            let c = binary_op(&out, s, FillRule::NonZero, op).map_err(err)?;
-            out = BezPath::from_vec(
-                c.contours()
-                    .flat_map(|c| c.path.elements().to_vec())
-                    .collect(),
-            );
+            out = flat(combine(&out, s, op)?.contours());
         }
         if out.is_empty() {
             return Err("the shapes leave nothing".into());
@@ -172,5 +254,58 @@ mod tests {
             op: BooleanOp::Union,
         };
         assert!(d.apply(with_text).is_err());
+    }
+
+    #[test]
+    fn a_bucket_fills_the_area_around_a_point_below_the_path() {
+        let (mut d, p) = empty();
+        let v = create(&mut d, &p, NewKind::Path, [0.0, 0.0, 1.0, 1.0]);
+        let square = |x: f32| {
+            [
+                MOVE,
+                x,
+                x,
+                LINE,
+                x + 20.0,
+                x,
+                LINE,
+                x + 20.0,
+                x + 20.0,
+                LINE,
+                x,
+                x + 20.0,
+                CLOSE,
+            ]
+        };
+        let path = [
+            square(0.0).as_slice(),
+            &square(10.0),
+            &[MOVE, 0.0, 40.0, LINE, 40.0, 0.0],
+        ]
+        .concat();
+        d.apply(Command::SetPath {
+            id: v.clone(),
+            path,
+        })
+        .unwrap();
+        let mut fill = |x, y| {
+            let out = d.apply(Command::FillArea {
+                id: v.clone(),
+                x,
+                y,
+            });
+            let s = d.snapshot();
+            let kids = &s.pages[0].children;
+            out.map(|out| {
+                assert_eq!(ids(kids), [out[0].clone(), v.clone()]);
+                let f = frame(&kids[0]);
+                d.apply(Command::Delete { ids: out }).unwrap();
+                f
+            })
+        };
+        assert_eq!(fill(15.0, 15.0).unwrap(), [10.0, 10.0, 10.0, 10.0]);
+        assert_eq!(fill(5.0, 5.0).unwrap(), [0.0, 0.0, 20.0, 20.0]);
+        assert_eq!(fill(25.0, 25.0).unwrap(), [10.0, 10.0, 20.0, 20.0]);
+        assert!(fill(50.0, 50.0).is_err());
     }
 }

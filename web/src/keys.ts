@@ -5,7 +5,7 @@ import { remove } from './vector'
 const TOOLS: Record<string, Tool> = {
   v: 'move', f: 'frame', a: 'frame', r: 'rect', o: 'ellipse', l: 'line', p: 'pen', t: 'text',
 }
-const VECTOR_KEYS: Record<string, 'move' | 'add' | 'delete'> = { v: 'move', p: 'add', '-': 'delete' }
+const VECTOR_KEYS: Record<string, 'move' | 'add' | 'delete' | 'fill'> = { v: 'move', p: 'add', '-': 'delete', b: 'fill' }
 const ORDER = { BracketRight: ['forward', 'front'], BracketLeft: ['backward', 'back'] } as const
 const JUMPS: Record<string, (k: number, n: number) => number> = {
   PageUp: (k) => k - 1,
