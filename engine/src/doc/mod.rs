@@ -146,6 +146,12 @@ pub enum Command {
         id: String,
         path: Vec<f32>,
     },
+    /// Scales the image fills of `id` to cover or to fit in its box, or sizes the box
+    /// to the topmost image.
+    FitImage {
+        id: String,
+        fit: Fit,
+    },
     /// Mirrors a layer and its content left to right, or top to bottom when `vertical`.
     Flip {
         id: String,
@@ -366,6 +372,14 @@ pub enum Command {
     Redo,
     BeginUndoGroup,
     EndUndoGroup,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Fit {
+    Cover,
+    Contain,
+    Frame,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -1205,6 +1219,7 @@ impl Doc {
             Command::DeleteTextStyle { id } => self.delete_text_style(id),
             Command::Set { id, props } => self.set_props(id, props),
             Command::SetPath { id, path } => self.set_path(id, path),
+            Command::FitImage { id, fit } => self.fit_image(id, fit),
             Command::Flip { id, vertical } => self.flip(id, vertical),
             Command::Flatten { id } => self.flatten(id),
             Command::Boolean { ids, op } => self.boolean(ids, op),
@@ -2041,6 +2056,40 @@ impl Doc {
         }
         let path = self.outline_of(id)?;
         self.make_path(id, &path)?;
+        Ok(vec![])
+    }
+
+    fn fit_image(&self, id: String, fit: Fit) -> Res<Vec<String>> {
+        let id = self.layer(&id)?;
+        let mut fills: Vec<Fill> = self.json(id, "fills");
+        let [x, y, w, h] = self.bounds(id);
+        let mut aspect = None;
+        for f in fills.iter_mut().filter(|f| f.kind == FillKind::Image) {
+            let info = self.image(f.image.as_deref().unwrap_or_default())?;
+            let a = f64::from(info.width) / f64::from(info.height);
+            let k = a / (w / h);
+            let [sw, sh] = match fit {
+                Fit::Frame => [1.0, 1.0],
+                _ if (k > 1.0) == (fit == Fit::Cover) => [k, 1.0],
+                _ => [1.0, 1.0 / k],
+            };
+            f.transform = [sw, 0.0, 0.0, sh, (1.0 - sw) / 2.0, (1.0 - sh) / 2.0].map(|v| v as f32);
+            aspect = Some(a);
+        }
+        let a = aspect.ok_or("no image fill")?;
+        if w <= 0.0 || h <= 0.0 {
+            return Err("an image fits only into a box".into());
+        }
+        if fit == Fit::Frame {
+            self.set_frame(id, [x, y, w, w / a])?;
+        }
+        self.set(
+            id,
+            Props {
+                fills: Some(fills),
+                ..Props::default()
+            },
+        )?;
         Ok(vec![])
     }
 
@@ -4443,6 +4492,36 @@ mod tests {
             image,
             transform: [144.0, 0.0, 0.0, 72.0, 28.0, 164.0],
         }));
+    }
+
+    #[test]
+    fn an_image_fills_or_fits_its_box_or_the_box_takes_its_shape() {
+        let (mut d, p) = empty();
+        let (id, _) = place(&mut d, &p, 600, 300);
+        set_frame(&mut d, &id, [0.0, 0.0, 100.0, 100.0]);
+        let fit = |d: &mut Doc, fit| {
+            d.apply(Command::FitImage {
+                id: id.clone(),
+                fit,
+            })
+            .unwrap();
+            let n = page(d).children.remove(0);
+            (frame(&n), n.style.fills[0].transform)
+        };
+        assert_eq!(fit(&mut d, Fit::Cover).1, [2.0, 0.0, 0.0, 1.0, -0.5, 0.0]);
+        assert_eq!(fit(&mut d, Fit::Contain).1, [1.0, 0.0, 0.0, 0.5, 0.0, 0.25]);
+        assert_eq!(
+            fit(&mut d, Fit::Frame),
+            ([0.0, 0.0, 100.0, 50.0], [1.0, 0.0, 0.0, 1.0, 0.0, 0.0])
+        );
+        let r = create(&mut d, &p, NewKind::Rect, [0.0; 4]);
+        assert!(
+            d.apply(Command::FitImage {
+                id: r,
+                fit: Fit::Cover
+            })
+            .is_err()
+        );
     }
 
     #[test]

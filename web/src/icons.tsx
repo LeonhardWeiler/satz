@@ -75,6 +75,7 @@ const ICONS = {
     </>
   ),
   eyedropper: <path d="M10.5 2.5l3 3M9 4l3 3-6.5 6.5H3.5V11.5z" />,
+  fit: <path d="M1.5 5.5v-4h4M10.5 1.5h4v4M14.5 10.5v4h-4M5.5 14.5h-4v-4" />,
   crop: <path d="M4.5 1.5v10h10M1.5 4.5h10v10" />,
   adjust: (
     <>

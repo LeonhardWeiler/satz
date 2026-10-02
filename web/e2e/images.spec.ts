@@ -92,3 +92,14 @@ test('ctrl and the crop button crop an image, a drag moves it in its frame, and 
   await brightness.press('Enter')
   await expect.poll(async () => Math.max(...(await at(62)))).toBeLessThan(10)
 })
+
+test('the fit menu sizes the frame to its image', async ({ page }) => {
+  await open(page)
+  await place(page, red(600, 300))
+  const height = page.getByRole('complementary', { name: 'Properties' }).getByRole('textbox', { name: 'H in mm' })
+  await height.fill('50.8')
+  await height.press('Enter')
+  await page.getByRole('toolbar', { name: 'Quick edit' }).getByTitle('Fit image').click()
+  await page.getByRole('menuitem', { name: 'Frame to image' }).click()
+  await expect(height).toHaveValue('25.4')
+})

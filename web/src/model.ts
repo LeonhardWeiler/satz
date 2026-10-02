@@ -104,6 +104,7 @@ export type Command =
   | { type: 'setGuides'; id: string; guides: Guides }
   | { type: 'flatten'; id: string }
   | { type: 'flip'; id: string; vertical: boolean }
+  | { type: 'fitImage'; id: string; fit: 'cover' | 'contain' | 'frame' }
   | { type: 'boolean'; ids: string[]; op: BooleanOp }
   | { type: 'fillArea'; id: string; x: number; y: number }
   | { type: 'scaleText'; id: string; by: number }

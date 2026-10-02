@@ -21,6 +21,7 @@ export function Quick({ editor }: { editor: Editor }) {
   const cropping = useEditor(editor, (e) => e.cropping)
   const snapshot = useEditor(editor, (e) => e.snapshot)
   const [menu, setMenu] = useState<{ at: DOMRect; paint: Paint } | null>(null)
+  const [fitAt, setFitAt] = useState<DOMRect | null>(null)
   const nodes = editor.selected()
   if (nodes.length === 0) return null
   const one = nodes.length === 1 ? nodes[0] : undefined
@@ -91,7 +92,21 @@ export function Quick({ editor }: { editor: Editor }) {
           >
             <Icon name="crop" />
           </button>
+          <button type="button" className="icon-button" title="Fit image" aria-haspopup="menu" onClick={(e) => setFitAt(e.currentTarget.getBoundingClientRect())}>
+            <Icon name="fit" />
+          </button>
           <Adjust node={one} set={set} />
+          {fitAt &&
+            createPortal(
+              <ContextMenu
+                anchor={() => fitAt}
+                side="bottom"
+                label="Fit image"
+                onClose={() => setFitAt(null)}
+                items={FITS.map(([fit, name]) => [name, () => editor.apply({ type: 'fitImage', id: one.id, fit }), true])}
+              />,
+              document.body,
+            )}
         </>
       )}
       {one?.kind === 'shape' && (one.shape === 'polygon' || one.shape === 'star') && (
@@ -120,6 +135,11 @@ export function Quick({ editor }: { editor: Editor }) {
   )
 }
 
+const FITS = [
+  ['cover', 'Fill frame'],
+  ['contain', 'Fit in frame'],
+  ['frame', 'Frame to image'],
+] as const
 const ADJUST = ['Brightness', 'Contrast', 'Saturation']
 
 /** The brightness, contrast and saturation of the image fills of `node`, in a popover. */
