@@ -38,13 +38,15 @@ test('the ends of a line are grabbed within half a handle, and turned beyond the
   expect(handleAt(view, 90, 50, { line })).toBeUndefined()
 })
 
-test('the ports sit inside the frame edges, and closer to the middle of a low frame', () => {
+test('the ports sit inside the frame edges, closer to the middle of a low frame and turn with it', () => {
   const ports = portsOf(view, box)
   expect(ports).toEqual({ in: { x: 60, y: 86 }, out: { x: 160, y: 134 } })
   expect(portAt(ports, 165, 130)).toBe('out')
   expect(portAt(ports, 60, 86)).toBe('in')
   expect(portAt(ports, 110, 110)).toBeUndefined()
   expect(portsOf(view, { ...box, h: 4 }).in.y).toBe(74)
+  const turned = portsOf(view, { ...box, rotation: 180 })
+  expect([turned.in, turned.out].map((p) => [Math.round(p.x), Math.round(p.y)])).toEqual([[160, 134], [60, 86]])
 })
 
 test('dragging a handle scales the frames in the box on both pages of the spread', () => {

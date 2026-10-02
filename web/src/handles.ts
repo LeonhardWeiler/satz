@@ -85,10 +85,10 @@ export function radiusHandles(view: View, box: Box, radii: number[]) {
  * InDesign: on its left edge below the top and its right edge above the bottom.
  */
 export function portsOf(view: View, n: Box) {
-  const inset = Math.min(PORT_INSET, (n.h * view.zoom) / 2)
-  const tl = screen(view, n)
-  const br = screen(view, { x: n.x + n.w, y: n.y + n.h })
-  return { in: { x: tl.x, y: tl.y + inset }, out: { x: br.x, y: br.y - inset } }
+  const inset = Math.min(PORT_INSET / view.zoom, n.h / 2)
+  const c = { x: n.x + n.w / 2, y: n.y + n.h / 2 }
+  const at = (x: number, y: number) => screen(view, spin({ x, y }, n.rotation ?? 0, c))
+  return { in: at(n.x, n.y + inset), out: at(n.x + n.w, n.y + n.h - inset) }
 }
 
 /** The port of `ports` at the screen point (x, y). */

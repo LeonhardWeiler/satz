@@ -284,8 +284,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const [n] = editor.selected()
       if (editor.tool !== 'move' || editor.selection.length !== 1 || editor.editing || n?.kind !== 'text') return undefined
       if (n.sizing.horizontal === 'hug' && n.sizing.vertical === 'hug' && !n.prev && !n.next) return undefined
-      if (editor.shown(n).rotation) return undefined
-      const p = portsOf(view, placed(n))
+      const p = portsOf(view, editor.shown(n))
       return { node: n, out: p.out, in: n.prev ? p.in : undefined }
     }
     const portUnder = (e: Pointer) => {
@@ -370,7 +369,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const frames = [...editor.nodes.values()].flatMap(({ node }) => (node.kind === 'text' && node.story === n.story ? [node] : []))
       const lines = frames.flatMap((f) => {
         const next = f.next && frames.find((g) => g.id === f.next)
-        return next ? [[portsOf(view, placed(f)).out, portsOf(view, placed(next)).in] as [Point, Point]] : []
+        return next ? [[portsOf(view, editor.shown(f)).out, portsOf(view, editor.shown(next)).in] as [Point, Point]] : []
       })
       return {
         ports: [
