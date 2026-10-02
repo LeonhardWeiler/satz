@@ -54,7 +54,6 @@ Open:
 - Colour profiles: choose or upload a CMYK profile (e.g. PSO Coated v3) instead of the
   built-in FOGRA51.
 - Auto layout: drag layers into and out of an auto layout frame on the canvas.
-- Arrow keys in the 3×3 auto layout alignment grid.
 - Undo and redo (Ctrl+Z) while the local variables dialog is open.
 - Variables and collections as nested Loro maps instead of whole entries, so
   concurrent edits of one variable merge.
