@@ -45,6 +45,11 @@ const DEFAULT_SIZE: Record<Exclude<Tool, 'move' | 'pen'>, [number, number]> = {
   line: [30, 0],
 }
 
+/** How far the visible stroke of `n` reaches beyond its frame. */
+const outset = (n: Node) =>
+  n.kind === 'text' || !n.strokes.some((s) => s.visible) ? 0 : n.strokeAlign === 'outside' ? n.strokeWeight : n.strokeAlign === 'center' ? n.strokeWeight / 2 : 0
+const grow = <T extends Box>(b: T, m: number): T => ({ ...b, x: b.x - m, y: b.y - m, w: b.w + 2 * m, h: b.h + 2 * m })
+
 type Pointer = { offsetX: number; offsetY: number; ctrlKey: boolean }
 /** What a drag snaps to and the layers it measures to. */
 type Snaps = { lines: Lines; others: Box[] }
@@ -280,8 +285,9 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const n = nodes.length === 1 ? nodes[0] : undefined
       const line = n && ends(n)
       if (line) return { line }
-      const box: Box = n ? editor.shown(editor.selected()[0]) : bounds(nodes)
-      return { box, radii: n?.kind === 'shape' && n.shape === 'rect' ? radiusHandles(view, box, radii(n)) : undefined }
+      const shown = n && editor.shown(editor.selected()[0])
+      const box: Box = shown ? grow(shown, outset(n)) : bounds(nodes.map((n) => grow(n, outset(n))))
+      return { box, radii: shown && n.kind === 'shape' && n.shape === 'rect' ? radiusHandles(view, shown, radii(n)) : undefined }
     }
 
     /** What the layers `ids` snap to: the pages of the spread and the visible layers beside them. */

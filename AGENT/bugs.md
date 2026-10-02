@@ -8,7 +8,6 @@
 31. add options for basic image editing, like crop (also when resizing with ctrl), contrast, brightness, etc. they should appear in the bar above the element
 38. make it possible to make boolean operations on things like rectangles, triangles, ... (not text unless its made into an vector). the buttons/icons should be below the align buttons
 40. when in vector editing mode, you should be able to fill each area seperately with a bucket tool
-42. the bounding box should include the stroke
 47. when changing from solid to linear gradient with one of the gradients selected the layout moves up a bit, it should stay the same
 50. lines should have the option to be squiggly, etc. 
 51. mach eine ausführliche analyse von anderen programmen, wie figma, indesign, scribus, ... und schau welche funktionen sie bieten, die ich hier noch nicht implementiert habe, schreib das unter AGENT in eine comparison.md datei
@@ -24,6 +23,7 @@
 17. verankerte objekte
 18. move pages or double pages
 19. flip horizontally and vertically
+20. effects to text frames
 
 --- with server (in the future)
 1. make it possible to work together on the same project with link and code share, alot of works needs to be done to make this work good

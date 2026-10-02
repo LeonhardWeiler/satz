@@ -1,4 +1,4 @@
-import { expect, test, colors, drag, near, open, pixels, screen } from './util'
+import { expect, test, colors, drag, MM, near, open, pixels, screen } from './util'
 
 
 test('moving a gradient layer leaves the page and the handles alone', async ({ page }) => {
@@ -167,6 +167,22 @@ test('the cursor follows keyboard edits without a pointer move', async ({ page }
   await page.mouse.move(...(await screen(page, 74, 77)))
   await expect(canvas).toHaveCSS('cursor', 'ns-resize')
   await page.keyboard.press('Delete')
+  await expect(canvas).not.toHaveCSS('cursor', 'ns-resize')
+})
+
+test('the selection box takes in the stroke outside the frame', async ({ page }) => {
+  await open(page)
+  const canvas = page.getByLabel('Page canvas')
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).last().click()
+  await panel.getByRole('button', { name: 'Add stroke' }).click()
+  const weight = panel.getByRole('textbox', { name: 'Stroke weight' })
+  await weight.fill(String(10 * MM))
+  await weight.press('Enter')
+  await panel.getByRole('radiogroup', { name: 'Stroke position' }).getByRole('radio', { name: 'Outside' }).click()
+  await page.mouse.move(...(await screen(page, 74, 87)))
+  await expect(canvas).toHaveCSS('cursor', 'ns-resize')
+  await page.mouse.move(...(await screen(page, 74, 77)))
   await expect(canvas).not.toHaveCSS('cursor', 'ns-resize')
 })
 
