@@ -874,6 +874,11 @@ mod tests {
             paragraph_spacing: Some(6.0),
             hyphenate: Some(true),
             lang: Some(Lang::De),
+            tabs: Some(vec![text::Tab {
+                at: 40.0,
+                align: text::TabAlign::Decimal,
+                leader: ".".into(),
+            }]),
             ..TextProps::default()
         };
         format(&mut d, &t, Some([4, 4]), centred).unwrap();
@@ -890,6 +895,7 @@ mod tests {
         assert_eq!(s[1].attrs.paragraph_spacing, 6.0);
         assert_eq!((s[1].attrs.hyphenate, s[1].attrs.lang), (true, Lang::De));
         assert_eq!((s[2].attrs.hyphenate, s[2].attrs.lang), (false, Lang::En));
+        assert_eq!(s[1].attrs.tabs[0].leader, ".");
     }
 
     #[test]

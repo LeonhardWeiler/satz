@@ -881,6 +881,17 @@ textarea {
   padding-top: 12px;
 }
 
+.tab-stops {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.tab-stops label {
+  flex: 0 0 96px;
+}
+
 .feature {
   flex: none;
   width: 24px;

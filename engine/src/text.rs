@@ -121,7 +121,7 @@ pub fn fonts() -> Vec<Typeface> {
 }
 
 /// The keys of `Attrs` a text style sets.
-pub const STYLED: [&str; 16] = [
+pub const STYLED: [&str; 17] = [
     "size",
     "lineHeight",
     "letterSpacing",
@@ -138,9 +138,10 @@ pub const STYLED: [&str; 16] = [
     "keepLines",
     "keepTogether",
     "keepNext",
+    "tabs",
 ];
 /// The keys of `Attrs` that hold for a whole paragraph, taken from its first character.
-pub const PARAGRAPH: [&str; 10] = [
+pub const PARAGRAPH: [&str; 11] = [
     "textAlign",
     "paragraphSpacing",
     "paragraphIndent",
@@ -151,6 +152,7 @@ pub const PARAGRAPH: [&str; 10] = [
     "keepLines",
     "keepTogether",
     "keepNext",
+    "tabs",
 ];
 
 /// TeX's \hyphenpenalty.
@@ -173,6 +175,58 @@ pub enum TextAlign {
     Center,
     Right,
     Justify,
+}
+
+/// A tab stop `at` pt from the column's left edge: the text after a tab starts there,
+/// centres or ends on it, or puts its last `.` or `,` there; `leader` repeats over the gap.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Tab {
+    pub at: f64,
+    pub align: TabAlign,
+    pub leader: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TabAlign {
+    Left,
+    Center,
+    Right,
+    Decimal,
+}
+
+/// Sets the width of each tab in `ws`, the widths of items from `x` in a column, to
+/// reach its stop in `stops`, or else the next multiple of 36 pt; `tab` and `point`
+/// tell the tabs and the `.` and `,` apart. Returns each tab with its stop.
+fn tabs<'a>(
+    stops: &'a [Tab],
+    ws: &mut [f32],
+    tab: impl Fn(usize) -> bool,
+    point: impl Fn(usize) -> bool,
+    mut x: f32,
+) -> Vec<(usize, Option<&'a Tab>)> {
+    let mut out = Vec::new();
+    for k in 0..ws.len() {
+        if tab(k) {
+            let stop = stops
+                .iter()
+                .filter(|s| s.at as f32 > x + 0.01)
+                .min_by(|a, b| a.at.total_cmp(&b.at));
+            let next = (k + 1..ws.len()).find(|&j| tab(j)).unwrap_or(ws.len());
+            let upto = |j: usize| ws[k + 1..j].iter().sum::<f32>();
+            let after = match stop.map(|s| s.align) {
+                None | Some(TabAlign::Left) => 0.0,
+                Some(TabAlign::Center) => upto(next) / 2.0,
+                Some(TabAlign::Right) => upto(next),
+                Some(TabAlign::Decimal) => upto((k + 1..next).rfind(|&j| point(j)).unwrap_or(next)),
+            };
+            let at = stop.map_or(((x + 0.01) / 36.0).floor() * 36.0 + 36.0, |s| s.at as f32);
+            ws[k] = (at - x - after).max(0.0);
+            out.push((k, stop));
+        }
+        x += ws[k];
+    }
+    out
 }
 
 /// A language that hyphenation knows.
@@ -250,6 +304,7 @@ pub struct Attrs {
     pub keep_lines: u32,
     pub keep_together: bool,
     pub keep_next: bool,
+    pub tabs: Vec<Tab>,
 }
 
 impl Attrs {
@@ -296,6 +351,7 @@ impl Default for Attrs {
             keep_lines: 1,
             keep_together: false,
             keep_next: false,
+            tabs: Vec::new(),
         }
     }
 }
@@ -879,6 +935,45 @@ fn rows(
         (above + a.rise(), l - above - a.rise())
     };
 
+    // `text` repeated in whole copies over `x..x + w`, on a grid of its width.
+    let leader = |text: &str, span: usize, cluster: usize, x: f32, w: f32| {
+        let (a, k) = (&spans[span].attrs, slot[span]);
+        let mut buf = UnicodeBuffer::new();
+        buf.push_str(text);
+        buf.guess_segment_properties();
+        let out = shapers[k].shape(buf, ShapeOptions::new());
+        let (size, scale) = (a.drawn(), a.drawn() / metrics[k].upem);
+        let lw: f32 = out
+            .glyph_positions()
+            .iter()
+            .map(|p| p.x_advance as f32 * scale)
+            .sum();
+        let mut glyphs = Vec::new();
+        let mut at = if lw > 0.0 {
+            (x / lw).ceil() * lw
+        } else {
+            f32::INFINITY
+        };
+        while at + lw <= x + w + 0.01 {
+            for (info, pos) in out.glyph_infos().iter().zip(out.glyph_positions()) {
+                glyphs.push(Glyph {
+                    id: info.glyph_id as u16,
+                    x: at + pos.x_offset as f32 * scale,
+                    y: -a.rise(),
+                    size,
+                    span,
+                    cluster,
+                    hyphen: false,
+                });
+                at += pos.x_advance as f32 * scale;
+            }
+        }
+        glyphs
+    };
+    let tab_at =
+        |it: &Item, c: usize| matches!(it, Item::Glue { .. }) && text[c..].starts_with('\t');
+    let point_at =
+        |it: &Item, c: usize| matches!(it, Item::Box(_)) && text[c..].starts_with(['.', ',']);
     let break_para = |Para {
                           items,
                           glyphs,
@@ -918,7 +1013,15 @@ fn rows(
             };
             let hyphenated = matches!(items[end], Item::Penalty { width, .. } if width > 0.0);
             let last = if hyphenated { end + 1 } else { end };
-            let used: f32 = items[from..end].iter().map(spread).sum::<f32>()
+            let mut ws: Vec<f32> = items[from..last].iter().map(spread).collect();
+            let leaders = tabs(
+                &first.tabs,
+                &mut ws,
+                |j| tab_at(&items[from + j], clusters[from + j]),
+                |j| point_at(&items[from + j], clusters[from + j]),
+                left,
+            );
+            let used: f32 = ws.iter().sum::<f32>()
                 + if hyphenated {
                     hyphen_width(&items[end])
                 } else {
@@ -965,7 +1068,16 @@ fn rows(
                         ..g.clone()
                     });
                 }
-                cx += spread(&items[k]);
+                if let Some(&(_, Some(stop))) = leaders.iter().find(|l| from + l.0 == k) {
+                    line.extend(leader(
+                        &stop.leader,
+                        span_at(clusters[k]),
+                        clusters[k],
+                        cx,
+                        ws[k - from],
+                    ));
+                }
+                cx += ws[k - from];
             }
             if stops.first().is_none_or(|s| s.0 > line_start) {
                 stops.insert(0, (line_start, stops.first().map_or(cx, |s| s.1)));
@@ -1106,7 +1218,14 @@ fn rows(
                 clusters.push(cluster);
             }
             clusters.push(cluster);
-            if para[at..].starts_with(' ') {
+            if para[at..].starts_with('\t') {
+                items.push(Item::Glue {
+                    width: 0.0,
+                    stretch: 0.0,
+                    shrink: 0.0,
+                });
+                glyphs.push(None);
+            } else if para[at..].starts_with(' ') {
                 items.push(Item::Glue {
                     width: adv,
                     stretch: adv / 2.0,
@@ -1133,13 +1252,23 @@ fn rows(
             glyphs.insert(0, None);
             clusters.insert(0, start);
         }
-        let natural: f32 = items
+        let mut ws: Vec<f32> = items
             .iter()
             .map(|it| match *it {
                 Item::Box(w) | Item::Glue { width: w, .. } => w,
                 Item::Penalty { .. } => 0.0,
             })
-            .sum();
+            .collect();
+        let set = |j: usize| tab_at(&items[j], clusters[j]);
+        let point = |j: usize| point_at(&items[j], clusters[j]);
+        for (k, _) in tabs(&first.tabs, &mut ws, set, point, dw) {
+            items[k] = Item::Glue {
+                width: ws[k],
+                stretch: 0.0,
+                shrink: 0.0,
+            };
+        }
+        let natural: f32 = ws.iter().sum();
         items.extend([FILL, FORCE]);
         glyphs.extend([None, None]);
         clusters.extend([start + para.len(); 2]);
@@ -1686,6 +1815,39 @@ mod tests {
         };
         assert_eq!(columns(1), [false, false, false, true]);
         assert_eq!(columns(2), [false, true, true, true]);
+    }
+
+    #[test]
+    fn a_tab_goes_to_its_stop_and_a_leader_fills_the_gap() {
+        let at = |text: &str, tabs: Vec<Tab>, byte: usize| {
+            let a = Attrs {
+                tabs,
+                ..attrs(10.0)
+            };
+            let lines = lay_out(
+                text,
+                &one(text, a),
+                [0.0, 0.0, 200.0, 50.0],
+                &TextFrame::default(),
+                0,
+            );
+            let g = lines[0].iter().find(|g| g.cluster == byte).unwrap();
+            (g.x, lines[0].len())
+        };
+        let stop = |at, align, leader: &str| Tab {
+            at,
+            align,
+            leader: leader.into(),
+        };
+        assert_eq!(at("a\tb", vec![], 2), (36.0, 2));
+        assert_eq!(at("a\tb", vec![stop(50.0, TabAlign::Left, "")], 2).0, 50.0);
+        let (end, _) = at("a\tb", vec![stop(100.0, TabAlign::Right, "")], 2);
+        let (centre, _) = at("a\tb", vec![stop(100.0, TabAlign::Center, "")], 2);
+        assert!(end < centre && centre < 100.0, "{end} {centre}");
+        let (point, _) = at("a\t12.5", vec![stop(80.0, TabAlign::Decimal, "")], 4);
+        assert_eq!(point, 80.0);
+        let (_, glyphs) = at("a\tb", vec![stop(100.0, TabAlign::Left, ".")], 2);
+        assert!(glyphs > 20, "{glyphs}");
     }
 
     #[test]

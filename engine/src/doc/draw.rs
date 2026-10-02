@@ -1079,6 +1079,7 @@ impl Doc {
                     keep_lines: p.keep_lines,
                     keep_together: p.keep_together,
                     keep_next: p.keep_next,
+                    tabs: p.tabs.clone(),
                     ..attrs.clone()
                 };
                 let len = piece.encode_utf16().count();

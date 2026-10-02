@@ -53,6 +53,10 @@ test('case, decoration, indent and OpenType features are set in the type options
   await options.getByRole('textbox', { name: 'Drop cap lines' }).fill('3')
   await options.getByRole('textbox', { name: 'Drop cap lines' }).press('Enter')
   await options.getByRole('checkbox', { name: 'Keep with next' }).check()
+  await options.getByRole('button', { name: 'Add tab stop' }).click()
+  await choose(options.getByRole('combobox', { name: 'Tab alignment 1' }), 'Right')
+  await options.getByRole('textbox', { name: 'Tab leader 1' }).fill('.')
+  await options.getByRole('textbox', { name: 'Tab leader 1' }).press('Enter')
   await options.getByRole('checkbox', { name: 'Ligatures', exact: true }).uncheck()
   await options.getByRole('checkbox', { name: 'Oldstyle figures' }).check()
   await page.keyboard.press('Escape')
@@ -71,6 +75,8 @@ test('case, decoration, indent and OpenType features are set in the type options
   await expect(options.getByRole('textbox', { name: 'Baseline shift in pt' })).toHaveValue('-2')
   await expect(options.getByRole('textbox', { name: 'Drop cap lines' })).toHaveValue('3')
   await expect(options.getByRole('checkbox', { name: 'Keep with next' })).toBeChecked()
+  await expect(options.getByRole('combobox', { name: 'Tab alignment 1' })).toHaveText('Right')
+  await expect(options.getByRole('textbox', { name: 'Tab leader 1' })).toHaveValue('.')
 })
 
 test('the insert character menu puts dashes and quotes into the edited text', async ({ page }) => {

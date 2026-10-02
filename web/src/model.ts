@@ -269,7 +269,10 @@ export type Attrs = {
   keepLines: number
   keepTogether: boolean
   keepNext: boolean
+  tabs: Tab[]
 }
+/** A tab stop `at` pt from the column's left edge, with a leader repeated over the gap. */
+export type Tab = { at: number; align: 'left' | 'center' | 'right' | 'decimal'; leader: string }
 /** A font by its full name, family and style, and a hash of its bytes. */
 export type Typeface = { name: string; family: string; style: string; hash: string }
 export type TextProps = Partial<Attrs>
@@ -291,7 +294,7 @@ export type TextFrame = {
 /** `len` characters in UTF-16 code units that share their attributes. */
 export type Span = Attrs & { len: number }
 /** The attributes a text style sets. */
-export const STYLED = ['size', 'lineHeight', 'letterSpacing', 'paragraphSpacing', 'paragraphIndent', 'font', 'textCase', 'textDecoration', 'features', 'position', 'baselineShift', 'dropLines', 'dropChars', 'keepLines', 'keepTogether', 'keepNext'] as const
+export const STYLED = ['size', 'lineHeight', 'letterSpacing', 'paragraphSpacing', 'paragraphIndent', 'font', 'textCase', 'textDecoration', 'features', 'position', 'baselineShift', 'dropLines', 'dropChars', 'keepLines', 'keepTogether', 'keepNext', 'tabs'] as const
 export type Styled = (typeof STYLED)[number]
 export type TextStyle = { id: string; name: string; bindings: Partial<Record<Bindable, string>> } & Pick<Attrs, Styled>
 

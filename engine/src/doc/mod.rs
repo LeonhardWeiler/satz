@@ -539,6 +539,7 @@ pub struct TextProps {
     pub keep_lines: Option<u32>,
     pub keep_together: Option<bool>,
     pub keep_next: Option<bool>,
+    pub tabs: Option<Vec<text::Tab>>,
 }
 
 impl TextProps {
@@ -565,6 +566,16 @@ impl TextProps {
         }
         if self.keep_lines.is_some_and(|v| !(1..=20).contains(&v)) {
             return Err("keep 1 to 20 lines together".into());
+        }
+        if self
+            .tabs
+            .iter()
+            .flatten()
+            .any(|t| !(t.at >= 0.0 && t.at.is_finite()) || t.leader.chars().count() > 8)
+        {
+            return Err(
+                "a tab stop sits at 0 pt or more with a leader of up to 8 characters".into(),
+            );
         }
         if let Some(f) = self
             .features
@@ -704,7 +715,7 @@ const BINDABLE: [&str; 12] = [
 ];
 
 /// The keys of a text layer that belong to its story and move with it.
-const STORY: [&str; 22] = [
+const STORY: [&str; 23] = [
     "size",
     "lineHeight",
     "letterSpacing",
@@ -725,6 +736,7 @@ const STORY: [&str; 22] = [
     "keepLines",
     "keepTogether",
     "keepNext",
+    "tabs",
     "fills",
     "font",
 ];

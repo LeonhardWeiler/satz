@@ -7,7 +7,7 @@ import { addLocalFont, useLocalFonts } from './file'
 import { Icon, type IconName } from './icons'
 import { Popover } from './Popover'
 import { PAGE_NUMBER, insert, range } from './textEdit'
-import { STYLED, type Attrs, type Props, type Styled, type TextNode, type TextProps, type TextStyle, type Typeface, textSizing } from './model'
+import { STYLED, type Attrs, type Props, type Styled, type Tab, type TextNode, type TextProps, type TextStyle, type Typeface, textSizing } from './model'
 import { Bindable } from './Variables'
 
 
@@ -36,7 +36,7 @@ const RESIZING = [
 ] as const
 const LANGS = { en: 'English', de: 'German', fr: 'French', it: 'Italian', es: 'Spanish', nl: 'Dutch' } as const
 /** Styled numbers: title, label, unit, least value and the text shown for 0. */
-const METRICS: [Exclude<Styled, 'font' | 'textCase' | 'textDecoration' | 'features' | 'paragraphIndent' | 'position' | 'baselineShift' | 'dropLines' | 'dropChars' | 'keepLines' | 'keepTogether' | 'keepNext'>, string, IconName, string, number, string?][] = [
+const METRICS: [Exclude<Styled, 'font' | 'textCase' | 'textDecoration' | 'features' | 'paragraphIndent' | 'position' | 'baselineShift' | 'dropLines' | 'dropChars' | 'keepLines' | 'keepTogether' | 'keepNext' | 'tabs'>, string, IconName, string, number, string?][] = [
   ['size', 'Font size', 'fontSize', 'pt', 0.1],
   ['lineHeight', 'Line height', 'lineHeight', 'pt', 0, 'Auto'],
   ['letterSpacing', 'Letter spacing', 'letterSpacing', '%', -100],
@@ -195,6 +195,7 @@ export function TypeOptions({ spans, set }: { spans: Pick<Attrs, Styled>[]; set:
                 <Check label="Keep lines together" value={same((a) => a.keepTogether)} set={(keepTogether) => set({ keepTogether })} />
                 <Check label="Keep with next" value={same((a) => a.keepNext)} set={(keepNext) => set({ keepNext })} />
               </div>
+              <TabStops tabs={same((a) => JSON.stringify(a.tabs))} set={(tabs) => set({ tabs })} />
               <div className="grid" role="group" aria-label="OpenType features">
                 {FEATURES.map(([tag, title, sample, dflt]) => {
                   const checked = same(on(tag, dflt))
@@ -219,6 +220,34 @@ export function TypeOptions({ spans, set }: { spans: Pick<Attrs, Styled>[]; set:
           document.body,
         )}
     </>
+  )
+}
+
+const TAB_ALIGNS: Record<Tab['align'], string> = { left: 'Left', center: 'Centre', right: 'Right', decimal: 'Decimal' }
+
+/** The tab stops of `tabs`, as JSON or null when mixed, each with its alignment and leader. */
+function TabStops({ tabs, set }: { tabs: string | null; set: (tabs: Tab[]) => void }) {
+  const list: Tab[] = tabs === null ? [] : JSON.parse(tabs)
+  const put = (i: number, t: Partial<Tab>) => set(list.with(i, { ...list[i], ...t }).sort((a, b) => a.at - b.at))
+  return (
+    <div className="tab-stops" role="group" aria-label="Tab stops">
+      {list.map((t, i) => (
+        <div key={i} className="row">
+          <Field label="Tab" title={`Tab stop ${i + 1}`} unit="length" value={t.at} onCommit={(at) => put(i, { at })} />
+          <Select label={`Tab alignment ${i + 1}`} value={t.align} options={TAB_ALIGNS} onChange={(align) => put(i, { align })} />
+          <label className="field">
+            <span className="field-label">Leader</span>
+            <NameInput label={`Tab leader ${i + 1}`} value={t.leader} blank onCommit={(leader) => put(i, { leader })} />
+          </label>
+          <button type="button" className="icon-button" aria-label={`Remove tab stop ${i + 1}`} title="Remove tab stop" onClick={() => set(list.toSpliced(i, 1))}>
+            <Icon name="minus" />
+          </button>
+        </div>
+      ))}
+      <button type="button" className="button" onClick={() => set([...list, { at: (list.at(-1)?.at ?? 0) + 36, align: 'left', leader: '' }])}>
+        Add tab stop
+      </button>
+    </div>
   )
 }
 
