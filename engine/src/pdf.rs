@@ -449,6 +449,7 @@ fn paper(s: &mut Surface, env: &Env, ops: &[Op], area: [f32; 4]) {
         paint: Paint::Solid {
             color: [1.0; 4],
             ink: Ink::Cmyk([0.0; 4]),
+            overprint: false,
         },
         path: crate::display_list::rect(x, y, w, h),
     }];
@@ -525,12 +526,12 @@ fn separate(
     paper: bool,
 ) -> Option<image::Pixels> {
     let layer = |pick: fn([f32; 4]) -> [f32; 3]| {
-        let to = |rgba: &[f32; 4], ink: &Ink| {
+        let to = |rgba: &[f32; 4], ink: &Ink, _| {
             let [a, b, c] = pick(ink.cmyk(rgba));
             [a, b, c, rgba[3]]
         };
         let images = |id, size| plate(id, size, pick);
-        let tint_with = shadow.map(|s| to(&s.color, &s.ink));
+        let tint_with = shadow.map(|s| to(&s.color, &s.ink, false));
         plane(&recolor(ops, &to), rect, ppi, &images, tint_with, sigma)
     };
     let (cmy, k) = if paper {
@@ -644,10 +645,23 @@ fn inks(stops: &[ListStop]) -> Vec<Ink> {
         .collect()
 }
 
+/// The paint of `p` and its opacity, which marks an overprinting paint for `pdfx`.
 fn convert(p: &Paint, preset: Preset) -> (krilla::paint::Paint, NormalizedF32) {
+    let over = preset != Preset::Screen && p.overprints();
+    let marked = |o| match over {
+        true => NormalizedF32::new(pdfx::OVERPRINT).unwrap(),
+        false => o,
+    };
     let (transform, stops) = match p {
-        Paint::Solid { color: c, ink } => return (color(c, ink, preset).into(), opacity(c)),
-        Paint::Linear { transform, stops } | Paint::Radial { transform, stops } => (
+        Paint::Solid { color: c, ink, .. } => {
+            return (color(c, ink, preset).into(), marked(opacity(c)));
+        }
+        Paint::Linear {
+            transform, stops, ..
+        }
+        | Paint::Radial {
+            transform, stops, ..
+        } => (
             Transform::from_row(
                 transform[0],
                 transform[1],
@@ -693,7 +707,7 @@ fn convert(p: &Paint, preset: Preset) -> (krilla::paint::Paint, NormalizedF32) {
         }
         .into(),
     };
-    (paint, NormalizedF32::ONE)
+    (paint, marked(NormalizedF32::ONE))
 }
 
 fn rect(x: f32, y: f32, w: f32, h: f32) -> Path {
@@ -841,6 +855,7 @@ mod tests {
                 paint: Paint::Solid {
                     color: [1.0, 0.0, 0.0, 1.0],
                     ink: Ink::Rgb,
+                    overprint: false,
                 },
                 path: rect(0.0, 0.0, 10.0, 10.0),
             },
@@ -872,6 +887,7 @@ mod tests {
                 paint: Paint::Solid {
                     color: [1.0, 0.0, 0.0, 1.0],
                     ink: Ink::Rgb,
+                    overprint: false,
                 },
                 path: rect(10.0, 10.0, 12.0, 12.0),
             },
@@ -904,6 +920,7 @@ mod tests {
                 cmyk: [1.0, 0.6, 0.0, 0.0],
                 tint: 0.5,
             },
+            overprint: false,
         }]);
         assert!(pdf.contains("/Separation/HKS#2043/DeviceCMYK"), "{pdf}");
     }
@@ -921,6 +938,7 @@ mod tests {
                 stop(0.0, Ink::Rgb),
                 stop(1.0, Ink::Cmyk([0.0, 1.0, 1.0, 0.0])),
             ],
+            overprint: false,
         }]);
         assert!(pdf.contains("/ColorSpace/DeviceCMYK"), "{pdf}");
     }
@@ -948,6 +966,7 @@ mod tests {
                 paint: Paint::Solid {
                     color: [0.0, 0.0, 0.0, 1.0],
                     ink: black,
+                    overprint: false,
                 },
                 path: rect(10.0, 10.0, 12.0, 12.0),
             },
@@ -1088,6 +1107,7 @@ mod tests {
                 paint: Paint::Solid {
                     color: [0.0, 0.5, 1.0, 1.0],
                     ink: Ink::Rgb,
+                    overprint: false,
                 },
                 path: rect(40.0, 40.0, 10.0, 10.0),
             },
@@ -1095,6 +1115,7 @@ mod tests {
                 paint: Paint::Solid {
                     color: [1.0, 0.0, 0.0, 0.5],
                     ink: Ink::Cmyk([0.0, 1.0, 1.0, 0.0]),
+                    overprint: false,
                 },
                 path: rect(60.0, 60.0, 10.0, 10.0),
             },
@@ -1106,6 +1127,7 @@ mod tests {
                 paint: Paint::Solid {
                     color: [0.0, 0.0, 0.0, 1.0],
                     ink: Ink::Cmyk([0.0, 0.0, 0.0, 1.0]),
+                    overprint: false,
                 },
                 path: rect(5.0, 5.0, 15.0, 15.0),
             },
@@ -1141,6 +1163,32 @@ mod tests {
         assert!(!pdf.contains("/DeviceRGB"));
         assert!(pdf.contains("/SMask"));
         assert!(pdf.contains("/ca .5"));
+    }
+
+    #[test]
+    fn overprinting_paints_overprint_in_print_pdfs() {
+        let pages = [vec![
+            Op::Page {
+                width: 100.0,
+                height: 100.0,
+                bleed: 0.0,
+            },
+            Op::FillPath {
+                paint: Paint::Solid {
+                    color: [0.0, 0.0, 0.0, 1.0],
+                    ink: Ink::Cmyk([0.0, 0.0, 0.0, 1.0]),
+                    overprint: true,
+                },
+                path: rect(10.0, 10.0, 10.0, 10.0),
+            },
+        ]];
+        for preset in [Preset::X4, Preset::X1a] {
+            let pdf = clean(&export(&pages, preset, false, ColorMode::Cmyk));
+            assert!(pdf.contains("/ca 1 /op true /OPM 1"), "{pdf}");
+            assert!(!pdf.contains("0.99987"));
+        }
+        let screen = clean(&export(&pages, Preset::Screen, false, ColorMode::Cmyk));
+        assert!(!screen.contains("/op"));
     }
 
     #[test]

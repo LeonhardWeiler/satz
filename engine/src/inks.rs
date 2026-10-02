@@ -18,8 +18,6 @@ pub struct Inks {
     gamut: Vec<bool>,
 }
 
-type Pick = fn([f32; 4]) -> [f32; 3];
-
 impl Inks {
     /// The inks of the page `ops` begins with, `ppi` pixels per inch.
     pub fn new(ops: &[Op], ppi: f32) -> Option<Inks> {
@@ -36,10 +34,12 @@ impl Inks {
             [-bleed, -bleed, width + 2.0 * bleed, height + 2.0 * bleed],
         );
         let found = std::cell::RefCell::new(Vec::new());
-        recolor(ops, &|c, ink| {
+        let overprint = std::cell::Cell::new(false);
+        recolor(ops, &|c, ink, over| {
             if let Ink::Spot { name, cmyk, .. } = ink {
                 found.borrow_mut().push((name.clone(), *cmyk));
             }
+            overprint.set(overprint.get() || over);
             *c
         });
         let mut spots = found.into_inner();
@@ -50,22 +50,27 @@ impl Inks {
             .chain(spots.iter().map(|s| Some(s.0.as_str())))
             .collect();
         let (mut w, mut h, mut plates) = (0, 0, Vec::new());
-        for (n, chunk) in inks.chunks(3).enumerate() {
-            let cover =
-                |c: &[f32; 4], ink: &Ink, k: usize| match (ink, chunk.get(k).copied().flatten()) {
-                    (Ink::Spot { name, tint, .. }, Some(spot)) if name == spot => *tint,
-                    (Ink::Spot { .. }, _) | (_, Some(_)) => 0.0,
-                    _ if k < chunk.len() => ink.cmyk(c)[3 * n + k],
-                    _ => 0.0,
-                };
-            let pick: Pick = match n {
-                0 => |c| [c[0], c[1], c[2]],
-                1 => |c| [c[3], 0.0, 0.0],
-                _ => |_| [0.0; 3],
+        let size = if overprint.get() { 1 } else { 3 };
+        for (n, chunk) in inks.chunks(size).enumerate() {
+            let at = |k: usize| (k < chunk.len()).then_some(n * size + k);
+            let cover = |c: &[f32; 4], ink: &Ink, k: usize| match (ink, at(k).and_then(|i| inks[i]))
+            {
+                (Ink::Spot { name, tint, .. }, Some(spot)) if name == spot => *tint,
+                (Ink::Spot { .. }, _) | (_, Some(_)) => 0.0,
+                _ => at(k).map_or(0.0, |i| ink.cmyk(c)[i]),
+            };
+            let pick = |c: [f32; 4]| {
+                std::array::from_fn(|k| at(k).and_then(|i| c.get(i)).map_or(0.0, |v| *v))
             };
             let images = |id, size| plate(id, size, pick);
-            let recolored = recolor(ops, &|c, ink| {
-                [cover(c, ink, 0), cover(c, ink, 1), cover(c, ink, 2), c[3]]
+            let recolored = recolor(ops, &|c, ink, over| {
+                let v = [0, 1, 2].map(|k| cover(c, ink, k));
+                [
+                    v[0],
+                    v[1],
+                    v[2],
+                    if over && v[0] == 0.0 { 0.0 } else { c[3] },
+                ]
             });
             let px = rasterize(&recolored, rect, ppi, &images)?;
             (w, h) = (px.width(), px.height());
@@ -74,7 +79,9 @@ impl Inks {
             }
         }
         let rgb = rasterize(
-            &recolor(ops, &|c, ink| if *ink == Ink::Rgb { *c } else { [0.0; 4] }),
+            &recolor(ops, &|c, ink, _| {
+                if *ink == Ink::Rgb { *c } else { [0.0; 4] }
+            }),
             rect,
             ppi,
             &|id, _| image::pixmap(id),

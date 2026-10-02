@@ -229,6 +229,7 @@ impl Doc {
         let solid = |color| Paint::Solid {
             color,
             ink: Ink::Rgb,
+            overprint: false,
         };
         if a == b {
             let f = self.holding(n, a)?;

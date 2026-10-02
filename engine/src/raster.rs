@@ -383,7 +383,12 @@ fn color(c: &[f32; 4]) -> Color {
 fn convert(p: &ListPaint) -> Option<Paint<'static>> {
     let shader = match p {
         ListPaint::Solid { color: c, .. } => Shader::SolidColor(color(c)),
-        ListPaint::Linear { transform, stops } | ListPaint::Radial { transform, stops } => {
+        ListPaint::Linear {
+            transform, stops, ..
+        }
+        | ListPaint::Radial {
+            transform, stops, ..
+        } => {
             let [a, b, c, d, e, f] = *transform;
             let t = Transform::from_row(a, b, c, d, e, f);
             let stops = stops
@@ -428,6 +433,7 @@ mod tests {
     const BLACK: ListPaint = ListPaint::Solid {
         color: [0.0, 0.0, 0.0, 1.0],
         ink: crate::color::Ink::Rgb,
+        overprint: false,
     };
 
     fn alpha(px: &Pixmap, x: u32, y: u32) -> u8 {

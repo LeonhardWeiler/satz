@@ -1,11 +1,14 @@
 //! PDF/X on top of krilla, which has no PDF/X support: an incremental update
 //! adds the FOGRA51 OutputIntent, the XMP metadata and the Info dictionary, and
 //! for `rgb` gives every page an sRGB transparency group, so that the page
-//! blends in RGB as the canvas does.
+//! blends in RGB as the canvas does. Graphics states with the opacity `OVERPRINT`
+//! become opaque and overprint.
 
 use crate::pdf::Preset;
 
 const PAGE: &[u8] = b" 0 obj\n<</Type/Page/";
+const STATE: &[u8] = b" 0 obj\n<</Type/ExtGState";
+pub const OVERPRINT: f32 = 0.99987;
 const FOGRA51: &[u8] = include_bytes!("../icc/FOGRA51.icc");
 
 /// `pdf` as `preset` titled `title`, made at `date` in ISO 8601 UTC, as
@@ -25,19 +28,7 @@ pub fn pdfx(mut pdf: Vec<u8>, preset: Preset, rgb: bool, title: &str, date: &str
     let did = id[5..].split(')').next().unwrap();
 
     let catalog = dict(&pdf, root);
-    let pages: Vec<(usize, usize)> = pdf
-        .windows(PAGE.len())
-        .enumerate()
-        .filter(|(_, w)| *w == PAGE)
-        .map(|(at, _)| {
-            let start = pdf[..at].iter().rposition(|&b| b == b'\n').unwrap() + 1;
-            let n = std::str::from_utf8(&pdf[start..at])
-                .unwrap()
-                .parse()
-                .unwrap();
-            (n, at + b" 0 obj\n".len())
-        })
-        .collect();
+    let pages = starts(&pdf, PAGE);
 
     let pdf_date = format!(
         "D:{}Z00'00'",
@@ -142,6 +133,15 @@ xmlns:pdfxid=\"http://www.npes.org/pdfx/ns/id/\">\
         size + 2
     );
     objects.push((root, catalog.into_bytes()));
+    for (n, at) in starts(&pdf, STATE) {
+        let state = body(&pdf, at);
+        if state.contains(&format!(" {OVERPRINT}")) {
+            let state = state
+                .replace(&format!("/ca {OVERPRINT}"), "/ca 1/op true")
+                .replace(&format!("/CA {OVERPRINT}"), "/CA 1/OP true");
+            objects.push((n, format!("{state}/OPM 1>>").into_bytes()));
+        }
+    }
     if pdf.last() != Some(&b'\n') {
         pdf.push(b'\n');
     }
@@ -167,6 +167,22 @@ xmlns:pdfxid=\"http://www.npes.org/pdfx/ns/id/\">\
     );
     pdf.extend_from_slice(xref.as_bytes());
     pdf
+}
+
+/// The number and the start of the body of each object in `pdf` that `head` finds.
+fn starts(pdf: &[u8], head: &[u8]) -> Vec<(usize, usize)> {
+    pdf.windows(head.len())
+        .enumerate()
+        .filter(|(_, w)| *w == head)
+        .map(|(at, _)| {
+            let start = pdf[..at].iter().rposition(|&b| b == b'\n').unwrap() + 1;
+            let n = std::str::from_utf8(&pdf[start..at])
+                .unwrap()
+                .parse()
+                .unwrap();
+            (n, at + b" 0 obj\n".len())
+        })
+        .collect()
 }
 
 /// The dictionary of the object `n` in `pdf` without its closing `>>`.

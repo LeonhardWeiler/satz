@@ -85,15 +85,39 @@ pub enum Paint {
         color: [f32; 4],
         #[serde(skip)]
         ink: Ink,
+        #[serde(skip)]
+        overprint: bool,
     },
     Linear {
         transform: [f32; 6],
         stops: Vec<Stop>,
+        #[serde(skip)]
+        overprint: bool,
     },
     Radial {
         transform: [f32; 6],
         stops: Vec<Stop>,
+        #[serde(skip)]
+        overprint: bool,
     },
+}
+
+impl Paint {
+    /// Whether the paint leaves the inks it does not use under it as they are;
+    /// only opaque paints do.
+    pub fn overprints(&self) -> bool {
+        match self {
+            Paint::Solid {
+                color, overprint, ..
+            } => *overprint && color[3] >= 1.0,
+            Paint::Linear {
+                stops, overprint, ..
+            }
+            | Paint::Radial {
+                stops, overprint, ..
+            } => *overprint && stops.iter().all(|s| s.color[3] >= 1.0),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -190,7 +214,12 @@ fn paint(out: &mut Vec<u32>, p: &Paint) {
             out.push(0);
             floats(out, color);
         }
-        Paint::Linear { transform, stops } | Paint::Radial { transform, stops } => {
+        Paint::Linear {
+            transform, stops, ..
+        }
+        | Paint::Radial {
+            transform, stops, ..
+        } => {
             out.push(if matches!(p, Paint::Linear { .. }) {
                 1
             } else {
@@ -344,26 +373,28 @@ pub fn encode(ops: &[Op]) -> Vec<u32> {
     out
 }
 
-/// `ops` with every colour replaced by `f(colour, ink)`.
-pub fn recolor(ops: &[Op], f: &impl Fn(&[f32; 4], &Ink) -> [f32; 4]) -> Vec<Op> {
-    let stops = |stops: &mut Vec<Stop>| {
-        for s in stops {
-            s.color = f(&s.color, &s.ink);
-        }
-    };
+/// `ops` with every colour replaced by `f(colour, ink, overprints)`.
+pub fn recolor(ops: &[Op], f: &impl Fn(&[f32; 4], &Ink, bool) -> [f32; 4]) -> Vec<Op> {
     ops.iter()
         .map(|op| {
             let mut op = op.clone();
             match &mut op {
                 Op::FillPath { paint, .. }
                 | Op::StrokePath { paint, .. }
-                | Op::GlyphRun { paint, .. } => match paint {
-                    Paint::Solid { color, ink } => *color = f(color, ink),
-                    Paint::Linear { stops: s, .. } | Paint::Radial { stops: s, .. } => stops(s),
-                },
+                | Op::GlyphRun { paint, .. } => {
+                    let over = paint.overprints();
+                    match paint {
+                        Paint::Solid { color, ink, .. } => *color = f(color, ink, over),
+                        Paint::Linear { stops, .. } | Paint::Radial { stops, .. } => {
+                            for s in stops {
+                                s.color = f(&s.color, &s.ink, over);
+                            }
+                        }
+                    }
+                }
                 Op::PushLayer { shadows, .. } => {
                     for s in shadows {
-                        s.color = f(&s.color, &s.ink);
+                        s.color = f(&s.color, &s.ink, false);
                     }
                 }
                 _ => {}
@@ -386,6 +417,7 @@ mod tests {
         let linear = Paint::Linear {
             transform: [1.0, 0.0, 0.0, 1.0, 2.0, 3.0],
             stops: Vec::new(),
+            overprint: false,
         };
         let ops = shift(
             vec![
@@ -448,6 +480,7 @@ mod tests {
                     paint: Paint::Solid {
                         color,
                         ink: Ink::Rgb,
+                        overprint: false,
                     },
                     path: rect(0.0, 0.0, 1.0, 1.0),
                 },
@@ -524,6 +557,7 @@ mod tests {
                 paint: Paint::Solid {
                     color: [0.0, 0.0, 0.0, 1.0],
                     ink: Ink::Rgb,
+                    overprint: false,
                 },
                 path: rect(0.0, 0.0, 1.0, 1.0),
             },
@@ -544,6 +578,7 @@ mod tests {
                             ink: Ink::Rgb,
                         },
                     ],
+                    overprint: false,
                 },
                 path: rect(10.0, 20.0, 30.5, 40.0),
             },
@@ -555,6 +590,7 @@ mod tests {
                         color: [1.0, 1.0, 1.0, 1.0],
                         ink: Ink::Rgb,
                     }],
+                    overprint: false,
                 },
                 width: 1.5,
                 cap: 1,
@@ -567,6 +603,7 @@ mod tests {
                 paint: Paint::Solid {
                     color: [0.0, 0.0, 0.0, 1.0],
                     ink: Ink::Rgb,
+                    overprint: false,
                 },
                 glyphs: vec![3, 65535, 42],
                 positions: vec![0.0, 0.0, 6.5, 0.0, 13.0, 0.0],

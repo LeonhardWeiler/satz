@@ -21,6 +21,8 @@ pub struct Style {
     pub blend: Blend,
     pub effects: Vec<Effect>,
     pub mask: bool,
+    pub overprint_fill: bool,
+    pub overprint_stroke: bool,
     pub constraints: Constraints,
 }
 
@@ -40,6 +42,8 @@ impl Default for Style {
             blend: Blend::Normal,
             effects: Vec::new(),
             mask: false,
+            overprint_fill: false,
+            overprint_stroke: false,
             constraints: Constraints::default(),
         }
     }
@@ -274,7 +278,7 @@ impl Blend {
 }
 
 /// The paint of a colour or gradient fill.
-fn paint(f: &Fill, frame: [f32; 4], s: &Scope) -> Option<Paint> {
+fn paint(f: &Fill, frame: [f32; 4], s: &Scope, overprint: bool) -> Option<Paint> {
     let transform = f.place(frame);
     let stops = f
         .stops
@@ -289,9 +293,18 @@ fn paint(f: &Fill, frame: [f32; 4], s: &Scope) -> Option<Paint> {
         FillKind::Solid => Paint::Solid {
             color: f.color.rgba(s),
             ink: f.color.ink(s),
+            overprint,
         },
-        FillKind::Linear => Paint::Linear { transform, stops },
-        FillKind::Radial => Paint::Radial { transform, stops },
+        FillKind::Linear => Paint::Linear {
+            transform,
+            stops,
+            overprint,
+        },
+        FillKind::Radial => Paint::Radial {
+            transform,
+            stops,
+            overprint,
+        },
         FillKind::Image => return None,
     })
 }
@@ -301,11 +314,12 @@ pub fn paints<'a>(
     fills: &'a [Fill],
     frame: [f32; 4],
     s: &'a Scope<'a>,
+    overprint: bool,
 ) -> impl Iterator<Item = Paint> + 'a {
     fills
         .iter()
         .filter(|f| f.visible)
-        .filter_map(move |f| paint(f, frame, s))
+        .filter_map(move |f| paint(f, frame, s, overprint))
 }
 
 impl Style {
@@ -313,7 +327,7 @@ impl Style {
     pub fn shape(&self, path: &[f32], frame: [f32; 4], s: &Scope) -> Vec<Op> {
         let mut ops = Vec::new();
         for f in self.fills.iter().filter(|f| f.visible) {
-            if let Some(paint) = paint(f, frame, s) {
+            if let Some(paint) = paint(f, frame, s, self.overprint_fill) {
                 ops.push(Op::FillPath {
                     paint,
                     path: path.to_vec(),
@@ -357,7 +371,7 @@ impl Style {
                 }
             }
         }
-        for paint in paints(&self.strokes, frame, s) {
+        for paint in paints(&self.strokes, frame, s, self.overprint_stroke) {
             let stroke = Op::StrokePath {
                 paint,
                 width: self.stroke_weight * if align == Align::Center { 1.0 } else { 2.0 },
@@ -432,7 +446,7 @@ mod tests {
             transform: [1.0, 0.0, 0.0, 1.0, 0.5, 0.0],
             ..Fill::solid(Color::Rgb(0xff))
         };
-        match scope(|s| paint(&f, [10.0, 20.0, 100.0, 50.0], s)).unwrap() {
+        match scope(|s| paint(&f, [10.0, 20.0, 100.0, 50.0], s, false)).unwrap() {
             Paint::Linear { transform, .. } => {
                 assert_eq!(transform, [100.0, 0.0, 0.0, 50.0, 60.0, 20.0])
             }
@@ -446,7 +460,7 @@ mod tests {
             visible: false,
             ..Fill::solid(Color::Rgb(0xff))
         }];
-        assert_eq!(scope(|s| paints(&fills, [0.0; 4], s).count()), 0);
+        assert_eq!(scope(|s| paints(&fills, [0.0; 4], s, false).count()), 0);
     }
 
     #[test]

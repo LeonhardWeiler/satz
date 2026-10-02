@@ -504,7 +504,7 @@ fn decode_cmyk(bytes: &[u8]) -> Option<(Vec<u8>, u32, u32)> {
 
 /// The plate of the image `id` with the CMYK channels `pick` takes as RGB,
 /// premultiplied, shrunk by a whole factor to no less than `size` pixels.
-pub fn plate(id: u32, [w, h]: [f32; 2], pick: fn([f32; 4]) -> [f32; 3]) -> Option<Rc<Pixmap>> {
+pub fn plate(id: u32, [w, h]: [f32; 2], pick: impl Fn([f32; 4]) -> [f32; 3]) -> Option<Rc<Pixmap>> {
     let c = cmyk(id)?;
     let (cw, ch) = c.size;
     let f = (cw as f32 / w)

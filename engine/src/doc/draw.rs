@@ -667,7 +667,7 @@ impl Doc {
     /// The display list of the page `id` as one plate of its print, C, M and Y or K
     /// in all three, inverted to RGB so that the canvas blends its inks on paper.
     pub fn plate(&self, id: &str, k: bool) -> Vec<Op> {
-        let mut ops = recolor(&self.render(id), &|c, ink| {
+        let mut ops = recolor(&self.render(id), &|c, ink, _| {
             let [cyan, m, y, black] = ink.cmyk(c);
             let [r, g, b] = if k { [black; 3] } else { [cyan, m, y] };
             [1.0 - r, 1.0 - g, 1.0 - b, c[3]]
@@ -1549,7 +1549,9 @@ mod tests {
             },
         );
         let Op::FillPath {
-            paint: Paint::Linear { transform, stops },
+            paint: Paint::Linear {
+                transform, stops, ..
+            },
             ..
         } = &page_ops(&d)[2]
         else {
@@ -1723,6 +1725,37 @@ mod tests {
         };
         assert!(r < 80 && g < 80 && b < 80);
         assert!(black[at(0.0, 144.0) * 4] > 240);
+    }
+
+    #[test]
+    fn an_overprinting_fill_leaves_the_inks_under_it() {
+        let (mut d, p) = empty();
+        let fill = |color, overprint| Props {
+            fills: Some(vec![Fill {
+                color,
+                ..Fill::default()
+            }]),
+            overprint_fill: Some(overprint),
+            ..Props::default()
+        };
+        let cyan = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 144.0, 72.0]);
+        set(&mut d, &cyan, fill(process(1.0, 0.0, 0.0, 0.0), false));
+        let black = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 72.0, 72.0]);
+        set(&mut d, &black, fill(process(0.0, 0.0, 0.0, 1.0), true));
+        cmyk(&mut d);
+        let bleed = page(&d).bleed;
+        let coverage = |d: &Doc| {
+            let inks = d.inks(&p, 10.0).unwrap();
+            let at = |x: f64| {
+                ((bleed + 36.0) * 10.0 / 72.0) as u32 * inks.width()
+                    + ((x + bleed + 36.0) * 10.0 / 72.0) as u32
+            };
+            let c = inks.coverage();
+            [c[at(0.0) as usize], c[at(72.0) as usize]].map(f32::round)
+        };
+        assert_eq!(coverage(&d), [200.0, 100.0]);
+        set(&mut d, &black, fill(process(0.0, 0.0, 0.0, 1.0), false));
+        assert_eq!(coverage(&d), [100.0, 100.0]);
     }
 
     #[test]

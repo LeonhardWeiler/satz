@@ -1,7 +1,7 @@
 import { Fragment, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
-import { Field, FontSelect, NameInput, nextName, Section, Segmented, Select } from './controls'
+import { Check, Field, FontSelect, NameInput, nextName, Section, Segmented, Select } from './controls'
 import { useEditor, type Editor } from './editor'
 import { addLocalFont, useLocalFonts } from './file'
 import { Icon, type IconName } from './icons'
@@ -250,23 +250,6 @@ function TabStops({ tabs, set }: { tabs: string | null; set: (tabs: Tab[]) => vo
         Add tab stop
       </button>
     </div>
-  )
-}
-
-/** A checkbox that shows `null`, a mixed value, as indeterminate. */
-function Check({ label, value, set }: { label: string; value: boolean | null; set: (v: boolean) => void }) {
-  return (
-    <label className="check">
-      <input
-        type="checkbox"
-        checked={value === true}
-        ref={(el) => {
-          if (el) el.indeterminate = value === null
-        }}
-        onChange={(e) => set(e.currentTarget.checked)}
-      />
-      {label}
-    </label>
   )
 }
 

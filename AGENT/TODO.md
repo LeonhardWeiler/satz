@@ -54,6 +54,4 @@ Open:
 - Place SVG and PDF as vectors, kept as vectors in the exported PDF.
 - Package: one ZIP with the document, its fonts and images for the printer.
 - Version history from the Loro history: browse and restore earlier states.
-- Overprint for fills and strokes, shown in the separations preview and written to
-  the PDF.
 - Spell check from Hunspell word lists in the engine, marked in the text.

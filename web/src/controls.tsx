@@ -377,3 +377,20 @@ export function Edge({ side }: { side: 'left' | 'right' | 'swatches' }) {
     />
   )
 }
+
+/** A checkbox that shows `null`, a mixed value, as indeterminate. */
+export function Check({ label, value, set }: { label: string; value: boolean | null; set: (v: boolean) => void }) {
+  return (
+    <label className="check">
+      <input
+        type="checkbox"
+        checked={value === true}
+        ref={(el) => {
+          if (el) el.indeterminate = value === null
+        }}
+        onChange={(e) => set(e.currentTarget.checked)}
+      />
+      {label}
+    </label>
+  )
+}

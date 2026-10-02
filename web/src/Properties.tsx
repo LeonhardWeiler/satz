@@ -1,5 +1,5 @@
 import { neutral, solid, type ColorMode } from './color'
-import { Field, NameInput, Section, Segmented, Select } from './controls'
+import { Check, Field, NameInput, Section, Segmented, Select } from './controls'
 import { type ReactNode } from 'react'
 import { bounds, ends, MM, scopeOf, useEditor, type Editor } from './editor'
 import { Icon, KindIcon } from './icons'
@@ -359,7 +359,11 @@ export function Properties({
           added={solid(neutral(nodes.every((n) => n.kind === 'text') ? 'black' : 'gray', mode))}
           mode={mode}
           scope={scope}
-          onChange={(fills) => set({ fills })} />
+          onChange={(fills) => set({ fills })}>
+          {sameList((n) => n.fills)?.length !== 0 && (
+            <Check label="Overprint fill" value={same((n) => n.overprintFill)} set={(overprintFill) => set({ overprintFill })} />
+          )}
+        </PaintList>
       )}
       {stroked && (
         <PaintList title="Stroke" paints={strokes} added={solid(neutral('black', mode))} mode={mode} scope={scope} onChange={(strokes) => set({ strokes })}>
@@ -383,6 +387,7 @@ export function Properties({
                 </>
               )}
               <Segmented label="Stroke join" value={same((n) => n.join)} options={JOINS} onChange={(join) => set({ join })} />
+              <Check label="Overprint stroke" value={same((n) => n.overprintStroke)} set={(overprintStroke) => set({ overprintStroke })} />
             </div>
           )}
         </PaintList>

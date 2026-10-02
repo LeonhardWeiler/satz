@@ -561,8 +561,9 @@ pub fn draw(
             Some(c) => vec![Paint::Solid {
                 color: c.rgba(s),
                 ink: c.ink(s),
+                overprint: style.overprint_fill,
             }],
-            None => paints(&style.fills, frame, s).collect(),
+            None => paints(&style.fills, frame, s, style.overprint_fill).collect(),
         })
         .collect();
     let mut ops = Vec::new();

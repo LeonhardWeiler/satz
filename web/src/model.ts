@@ -38,6 +38,8 @@ export type Style = {
   blend: Blend
   effects: Effect[]
   mask: boolean
+  overprintFill: boolean
+  overprintStroke: boolean
   constraints: { horizontal: Constraint; vertical: Constraint }
 }
 

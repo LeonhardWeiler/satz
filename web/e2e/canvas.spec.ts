@@ -434,4 +434,6 @@ test('a stroke runs dashed', async ({ page }) => {
   await choose(panel.getByRole('combobox', { name: 'Line style' }), 'Dashed')
   await expect.poll(dark).toBeLessThan(100)
   await expect.poll(dark).toBeGreaterThan(40)
+  await panel.getByRole('checkbox', { name: 'Overprint stroke' }).check()
+  await expect(panel.getByRole('checkbox', { name: 'Overprint stroke' })).toBeChecked()
 })

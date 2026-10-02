@@ -421,6 +421,8 @@ pub struct Props {
     pub blend: Option<Blend>,
     pub effects: Option<Vec<Effect>>,
     pub mask: Option<bool>,
+    pub overprint_fill: Option<bool>,
+    pub overprint_stroke: Option<bool>,
     pub direction: Option<Direction>,
     pub gap: Option<f64>,
     pub padding_top: Option<f64>,
@@ -2936,6 +2938,7 @@ mod tests {
                 paint: Paint::Solid {
                     color: [0.0; 4],
                     ink: Ink::Rgb,
+                    overprint: false,
                 },
                 path: path.clone(),
             }),
