@@ -322,20 +322,17 @@ fn encode(rgba: &[u8], (w, h): (u32, u32)) -> Option<Vec<u8>> {
     Some(out)
 }
 
-/// The image `id` for the PDF, which embeds a JPEG as it is, separates it
-/// through FOGRA51 for `cmyk`, or shows it as it prints for a `PROOF` id.
+/// The image `id` for the PDF, which embeds a JPEG as it is, separates an RGB
+/// image through FOGRA51 for `cmyk`, or shows it as it prints for a `PROOF` id.
 pub fn pdf(id: u32, cmyk: bool) -> Option<krilla::image::Image> {
+    let e = entry(id)?;
+    if e.source.is_none() && id & PROOF == 0 && (!cmyk || e.info.space == Space::Cmyk) {
+        return pdf_image(e.format, &e.bytes).ok();
+    }
     if cmyk {
         return krilla::image::Image::from_custom(self::cmyk(id)?, true).ok();
     }
-    if id & PROOF != 0 {
-        return krilla::image::Image::from_png(bytes(id).into(), true).ok();
-    }
-    let e = entry(id)?;
-    match e.source {
-        Some(_) => krilla::image::Image::from_png(file(&e)?.into(), true).ok(),
-        None => pdf_image(e.format, &e.bytes).ok(),
-    }
+    krilla::image::Image::from_png(bytes(id).into(), true).ok()
 }
 
 /// The pixels of the image `id`, premultiplied, for rasterized effects.

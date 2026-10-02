@@ -984,6 +984,20 @@ mod tests {
     }
 
     #[test]
+    fn a_cmyk_jpeg_goes_into_a_cmyk_pdf_as_it_is() {
+        let jpeg = include_bytes!("../testdata/cmyk-black.jpg");
+        let hash = crate::image::register(jpeg.to_vec().into()).unwrap().hash;
+        let mut ops = red_image();
+        ops[1] = Op::Image {
+            image: crate::image::id(&hash).unwrap(),
+            transform: [10.0, 0.0, 0.0, 10.0, 10.0, 10.0],
+        };
+        let pdf = export(&[ops], Preset::X4, false, ColorMode::Cmyk);
+        let at = pdf.windows(9).position(|w| w == b"DCTDecode").unwrap();
+        assert!(pdf[at..].windows(jpeg.len()).any(|w| w == jpeg));
+    }
+
+    #[test]
     fn a_blurred_image_rasterizes_its_cmyk_plates() {
         let ops = red_image();
         let cmy = |id, size| super::plate(id, size, |c| [c[0], c[1], c[2]]);

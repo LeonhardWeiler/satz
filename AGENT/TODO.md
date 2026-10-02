@@ -37,10 +37,6 @@ Open:
 
 ## Later
 
-- The canvas composites transparency in RGB, the PDF of a CMYK document in CMYK:
-  semi-transparent colour over dark CMYK colour looks lighter on the canvas.
-- CMYK JPEGs: decoded to RGB and separated again; pass them through to the PDF
-  as they are, and do not report them as RGB.
 - Linked images: per document, chosen at creation, embed or link. Linking uses
   File System Access (Chromium) with handles in IndexedDB, so links need a click
   per session and are missing on other computers; Firefox shows the option
