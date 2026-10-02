@@ -33,7 +33,7 @@ const RESIZING = [
   ['fixedSize', 'Fixed size', 'fixedSize'],
   ['autoFit', 'Auto fit', 'autoFit'],
 ] as const
-const LANGS = { en: 'English', de: 'German' } as const
+const LANGS = { en: 'English', de: 'German', fr: 'French', it: 'Italian', es: 'Spanish', nl: 'Dutch' } as const
 /** Styled numbers: title, label, unit, least value and the text shown for 0. */
 const METRICS: [Exclude<Styled, 'font' | 'textCase' | 'textDecoration' | 'features' | 'paragraphIndent' | 'position' | 'baselineShift'>, string, IconName, string, number, string?][] = [
   ['size', 'Font size', 'fontSize', 'pt', 0.1],

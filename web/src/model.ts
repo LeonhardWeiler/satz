@@ -246,7 +246,7 @@ export type Attrs = {
   textStyle: string
   textAlign: 'left' | 'center' | 'right' | 'justify'
   hyphenate: boolean
-  lang: 'en' | 'de'
+  lang: 'en' | 'de' | 'fr' | 'it' | 'es' | 'nl'
   /** `null` is the bundled font. */
   font: Typeface | null
   paragraphIndent: number

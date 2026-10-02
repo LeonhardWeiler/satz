@@ -166,6 +166,10 @@ pub enum Lang {
     #[default]
     En,
     De,
+    Fr,
+    It,
+    Es,
+    Nl,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
@@ -312,6 +316,10 @@ fn syllables(para: &str, lang: Lang) -> Vec<usize> {
     let lang = match lang {
         Lang::En => hypher::Lang::English,
         Lang::De => hypher::Lang::German,
+        Lang::Fr => hypher::Lang::French,
+        Lang::It => hypher::Lang::Italian,
+        Lang::Es => hypher::Lang::Spanish,
+        Lang::Nl => hypher::Lang::Dutch,
     };
     let mut out = Vec::new();
     let mut rest = para;
@@ -1660,6 +1668,18 @@ mod tests {
         let de = plain("hyphenation", lang(Lang::De), frame);
         assert_eq!(en[0].0.last(), Some(&HYPHEN));
         assert_ne!(en[0].0.len(), de[0].0.len());
+    }
+
+    #[test]
+    fn french_italian_spanish_and_dutch_hyphenate() {
+        for (word, lang) in [
+            ("constitutionnellement", Lang::Fr),
+            ("precipitevolissimevolmente", Lang::It),
+            ("electroencefalografista", Lang::Es),
+            ("ziekenhuisopname", Lang::Nl),
+        ] {
+            assert!(syllables(word, lang).len() > 2, "{word}");
+        }
     }
 
     fn baselines(text: &str, frame: [f32; 4], tf: TextFrame) -> Vec<[f32; 2]> {

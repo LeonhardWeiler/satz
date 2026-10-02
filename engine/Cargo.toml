@@ -10,7 +10,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 console_error_panic_hook = "0.1.7"
 harfrust = "0.13.3"
-hypher = { version = "0.1.8", default-features = false, features = ["english", "german"] }
+hypher = { version = "0.1.8", default-features = false, features = ["english", "german", "french", "italian", "spanish", "dutch"] }
 js-sys = "=0.3.104"
 krilla = { version = "0.8.2", default-features = false, features = ["raster-images"] }
 kurbo = "0.13.1"

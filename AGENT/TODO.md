@@ -74,4 +74,3 @@ Open:
 - PDF options: page range, downsampling and JPEG compression of images.
 - Spell check from Hunspell word lists in the engine, marked in the text.
 - Drop caps over a number of lines.
-- More hyphenation languages (fr, it, es, nl).
