@@ -1158,6 +1158,55 @@ mod tests {
     }
 
     #[test]
+    fn flipping_a_group_mirrors_its_layers_across_its_centre() {
+        let (mut d, p) = empty();
+        let r = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
+        let s = create(&mut d, &p, NewKind::Star, [30.0, 0.0, 10.0, 20.0]);
+        set(
+            &mut d,
+            &r,
+            Props {
+                rotation: Some(30.0),
+                corners: Some(vec![1.0, 2.0, 3.0, 4.0]),
+                ..Props::default()
+            },
+        );
+        let g = d
+            .apply(Command::Group {
+                ids: vec![r.clone(), s.clone()],
+                frame: false,
+            })
+            .unwrap()
+            .remove(0);
+        d.apply(Command::Flip {
+            id: g.clone(),
+            vertical: false,
+        })
+        .unwrap();
+        let pg = page(&d);
+        let [a, b] = children(&pg.children[0]) else {
+            panic!("not a group of 2");
+        };
+        assert_eq!(frame(a), [30.0, 0.0, 10.0, 10.0]);
+        assert_eq!(a.rotation, -30.0);
+        assert!(
+            matches!(&a.kind, Kind::Shape(Shape::Rect { corners, .. }) if corners == &[2.0, 1.0, 4.0, 3.0])
+        );
+        assert_eq!(frame(b), [0.0, 0.0, 10.0, 20.0]);
+        assert!(matches!(b.kind, Kind::Shape(Shape::Star { .. })));
+        d.apply(Command::Flip {
+            id: s,
+            vertical: true,
+        })
+        .unwrap();
+        let pg = page(&d);
+        let Kind::Shape(Shape::Path { path }) = &children(&pg.children[0])[1].kind else {
+            panic!("an odd star flipped upside down is a path");
+        };
+        assert_eq!(path[..3], [MOVE, 0.5, 1.0]);
+    }
+
+    #[test]
     fn a_rotated_layer_is_drawn_and_hit_turned_around_its_centre() {
         let (mut d, p) = empty();
         let r = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 20.0, 4.0]);

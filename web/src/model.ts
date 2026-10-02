@@ -103,6 +103,7 @@ export type Command =
   | { type: 'setGrids'; id: string; grids: Grid[] }
   | { type: 'setGuides'; id: string; guides: Guides }
   | { type: 'flatten'; id: string }
+  | { type: 'flip'; id: string; vertical: boolean }
   | { type: 'boolean'; ids: string[]; op: BooleanOp }
   | { type: 'fillArea'; id: string; x: number; y: number }
   | { type: 'scaleText'; id: string; by: number }

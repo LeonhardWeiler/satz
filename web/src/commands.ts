@@ -85,6 +85,8 @@ export const ACTIONS: Action[] = [
   { title: 'Ungroup', keys: 'Ctrl Shift G', group: 'Arrange', can: (editor) => editor.selected().some((n) => n.kind === 'group' || n.kind === 'frame') },
   { title: 'Use as mask', keys: 'Ctrl Alt M', group: 'Arrange' },
   { title: 'Flatten', keys: 'Ctrl E', group: 'Arrange', can: (editor) => editor.selected().some((n) => n.kind === 'text' || n.kind === 'shape') },
+  { title: 'Flip horizontal', keys: 'Shift H', group: 'Arrange' },
+  { title: 'Flip vertical', keys: 'Shift V', group: 'Arrange' },
   { title: 'Add auto layout', keys: 'Shift A', group: 'Arrange' },
   { title: 'Remove auto layout', keys: 'Shift Alt A', group: 'Arrange' },
   { title: 'Bring forward', keys: 'Ctrl ]', group: 'Arrange' },
@@ -119,7 +121,7 @@ export const ACTIONS: Action[] = [
 
 /** The titles of the actions the context menu offers with and without a selection, `null` between groups. */
 export const MENU = {
-  selected: ['Cut', 'Copy', 'Paste', 'Duplicate', 'Delete', null, 'Group', 'Frame selection', 'Ungroup', 'Use as mask', 'Flatten', 'Add auto layout', null, 'Bring to front', 'Send to back', null, 'Hide selection', 'Lock selection', 'Rename'],
+  selected: ['Cut', 'Copy', 'Paste', 'Duplicate', 'Delete', null, 'Group', 'Frame selection', 'Ungroup', 'Use as mask', 'Flatten', 'Flip horizontal', 'Flip vertical', 'Add auto layout', null, 'Bring to front', 'Send to back', null, 'Hide selection', 'Lock selection', 'Rename'],
   none: ['Paste', 'Select all', null, 'Undo', 'Redo', null, 'Zoom to fit', 'Show or hide rulers', 'Add page', 'Page overview', null, 'Command palette', 'Keyboard shortcuts', 'Settings'],
 }
 

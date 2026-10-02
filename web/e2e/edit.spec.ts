@@ -223,6 +223,20 @@ test('the bucket fills the area under the pointer with a new layer below the pat
   await expect(tools).toBeVisible()
 })
 
+test('shift h and shift v flip the selection', async ({ page }) => {
+  await open(page)
+  const rotation = page.getByRole('complementary', { name: 'Properties' }).getByRole('textbox', { name: 'Rotation in °' })
+  await page.keyboard.press('r')
+  await drag(page, await screen(page, 20, 20), await screen(page, 60, 40))
+  await rotation.fill('30')
+  await rotation.press('Enter')
+  await page.locator('canvas').first().focus()
+  await page.keyboard.press('Shift+H')
+  await expect(rotation).toHaveValue('-30')
+  await page.keyboard.press('Shift+V')
+  await expect(rotation).toHaveValue('30')
+})
+
 test('ctrl click and the path tools make a point smooth or a corner', async ({ page }) => {
   await open(page)
   const w = page.getByRole('complementary', { name: 'Properties' }).getByRole('textbox', { name: 'W' })

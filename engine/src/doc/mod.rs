@@ -146,6 +146,11 @@ pub enum Command {
         id: String,
         path: Vec<f32>,
     },
+    /// Mirrors a layer and its content left to right, or top to bottom when `vertical`.
+    Flip {
+        id: String,
+        vertical: bool,
+    },
     /// Turns a shape into a path along its outline.
     Flatten {
         id: String,
@@ -1200,6 +1205,7 @@ impl Doc {
             Command::DeleteTextStyle { id } => self.delete_text_style(id),
             Command::Set { id, props } => self.set_props(id, props),
             Command::SetPath { id, path } => self.set_path(id, path),
+            Command::Flip { id, vertical } => self.flip(id, vertical),
             Command::Flatten { id } => self.flatten(id),
             Command::Boolean { ids, op } => self.boolean(ids, op),
             Command::FillArea { id, x, y } => self.fill_area(id, x, y),
@@ -2036,6 +2042,105 @@ impl Doc {
         let path = self.outline_of(id)?;
         self.make_path(id, &path)?;
         Ok(vec![])
+    }
+
+    fn flip(&self, id: String, vertical: bool) -> Res<Vec<String>> {
+        let id = self.layer(&id)?;
+        let [x, y, w, h] = self.bounds(id);
+        self.mirror(
+            id,
+            if vertical { y + h / 2.0 } else { x + w / 2.0 },
+            vertical,
+        )?;
+        Ok(vec![])
+    }
+
+    /// Mirrors `id` and its content across the line `x = at`, or `y = at` when `vertical`.
+    fn mirror(&self, id: TreeID, at: f64, vertical: bool) -> Res<()> {
+        let m = self.meta(id);
+        let unit = if vertical {
+            [1.0, 0.0, 0.0, -1.0, 0.0, 1.0]
+        } else {
+            [-1.0, 0.0, 0.0, 1.0, 1.0, 0.0]
+        };
+        let paints = |key: &str| -> Option<Vec<Fill>> {
+            let fills: Vec<Fill> = self.json(id, key);
+            (!fills.is_empty()).then(|| {
+                fills
+                    .into_iter()
+                    .map(|f| Fill {
+                        transform: geom::then(f.transform.map(f64::from), unit).map(|v| v as f32),
+                        ..f
+                    })
+                    .collect()
+            })
+        };
+        let effects: Vec<Effect> = self.json(id, "effects");
+        let mut props = Props {
+            fills: paints("fills"),
+            strokes: paints("strokes"),
+            effects: (!effects.is_empty()).then(|| {
+                effects
+                    .into_iter()
+                    .map(|e| Effect {
+                        x: if vertical { e.x } else { -e.x },
+                        y: if vertical { -e.y } else { e.y },
+                        ..e
+                    })
+                    .collect()
+            }),
+            ..Props::default()
+        };
+        if self.kind(id) == Some(NodeKind::Shape) {
+            let v = serde_json::to_value(m.get_value()).map_err(err)?;
+            let flipped = |p: &[f32]| {
+                geom::map(
+                    p,
+                    |[u, v]| if vertical { [u, 1.0 - v] } else { [1.0 - u, v] },
+                )
+            };
+            match serde_json::from_value(v).map_err(err)? {
+                Shape::Rect { corners, .. } if corners.len() == 4 => {
+                    let order = if vertical { [3, 2, 1, 0] } else { [1, 0, 3, 2] };
+                    props.corners = Some(order.map(|i| corners[i]).to_vec());
+                }
+                Shape::Ellipse { start, sweep, .. } => {
+                    let from = if vertical { 0.0 } else { 180.0 };
+                    props.start = Some((from - start - 360.0 * sweep.min(1.0)).rem_euclid(360.0));
+                }
+                s @ (Shape::Polygon { count } | Shape::Star { count, .. })
+                    if vertical && count % 2 == 1 =>
+                {
+                    m.insert("shape", "path").map_err(err)?;
+                    props.path = Some(flipped(&outline(&s, [0.0, 0.0, 1.0, 1.0])));
+                }
+                Shape::Path { path } => props.path = Some(flipped(&path)),
+                _ => {}
+            }
+        }
+        self.set(id, props)?;
+        let r = num(&m, "rotation");
+        if r != 0.0 {
+            m.insert("rotation", -r).map_err(err)?;
+        }
+        for c in self.children(id) {
+            self.mirror(c, at, vertical)?;
+        }
+        if self.kind(id) == Some(NodeKind::Group) {
+            return Ok(());
+        }
+        let [x, y, w, h] = self.bounds(id);
+        let frame = if vertical {
+            [x, 2.0 * at - y - h, w, h]
+        } else {
+            [2.0 * at - x - w, y, w, h]
+        };
+        self.unbind(id, |p| p == if vertical { "y" } else { "x" })?;
+        let m = self.meta(id);
+        for (k, v) in ["x", "y"].into_iter().zip(frame) {
+            m.insert(k, v).map_err(err)?;
+        }
+        Ok(())
     }
 
     /// The outline of the shape or text layer `id` in its parent's space.
@@ -3709,6 +3814,10 @@ mod tests {
                 id: r.clone(),
                 x: 1e6,
                 y: 1e6,
+            },
+            Command::Flip {
+                id: p.clone(),
+                vertical: false,
             },
             Command::Format {
                 id: t.clone(),

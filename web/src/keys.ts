@@ -98,6 +98,8 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
     })
   } else if (!mod && !e.altKey && e.shiftKey && (key === 'w' || key === 'h') && editor.selected().every((n) => n.kind === 'text')) {
     editor.resize(editor.selected(), key === 'w' ? 'autoWidth' : 'autoHeight')
+  } else if (!mod && !e.altKey && e.shiftKey && (key === 'h' || key === 'v')) {
+    editor.batch(() => ids.forEach((id) => editor.apply({ type: 'flip', id, vertical: key === 'v' })))
   } else if (!mod && e.shiftKey && key === 'a') editor.set({ selection: editor.apply({ type: 'autoLayout', ids }) })
   else if (mod && e.altKey && key === 'm') editor.set({ selection: editor.apply({ type: 'mask', ids }) })
   else if (mod && !e.shiftKey && key === 'e') {

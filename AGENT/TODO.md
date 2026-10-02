@@ -73,7 +73,7 @@ Open:
 - Keep options in the flow: no widows and orphans, keep lines together, keep with
   next paragraph.
 - Tabs with tab stops (left, right, centre, decimal) and a leader.
-- Flip horizontally and vertically, and an eyedropper for fills and strokes.
+- An eyedropper for fills and strokes.
 - Image fit: fill, fit and centre the image in its frame from the crop buttons.
 - Overprint for fills and strokes, shown in the separations preview and written to
   the PDF.
