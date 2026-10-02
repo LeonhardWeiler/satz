@@ -48,6 +48,10 @@ pub struct Export<'a> {
     pub bleed: bool,
     /// Shadows, blurs and, for PDF/X-1a, transparency are rasterized at `ppi`.
     pub ppi: f32,
+    /// Images shrink to no less than `image_ppi` unless it is 0.
+    pub image_ppi: f32,
+    /// Opaque images are JPEGs of this quality, 1 to 100, unless it is 0.
+    pub jpeg_quality: u8,
     pub mode: ColorMode,
     pub title: &'a str,
     /// ISO 8601 in UTC, as `2026-09-28T12:00:00Z`.
@@ -120,6 +124,8 @@ pub fn pdf(pages: &[Vec<Op>], x: &Export) -> Vec<u8> {
             preset: x.preset,
             proof: !print && x.mode == ColorMode::Cmyk,
             page: area,
+            image_ppi: x.image_ppi,
+            jpeg_quality: x.jpeg_quality,
             rasters: &rasters,
         };
         if x.preset == Preset::X1a {
@@ -218,6 +224,8 @@ struct Env<'a> {
     /// Images are drawn as the canvas shows them in a CMYK document.
     proof: bool,
     page: [f32; 4],
+    image_ppi: f32,
+    jpeg_quality: u8,
     /// Rasterized groups by their ops and area, so that a master's are made once.
     rasters: &'a RefCell<HashMap<String, Option<Image>>>,
 }
@@ -303,8 +311,10 @@ fn draw(s: &mut Surface, env: &Env, ops: &[Op]) {
                 } else {
                     *image
                 };
-                if let Some(img) = image::pdf(id, env.cmyk) {
-                    let [a, b, c, d, e, f] = *transform;
+                let [a, b, c, d, e, f] = *transform;
+                let need = (env.image_ppi > 0.0)
+                    .then(|| [a.hypot(b), c.hypot(d)].map(|v| v * env.image_ppi / 72.0));
+                if let Some(img) = image::pdf(id, env.cmyk, need, env.jpeg_quality) {
                     s.push_transform(&Transform::from_row(a, b, c, d, e, f));
                     s.draw_image(img, Size::from_wh(1.0, 1.0).unwrap());
                     s.pop();
@@ -513,7 +523,7 @@ fn separate(
     shadow: Option<&Shadow>,
     sigma: f32,
     paper: bool,
-) -> Option<image::Cmyk> {
+) -> Option<image::Pixels> {
     let layer = |pick: fn([f32; 4]) -> [f32; 3]| {
         let to = |rgba: &[f32; 4], ink: &Ink| {
             let [a, b, c] = pick(ink.cmyk(rgba));
@@ -534,7 +544,7 @@ fn separate(
     let size = (cmy.width(), cmy.height());
     let (cmy, k) = (cmy.take_demultiplied(), k.take_demultiplied());
     let ink = |v: u8| if paper { 255 - v } else { v };
-    Some(image::Cmyk {
+    Some(image::Pixels {
         color: cmy
             .chunks(4)
             .zip(k.chunks(4))
@@ -723,6 +733,8 @@ mod tests {
             crop_marks: marks,
             bleed: marks,
             ppi: 72.0,
+            image_ppi: 0.0,
+            jpeg_quality: 0,
             mode,
             title: "Test <1>",
             date: "2026-09-28T12:00:00Z",
@@ -736,6 +748,8 @@ mod tests {
             crop_marks: true,
             bleed: true,
             ppi,
+            image_ppi: 0.0,
+            jpeg_quality: 0,
             mode,
             title: "Test <1>",
             date: "2026-09-28T12:00:00Z",
@@ -995,6 +1009,32 @@ mod tests {
         let pdf = export(&[ops], Preset::X4, false, ColorMode::Cmyk);
         let at = pdf.windows(9).position(|w| w == b"DCTDecode").unwrap();
         assert!(pdf[at..].windows(jpeg.len()).any(|w| w == jpeg));
+    }
+
+    #[test]
+    fn images_shrink_to_the_image_ppi_and_become_jpegs_of_the_quality() {
+        let pdf = |image_ppi, jpeg_quality, mode| {
+            let x = Export {
+                preset: Preset::X4,
+                crop_marks: false,
+                bleed: false,
+                ppi: 72.0,
+                image_ppi,
+                jpeg_quality,
+                mode,
+                title: "Test",
+                date: "2026-09-28T12:00:00Z",
+            };
+            super::pdf(&[red_image()], &x)
+        };
+        let has = |pdf: &[u8], s: &str| pdf.windows(s.len()).any(|w| w == s.as_bytes());
+        let kept = pdf(0.0, 0, ColorMode::Rgb);
+        assert!(has(&kept, "/Width 4") && !has(&kept, "DCTDecode"));
+        assert!(has(&pdf(14.0, 0, ColorMode::Rgb), "/Width 2"));
+        assert!(has(&pdf(20.0, 0, ColorMode::Rgb), "/Width 4"));
+        for mode in [ColorMode::Rgb, ColorMode::Cmyk] {
+            assert!(has(&pdf(0.0, 80, mode), "DCTDecode"));
+        }
     }
 
     #[test]

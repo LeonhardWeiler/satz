@@ -55,6 +55,10 @@ pub struct Settings {
     pub preset: Option<Preset>,
     pub crop_marks: Option<bool>,
     pub include_bleed: Option<bool>,
+    /// 0 keeps the images as they are.
+    pub image_ppi: Option<f64>,
+    /// 0 keeps the images lossless.
+    pub jpeg_quality: Option<u8>,
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -3818,6 +3822,14 @@ mod tests {
             Command::SetDocument(Settings {
                 raster_ppi: Some(5000.0),
                 facing_pages: Some(true),
+                ..Settings::default()
+            }),
+            Command::SetDocument(Settings {
+                image_ppi: Some(10.0),
+                ..Settings::default()
+            }),
+            Command::SetDocument(Settings {
+                jpeg_quality: Some(101),
                 ..Settings::default()
             }),
             Command::SetPage {

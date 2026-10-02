@@ -68,6 +68,5 @@ Open:
 - Tabs with tab stops (left, right, centre, decimal) and a leader.
 - Overprint for fills and strokes, shown in the separations preview and written to
   the PDF.
-- PDF options: downsampling and JPEG compression of images.
 - Spell check from Hunspell word lists in the engine, marked in the text.
 - Drop caps over a number of lines.

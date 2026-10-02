@@ -283,6 +283,14 @@ impl Doc {
         {
             return Err("raster ppi must be in 72..=1200".into());
         }
+        if s.image_ppi
+            .is_some_and(|ppi| ppi != 0.0 && !(72.0..=2400.0).contains(&ppi))
+        {
+            return Err("image ppi must be 0 or in 72..=2400".into());
+        }
+        if s.jpeg_quality.is_some_and(|q| q > 100) {
+            return Err("JPEG quality must be in 0..=100".into());
+        }
         if s.ink_limit.is_some_and(|l| !(200.0..=400.0).contains(&l)) {
             return Err("ink limit must be in 200..=400".into());
         }
@@ -323,6 +331,12 @@ impl Doc {
         }
         if let Some(on) = s.include_bleed {
             m.insert("includeBleed", on).map_err(err)?;
+        }
+        if let Some(ppi) = s.image_ppi {
+            m.insert("imagePpi", ppi).map_err(err)?;
+        }
+        if let Some(q) = s.jpeg_quality {
+            m.insert("jpegQuality", q as i64).map_err(err)?;
         }
         Ok(vec![])
     }

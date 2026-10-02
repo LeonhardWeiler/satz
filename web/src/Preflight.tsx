@@ -85,7 +85,7 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
   useSettings()
   const inks = useEditor(editor, (e) => e.inks)
   const limit = useEditor(editor, (e) => e.snapshot.inkLimit)
-  const { preset, cropMarks, includeBleed, colorMode } = useEditor(editor, (e) => e.snapshot)
+  const { preset, cropMarks, includeBleed, colorMode, imagePpi, jpegQuality } = useEditor(editor, (e) => e.snapshot)
   const previewed = useEditor(editor, (e) => e.previewed)
   const pointerInk = useEditor(editor, (e) => e.pointerInk)
   usePreview(editor, colorMode === 'cmyk')
@@ -204,6 +204,8 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
                 <input type="checkbox" checked={includeBleed} disabled={preset === 'screen'} onChange={(e) => editor.apply({ type: 'setDocument', includeBleed: e.currentTarget.checked })} />
                 Include {length(pages[0]?.bleed ?? 0)} bleed
               </label>
+              <Field label="Images" title="Image resolution" unit="ppi" zero="Keep" min={72} max={2400} reset={0} value={imagePpi} onCommit={(imagePpi) => editor.apply({ type: 'setDocument', imagePpi })} />
+              <Field label="JPEG" title="JPEG quality" unit="%" int zero="Lossless" min={1} max={100} reset={0} value={jpegQuality} onCommit={(jpegQuality) => editor.apply({ type: 'setDocument', jpegQuality })} />
             </>
           )}
           <label className="field">

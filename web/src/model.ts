@@ -118,7 +118,7 @@ export type Command =
   | { type: 'resetToMaster'; ids: string[] }
   | { type: 'thread'; from: string; to: string }
   | { type: 'unthread'; id: string }
-  | { type: 'setDocument'; rasterPpi?: number; colorMode?: ColorMode; facingPages?: boolean; inkLimit?: number; preset?: Preset; cropMarks?: boolean; includeBleed?: boolean }
+  | { type: 'setDocument'; rasterPpi?: number; colorMode?: ColorMode; facingPages?: boolean; inkLimit?: number; preset?: Preset; cropMarks?: boolean; includeBleed?: boolean; imagePpi?: number; jpegQuality?: number }
   | { type: 'addSwatch'; name: string; color: Color; spot: boolean }
   | { type: 'setSwatch'; id: string; name?: string; color?: Color; spot?: boolean }
   | { type: 'deleteSwatch'; id: string }
@@ -313,6 +313,10 @@ export type Snapshot = Palette & {
   preset: Preset
   cropMarks: boolean
   includeBleed: boolean
+  /** Images in the PDF shrink to no less than this, 0 keeps them. */
+  imagePpi: number
+  /** Opaque images in the PDF compress as JPEG of this quality, 0 keeps them lossless. */
+  jpegQuality: number
   /** The fonts text can be set in, the bundled one first. */
   fonts: Typeface[]
   /** Fonts text is set in that are not there, with the stories that use them by their first frame. */

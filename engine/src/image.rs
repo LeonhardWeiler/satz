@@ -45,20 +45,20 @@ struct Entry {
     source: Option<(Rc<Entry>, [f32; 3])>,
     /// Decoded on first use by `pixmap` and `cmyk`; `None` when the file does not decode.
     pixels: RefCell<Option<Option<Rc<Pixmap>>>>,
-    cmyk: RefCell<Option<Option<Cmyk>>>,
+    cmyk: RefCell<Option<Option<Pixels>>>,
     /// `cmyk` shrunk by the factor `plate` last needed.
-    small: RefCell<Option<(u32, Cmyk)>>,
+    small: RefCell<Option<(u32, Pixels)>>,
 }
 
-/// CMYK pixels and their alpha, 8 bits each, as the PDF of a CMYK document takes them.
+/// RGB or CMYK pixels and their alpha, 8 bits each, as the PDF takes them.
 #[derive(Hash, Clone)]
-pub struct Cmyk {
+pub struct Pixels {
     pub color: Arc<[u8]>,
     pub alpha: Arc<[u8]>,
     pub size: (u32, u32),
 }
 
-impl CustomImage for Cmyk {
+impl CustomImage for Pixels {
     fn color_channel(&self) -> &[u8] {
         &self.color
     }
@@ -80,7 +80,11 @@ impl CustomImage for Cmyk {
     }
 
     fn color_space(&self) -> ImageColorspace {
-        ImageColorspace::Cmyk
+        if self.color.len() == 3 * self.alpha.len() {
+            ImageColorspace::Rgb
+        } else {
+            ImageColorspace::Cmyk
+        }
     }
 }
 
@@ -322,17 +326,53 @@ pub fn encode(rgba: &[u8], (w, h): (u32, u32)) -> Option<Vec<u8>> {
     Some(out)
 }
 
-/// The image `id` for the PDF, which embeds a JPEG as it is, separates an RGB
+/// The image `id` for the PDF, which embeds a file as it is, separates an RGB
 /// image through FOGRA51 for `cmyk`, or shows it as it prints for a `PROOF` id.
-pub fn pdf(id: u32, cmyk: bool) -> Option<krilla::image::Image> {
+/// It shrinks by a whole factor while it keeps `need` pixels when that is given,
+/// and an opaque one is a JPEG of `quality` (1 to 100) unless that is 0.
+pub fn pdf(
+    id: u32,
+    cmyk: bool,
+    need: Option<[f32; 2]>,
+    quality: u8,
+) -> Option<krilla::image::Image> {
     let e = entry(id)?;
-    if e.source.is_none() && id & PROOF == 0 && (!cmyk || e.info.space == Space::Cmyk) {
+    let (w, h) = (e.info.width as f32, e.info.height as f32);
+    let f = need.map_or(1, |[nw, nh]| (w / nw).min(h / nh).max(1.0) as u32);
+    let file = e.source.is_none() && id & PROOF == 0 && (!cmyk || e.info.space == Space::Cmyk);
+    if file && f == 1 && (quality == 0 || e.format == Format::Jpeg) {
         return pdf_image(e.format, &e.bytes).ok();
     }
-    if cmyk {
-        return krilla::image::Image::from_custom(self::cmyk(id)?, true).ok();
+    let px = if cmyk {
+        self::cmyk(id)?
+    } else {
+        let (rgba, w, h) = match id & PROOF {
+            0 => rgba(&e)?,
+            _ => decode(Format::Png, &bytes(id))?,
+        };
+        Pixels {
+            color: rgba.chunks(4).flat_map(|p| [p[0], p[1], p[2]]).collect(),
+            alpha: rgba.chunks(4).map(|p| p[3]).collect(),
+            size: (w, h),
+        }
+    };
+    let px = if f > 1 { shrink(&px, f) } else { px };
+    let kind = if cmyk {
+        jpeg_encoder::ColorType::Cmyk
+    } else {
+        jpeg_encoder::ColorType::Rgb
+    };
+    let mut out = Vec::new();
+    if quality > 0
+        && px.alpha.iter().all(|&a| a == 255)
+        && let (Ok(w), Ok(h)) = (u16::try_from(px.size.0), u16::try_from(px.size.1))
+        && jpeg_encoder::Encoder::new(&mut out, quality)
+            .encode(&px.color, w, h, kind)
+            .is_ok()
+    {
+        return krilla::image::Image::from_jpeg(out.into(), true).ok();
     }
-    krilla::image::Image::from_png(bytes(id).into(), true).ok()
+    krilla::image::Image::from_custom(px, true).ok()
 }
 
 /// The pixels of the image `id`, premultiplied, for rasterized effects.
@@ -357,20 +397,20 @@ pub fn pixmap(id: u32) -> Option<Rc<Pixmap>> {
 
 /// The pixels of the image `id` in CMYK: a CMYK JPEG's own, others separated
 /// through FOGRA51.
-pub fn cmyk(id: u32) -> Option<Cmyk> {
+pub fn cmyk(id: u32) -> Option<Pixels> {
     let e = entry(id)?;
     let mut cmyk = e.cmyk.borrow_mut();
     cmyk.get_or_insert_with(|| {
         if e.info.space == Space::Cmyk {
             let (color, w, h) = decode_cmyk(&e.bytes)?;
-            return Some(Cmyk {
+            return Some(Pixels {
                 color: color.into(),
                 alpha: vec![255; (w * h) as usize].into(),
                 size: (w, h),
             });
         }
         let (rgba, w, h) = rgba(&e)?;
-        Some(Cmyk {
+        Some(Pixels {
             color: separate_pixels(&rgba).into(),
             alpha: rgba.chunks(4).map(|p| p[3]).collect(),
             size: (w, h),
@@ -494,9 +534,10 @@ pub fn plate(id: u32, [w, h]: [f32; 2], pick: fn([f32; 4]) -> [f32; 3]) -> Optio
 }
 
 /// `c` with each square of `f` by `f` pixels averaged into one.
-fn shrink(c: &Cmyk, f: u32) -> Cmyk {
+fn shrink(c: &Pixels, f: u32) -> Pixels {
     let (w, h) = (c.size.0 / f, c.size.1 / f);
     let n = f * f;
+    let k = c.color.len() / c.alpha.len();
     let (mut color, mut alpha) = (Vec::new(), Vec::new());
     for y in 0..h {
         for x in 0..w {
@@ -504,17 +545,17 @@ fn shrink(c: &Cmyk, f: u32) -> Cmyk {
             for i in (y * f..(y + 1) * f)
                 .flat_map(|v| (x * f..(x + 1) * f).map(move |u| (v * c.size.0 + u) as usize))
             {
-                let px = c.color[4 * i..4 * i + 4].iter().chain([&c.alpha[i]]);
+                let px = c.color[k * i..k * i + k].iter().chain([&c.alpha[i]]);
                 for (s, &v) in sum.iter_mut().zip(px) {
                     *s += v as u32;
                 }
             }
-            let [a, b, d, e, g] = sum.map(|s| ((s + n / 2) / n) as u8);
-            color.extend([a, b, d, e]);
-            alpha.push(g);
+            let avg = sum.map(|s| ((s + n / 2) / n) as u8);
+            color.extend(&avg[..k]);
+            alpha.push(avg[k]);
         }
     }
-    Cmyk {
+    Pixels {
         color: color.into(),
         alpha: alpha.into(),
         size: (w, h),
@@ -610,7 +651,7 @@ pub mod tests {
         let p = pixmap_of(&bytes(gray));
         assert_eq!([p.red(), p.green(), p.blue()], [54; 3]);
         assert!(entry(dark).unwrap().pixels.borrow().is_none());
-        assert!(pdf(gray, false).is_some() && cmyk(gray).is_some());
+        assert!(pdf(gray, false, None, 0).is_some() && cmyk(gray).is_some());
     }
 
     #[test]

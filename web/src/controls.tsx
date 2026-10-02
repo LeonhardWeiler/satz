@@ -62,7 +62,7 @@ export function Field({
   const title = name && unit ? `${name} in ${unit}` : (name ?? unit)
   const shown = value === null ? null : round(value / per, unit)
   const put = (v: number) => {
-    const c = Math.min(max, Math.max(min, v))
+    const c = zero && v === 0 ? 0 : Math.min(max, Math.max(min, v))
     onCommit?.((int ? Math.round(c) : round(c, unit)) * per)
   }
   const edit = !readOnly && onCommit && shown !== null

@@ -125,6 +125,18 @@ test('a placed image exports as the canvas shows it', async ({ page }) => {
   const canvas = (await page.getByLabel('Page canvas').boundingBox())!
   await page.mouse.move(canvas.x + 2, canvas.y + 2)
   await expectCanvasMatchesPdf(page)
+
+  const go = await exportButton(page)
+  const region = page.getByRole('region', { name: 'Preflight' })
+  for (const [name, value] of [['Image resolution in ppi', '72'], ['JPEG quality in %', '80']]) {
+    await region.getByRole('textbox', { name }).fill(value)
+    await region.getByRole('textbox', { name }).press('Enter')
+  }
+  const download = page.waitForEvent('download')
+  await go.click()
+  const pdf = readFileSync((await (await download).path())!).toString('latin1')
+  expect(pdf).toContain('/DCTDecode')
+  expect(Number(pdf.match(/\/Width (\d+)/)![1])).toBeLessThan(1200)
 })
 
 test('draw, move, undo and redo a rectangle, then export it', async ({ page }) => {

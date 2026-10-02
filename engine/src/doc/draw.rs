@@ -20,6 +20,10 @@ pub struct Snapshot {
     pub preset: Preset,
     pub crop_marks: bool,
     pub include_bleed: bool,
+    /// Images in the PDF shrink to no less than this unless it is 0.
+    pub image_ppi: f64,
+    /// Opaque images in the PDF are JPEGs of this quality unless it is 0.
+    pub jpeg_quality: u8,
     #[serde(flatten)]
     pub palette: Palette,
     /// The fonts text can be set in, the bundled one first.
@@ -638,6 +642,8 @@ impl Doc {
             },
             crop_marks: self.setting("cropMarks", true),
             include_bleed: self.setting("includeBleed", true),
+            image_ppi: self.setting("imagePpi", 0.0),
+            jpeg_quality: self.setting("jpegQuality", 0),
             palette,
             can_undo: self.undo.can_undo(),
             can_redo: self.undo.can_redo(),
@@ -721,6 +727,8 @@ impl Doc {
                 crop_marks: snap.crop_marks,
                 bleed: snap.include_bleed,
                 ppi: snap.raster_ppi as f32,
+                image_ppi: snap.image_ppi as f32,
+                jpeg_quality: snap.jpeg_quality,
                 mode: snap.color_mode,
                 title,
                 date,
