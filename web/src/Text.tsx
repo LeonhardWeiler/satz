@@ -36,7 +36,7 @@ const RESIZING = [
 ] as const
 const LANGS = { en: 'English', de: 'German', fr: 'French', it: 'Italian', es: 'Spanish', nl: 'Dutch' } as const
 /** Styled numbers: title, label, unit, least value and the text shown for 0. */
-const METRICS: [Exclude<Styled, 'font' | 'textCase' | 'textDecoration' | 'features' | 'paragraphIndent' | 'position' | 'baselineShift' | 'dropLines' | 'dropChars'>, string, IconName, string, number, string?][] = [
+const METRICS: [Exclude<Styled, 'font' | 'textCase' | 'textDecoration' | 'features' | 'paragraphIndent' | 'position' | 'baselineShift' | 'dropLines' | 'dropChars' | 'keepLines' | 'keepTogether' | 'keepNext'>, string, IconName, string, number, string?][] = [
   ['size', 'Font size', 'fontSize', 'pt', 0.1],
   ['lineHeight', 'Line height', 'lineHeight', 'pt', 0, 'Auto'],
   ['letterSpacing', 'Letter spacing', 'letterSpacing', '%', -100],
@@ -191,6 +191,9 @@ export function TypeOptions({ spans, set }: { spans: Pick<Attrs, Styled>[]; set:
                 />
                 <Field label="Drop" title="Drop cap lines" unit="" int min={0} max={20} reset={0} value={same((a) => a.dropLines)} onCommit={(dropLines) => set({ dropLines })} />
                 <Field label="Chars" title="Drop cap characters" unit="" int min={1} max={20} reset={1} value={same((a) => a.dropChars)} onCommit={(dropChars) => set({ dropChars })} />
+                <Field label="Keep" title="Lines kept together at start and end" unit="" int min={1} max={20} reset={1} value={same((a) => a.keepLines)} onCommit={(keepLines) => set({ keepLines })} />
+                <Check label="Keep lines together" value={same((a) => a.keepTogether)} set={(keepTogether) => set({ keepTogether })} />
+                <Check label="Keep with next" value={same((a) => a.keepNext)} set={(keepNext) => set({ keepNext })} />
               </div>
               <div className="grid" role="group" aria-label="OpenType features">
                 {FEATURES.map(([tag, title, sample, dflt]) => {
@@ -216,6 +219,23 @@ export function TypeOptions({ spans, set }: { spans: Pick<Attrs, Styled>[]; set:
           document.body,
         )}
     </>
+  )
+}
+
+/** A checkbox that shows `null`, a mixed value, as indeterminate. */
+function Check({ label, value, set }: { label: string; value: boolean | null; set: (v: boolean) => void }) {
+  return (
+    <label className="check">
+      <input
+        type="checkbox"
+        checked={value === true}
+        ref={(el) => {
+          if (el) el.indeterminate = value === null
+        }}
+        onChange={(e) => set(e.currentTarget.checked)}
+      />
+      {label}
+    </label>
   )
 }
 
@@ -353,17 +373,7 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
         <TypeOptions spans={spans} set={format} />
       </div>
       <div className="grid">
-        <label className="check">
-          <input
-            type="checkbox"
-            checked={hyphenate === true}
-            ref={(el) => {
-              if (el) el.indeterminate = hyphenate === null
-            }}
-            onChange={(e) => format({ hyphenate: e.currentTarget.checked })}
-          />
-          Hyphenate
-        </label>
+        <Check label="Hyphenate" value={hyphenate} set={(hyphenate) => format({ hyphenate })} />
         <Select
           label="Hyphenation language"
           value={lang ?? 'mixed'}

@@ -121,7 +121,7 @@ pub fn fonts() -> Vec<Typeface> {
 }
 
 /// The keys of `Attrs` a text style sets.
-pub const STYLED: [&str; 13] = [
+pub const STYLED: [&str; 16] = [
     "size",
     "lineHeight",
     "letterSpacing",
@@ -135,9 +135,12 @@ pub const STYLED: [&str; 13] = [
     "baselineShift",
     "dropLines",
     "dropChars",
+    "keepLines",
+    "keepTogether",
+    "keepNext",
 ];
 /// The keys of `Attrs` that hold for a whole paragraph, taken from its first character.
-pub const PARAGRAPH: [&str; 7] = [
+pub const PARAGRAPH: [&str; 10] = [
     "textAlign",
     "paragraphSpacing",
     "paragraphIndent",
@@ -145,6 +148,9 @@ pub const PARAGRAPH: [&str; 7] = [
     "lang",
     "dropLines",
     "dropChars",
+    "keepLines",
+    "keepTogether",
+    "keepNext",
 ];
 
 /// TeX's \hyphenpenalty.
@@ -240,6 +246,10 @@ pub struct Attrs {
     /// Lines the first `drop_chars` characters of a paragraph drop over; 0 is off.
     pub drop_lines: u32,
     pub drop_chars: u32,
+    /// Lines at the start and at the end of a paragraph that a column break keeps together.
+    pub keep_lines: u32,
+    pub keep_together: bool,
+    pub keep_next: bool,
 }
 
 impl Attrs {
@@ -283,6 +293,9 @@ impl Default for Attrs {
             baseline_shift: 0.0,
             drop_lines: 0,
             drop_chars: 1,
+            keep_lines: 1,
+            keep_together: false,
+            keep_next: false,
         }
     }
 }
@@ -775,7 +788,8 @@ struct Metrics {
 /// first character and the byte its first line starts at. Line `i`
 /// starts `left[i]` in, the last for the lines after; `marks` are glyphs beside the
 /// lines, placed from the first baseline, with `stops` for the text they stand for,
-/// and the paragraph takes at least `least` lines.
+/// and the paragraph takes at least `least` lines, which stay together, as do its
+/// first `head`.
 struct Para {
     items: Vec<Item>,
     glyphs: Vec<Option<Glyph>>,
@@ -786,6 +800,7 @@ struct Para {
     marks: Vec<Glyph>,
     stops: Vec<(usize, f32)>,
     least: usize,
+    head: usize,
 }
 
 /// The lines of `text` from the byte `from`, a line start, broken to the column width
@@ -874,6 +889,7 @@ fn rows(
                           marks,
                           stops: lead,
                           least,
+                          head,
                       }: Para,
                       cw: f32,
                       rows: &mut Vec<Row>| {
@@ -961,6 +977,7 @@ fn rows(
                 below,
                 after: 0.0,
                 stops,
+                keep: false,
             });
             from = end + 1;
         }
@@ -970,6 +987,14 @@ fn rows(
             .sum::<f32>()
             / (rows.len() - set).max(1) as f32
             * least.saturating_sub(rows.len() - set) as f32;
+        let (n, tail) = (rows.len() - set, first.keep_lines as usize);
+        for (k, r) in rows[set..].iter_mut().enumerate() {
+            r.keep = if k + 1 == n {
+                first.keep_next
+            } else {
+                first.keep_together || k + 1 < head.max(least) || k + tail >= n
+            };
+        }
         if let Some(r) = rows.last_mut() {
             r.after = first.paragraph_spacing as f32 + short;
         }
@@ -1146,6 +1171,11 @@ fn rows(
             marks,
             stops: lead,
             least: if dw > 0.0 { lines } else { 0 },
+            head: if from > start {
+                0
+            } else {
+                first.keep_lines as usize
+            },
         };
         let Some(cw) = cw else {
             paras.push(para);
@@ -1183,18 +1213,26 @@ fn place(rows: Vec<Row>, [ix, iy, _, ih]: [f32; 4], cw: f32, tf: &TextFrame) -> 
     let mut lines: Vec<Vec<Glyph>> = Vec::new();
     let mut geometry: Vec<Line> = Vec::new();
     let mut columns: Vec<(usize, f32)> = Vec::new();
-    let (mut col, mut top) = (0, iy);
-    for row in rows {
-        let mut baseline = snap(top + row.above);
+    let (mut col, mut top, mut i, mut first) = (0, iy, 0, 0);
+    while let Some(row) = rows.get(i) {
+        let baseline = snap(top + row.above);
         if baseline + row.below > bottom {
+            let mut j = i;
+            while j > first && rows[j - 1].keep {
+                j -= 1;
+            }
+            if j > first {
+                lines.truncate(j);
+                geometry.truncate(j);
+                columns[col as usize].1 = geometry[j - 1].bottom;
+                i = j;
+            }
             col += 1;
             if col >= n {
                 break;
             }
-            baseline = snap(iy + row.above);
-            if baseline + row.below > bottom {
-                break;
-            }
+            (top, first) = (iy, i);
+            continue;
         }
         if columns.len() <= col as usize {
             columns.push((lines.len(), 0.0));
@@ -1211,16 +1249,17 @@ fn place(rows: Vec<Row>, [ix, iy, _, ih]: [f32; 4], cw: f32, tf: &TextFrame) -> 
         });
         lines.push(
             row.glyphs
-                .into_iter()
+                .iter()
                 .map(|g| Glyph {
                     x: cx + g.x,
                     y: baseline + g.y,
-                    ..g
+                    ..g.clone()
                 })
                 .collect(),
         );
         columns[col as usize].1 = baseline + row.below;
         top = baseline + row.below + row.after;
+        i += 1;
     }
     let k = match tf.vertical_align {
         VerticalAlign::Top => 0.0,
@@ -1267,6 +1306,8 @@ struct Row {
     after: f32,
     /// See `Line::stops`, relative to the column.
     stops: Vec<(usize, f32)>,
+    /// A column break after this row moves it on with the next.
+    keep: bool,
 }
 
 /// A line set in a frame: the bytes `start..end` of the text it holds, the space it
@@ -1623,6 +1664,28 @@ mod tests {
             "{starts:?}"
         );
         assert_eq!(starts[3], 0.0);
+    }
+
+    #[test]
+    fn kept_lines_move_on_to_the_next_column_together() {
+        let tf = TextFrame {
+            columns: 2,
+            gutter: 10.0,
+            ..TextFrame::default()
+        };
+        let text = "Hi\nhi hi hi";
+        let columns = |keep_lines| {
+            let a = Attrs {
+                keep_lines,
+                ..attrs(10.0)
+            };
+            lay_out(text, &one(text, a), [0.0, 0.0, 40.0, 42.0], &tf, 0)
+                .iter()
+                .map(|l| l[0].x > 0.0)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(columns(1), [false, false, false, true]);
+        assert_eq!(columns(2), [false, true, true, true]);
     }
 
     #[test]

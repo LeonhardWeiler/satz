@@ -265,6 +265,10 @@ export type Attrs = {
   /** Lines the first `dropChars` characters of a paragraph drop over; 0 is off. */
   dropLines: number
   dropChars: number
+  /** Lines at the start and at the end of a paragraph that a column break keeps together. */
+  keepLines: number
+  keepTogether: boolean
+  keepNext: boolean
 }
 /** A font by its full name, family and style, and a hash of its bytes. */
 export type Typeface = { name: string; family: string; style: string; hash: string }
@@ -287,7 +291,7 @@ export type TextFrame = {
 /** `len` characters in UTF-16 code units that share their attributes. */
 export type Span = Attrs & { len: number }
 /** The attributes a text style sets. */
-export const STYLED = ['size', 'lineHeight', 'letterSpacing', 'paragraphSpacing', 'paragraphIndent', 'font', 'textCase', 'textDecoration', 'features', 'position', 'baselineShift', 'dropLines', 'dropChars'] as const
+export const STYLED = ['size', 'lineHeight', 'letterSpacing', 'paragraphSpacing', 'paragraphIndent', 'font', 'textCase', 'textDecoration', 'features', 'position', 'baselineShift', 'dropLines', 'dropChars', 'keepLines', 'keepTogether', 'keepNext'] as const
 export type Styled = (typeof STYLED)[number]
 export type TextStyle = { id: string; name: string; bindings: Partial<Record<Bindable, string>> } & Pick<Attrs, Styled>
 

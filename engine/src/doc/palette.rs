@@ -481,7 +481,8 @@ impl Doc {
             }
         }
         if let Ok((i, mut s)) = self.find::<TextStyle>("textStyles", &id) {
-            if !STYLED.contains(&prop.as_str()) {
+            let own = serde_json::to_value(&s.attrs).map_err(err)?;
+            if !STYLED.contains(&prop.as_str()) || prop != "font" && !own[&prop].is_f64() {
                 return Err(format!("{prop} cannot be bound"));
             }
             match variable {

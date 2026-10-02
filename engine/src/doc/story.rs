@@ -962,6 +962,7 @@ mod tests {
         use_mode(&mut d, &p, &c, Some(&big));
         assert_eq!(lens_and(&d, |a| a.size), [(5, 16.0), (6, 12.0)]);
         assert!(bind(&mut d, &body, "w", Some(&v)).is_err());
+        assert!(bind(&mut d, &body, "dropLines", Some(&v)).is_err());
 
         format(&mut d, &t, Some([0, 2]), sized(30.0)).unwrap();
         let s = spans(&d);
