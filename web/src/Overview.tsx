@@ -2,18 +2,21 @@ import { useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type M
 import type { CanvasKit } from 'canvaskit-wasm'
 import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
-import { roam } from './controls'
+import { Field, roam } from './controls'
 import { prefix } from './engine/engine'
 import { useEditor, type Editor } from './editor'
 import { Icon } from './icons'
 import type { Page, Snapshot } from './model'
 import { Renderer, type Sheet } from './renderer'
+import { setSettings, settings, useSettings } from './settings'
 
 type Lists = { id: string; x: number }[]
 type Menu = { id: string; master: boolean; x: number; y: number }
 
-const PAGE = 150
-const MASTER = 110
+/** The smallest and largest page height in the overview in px. */
+const ZOOM = [80, 480]
+const clamp = (v: number, [lo, hi]: number[]) => Math.round(Math.min(hi, Math.max(lo, v)))
+const resize = (patch: Partial<typeof settings.overview>) => setSettings({ overview: { ...settings.overview, ...patch } })
 
 /** Draws pictures of pages with the canvas renderer, as many per frame as fit in 8 ms. */
 function usePaint(ck: CanvasKit, editor: Editor) {
@@ -79,7 +82,6 @@ function Thumb({ paint, snapshot, lists, sheets, height }: { paint: ReturnType<t
 }
 
 const sheet = (p: Page, x = 0): Sheet => ({ x, width: p.width, height: p.height, bleed: p.bleed })
-const width = (p: Page) => Math.round((PAGE * p.width) / p.height)
 
 /**
  * The page overview over the canvas: the masters in a column, the spreads beside them one
@@ -99,8 +101,22 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   const [drop, setDrop] = useState<{ id: string; before: boolean } | null>(null)
   const { pages, masters, spreads, facingPages: facing } = snapshot
   const ids = pages.map((p) => p.id)
+  const { masters: wide, pages: PAGE, columns } = useSettings().overview
+  const width = (p: Page) => Math.round((PAGE * p.width) / p.height)
+  const grab = useRef(0)
+  const scroller = useRef<HTMLDivElement>(null)
 
   useEffect(() => list.current?.focus(), [])
+  useEffect(() => {
+    const el = scroller.current!
+    const wheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return
+      e.preventDefault()
+      resize({ pages: clamp(settings.overview.pages * Math.exp(-e.deltaY / 300), ZOOM) })
+    }
+    el.addEventListener('wheel', wheel, { passive: false })
+    return () => el.removeEventListener('wheel', wheel)
+  }, [])
 
   const select = (sel: string[]) => editor.set({ overview: sel })
   const close = () => editor.set({ overview: null })
@@ -231,7 +247,7 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   )
 
   return (
-    <section className="overview" aria-label="Page overview" onPointerDown={editor.gesture}>
+    <section className="overview" aria-label="Page overview" style={{ gridTemplateColumns: `${wide}px 1fr` }} onPointerDown={editor.gesture}>
       <div className="ov-col">
         <h2>Masters</h2>
         <div className="ov-row" role="group" aria-label="Masters" onKeyDown={(e) => roam(e, [...e.currentTarget.querySelectorAll('.ov-master')])}>
@@ -258,7 +274,7 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
                   snapshot={snapshot}
                   lists={[{ id: m.id, x: 0 }]}
                   sheets={facing ? [sheet(m, -m.width), sheet(m)] : [sheet(m)]}
-                  height={MASTER}
+                  height={Math.max(40, Math.round(((wide - 64) * m.height) / (m.width * (facing ? 2 : 1))))}
                 />
               </button>
               {renaming === m.id ? (
@@ -288,10 +304,20 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           </button>
         </div>
       </div>
-      <div className="ov-col">
-        <h2>Pages</h2>
+      <div ref={scroller} className="ov-col">
+        <header className="ov-head">
+          <h2>Pages</h2>
+          <Field label="Columns" unit="" int min={0} max={12} zero="Auto" value={columns} onCommit={(v) => resize({ columns: v })} />
+          <button type="button" className="icon-button" aria-label="Zoom out" title="Zoom out (Ctrl+wheel)" disabled={PAGE <= ZOOM[0]} onClick={() => resize({ pages: clamp(PAGE / 1.25, ZOOM) })}>
+            <Icon name="minus" />
+          </button>
+          <button type="button" className="icon-button" aria-label="Zoom in" title="Zoom in (Ctrl+wheel)" disabled={PAGE >= ZOOM[1]} onClick={() => resize({ pages: clamp(PAGE * 1.25, ZOOM) })}>
+            <Icon name="plus" />
+          </button>
+        </header>
         <div
           ref={list}
+          style={columns ? { display: 'grid', gridTemplateColumns: `repeat(${columns}, max-content)` } : undefined}
           className="ov-spreads"
           role="listbox"
           aria-label="Pages"
@@ -332,6 +358,23 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           )}
         </div>
       </div>
+      <div
+        className="ov-split"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Masters width"
+        aria-valuenow={wide}
+        style={{ left: wide - 3 }}
+        onPointerDown={(e) => {
+          grab.current = e.clientX - wide
+          e.currentTarget.setPointerCapture(e.pointerId)
+          e.preventDefault()
+        }}
+        onPointerMove={(e) => {
+          if (e.currentTarget.hasPointerCapture(e.pointerId)) resize({ masters: clamp(e.clientX - grab.current, [120, 600]) })
+        }}
+        onDoubleClick={() => resize({ masters: 170 })}
+      />
       {menu &&
         createPortal(
           <ContextMenu

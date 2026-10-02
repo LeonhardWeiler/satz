@@ -6,7 +6,14 @@ export const UNITS = { mm: MM, cm: 10 * MM, in: 72, pt: 1 } as const
 export type Unit = keyof typeof UNITS
 
 const KEY = 'satz.settings'
-const DEFAULTS = { unit: 'mm' as Unit, quickEdit: true, layers: 'page' as 'page' | 'spread', keys: {} as Record<string, string> }
+const DEFAULTS = {
+  unit: 'mm' as Unit,
+  quickEdit: true,
+  layers: 'page' as 'page' | 'spread',
+  keys: {} as Record<string, string>,
+  /** The width of the masters in the page overview, its page height and columns of spreads, 0 to fill the width, all in px. */
+  overview: { masters: 170, pages: 200, columns: 1 },
+}
 export type Settings = typeof DEFAULTS
 
 const stored = (): Partial<Settings> => {

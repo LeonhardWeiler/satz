@@ -2275,10 +2275,10 @@ kbd {
 }
 
 .overview {
+  position: relative;
   grid-area: stage;
   z-index: 3;
   display: grid;
-  grid-template-columns: auto 1fr;
   min-height: 0;
   background: var(--canvas);
   animation: pop 0.16s var(--ease);
@@ -2312,10 +2312,38 @@ kbd {
   padding: 4px;
 }
 
+.ov-split {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  cursor: col-resize;
+}
+
+.ov-split:is(:hover, :active) {
+  box-shadow: inset -2px 0 var(--text-3);
+}
+
+.ov-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ov-head h2 {
+  flex: 1;
+}
+
+.ov-head .field {
+  width: 140px;
+}
+
 .ov-spreads {
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: center;
   gap: 18px;
   padding: 8px;
   border-radius: 6px;
