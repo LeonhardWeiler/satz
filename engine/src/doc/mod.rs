@@ -534,6 +534,8 @@ pub struct TextProps {
     pub features: Option<Vec<String>>,
     pub position: Option<Position>,
     pub baseline_shift: Option<f64>,
+    pub drop_lines: Option<u32>,
+    pub drop_chars: Option<u32>,
 }
 
 impl TextProps {
@@ -552,6 +554,11 @@ impl TextProps {
         }
         if self.baseline_shift.is_some_and(|v| !v.is_finite()) {
             return Err("baseline shift must be a number".into());
+        }
+        if self.drop_lines.is_some_and(|v| v > 20)
+            || self.drop_chars.is_some_and(|v| !(1..=20).contains(&v))
+        {
+            return Err("a drop cap takes up to 20 lines and 1 to 20 characters".into());
         }
         if let Some(f) = self
             .features
@@ -691,7 +698,7 @@ const BINDABLE: [&str; 12] = [
 ];
 
 /// The keys of a text layer that belong to its story and move with it.
-const STORY: [&str; 17] = [
+const STORY: [&str; 19] = [
     "size",
     "lineHeight",
     "letterSpacing",
@@ -707,6 +714,8 @@ const STORY: [&str; 17] = [
     "textAlign",
     "hyphenate",
     "lang",
+    "dropLines",
+    "dropChars",
     "fills",
     "font",
 ];

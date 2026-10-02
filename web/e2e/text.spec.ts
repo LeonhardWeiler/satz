@@ -50,6 +50,8 @@ test('case, decoration, indent and OpenType features are set in the type options
   await choose(options.getByRole('combobox', { name: 'Position' }), 'Superscript')
   await options.getByRole('textbox', { name: 'Baseline shift in pt' }).fill('-2')
   await options.getByRole('textbox', { name: 'Baseline shift in pt' }).press('Enter')
+  await options.getByRole('textbox', { name: 'Drop cap lines' }).fill('3')
+  await options.getByRole('textbox', { name: 'Drop cap lines' }).press('Enter')
   await options.getByRole('checkbox', { name: 'Ligatures', exact: true }).uncheck()
   await options.getByRole('checkbox', { name: 'Oldstyle figures' }).check()
   await page.keyboard.press('Escape')
@@ -66,6 +68,7 @@ test('case, decoration, indent and OpenType features are set in the type options
   await expect(options.getByRole('checkbox', { name: 'Oldstyle figures' })).toBeChecked()
   await expect(options.getByRole('combobox', { name: 'Position' })).toHaveText('Superscript')
   await expect(options.getByRole('textbox', { name: 'Baseline shift in pt' })).toHaveValue('-2')
+  await expect(options.getByRole('textbox', { name: 'Drop cap lines' })).toHaveValue('3')
 })
 
 test('the insert character menu puts dashes and quotes into the edited text', async ({ page }) => {

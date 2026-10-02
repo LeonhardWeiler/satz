@@ -16,7 +16,9 @@ const LINE_PENALTY: f64 = 10.0;
 const INF_BAD: f64 = 1e10;
 const OVERFULL: f64 = 1e24;
 
-pub fn break_lines(items: &[Item], width: f32) -> Vec<(usize, f32)> {
+/// The best breaks of `items` into lines, each its end and its adjustment ratio. Line
+/// `i` is `widths[i]` wide, lines past the end of `widths` as wide as its last.
+pub fn break_lines(items: &[Item], widths: &[f32]) -> Vec<(usize, f32)> {
     let mut sum = vec![[0.0f64; 3]; items.len() + 1];
     for (k, it) in items.iter().enumerate() {
         let d = match *it {
@@ -30,16 +32,18 @@ pub fn break_lines(items: &[Item], width: f32) -> Vec<(usize, f32)> {
         };
         sum[k + 1] = [0, 1, 2].map(|c| sum[k][c] + d[c] as f64);
     }
-    let width = width as f64;
-    let mut prev = vec![None; items.len()];
-    let mut starts: Vec<(Option<usize>, f64)> = vec![(None, 0.0)];
+    let last = widths.len() - 1;
+    // Each break: its item, the break before it and the ratio of the line it ends.
+    let mut nodes: Vec<(usize, Option<usize>, f32)> = Vec::new();
+    // Breaks a line may start after: the node, its demerits and the line that starts.
+    let mut starts: Vec<(Option<usize>, f64, usize)> = vec![(None, 0.0, 0)];
     for j in 0..items.len() {
         let (extra, cost) = match items[j] {
             Item::Glue { .. } if j > 0 && matches!(items[j - 1], Item::Box(_)) => (0.0, 0.0),
             Item::Penalty { width, cost } if cost < f32::INFINITY => (width as f64, cost as f64),
             _ => continue,
         };
-        let line = |s: usize| {
+        let line = |s: usize, width: f64| {
             let [w, y, z] = [0, 1, 2].map(|c| sum[j][c] - sum[s][c]);
             let slack = width - w - extra;
             let r = match slack {
@@ -64,25 +68,36 @@ pub fn break_lines(items: &[Item], width: f32) -> Vec<(usize, f32)> {
         };
         let lines: Vec<_> = starts
             .iter()
-            .map(|&(i, d)| {
-                let (ld, r) = line(i.map_or(0, |i| i + 1));
-                (i, d + ld, r)
+            .map(|&(n, d, l)| {
+                let (ld, r) = line(n.map_or(0, |n| nodes[n].0 + 1), widths[l] as f64);
+                (n, d + ld, r, (l + 1).min(last))
             })
             .collect();
-        let best = *lines.iter().min_by(|a, b| a.1.total_cmp(&b.1)).unwrap();
-        prev[j] = Some((best.0, best.2 as f32));
         let mut fits = lines
             .iter()
             .map(|l| l.2 >= -1.0 && cost != f64::NEG_INFINITY);
         starts.retain(|_| fits.next().unwrap());
-        starts.push((Some(j), best.1));
+        for next in 0..=last {
+            let Some(best) = lines
+                .iter()
+                .filter(|l| l.3 == next)
+                .min_by(|a, b| a.1.total_cmp(&b.1))
+            else {
+                continue;
+            };
+            nodes.push((j, best.0, best.2 as f32));
+            starts.push((Some(nodes.len() - 1), best.1, next));
+        }
     }
     let mut breaks = Vec::new();
-    let mut at = starts.last().and_then(|s| s.0);
-    while let Some(j) = at {
-        let (i, r) = prev[j].unwrap();
+    let mut at = starts
+        .iter()
+        .min_by(|a, b| a.1.total_cmp(&b.1))
+        .and_then(|s| s.0);
+    while let Some(n) = at {
+        let (j, prev, r) = nodes[n];
         breaks.push((j, r));
-        at = i;
+        at = prev;
     }
     breaks.reverse();
     breaks
@@ -111,7 +126,7 @@ mod tests {
     ];
 
     fn ends(items: &[Item], width: f32) -> Vec<usize> {
-        break_lines(items, width).iter().map(|l| l.0).collect()
+        break_lines(items, &[width]).iter().map(|l| l.0).collect()
     }
 
     fn words(ws: &[f32]) -> Vec<Item> {
@@ -142,5 +157,15 @@ mod tests {
     fn a_word_wider_than_the_frame_gets_its_own_line() {
         let items = words(&[15.0, 2.0]);
         assert_eq!(ends(&items, 10.0), vec![1, 4]);
+    }
+
+    #[test]
+    fn a_narrower_first_line_takes_fewer_words() {
+        let items = words(&[4.0; 8]);
+        let ends: Vec<_> = break_lines(&items, &[4.0, 14.0])
+            .iter()
+            .map(|l| l.0)
+            .collect();
+        assert_eq!(ends, vec![1, 7, 13, 16]);
     }
 }

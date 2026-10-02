@@ -1074,6 +1074,8 @@ impl Doc {
                     paragraph_indent: p.paragraph_indent,
                     hyphenate: p.hyphenate,
                     lang: p.lang,
+                    drop_lines: p.drop_lines,
+                    drop_chars: p.drop_chars,
                     ..attrs.clone()
                 };
                 let len = piece.encode_utf16().count();
