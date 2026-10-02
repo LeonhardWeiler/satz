@@ -12,7 +12,7 @@
 16. tabellen
 17. verankerte objekte
 18. move pages or double pages
-19. komplette liste von funktionen in satz
+19. komplette liste von funktionen in satz als markdown datei im repo
 
 --- with server (in the future)
 1. make it possible to work together on the same project with link and code share, alot of works needs to be done to make this work good
