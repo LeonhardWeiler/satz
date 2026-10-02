@@ -9,7 +9,7 @@ import { Renderer, fitView, HANDLE, type Box, type View } from './renderer'
 import { pick } from './select'
 import { length, settings, subscribeSettings, UNITS } from './settings'
 import { equals, guides, measure, nearest, snap, spacings, targets, type Guide, type Lines, type Measure } from './snap'
-import { nearest as nearestSegment, remove, shift, split, type At, type Contour, type Knot } from './vector'
+import { curved, nearest as nearestSegment, remove, shift, smooth, split, type At, type Contour, type Knot } from './vector'
 import { handleTextKey, insert, range, select, textOf, wordAt } from './textEdit'
 import { Switcher } from './Switcher'
 import { Quick } from './Quick'
@@ -721,6 +721,12 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           if (!under && Math.hypot(k.x - q.x, k.y - q.y) <= r) under = { at: [c, i], part: 'point' }
         }))
         const segment = nearestSegment(cs, q)
+        if ((e.ctrlKey || e.metaKey) && under?.part === 'point') {
+          const k = cs[under.at[0]].knots[under.at[1]]
+          editor.setKnots(smooth(cs, under.at, !curved(k)), under.at)
+          drag = null
+          return
+        }
         if (v.mode === 'delete') {
           if (under?.part === 'point') editor.setKnots(remove(cs, under.at))
           drag = null

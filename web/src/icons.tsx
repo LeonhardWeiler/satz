@@ -34,6 +34,18 @@ const ICONS = {
       <path d="M12 2.5v6M9 5.5h6" />
     </>
   ),
+  smooth: (
+    <>
+      <path d="M2.5 12.5C4 6 12 6 13.5 12.5M3 6h10" />
+      <circle cx="8" cy="6" r="1.5" />
+    </>
+  ),
+  corner: (
+    <>
+      <path d="m2.5 13.5 4.6-7.4M8.9 6.1l4.6 7.4" />
+      <rect x="6.75" y="3" width="2.5" height="2.5" />
+    </>
+  ),
   deletePoint: (
     <>
       <path d="M2.5 13.5C4 9.5 6 8 9 7.5" />

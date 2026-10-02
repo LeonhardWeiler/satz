@@ -206,6 +206,27 @@ test('enter edits the points of a shape, moving, adding and deleting them', asyn
   await expect(page.getByRole('toolbar', { name: 'Tools' })).toBeVisible()
 })
 
+test('ctrl click and the path tools make a point smooth or a corner', async ({ page }) => {
+  await open(page)
+  const w = page.getByRole('complementary', { name: 'Properties' }).getByRole('textbox', { name: 'W' })
+  const tools = page.getByRole('toolbar', { name: 'Path tools' })
+  await page.keyboard.press('r')
+  await drag(page, await screen(page, 20, 20), await screen(page, 60, 60))
+  await page.keyboard.press('Enter')
+  await expect(tools.getByRole('button', { name: 'Smooth point' })).toBeDisabled()
+  await page.keyboard.down('Control')
+  await page.mouse.click(...(await screen(page, 60, 20)))
+  await expect(w).not.toHaveValue('40')
+  await page.mouse.click(...(await screen(page, 60, 20)))
+  await expect(w).toHaveValue('40')
+  await page.keyboard.up('Control')
+  await page.mouse.click(...(await screen(page, 60, 20)))
+  await tools.getByRole('button', { name: 'Smooth point' }).click()
+  await expect(w).not.toHaveValue('40')
+  await tools.getByRole('button', { name: 'Corner point' }).click()
+  await expect(w).toHaveValue('40')
+})
+
 test('a layer turns by its corner and is hit where it shows', async ({ page }) => {
   await open(page)
   const props = page.getByRole('complementary', { name: 'Properties' })

@@ -109,6 +109,24 @@ export function remove(cs: Contour[], [c, i]: At): Contour[] {
   return out.filter((k) => k.knots.length > 1)
 }
 
+/** Whether the knot has a handle off its point. */
+export const curved = (k: Knot) => k.ix !== k.x || k.iy !== k.y || k.ox !== k.x || k.oy !== k.y
+
+/** `cs` with the knot `at` smooth, its handles along its neighbours a third of the way to each, or a corner without handles. */
+export function smooth(cs: Contour[], [c, i]: At, on: boolean): Contour[] {
+  const out = structuredClone(cs)
+  const { knots, closed } = out[c]
+  const k = knots[i]
+  const n = knots.length
+  const prev = knots[closed ? (i + n - 1) % n : Math.max(i - 1, 0)]
+  const next = knots[closed ? (i + 1) % n : Math.min(i + 1, n - 1)]
+  const [dx, dy] = [next.x - prev.x, next.y - prev.y]
+  const len = (Math.hypot(dx, dy) || 1) * 3
+  const [a, b] = on ? [Math.hypot(k.x - prev.x, k.y - prev.y) / len, Math.hypot(next.x - k.x, next.y - k.y) / len] : [0, 0]
+  Object.assign(k, { ix: k.x - dx * a, iy: k.y - dy * a, ox: k.x + dx * b, oy: k.y + dy * b })
+  return out
+}
+
 /** `cs` with the knot `at`, or with `part` only its handle, moved by (dx, dy). */
 export function shift(cs: Contour[], [c, i]: At, part: 'point' | 'in' | 'out', dx: number, dy: number): Contour[] {
   const out = structuredClone(cs)
