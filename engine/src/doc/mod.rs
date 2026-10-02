@@ -1575,7 +1575,30 @@ impl Doc {
                 .map_err(err)?,
         };
         for (k, v) in loro(v)?.into_map().unwrap().iter() {
-            m.insert(k, v.clone()).map_err(err)?;
+            match v {
+                LoroValue::Map(v) if k == "values" || k == "bindings" => {
+                    if value(&m, k).is_some() {
+                        m.delete(k).map_err(err)?;
+                    }
+                    let n = m.ensure_mergeable_map(k).map_err(err)?;
+                    for k in n
+                        .keys()
+                        .filter(|k| !v.contains_key(k.as_str()))
+                        .collect::<Vec<_>>()
+                    {
+                        n.delete(&k).map_err(err)?;
+                    }
+                    for (k, v) in v.iter() {
+                        if value(&n, k).as_ref() != Some(v) {
+                            n.insert(k, v.clone()).map_err(err)?;
+                        }
+                    }
+                }
+                _ if value(&m, k).as_ref() != Some(v) => {
+                    m.insert(k, v.clone()).map_err(err)?;
+                }
+                _ => {}
+            }
         }
         Ok(())
     }

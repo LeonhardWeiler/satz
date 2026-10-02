@@ -542,6 +542,32 @@ mod tests {
     use crate::doc::tests::*;
 
     #[test]
+    fn concurrent_edits_to_a_variable_merge_field_by_field() {
+        let (mut d, _) = empty();
+        let (c, light) = collection(&mut d, "Theme");
+        let v = variable(&mut d, &c, "Gap", Value::Number(4.0)).unwrap();
+        let mut a = Doc::load(&d.save()).unwrap();
+        let mut b = Doc::load(&d.save()).unwrap();
+        a.apply(Command::SetVariable {
+            id: v.clone(),
+            name: Some("Space".into()),
+            mode: None,
+            value: None,
+        })
+        .unwrap();
+        set_value(&mut b, &v, &light, Value::Number(8.0)).unwrap();
+        a.doc
+            .import(&b.doc.export(ExportMode::all_updates()).unwrap())
+            .unwrap();
+        let m = Doc::load(&a.save()).unwrap().snapshot();
+        let var = &m.palette.variables[0];
+        assert_eq!(
+            (var.name.as_str(), &var.values[&light]),
+            ("Space", &Value::Number(8.0))
+        );
+    }
+
+    #[test]
     fn switching_to_cmyk_converts_every_process_colour_but_spots_and_undo_restores_them() {
         let mut d = Doc::sample();
         assert_eq!(d.snapshot().color_mode, ColorMode::Rgb);
