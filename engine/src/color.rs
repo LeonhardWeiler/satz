@@ -1,10 +1,12 @@
 use crate::variable::{Scope, Value};
 use moxcms::{
-    ColorProfile, Layout, RenderingIntent, Transform8BitExecutor, TransformF32Executor,
-    TransformOptions,
+    ColorProfile, DataColorSpace, Layout, ProfileText, RenderingIntent, Transform8BitExecutor,
+    TransformF32Executor, TransformOptions,
 };
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, OnceLock};
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::sync::Arc;
 
 /// The print condition of CMYK documents; see `icc/build`.
 const FOGRA51: &[u8] = include_bytes!("../icc/FOGRA51.icc");
@@ -247,18 +249,117 @@ fn options() -> TransformOptions {
     }
 }
 
-fn transform(
-    from: &ColorProfile,
-    from_layout: Layout,
-    to: &ColorProfile,
-    to_layout: Layout,
-) -> Arc<TransformF32Executor> {
-    from.create_transform_f32(from_layout, to, to_layout, options())
-        .unwrap()
+/// The CMYK profile of the document and its transforms to and from sRGB.
+struct Cms {
+    icc: Vec<u8>,
+    name: String,
+    to_srgb: Arc<TransformF32Executor>,
+    from_srgb: Arc<TransformF32Executor>,
+    separate: Arc<Transform8BitExecutor>,
+    preview: Arc<Transform8BitExecutor>,
+    /// Black point compensation, as PDF viewers apply it: the darkest colour the
+    /// profile prints shows as screen black.
+    lut: [[u8; 256]; 3],
+    black: [f32; 3],
 }
 
-fn fogra51() -> ColorProfile {
-    ColorProfile::new_from_slice(FOGRA51).unwrap()
+impl Cms {
+    fn new(icc: &[u8]) -> Result<Cms, String> {
+        let p = ColorProfile::new_from_slice(icc).map_err(|_| "not an ICC profile")?;
+        if p.color_space != DataColorSpace::Cmyk {
+            return Err("not a CMYK profile".into());
+        }
+        let srgb = ColorProfile::new_srgb();
+        let fail = |_| "the profile does not convert colours".to_string();
+        let name = match &p.description {
+            Some(ProfileText::PlainString(s)) => s.clone(),
+            Some(ProfileText::Localizable(l)) => {
+                l.first().map(|l| l.value.clone()).unwrap_or_default()
+            }
+            Some(ProfileText::Description(d)) => d.ascii_string.clone(),
+            None => String::new(),
+        };
+        let mut c = Cms {
+            icc: icc.to_vec(),
+            name: name.trim_end_matches('\0').trim().to_string(),
+            to_srgb: p
+                .create_transform_f32(Layout::Rgba, &srgb, Layout::Rgb, options())
+                .map_err(fail)?,
+            from_srgb: srgb
+                .create_transform_f32(Layout::Rgb, &p, Layout::Rgba, options())
+                .map_err(fail)?,
+            separate: srgb
+                .create_transform_8bit(Layout::Rgb, &p, Layout::Rgba, options())
+                .map_err(fail)?,
+            preview: p
+                .create_transform_8bit(Layout::Rgba, &srgb, Layout::Rgb, options())
+                .map_err(fail)?,
+            lut: [[0; 256]; 3],
+            black: [0.0; 3],
+        };
+        c.black = c.srgb(c.cmyk([0.0; 3])).map(linear);
+        c.lut = std::array::from_fn(|i| {
+            std::array::from_fn(|v| {
+                let mut rgb = [0.0; 3];
+                rgb[i] = v as f32 / 255.0;
+                (c.compensate(rgb)[i] * 255.0).round() as u8
+            })
+        });
+        Ok(c)
+    }
+
+    fn srgb(&self, cmyk: [f32; 4]) -> [f32; 3] {
+        let mut rgb = [0.0; 3];
+        self.to_srgb.transform(&cmyk, &mut rgb).unwrap();
+        rgb.map(|v| v.clamp(0.0, 1.0))
+    }
+
+    fn cmyk(&self, rgb: [f32; 3]) -> [f32; 4] {
+        let mut cmyk = [0.0; 4];
+        self.from_srgb.transform(&rgb, &mut cmyk).unwrap();
+        cmyk.map(|v| v.clamp(0.0, 1.0))
+    }
+
+    fn compensate(&self, rgb: [f32; 3]) -> [f32; 3] {
+        let b = self.black;
+        std::array::from_fn(|i| gamma(((linear(rgb[i]) - b[i]) / (1.0 - b[i])).clamp(0.0, 1.0)))
+    }
+}
+
+thread_local! {
+    static CMS: RefCell<Rc<Cms>> = RefCell::new(Rc::new(Cms::new(FOGRA51).unwrap()));
+}
+
+fn cms() -> Rc<Cms> {
+    CMS.with(|c| c.borrow().clone())
+}
+
+/// Checks that `icc` is a CMYK profile that converts colours.
+pub fn check_profile(icc: &[u8]) -> Result<(), String> {
+    Cms::new(icc).map(|_| ())
+}
+
+/// The name of the CMYK profile in use, `None` for FOGRA51.
+pub fn profile_name() -> Option<String> {
+    let c = cms();
+    (c.icc != FOGRA51).then(|| c.name.clone())
+}
+
+/// Makes `icc`, or FOGRA51 for `None`, the CMYK profile of the colours that follow;
+/// true when it changed.
+pub fn use_profile(icc: Option<&[u8]>) -> bool {
+    let icc = icc.unwrap_or(FOGRA51);
+    let Some(c) = (cms().icc != icc).then(|| Cms::new(icc).ok()).flatten() else {
+        return false;
+    };
+    CMS.with(|cell| *cell.borrow_mut() = Rc::new(c));
+    true
+}
+
+/// The CMYK profile in use: its bytes, its name, and whether it is the built-in FOGRA51.
+pub fn profile() -> (Vec<u8>, String, bool) {
+    let c = cms();
+    (c.icc.clone(), c.name.clone(), c.icc == FOGRA51)
 }
 
 /// CMYK of the colour 0xRRGGBB; black, white and gray take their pure K.
@@ -274,17 +375,14 @@ pub fn separate(rgb: u32) -> [f32; 4] {
     to_cmyk([16, 8, 0].map(|s| (rgb >> s & 0xff) as f32 / 255.0))
 }
 
-/// Screen colour of `cmyk`, compensated as `compensate` does.
+/// Screen colour of `cmyk`, black point compensated.
 pub fn to_rgb(cmyk: [f32; 4]) -> [f32; 3] {
-    compensate(fogra_to_srgb(cmyk))
+    let c = cms();
+    c.compensate(c.srgb(cmyk))
 }
 
-/// Black point compensation, as PDF viewers apply it: the darkest colour FOGRA51
-/// prints shows as screen black.
-fn compensate(rgb: [f32; 3]) -> [f32; 3] {
-    static BLACK: OnceLock<[f32; 3]> = OnceLock::new();
-    let black = BLACK.get_or_init(|| fogra_to_srgb(to_cmyk([0.0; 3])).map(linear));
-    std::array::from_fn(|i| gamma(((linear(rgb[i]) - black[i]) / (1.0 - black[i])).clamp(0.0, 1.0)))
+pub fn to_cmyk(rgb: [f32; 3]) -> [f32; 4] {
+    cms().cmyk(rgb)
 }
 
 fn linear(v: f32) -> f32 {
@@ -303,37 +401,7 @@ fn gamma(v: f32) -> f32 {
     }
 }
 
-fn fogra_to_srgb(cmyk: [f32; 4]) -> [f32; 3] {
-    static T: OnceLock<Arc<TransformF32Executor>> = OnceLock::new();
-    let t = T.get_or_init(|| {
-        transform(
-            &fogra51(),
-            Layout::Rgba,
-            &ColorProfile::new_srgb(),
-            Layout::Rgb,
-        )
-    });
-    let mut rgb = [0.0; 3];
-    t.transform(&cmyk, &mut rgb).unwrap();
-    rgb.map(|v| v.clamp(0.0, 1.0))
-}
-
-pub fn to_cmyk(rgb: [f32; 3]) -> [f32; 4] {
-    static T: OnceLock<Arc<TransformF32Executor>> = OnceLock::new();
-    let t = T.get_or_init(|| {
-        transform(
-            &ColorProfile::new_srgb(),
-            Layout::Rgb,
-            &fogra51(),
-            Layout::Rgba,
-        )
-    });
-    let mut cmyk = [0.0; 4];
-    t.transform(&rgb, &mut cmyk).unwrap();
-    cmyk.map(|v| v.clamp(0.0, 1.0))
-}
-
-/// The colour `rgb` prints visibly different in FOGRA51.
+/// The colour `rgb` prints visibly different in the CMYK profile.
 pub fn out_of_gamut(rgb: [f32; 3]) -> bool {
     apart(rgb, to_rgb(to_cmyk(rgb)))
 }
@@ -364,43 +432,19 @@ fn chroma(rgb: [f32; 3]) -> [f32; 2] {
 
 /// CMYK bytes of the RGBA bytes `rgba`, whose alpha is left out.
 pub fn separate_pixels(rgba: &[u8]) -> Vec<u8> {
-    static T: OnceLock<Arc<Transform8BitExecutor>> = OnceLock::new();
-    let t = T.get_or_init(|| {
-        ColorProfile::new_srgb()
-            .create_transform_8bit(Layout::Rgb, &fogra51(), Layout::Rgba, options())
-            .unwrap()
-    });
     let rgb: Vec<u8> = rgba.chunks(4).flat_map(|p| [p[0], p[1], p[2]]).collect();
     let mut cmyk = vec![0; rgb.len() / 3 * 4];
-    t.transform(&rgb, &mut cmyk).unwrap();
+    cms().separate.transform(&rgb, &mut cmyk).unwrap();
     cmyk
 }
 
 /// Screen RGB bytes of the CMYK bytes `cmyk`, compensated as `to_rgb` is.
 pub fn preview_pixels(cmyk: &[u8]) -> Vec<u8> {
-    static T: OnceLock<(Arc<Transform8BitExecutor>, [[u8; 256]; 3])> = OnceLock::new();
-    let (t, lut) = T.get_or_init(|| {
-        let t = fogra51()
-            .create_transform_8bit(
-                Layout::Rgba,
-                &ColorProfile::new_srgb(),
-                Layout::Rgb,
-                options(),
-            )
-            .unwrap();
-        let lut = std::array::from_fn(|c| {
-            std::array::from_fn(|v| {
-                let mut rgb = [0.0; 3];
-                rgb[c] = v as f32 / 255.0;
-                (compensate(rgb)[c] * 255.0).round() as u8
-            })
-        });
-        (t, lut)
-    });
+    let c = cms();
     let mut rgb = vec![0; cmyk.len() / 4 * 3];
-    t.transform(cmyk, &mut rgb).unwrap();
+    c.preview.transform(cmyk, &mut rgb).unwrap();
     for (i, v) in rgb.iter_mut().enumerate() {
-        *v = lut[i % 3][*v as usize];
+        *v = c.lut[i % 3][*v as usize];
     }
     rgb
 }

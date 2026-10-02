@@ -1176,6 +1176,23 @@ impl Doc {
         Ok(info)
     }
 
+    /// Makes `icc` the CMYK profile of the document, or FOGRA51 for `None`.
+    pub fn set_profile(&mut self, icc: Option<Vec<u8>>) -> Res<()> {
+        if let Some(icc) = &icc {
+            color::check_profile(icc)?;
+        }
+        self.invalidate();
+        let m = self.doc.get_map("document");
+        match icc {
+            Some(icc) => m.insert("profile", LoroValue::Binary(icc.into())),
+            None => m.delete("profile"),
+        }
+        .map_err(err)?;
+        self.finish(vec![], false)?;
+        self.version = format!("{:?}", self.doc.oplog_frontiers());
+        Ok(())
+    }
+
     /// The image `hash` of the document.
     fn image(&self, hash: &str) -> Res<ImageInfo> {
         match self.doc.get_map("images").get(hash) {
@@ -1457,6 +1474,13 @@ impl Doc {
     }
 
     fn finish(&self, out: Vec<String>, history: bool) -> Res<Vec<String>> {
+        let icc = value(&self.doc.get_map("document"), "profile");
+        if color::use_profile(match &icc {
+            Some(LoroValue::Binary(b)) => Some(b),
+            _ => None,
+        }) {
+            image::forget(&[]);
+        }
         let palette = self.palette();
         for p in self.tree.roots() {
             if !history && matches!(self.kind(p), Some(NodeKind::Page | NodeKind::Master)) {
@@ -4455,6 +4479,25 @@ mod tests {
             .filter(|l| l.len() == 1)
             .collect();
         assert_eq!(numbers, ["6", "3"]);
+    }
+
+    #[test]
+    fn an_uploaded_cmyk_profile_is_kept_undone_and_the_pdf_output_intent() {
+        let mut d = Doc::blank(100.0, 100.0, 1, false, ColorMode::Cmyk);
+        assert!(d.set_profile(Some(b"not icc".to_vec())).is_err());
+        let mut icc = include_bytes!("../../icc/FOGRA51.icc").to_vec();
+        icc[24] ^= 1;
+        d.set_profile(Some(icc)).unwrap();
+        let name = d.snapshot().profile.clone().unwrap();
+        assert!(!name.is_empty());
+        let pdf = String::from_utf8_lossy(&d.pdf("T", "2026-09-28T12:00:00Z", &[0])).into_owned();
+        assert_eq!(name, "FOGRA51 (Satz)");
+        assert!(pdf.contains("/OutputConditionIdentifier(Custom)/Info(FOGRA51 \\(Satz\\))"));
+        assert_eq!(Doc::load(&d.save()).unwrap().snapshot().profile, Some(name));
+        d.apply(Command::Undo).unwrap();
+        assert_eq!(d.snapshot().profile, None);
+        let pdf = String::from_utf8_lossy(&d.pdf("T", "2026-09-28T12:00:00Z", &[0])).into_owned();
+        assert!(pdf.contains("/OutputConditionIdentifier(FOGRA51)"));
     }
 
     #[test]

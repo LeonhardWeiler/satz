@@ -259,6 +259,11 @@ export class Editor {
     return this.change(() => this.engine.addFont(bytes))
   }
 
+  /** Makes the ICC profile `icc` the CMYK profile of the document, or FOGRA51 for `null`. */
+  setProfile(icc: Uint8Array | null) {
+    this.change(() => this.engine.setProfile(icc ?? undefined))
+  }
+
   /** Removes the added font `hash`; text set in it shows as missing. */
   removeFont(hash: string) {
     this.change(() => this.engine.removeFont(hash))

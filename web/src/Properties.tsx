@@ -4,7 +4,7 @@ import { type ReactNode } from 'react'
 import { bounds, ends, MM, scopeOf, useEditor, type Editor } from './editor'
 import { Icon, KindIcon } from './icons'
 import { FORMATS, ORIENTATIONS } from './Start'
-import { addFonts, canFindFonts, findFonts, readLocalFonts, removeFont, useLocalFonts } from './file'
+import { addFonts, canFindFonts, findFonts, pickProfile, readLocalFonts, removeFont, useLocalFonts } from './file'
 import type { Bindable as Prop, Blend, Constraint, Command, Grid, LineStyle, Node, Page, Props, Section as Numbers } from './model'
 import { isOpen, radiusOf } from './model'
 import { AlignBar, BooleanBar, combinable } from './align'
@@ -131,7 +131,7 @@ export function Properties({
       </header>
       {box && <AlignBar editor={editor} />}
       {combinable(editor) && <BooleanBar editor={editor} />}
-      {!box && <DocumentSection editor={editor} />}
+      {!box && <DocumentSection editor={editor} say={say} />}
       {!box && (
         <Section
           title={isPage ? (targets.length > 1 ? `Pages ${numbers.join(', ')}` : `Page ${numbers[0]}`) : 'Master'}
@@ -406,8 +406,8 @@ const sameOf = <T, U>(items: T[], get: (t: T) => U): U | null => {
 const near = (a: number, b: number) => Math.abs(a - b) < 0.5
 
 /** Format, orientation, size, bleed and number of all pages, facing pages, colour mode and raster resolution. */
-function DocumentSection({ editor }: { editor: Editor }) {
-  const { pages, masters, facingPages, colorMode, rasterPpi } = useEditor(editor, (e) => e.snapshot)
+function DocumentSection({ editor, say }: { editor: Editor; say: (message: string) => void }) {
+  const { pages, masters, facingPages, colorMode, rasterPpi, profile } = useEditor(editor, (e) => e.snapshot)
   const sheets = [...pages, ...masters]
   const w = sameOf(pages, (p) => p.width)
   const h = sameOf(pages, (p) => p.height)
@@ -428,10 +428,19 @@ function DocumentSection({ editor }: { editor: Editor }) {
         <Select label="Spreads" value={facingPages ? 'facing' : 'single'} options={SPREADS} onChange={(v) => editor.apply({ type: 'setDocument', facingPages: v === 'facing' })} />
         <Field label="Raster" reset={300} value={rasterPpi} unit="ppi" min={72} max={1200} onCommit={(v) => editor.apply({ type: 'setDocument', rasterPpi: v })} />
         <Select label="Color mode" value={colorMode} options={MODES} onChange={(colorMode) => editor.apply({ type: 'setDocument', colorMode })} />
-        <div className="kv" title="Output profile">
-          <span>Profile</span>
-          <strong>{colorMode === 'cmyk' ? 'FOGRA51' : 'sRGB'}</strong>
-        </div>
+        {colorMode === 'cmyk' ? (
+          <Select<string>
+            label="Profile"
+            value={profile === null ? 'fogra' : 'own'}
+            options={{ fogra: 'FOGRA51', ...(profile !== null && { own: profile || 'Uploaded' }), upload: 'Upload ICC…' }}
+            onChange={(v) => (v === 'upload' ? pickProfile(editor, say) : v === 'fogra' && editor.setProfile(null))}
+          />
+        ) : (
+          <div className="kv" title="Output profile">
+            <span>Profile</span>
+            <strong>sRGB</strong>
+          </div>
+        )}
       </div>
     </Section>
   )

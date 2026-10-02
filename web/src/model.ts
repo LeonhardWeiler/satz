@@ -326,6 +326,8 @@ export type Snapshot = Palette & {
   stories: Record<string, Story>
   rasterPpi: number
   colorMode: ColorMode
+  /** The name of the uploaded CMYK profile, `null` for FOGRA51. */
+  profile: string | null
   inkLimit: number
   /** How the PDF exports; PDF/X-1a only in CMYK documents. */
   preset: Preset

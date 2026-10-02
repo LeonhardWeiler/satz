@@ -222,6 +222,7 @@ pub fn forget(keep: &[String]) {
         for e in images.iter().filter(|e| !keep.contains(&e.info.hash)) {
             e.pixels.take();
             e.cmyk.take();
+            e.small.take();
         }
     })
 }

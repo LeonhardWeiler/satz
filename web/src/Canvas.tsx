@@ -442,6 +442,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const insert = drag?.kind === 'move' ? drag.to?.line.map((q) => ({ x: q.x + flowDx, y: q.y })) : undefined
       const lists = spread.map((p) => ({ id: p.id, x: p.x, inks: editor.preflight ? inkedOf(p) : undefined }))
       const image = editor.placing[0]
+      renderer.reprofile(editor.snapshot.profile ?? '')
       renderer.draw(surface.getCanvas(), lists, editor.sheets, view, canvas.width / canvas.clientWidth, {
         text,
         accent: getComputedStyle(canvas).getPropertyValue('--accent'),

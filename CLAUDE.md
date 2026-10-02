@@ -37,7 +37,9 @@ Node 22, pnpm, MuPDF (`mutool`, for the PDF tests) and
   swatches, variables, text styles) into it; spot colours, swatch and variable
   references stay as they are.
 - `engine/icc/FOGRA51.icc` is built by `engine/icc/build` from the ICC registry data;
-  PSO Coated v3 may not be redistributed.
+  PSO Coated v3 may not be redistributed. A document may hold an uploaded CMYK profile
+  instead (`profile` in the `document` map); `Doc::finish` makes it the thread's
+  profile in `color.rs`.
 - A node's `hidden` and `locked` (default false) pass to its children and hold on
   masters too: hidden is not drawn, exported, hit or preflighted; locked is drawn but
   only the layers tree selects it.
@@ -45,7 +47,7 @@ Node 22, pnpm, MuPDF (`mutool`, for the PDF tests) and
   (`engine/src/inks.rs`), rasterized in the export worker, never on the main thread.
 - PDF presets: screen (RGB, trim box only), PDF/X-4 and PDF/X-1a (CMYK and spots
   only, transparency flattened at the raster ppi, CMYK documents only). krilla writes
-  the PDF; `engine/src/pdfx.rs` adds the FOGRA51 OutputIntent, XMP and Info in an
+  the PDF; `engine/src/pdfx.rs` adds the profile's OutputIntent, XMP and Info in an
   incremental update. RGB X-4 pages blend in an sRGB group, CMYK documents blend in
-  CMYK, on the canvas too (plates and a FOGRA51 LUT in `renderer.ts`).
+  CMYK, on the canvas too (plates and a LUT of the profile in `renderer.ts`).
 - Deleted nodes move under a `trash` root so that undo restores them with their ids.

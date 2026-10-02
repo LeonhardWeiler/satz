@@ -33,6 +33,7 @@ function usePaint(ck: CanvasKit, editor: Editor) {
       const surface = ck.MakeSurface(width, height)
       if (!surface) return
       renderer ??= new Renderer(ck, editor.engine)
+      renderer.reprofile(editor.snapshot.profile ?? '')
       renderer.draw(surface.getCanvas(), lists, sheets, { x: -left * zoom, y: 0, zoom }, 1, null, editor.snapshot.colorMode === 'cmyk')
       const info = { width, height, colorType: ck.ColorType.RGBA_8888, alphaType: ck.AlphaType.Unpremul, colorSpace: ck.ColorSpace.SRGB }
       const px = surface.getCanvas().readPixels(0, 0, info) as Uint8Array | null

@@ -42,8 +42,6 @@ Open:
   per session and are missing on other computers; Firefox shows the option
   disabled with a hint. Preflight reports missing links with relink.
 - Type as in Figma: axes of variable fonts.
-- Colour profiles: choose or upload a CMYK profile (e.g. PSO Coated v3) instead of the
-  built-in FOGRA51.
 - Performance of `settle` and `lay_out`, which walk the whole tree after every
   command.
 - Threading: click an in-port to thread a frame in before another, as InDesign does. (versteh ich nicht ganz bitte erklären bevor es umgesetzt wird)

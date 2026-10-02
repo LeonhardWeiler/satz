@@ -209,6 +209,16 @@ export const addFonts = (editor: Editor, say: (message: string) => void) =>
   })
 
 /** Asks for PNG and JPEG files and places each on the current page. */
+export const pickProfile = (editor: Editor, say: (message: string) => void) =>
+  pick('.icc,.icm', false, async ([file]) => {
+    if (!file) return
+    try {
+      editor.setProfile(new Uint8Array(await file.arrayBuffer()))
+    } catch (e) {
+      say(`Could not use ${file.name}: ${(e as Error).message}.`)
+    }
+  })
+
 export const placeImages = (editor: Editor, say: (message: string) => void) =>
   pick('.png,.jpg,.jpeg', true, async (files) => {
     for (const file of files) await placeImage(editor, file, say)

@@ -104,6 +104,7 @@ export class Renderer {
   private plates: Surface[] = []
   private inksEffect?: RuntimeEffect
   private lut?: Image
+  private profile = ''
   private typefaces = new Map<number, Typeface>()
   private fonts = new Map<string, Font>()
   /** Decoded images by display-list id; `null` when the file does not decode. */
@@ -622,6 +623,18 @@ export class Renderer {
       this.fonts.set(key, font)
     }
     return font
+  }
+
+  /** Forgets what shows through the CMYK profile when it is no longer `name`. */
+  reprofile(name: string) {
+    if (name === this.profile) return
+    this.profile = name
+    this.lut?.delete()
+    this.inksEffect?.delete()
+    this.lut = this.inksEffect = undefined
+    for (const image of this.images.values()) image?.delete()
+    this.images.clear()
+    this.clear()
   }
 
   /** Forgets the pictures of all items and layers. */

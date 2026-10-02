@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { type Locator, type Page } from '@playwright/test'
 import { expect, test, open, pixels, screen, choose } from './util'
 
@@ -247,4 +248,25 @@ test('a double click on a swatch renames it in place and escape keeps the name',
   await name.fill('Ink')
   await name.press('Escape')
   await expect(swatches.getByRole('option', { name: /Paper/ })).toBeVisible()
+})
+
+test('a cmyk document takes an uploaded icc profile and goes back to fogra51', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  await choose(panel.getByRole('combobox', { name: 'Color mode' }), 'CMYK')
+  const profile = panel.getByRole('combobox', { name: 'Profile' })
+  await expect(profile).toHaveText('FOGRA51')
+  const upload = async (name: string, buffer: Buffer) => {
+    const chooser = page.waitForEvent('filechooser')
+    await choose(profile, 'Upload ICC…')
+    await (await chooser).setFiles({ name, mimeType: 'application/vnd.iccprofile', buffer })
+  }
+  await upload('notes.icc', Buffer.from('notes'))
+  await expect(page.getByText('Could not use notes.icc: not an ICC profile.')).toBeVisible()
+  const icc = readFileSync(new URL('../../engine/icc/FOGRA51.icc', import.meta.url))
+  icc[24] ^= 1
+  await upload('own.icc', icc)
+  await expect(profile).toHaveText('FOGRA51 (Satz)')
+  await choose(profile, 'FOGRA51')
+  await expect(profile).toHaveText('FOGRA51')
 })

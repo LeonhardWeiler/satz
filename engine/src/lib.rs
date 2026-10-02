@@ -201,6 +201,11 @@ impl Engine {
         self.doc.package(title, date, indices)
     }
 
+    #[wasm_bindgen(js_name = setProfile)]
+    pub fn set_profile(&mut self, icc: Option<Vec<u8>>) -> Result<(), JsError> {
+        self.doc.set_profile(icc).map_err(|e| JsError::new(&e))
+    }
+
     pub fn save(&self) -> Vec<u8> {
         self.doc.save()
     }

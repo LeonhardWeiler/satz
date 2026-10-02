@@ -1,5 +1,5 @@
 //! PDF/X on top of krilla, which has no PDF/X support: an incremental update
-//! adds the FOGRA51 OutputIntent, the XMP metadata and the Info dictionary, and
+//! adds the OutputIntent of the CMYK profile, the XMP metadata and the Info dictionary, and
 //! for `rgb` gives every page an sRGB transparency group, so that the page
 //! blends in RGB as the canvas does. Graphics states with the opacity `OVERPRINT`
 //! become opaque and overprint.
@@ -9,7 +9,6 @@ use crate::pdf::Preset;
 const PAGE: &[u8] = b" 0 obj\n<</Type/Page/";
 const STATE: &[u8] = b" 0 obj\n<</Type/ExtGState";
 pub const OVERPRINT: f32 = 0.99987;
-const FOGRA51: &[u8] = include_bytes!("../icc/FOGRA51.icc");
 
 /// `pdf` as `preset` titled `title`, made at `date` in ISO 8601 UTC, as
 /// `2026-09-28T12:00:00Z`.
@@ -68,7 +67,23 @@ xmlns:pdfxid=\"http://www.npes.org/pdfx/ns/id/\">\
 <pdf:Producer>Satz</pdf:Producer><pdf:Trapped>False</pdf:Trapped>{xmp_version}\
 </rdf:Description></rdf:RDF></x:xmpmeta>\n<?xpacket end=\"w\"?>"
     );
-    let icc = miniz_oxide::deflate::compress_to_vec_zlib(FOGRA51, 6);
+    let (icc, name, fogra) = crate::color::profile();
+    let condition = if fogra {
+        "/OutputConditionIdentifier(FOGRA51)/OutputCondition(Offset printing, coated paper, ISO 12647-2:2013)\
+         /RegistryName(http://www.color.org)/Info(FOGRA51)"
+            .to_string()
+    } else {
+        let name: String = name
+            .chars()
+            .filter(|c| c.is_ascii() && !c.is_ascii_control())
+            .map(|c| match c {
+                '(' | ')' | '\\' => format!("\\{c}"),
+                c => c.to_string(),
+            })
+            .collect();
+        format!("/OutputConditionIdentifier(Custom)/Info({name})")
+    };
+    let icc = miniz_oxide::deflate::compress_to_vec_zlib(&icc, 6);
     let stream = |dict: String, data: &[u8]| {
         let mut o = format!("{dict}\nstream\n").into_bytes();
         o.extend_from_slice(data);
@@ -85,12 +100,8 @@ xmlns:pdfxid=\"http://www.npes.org/pdfx/ns/id/\">\
         ),
         (
             size + 1,
-            format!(
-                "<</Type/OutputIntent/S/GTS_PDFX/OutputConditionIdentifier(FOGRA51)\
-                 /OutputCondition(Offset printing, coated paper, ISO 12647-2:2013)\
-                 /RegistryName(http://www.color.org)/Info(FOGRA51)/DestOutputProfile {size} 0 R>>"
-            )
-            .into_bytes(),
+            format!("<</Type/OutputIntent/S/GTS_PDFX{condition}/DestOutputProfile {size} 0 R>>")
+                .into_bytes(),
         ),
         (
             size + 2,

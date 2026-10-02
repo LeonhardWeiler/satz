@@ -14,6 +14,8 @@ pub struct Snapshot {
     /// Resolution at which the PDF rasterizes shadows and blurs.
     pub raster_ppi: f64,
     pub color_mode: ColorMode,
+    /// The name of the uploaded CMYK profile, `None` for FOGRA51.
+    pub profile: Option<String>,
     /// The highest total of inks in % that preflight allows.
     pub ink_limit: f64,
     /// How the PDF exports; an RGB document exports PDF/X-4 in place of PDF/X-1a.
@@ -636,6 +638,7 @@ impl Doc {
                 .filter(|&l| l > 0.0)
                 .unwrap_or(300.0),
             color_mode: self.color_mode(),
+            profile: crate::color::profile_name(),
             preset: match self.setting("preset", Preset::X4) {
                 Preset::X1a if self.color_mode() == ColorMode::Rgb => Preset::X4,
                 p => p,
