@@ -46,6 +46,8 @@ export function targets(sheets: Sheet[], nodes: Node[], grids = false): Lines {
   for (const s of sheets) {
     box({ x: s.x, y: 0, w: s.width, h: s.height })
     if (!grids) continue
+    for (const at of s.guides?.x ?? []) x.push({ at: s.x + at, from: 0, to: s.height })
+    for (const at of s.guides?.y ?? []) y.push({ at, from: s.x, to: s.x + s.width })
     const spans = gridSpans(s)
     for (const at of spans.x.flat()) x.push({ at, from: 0, to: s.height })
     for (const at of spans.y.flat()) y.push({ at, from: s.x, to: s.x + s.width })

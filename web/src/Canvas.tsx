@@ -61,6 +61,7 @@ type Drag =
   | { kind: 'knot'; start: Point; cs: Contour[]; at: At; part: 'point' | 'in' | 'out' }
   | { kind: 'text' }
   | { kind: 'swap'; id: string; at: Point }
+  | { kind: 'guide'; axis: 'x' | 'y'; id: string; dx: number; index: number; grouped: boolean }
 
 /** Snaps a vector to the nearest multiple of 45°. */
 /** Degrees counterclockwise of `p` around `c`. */
@@ -199,11 +200,32 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const q = editor.local(id, p)
       return editor.engine.textIndex(id, q.x, q.y)
     }
-    /** The page of the spread under `p`, or the nearest. */
-    const pageAt = (p: Point) => {
+    /** The page of `pages` under `p`, or the nearest. */
+    const pageAt = (p: Point, pages = editor.spread) => {
       const away = (q: Page) => Math.max(q.x - p.x, p.x - q.x - q.width, 0)
-      return editor.spread.reduce((a, b) => (away(b) < away(a) ? b : a))
+      return pages.reduce((a, b) => (away(b) < away(a) ? b : a))
     }
+    /** The ruler guide within reach of `p`. */
+    const guideAt = (p: Point) => {
+      if (!editor.grids || editor.preflight) return undefined
+      for (const s of editor.sheets) {
+        if (p.x < s.x || p.x > s.x + s.width || p.y < 0 || p.y > s.height) continue
+        for (const axis of ['x', 'y'] as const) {
+          const index = s.guides[axis].findIndex((g) => Math.abs((axis === 'x' ? s.x + g : g) - p[axis]) < HIT / view.zoom)
+          if (index >= 0) return { axis, id: s.id, dx: s.x, index }
+        }
+      }
+    }
+    /** Starts to drag a new guide out of a ruler. */
+    const fromRuler = (axis: 'x' | 'y') => (e: PointerEvent) => {
+      if (e.button !== 0) return
+      editor.set({ grids: true })
+      editor.dragging = true
+      canvas.setPointerCapture(e.pointerId)
+      drag = { kind: 'guide', axis, id: '', dx: 0, index: -1, grouped: false }
+    }
+    const downX = fromRuler('y')
+    const downY = fromRuler('x')
     /** The path of layers at `p` on the topmost page of the spread that has one there. */
     /** The text frame under `p`, innermost first. */
     const textUnder = (p: Point) => hit(p).path.findLast((id) => editor.nodes.get(id)?.node.kind === 'text')
@@ -517,7 +539,9 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       if (!pointer || drag || editor.pen) return
       const side = portUnder(pointer)?.side
       const to = editor.threading && textUnder(toDoc(pointer))
-      canvas.style.cursor = side ? 'pointer'
+      const guide = editor.tool === 'move' && guideAt(toDoc(pointer))
+      canvas.style.cursor = guide ? (guide.axis === 'x' ? 'col-resize' : 'row-resize')
+        : side ? 'pointer'
         : to ? (editor.engine.canThread(editor.threading!, to) ? '' : 'not-allowed')
         : editor.vector?.mode === 'add' ? 'crosshair' : cursorOf(handleUnder(pointer) ?? '', handles().box?.rotation ?? 0)
       const mode = pointer.ctrlKey ? 'deep' : 'click'
@@ -620,6 +644,11 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         e.preventDefault()
         drag = { kind: 'pan', last: { x: e.clientX, y: e.clientY } }
         canvas.dataset.panning = ''
+        return
+      }
+      const guide = editor.tool === 'move' && !editor.vector && guideAt(p)
+      if (guide) {
+        drag = { kind: 'guide', ...guide, grouped: false }
         return
       }
       const image = editor.placing[0]
@@ -806,6 +835,19 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         return
       }
       if (!drag) return track()
+      if (drag.kind === 'guide') {
+        const g = drag
+        const off = g.axis === 'x' ? e.offsetX < 0 : e.offsetY < 0
+        if (g.index < 0 && off) return
+        if (g.index < 0) ({ id: g.id, x: g.dx } = pageAt(p, editor.sheets))
+        if (!g.grouped) editor.beginGroup()
+        g.grouped = true
+        const { guides } = editor.sheets.find((s) => s.id === g.id)!
+        const rest = guides[g.axis].filter((_, i) => i !== g.index)
+        editor.apply({ type: 'setGuides', id: g.id, guides: { ...guides, [g.axis]: off ? rest : [...rest, g.axis === 'x' ? p.x - g.dx : p.y] } })
+        g.index = off ? -1 : rest.length
+        return
+      }
       if (drag.kind === 'text') {
         const ed = editor.editing
         const id = inEdited(p)?.id ?? ed?.id
@@ -994,7 +1036,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         }
         for (const [to, ids] of moves) editor.apply({ type: 'move', ids, parent: to.id, index: to.children.length })
       }
-      if ((drag?.kind === 'draw' && drag.id) || drag?.kind === 'resize' || drag?.kind === 'end' || drag?.kind === 'radius' || drag?.kind === 'rotate' || drag?.kind === 'knot' || (drag?.kind === 'move' && drag.active)) {
+      if ((drag?.kind === 'draw' && drag.id) || (drag?.kind === 'guide' && drag.grouped) || drag?.kind === 'resize' || drag?.kind === 'end' || drag?.kind === 'radius' || drag?.kind === 'rotate' || drag?.kind === 'knot' || (drag?.kind === 'move' && drag.active)) {
         editor.endGroup()
       }
       if (drag?.kind === 'move' && !drag.active && !e.shiftKey) {
@@ -1107,6 +1149,9 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     })
     canvas.parentElement!.addEventListener('wheel', onWheel, { passive: false })
     canvas.addEventListener('pointerdown', onPointerDown)
+    const [top, left] = [rulerX.current!, rulerY.current!]
+    top.addEventListener('pointerdown', downX)
+    left.addEventListener('pointerdown', downY)
     canvas.addEventListener('pointermove', onPointerMove)
     canvas.addEventListener('pointerup', onPointerUp)
     canvas.addEventListener('pointercancel', onPointerUp)
@@ -1128,6 +1173,8 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       canvas.parentElement!.removeEventListener('wheel', onWheel)
       canvas.removeEventListener('pointerdown', onPointerDown)
       canvas.removeEventListener('pointermove', onPointerMove)
+      top.removeEventListener('pointerdown', downX)
+      left.removeEventListener('pointerdown', downY)
       canvas.removeEventListener('pointerup', onPointerUp)
       canvas.removeEventListener('pointercancel', onPointerUp)
       canvas.removeEventListener('pointerleave', onLeave)

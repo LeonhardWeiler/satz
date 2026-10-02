@@ -215,6 +215,11 @@ pub enum Command {
         id: String,
         grids: Vec<Grid>,
     },
+    /// Sets the ruler guides of a page or master.
+    SetGuides {
+        id: String,
+        guides: Guides,
+    },
     /// Removes a page other than the last.
     DeletePage {
         id: String,
@@ -661,6 +666,7 @@ const NEXT: &str = "next";
 const MASTER: &str = "master";
 const DETACHED: &str = "detached";
 const GRIDS: &str = "grids";
+const GUIDES: &str = "guides";
 const OVERRIDE_OF: &str = "overrideOf";
 const LEFT_OF: &str = "leftOf";
 /// Keys of a node whose values are JSON of their own.
@@ -1257,6 +1263,7 @@ impl Doc {
                 scale,
             } => self.set_page(id, width, height, bleed, scale),
             Command::SetGrids { id, grids } => self.set_grids(id, grids),
+            Command::SetGuides { id, guides } => self.set_guides(id, guides),
             Command::DeletePage { id } => self.delete_page(id),
             Command::MovePage { id, index } => self.move_page(id, index),
             Command::AddMaster { like } => self.add_master(like),

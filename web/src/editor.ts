@@ -5,7 +5,7 @@ import type { Previewed } from './exportWorker'
 import type { Handle } from './file'
 import { penPath, type Anchor } from './pen'
 import { spin } from './handles'
-import type { Box, Sheet } from './renderer'
+import type { Box } from './renderer'
 import { index, type Entry } from './select'
 import { contours, toPath, type At, type Contour } from './vector'
 import type { Editing } from './textEdit'
@@ -145,7 +145,7 @@ export class Editor {
    * The pages the canvas shows: those of the spread, or with facing pages the left and
    * right page of the current master, which holds the layers of both.
    */
-  get sheets(): Sheet[] {
+  get sheets(): Page[] {
     const m = this.master
     return m && this.snapshot.facingPages ? [{ ...m, x: -m.width }, m] : this.spread
   }

@@ -1,4 +1,3 @@
-2. man soll wenn man double clickt und dann auf die seite zieht horizontal bzw. vertikale rouler machen an den dann die items snappen können
 3. in dem path edit mode, soll man mit ctrl + klick die bezier kurven entweder hinzufügen oder entfernen können, für beide soll es jeweils einen button auch in der toolbar geben
 4. texte sollen auch eine stroke bekommen, die um den text herum geht
 5. wenn ich von rgb auf cmyk umwandle, sollen alle farben sofort mit umgewandelt werden und dann natürlich nicht im preflight angezgeit werden
@@ -22,7 +21,6 @@
 
 --- LATER
 1. Figma import with file and or account
-2. InDesign import with file
 3. Imports from other Design programs
 4. geh jeden part des designs ausführlich durch und schau genau wo es inkonsitezen gibt. es soll überall einheitlich aussehen, schau das auch bei den icons, dass die dazu passen, etc.
 5. overview page for all the personal projekts when opening the webapp, like in figma

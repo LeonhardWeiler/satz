@@ -95,6 +95,7 @@ export type Command =
   | { type: 'duplicatePage' | 'deletePage'; id: string }
   | { type: 'setPage'; id: string; width?: number; height?: number; bleed?: number; scale?: boolean }
   | { type: 'setGrids'; id: string; grids: Grid[] }
+  | { type: 'setGuides'; id: string; guides: Guides }
   | { type: 'flatten'; id: string }
   | { type: 'scaleText'; id: string; by: number }
   | { type: 'movePage'; id: string; index: number }
@@ -179,6 +180,9 @@ export type Threaded = {
  * layers and `detached` the master layers it overrides; `side` is the side of its
  * spread a page is on with facing pages.
  */
+/** Ruler guides of a page: vertical ones at `x` from its left edge, horizontal ones at `y` from its top. */
+export type Guides = { x: number[]; y: number[] }
+
 export type Page = {
   id: string
   name: string
@@ -191,6 +195,7 @@ export type Page = {
   master: string | null
   detached: string[]
   grids: Grid[]
+  guides: Guides
   modes: Modes
   children: Node[]
 }

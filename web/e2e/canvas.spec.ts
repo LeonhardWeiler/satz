@@ -1,4 +1,4 @@
-import { expect, test, drag, near, open, pixels, screen } from './util'
+import { expect, test, colors, drag, near, open, pixels, screen } from './util'
 
 
 test('moving a gradient layer leaves the page and the handles alone', async ({ page }) => {
@@ -373,4 +373,28 @@ test('hiding the panels, the interface or the rulers leaves the page where it is
     await page.waitForTimeout(100)
     expect(await sun(), key).toEqual(before)
   }
+})
+
+test('a guide dragged out of the ruler shows on the page, layers snap to it and dragging it back removes it', async ({ page }) => {
+  await open(page)
+  const ruler = (await page.locator('.ruler-x').boundingBox())!
+  const [x, y] = await screen(page, 100, 50)
+  const blue = async () => {
+    const shown = await colors(page, [-1, 0, 1].map((d) => [x, Math.round(y) + d] as const))
+    return shown.some(([r, , b]) => b > r)
+  }
+  expect(await blue()).toBe(false)
+  await drag(page, [x, ruler.y + ruler.height / 2], [x, y])
+  await page.mouse.move(1, 1)
+  expect(await blue()).toBe(true)
+
+  await page.keyboard.press('r')
+  await drag(page, await screen(page, 120, 51), await screen(page, 135, 70))
+  await expect(page.getByRole('complementary', { name: 'Properties' }).getByRole('textbox', { name: 'Y in mm' })).toHaveValue('50')
+
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Escape')
+  await drag(page, [x, y], [x, ruler.y + ruler.height / 2])
+  await page.mouse.move(1, 1)
+  expect(await blue()).toBe(false)
 })

@@ -1,7 +1,7 @@
 import type { Canvas, CanvasKit, Font, Image, Paint, Rect, RuntimeEffect, SkPicture, Surface, Typeface } from 'canvaskit-wasm'
 import type { Engine } from './engine/engine'
 import { close, decode, type Op, type Paint as Fill } from './displayList'
-import type { Grid } from './model'
+import type { Grid, Guides } from './model'
 import { gridSpans } from './snap'
 import { toPath, type At, type Contour } from './vector'
 
@@ -48,7 +48,7 @@ const PORT = 10
 const [MOVE, LINE, CLOSE] = [0, 1, 5]
 
 /** A page on the canvas: its trim size and bleed, and the x of its left edge on its spread. */
-export type Sheet = { x: number; width: number; height: number; bleed: number; grids?: Grid[] }
+export type Sheet = { x: number; width: number; height: number; bleed: number; grids?: Grid[]; guides?: Guides }
 /** RGBA pixels drawn over the page with its bleed, `rect` in the space of the page. */
 export type Inked = { width: number; height: number; image: Uint8Array; rect: Box }
 
@@ -66,6 +66,7 @@ export function fitView(sheets: Sheet[], width: number, height: number): View {
 const BLEED = [56, 174, 224, 0.45] as const
 const CROP = [128, 131, 139, 1] as const
 const GRID = [255, 72, 72, 0.12] as const
+const GUIDE = [0, 170, 255, 0.9] as const
 const OVERSET = '#ff6b5e'
 const BLENDS = [
   'SrcOver', 'Multiply', 'Screen', 'Overlay', 'Darken', 'Lighten', 'ColorDodge', 'ColorBurn',
@@ -212,6 +213,12 @@ export class Renderer {
             else canvas.drawRect(r, paint)
           }
         }
+      }
+      paint.setColor(ck.Color(...GUIDE))
+      paint.setStyle(ck.PaintStyle.Stroke)
+      for (const s of sheets) {
+        for (const x of s.guides?.x ?? []) canvas.drawLine(s.x + x, 0, s.x + x, s.height, paint)
+        for (const y of s.guides?.y ?? []) canvas.drawLine(s.x, y, s.x + s.width, y, paint)
       }
     }
     for (const { ops, x } of overlay?.text ?? []) {

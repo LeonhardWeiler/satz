@@ -159,10 +159,12 @@ body,
 
 .ruler-x {
   border-bottom: 1px solid var(--border);
+  cursor: row-resize;
 }
 
 .ruler-y {
   border-right: 1px solid var(--border);
+  cursor: col-resize;
 }
 
 .ruler-corner {

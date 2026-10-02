@@ -11,6 +11,13 @@ pub(super) struct Place {
 /// A layout grid of a page: `count` columns or rows between margins of `margin`
 /// and gutters of `gutter`, or square cells of `size`, in pt. The canvas shows it;
 /// the PDF leaves it out.
+/// Ruler guides of a page: vertical ones at `x` from its left edge, horizontal ones at `y` from its top.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct Guides {
+    pub x: Vec<f64>,
+    pub y: Vec<f64>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Grid {
@@ -386,6 +393,15 @@ impl Doc {
         Ok(vec![])
     }
 
+    pub(super) fn set_guides(&self, id: String, guides: Guides) -> Res<Vec<String>> {
+        let page = self.sheet(&id)?;
+        if !guides.x.iter().chain(&guides.y).all(|v| v.is_finite()) {
+            return Err("guides need finite positions".into());
+        }
+        self.meta(page).insert(GUIDES, loro(guides)?).map_err(err)?;
+        Ok(vec![])
+    }
+
     pub(super) fn delete_page(&self, id: String) -> Res<Vec<String>> {
         let p = self.page(&id)?;
         if self.pages().len() == 1 {
@@ -691,6 +707,26 @@ mod tests {
         d.apply(Command::Undo).unwrap();
         d.apply(Command::Undo).unwrap();
         assert!(d.snapshot().pages[0].grids.is_empty());
+    }
+
+    #[test]
+    fn guides_are_set_per_page_and_need_finite_positions() {
+        let (mut d, p) = empty();
+        let guides = Guides {
+            x: vec![10.0],
+            y: vec![20.0, 30.0],
+        };
+        d.apply(Command::SetGuides {
+            id: p.clone(),
+            guides: guides.clone(),
+        })
+        .unwrap();
+        assert_eq!(d.snapshot().pages[0].guides, guides);
+        let bad = Guides {
+            x: vec![f64::NAN],
+            y: vec![],
+        };
+        assert!(d.apply(Command::SetGuides { id: p, guides: bad }).is_err());
     }
 
     #[test]
