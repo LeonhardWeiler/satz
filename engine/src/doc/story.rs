@@ -601,6 +601,7 @@ impl Doc {
                 line_height: Some(s.attrs.line_height * by),
                 paragraph_spacing: Some(s.attrs.paragraph_spacing * by),
                 paragraph_indent: Some(s.attrs.paragraph_indent * by),
+                baseline_shift: Some(s.attrs.baseline_shift * by),
                 ..TextProps::default()
             };
             props.check()?;

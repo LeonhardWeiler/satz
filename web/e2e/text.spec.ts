@@ -47,9 +47,11 @@ test('case, decoration, indent and OpenType features are set in the type options
   await choose(options.getByRole('combobox', { name: 'Decoration' }), 'Underline')
   await options.getByRole('textbox', { name: 'Paragraph indent in pt' }).fill('12')
   await options.getByRole('textbox', { name: 'Paragraph indent in pt' }).press('Enter')
+  await choose(options.getByRole('combobox', { name: 'Position' }), 'Superscript')
+  await options.getByRole('textbox', { name: 'Baseline shift in pt' }).fill('-2')
+  await options.getByRole('textbox', { name: 'Baseline shift in pt' }).press('Enter')
   await options.getByRole('checkbox', { name: 'Ligatures', exact: true }).uncheck()
   await options.getByRole('checkbox', { name: 'Oldstyle figures' }).check()
-  await page.screenshot({ path: 'test-results/type-options.png' })
   await page.keyboard.press('Escape')
   await expect(options).toHaveCount(0)
 
@@ -62,6 +64,8 @@ test('case, decoration, indent and OpenType features are set in the type options
   await expect(options.getByRole('textbox', { name: 'Paragraph indent in pt' })).toHaveValue('12')
   await expect(options.getByRole('checkbox', { name: 'Ligatures', exact: true })).not.toBeChecked()
   await expect(options.getByRole('checkbox', { name: 'Oldstyle figures' })).toBeChecked()
+  await expect(options.getByRole('combobox', { name: 'Position' })).toHaveText('Superscript')
+  await expect(options.getByRole('textbox', { name: 'Baseline shift in pt' })).toHaveValue('-2')
 })
 
 test('the insert character menu puts dashes and quotes into the edited text', async ({ page }) => {

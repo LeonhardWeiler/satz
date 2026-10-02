@@ -11,8 +11,8 @@ use crate::style::{
     Style,
 };
 use crate::text::{
-    self, Attrs, Lang, PARAGRAPH, STYLED, Span, TextAlign, TextCase, TextDecoration, TextFrame,
-    TextStyle, Typeface, VerticalAlign,
+    self, Attrs, Lang, PARAGRAPH, Position, STYLED, Span, TextAlign, TextCase, TextDecoration,
+    TextFrame, TextStyle, Typeface, VerticalAlign,
 };
 use crate::variable::{Collection, Mode, Modes, Palette, Scope, Value, Variable};
 pub use boolean::BooleanOp;
@@ -523,6 +523,8 @@ pub struct TextProps {
     pub text_case: Option<TextCase>,
     pub text_decoration: Option<TextDecoration>,
     pub features: Option<Vec<String>>,
+    pub position: Option<Position>,
+    pub baseline_shift: Option<f64>,
 }
 
 impl TextProps {
@@ -538,6 +540,9 @@ impl TextProps {
             .is_some_and(|v| !(v >= 0.0 && v.is_finite()))
         {
             return Err("paragraph indent must be at least 0".into());
+        }
+        if self.baseline_shift.is_some_and(|v| !v.is_finite()) {
+            return Err("baseline shift must be a number".into());
         }
         if let Some(f) = self
             .features
@@ -677,7 +682,7 @@ const BINDABLE: [&str; 12] = [
 ];
 
 /// The keys of a text layer that belong to its story and move with it.
-const STORY: [&str; 15] = [
+const STORY: [&str; 17] = [
     "size",
     "lineHeight",
     "letterSpacing",
@@ -686,6 +691,8 @@ const STORY: [&str; 15] = [
     "textCase",
     "textDecoration",
     "features",
+    "position",
+    "baselineShift",
     "fill",
     "textStyle",
     "textAlign",

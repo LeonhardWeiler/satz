@@ -219,6 +219,7 @@ const ICONS = {
   letterSpacing: <path d="m3 3 2.25 6.5L7.5 3M8.5 9.5 10.75 3 13 9.5M9.2 7.5h3.1M2.5 12.5h11M4 11l-1.5 1.5L4 14M12 11l1.5 1.5L12 14" />,
   paragraphSpacing: <path d="M2.5 2.5h11M2.5 5h7M2.5 11h11M2.5 13.5h7M12 6.5v3" />,
   paragraphIndent: <path d="M7 4h6.5M2.5 7h11M2.5 10h11M2.5 13h7M2.5 2.5l2 1.5-2 1.5" />,
+  baselineShift: <path d="M2.5 13.5h11M3 11l2.5-7L8 11M3.8 9h3.4M11.5 9V3M9.5 5l2-2 2 2" />,
   more: <path d="M3.5 8h.01M8 8h.01M12.5 8h.01" strokeWidth="2.5" />,
   insetTop: (
     <>

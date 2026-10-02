@@ -115,7 +115,7 @@ pub fn fonts() -> Vec<Typeface> {
 }
 
 /// The keys of `Attrs` a text style sets.
-pub const STYLED: [&str; 9] = [
+pub const STYLED: [&str; 11] = [
     "size",
     "lineHeight",
     "letterSpacing",
@@ -125,6 +125,8 @@ pub const STYLED: [&str; 9] = [
     "textCase",
     "textDecoration",
     "features",
+    "position",
+    "baselineShift",
 ];
 /// The keys of `Attrs` that hold for a whole paragraph, taken from its first character.
 pub const PARAGRAPH: [&str; 5] = [
@@ -186,10 +188,21 @@ pub enum TextDecoration {
     Strikethrough,
 }
 
+/// Superscript and subscript set a character smaller and off its baseline.
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Position {
+    #[default]
+    Normal,
+    Superscript,
+    Subscript,
+}
+
 /// What a character looks like. Sizes and spacing are in pt, `letter_spacing` in % of
 /// the size; `line_height` 0 is auto, the font's ascent plus descent. `fill` replaces
 /// the layer's fills; `text_style` "" means none. `features` are OpenType features as
-/// harfrust parses them, e.g. "smcp" or "liga=0".
+/// harfrust parses them, e.g. "smcp" or "liga=0". `baseline_shift` raises the
+/// characters off the baseline in pt.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Attrs {
@@ -208,6 +221,28 @@ pub struct Attrs {
     pub text_case: TextCase,
     pub text_decoration: TextDecoration,
     pub features: Vec<String>,
+    pub position: Position,
+    pub baseline_shift: f64,
+}
+
+impl Attrs {
+    /// The size the glyphs are drawn at: superscript and subscript at 58.3 %, as in InDesign.
+    fn drawn(&self) -> f32 {
+        match self.position {
+            Position::Normal => self.size as f32,
+            _ => self.size as f32 * 0.583,
+        }
+    }
+
+    /// How far the glyphs sit above the baseline.
+    fn rise(&self) -> f32 {
+        let by = match self.position {
+            Position::Normal => 0.0,
+            Position::Superscript => 0.333,
+            Position::Subscript => -0.333,
+        };
+        (self.baseline_shift + self.size * by) as f32
+    }
 }
 
 impl Default for Attrs {
@@ -227,6 +262,8 @@ impl Default for Attrs {
             text_case: TextCase::Original,
             text_decoration: TextDecoration::None,
             features: Vec::new(),
+            position: Position::Normal,
+            baseline_shift: 0.0,
         }
     }
 }
@@ -394,7 +431,7 @@ pub fn draw(
     for (line, geometry) in placed.lines.into_iter().zip(&placed.geometry) {
         let mut at = 0;
         for run in line.chunk_by(|a, b| {
-            spans[a.span].attrs.size == spans[b.span].attrs.size
+            spans[a.span].attrs.drawn() == spans[b.span].attrs.drawn()
                 && span_paints[a.span] == span_paints[b.span]
                 && fonts[a.span] == fonts[b.span]
         }) {
@@ -404,17 +441,12 @@ pub fn draw(
             let positions: Vec<f32> = run.iter().flat_map(|g| [g.x, g.y]).collect();
             if stroked {
                 let a = &spans[run[0].span].attrs;
-                outlines.extend(outline(
-                    fonts[run[0].span],
-                    a.size as f32,
-                    &glyphs,
-                    &positions,
-                ));
+                outlines.extend(outline(fonts[run[0].span], a.drawn(), &glyphs, &positions));
             }
             for paint in &span_paints[run[0].span] {
                 ops.push(Op::GlyphRun {
                     font: fonts[run[0].span],
-                    size: spans[run[0].span].attrs.size as f32,
+                    size: spans[run[0].span].attrs.drawn(),
                     paint: paint.clone(),
                     glyphs: glyphs.clone(),
                     positions: positions.clone(),
@@ -425,7 +457,7 @@ pub fn draw(
         }
         for run in line.chunk_by(|a, b| {
             let (a, b) = (&spans[a.span].attrs, &spans[b.span].attrs);
-            a.text_decoration == b.text_decoration && a.size == b.size && a.fill == b.fill
+            a.text_decoration == b.text_decoration && a.drawn() == b.drawn() && a.fill == b.fill
         }) {
             let a = &spans[run[0].span].attrs;
             let Some([at, thick]) = decoration(font_id(&a.font), a.text_decoration) else {
@@ -434,7 +466,7 @@ pub fn draw(
             let last = run[run.len() - 1].cluster;
             let end = geometry.stops.iter().find(|s| s.0 > last);
             let x1 = end.or(geometry.stops.last()).map_or(0.0, |s| s.1);
-            let (x0, size) = (run[0].x, a.size as f32);
+            let (x0, size) = (run[0].x, a.drawn());
             let line = rect(x0, run[0].y - at * size, x1 - x0, thick * size);
             for paint in &span_paints[run[0].span] {
                 ops.push(Op::FillPath {
@@ -776,13 +808,13 @@ fn rows(
     let vertical = |span: usize| {
         let (a, m) = (&spans[span].attrs, &metrics[slot[span]]);
         let (ascent, descent, gap) = (m.ascent, m.descent, m.gap);
-        let s = a.size as f32;
+        let s = a.drawn();
         let l = match a.line_height as f32 {
             0.0 => (ascent + descent + gap) * s,
             l => l,
         };
         let above = ascent * s + (l - (ascent + descent) * s) / 2.0;
-        (above, l - above)
+        (above + a.rise(), l - above - a.rise())
     };
 
     let break_para =
@@ -937,14 +969,14 @@ fn rows(
             let cluster = start + at;
             let span = span_at(cluster);
             let (a, m) = (&spans[span].attrs, &metrics[slot[span]]);
-            let size = a.size as f32;
-            let adv = adv * size + (a.size * a.letter_spacing / 100.0) as f32;
+            let (size, rise) = (a.drawn(), a.rise());
+            let adv = adv * size + size * (a.letter_spacing / 100.0) as f32;
             if breaks.binary_search(&at).is_ok() {
                 items.push(Item::Penalty {
                     width: m.hyphen_adv * size,
                     cost: HYPHEN_COST,
                 });
-                glyphs.push(Some((m.hyphen, 0.0, 0.0, span, cluster, true)));
+                glyphs.push(Some((m.hyphen, 0.0, rise, span, cluster, true)));
                 clusters.push(cluster);
             }
             clusters.push(cluster);
@@ -957,7 +989,14 @@ fn rows(
                 glyphs.push(None);
             } else {
                 items.push(Item::Box(adv));
-                glyphs.push(Some((id, dx * size, dy * size, span, cluster, false)));
+                glyphs.push(Some((
+                    id,
+                    dx * size,
+                    dy * size + rise,
+                    span,
+                    cluster,
+                    false,
+                )));
             }
         }
         if first.paragraph_indent > 0.0 {
@@ -1540,6 +1579,39 @@ mod tests {
             "{under:?} {through:?}"
         );
         assert!(under[2] > 20.0, "{under:?}");
+    }
+
+    #[test]
+    fn superscript_and_subscript_set_smaller_above_and_below_and_a_shift_raises() {
+        let with = |position, baseline_shift| {
+            let spans = [
+                Span {
+                    len: 1,
+                    attrs: attrs(20.0),
+                },
+                Span {
+                    len: 1,
+                    attrs: Attrs {
+                        position,
+                        baseline_shift,
+                        ..attrs(20.0)
+                    },
+                },
+            ];
+            let glyphs: Vec<(f32, f32)> = runs("H2", &spans, [0.0, 0.0, 100.0, 50.0])
+                .iter()
+                .flat_map(|(size, _, at)| at.chunks(2).map(|p| (*size, p[1])))
+                .collect();
+            (glyphs[1].0, glyphs[1].1 - glyphs[0].1)
+        };
+        assert_eq!(with(Position::Normal, 0.0), (20.0, 0.0));
+        let (size, dy) = with(Position::Normal, 3.0);
+        assert_eq!(size, 20.0);
+        assert_close(&[dy], &[-3.0]);
+        let (size, dy) = with(Position::Superscript, 0.0);
+        assert_close(&[size, dy], &[11.66, -6.66]);
+        let (size, dy) = with(Position::Subscript, 1.0);
+        assert_close(&[size, dy], &[11.66, 5.66]);
     }
 
     #[test]
