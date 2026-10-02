@@ -1,11 +1,11 @@
 import { neutral, solid, type ColorMode } from './color'
-import { Field, Section, Segmented, Select } from './controls'
+import { Field, NameInput, Section, Segmented, Select } from './controls'
 import { type ReactNode } from 'react'
 import { bounds, ends, MM, scopeOf, useEditor, type Editor } from './editor'
 import { Icon, KindIcon } from './icons'
 import { FORMATS, ORIENTATIONS } from './Start'
 import { addFonts, canFindFonts, findFonts, removeFont } from './file'
-import type { Bindable as Prop, Blend, Constraint, Command, Grid, LineStyle, Node, Page, Props } from './model'
+import type { Bindable as Prop, Blend, Constraint, Command, Grid, LineStyle, Node, Page, Props, Section as Numbers } from './model'
 import { isOpen, radiusOf } from './model'
 import { AlignBar, BooleanBar, combinable } from './align'
 import { AutoLayout, flows, Sizing } from './AutoLayout'
@@ -45,6 +45,7 @@ const ENDS = [
   ['arrow', 'End arrow', 'arrowRight'],
 ] as const
 const MODES: Record<ColorMode, string> = { rgb: 'RGB', cmyk: 'CMYK' }
+const NUMBERINGS = { arabic: '1, 2, 3', upperRoman: 'I, II, III', lowerRoman: 'i, ii, iii' }
 const SPREADS = { single: 'Single pages', facing: 'Facing pages' }
 const HORIZONTAL: Record<Constraint, string> = { min: 'Left', max: 'Right', stretch: 'Left & right', center: 'Center', scale: 'Scale' }
 const VERTICAL: Record<Constraint, string> = { min: 'Top', max: 'Bottom', stretch: 'Top & bottom', center: 'Center', scale: 'Scale' }
@@ -88,6 +89,7 @@ export function Properties({
   const picked = overview?.filter((id) => ids.includes(id)) ?? []
   const targets = isPage && picked.length ? picked : [page.id]
   const numbers = targets.map((id) => ids.indexOf(id) + 1)
+  const setSection = (s: Partial<Numbers>) => page.section && editor.apply({ type: 'setSection', id: page.id, section: { ...page.section, ...s } })
   const sheets = targets.flatMap((id) => (id === page.id ? page : (snapshot.pages.find((p) => p.id === id) ?? [])))
   const master = sameOf(sheets, (p) => p.master ?? '')
   const setSheets = (props: PageProps) => editor.batch(() => sheets.forEach((p) => editor.apply({ type: 'setPage', id: p.id, ...props(p) })))
@@ -169,6 +171,26 @@ export function Properties({
             )}
             <ModeSelects editor={editor} id={page.id} own={page.modes} inherited={{}} />
           </div>
+          {isPage && targets.length === 1 && (
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={page.section !== null}
+                onChange={(e) => editor.apply({ type: 'setSection', id: page.id, section: e.currentTarget.checked ? { start: numbers[0], style: 'arabic', prefix: '' } : null })}
+              />
+              Start section
+            </label>
+          )}
+          {isPage && targets.length === 1 && page.section && (
+            <div className="grid">
+              <Field label="Start" title="Section starts at" unit="" int min={1} value={page.section.start} onCommit={(start) => setSection({ start })} />
+              <Select label="Numbering" value={page.section.style} options={NUMBERINGS} onChange={(style) => setSection({ style })} />
+              <label className="field">
+                <span className="field-label">Prefix</span>
+                <NameInput label="Prefix" value={page.section.prefix} blank onCommit={(prefix) => setSection({ prefix })} />
+              </label>
+            </div>
+          )}
           {isPage && page.detached.length > 0 && (
             <button type="button" className="button" onClick={() => editor.apply({ type: 'resetToMaster', ids: [page.id] })}>
               Reset overrides

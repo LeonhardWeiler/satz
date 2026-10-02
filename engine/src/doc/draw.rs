@@ -97,6 +97,7 @@ pub struct Page {
     pub detached: Vec<String>,
     pub grids: Vec<Grid>,
     pub guides: Guides,
+    pub section: Option<Section>,
     pub modes: Modes,
     pub children: Vec<Node>,
 }
@@ -571,6 +572,7 @@ impl Doc {
                 detached: serde_json::from_value(v[DETACHED].clone()).unwrap_or_default(),
                 grids: serde_json::from_value(v[GRIDS].clone()).unwrap_or_default(),
                 guides: serde_json::from_value(v[GUIDES].clone()).unwrap_or_default(),
+                section: self.section(p),
                 children: self
                     .children(p)
                     .into_iter()
@@ -829,8 +831,21 @@ impl Doc {
     /// What a page number on the page or master `root` shows: the page's number, or
     /// the master's prefix.
     pub(super) fn number(&self, root: TreeID) -> String {
-        match self.pages().iter().position(|&p| p == root) {
-            Some(i) => (i + 1).to_string(),
+        let pages = self.pages();
+        match pages.iter().position(|&p| p == root) {
+            Some(i) => {
+                let (j, s) = (0..=i)
+                    .rev()
+                    .find_map(|j| Some((j, self.section(pages[j])?)))
+                    .unwrap_or((
+                        0,
+                        Section {
+                            start: 1,
+                            ..Section::default()
+                        },
+                    ));
+                s.label(s.start + (i - j) as u32)
+            }
             None => prefix(&self.name(root)),
         }
     }

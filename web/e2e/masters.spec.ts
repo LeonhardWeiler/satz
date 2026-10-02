@@ -155,7 +155,7 @@ test('with facing pages a one-page master gets its layers on both of its pages',
   await expect(rects).toHaveCount(1)
 })
 
-test('a page number on the pages of a master spread shows the number of each page', async ({ page }) => {
+test('a page number on the pages of a master spread shows the number of each page, counted on in a section', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
   const layers = page.getByRole('tree', { name: 'Layers' })
@@ -176,10 +176,16 @@ test('a page number on the pages of a master spread shows the number of each pag
     await addPage(page)
     await choose(panel.getByRole('combobox', { name: 'Master' }), 'A-Master')
   }
+  await panel.getByRole('checkbox', { name: 'Start section' }).check()
+  await panel.getByRole('textbox', { name: 'Section starts at' }).fill('9')
+  await panel.getByRole('textbox', { name: 'Section starts at' }).press('Enter')
+  await choose(panel.getByRole('combobox', { name: 'Numbering' }), 'i, ii, iii')
+  await panel.getByRole('textbox', { name: 'Prefix' }).fill('p')
+  await panel.getByRole('textbox', { name: 'Prefix' }).press('Enter')
   const pdf = join(mkdtempSync(join(tmpdir(), 'satz-')), 'satz.pdf')
   const download = page.waitForEvent('download')
   await (await exportButton(page)).click()
   await (await download).saveAs(pdf)
   const text = execFileSync('mutool', ['draw', '-q', '-F', 'text', '-o', '-', pdf, '2-3']).toString()
-  expect(text.replace(/\s+/g, ' ').trim()).toBe('2 3')
+  expect(text.replace(/\s+/g, ' ').trim()).toBe('2 pix')
 })

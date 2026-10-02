@@ -28,6 +28,59 @@ pub struct Grid {
     pub size: f64,
 }
 
+/// Page numbers from a page on: `start` on it, counted in `style` after `prefix`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Section {
+    pub start: u32,
+    pub style: Numbering,
+    pub prefix: String,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Numbering {
+    #[default]
+    Arabic,
+    UpperRoman,
+    LowerRoman,
+}
+
+impl Section {
+    /// The page number `n` of the section.
+    pub(super) fn label(&self, mut n: u32) -> String {
+        if self.style == Numbering::Arabic {
+            return format!("{}{n}", self.prefix);
+        }
+        let mut s = self.prefix.clone();
+        for (v, r) in [
+            (1000, "m"),
+            (900, "cm"),
+            (500, "d"),
+            (400, "cd"),
+            (100, "c"),
+            (90, "xc"),
+            (50, "l"),
+            (40, "xl"),
+            (10, "x"),
+            (9, "ix"),
+            (5, "v"),
+            (4, "iv"),
+            (1, "i"),
+        ] {
+            while n >= v {
+                s.push_str(&if self.style == Numbering::UpperRoman {
+                    r.to_uppercase()
+                } else {
+                    r.into()
+                });
+                n -= v;
+            }
+        }
+        s
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum GridKind {
@@ -301,6 +354,9 @@ impl Doc {
         self.tree.mov_after(p, from).map_err(err)?;
         let m = self.meta(p);
         for (k, v) in self.meta(from).get_value().into_map().unwrap().iter() {
+            if k == SECTION {
+                continue;
+            }
             m.insert(k, v.clone()).map_err(err)?;
         }
         let mut clips = Vec::new();
@@ -379,6 +435,21 @@ impl Doc {
             }
         }
         Ok(vec![])
+    }
+
+    pub(super) fn set_section(&self, id: String, section: Option<Section>) -> Res<Vec<String>> {
+        let m = self.meta(self.page(&id)?);
+        match section {
+            Some(s) if s.start == 0 => return Err("a section starts at page 1 or later".into()),
+            Some(s) => m.insert(SECTION, loro(s)?).map_err(err)?,
+            None => m.delete(SECTION).map_err(err)?,
+        }
+        Ok(vec![])
+    }
+
+    /// The section of the page `p` if it starts one.
+    pub(super) fn section(&self, p: TreeID) -> Option<Section> {
+        serde_json::from_value(serde_json::to_value(value(&self.meta(p), SECTION)?).ok()?).ok()
     }
 
     pub(super) fn set_grids(&self, id: String, grids: Vec<Grid>) -> Res<Vec<String>> {
@@ -1277,6 +1348,59 @@ mod tests {
         })
         .unwrap();
         assert_eq!(run_texts(&d.render(&p1)), ["3"]);
+    }
+
+    #[test]
+    fn a_section_numbers_its_pages_from_its_start_in_its_style_after_its_prefix() {
+        let (mut d, p1) = empty();
+        let p2 = add_page(&mut d, None);
+        let p3 = add_page(&mut d, None);
+        for p in [&p1, &p2, &p3] {
+            let t = create(&mut d, p, NewKind::Text, [0.0, 0.0, 0.0, 0.0]);
+            d.apply(Command::SetText {
+                id: t,
+                text: text::PAGE_NUMBER.to_string(),
+            })
+            .unwrap();
+        }
+        let section = |start, style| Section {
+            start,
+            style,
+            prefix: "A-".into(),
+        };
+        let numbers = |d: &Doc| [&p1, &p2, &p3].map(|p| run_texts(&d.render(p)).concat());
+        d.apply(Command::SetSection {
+            id: p2.clone(),
+            section: Some(section(4, Numbering::UpperRoman)),
+        })
+        .unwrap();
+        assert_eq!(numbers(&d), ["1", "A-IV", "A-V"]);
+        d.apply(Command::SetSection {
+            id: p1.clone(),
+            section: Some(section(9, Numbering::LowerRoman)),
+        })
+        .unwrap();
+        assert_eq!(numbers(&d), ["A-ix", "A-IV", "A-V"]);
+        assert!(
+            d.apply(Command::SetSection {
+                id: p1.clone(),
+                section: Some(section(0, Numbering::Arabic)),
+            })
+            .is_err()
+        );
+        let copy = d
+            .apply(Command::DuplicatePage { id: p2.clone() })
+            .unwrap()
+            .remove(0);
+        assert_eq!(numbers(&d), ["A-ix", "A-IV", "A-VI"]);
+        assert_eq!(d.snapshot().pages[2].id, copy);
+        assert!(d.snapshot().pages[2].section.is_none());
+        d.apply(Command::SetSection {
+            id: p2.clone(),
+            section: None,
+        })
+        .unwrap();
+        assert_eq!(numbers(&d), ["A-ix", "A-x", "A-xii"]);
     }
 
     #[test]

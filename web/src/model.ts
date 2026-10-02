@@ -102,6 +102,7 @@ export type Command =
   | { type: 'setPage'; id: string; width?: number; height?: number; bleed?: number; scale?: boolean }
   | { type: 'setGrids'; id: string; grids: Grid[] }
   | { type: 'setGuides'; id: string; guides: Guides }
+  | { type: 'setSection'; id: string; section: Section | null }
   | { type: 'flatten'; id: string }
   | { type: 'flip'; id: string; vertical: boolean }
   | { type: 'fitImage'; id: string; fit: 'cover' | 'contain' | 'frame' }
@@ -206,9 +207,13 @@ export type Page = {
   detached: string[]
   grids: Grid[]
   guides: Guides
+  section: Section | null
   modes: Modes
   children: Node[]
 }
+
+/** Page numbers from a page on: `start` on it, counted in `style` after `prefix`. */
+export type Section = { start: number; style: 'arabic' | 'upperRoman' | 'lowerRoman'; prefix: string }
 
 /** `count` columns or rows between margins and gutters, or square cells of `size`, in pt. */
 export type Grid = { kind: 'columns' | 'rows' | 'grid'; count: number; gutter: number; margin: number; size: number }

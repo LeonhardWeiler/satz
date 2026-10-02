@@ -222,6 +222,11 @@ pub enum Command {
     AddPage {
         after: Option<String>,
     },
+    /// Starts a section of page numbers at the page `id`, or ends it with `None`.
+    SetSection {
+        id: String,
+        section: Option<Section>,
+    },
     /// Adds a copy of a page with copies of its layers after it; returns its id.
     DuplicatePage {
         id: String,
@@ -712,6 +717,7 @@ const MASTER: &str = "master";
 const DETACHED: &str = "detached";
 const GRIDS: &str = "grids";
 const GUIDES: &str = "guides";
+const SECTION: &str = "section";
 const OVERRIDE_OF: &str = "overrideOf";
 const LEFT_OF: &str = "leftOf";
 /// Keys of a node whose values are JSON of their own.
@@ -1303,6 +1309,7 @@ impl Doc {
             Command::Copy { ids } => self.copy(ids),
             Command::Paste { above, page } => self.paste_clipboard(above, page),
             Command::AddPage { after } => self.add_page(after),
+            Command::SetSection { id, section } => self.set_section(id, section),
             Command::DuplicatePage { id } => self.duplicate_page(id),
             Command::SetPage {
                 id,
