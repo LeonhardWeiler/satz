@@ -128,7 +128,7 @@ test('hyphenation is switched per paragraph with its language', async ({ page })
   await expect(lang).toHaveText('German')
 })
 
-test('insets, columns, vertical alignment, baseline grid and max lines are set in the text frame section', async ({ page }) => {
+test('insets, columns, vertical alignment, baseline grid, max lines and trim are set in the text frame section', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
@@ -141,6 +141,7 @@ test('insets, columns, vertical alignment, baseline grid and max lines are set i
     await field(name).press('Enter')
   }
   await frame.getByRole('radio', { name: 'Align bottom' }).click()
+  await frame.getByRole('checkbox', { name: 'Trim to cap height' }).check()
   await page.keyboard.press('Escape')
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
   await expect(field('Top inset in mm')).toHaveValue('2')
@@ -148,6 +149,7 @@ test('insets, columns, vertical alignment, baseline grid and max lines are set i
   await expect(field('Gutter in mm')).toHaveValue('5')
   await expect(field('Baseline grid in pt')).toHaveValue('18')
   await expect(field('Max lines')).toHaveValue('3')
+  await expect(frame.getByRole('checkbox', { name: 'Trim to cap height' })).toBeChecked()
   await expect(frame.getByRole('radio', { name: 'Align bottom' })).toBeChecked()
 })
 

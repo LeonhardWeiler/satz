@@ -474,6 +474,8 @@ pub struct TextFrame {
     pub baseline_start: f64,
     /// Lines the text is cut after, the last ending in an ellipsis; 0 is off.
     pub max_lines: u32,
+    /// Trims the frame to the cap height of the first line and the last baseline.
+    pub trim: bool,
     /// What a page number marker stands for: the number of the page the text is on.
     #[serde(skip)]
     pub number: String,
@@ -492,6 +494,7 @@ impl Default for TextFrame {
             baseline_grid: 0.0,
             baseline_start: 0.0,
             max_lines: 0,
+            trim: false,
             number: String::new(),
         }
     }
@@ -1058,14 +1061,19 @@ fn rows(
                 .filter(|&k| matches!(items[k], Item::Box(_)) || k == end)
                 .filter_map(|k| glyphs[k].as_ref().map(|g| g.span))
                 .collect();
-            let (above, below) = if spans_here.is_empty() {
-                vertical(span_at(start))
+            let spans_here = if spans_here.is_empty() {
+                vec![span_at(start)]
             } else {
                 spans_here
-                    .iter()
-                    .map(|&s| vertical(s))
-                    .fold((0.0f32, 0.0f32), |(a, b), (c, d)| (a.max(c), b.max(d)))
             };
+            let (above, below) = spans_here
+                .iter()
+                .map(|&s| vertical(s))
+                .fold((0.0f32, 0.0f32), |(a, b), (c, d)| (a.max(c), b.max(d)));
+            let cap = spans_here
+                .iter()
+                .map(|&s| metrics[slot[s]].cap * spans[s].attrs.drawn() + spans[s].attrs.rise())
+                .fold(0.0, f32::max);
             let mut cx = left
                 + match first.text_align {
                     TextAlign::Center => (cw - used) / 2.0,
@@ -1117,6 +1125,7 @@ fn rows(
                 after: 0.0,
                 stops,
                 keep: false,
+                cap,
             });
             from = end + 1;
         }
@@ -1412,8 +1421,14 @@ fn place(rows: Vec<Row>, [ix, iy, _, ih]: [f32; 4], cw: f32, tf: &TextFrame) -> 
     let mut columns: Vec<(usize, f32)> = Vec::new();
     let (mut col, mut top, mut i, mut first) = (0, iy, 0, 0);
     while let Some(row) = rows.get(i) {
-        let baseline = snap(top + row.above);
-        if baseline + row.below > bottom {
+        let above = if tf.trim && i == first {
+            row.cap
+        } else {
+            row.above
+        };
+        let below = if tf.trim { 0.0 } else { row.below };
+        let baseline = snap(top + above);
+        if baseline + below > bottom {
             let mut j = i;
             while j > first && rows[j - 1].keep {
                 j -= 1;
@@ -1421,7 +1436,8 @@ fn place(rows: Vec<Row>, [ix, iy, _, ih]: [f32; 4], cw: f32, tf: &TextFrame) -> 
             if j > first {
                 lines.truncate(j);
                 geometry.truncate(j);
-                columns[col as usize].1 = geometry[j - 1].bottom;
+                columns[col as usize].1 =
+                    geometry[j - 1].bottom - if tf.trim { rows[j - 1].below } else { 0.0 };
                 i = j;
             }
             col += 1;
@@ -1454,7 +1470,7 @@ fn place(rows: Vec<Row>, [ix, iy, _, ih]: [f32; 4], cw: f32, tf: &TextFrame) -> 
                 })
                 .collect(),
         );
-        columns[col as usize].1 = baseline + row.below;
+        columns[col as usize].1 = baseline + below;
         top = baseline + row.below + row.after;
         i += 1;
     }
@@ -1505,6 +1521,8 @@ struct Row {
     stops: Vec<(usize, f32)>,
     /// A column break after this row moves it on with the next.
     keep: bool,
+    /// The height of its capitals above the baseline.
+    cap: f32,
 }
 
 /// A line set in a frame: the bytes `start..end` of the text it holds, the space it
@@ -1964,6 +1982,17 @@ mod tests {
         assert!(dots.cluster == text.len() && dots.x < 40.0, "{dots:?}");
         let h = measure(text, &one(text, attrs(10.0)), &tf, Some(40.0), 0)[1];
         assert_close(&[h], &[27.42]);
+    }
+
+    #[test]
+    fn trim_puts_the_cap_height_at_the_top_and_the_last_baseline_at_the_bottom() {
+        let tf = TextFrame {
+            trim: true,
+            ..TextFrame::default()
+        };
+        let b = baselines("Hi\nHi", [0.0, 0.0, 100.0, 50.0], tf.clone());
+        let [_, h] = measure("Hi\nHi", &one("Hi\nHi", attrs(10.0)), &tf, Some(100.0), 0);
+        assert_close(&[b[0][1], h], &[6.7, b[1][1]]);
     }
 
     #[test]

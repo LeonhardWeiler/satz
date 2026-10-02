@@ -15,7 +15,7 @@ test('pages and layers give their edges and centres', () => {
 test('text frames also give their insets, columns and baseline grid', () => {
   const text = {
     ...box(0, 0, 110, 50), kind: 'text',
-    insetTop: 5, insetRight: 5, insetBottom: 5, insetLeft: 5, columns: 2, gutter: 10, baselineGrid: 12, baselineStart: 10, maxLines: 0,
+    insetTop: 5, insetRight: 5, insetBottom: 5, insetLeft: 5, columns: 2, gutter: 10, baselineGrid: 12, baselineStart: 10, maxLines: 0, trim: false,
   } as Node
   const { x, y } = targets([], [text])
   expect(x.map((l) => l.at).slice(3)).toEqual([5, 50, 60, 105])

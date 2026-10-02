@@ -294,6 +294,8 @@ export type TextFrame = {
   baselineStart: number
   /** Lines the text is cut after, the last ending in an ellipsis; 0 is off. */
   maxLines: number
+  /** Trims the frame to the cap height of the first line and the last baseline. */
+  trim: boolean
 }
 /** `len` characters in UTF-16 code units that share their attributes. */
 export type Span = Attrs & { len: number }

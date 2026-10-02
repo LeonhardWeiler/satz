@@ -441,6 +441,7 @@ pub struct Props {
     pub baseline_grid: Option<f64>,
     pub baseline_start: Option<f64>,
     pub max_lines: Option<u32>,
+    pub trim: Option<bool>,
 }
 
 impl Props {
