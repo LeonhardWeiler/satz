@@ -5,7 +5,6 @@
 31. add options for basic image editing, like crop (also when resizing with ctrl), contrast, brightness, etc. they should appear in the bar above the element
 40. when in vector editing mode, you should be able to fill each area seperately with a bucket tool
 47. when changing from solid to linear gradient with one of the gradients selected the layout moves up a bit, it should stay the same
-50. lines should have the option to be squiggly, etc. 
 51. mach eine ausführliche analyse von anderen programmen, wie figma, indesign, scribus, ... und schau welche funktionen sie bieten, die ich hier noch nicht implementiert habe, schreib das unter AGENT in eine comparison.md datei
 
 --- LATER

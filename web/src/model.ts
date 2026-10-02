@@ -20,6 +20,8 @@ export type Blend =
   | 'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten' | 'colorDodge' | 'colorBurn'
   | 'hardLight' | 'softLight' | 'difference' | 'exclusion' | 'hue' | 'saturation' | 'color' | 'luminosity'
 
+export type LineStyle = 'solid' | 'dashed' | 'dotted' | 'wavy' | 'zigzag'
+
 export type Style = {
   fills: Fill[]
   strokes: Fill[]
@@ -27,6 +29,7 @@ export type Style = {
   strokeAlign: 'inside' | 'center' | 'outside'
   join: 'miter' | 'round' | 'bevel'
   cap: 'none' | 'round' | 'square'
+  lineStyle: LineStyle
   arrowStart: boolean
   arrowEnd: boolean
   opacity: number

@@ -1,6 +1,6 @@
 use crate::color::Color;
 use crate::display_list::{Op, Paint, Shadow, Stop};
-use crate::geom::{arrow, closed};
+use crate::geom::{LineStyle, arrow, closed, pattern};
 use crate::image;
 use crate::variable::Scope;
 use serde::{Deserialize, Serialize};
@@ -14,6 +14,7 @@ pub struct Style {
     pub stroke_align: Align,
     pub join: Join,
     pub cap: Cap,
+    pub line_style: LineStyle,
     pub arrow_start: bool,
     pub arrow_end: bool,
     pub opacity: f32,
@@ -32,6 +33,7 @@ impl Default for Style {
             stroke_align: Align::Center,
             join: Join::Miter,
             cap: Cap::None,
+            line_style: LineStyle::Solid,
             arrow_start: false,
             arrow_end: false,
             opacity: 1.0,
@@ -340,7 +342,7 @@ impl Style {
         } else {
             Align::Center
         };
-        let mut line = path.to_vec();
+        let mut line = pattern(path, self.line_style, self.stroke_weight);
         if !closed {
             for (on, end) in [(self.arrow_start, false), (self.arrow_end, true)] {
                 if on {
@@ -352,7 +354,11 @@ impl Style {
             let stroke = Op::StrokePath {
                 paint,
                 width: self.stroke_weight * if align == Align::Center { 1.0 } else { 2.0 },
-                cap: self.cap as u32,
+                cap: if self.line_style == LineStyle::Dotted {
+                    Cap::Round
+                } else {
+                    self.cap
+                } as u32,
                 join: self.join as u32,
                 path: line.clone(),
             };

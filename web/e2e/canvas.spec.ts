@@ -1,4 +1,4 @@
-import { expect, test, colors, drag, MM, near, open, pixels, screen } from './util'
+import { expect, test, choose, colors, drag, MM, near, open, pixels, screen } from './util'
 
 
 test('moving a gradient layer leaves the page and the handles alone', async ({ page }) => {
@@ -418,4 +418,20 @@ test('a guide dragged out of the ruler shows on the page, layers snap to it and 
   await drag(page, [x, y], [x, ruler.y + ruler.height / 2])
   await page.mouse.move(1, 1)
   expect(await blue()).toBe(false)
+})
+
+test('a stroke runs dashed', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).last().click()
+  await panel.getByRole('button', { name: 'Add stroke' }).click()
+  const weight = panel.getByRole('textbox', { name: 'Stroke weight' })
+  await weight.fill(String(2 * MM))
+  await weight.press('Enter')
+  const [x, y] = await screen(page, 74, 76)
+  const dark = async () => (await pixels(page, x - 60, y, 120, 1)).filter((p) => Math.max(...p) < 128).length
+  await expect.poll(dark).toBe(120)
+  await choose(panel.getByRole('combobox', { name: 'Line style' }), 'Dashed')
+  await expect.poll(dark).toBeLessThan(100)
+  await expect.poll(dark).toBeGreaterThan(40)
 })

@@ -5,7 +5,7 @@ import { bounds, ends, MM, scopeOf, useEditor, type Editor } from './editor'
 import { Icon, KindIcon } from './icons'
 import { FORMATS, ORIENTATIONS } from './Start'
 import { addFonts, canFindFonts, findFonts, removeFont } from './file'
-import type { Bindable as Prop, Blend, Constraint, Command, Grid, Node, Page, Props } from './model'
+import type { Bindable as Prop, Blend, Constraint, Command, Grid, LineStyle, Node, Page, Props } from './model'
 import { isOpen, radiusOf } from './model'
 import { AlignBar, BooleanBar, combinable } from './align'
 import { AutoLayout, flows, Sizing } from './AutoLayout'
@@ -19,6 +19,8 @@ const BLENDS: Record<Blend, string> = {
   softLight: 'Soft light', difference: 'Difference', exclusion: 'Exclusion', hue: 'Hue',
   saturation: 'Saturation', color: 'Color', luminosity: 'Luminosity',
 }
+const LINE_STYLES: Record<LineStyle, string> = { solid: 'Solid', dashed: 'Dashed', dotted: 'Dotted', wavy: 'Wavy', zigzag: 'Zigzag' }
+
 const STROKE_ALIGNS = [
   ['inside', 'Inside', 'strokeInside'],
   ['center', 'Center', 'strokeCenter'],
@@ -340,6 +342,9 @@ export function Properties({
                 'Stroke weight',
                 '',
                 <Field label="" title="Stroke weight" unit="pt" value={same((n) => n.strokeWeight)} onCommit={(v) => set({ strokeWeight: v })} />,
+              )}
+              {nodes.every((n) => n.kind !== 'text') && (
+                <Select label="Line style" value={same((n) => n.lineStyle)} options={LINE_STYLES} onChange={(lineStyle) => set({ lineStyle })} />
               )}
               {!nodes.some(isOpen) && <Segmented label="Stroke position" value={same((n) => n.strokeAlign)} options={STROKE_ALIGNS} onChange={(strokeAlign) => set({ strokeAlign })} />}
               {open && (

@@ -3,7 +3,7 @@ import { pick } from './select'
 import type { Layout, Node, Style } from './model'
 
 const style: Style = {
-  fills: [], strokes: [], strokeWeight: 1, strokeAlign: 'inside', join: 'miter', cap: 'none',
+  fills: [], strokes: [], strokeWeight: 1, strokeAlign: 'inside', join: 'miter', cap: 'none', lineStyle: 'solid',
   arrowStart: false, arrowEnd: false, opacity: 1, blend: 'normal', effects: [], mask: false,
   constraints: { horizontal: 'min', vertical: 'min' },
 }

@@ -332,6 +332,94 @@ pub fn arrow(path: &[f32], end: bool, weight: f32) -> Vec<f32> {
     ]
 }
 
+/// How a stroke runs along its path.
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum LineStyle {
+    #[default]
+    Solid,
+    Dashed,
+    Dotted,
+    Wavy,
+    Zigzag,
+}
+
+/// `path` as the dashes, dots, wave or zigzag of `style`, sized by the stroke
+/// weight; each subpath fits a whole number of repeats.
+pub fn pattern(path: &[f32], style: LineStyle, weight: f32) -> Vec<f32> {
+    let w = weight.max(0.5);
+    let (period, on) = match style {
+        LineStyle::Solid => return path.to_vec(),
+        LineStyle::Dashed => (5.0 * w, 3.0 * w),
+        LineStyle::Dotted => (2.0 * w, 0.0),
+        LineStyle::Wavy => (6.0 * w, 0.0),
+        LineStyle::Zigzag => (4.0 * w, 0.0),
+    };
+    let mut out = Vec::new();
+    for sub in flatten(path).into_iter().filter(|s| s.len() > 1) {
+        let mut at = vec![0.0];
+        for p in sub.windows(2) {
+            at.push(at[at.len() - 1] + (p[1][0] - p[0][0]).hypot(p[1][1] - p[0][1]));
+        }
+        let len = at[at.len() - 1];
+        if len <= 0.0 {
+            continue;
+        }
+        let ring = sub[0] == sub[sub.len() - 1];
+        let point = |s: f32, off: f32| {
+            let i = at.partition_point(|&a| a <= s).clamp(1, sub.len() - 1);
+            let (a, b, l) = (sub[i - 1], sub[i], at[i] - at[i - 1]);
+            let [dx, dy] = if l > 0.0 {
+                [(b[0] - a[0]) / l, (b[1] - a[1]) / l]
+            } else {
+                [0.0, 0.0]
+            };
+            let t = s - at[i - 1];
+            [a[0] + t * dx - off * dy, a[1] + t * dy + off * dx]
+        };
+        if matches!(style, LineStyle::Dashed | LineStyle::Dotted) {
+            let room = if ring { len } else { len - on };
+            let n = (room / period).round().max(1.0);
+            let step = room / n;
+            let on = if style == LineStyle::Dotted {
+                0.01
+            } else {
+                on * step / period
+            };
+            for k in 0..n as usize + usize::from(!ring) {
+                let (s0, s1) = (k as f32 * step, (k as f32 * step + on).min(len));
+                out.push(MOVE);
+                out.extend(point(s0, 0.0));
+                for (_, p) in at.iter().zip(&sub).filter(|(a, _)| s0 < **a && **a < s1) {
+                    out.push(LINE);
+                    out.extend(p);
+                }
+                out.push(LINE);
+                out.extend(point(s1, 0.0));
+            }
+            continue;
+        }
+        let n = (len / period).round().max(1.0);
+        let step = len / n / 16.0;
+        let amp = 1.5 * w;
+        for k in 0..=(n as usize * 16) {
+            let phase = (k % 16) as f32 / 16.0;
+            let off = amp
+                * match style {
+                    LineStyle::Wavy => (phase * TAU).sin(),
+                    _ if phase < 0.75 => 1.0 - (4.0 * phase - 1.0).abs(),
+                    _ => 4.0 * phase - 4.0,
+                };
+            out.push(if k == 0 { MOVE } else { LINE });
+            out.extend(point(k as f32 * step, off));
+        }
+        if ring {
+            out.push(CLOSE);
+        }
+    }
+    out
+}
+
 pub fn near(path: &[f32], x: f32, y: f32, tolerance: f32) -> bool {
     flatten(path).iter().any(|sub| {
         sub.iter().zip(sub.iter().skip(1)).any(|(a, b)| {
@@ -519,5 +607,25 @@ mod tests {
         assert_eq!([x, y, w], [0.0, 0.0, 10.0]);
         assert!((h - 7.5).abs() < 0.01, "{h}");
         assert_eq!(bounds(&[]), [0.0; 4]);
+    }
+
+    #[test]
+    fn patterns_fit_whole_repeats_with_dashes_at_both_ends_of_a_line() {
+        let line = [MOVE, 0.0, 0.0, LINE, 103.0, 0.0];
+        let dashes = flatten(&pattern(&line, LineStyle::Dashed, 1.0));
+        assert_eq!(dashes.len(), 21);
+        assert_eq!(dashes[0], [[0.0, 0.0], [3.0, 0.0]]);
+        assert_eq!(dashes[20][1], [103.0, 0.0]);
+        let square = rect(0.0, 0.0, 10.0, 10.0);
+        let dots = flatten(&pattern(&square, LineStyle::Dotted, 1.0));
+        assert_eq!(dots.len(), 20);
+        for style in [LineStyle::Wavy, LineStyle::Zigzag] {
+            let wave = pattern(&line, style, 2.0);
+            let [x, y, w, h] = bounds(&wave);
+            assert!((x, w) == (0.0, 103.0) && (y + 3.0).abs() < 0.01 && (h - 6.0).abs() < 0.01);
+            assert_eq!(&wave[wave.len() - 2..], [103.0, 0.0]);
+            assert!(closed(&pattern(&square, style, 1.0)));
+        }
+        assert_eq!(pattern(&line, LineStyle::Solid, 1.0), line);
     }
 }

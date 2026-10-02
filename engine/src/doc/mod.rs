@@ -1,7 +1,7 @@
 use crate::color::{self, Ink};
 use crate::color::{Color, ColorMode, Swatch};
 use crate::display_list::{LINE, MOVE, Op, Paint, recolor, rect, shift};
-use crate::geom::{self, Shape, bounds, closed, contains, fit, near, outline};
+use crate::geom::{self, LineStyle, Shape, bounds, closed, contains, fit, near, outline};
 use crate::image::{self, ImageInfo};
 use crate::inks::Inks;
 use crate::layout::{Align3, Direction, Layout, MainAlign, Size, Sizing, arrange};
@@ -379,6 +379,7 @@ pub struct Props {
     pub stroke_align: Option<Align>,
     pub join: Option<Join>,
     pub cap: Option<Cap>,
+    pub line_style: Option<LineStyle>,
     pub arrow_start: Option<bool>,
     pub arrow_end: Option<bool>,
     pub opacity: Option<f32>,
