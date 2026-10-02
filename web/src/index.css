@@ -881,6 +881,32 @@ textarea {
   padding-top: 12px;
 }
 
+.glyphs {
+  width: 320px;
+  padding-top: 12px;
+}
+
+.glyph-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  max-height: 280px;
+  overflow-y: auto;
+  font-size: 20px;
+}
+
+.glyph-grid button {
+  height: 36px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+}
+
+.glyph-grid button:hover {
+  background: var(--hover);
+}
+
 .tab-stops {
   display: flex;
   flex-direction: column;

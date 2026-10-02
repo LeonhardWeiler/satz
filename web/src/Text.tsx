@@ -292,8 +292,9 @@ const CHARACTERS = [
 ] as const
 
 /** Inserts the page number or a character that keyboards lack into the edited text. */
-function Characters({ editor }: { editor: Editor }) {
+function Characters({ editor, font }: { editor: Editor; font?: string }) {
   const [at, setAt] = useState<DOMRect | null>(null)
+  const [all, setAll] = useState<DOMRect | null>(null)
   return (
     <>
       <button
@@ -319,11 +320,58 @@ function Characters({ editor }: { editor: Editor }) {
               ['Page number', () => insert(editor, PAGE_NUMBER), true, undefined, 'Ctrl Alt Shift N'],
               null,
               ...CHARACTERS.map(([name, c]): [string, () => void, boolean, undefined, string] => [name, () => insert(editor, c), true, undefined, c.trim() || '␣']),
+              null,
+              ['All characters…', () => setAll(at), true],
             ]}
           />,
           document.body,
         )}
+      {all && createPortal(<Glyphs editor={editor} font={font} at={all} onClose={() => setAll(null)} />, document.body)}
     </>
+  )
+}
+
+const faces = new Set<number>()
+
+/** All characters of the font `font`, found by name, code point or themselves, and inserted on click. */
+function Glyphs({ editor, font, at, onClose }: { editor: Editor; font?: string; at: DOMRect; onClose: () => void }) {
+  const [query, setQuery] = useState('')
+  const [[id, chars]] = useState(() => editor.engine.characters(font) as [number, [number, string][]])
+  const family = `satz-font-${id}`
+  if (!faces.has(id)) {
+    faces.add(id)
+    document.fonts.add(new FontFace(family, editor.engine.font(id).slice().buffer))
+  }
+  const q = query.trim().toLowerCase()
+  const shown = chars.filter(([c, name]) => !q || name.toLowerCase().includes(q) || String.fromCodePoint(c) === query.trim() || c.toString(16) === q.replace(/^u\+/, ''))
+  return (
+    <div className="menu-backdrop" onPointerDown={onClose}>
+      <Popover
+        anchor={() => at}
+        side="bottom"
+        className="picker glyphs"
+        role="dialog"
+        aria-label="All characters"
+        onPointerDown={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          if (e.key !== 'Escape') return
+          e.stopPropagation()
+          onClose()
+        }}
+      >
+        <input className="help-search" aria-label="Search characters" placeholder="Search" autoFocus value={query} onChange={(e) => setQuery(e.target.value)} />
+        <div className="glyph-grid" style={{ fontFamily: family }}>
+          {shown.map(([c, name]) => {
+            const code = `U+${c.toString(16).toUpperCase().padStart(4, '0')}`
+            return (
+              <button key={c} type="button" title={`${name} ${code}`.trim()} aria-label={name || code} onMouseDown={(e) => e.preventDefault()} onClick={() => insert(editor, String.fromCodePoint(c))}>
+                {String.fromCodePoint(c)}
+              </button>
+            )
+          })}
+        </div>
+      </Popover>
+    </div>
   )
 }
 
@@ -373,7 +421,7 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
     <Section title="Text">
       <div className="row">
         <Specimen editor={editor} spans={spans} format={format} />
-        {editing && <Characters editor={editor} />}
+        {editing && <Characters editor={editor} font={same((a) => a.font?.hash ?? null) ?? undefined} />}
       </div>
       <Font editor={editor} id={node.id} fonts={spans.map((a) => a.font)} set={(font) => format({ font })} />
       <div className="grid">

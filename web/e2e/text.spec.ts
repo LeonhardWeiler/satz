@@ -81,7 +81,7 @@ test('case, decoration, indent and OpenType features are set in the type options
   await expect(options.getByRole('textbox', { name: 'Tab leader 1' })).toHaveValue('.')
 })
 
-test('the insert character menu puts dashes and quotes into the edited text', async ({ page }) => {
+test('the insert character menu and the search of all characters put dashes, quotes and signs into the edited text', async ({ page }) => {
   await open(page)
   await page.keyboard.press('t')
   await page.mouse.click(...(await screen(page, 10, 200, 0)))
@@ -92,6 +92,12 @@ test('the insert character menu puts dashes and quotes into the edited text', as
   }
   await page.keyboard.type('b')
   await expect(page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'a\u2013\u201eb', exact: true })).toBeVisible()
+  await page.getByRole('complementary', { name: 'Properties' }).getByRole('button', { name: 'Insert character' }).click()
+  await page.getByRole('menuitem', { name: 'All characters…' }).click()
+  const all = page.getByRole('dialog', { name: 'All characters' })
+  await all.getByRole('textbox', { name: 'Search characters' }).fill('section')
+  await all.getByRole('button', { name: 'SECTION SIGN' }).click()
+  await expect(page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'a\u2013\u201eb\u00a7', exact: true })).toBeVisible()
 })
 
 test('lorem with a count and tab types that many words of lorem ipsum', async ({ page, context }) => {

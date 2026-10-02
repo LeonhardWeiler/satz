@@ -96,6 +96,33 @@ pub fn font_bytes(id: u32) -> Rc<[u8]> {
     FONTS.with_borrow(|f| f.get((id & !MISSING) as usize).unwrap_or(&f[0]).1.clone())
 }
 
+/// The id of the font `hash`, the bundled one for `None`, and its characters with
+/// their Unicode names.
+pub fn characters(hash: Option<&str>) -> (u32, Vec<(u32, String)>) {
+    let id = hash
+        .and_then(|h| {
+            FONTS.with_borrow(|f| f.iter().position(|(t, b)| t.hash == h && !b.is_empty()))
+        })
+        .unwrap_or(0) as u32;
+    let bytes = font_bytes(id);
+    let Ok(f) = skrifa::FontRef::new(&bytes) else {
+        return (id, Vec::new());
+    };
+    let chars = f
+        .charmap()
+        .mappings()
+        .filter_map(|(c, _)| char::from_u32(c))
+        .filter(|c| !c.is_control() && !c.is_whitespace())
+        .map(|c| {
+            (
+                c as u32,
+                unicode_names2::name(c).map_or(String::new(), |n| n.to_string()),
+            )
+        })
+        .collect();
+    (id, chars)
+}
+
 /// Removes the added font `hash`; its id stays, with no bytes.
 pub fn remove_font(hash: &str) {
     FONTS.with_borrow_mut(|f| {
@@ -1993,6 +2020,13 @@ mod tests {
         let b = baselines("Hi\nHi", [0.0, 0.0, 100.0, 50.0], tf.clone());
         let [_, h] = measure("Hi\nHi", &one("Hi\nHi", attrs(10.0)), &tf, Some(100.0), 0);
         assert_close(&[b[0][1], h], &[6.7, b[1][1]]);
+    }
+
+    #[test]
+    fn the_bundled_font_lists_its_characters_with_their_names() {
+        let (id, chars) = characters(None);
+        assert_eq!(id, 0);
+        assert!(chars.contains(&(0xe9, "LATIN SMALL LETTER E WITH ACUTE".into())));
     }
 
     #[test]

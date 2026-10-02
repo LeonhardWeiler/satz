@@ -41,8 +41,7 @@ Open:
   File System Access (Chromium) with handles in IndexedDB, so links need a click
   per session and are missing on other computers; Firefox shows the option
   disabled with a hint. Preflight reports missing links with relink.
-- Type as in Figma: axes of variable fonts, a glyph panel with search for all
-  characters of a font.
+- Type as in Figma: axes of variable fonts.
 - Colour profiles: choose or upload a CMYK profile (e.g. PSO Coated v3) instead of the
   built-in FOGRA51.
 - Auto layout: drag layers into and out of an auto layout frame on the canvas.

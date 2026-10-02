@@ -213,6 +213,14 @@ impl Engine {
         Uint8Array::from(&text::font_bytes(id)[..])
     }
 
+    /// The id of the font `hash`, the bundled one for none, and its characters as
+    /// [code point, Unicode name].
+    pub fn characters(&self, hash: Option<String>) -> Result<JsValue, JsError> {
+        Ok(serde_wasm_bindgen::to_value(&text::characters(
+            hash.as_deref(),
+        ))?)
+    }
+
     /// Adds a TrueType, OpenType, WOFF or WOFF2 font and returns its name and hash.
     #[wasm_bindgen(js_name = addFont)]
     pub fn add_font(&mut self, bytes: &[u8]) -> Result<JsValue, JsError> {
