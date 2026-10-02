@@ -84,7 +84,7 @@ body,
 
 .app {
   display: grid;
-  grid-template-columns: var(--l, var(--left-width, 240px)) minmax(0, 1fr) var(--r, var(--right-width, 284px));
+  grid-template-columns: var(--l, var(--left-size, 240px)) minmax(0, 1fr) var(--r, var(--right-size, 284px));
   grid-template-rows: 40px minmax(0, 1fr);
   grid-template-areas: 'left bar right' 'left stage right';
 }
@@ -730,7 +730,9 @@ textarea {
 }
 
 .swatches .swatch-list {
-  max-height: 200px;
+  flex: 1;
+  min-height: 0;
+  max-height: var(--swatches-size, 200px);
   padding: 8px;
 }
 
@@ -1341,7 +1343,8 @@ textarea {
 }
 
 .left > .edge,
-.right > .edge {
+.right > .edge,
+.swatches > .edge {
   position: absolute;
   z-index: 5;
   top: 0;
@@ -1349,6 +1352,19 @@ textarea {
   width: 5px;
   min-width: 0;
   cursor: col-resize;
+}
+
+.swatches > .edge {
+  right: 0;
+  left: 0;
+  bottom: auto;
+  width: auto;
+  height: 5px;
+  cursor: row-resize;
+}
+
+.swatches > .edge:is(:hover, :active) {
+  box-shadow: inset 0 1px var(--text-3);
 }
 
 .left > .edge {
@@ -1375,6 +1391,12 @@ textarea {
 .left > .layers {
   flex: 1;
   max-height: none;
+}
+
+.left > .swatches {
+  position: relative;
+  height: var(--swatches-size);
+  max-height: calc(100% - 200px);
 }
 
 .left > .panel + .panel {

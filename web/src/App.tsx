@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { CanvasKit } from 'canvaskit-wasm'
 import { Canvas, isTyping } from './Canvas'
-import { NameInput } from './controls'
+import { Edge, NameInput } from './controls'
 import { ACTIONS, comboOf, keyLabel, keysOf, MENU, press } from './commands'
 import { ContextMenu } from './ContextMenu'
 import { useEditor, type Editor } from './editor'
@@ -275,38 +275,5 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
         {status}
       </p>
     </main>
-  )
-}
-
-const WIDTHS = 'satz.panels'
-const widths: Record<string, number> = JSON.parse(localStorage.getItem(WIDTHS) ?? '{}')
-let grab = 0
-for (const [side, w] of Object.entries(widths)) document.documentElement.style.setProperty(`--${side}-width`, `${w}px`)
-
-/** The inner edge of a side panel, dragged to set its width. */
-function Edge({ side }: { side: 'left' | 'right' }) {
-  const at = (x: number) => (side === 'left' ? x : innerWidth - x)
-  return (
-    <div
-      className="edge"
-      aria-hidden="true"
-      onPointerDown={(e) => {
-        grab = at(e.clientX) - e.currentTarget.parentElement!.offsetWidth
-        e.currentTarget.setPointerCapture(e.pointerId)
-        e.preventDefault()
-      }}
-      onPointerMove={(e) => {
-        if (!e.currentTarget.hasPointerCapture(e.pointerId)) return
-        const w = Math.round(Math.min(560, Math.max(200, at(e.clientX) - grab)))
-        document.documentElement.style.setProperty(`--${side}-width`, `${w}px`)
-        widths[side] = w
-      }}
-      onPointerUp={() => localStorage.setItem(WIDTHS, JSON.stringify(widths))}
-      onDoubleClick={() => {
-        document.documentElement.style.removeProperty(`--${side}-width`)
-        delete widths[side]
-        localStorage.setItem(WIDTHS, JSON.stringify(widths))
-      }}
-    />
   )
 }

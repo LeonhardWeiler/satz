@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { fromRgb, neutral, resolve, rgb, type Color } from './color'
 import { Chip, NO_SCOPE, Picker, SwatchOption } from './ColorPicker'
 import { ContextMenu } from './ContextMenu'
-import { NameInput, nextName } from './controls'
+import { Edge, NameInput, nextName } from './controls'
 import { scopeOf, useEditor, type Editor } from './editor'
 import { Icon } from './icons'
 
@@ -41,6 +41,7 @@ export function Swatches({ editor }: { editor: Editor }) {
 
   return (
     <section className="panel swatches" aria-label="Swatches" onPointerDown={editor.gesture}>
+      <Edge side="swatches" />
       <header className="panel-header">
         <h2>Swatches</h2>
         <button type="button" className="icon-button" aria-label="Add swatch" title="Add swatch" onClick={add}>

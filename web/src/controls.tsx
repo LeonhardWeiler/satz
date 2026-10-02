@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react'
+import { useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
 import { evalExpr, step } from './field'
@@ -340,5 +340,40 @@ export function Segmented<T extends string>({
         </button>
       ))}
     </div>
+  )
+}
+
+const SIZES = 'satz.panels'
+const sizes: Record<string, number> = JSON.parse(localStorage.getItem(SIZES) ?? '{}')
+let grab = 0
+for (const [side, v] of Object.entries(sizes)) document.documentElement.style.setProperty(`--${side}-size`, `${v}px`)
+
+/** The inner edge of a side panel or the top edge of the swatches, dragged to set its size. */
+export function Edge({ side }: { side: 'left' | 'right' | 'swatches' }) {
+  const at = (e: ReactPointerEvent<HTMLElement>) => (side === 'left' ? e.clientX : side === 'right' ? innerWidth - e.clientX : innerHeight - e.clientY)
+  const size = (el: HTMLElement) => (side === 'swatches' ? el.offsetHeight : el.offsetWidth)
+  const [lo, hi] = side === 'swatches' ? [40, innerHeight - 200] : [200, 560]
+  return (
+    <div
+      className="edge"
+      aria-hidden="true"
+      onPointerDown={(e) => {
+        grab = at(e) - size(e.currentTarget.parentElement!)
+        e.currentTarget.setPointerCapture(e.pointerId)
+        e.preventDefault()
+      }}
+      onPointerMove={(e) => {
+        if (!e.currentTarget.hasPointerCapture(e.pointerId)) return
+        const v = Math.round(Math.min(hi, Math.max(lo, at(e) - grab)))
+        document.documentElement.style.setProperty(`--${side}-size`, `${v}px`)
+        sizes[side] = v
+      }}
+      onPointerUp={() => localStorage.setItem(SIZES, JSON.stringify(sizes))}
+      onDoubleClick={() => {
+        document.documentElement.style.removeProperty(`--${side}-size`)
+        delete sizes[side]
+        localStorage.setItem(SIZES, JSON.stringify(sizes))
+      }}
+    />
   )
 }

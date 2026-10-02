@@ -309,14 +309,19 @@ test('space activates a focused layer button', async ({ page }) => {
   await expect(page.getByRole('complementary', { name: 'Properties' }).getByRole('heading', { level: 2 })).toHaveText('Sun')
 })
 
-test('side panels are resized at their inner edge and keep their width after a reload', async ({ page }) => {
+test('side panels and the swatches are resized at their inner edge and keep their size after a reload', async ({ page }) => {
   await open(page)
   const right = page.getByRole('complementary', { name: 'Properties' })
+  const swatches = page.getByRole('region', { name: 'Swatches' })
   const box = (await right.boundingBox())!
+  const low = (await swatches.boundingBox())!
   await drag(page, [box.x + 2, box.y + 300], [box.x - 98, box.y + 300])
-  await expect.poll(async () => Math.round((await right.boundingBox())!.width)).toBe(Math.round(box.width) + 100)
+  await drag(page, [low.x + 100, low.y + 2], [low.x + 100, low.y - 198])
+  const sizes = async () => [Math.round((await right.boundingBox())!.width), Math.round((await swatches.boundingBox())!.height)]
+  const want = [Math.round(box.width) + 100, Math.round(low.height) + 200]
+  await expect.poll(sizes).toEqual(want)
   await page.reload()
-  await expect.poll(async () => Math.round((await right.boundingBox())!.width)).toBe(Math.round(box.width) + 100)
+  await expect.poll(sizes).toEqual(want)
 })
 
 test('ctrl and the wheel over the quick edit bar zoom the canvas', async ({ page }) => {
