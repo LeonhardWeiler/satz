@@ -41,7 +41,7 @@ Open:
   File System Access (Chromium) with handles in IndexedDB, so links need a click
   per session and are missing on other computers; Firefox shows the option
   disabled with a hint. Preflight reports missing links with relink.
-- Type as in Figma: bulleted and numbered lists, truncation after a number of lines,
+- Type as in Figma: truncation after a number of lines,
   vertical trim to cap height and baseline, axes of variable fonts, a glyph panel
   with search for all characters of a font.
 - Colour profiles: choose or upload a CMYK profile (e.g. PSO Coated v3) instead of the

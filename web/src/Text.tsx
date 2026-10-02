@@ -36,7 +36,7 @@ const RESIZING = [
 ] as const
 const LANGS = { en: 'English', de: 'German', fr: 'French', it: 'Italian', es: 'Spanish', nl: 'Dutch' } as const
 /** Styled numbers: title, label, unit, least value and the text shown for 0. */
-const METRICS: [Exclude<Styled, 'font' | 'textCase' | 'textDecoration' | 'features' | 'paragraphIndent' | 'position' | 'baselineShift' | 'dropLines' | 'dropChars' | 'keepLines' | 'keepTogether' | 'keepNext' | 'tabs'>, string, IconName, string, number, string?][] = [
+const METRICS: [Exclude<Styled, 'font' | 'textCase' | 'textDecoration' | 'features' | 'paragraphIndent' | 'position' | 'baselineShift' | 'dropLines' | 'dropChars' | 'keepLines' | 'keepTogether' | 'keepNext' | 'tabs' | 'list'>, string, IconName, string, number, string?][] = [
   ['size', 'Font size', 'fontSize', 'pt', 0.1],
   ['lineHeight', 'Line height', 'lineHeight', 'pt', 0, 'Auto'],
   ['letterSpacing', 'Letter spacing', 'letterSpacing', '%', -100],
@@ -45,6 +45,7 @@ const METRICS: [Exclude<Styled, 'font' | 'textCase' | 'textDecoration' | 'featur
 
 const CASES = { original: 'As typed', upper: 'Upper case', lower: 'Lower case', title: 'Title case' } as const
 const DECORATIONS = { none: 'No decoration', underline: 'Underline', strikethrough: 'Strikethrough' } as const
+const LISTS = { none: 'No list', bullet: 'Bullets', number: 'Numbers' } as const
 const POSITIONS = { normal: 'Normal position', superscript: 'Superscript', subscript: 'Subscript' } as const
 /** OpenType features: tag, title, a sample it changes and whether fonts apply it unless turned off. */
 const FEATURES: [string, string, string, boolean?][] = [
@@ -179,6 +180,7 @@ export function TypeOptions({ spans, set }: { spans: Pick<Attrs, Styled>[]; set:
                   value={same((a) => a.paragraphIndent)}
                   onCommit={(paragraphIndent) => set({ paragraphIndent })}
                 />
+                <Select label="List" value={same((a) => a.list)} options={LISTS} onChange={(list) => set({ list })} />
                 <Select label="Position" value={same((a) => a.position)} options={POSITIONS} onChange={(position) => set({ position })} />
                 <Field
                   label={<Icon name="baselineShift" />}

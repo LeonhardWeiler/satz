@@ -270,6 +270,8 @@ export type Attrs = {
   keepTogether: boolean
   keepNext: boolean
   tabs: Tab[]
+  /** A bullet, or a number counting on from the paragraph before, hung in front. */
+  list: 'none' | 'bullet' | 'number'
 }
 /** A tab stop `at` pt from the column's left edge, with a leader repeated over the gap. */
 export type Tab = { at: number; align: 'left' | 'center' | 'right' | 'decimal'; leader: string }
@@ -294,7 +296,7 @@ export type TextFrame = {
 /** `len` characters in UTF-16 code units that share their attributes. */
 export type Span = Attrs & { len: number }
 /** The attributes a text style sets. */
-export const STYLED = ['size', 'lineHeight', 'letterSpacing', 'paragraphSpacing', 'paragraphIndent', 'font', 'textCase', 'textDecoration', 'features', 'position', 'baselineShift', 'dropLines', 'dropChars', 'keepLines', 'keepTogether', 'keepNext', 'tabs'] as const
+export const STYLED = ['size', 'lineHeight', 'letterSpacing', 'paragraphSpacing', 'paragraphIndent', 'font', 'textCase', 'textDecoration', 'features', 'position', 'baselineShift', 'dropLines', 'dropChars', 'keepLines', 'keepTogether', 'keepNext', 'tabs', 'list'] as const
 export type Styled = (typeof STYLED)[number]
 export type TextStyle = { id: string; name: string; bindings: Partial<Record<Bindable, string>> } & Pick<Attrs, Styled>
 

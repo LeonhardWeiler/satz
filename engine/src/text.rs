@@ -121,7 +121,7 @@ pub fn fonts() -> Vec<Typeface> {
 }
 
 /// The keys of `Attrs` a text style sets.
-pub const STYLED: [&str; 17] = [
+pub const STYLED: [&str; 18] = [
     "size",
     "lineHeight",
     "letterSpacing",
@@ -139,9 +139,10 @@ pub const STYLED: [&str; 17] = [
     "keepTogether",
     "keepNext",
     "tabs",
+    "list",
 ];
 /// The keys of `Attrs` that hold for a whole paragraph, taken from its first character.
-pub const PARAGRAPH: [&str; 11] = [
+pub const PARAGRAPH: [&str; 12] = [
     "textAlign",
     "paragraphSpacing",
     "paragraphIndent",
@@ -153,6 +154,7 @@ pub const PARAGRAPH: [&str; 11] = [
     "keepTogether",
     "keepNext",
     "tabs",
+    "list",
 ];
 
 /// TeX's \hyphenpenalty.
@@ -227,6 +229,17 @@ fn tabs<'a>(
         x += ws[k];
     }
     out
+}
+
+/// A paragraph in a list: a bullet, or a number that counts on from the paragraph
+/// before, hung in front of its lines.
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum List {
+    #[default]
+    None,
+    Bullet,
+    Number,
 }
 
 /// A language that hyphenation knows.
@@ -305,6 +318,7 @@ pub struct Attrs {
     pub keep_together: bool,
     pub keep_next: bool,
     pub tabs: Vec<Tab>,
+    pub list: List,
 }
 
 impl Attrs {
@@ -352,6 +366,7 @@ impl Default for Attrs {
             keep_together: false,
             keep_next: false,
             tabs: Vec::new(),
+            list: List::None,
         }
     }
 }
@@ -936,18 +951,33 @@ fn rows(
     };
 
     // `text` repeated in whole copies over `x..x + w`, on a grid of its width.
-    let leader = |text: &str, span: usize, cluster: usize, x: f32, w: f32| {
+    // `text` shaped in the font of `span`, from x 0 on the baseline, and its width.
+    let shape = |text: &str, span: usize, cluster: usize| {
         let (a, k) = (&spans[span].attrs, slot[span]);
         let mut buf = UnicodeBuffer::new();
         buf.push_str(text);
         buf.guess_segment_properties();
         let out = shapers[k].shape(buf, ShapeOptions::new());
-        let (size, scale) = (a.drawn(), a.drawn() / metrics[k].upem);
-        let lw: f32 = out
-            .glyph_positions()
-            .iter()
-            .map(|p| p.x_advance as f32 * scale)
-            .sum();
+        let scale = a.drawn() / metrics[k].upem;
+        let mut x = 0.0;
+        let mut glyphs = Vec::new();
+        for (info, pos) in out.glyph_infos().iter().zip(out.glyph_positions()) {
+            glyphs.push(Glyph {
+                id: info.glyph_id as u16,
+                x: x + pos.x_offset as f32 * scale,
+                y: -a.rise(),
+                size: a.drawn(),
+                span,
+                cluster,
+                hyphen: false,
+            });
+            x += pos.x_advance as f32 * scale;
+        }
+        (glyphs, x)
+    };
+    // `text` repeated in whole copies over `x..x + w`, on a grid of its width.
+    let leader = |text: &str, span: usize, cluster: usize, x: f32, w: f32| {
+        let (copy, lw) = shape(text, span, cluster);
         let mut glyphs = Vec::new();
         let mut at = if lw > 0.0 {
             (x / lw).ceil() * lw
@@ -955,18 +985,11 @@ fn rows(
             f32::INFINITY
         };
         while at + lw <= x + w + 0.01 {
-            for (info, pos) in out.glyph_infos().iter().zip(out.glyph_positions()) {
-                glyphs.push(Glyph {
-                    id: info.glyph_id as u16,
-                    x: at + pos.x_offset as f32 * scale,
-                    y: -a.rise(),
-                    size,
-                    span,
-                    cluster,
-                    hyphen: false,
-                });
-                at += pos.x_advance as f32 * scale;
-            }
+            glyphs.extend(copy.iter().map(|g| Glyph {
+                x: at + g.x,
+                ..g.clone()
+            }));
+            at += lw;
         }
         glyphs
     };
@@ -1116,7 +1139,10 @@ fn rows(
     let (mut widest, mut used) = (0.0f32, 0.0f32);
     let mut paras = Vec::new();
     let mut start = 0;
+    let mut count = 0;
     for para in text.split('\n') {
+        let list = spans[span_at(start)].attrs.list;
+        count = if list == List::Number { count + 1 } else { 0 };
         if start + para.len() < from {
             start += para.len() + 1;
             continue;
@@ -1252,6 +1278,24 @@ fn rows(
             glyphs.insert(0, None);
             clusters.insert(0, start);
         }
+        let hang = match list {
+            List::None => 0.0,
+            List::Bullet | List::Number => {
+                let marker = match list {
+                    List::Number => format!("{count}."),
+                    _ => "\u{2022}".into(),
+                };
+                let (mut mark, w) = shape(&marker, first_span, start);
+                let hang = (first.drawn() * 1.5).max(w + first.drawn() / 4.0);
+                marks.iter_mut().for_each(|g| g.x += hang);
+                lead.iter_mut().for_each(|s| s.1 += hang);
+                if from <= start {
+                    mark.append(&mut marks);
+                    marks = mark;
+                }
+                hang
+            }
+        };
         let mut ws: Vec<f32> = items
             .iter()
             .map(|it| match *it {
@@ -1261,7 +1305,7 @@ fn rows(
             .collect();
         let set = |j: usize| tab_at(&items[j], clusters[j]);
         let point = |j: usize| point_at(&items[j], clusters[j]);
-        for (k, _) in tabs(&first.tabs, &mut ws, set, point, dw) {
+        for (k, _) in tabs(&first.tabs, &mut ws, set, point, dw + hang) {
             items[k] = Item::Glue {
                 width: ws[k],
                 stretch: 0.0,
@@ -1286,10 +1330,10 @@ fn rows(
             line0 = from;
         }
         start += para.len() + 1;
-        let natural = natural + dw;
+        let natural = natural + dw + hang;
         widest = widest.max(natural);
-        let mut left = vec![dw; if dw > 0.0 { lines } else { 1 }];
-        left.push(0.0);
+        let mut left = vec![dw + hang; if dw > 0.0 { lines } else { 1 }];
+        left.push(hang);
         let para = Para {
             items,
             glyphs,
@@ -1848,6 +1892,33 @@ mod tests {
         assert_eq!(point, 80.0);
         let (_, glyphs) = at("a\tb", vec![stop(100.0, TabAlign::Left, ".")], 2);
         assert!(glyphs > 20, "{glyphs}");
+    }
+
+    #[test]
+    fn list_markers_hang_in_front_and_numbers_count_on() {
+        let text = "a\nb b b b b b b b b b\nc";
+        let set = |list| {
+            let a = Attrs {
+                list,
+                ..attrs(10.0)
+            };
+            lay_out(
+                text,
+                &one(text, a),
+                [0.0, 0.0, 60.0, 200.0],
+                &TextFrame::default(),
+                0,
+            )
+        };
+        let lines = set(List::Number);
+        let marker = |l: &[Glyph]| l.iter().filter(|g| g.x < 15.0).count();
+        assert_eq!(
+            lines.iter().map(|l| marker(l)).collect::<Vec<_>>(),
+            [2, 2, 0, 2]
+        );
+        assert_eq!(lines[1].iter().find(|g| g.x >= 15.0).unwrap().x, 15.0);
+        assert_eq!(lines[2][0].x, 15.0);
+        assert_eq!(set(List::Bullet)[0].len(), 2);
     }
 
     #[test]

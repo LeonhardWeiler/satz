@@ -540,6 +540,7 @@ pub struct TextProps {
     pub keep_together: Option<bool>,
     pub keep_next: Option<bool>,
     pub tabs: Option<Vec<text::Tab>>,
+    pub list: Option<text::List>,
 }
 
 impl TextProps {
@@ -715,7 +716,7 @@ const BINDABLE: [&str; 12] = [
 ];
 
 /// The keys of a text layer that belong to its story and move with it.
-const STORY: [&str; 23] = [
+const STORY: [&str; 24] = [
     "size",
     "lineHeight",
     "letterSpacing",
@@ -737,6 +738,7 @@ const STORY: [&str; 23] = [
     "keepTogether",
     "keepNext",
     "tabs",
+    "list",
     "fills",
     "font",
 ];
