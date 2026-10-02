@@ -1,5 +1,4 @@
 5. wenn ich von rgb auf cmyk umwandle, sollen alle farben sofort mit umgewandelt werden und dann natürlich nicht im preflight angezgeit werden
-7. es ist immer noch so, dass wenn ich auf ein z.b. r halte, dass dann mein cursor weg ist
 15. implement all the points under later in TODO.md
 16. überlege dir für alle elemente noch einmal tief und schlau welche optionen alle sinnvoll und praktisch wären und implementiere sie
 17. überlege dir features die noch gemacht werden sollen und schreibe sie unter later in TODO.md
@@ -18,7 +17,6 @@
 --- LATER
 1. Figma import with file and or account
 5. overview page for all the personal projekts when opening the webapp, like in figma
-7. man soll teile der website auswählen können und in diesem bereich die ki prompten, z.b. dass dieser bereich redesigned werden soll
 10. inhaltsverzeichnis
 13. eine markdown datei mit allen funktionen in satz
 14. datum einfügen wie seitenzahl gerade
