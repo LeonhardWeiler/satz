@@ -47,8 +47,6 @@ Open:
 - Performance of `settle` and `lay_out`, which walk the whole tree after every
   command.
 - Threading: click an in-port to thread a frame in before another, as InDesign does. (versteh ich nicht ganz bitte erklären bevor es umgesetzt wird)
-- Rotation: a turned multi-selection resized
-  in its own frame, ports on turned text frames.
 - Text wrap around layers, with an offset, for text frames under images and shapes.
 - Place SVG and PDF as vectors, kept as vectors in the exported PDF.
 - Version history from the Loro history: browse and restore earlier states.

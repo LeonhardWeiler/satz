@@ -48,6 +48,11 @@ const DEFAULT_SIZE: Record<Exclude<Tool, 'move' | 'pen' | 'eyedropper'>, [number
 /** How far the visible stroke of `n` reaches beyond its frame. */
 const outset = (n: Node) =>
   n.kind === 'text' || !n.strokes.some((s) => s.visible) ? 0 : n.strokeAlign === 'outside' ? n.strokeWeight : n.strokeAlign === 'center' ? n.strokeWeight / 2 : 0
+/** `b` with its centre turned by `by` degrees about the origin. */
+const spun = <T extends Box>(b: T, by: number): T => {
+  const c = spin({ x: b.x + b.w / 2, y: b.y + b.h / 2 }, by)
+  return { ...b, x: c.x - b.w / 2, y: c.y - b.h / 2 }
+}
 const grow = <T extends Box>(b: T, m: number): T => ({ ...b, x: b.x - m, y: b.y - m, w: b.w + 2 * m, h: b.h + 2 * m })
 
 type Pointer = { offsetX: number; offsetY: number; ctrlKey: boolean }
@@ -300,10 +305,22 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const line = n && ends(n)
       if (line) return { line }
       const shown = n && editor.shown(editor.selected()[0])
-      const box: Box = shown ? grow(shown, outset(n)) : bounds(nodes.map((n) => grow(n, outset(n))))
+      const box: Box = shown ? grow(shown, outset(n)) : turnOf(nodes)[0] ? boxOf(nodes) : bounds(nodes.map((n) => grow(n, outset(n))))
       return { box, radii: shown && n.kind === 'shape' && n.shape === 'rect' ? radiusHandles(view, shown, radii(n)) : undefined }
     }
 
+    /** The turn of `nodes` as shown and their own, when they are one layer or all turn alike on unturned parents. */
+    const turnOf = (nodes: Node[]) => {
+      const turns = nodes.map((n) => editor.shown(n).rotation!)
+      const near = (a: number) => Math.abs(a - turns[0]) < 1e-6
+      return nodes.length === 1 || nodes.every((n, i) => near(turns[i]) && near(n.rotation)) ? [turns[0], nodes[0].rotation] : [0, 0]
+    }
+    /** The selection box of `nodes`, turned with them. */
+    const boxOf = (nodes: Node[]): Box => {
+      if (nodes.length === 1) return editor.shown(nodes[0])
+      const [turn, own] = turnOf(nodes)
+      return { ...spun(bounds(nodes.map((n) => spun(placed(n), -own))), own), rotation: turn }
+    }
     /** What the layers `ids` snap to: the pages of the spread and the visible layers beside them. */
     const snapsNow = (ids = editor.selection): Snaps => {
       const top = (id: string) => {
@@ -823,7 +840,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       }
       if (handle?.startsWith('rotate')) {
         const nodes = editor.selected()
-        const b: Box = nodes.length === 1 ? editor.shown(nodes[0]) : bounds(nodes.map(placed))
+        const b = boxOf(nodes)
         const c = { x: b.x + b.w / 2, y: b.y + b.h / 2 }
         drag = { kind: 'rotate', c, from: angle(c, p), nodes, handle, turn: b.rotation ?? 0 }
         editor.beginGroup()
@@ -831,8 +848,8 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       }
       if (handle) {
         const frames = editor.selected()
-        const [turn, own] = frames.length === 1 ? [editor.shown(frames[0]).rotation!, frames[0].rotation] : [0, 0]
-        drag = { kind: 'resize', start: p, handle, box: bounds(frames.map(placed)), frames, snaps: snapsNow(), by: 1, turn, own }
+        const [turn, own] = turnOf(frames)
+        drag = { kind: 'resize', start: p, handle, box: bounds(frames.map((n) => spun(placed(n), -own))), frames, snaps: snapsNow(), by: 1, turn, own }
         editor.beginGroup()
         return
       }
@@ -1030,12 +1047,9 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           d.x += snap([...edge('w', b.x + d.x), ...edge('e', b.x + b.w + d.x)], snaps.lines.x, SNAP / view.zoom)
           d.y += snap([...edge('n', b.y + d.y), ...edge('s', b.y + b.h + d.y)], snaps.lines.y, SNAP / view.zoom)
         }
-        const boxes = resized(b, h, d, e, drag.frames.map(placed)).map((f) => {
-          const c = { x: f.x + f.w / 2 - b.x - b.w / 2, y: f.y + f.h / 2 - b.y - b.h / 2 }
-          const m = spin(c, own)
-          return { ...f, x: f.x + m.x - c.x, y: f.y + m.y - c.y }
-        })
-        const r = bounds(boxes)
+        const turned = resized(b, h, d, e, drag.frames.map((n) => spun(placed(n), -own)))
+        const boxes = turned.map((f) => spun(f, own))
+        const r = bounds(turned)
         snapped = free && !drag.turn ? guides(r, snaps.lines, [...edge('w', r.x), ...edge('e', r.x + r.w)], [...edge('n', r.y), ...edge('s', r.y + r.h)]) : []
         const by = h === 'e' || h === 'w' ? r.w / b.w : r.h / b.h
         const scale = (e.ctrlKey || e.metaKey) && by > 0 ? by / drag.by : 1

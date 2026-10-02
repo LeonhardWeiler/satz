@@ -237,6 +237,25 @@ test('shift h and shift v flip the selection', async ({ page }) => {
   await expect(rotation).toHaveValue('30')
 })
 
+test('a turned multi-selection resizes in its own frame', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  for (const x of [20, 40]) {
+    await page.keyboard.press('r')
+    await drag(page, await screen(page, x, 80), await screen(page, x + 10, 90))
+  }
+  const layers = page.getByRole('tree', { name: 'Layers' })
+  await layers.getByRole('button', { name: 'Rectangle', exact: true }).nth(0).click()
+  await layers.getByRole('button', { name: 'Rectangle', exact: true }).nth(1).click({ modifiers: ['Shift'] })
+  const rotation = panel.getByRole('textbox', { name: 'Rotation in °' })
+  await rotation.fill('90')
+  await rotation.press('Enter')
+  await drag(page, await screen(page, 35, 80), await screen(page, 35, 70))
+  await layers.getByRole('button', { name: 'Rectangle', exact: true }).nth(0).click()
+  await expect(panel.getByRole('textbox', { name: 'W in mm' })).toHaveValue('20')
+  await expect(panel.getByRole('textbox', { name: 'H in mm' })).toHaveValue('10')
+})
+
 test('the eyedropper gives the selection the fill and stroke of the layer clicked', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
