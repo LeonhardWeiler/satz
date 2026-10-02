@@ -6,7 +6,7 @@ import { radii } from './model'
 import { penPath } from './pen'
 import { handleAt, portAt, portsOf, radiusHandles, rect, resized, spin, upright } from './handles'
 import { Renderer, fitView, HANDLE, type Box, type View } from './renderer'
-import { pick } from './select'
+import { pick, type Entry } from './select'
 import { length, settings, subscribeSettings, UNITS } from './settings'
 import { equals, guides, measure, nearest, snap, spacings, targets, type Guide, type Lines, type Measure } from './snap'
 import { curved, nearest as nearestSegment, remove, shift, smooth, split, type At, type Contour, type Knot } from './vector'
@@ -207,6 +207,20 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       return editor.engine.textIndex(id, q.x, q.y)
     }
     /** The page of `pages` under `p`, or the nearest. */
+    const flowing = (c?: Node): c is Container => c?.kind === 'frame' && c.direction !== 'none'
+    /** The deepest auto layout frame under `p` that is not one of the layers `ids` or inside them. */
+    const flowAt = (p: Point, ids: string[]) => {
+      let found: Container | undefined
+      for (const e of editor.nodes.values()) {
+        const n = e.node
+        if (!flowing(n) || n.hidden || n.locked || !e.page || !editor.spread.includes(e.page)) continue
+        let up: Entry | undefined = e
+        while (up && !ids.includes(up.node.id)) up = up.parent && editor.nodes.get(up.parent.id)
+        const b = placed(n)
+        if (!up && p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h) found = n
+      }
+      return found
+    }
     const pageAt = (p: Point, pages = editor.spread) => {
       const away = (q: Page) => Math.max(q.x - p.x, p.x - q.x - q.width, 0)
       return pages.reduce((a, b) => (away(b) < away(a) ? b : a))
@@ -842,11 +856,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         return
       }
       if (!sel.includes(id)) editor.set({ selection: [id] })
-      const frames = editor.selected()
-      const parents = new Set(frames.map((n) => editor.nodes.get(n.id)?.parent))
-      const [flow] = parents
-      const inFlow = parents.size === 1 && flow?.kind === 'frame' && flow.direction !== 'none' && frames.every((n) => !n.absolute)
-      drag = { kind: 'move', start: p, frames, active: false, flow: inFlow ? flow : undefined }
+      drag = { kind: 'move', start: p, frames: editor.selected(), active: false }
     }
     const onPointerMove = (e: PointerEvent) => {
       const p = toDoc(e)
@@ -950,11 +960,21 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           drag.box = bounds(drag.frames.map(covered))
           drag.snaps = snapsNow()
         }
+        const ids = drag.frames.map((n) => n.id)
+        const loose = drag.frames.every((n) => !n.absolute)
+        drag.flow = loose ? flowAt(p, ids) : undefined
         if (drag.flow) {
-          const local = { x: p.x - editor.dx(drag.flow.id), y: p.y }
-          drag.to = insertion(drag.flow, drag.frames.map((n) => n.id), local)
+          drag.to = insertion(drag.flow, ids, { x: p.x - editor.dx(drag.flow.id), y: p.y })
           redraw()
           return
+        }
+        if (loose && ids.some((id) => flowing(editor.nodes.get(id)?.parent))) {
+          const page = pageAt(p)
+          editor.apply({ type: 'move', ids, parent: page.id, index: page.children.length })
+          drag.frames = editor.selected()
+          drag.start = p
+          drag.box = bounds(drag.frames.map(covered))
+          dx = dy = 0
         }
         const lock = e.shiftKey ? (Math.abs(dx) > Math.abs(dy) ? 'y' : 'x') : undefined
         if (lock === 'y') dy = 0

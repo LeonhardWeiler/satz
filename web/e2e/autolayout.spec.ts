@@ -59,10 +59,35 @@ test('dragging a child of an auto layout frame past its sibling reorders them', 
   await page.mouse.click(...(await screen(page, 25, 85)))
   await page.keyboard.up('Control')
   await expect(panel.getByRole('textbox', { name: 'X in mm' })).toHaveValue('20')
-  await drag(page, await screen(page, 25, 85), await screen(page, 58, 85))
+  await drag(page, await screen(page, 25, 85), await screen(page, 48, 85))
   await expect(panel.getByRole('textbox', { name: 'X in mm' })).toHaveValue('40')
   await page.keyboard.press('Control+z')
   await expect(panel.getByRole('textbox', { name: 'X in mm' })).toHaveValue('20')
+})
+
+test('a child dragged out of an auto layout frame lands on the page and drags back in', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  const field = (name: string) => panel.getByRole('textbox', { name })
+  for (const x of [20, 40]) {
+    await page.keyboard.press('r')
+    await drag(page, await screen(page, x, 80), await screen(page, x + 10, 90))
+  }
+  const layers = page.getByRole('tree', { name: 'Layers' })
+  await layers.getByRole('button', { name: 'Rectangle', exact: true }).nth(0).click()
+  await layers.getByRole('button', { name: 'Rectangle', exact: true }).nth(1).click({ modifiers: ['Shift'] })
+  await page.keyboard.press('Shift+A')
+  await page.keyboard.press('Escape')
+  await page.keyboard.down('Control')
+  await page.mouse.click(...(await screen(page, 45, 85)))
+  await page.keyboard.up('Control')
+  await drag(page, await screen(page, 45, 85), await screen(page, 100, 150))
+  await expect(field('Y in mm')).not.toHaveValue('80')
+  await expect(panel.getByRole('radio', { name: 'Horizontal layout' })).toHaveCount(0)
+  const [x, y] = [Number(await field('X in mm').inputValue()), Number(await field('Y in mm').inputValue())]
+  await drag(page, await screen(page, x + 5, y + 5), await screen(page, 28, 85))
+  await expect(field('X in mm')).toHaveValue('40')
+  await expect(field('Y in mm')).toHaveValue('80')
 })
 
 test('a child made absolute keeps its place and stays visible', async ({ page }) => {

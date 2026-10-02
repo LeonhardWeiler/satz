@@ -44,7 +44,6 @@ Open:
 - Type as in Figma: axes of variable fonts.
 - Colour profiles: choose or upload a CMYK profile (e.g. PSO Coated v3) instead of the
   built-in FOGRA51.
-- Auto layout: drag layers into and out of an auto layout frame on the canvas.
 - Performance of `settle` and `lay_out`, which walk the whole tree after every
   command.
 - Threading: click an in-port to thread a frame in before another, as InDesign does. (versteh ich nicht ganz bitte erklären bevor es umgesetzt wird)
