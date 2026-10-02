@@ -40,7 +40,7 @@ function cursorOf(handle: string, turn: number) {
   return Math.abs(a - k * 45) < 1 ? NATIVE[k % 4] : svg(ARROW, a, NATIVE[k % 4])
 }
 /** Size in mm of a layer made with a click; a clicked text is auto width, a dragged one fixed. */
-const DEFAULT_SIZE: Record<Exclude<Tool, 'move' | 'pen'>, [number, number]> = {
+const DEFAULT_SIZE: Record<Exclude<Tool, 'move' | 'pen' | 'eyedropper'>, [number, number]> = {
   rect: [30, 30], ellipse: [30, 30], polygon: [30, 30], star: [30, 30], frame: [30, 30], text: [0, 0],
   line: [30, 0],
 }
@@ -704,6 +704,16 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         const anchors = [...pen.anchors, anchor]
         editor.set({ pen: { ...pen, anchors } })
         editor.apply({ type: 'setPath', id: pen.id, path: penPath(anchors, false) })
+        return
+      }
+      if (editor.tool === 'eyedropper') {
+        drag = null
+        const from = editor.nodes.get(hit(p).path.at(-1) ?? '')?.node
+        if (!from) return
+        const { fills, strokes, strokeWeight } = from
+        editor.batch(() => {
+          for (const n of editor.selected()) if (n.kind !== 'group' && n.id !== from.id) editor.apply({ type: 'set', id: n.id, fills, strokes, strokeWeight })
+        })
         return
       }
       if (editor.tool !== 'move') {

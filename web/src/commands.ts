@@ -114,6 +114,7 @@ export const ACTIONS: Action[] = [
   { title: 'Line tool', keys: 'L', group: 'Tools' },
   { title: 'Pen tool', keys: 'P', group: 'Tools' },
   { title: 'Text tool', keys: 'T', group: 'Tools' },
+  { title: 'Eyedropper', keys: 'I', group: 'Tools' },
   { title: 'Command palette', keys: 'Ctrl K', group: 'View' },
   { title: 'Keyboard shortcuts', keys: '?', group: 'View' },
   { title: 'Settings', keys: 'Ctrl ,', group: 'View' },

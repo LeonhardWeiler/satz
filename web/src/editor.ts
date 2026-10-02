@@ -11,7 +11,7 @@ import { contours, toPath, type At, type Contour } from './vector'
 import type { Editing } from './textEdit'
 
 export type Shape = 'rect' | 'line' | 'ellipse' | 'polygon' | 'star'
-export type Tool = 'move' | 'frame' | 'text' | 'pen' | Shape
+export type Tool = 'move' | 'frame' | 'text' | 'pen' | 'eyedropper' | Shape
 export type Pen = { id: string; anchors: Anchor[] }
 
 export const MM = 72 / 25.4

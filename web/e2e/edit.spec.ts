@@ -237,6 +237,25 @@ test('shift h and shift v flip the selection', async ({ page }) => {
   await expect(rotation).toHaveValue('30')
 })
 
+test('the eyedropper gives the selection the fill and stroke of the layer clicked', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  const hex = page.getByRole('dialog', { name: 'Fill color' }).getByRole('textbox', { name: 'Hex' })
+  await page.keyboard.press('r')
+  await drag(page, await screen(page, 20, 20), await screen(page, 40, 40))
+  await panel.getByRole('button', { name: 'Fill color' }).click()
+  await hex.fill('00ff00')
+  await hex.press('Enter')
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('r')
+  await drag(page, await screen(page, 60, 20), await screen(page, 80, 40))
+  await page.keyboard.press('i')
+  await page.mouse.click(...(await screen(page, 30, 30)))
+  await page.keyboard.press('Escape')
+  await panel.getByRole('button', { name: 'Fill color' }).click()
+  await expect(hex).toHaveValue(/00FF00/i)
+})
+
 test('ctrl click and the path tools make a point smooth or a corner', async ({ page }) => {
   await open(page)
   const w = page.getByRole('complementary', { name: 'Properties' }).getByRole('textbox', { name: 'W' })
