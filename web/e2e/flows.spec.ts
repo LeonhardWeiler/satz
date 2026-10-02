@@ -62,6 +62,8 @@ test('the overview lists masters beside vertical spreads, assigns a master and r
   await choose(master, 'B-Master')
   await expect(master).toHaveText('B-Master')
 
+  await region.getByRole('textbox', { name: 'Columns' }).fill('3')
+  await region.getByRole('textbox', { name: 'Columns' }).press('Enter')
   await option(page, 6).dragTo(option(page, 2), { targetPosition: { x: 20, y: 2 } })
   for (const [n, b] of [[3, false], [4, true], [5, true]] as const) {
     await overview(page)

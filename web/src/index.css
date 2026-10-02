@@ -2343,7 +2343,7 @@ kbd {
   display: flex;
   flex-wrap: wrap;
   align-items: end;
-  justify-content: center;
+  justify-content: safe center;
   gap: 18px;
   padding: 8px;
   border-radius: 6px;
