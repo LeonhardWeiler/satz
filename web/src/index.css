@@ -603,15 +603,17 @@ textarea {
   font-variant-numeric: tabular-nums;
 }
 
-.panel-header h2,
-.layer-name,
-.bound-name,
-.select > span,
-.specimen > span:first-child,
-.field input:not(:focus) {
-  /* A scroll timeline is only active while the text overflows, so only then it fades. */
-  animation: fade linear both !important;
-  animation-timeline: scroll(self inline) !important;
+@supports (animation-timeline: scroll()) {
+  .panel-header h2,
+  .layer-name,
+  .bound-name,
+  .select > span,
+  .specimen > span:first-child,
+  .field input:not(:focus) {
+    /* A scroll timeline is only active while the text overflows, so only then it fades. */
+    animation: fade linear both !important;
+    animation-timeline: scroll(self inline) !important;
+  }
 }
 
 @keyframes fade {
