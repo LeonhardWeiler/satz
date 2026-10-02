@@ -1984,24 +1984,37 @@ impl Doc {
 
     fn flatten(&self, id: String) -> Res<Vec<String>> {
         let id = self.layer(&id)?;
-        if self.kind(id) != Some(NodeKind::Shape) {
-            return Err("only shapes flatten".into());
-        }
-        let v = serde_json::to_value(self.meta(id).get_value()).map_err(err)?;
-        let shape: Shape = serde_json::from_value(v).map_err(err)?;
         let rotation = num(&self.meta(id), "rotation");
-        if matches!(shape, Shape::Path { .. }) && rotation == 0.0 {
-            return Ok(vec![]);
-        }
         let frame = self.bounds(id).map(|v| v as f32);
+        let path = match self.kind(id) {
+            Some(NodeKind::Shape) => {
+                let v = serde_json::to_value(self.meta(id).get_value()).map_err(err)?;
+                let shape: Shape = serde_json::from_value(v).map_err(err)?;
+                if matches!(shape, Shape::Path { .. }) && rotation == 0.0 {
+                    return Ok(vec![]);
+                }
+                outline(&shape, frame)
+            }
+            Some(NodeKind::Text) => self.glyphs(&id.to_string(), frame)?,
+            _ => return Err("only shapes and text flatten".into()),
+        };
         let [a, b, c, d, e, f] = geom::rotation(rotation, frame.map(f64::from)).map(|v| v as f32);
-        let path = geom::map(&outline(&shape, frame), |[u, v]| {
-            [a * u + c * v + e, b * u + d * v + f]
-        });
+        let path = geom::map(&path, |[u, v]| [a * u + c * v + e, b * u + d * v + f]);
         if !geom::valid(&path) {
             return Err("not a path".into());
         }
         let m = self.meta(id);
+        if self.kind(id) == Some(NodeKind::Text) {
+            m.delete("text").map_err(err)?;
+            m.insert(KIND, NodeKind::Shape.as_str()).map_err(err)?;
+            self.set(
+                id,
+                Props {
+                    sizing: Some(Sizing::default()),
+                    ..Props::default()
+                },
+            )?;
+        }
         m.insert("shape", "path").map_err(err)?;
         m.insert("rotation", 0.0).map_err(err)?;
         self.set(
@@ -2013,6 +2026,58 @@ impl Doc {
         )?;
         self.set_frame(id, bounds(&path).map(f64::from))?;
         Ok(vec![])
+    }
+
+    /// The outlines of the glyphs that the unthreaded text layer `id` sets in `frame`.
+    fn glyphs(&self, id: &str, frame: [f32; 4]) -> Res<Vec<f32>> {
+        fn find<'a>(nodes: &'a [Node], id: &str) -> Option<&'a Node> {
+            nodes.iter().find_map(|n| match &n.kind {
+                _ if n.id == id => Some(n),
+                Kind::Group { children } | Kind::Frame { children, .. } => find(children, id),
+                _ => None,
+            })
+        }
+        let snap = self.snapshot();
+        let n = snap
+            .pages
+            .iter()
+            .chain(&snap.masters)
+            .find_map(|p| find(&p.children, id))
+            .ok_or("no such layer")?;
+        let Kind::Text {
+            content,
+            frame: tf,
+            prev: None,
+            next: None,
+            ..
+        } = &n.kind
+        else {
+            return Err("threaded text does not flatten".into());
+        };
+        let s = Scope {
+            palette: &snap.palette,
+            modes: &n.active_modes,
+        };
+        let style = Style {
+            fills: vec![Fill::solid(Color::gray(ColorMode::Rgb))],
+            ..Style::default()
+        };
+        Ok(
+            text::draw(&content.text, &content.spans, &style, frame, tf, &s, 0)
+                .into_iter()
+                .flat_map(|op| match op {
+                    Op::GlyphRun {
+                        font,
+                        size,
+                        glyphs,
+                        positions,
+                        ..
+                    } => text::outline(font, size, &glyphs, &positions),
+                    Op::FillPath { path, .. } => path,
+                    _ => Vec::new(),
+                })
+                .collect(),
+        )
     }
 
     fn delete(&self, ids: Vec<String>) -> Res<Vec<String>> {

@@ -100,6 +100,11 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
     editor.resize(editor.selected(), key === 'w' ? 'autoWidth' : 'autoHeight')
   } else if (!mod && e.shiftKey && key === 'a') editor.set({ selection: editor.apply({ type: 'autoLayout', ids }) })
   else if (mod && e.altKey && key === 'm') editor.set({ selection: editor.apply({ type: 'mask', ids }) })
+  else if (mod && !e.shiftKey && key === 'e') {
+    editor.batch(() => {
+      for (const n of editor.selected()) if (n.kind === 'text' || n.kind === 'shape') editor.apply({ type: 'flatten', id: n.id })
+    })
+  }
   else if (e.altKey && alignment(e)) align(editor, alignment(e)!)
   else if (mod && e.code in ORDER) {
     editor.apply({ type: 'order', ids, to: ORDER[e.code as keyof typeof ORDER][e.shiftKey ? 1 : 0] })

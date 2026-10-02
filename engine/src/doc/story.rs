@@ -1352,6 +1352,26 @@ mod tests {
     }
 
     #[test]
+    fn text_flattens_into_the_outlines_of_its_glyphs_unless_threaded() {
+        let (mut d, _, _, a, _) = two_pages();
+        assert!(d.apply(Command::Flatten { id: a }).is_err());
+        let t = text(&mut d, "Hi");
+        d.apply(Command::Flatten { id: t.clone() }).unwrap();
+        let p = page(&d);
+        let n = p.children.iter().find(|n| n.id == t).unwrap();
+        let Kind::Shape(Shape::Path { path }) = &n.kind else {
+            panic!("{:?}", n.kind);
+        };
+        assert!(geom::closed(path));
+        assert!(
+            n.w > 10.0 && n.w < 14.0 && n.h > 6.0 && n.h < 9.0,
+            "{} {}",
+            n.w,
+            n.h
+        );
+    }
+
+    #[test]
     fn threaded_frames_share_one_story_and_each_sets_its_part() {
         let (d, _, _, a, b) = two_pages();
         let story = "Hi\nHi\nHi\nHi".to_string();

@@ -289,3 +289,21 @@ test('a stroke goes around the text', async ({ page }) => {
   await weight.press('Enter')
   await expect.poll(ink).toBeGreaterThan(before * 1.3)
 })
+
+test('flatten turns text into the outlines of its glyphs', async ({ page }) => {
+  await open(page)
+  await page.keyboard.press('t')
+  await page.mouse.click(...(await screen(page, 10, 200, 0)))
+  await page.keyboard.type('HHHH')
+  await page.keyboard.press('Escape')
+  const [x, y] = await screen(page, 8, 199, 0)
+  const ink = async () => (await pixels(page, x, y, 80, 30)).filter((p) => p[0] < 100).length
+  const before = await ink()
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  await expect(panel.getByText('Source Serif 4')).toBeVisible()
+  await page.keyboard.press('Control+e')
+  await expect(panel.getByText('Source Serif 4')).toHaveCount(0)
+  await expect.poll(ink).toBeGreaterThan(before * 0.8)
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('toolbar', { name: 'Path tools' })).toBeVisible()
+})
