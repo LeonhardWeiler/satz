@@ -59,11 +59,25 @@ function usePreview(editor: Editor, on: boolean) {
 
 const PRESETS: Record<Preset, string> = { x4: 'PDF/X-4, print', x1a: 'PDF/X-1a, print', screen: 'PDF, screen' }
 
+/** The indices of the pages `text` names, as `1-3, 5`, all when it is empty; null when it names a page that is not there. */
+function pagesOf(text: string, n: number) {
+  if (!text.trim()) return [...Array(n).keys()]
+  const out = new Set<number>()
+  for (const part of text.split(',')) {
+    const m = /^\s*(\d+)\s*(?:[-–]\s*(\d+)\s*)?$/.exec(part)
+    const [a, b] = m ? [+m[1], +(m[2] ?? m[1])] : [0, 0]
+    if (a < 1 || b > n || a > b) return null
+    for (let i = a; i <= b; i++) out.add(i - 1)
+  }
+  return [...out].sort((x, y) => x - y)
+}
+
 const FORMATS = { pdf: 'PDF', png: 'PNG', jpeg: 'JPEG' } as const
 export type Format = keyof typeof FORMATS
 
-export function Preflight({ editor, exporting, onExport }: { editor: Editor; exporting: boolean; onExport: (format: Format) => void }) {
+export function Preflight({ editor, exporting, onExport }: { editor: Editor; exporting: boolean; onExport: (format: Format, pages: number[]) => void }) {
   const [format, setFormat] = useState<Format>('pdf')
+  const [range, setRange] = useState('')
   const issues = useEditor(editor, (e) => e.snapshot.preflight)
   const pages = useEditor(editor, (e) => e.snapshot.pages)
   const masters = useEditor(editor, (e) => e.snapshot.masters)
@@ -76,6 +90,7 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
   const pointerInk = useEditor(editor, (e) => e.pointerInk)
   usePreview(editor, colorMode === 'cmyk')
 
+  const chosen = pagesOf(range, pages.length)
   const sorted = [...issues].sort((a, b) => Number(isError(b)) - Number(isError(a)))
   const errors = issues.filter(isError).length
   const where = (id: string) => {
@@ -191,7 +206,19 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
               </label>
             </>
           )}
-          <button type="button" className="primary pf-go" disabled={exporting} onClick={() => onExport(format)}>
+          <label className="field">
+            <span className="field-label">Pages</span>
+            <input
+              name="pages"
+              aria-label="Pages to export"
+              aria-invalid={chosen === null}
+              autoComplete="off"
+              placeholder="All"
+              value={range}
+              onChange={(e) => setRange(e.currentTarget.value)}
+            />
+          </label>
+          <button type="button" className="primary pf-go" disabled={exporting || chosen === null} onClick={() => chosen && onExport(format, chosen)}>
             {exporting ? 'Exporting…' : errors ? `Export with ${count(errors, 'error')}` : `Export ${FORMATS[format]}`}
           </button>
           <div className={`pf-bar${exporting ? ' run' : ''}`}>

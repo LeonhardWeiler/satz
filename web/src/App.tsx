@@ -8,7 +8,7 @@ import { useEditor, type Editor } from './editor'
 import { Help } from './Help'
 import { Settings } from './SettingsDialog'
 import { settings } from './settings'
-import { autosave, download, drop, images, open, pdf, placeImages, save } from './file'
+import { autosave, download, drop, exportFiles, open, placeImages, save } from './file'
 import { Icon } from './icons'
 import { handleKey } from './keys'
 import { Layers } from './Layers'
@@ -42,18 +42,17 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
   const [hidden, setHidden] = useState({ left: false, right: false, ui: false, rulers: false })
   const hide = (panel: keyof typeof hidden) => setHidden((h) => ({ ...h, [panel]: !h[panel] }))
 
-  const exportAs = (format: Format) => {
+  const exportAs = (format: Format, pages: number[]) => {
     if (exporting) return
     const kind = format.toUpperCase()
     const ext = format === 'jpeg' ? 'jpg' : format
     setExporting(true)
     say(`Exporting ${kind}…`)
-    const made = format === 'pdf' ? pdf(editor, title).then((bytes) => [bytes]) : images(editor, { type: `image/${format}`, ppi: editor.snapshot.rasterPpi })
-    made
+    exportFiles(editor, format === 'pdf' ? { type: 'application/pdf', title, pages } : { type: `image/${format}`, ppi: editor.snapshot.rasterPpi, pages })
       .then(
         (files) => {
           const names = files.map((bytes, i) => {
-            const file = files.length > 1 ? `${title}-${i + 1}.${ext}` : `${title}.${ext}`
+            const file = format !== 'pdf' && editor.snapshot.pages.length > 1 ? `${title}-${pages[i] + 1}.${ext}` : `${title}.${ext}`
             download(bytes, file, format === 'pdf' ? 'application/pdf' : `image/${format}`)
             return file
           })

@@ -1740,7 +1740,7 @@ mod tests {
         assert_eq!(r[1].0, 0);
         assert!(d.snapshot().missing_fonts.is_empty());
         assert!(
-            String::from_utf8_lossy(&d.pdf("Satz", "2026-09-28T12:00:00Z"))
+            String::from_utf8_lossy(&pdf(&d))
                 .matches("/FontFile")
                 .count()
                 >= 2
@@ -1784,7 +1784,7 @@ mod tests {
                 stories: vec![t]
             }]
         );
-        assert!(d.pdf("Satz", "2026-09-28T12:00:00Z").starts_with(b"%PDF"));
+        assert!(pdf(&d).starts_with(b"%PDF"));
     }
 
     #[test]

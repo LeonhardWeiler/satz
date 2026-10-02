@@ -705,11 +705,15 @@ impl Doc {
         crate::image::encode(px.data(), (px.width(), px.height()))
     }
 
-    /// The document as a PDF titled `title`, made at `date` in ISO 8601 UTC, every
-    /// page from one snapshot.
-    pub fn pdf(&self, title: &str, date: &str) -> Vec<u8> {
+    /// The pages at `indices` as a PDF titled `title`, made at `date` in ISO 8601 UTC,
+    /// every page from one snapshot.
+    pub fn pdf(&self, title: &str, date: &str, indices: &[u32]) -> Vec<u8> {
         let snap = self.snapshot();
-        let pages: Vec<_> = snap.pages.iter().map(|p| self.print(&snap, p)).collect();
+        let pages: Vec<_> = indices
+            .iter()
+            .filter_map(|&i| snap.pages.get(i as usize))
+            .map(|p| self.print(&snap, p))
+            .collect();
         crate::pdf::pdf(
             &pages,
             &crate::pdf::Export {

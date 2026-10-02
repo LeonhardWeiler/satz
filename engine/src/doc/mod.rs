@@ -2495,6 +2495,12 @@ mod tests {
         .remove(0)
     }
 
+    /// Every page of `d` as a PDF.
+    pub(super) fn pdf(d: &Doc) -> Vec<u8> {
+        let all: Vec<u32> = (0..d.snapshot().pages.len() as u32).collect();
+        d.pdf("Satz", "2026-09-28T12:00:00Z", &all)
+    }
+
     pub(super) fn empty() -> (Doc, String) {
         let mut d = Doc::sample();
         let p = page(&d);
@@ -4359,10 +4365,30 @@ mod tests {
     }
 
     #[test]
+    fn a_pdf_holds_the_pages_asked_for_in_their_order() {
+        let b = booklet();
+        let path = std::env::temp_dir().join(format!("satz-range-{}.pdf", std::process::id()));
+        std::fs::write(&path, b.d.pdf("Satz", "2026-09-28T12:00:00Z", &[5, 2])).unwrap();
+        let out = std::process::Command::new("mutool")
+            .args(["draw", "-q", "-F", "text", "-o", "-"])
+            .arg(&path)
+            .output()
+            .expect("mutool runs");
+        std::fs::remove_file(&path).unwrap();
+        let text = String::from_utf8(out.stdout).unwrap();
+        let numbers: Vec<&str> = text
+            .lines()
+            .map(str::trim)
+            .filter(|l| l.len() == 1)
+            .collect();
+        assert_eq!(numbers, ["6", "3"]);
+    }
+
+    #[test]
     fn the_booklet_pdf_reads_as_one_story_with_a_number_on_every_page() {
         let b = booklet();
         let path = std::env::temp_dir().join(format!("satz-booklet-{}.pdf", std::process::id()));
-        std::fs::write(&path, b.d.pdf("Satz", "2026-09-28T12:00:00Z")).unwrap();
+        std::fs::write(&path, pdf(&b.d)).unwrap();
         let mut read = String::new();
         for i in 1..=8 {
             let out = std::process::Command::new("mutool")

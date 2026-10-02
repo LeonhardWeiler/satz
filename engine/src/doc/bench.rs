@@ -84,7 +84,7 @@ fn bench() {
             d.save();
         });
         let pdf = median(3, || {
-            d.pdf("Satz", "2026-09-28T12:00:00Z");
+            pdf(&d);
         });
         let [a, b, c, e, g, f] =
             [set_frame, keystroke, render, hit, save, pdf].map(|t| t.as_secs_f64() * 1e3);

@@ -189,9 +189,9 @@ impl Engine {
         self.doc.png(page, ppi)
     }
 
-    /// The document as a PDF titled `title`, made at `date` in ISO 8601 UTC.
-    pub fn pdf(&self, title: &str, date: &str) -> Vec<u8> {
-        self.doc.pdf(title, date)
+    /// The pages at `indices` as a PDF titled `title`, made at `date` in ISO 8601 UTC.
+    pub fn pdf(&self, title: &str, date: &str, indices: &[u32]) -> Vec<u8> {
+        self.doc.pdf(title, date, indices)
     }
 
     pub fn save(&self) -> Vec<u8> {

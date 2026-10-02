@@ -1,7 +1,7 @@
 import { typeface } from './engine/engine'
 import type { Editor } from './editor'
 import type { Typeface } from './model'
-import type { Image, Preview, Previewed } from './exportWorker'
+import type { Out, Preview, Previewed } from './exportWorker'
 
 export type Handle = FileSystemFileHandle & { requestPermission(o: { mode: 'readwrite' }): Promise<PermissionState>; move?(name: string): Promise<void> }
 export type Saved = { bytes: Uint8Array; name: string; handle: Handle | null; dirty: boolean }
@@ -96,8 +96,8 @@ export async function removeFont(editor: Editor, hash: string) {
   await result((await store('fonts')).delete(hash))
 }
 
-/** Sends the document to the worker of `job`, as far as it does not have it, to run `preview` or export a PDF. */
-function run<T>(job: Job, editor: Editor, preview?: Preview, title?: string, image?: Image) {
+/** Sends the document to the worker of `job`, as far as it does not have it, to run `preview` or make `out`. */
+function run<T>(job: Job, editor: Editor, preview?: Preview, out?: Out) {
   const w = (job.worker ??= new Worker(new URL('./exportWorker.ts', import.meta.url), { type: 'module' }))
   const n = editor.engine.fontsAdded()
   const fonts = Array.from({ length: n - job.fonts }, (_, i) => editor.engine.font(job.fonts + i))
@@ -114,15 +114,12 @@ function run<T>(job: Job, editor: Editor, preview?: Preview, title?: string, ima
       reset(job)
       fail(new Error(e.message))
     }
-    w.postMessage({ doc, fonts, preview, title, image }, [...(doc ? [doc.buffer] : []), ...fonts.map((f) => f.buffer)])
+    w.postMessage({ doc, fonts, preview, out }, [...(doc ? [doc.buffer] : []), ...fonts.map((f) => f.buffer)])
   })
 }
 
-/** The document titled `title` as PDF, made in a worker. */
-export const pdf = (editor: Editor, title: string) => run<{ pdf: Uint8Array }>(exporter, editor, undefined, title).then((r) => r.pdf)
-
-/** Every page as an image, made in a worker. */
-export const images = (editor: Editor, image: Image) => run<{ images: Uint8Array[] }>(exporter, editor, undefined, undefined, image).then((r) => r.images)
+/** The files of `out`, made in a worker. */
+export const exportFiles = (editor: Editor, out: Out) => run<{ files: Uint8Array[] }>(exporter, editor, undefined, out).then((r) => r.files)
 
 /** The inks of pages as the preflight shows them, rasterized in a worker. */
 export const preview = (editor: Editor, p: Preview) => run<Previewed>(previewer, editor, p)
