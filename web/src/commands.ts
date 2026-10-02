@@ -73,6 +73,7 @@ export const ACTIONS: Action[] = [
   },
   { title: 'Undo', keys: 'Ctrl Z', group: 'Edit' },
   { title: 'Redo', keys: 'Ctrl Shift Z', group: 'Edit' },
+  { title: 'Find and replace', keys: 'Ctrl F', group: 'Edit' },
   { title: 'Copy', keys: 'Ctrl C', group: 'Edit' },
   { title: 'Cut', keys: 'Ctrl X', group: 'Edit' },
   { title: 'Paste', keys: 'Ctrl V', group: 'Edit' },

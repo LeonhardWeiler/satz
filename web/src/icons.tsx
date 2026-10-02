@@ -99,6 +99,7 @@ const ICONS = {
     </>
   ),
   arrowDown: <path d="M8 3v10M4.5 9.5 8 13l3.5-3.5" />,
+  arrowUp: <path d="M8 13V3M4.5 6.5 8 3l3.5 3.5" />,
   arrowRight: <path d="M3 8h10M9.5 4.5 13 8l-3.5 3.5" />,
   arrowLeft: <path d="M13 8H3M6.5 4.5 3 8l3.5 3.5" />,
   plainLine: <path d="M3 8h10" />,

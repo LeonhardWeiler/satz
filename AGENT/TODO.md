@@ -55,7 +55,6 @@ Open:
 - Rotation: a turned multi-selection resized
   in its own frame, ports on turned text frames.
 - Text wrap around layers, with an offset, for text frames under images and shapes.
-- Find and replace across all stories, with text styles as a filter.
 - Place SVG and PDF as vectors, kept as vectors in the exported PDF.
 - Package: one ZIP with the document, its fonts and images for the printer.
 - Version history from the Loro history: browse and restore earlier states.

@@ -1238,7 +1238,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           <textarea
             ref={(el) => {
               area.current = el
-              el?.focus({ preventScroll: true })
+              if (!document.activeElement?.closest('[role=dialog]')) el?.focus({ preventScroll: true })
             }}
             className="text-input"
             aria-label="Text editor"

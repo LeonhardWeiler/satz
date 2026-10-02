@@ -7,6 +7,7 @@ import { ContextMenu } from './ContextMenu'
 import { useEditor, type Editor } from './editor'
 import { Help } from './Help'
 import { Settings } from './SettingsDialog'
+import { Find } from './Find'
 import { settings } from './settings'
 import { autosave, download, drop, exportFiles, open, placeImages, save } from './file'
 import { Icon } from './icons'
@@ -36,6 +37,7 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
   const [starting, setStarting] = useState(first)
   const [started, setStarted] = useState(!first)
   const [dialog, setDialog] = useState<'palette' | 'help' | 'settings' | null>(null)
+  const [finding, setFinding] = useState(false)
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
   const [renaming, setRenaming] = useState(false)
   const selected = useEditor(editor, (e) => e.selection.length > 0)
@@ -115,6 +117,7 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
       else if (mod && e.shiftKey && !e.altKey && e.code === 'KeyK') placeImages(editor, say)
       else if (mod && !e.shiftKey && !e.altKey && e.code === 'KeyK') setDialog('palette')
       else if (mod && e.code === 'Comma') setDialog('settings')
+      else if (mod && !e.shiftKey && !e.altKey && e.code === 'KeyF') setFinding(true)
       else if (isTyping(e) || (e.target as Element).closest?.('.menu')) return
       else if (e.key === '.' && !mod) editor.toggleOverview()
       else if (e.key === '?' && !mod) setDialog('help')
@@ -261,6 +264,7 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
           }}
         />
       )}
+      {finding && <Find editor={editor} onClose={() => setFinding(false)} />}
       {dialog === 'palette' && <Palette editor={editor} onClose={() => setDialog(null)} />}
       {dialog === 'help' && <Help onClose={() => setDialog(null)} />}
       {dialog === 'settings' && <Settings onClose={() => setDialog(null)} />}

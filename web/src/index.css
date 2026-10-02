@@ -2804,3 +2804,37 @@ kbd {
   pointer-events: none;
   animation: pop 0.1s var(--ease);
 }
+
+.find {
+  grid-area: stage;
+  align-self: start;
+  justify-self: end;
+  z-index: 3;
+  display: grid;
+  gap: 6px;
+  width: 340px;
+  margin: 28px 8px;
+  padding: 8px;
+  border: 1px solid var(--edge);
+  border-radius: 10px;
+  background: var(--raised);
+  box-shadow: 0 12px 32px var(--shadow);
+}
+
+.find-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.find-row > .field {
+  flex: 1;
+}
+
+.find-count {
+  min-width: 56px;
+  color: var(--text-3);
+  font-size: 11px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
