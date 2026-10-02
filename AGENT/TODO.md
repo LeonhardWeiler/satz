@@ -70,3 +70,17 @@ Open:
 - Package: one ZIP with the document, its fonts and images for the printer.
 - Version history from the Loro history: browse and restore earlier states.
 - Works offline as an installable PWA.
+- Keep options in the flow: no widows and orphans, keep lines together, keep with
+  next paragraph.
+- Tabs with tab stops (left, right, centre, decimal) and a leader.
+- Flip horizontally and vertically, and an eyedropper for fills and strokes.
+- Image fit: fill, fit and centre the image in its frame from the crop buttons.
+- Overprint for fills and strokes, shown in the separations preview and written to
+  the PDF.
+- Sections: page numbering that starts at any number, in roman numerals or with a
+  prefix.
+- PDF options: page range, downsampling and JPEG compression of images.
+- Spell check from Hunspell word lists in the engine, marked in the text.
+- Superscript, subscript and baseline shift.
+- Drop caps over a number of lines.
+- More hyphenation languages (fr, it, es, nl).

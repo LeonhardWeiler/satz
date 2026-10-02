@@ -1,6 +1,5 @@
 15. implement all the points under later in TODO.md
 16. überlege dir für alle elemente noch einmal tief und schlau welche optionen alle sinnvoll und praktisch wären und implementiere sie
-17. überlege dir features die noch gemacht werden sollen und schreibe sie unter later in TODO.md
 47. when changing from solid to linear gradient with one of the gradients selected the layout moves up a bit, it should stay the same
 
 --- LATER
