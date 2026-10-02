@@ -21,6 +21,11 @@ test('shift+a adds a hugging auto layout whose padding, sizing and alignment mov
   await choose(panel.getByRole('combobox', { name: 'Width sizing' }), 'Fixed')
   await type('W in mm', '100')
   await panel.getByRole('radio', { name: 'Align top right' }).click()
+  await page.keyboard.press('ArrowDown')
+  await expect(panel.getByRole('radio', { name: 'Align center right' })).toBeChecked()
+  await expect(panel.getByRole('radio', { name: 'Align center right' })).toBeFocused()
+  await page.keyboard.press('ArrowUp')
+  await expect(panel.getByRole('radio', { name: 'Align top right' })).toBeChecked()
 
   await layers.getByRole('button', { name: 'Rectangle', exact: true }).first().click()
   await expect(field('X in mm')).toHaveValue('55')

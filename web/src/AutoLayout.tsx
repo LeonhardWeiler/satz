@@ -7,6 +7,7 @@ import { Bindable } from './Variables'
 const SPOTS = ['start', 'center', 'end'] as const
 const ROWS = ['top', 'center', 'bottom']
 const COLUMNS = ['left', 'center', 'right']
+const STEPS: Record<string, [number, number]> = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }
 const SPACING = { packed: 'Packed', spaceBetween: 'Space between' }
 const PADDING = [
   ['paddingTop', 'Top padding', 'T'],
@@ -53,6 +54,10 @@ export function AutoLayout({ editor, node, set }: { editor: Editor; node: Node &
   if (node.direction === 'none') return <Section title="Auto layout" onAdd={() => editor.apply({ type: 'autoLayout', ids: [node.id] })} />
   const horizontal = node.direction === 'horizontal'
   const between = node.alignMain === 'spaceBetween'
+  const align = (r: number, c: number) => {
+    const [main, cross] = horizontal ? [c, r] : [r, c]
+    set({ alignMain: between ? 'spaceBetween' : SPOTS[main], alignCross: SPOTS[cross] })
+  }
   const length = (prop: 'gap' | (typeof PADDING)[number][0], title: string, label: string) => (
     <Bindable editor={editor} id={node.id} prop={prop} title={title} label={label}>
       <Field label={label} title={title} unit="length" min={prop === 'gap' ? -Infinity : 0} reset={0} value={node[prop]} onCommit={(v) => set({ [prop]: v })} />
@@ -73,7 +78,22 @@ export function AutoLayout({ editor, node, set }: { editor: Editor; node: Node &
         </button>
       </div>
       <div className="auto-layout">
-        <div role="radiogroup" aria-label="Alignment" className="align-grid">
+        <div
+          role="radiogroup"
+          aria-label="Alignment"
+          className="align-grid"
+          onKeyDown={(e) => {
+            const [dr, dc] = STEPS[e.key] ?? []
+            if (dr === undefined) return
+            e.preventDefault()
+            const cells = [...e.currentTarget.children] as HTMLElement[]
+            const i = Math.max(cells.indexOf(document.activeElement as HTMLElement), 0)
+            const r = Math.min(Math.max(Math.floor(i / 3) + dr, 0), 2)
+            const c = Math.min(Math.max((i % 3) + dc, 0), 2)
+            align(r, c)
+            cells[r * 3 + c].focus()
+          }}
+        >
           {ROWS.map((row, r) =>
             COLUMNS.map((column, c) => {
               const [main, cross] = horizontal ? [c, r] : [r, c]
@@ -86,7 +106,8 @@ export function AutoLayout({ editor, node, set }: { editor: Editor; node: Node &
                   aria-checked={checked}
                   aria-label={`Align ${row} ${column}`}
                   title={`Align ${row} ${column}`}
-                  onClick={() => set({ alignMain: between ? 'spaceBetween' : SPOTS[main], alignCross: SPOTS[cross] })}
+                  tabIndex={checked ? 0 : -1}
+                  onClick={() => align(r, c)}
                 />
               )
             }),
