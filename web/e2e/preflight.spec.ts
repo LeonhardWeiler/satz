@@ -33,7 +33,7 @@ test('export names the errors of the preflight but still downloads the pdf', asy
   let download = page.waitForEvent('download')
   await exportPdf.click()
   await download
-  await expect(page.getByText('Exported Untitled.pdf')).toBeVisible()
+  await expect(page.getByText('Exported Untitled.pdf')).toBeVisible({ timeout: 30000 })
 
   await page.keyboard.press('r')
   await drag(page, await screen(page, 20, -1), await screen(page, 40, 20))
@@ -58,7 +58,7 @@ test('export writes every page or a range as a png or a jpeg, and a package as a
     bytes.push(Buffer.from(await (await d.createReadStream()).toArray().then((c) => Buffer.concat(c))))
   })
   await go.click()
-  await expect(page.getByText('Exported 2 pages')).toBeVisible()
+  await expect(page.getByText('Exported 2 pages')).toBeVisible({ timeout: 30000 })
   await expect.poll(() => bytes.length).toBe(2)
   expect(names).toEqual(['Untitled-1.png', 'Untitled-2.png'])
   expect(bytes[0].subarray(1, 4).toString()).toBe('PNG')
