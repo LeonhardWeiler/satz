@@ -3,7 +3,7 @@ import { roam } from './controls'
 import { Icon } from './icons'
 import { Popover, type Anchor } from './Popover'
 
-/** A menu beside `anchor` that closes on a pick, Escape or a click elsewhere; an item with a fourth value is a radio item, a fifth its shortcut, `null` a separator. */
+/** A menu beside `anchor` that closes on a pick, Escape or a click elsewhere; an item with a fourth value is a radio item, a fifth its shortcut, `null` a separator; a letter moves to the next item it starts. */
 export function ContextMenu({
   anchor,
   side = 'right',
@@ -40,7 +40,13 @@ export function ContextMenu({
             e.stopPropagation()
             onClose()
           }
-          else roam(e, [...e.currentTarget.querySelectorAll('[role^=menuitem]:not(:disabled)')])
+          else {
+            const items = [...e.currentTarget.querySelectorAll<HTMLElement>('[role^=menuitem]:not(:disabled)')]
+            if (roam(e, items) || e.key.length !== 1) return
+            const from = items.indexOf(e.target as HTMLElement) + 1
+            const key = e.key.toLowerCase()
+            ;[...items.slice(from), ...items.slice(0, from)].find((el) => el.textContent!.toLowerCase().startsWith(key))?.focus()
+          }
         }}
       >
         {items.map((item, i) => {

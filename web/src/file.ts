@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from 'react'
 import { typeface } from './engine/engine'
 import type { Editor } from './editor'
 import type { Typeface } from './model'
@@ -179,8 +180,9 @@ function pick(accept: string, multiple: boolean, picked: (files: File[]) => void
 }
 
 async function keep(editor: Editor, bytes: Uint8Array) {
-  const face = editor.addFont(bytes)
+  const face: Typeface = editor.addFont(bytes)
   await result((await store('fonts')).put(bytes, face.hash))
+  return face
 }
 
 async function addFont(editor: Editor, file: File, say: (message: string) => void) {
@@ -223,21 +225,51 @@ export async function drop(editor: Editor, files: File[], say: (message: string)
   }
 }
 
-type LocalFont = { fullName: string; blob(): Promise<Blob> }
+type LocalFont = { fullName: string; family: string; style: string; postscriptName: string; blob(): Promise<Blob> }
 const local = window as { queryLocalFonts?: () => Promise<LocalFont[]> }
 export const canFindFonts = !!local.queryLocalFonts
+let locals: LocalFont[] = []
+const heard = new Set<() => void>()
+
+/** The fonts of this computer, once read by `readLocalFonts`. */
+export const useLocalFonts = () =>
+  useSyncExternalStore(
+    (f) => {
+      heard.add(f)
+      return () => heard.delete(f)
+    },
+    () => locals,
+  )
+
+/** Reads the fonts of this computer by Local Font Access; says why it could not. */
+export async function readLocalFonts(say: (message: string) => void) {
+  try {
+    locals = await local.queryLocalFonts!()
+  } catch (e) {
+    say(`Could not read the fonts on this computer: ${(e as Error).message}. Allow access to local fonts, or add them with Add font.`)
+    return false
+  }
+  heard.forEach((f) => f())
+  return true
+}
+
+if (canFindFonts) navigator.permissions.query({ name: 'local-fonts' as PermissionName }).then((p) => p.state === 'granted' && readLocalFonts(() => {}), () => {})
+
+/** Adds the font `f` of this computer. */
+export async function addLocalFont(editor: Editor, f: LocalFont) {
+  try {
+    return await keep(editor, new Uint8Array(await (await f.blob()).arrayBuffer()))
+  } catch (e) {
+    editor.say(`Could not add ${f.fullName}: ${(e as Error).message}.`)
+  }
+}
 
 /** Adds the missing fonts that this computer has, by Local Font Access. */
 export async function findFonts(editor: Editor, say: (message: string) => void) {
   const missing: Typeface[] = editor.snapshot.missingFonts.map((m) => m.font)
-  let all: LocalFont[]
-  try {
-    all = await local.queryLocalFonts!()
-  } catch (e) {
-    return say(`Could not read the fonts on this computer: ${(e as Error).message}. Allow access to local fonts, or add them with Add font.`)
-  }
+  if (!(await readLocalFonts(say))) return
   let found = 0
-  for (const f of all.filter((f) => missing.some((m) => m.name === f.fullName))) {
+  for (const f of locals.filter((f) => missing.some((m) => m.name === f.fullName))) {
     const bytes = new Uint8Array(await (await f.blob()).arrayBuffer())
     if (!missing.some((m) => m.hash === (typeface(bytes) as Typeface).hash)) continue
     await keep(editor, bytes)

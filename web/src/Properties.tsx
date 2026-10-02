@@ -4,7 +4,7 @@ import { type ReactNode } from 'react'
 import { bounds, ends, MM, scopeOf, useEditor, type Editor } from './editor'
 import { Icon, KindIcon } from './icons'
 import { FORMATS, ORIENTATIONS } from './Start'
-import { addFonts, canFindFonts, findFonts, removeFont } from './file'
+import { addFonts, canFindFonts, findFonts, readLocalFonts, removeFont, useLocalFonts } from './file'
 import type { Bindable as Prop, Blend, Constraint, Command, Grid, LineStyle, Node, Page, Props, Section as Numbers } from './model'
 import { isOpen, radiusOf } from './model'
 import { AlignBar, BooleanBar, combinable } from './align'
@@ -62,6 +62,7 @@ export function Properties({
   const overview = useEditor(editor, (e) => e.overview)
   const snapshot = useEditor(editor, (e) => e.snapshot)
   const { fonts, missingFonts } = snapshot
+  const locals = useLocalFonts()
   const selection = useEditor(editor, (e) => e.selection)
   const nodes = selection.flatMap((id) => editor.nodes.get(id)?.node ?? [])
 
@@ -218,6 +219,11 @@ export function Properties({
               </li>
             ))}
           </ul>
+          {canFindFonts && !locals.length && (
+            <button type="button" className="button" onClick={() => readLocalFonts(say)}>
+              List the fonts of this computer
+            </button>
+          )}
           {canFindFonts && missingFonts.length > 0 && (
             <button type="button" className="button" onClick={() => findFonts(editor, say)}>
               Find missing fonts on this computer
