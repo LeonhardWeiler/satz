@@ -8,6 +8,8 @@ import { Editor } from './editor'
 import { stored, storedFonts } from './file'
 import './index.css'
 
+if (import.meta.env.PROD) navigator.serviceWorker?.register(`${import.meta.env.BASE_URL}sw.js`)
+
 const root = createRoot(document.getElementById('root')!)
 
 const notice = (title: string, text: string, reload = false) =>

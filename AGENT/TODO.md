@@ -59,7 +59,6 @@ Open:
 - Place SVG and PDF as vectors, kept as vectors in the exported PDF.
 - Package: one ZIP with the document, its fonts and images for the printer.
 - Version history from the Loro history: browse and restore earlier states.
-- Works offline as an installable PWA.
 - Keep options in the flow: no widows and orphans, keep lines together, keep with
   next paragraph.
 - Tabs with tab stops (left, right, centre, decimal) and a leader.
