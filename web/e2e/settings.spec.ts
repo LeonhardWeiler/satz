@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { choose, open } from './util'
+import { autosaved, choose, open } from './util'
 
 test('the length unit and the quick edit bar are set in the settings and survive a reload', async ({ page }) => {
   await open(page)
@@ -16,6 +16,7 @@ test('the length unit and the quick edit bar are set in the settings and survive
 
   await expect(page.getByRole('toolbar', { name: 'Quick edit' })).toBeHidden()
   await expect(panel.getByRole('textbox', { name: 'X in in' })).toHaveValue(String(Math.round((x / 25.4) * 100) / 100))
+  await autosaved(page, false)
   await page.reload()
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).first().click()
   await expect(panel.getByRole('textbox', { name: 'X in in' })).toBeVisible()
