@@ -145,7 +145,7 @@ impl Build {
             y: y * MM,
             w: w * MM,
             h: h * MM,
-            ignore_constraints: true,
+            crop: true,
         });
     }
 

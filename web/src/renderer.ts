@@ -108,7 +108,6 @@ export class Renderer {
   private fonts = new Map<string, Font>()
   /** Decoded images by display-list id; `null` when the file does not decode. */
   private images = new Map<number, Image | null>()
-  private hashes = ''
   /** Images of the inks over pages by their pixels. */
   private inks = new Map<Uint8Array, Image>()
   /** The pages show as they print. */
@@ -155,6 +154,7 @@ export class Renderer {
     }
     const bounds = bleed.getBounds()
     const live = new Set<number>()
+    const shown = new Set<number>()
     const pages = (c: Canvas, plate: number) => {
       this.cache = this.caches[plate]
       paint.setStyle(ck.PaintStyle.Fill)
@@ -164,9 +164,11 @@ export class Renderer {
       c.clipPath(bleed, ck.ClipOp.Intersect, true)
       for (const { id, x } of lists) {
         const ops = decode((plate ? this.engine.plate(id, plate === 2) : this.engine.displayList(id)).slice())
-        this.loadImages(ops)
         for (const op of ops) {
-          if (op.op === 'beginItem') live.add(op.item)
+          if (op.op === 'image') {
+            if (!this.images.has(op.image)) this.images.set(op.image, this.ck.MakeImageFromEncoded(this.engine.image(op.image)))
+            shown.add(op.image)
+          } else if (op.op === 'beginItem') live.add(op.item)
           else if (op.op === 'pushLayer') live.add(op.hash)
         }
         c.save()
@@ -256,6 +258,11 @@ export class Renderer {
         picture.delete()
         cache.delete(key)
       }
+    }
+    for (const [id, image] of this.images) {
+      if (shown.has(id)) continue
+      image?.delete()
+      this.images.delete(id)
     }
   }
 
@@ -560,21 +567,6 @@ export class Renderer {
     }
     paint.setShader(null)
     shader?.delete()
-  }
-
-  /** Forgets the decoded images when the document's images are no longer `hashes`. */
-  keepImages(hashes: string) {
-    if (hashes === this.hashes) return
-    this.hashes = hashes
-    for (const image of this.images.values()) image?.delete()
-    this.images.clear()
-  }
-
-  /** Decodes the images of `ops` not decoded yet. */
-  private loadImages(ops: Op[]) {
-    for (const op of ops) {
-      if (op.op === 'image' && !this.images.has(op.image)) this.images.set(op.image, this.ck.MakeImageFromEncoded(this.engine.image(op.image)))
-    }
   }
 
   private drawImage(canvas: Canvas, { image, transform }: Extract<Op, { op: 'image' }>) {

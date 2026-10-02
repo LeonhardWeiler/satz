@@ -3,7 +3,8 @@ import type { Color, ColorMode } from './color'
 
 /**
  * Gradients map their unit space, and images the unit square they fill, into the
- * layer's unit box with `transform`; `image` is the hash of an image fill's file.
+ * layer's unit box with `transform`; `image` is the hash of an image fill's file,
+ * and `adjust` its brightness, contrast and saturation in -1..1.
  */
 export type Fill = {
   type: 'solid' | 'linear' | 'radial' | 'image'
@@ -12,6 +13,7 @@ export type Fill = {
   transform: number[]
   visible: boolean
   image?: string
+  adjust?: [number, number, number]
 }
 
 export type Effect = { type: 'dropShadow' | 'blur'; x: number; y: number; radius: number; color: Color; visible: boolean }
@@ -77,7 +79,7 @@ export type NewKind = 'rect' | 'ellipse' | 'polygon' | 'star' | 'line' | 'path' 
 export type Command =
   | { type: 'create'; parent: string; kind: NewKind; x: number; y: number; w: number; h: number }
   | { type: 'placeImage'; parent: string; image: string; name: string; x: number; y: number; w: number; h: number }
-  | { type: 'setFrame'; id: string; x: number; y: number; w: number; h: number; ignoreConstraints?: boolean }
+  | { type: 'setFrame'; id: string; x: number; y: number; w: number; h: number; crop?: boolean }
   | { type: 'autoLayout'; ids: string[] }
   | { type: 'setText'; id: string; text: string }
   | { type: 'editText'; id: string; range: [number, number]; text: string }

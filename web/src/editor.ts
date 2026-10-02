@@ -77,6 +77,8 @@ export class Editor {
   grids = true
   /** The path being edited on the canvas, what a click on it does and its picked knot. */
   vector: { id: string; mode: 'move' | 'add' | 'delete'; at: At | null } | null = null
+  /** The image whose handles crop it and which a drag moves inside its frame. */
+  cropping: string | null = null
   /** The plates shown (bit 0 for C to 3 for K, then the spots), and whether ink above the limit and colours out of gamut are marked. */
   inks = { on: 2 ** 31 - 1, over: true, gamut: true }
   /** The inks of the shown pages and of the document, from the worker. */
@@ -111,7 +113,7 @@ export class Editor {
   /** Replaces the document by the one saved in `bytes`; on an error it stays as it was. */
   load(bytes: Uint8Array, file = UNTITLED, dirty = false) {
     this.engine.load(bytes)
-    Object.assign(this, { selection: [], tool: 'move', renaming: null, hover: null, pen: null, editing: null, threading: null, placing: [], overview: null })
+    Object.assign(this, { selection: [], tool: 'move', renaming: null, hover: null, pen: null, editing: null, threading: null, placing: [], overview: null, cropping: null })
     this.typing = false
     this.groups = 0
     this.snapshot = JSON.parse(this.engine.snapshot())
@@ -298,9 +300,10 @@ export class Editor {
     }
   }
 
-  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'hover' | 'pen' | 'editing' | 'threading' | 'placing' | 'side' | 'overview' | 'preflight' | 'grids' | 'vector' | 'inks' | 'previewed' | 'pointerInk'>>) {
+  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'hover' | 'pen' | 'editing' | 'threading' | 'placing' | 'side' | 'overview' | 'preflight' | 'grids' | 'vector' | 'cropping' | 'inks' | 'previewed' | 'pointerInk'>>) {
     const leaves = this.editing && patch.selection && !patch.selection.includes(this.editing.id)
     if (this.vector && ((patch.selection && !patch.selection.includes(this.vector.id)) || (patch.tool && patch.tool !== 'move'))) patch = { vector: null, ...patch }
+    if (this.cropping && ((patch.selection && !patch.selection.includes(this.cropping)) || (patch.tool && patch.tool !== 'move'))) patch = { cropping: null, ...patch }
     if (leaves && !('editing' in patch)) this.stopEditing()
     if (patch.editing) patch = { selection: [patch.editing.id], ...patch }
     Object.assign(this, patch)

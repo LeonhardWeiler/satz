@@ -68,6 +68,14 @@ const ICONS = {
       <circle cx="10.5" cy="6.5" r="1" />
     </>
   ),
+  crop: <path d="M4.5 1.5v10h10M1.5 4.5h10v10" />,
+  adjust: (
+    <>
+      <path d="M2.5 5h2M7.5 5h6M2.5 11h6M11.5 11h2" />
+      <circle cx="6" cy="5" r="1.5" />
+      <circle cx="10" cy="11" r="1.5" />
+    </>
+  ),
   group: <rect x="2.5" y="2.5" width="11" height="11" rx="2" strokeDasharray="2 2" />,
   mask: (
     <>

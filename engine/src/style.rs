@@ -67,7 +67,8 @@ pub struct Constraints {
 
 /// A fill or stroke paint. Gradients map their unit space, and images the unit
 /// square they fill, into the node's unit box with `transform` [a b c d e f]; see
-/// `display_list::Paint`. `image` is the hash of an image fill's file.
+/// `display_list::Paint`. `image` is the hash of an image fill's file, and
+/// `adjust` its brightness, contrast and saturation in -1..=1.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Fill {
@@ -79,6 +80,7 @@ pub struct Fill {
     pub visible: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub image: Option<String>,
+    pub adjust: [f32; 3],
 }
 
 impl Default for Fill {
@@ -90,6 +92,7 @@ impl Default for Fill {
             transform: [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
             visible: true,
             image: None,
+            adjust: [0.0; 3],
         }
     }
 }
@@ -315,7 +318,11 @@ impl Style {
                     paint,
                     path: path.to_vec(),
                 });
-            } else if let Some(image) = f.image.as_deref().and_then(image::id) {
+            } else if let Some(image) = f
+                .image
+                .as_deref()
+                .and_then(|h| image::adjusted(h, f.adjust))
+            {
                 ops.extend([
                     Op::PushClip {
                         path: path.to_vec(),

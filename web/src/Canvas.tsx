@@ -66,6 +66,7 @@ type Drag =
   | { kind: 'knot'; start: Point; cs: Contour[]; at: At; part: 'point' | 'in' | 'out' }
   | { kind: 'text' }
   | { kind: 'swap'; id: string; at: Point }
+  | { kind: 'image'; start: Point; node: Node; turn: number }
   | { kind: 'guide'; axis: 'x' | 'y'; id: string; dx: number; index: number; grouped: boolean }
 
 /** Snaps a vector to the nearest multiple of 45°. */
@@ -411,7 +412,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const insert = drag?.kind === 'move' ? drag.to?.line.map((q) => ({ x: q.x + flowDx, y: q.y })) : undefined
       const lists = spread.map((p) => ({ id: p.id, x: p.x, inks: editor.preflight ? inkedOf(p) : undefined }))
       const image = editor.placing[0]
-      renderer.keepImages(Object.keys(editor.snapshot.images).join())
       renderer.draw(surface.getCanvas(), lists, editor.sheets, view, canvas.width / canvas.clientWidth, {
         text,
         accent: getComputedStyle(canvas).getPropertyValue('--accent'),
@@ -820,6 +820,12 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         editor.set({ selection: sel.includes(id) ? sel.filter((s) => s !== id) : [...sel, id] })
         return
       }
+      if (id === editor.cropping) {
+        const node = editor.selected()[0]
+        drag = { kind: 'image', start: p, node, turn: editor.shown(node).rotation! }
+        editor.beginGroup()
+        return
+      }
       if (!sel.includes(id)) editor.set({ selection: [id] })
       const frames = editor.selected()
       const parents = new Set(frames.map((n) => editor.nodes.get(n.id)?.parent))
@@ -910,6 +916,11 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         const a = e.altKey ? { x: drag.start.x - dx, y: drag.start.y - dy } : drag.start
         const r = rect(a, { x: drag.start.x + dx, y: drag.start.y + dy })
         editor.apply({ type: 'setFrame', id: drag.id, ...r, x: r.x - drag.dx })
+      } else if (drag.kind === 'image') {
+        const d = spin({ x: p.x - drag.start.x, y: p.y - drag.start.y }, -drag.turn)
+        const { id, fills, w, h } = drag.node
+        const moved = (t: number[]) => [t[0], t[1], t[2], t[3], t[4] + d.x / w, t[5] + d.y / h]
+        editor.apply({ type: 'set', id, fills: fills.map((f) => (f.type === 'image' ? { ...f, transform: moved(f.transform) } : f)) })
       } else if (drag.kind === 'move') {
         let dx = p.x - drag.start.x
         let dy = p.y - drag.start.y
@@ -998,7 +1009,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         drag.frames.forEach((n, i) => {
           const f = boxes[i]
           if (scale !== 1 && n.kind === 'text') editor.apply({ type: 'scaleText', id: n.id, by: scale })
-          editor.apply({ type: 'setFrame', id: n.id, ...f, x: f.x - editor.dx(n.id), ignoreConstraints: e.ctrlKey || e.metaKey })
+          editor.apply({ type: 'setFrame', id: n.id, ...f, x: f.x - editor.dx(n.id), crop: e.ctrlKey || e.metaKey || editor.cropping === n.id })
           const t = editor.nodes.get(n.id)?.node
           if ((h === 'e' || h === 'w') && t?.kind === 'text' && t.overset && !t.next && t.sizing.vertical === 'fixed') {
             editor.apply({ type: 'set', id: n.id, sizing: { ...t.sizing, vertical: 'hug' } })
@@ -1048,7 +1059,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         }
         for (const [to, ids] of moves) editor.apply({ type: 'move', ids, parent: to.id, index: to.children.length })
       }
-      if ((drag?.kind === 'draw' && drag.id) || (drag?.kind === 'guide' && drag.grouped) || drag?.kind === 'resize' || drag?.kind === 'end' || drag?.kind === 'radius' || drag?.kind === 'rotate' || drag?.kind === 'knot' || (drag?.kind === 'move' && drag.active)) {
+      if ((drag?.kind === 'draw' && drag.id) || (drag?.kind === 'guide' && drag.grouped) || drag?.kind === 'resize' || drag?.kind === 'end' || drag?.kind === 'radius' || drag?.kind === 'rotate' || drag?.kind === 'knot' || drag?.kind === 'image' || (drag?.kind === 'move' && drag.active)) {
         editor.endGroup()
       }
       if (drag?.kind === 'move' && !drag.active && !e.shiftKey) {

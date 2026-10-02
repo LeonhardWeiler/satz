@@ -41,6 +41,8 @@ struct Entry {
     info: ImageInfo,
     format: Format,
     bytes: LoroBinaryValue,
+    /// The image and adjustment an adjusted image is made of; its `bytes` are empty.
+    source: Option<(Rc<Entry>, [f32; 3])>,
     /// Decoded on first use by `pixmap` and `cmyk`; `None` when the file does not decode.
     pixels: RefCell<Option<Option<Rc<Pixmap>>>>,
     cmyk: RefCell<Option<Option<Cmyk>>>,
@@ -143,6 +145,7 @@ pub fn register(bytes: LoroBinaryValue) -> Result<ImageInfo, String> {
             info: info.clone(),
             format,
             bytes,
+            source: None,
             pixels: RefCell::new(None),
             cmyk: RefCell::new(None),
             small: RefCell::new(None),
@@ -168,6 +171,45 @@ pub fn size(bytes: &[u8]) -> Result<(u32, u32), String> {
             Ok((w as u32, h as u32))
         }
     }
+}
+
+/// The id of the registered image `hash` with its brightness, contrast and
+/// saturation changed by `adjust`, each in -1..=1. Making one drops the decoded
+/// pixels of the other adjustments of `hash`.
+pub fn adjusted(hash: &str, adjust: [f32; 3]) -> Option<u32> {
+    if adjust == [0.0; 3] {
+        return id(hash);
+    }
+    let key = format!("{hash}{adjust:?}");
+    if let Some(i) = id(&key) {
+        return Some(i);
+    }
+    let source = entry_by_hash(hash)?;
+    IMAGES.with_borrow_mut(|images| {
+        for e in images.iter().filter(|e| {
+            e.source
+                .as_ref()
+                .is_some_and(|(s, _)| Rc::ptr_eq(s, &source))
+        }) {
+            e.pixels.take();
+            e.cmyk.take();
+            e.small.take();
+        }
+        images.push(Rc::new(Entry {
+            info: ImageInfo {
+                hash: key,
+                space: Space::Rgb,
+                ..source.info.clone()
+            },
+            format: Format::Png,
+            bytes: Vec::new().into(),
+            source: Some((source, adjust)),
+            pixels: RefCell::new(None),
+            cmyk: RefCell::new(None),
+            small: RefCell::new(None),
+        }));
+        Some(images.len() as u32 - 1)
+    })
 }
 
 /// Drops the decoded pixels of every image but `keep`.
@@ -235,7 +277,7 @@ pub fn info(hash: &str) -> Option<ImageInfo> {
 /// unknown id.
 pub fn bytes(id: u32) -> Vec<u8> {
     if id & (PROOF | CMY | K) == 0 {
-        return entry(id).map(|e| e.bytes.to_vec()).unwrap_or_default();
+        return entry(id).and_then(|e| file(&e)).unwrap_or_default();
     }
     let proof = || {
         let c = cmyk(id)?;
@@ -253,16 +295,31 @@ pub fn bytes(id: u32) -> Vec<u8> {
             .zip(c.alpha.iter())
             .flat_map(|(p, &a)| [p[0], p[1], p[2], a])
             .collect();
-        let mut out = Vec::new();
-        let mut encoder = png::Encoder::new(&mut out, c.size.0, c.size.1);
-        encoder.set_color(png::ColorType::Rgba);
-        encoder.set_compression(png::Compression::Fastest);
-        let mut writer = encoder.write_header().ok()?;
-        writer.write_image_data(&rgba).ok()?;
-        writer.finish().ok()?;
-        Some(out)
+        encode(&rgba, c.size)
     };
     proof().unwrap_or_default()
+}
+
+/// The PNG or JPEG file of `e`, encoded anew for an adjusted image.
+fn file(e: &Entry) -> Option<Vec<u8>> {
+    match e.source {
+        Some(_) => {
+            let (rgba, w, h) = rgba(e)?;
+            encode(&rgba, (w, h))
+        }
+        None => Some(e.bytes.to_vec()),
+    }
+}
+
+fn encode(rgba: &[u8], (w, h): (u32, u32)) -> Option<Vec<u8>> {
+    let mut out = Vec::new();
+    let mut encoder = png::Encoder::new(&mut out, w, h);
+    encoder.set_color(png::ColorType::Rgba);
+    encoder.set_compression(png::Compression::Fastest);
+    let mut writer = encoder.write_header().ok()?;
+    writer.write_image_data(rgba).ok()?;
+    writer.finish().ok()?;
+    Some(out)
 }
 
 /// The image `id` for the PDF, which embeds a JPEG as it is, separates it
@@ -275,7 +332,10 @@ pub fn pdf(id: u32, cmyk: bool) -> Option<krilla::image::Image> {
         return krilla::image::Image::from_png(bytes(id).into(), true).ok();
     }
     let e = entry(id)?;
-    pdf_image(e.format, &e.bytes).ok()
+    match e.source {
+        Some(_) => krilla::image::Image::from_png(file(&e)?.into(), true).ok(),
+        None => pdf_image(e.format, &e.bytes).ok(),
+    }
 }
 
 /// The pixels of the image `id`, premultiplied, for rasterized effects.
@@ -284,7 +344,7 @@ pub fn pixmap(id: u32) -> Option<Rc<Pixmap>> {
     let mut pixels = e.pixels.borrow_mut();
     pixels
         .get_or_insert_with(|| {
-            let (rgba, w, h) = decode(e.format, &e.bytes)?;
+            let (rgba, w, h) = rgba(&e)?;
             let premultiplied = rgba
                 .chunks(4)
                 .flat_map(|p| {
@@ -312,7 +372,7 @@ pub fn cmyk(id: u32) -> Option<Cmyk> {
                 size: (w, h),
             });
         }
-        let (rgba, w, h) = decode(e.format, &e.bytes)?;
+        let (rgba, w, h) = rgba(&e)?;
         Some(Cmyk {
             color: separate_pixels(&rgba).into(),
             alpha: rgba.chunks(4).map(|p| p[3]).collect(),
@@ -320,6 +380,24 @@ pub fn cmyk(id: u32) -> Option<Cmyk> {
         })
     })
     .clone()
+}
+
+/// The pixels of `e` as RGBA, not premultiplied, and its size.
+fn rgba(e: &Entry) -> Option<(Vec<u8>, u32, u32)> {
+    let Some((source, [b, c, s])) = &e.source else {
+        return decode(e.format, &e.bytes);
+    };
+    let (mut rgba, w, h) = rgba(source)?;
+    for p in rgba.chunks_mut(4) {
+        let [r, g, bl] = [p[0], p[1], p[2]].map(|v| v as f32 / 255.0);
+        let l = 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+        for v in &mut p[..3] {
+            let x = l + (*v as f32 / 255.0 - l) * (1.0 + s);
+            let x = (x - 0.5) * (1.0 + c) + 0.5 + b;
+            *v = (x.clamp(0.0, 1.0) * 255.0).round() as u8;
+        }
+    }
+    Some((rgba, w, h))
 }
 
 /// The pixels of a PNG or JPEG file as RGBA, not premultiplied, and its size.
@@ -521,6 +599,21 @@ pub mod tests {
         assert!(e.pixels.borrow().is_some());
         forget(&[]);
         assert!(e.pixels.borrow().is_none());
+    }
+
+    #[test]
+    fn adjusted_images_change_their_pixels_and_keep_the_pixels_of_one_adjustment() {
+        let hash = register(png(4, 1).into()).unwrap().hash;
+        assert_eq!(adjusted(&hash, [0.0; 3]), id(&hash));
+        let dark = adjusted(&hash, [-0.5, 0.0, 0.0]).unwrap();
+        assert_eq!(adjusted(&hash, [-0.5, 0.0, 0.0]), Some(dark));
+        assert_eq!(pixmap_of(&bytes(dark)).red(), 128);
+        assert_eq!(pixmap(dark).unwrap().pixel(0, 0).unwrap().red(), 128);
+        let gray = adjusted(&hash, [0.0, 0.0, -1.0]).unwrap();
+        let p = pixmap_of(&bytes(gray));
+        assert_eq!([p.red(), p.green(), p.blue()], [54; 3]);
+        assert!(entry(dark).unwrap().pixels.borrow().is_none());
+        assert!(pdf(gray, false).is_some() && cmyk(gray).is_some());
     }
 
     #[test]

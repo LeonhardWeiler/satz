@@ -155,7 +155,7 @@ export function TypeOptions({ spans, set }: { spans: Pick<Attrs, Styled>[]; set:
             <Popover
               anchor={() => at}
               side="bottom"
-              className="picker type-options"
+              className="picker options"
               role="dialog"
               aria-label="Type options"
               tabIndex={-1}

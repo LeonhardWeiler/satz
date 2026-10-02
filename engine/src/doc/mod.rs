@@ -84,8 +84,8 @@ pub enum Command {
         w: f64,
         h: f64,
     },
-    /// Moves and resizes a layer; a frame's children follow their constraints
-    /// unless `ignore_constraints`.
+    /// Moves and resizes a layer; a frame's children follow their constraints and
+    /// image fills stretch, unless `crop` leaves both where they are.
     SetFrame {
         id: String,
         x: f64,
@@ -93,7 +93,7 @@ pub enum Command {
         w: f64,
         h: f64,
         #[serde(default)]
-        ignore_constraints: bool,
+        crop: bool,
     },
     SetText {
         id: String,
@@ -463,6 +463,9 @@ impl Props {
             f.color.check()?;
             if !f.transform.iter().all(|v| v.is_finite()) {
                 return Err("paint transforms must be finite".into());
+            }
+            for v in f.adjust {
+                within(Some(v.into()), -1.0, 1.0, "image adjustment")?;
             }
             for s in &f.stops {
                 within(Some(s.at.into()), 0.0, 1.0, "stop")?;
@@ -1008,7 +1011,7 @@ impl Doc {
             y: 95.0 * MM,
             w: 118.0 * MM,
             h: 70.0 * MM,
-            ignore_constraints: false,
+            crop: false,
         })
         .unwrap();
         d.apply(Command::SetText {
@@ -1176,8 +1179,8 @@ impl Doc {
                 y,
                 w,
                 h,
-                ignore_constraints,
-            } => self.reframe(id, x, y, w, h, ignore_constraints),
+                crop,
+            } => self.reframe(id, x, y, w, h, crop),
             Command::SetText { id, text } => self.set_text(id, text),
             Command::EditText { id, range, text } => self.edit_text(id, range, text),
             Command::Format { id, range, props } => self.format(id, range, props),
@@ -1910,18 +1913,18 @@ impl Doc {
         Ok(vec![id.to_string()])
     }
 
-    fn reframe(
-        &self,
-        id: String,
-        x: f64,
-        y: f64,
-        w: f64,
-        h: f64,
-        ignore_constraints: bool,
-    ) -> Res<Vec<String>> {
+    fn reframe(&self, id: String, x: f64, y: f64, w: f64, h: f64, crop: bool) -> Res<Vec<String>> {
         let id = self.layer(&id)?;
         check_frame([x, y, w, h])?;
-        let [.., ow, oh] = self.bounds(id);
+        let fills: Vec<Fill> = value(&self.meta(id), "fills")
+            .and_then(|v| serde_json::from_value(serde_json::to_value(v).ok()?).ok())
+            .unwrap_or_default();
+        let cropped = crop && fills.iter().any(|f| f.kind == FillKind::Image);
+        if cropped && (w <= 0.0 || h <= 0.0) {
+            return Err("an image cannot be cropped to nothing".into());
+        }
+        let was = self.bounds(id);
+        let [.., ow, oh] = was;
         self.unbind(id, |p| p == "w" && w != ow || p == "h" && h != oh)?;
         let old = self.layout(id).sizing;
         let mut sizing = old;
@@ -1942,7 +1945,31 @@ impl Doc {
         if sizing != old {
             self.meta(id).insert(SIZING, loro(sizing)?).map_err(err)?;
         }
-        self.resize(id, [x, y, w, h], !ignore_constraints)?;
+        self.resize(id, [x, y, w, h], !crop)?;
+        if cropped {
+            let r = num(&self.meta(id), "rotation");
+            let new = self.bounds(id);
+            let unit = |[x, y, w, h]: [f64; 4]| [w, 0.0, 0.0, h, x, y];
+            let fills: Vec<Fill> = fills
+                .into_iter()
+                .map(|f| match f.kind {
+                    FillKind::Image => {
+                        let m = f.transform.map(f64::from);
+                        let page = geom::then(geom::then(m, unit(was)), geom::rotation(r, was));
+                        let back = geom::then(
+                            geom::invert(geom::rotation(r, new)),
+                            geom::invert(unit(new)),
+                        );
+                        Fill {
+                            transform: geom::then(page, back).map(|v| v as f32),
+                            ..f
+                        }
+                    }
+                    _ => f,
+                })
+                .collect();
+            self.meta(id).insert("fills", loro(fills)?).map_err(err)?;
+        }
         Ok(vec![])
     }
 
@@ -2553,7 +2580,7 @@ mod tests {
             y,
             w,
             h,
-            ignore_constraints: false,
+            crop: false,
         })
         .unwrap();
     }
@@ -2979,7 +3006,7 @@ mod tests {
                     y: frame[1],
                     w: frame[2],
                     h: frame[3],
-                    ignore_constraints: false,
+                    crop: false,
                 },
                 5 => Command::Thread {
                     from: id,
@@ -3213,7 +3240,7 @@ mod tests {
             y: 0.0,
             w: 40.0,
             h: 20.0,
-            ignore_constraints: false,
+            crop: false,
         })
         .unwrap();
         let pg = page(&d);
@@ -3234,7 +3261,7 @@ mod tests {
             y: 5.0,
             w: 10.0,
             h: 10.0,
-            ignore_constraints: false,
+            crop: false,
         })
         .unwrap();
         let pg = page(&d);
@@ -3390,7 +3417,7 @@ mod tests {
                 y: 0.0,
                 w: 1.0,
                 h: 1.0,
-                ignore_constraints: false,
+                crop: false,
             })
             .unwrap();
         }
@@ -3494,7 +3521,7 @@ mod tests {
                 y: 0.0,
                 w,
                 h,
-                ignore_constraints: false,
+                crop: false,
             })
         };
         assert!(set_frame(&mut d, -1.0, 1.0).is_err());
@@ -3532,7 +3559,7 @@ mod tests {
             y,
             w,
             h,
-            ignore_constraints: false,
+            crop: false,
         };
         let new = |parent: &str, [x, y, w, h]: [f64; 4]| Command::Create {
             parent: parent.into(),
@@ -3779,7 +3806,7 @@ mod tests {
             y: 0.0,
             w: 200.0,
             h: 140.0,
-            ignore_constraints: false,
+            crop: false,
         })
         .unwrap();
         let pg = page(&d);
@@ -3895,7 +3922,7 @@ mod tests {
             y: 0.0,
             w: 10.0,
             h: 10.0,
-            ignore_constraints: false,
+            crop: false,
         })
         .unwrap();
         set(
@@ -3949,7 +3976,7 @@ mod tests {
             y: 0.0,
             w: 50.0,
             h: 20.0,
-            ignore_constraints: false,
+            crop: false,
         })
         .unwrap();
         assert_eq!(frames(&d, &outer)[0], [0.0, 0.0, 51.0, 20.0]);
@@ -4046,7 +4073,7 @@ mod tests {
             y: 0.0,
             w: 150.0,
             h: 50.0,
-            ignore_constraints: true,
+            crop: true,
         })
         .unwrap();
         assert_eq!(frames(&d, &f)[1], [10.0, 10.0, 10.0, 10.0]);
@@ -4232,6 +4259,51 @@ mod tests {
         let other = LoroDoc::new();
         other.get_map("x").insert("a", 1).unwrap();
         assert!(Doc::load(&other.export(ExportMode::Snapshot).unwrap()).is_err());
+    }
+
+    #[test]
+    fn cropping_a_turned_image_keeps_it_where_it_is_on_the_page() {
+        let (mut d, p) = empty();
+        let (id, _) = place(&mut d, &p, 600, 300);
+        let props = Props {
+            rotation: Some(30.0),
+            ..Props::default()
+        };
+        d.apply(Command::Set {
+            id: id.clone(),
+            props,
+        })
+        .unwrap();
+        let image = |d: &Doc| {
+            page_ops(d)
+                .into_iter()
+                .find_map(|o| match o {
+                    Op::Image { transform, .. } => Some(transform),
+                    _ => None,
+                })
+                .unwrap()
+        };
+        let on_page =
+            |m: [f32; 6], frame| geom::then(m.map(f64::from), geom::rotation(30.0, frame));
+        let before = on_page(image(&d), [28.0, 164.0, 144.0, 72.0]);
+        let crop = |d: &mut Doc, w| {
+            d.apply(Command::SetFrame {
+                id: id.clone(),
+                x: 40.0,
+                y: 170.0,
+                w,
+                h: 50.0,
+                crop: true,
+            })
+        };
+        crop(&mut d, 100.0).unwrap();
+        assert_eq!(frame(&page(&d).children[0]), [40.0, 170.0, 100.0, 50.0]);
+        let after = on_page(image(&d), [40.0, 170.0, 100.0, 50.0]);
+        assert!(
+            after.iter().zip(before).all(|(a, b)| (a - b).abs() < 1e-3),
+            "{after:?} {before:?}"
+        );
+        assert!(crop(&mut d, 0.0).is_err());
     }
 
     #[test]

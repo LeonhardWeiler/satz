@@ -929,7 +929,7 @@ mod tests {
             y: 5.0,
             w: 3.0,
             h: 1.0,
-            ignore_constraints: false,
+            crop: false,
         })
         .unwrap();
         set_value(&mut d, &size, &big, Value::Number(30.0)).unwrap();

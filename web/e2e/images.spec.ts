@@ -1,4 +1,4 @@
-import { expect, test, autosaved, colors, open, place, png, preflight, screen } from './util'
+import { expect, test, autosaved, colors, drag, open, place, png, preflight, screen } from './util'
 
 const red = (width: number, height: number) => png('red.png', width, height, () => [255, 0, 0])
 
@@ -62,4 +62,33 @@ test('a file that is not an image is not placed and says why', async ({ page }) 
   await place(page, { name: 'notes.png', mimeType: 'image/png', buffer: Buffer.from('notes') })
   await expect(page.getByText('Could not place notes.png: not a PNG or JPEG image.')).toBeVisible()
   await expect(page.getByRole('tree', { name: 'Layers' }).getByRole('treeitem', { name: 'notes.png' })).toHaveCount(0)
+})
+
+test('ctrl and the crop button crop an image, a drag moves it in its frame, and the bar adjusts it', async ({ page }) => {
+  await open(page)
+  await place(page, png('halves.png', 600, 300, (x) => (x < 300 ? [255, 0, 0] : [0, 0, 255])))
+  const at = async (x: number) => (await colors(page, [await screen(page, x, 105)]))[0]
+  await expect.poll(async () => isRed(await at(68.6))).toBe(true)
+  await page.keyboard.down('Control')
+  await drag(page, await screen(page, 99.4, 105), await screen(page, 74, 105))
+  await page.keyboard.up('Control')
+  const properties = page.getByRole('complementary', { name: 'Properties' })
+  await expect(properties.getByRole('textbox', { name: 'W in mm' })).toHaveValue('25.4')
+  expect(isRed(await at(68.6))).toBe(true)
+
+  const quick = page.getByRole('toolbar', { name: 'Quick edit' })
+  await quick.getByTitle('Crop').click()
+  await expect(quick.getByTitle('Crop')).toHaveAttribute('aria-pressed', 'true')
+  await drag(page, await screen(page, 60, 105), await screen(page, 70, 105))
+  await expect(properties.getByRole('textbox', { name: 'X in mm' })).toHaveValue('48.6')
+  expect(isRed(await at(52))).toBe(false)
+  expect(isRed(await at(62))).toBe(true)
+  await page.keyboard.press('Escape')
+  await expect(quick.getByTitle('Crop')).toHaveAttribute('aria-pressed', 'false')
+
+  await quick.getByTitle('Adjust image').click()
+  const brightness = page.getByRole('dialog', { name: 'Adjust image' }).getByRole('textbox', { name: 'Brightness' })
+  await brightness.fill('-100')
+  await brightness.press('Enter')
+  await expect.poll(async () => Math.max(...(await at(62)))).toBeLessThan(10)
 })
