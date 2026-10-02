@@ -292,6 +292,8 @@ export type TextFrame = {
   verticalAlign: 'top' | 'center' | 'bottom'
   baselineGrid: number
   baselineStart: number
+  /** Lines the text is cut after, the last ending in an ellipsis; 0 is off. */
+  maxLines: number
 }
 /** `len` characters in UTF-16 code units that share their attributes. */
 export type Span = Attrs & { len: number }

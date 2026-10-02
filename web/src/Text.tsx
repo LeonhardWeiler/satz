@@ -487,6 +487,7 @@ export function TextFrameSection({ editor, node, set }: { editor: Editor; node: 
         <Field label={<Icon name="gutter" />} title="Gutter" unit="length" value={node.gutter} onCommit={(gutter) => set({ gutter })} />
         <Field label={<Icon name="baselineGrid" />} title="Baseline grid" unit="pt" zero="Off" reset={0} value={node.baselineGrid} onCommit={(baselineGrid) => set({ baselineGrid })} />
         <Field label={<Icon name="baselineStart" />} title="Baseline grid start" unit="pt" reset={0} value={node.baselineStart} onCommit={(baselineStart) => set({ baselineStart })} />
+        <Field label="Lines" title="Max lines" unit="" int max={1000} zero="Off" reset={0} value={node.maxLines} onCommit={(maxLines) => set({ maxLines })} />
       </div>
       <Segmented label="Vertical align" value={node.verticalAlign} options={VERTICAL} onChange={(verticalAlign) => set({ verticalAlign })} />
     </Section>

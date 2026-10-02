@@ -440,6 +440,7 @@ pub struct Props {
     pub vertical_align: Option<VerticalAlign>,
     pub baseline_grid: Option<f64>,
     pub baseline_start: Option<f64>,
+    pub max_lines: Option<u32>,
 }
 
 impl Props {
@@ -486,6 +487,7 @@ impl Props {
         within(self.gutter, 0.0, f64::MAX, "gutter")?;
         within(self.baseline_grid, 0.0, f64::MAX, "baseline grid")?;
         within(self.baseline_start, 0.0, f64::MAX, "baseline start")?;
+        within(self.max_lines.map(f64::from), 0.0, 1000.0, "max lines")?;
         within(self.gap, f64::MIN, f64::MAX, "gap")?;
         for e in self.effects.iter().flatten() {
             within(Some(e.radius.into()), 0.0, f64::MAX, "blur")?;

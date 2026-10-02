@@ -128,7 +128,7 @@ test('hyphenation is switched per paragraph with its language', async ({ page })
   await expect(lang).toHaveText('German')
 })
 
-test('insets, columns, vertical alignment and baseline grid are set in the text frame section', async ({ page }) => {
+test('insets, columns, vertical alignment, baseline grid and max lines are set in the text frame section', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
@@ -136,7 +136,7 @@ test('insets, columns, vertical alignment and baseline grid are set in the text 
   const field = (name: string) => frame.getByRole('textbox', { name })
   await expect(field('Columns')).toHaveValue('1')
   await expect(field('Baseline grid in pt')).toHaveValue('Off')
-  for (const [name, value] of [['Top inset in mm', '2'], ['Columns', '2'], ['Gutter in mm', '5'], ['Baseline grid in pt', '18']]) {
+  for (const [name, value] of [['Top inset in mm', '2'], ['Columns', '2'], ['Gutter in mm', '5'], ['Baseline grid in pt', '18'], ['Max lines', '3']]) {
     await field(name).fill(value)
     await field(name).press('Enter')
   }
@@ -147,6 +147,7 @@ test('insets, columns, vertical alignment and baseline grid are set in the text 
   await expect(field('Columns')).toHaveValue('2')
   await expect(field('Gutter in mm')).toHaveValue('5')
   await expect(field('Baseline grid in pt')).toHaveValue('18')
+  await expect(field('Max lines')).toHaveValue('3')
   await expect(frame.getByRole('radio', { name: 'Align bottom' })).toBeChecked()
 })
 

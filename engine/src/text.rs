@@ -472,6 +472,8 @@ pub struct TextFrame {
     pub vertical_align: VerticalAlign,
     pub baseline_grid: f64,
     pub baseline_start: f64,
+    /// Lines the text is cut after, the last ending in an ellipsis; 0 is off.
+    pub max_lines: u32,
     /// What a page number marker stands for: the number of the page the text is on.
     #[serde(skip)]
     pub number: String,
@@ -489,6 +491,7 @@ impl Default for TextFrame {
             vertical_align: VerticalAlign::Top,
             baseline_grid: 0.0,
             baseline_start: 0.0,
+            max_lines: 0,
             number: String::new(),
         }
     }
@@ -766,7 +769,7 @@ fn set(
 ) -> (Placed, Option<usize>) {
     let (inner, cw) = columns(frame, tf);
     let room = (inner[3] + 0.01) * tf.columns.max(1) as f32;
-    let rows = rows(text, spans, Some(cw), from, &tf.number, room).0;
+    let rows = rows(text, spans, Some(cw), from, tf, room).0;
     let starts: Vec<usize> = rows.iter().map(|r| r.stops[0].0).collect();
     let placed = place(rows, inner, cw, tf);
     let rest = starts.get(placed.placed).copied();
@@ -791,13 +794,13 @@ pub fn measure(
         Some(w) => {
             let (_, cw) = columns([0.0, 0.0, w, 0.0], tf);
             (
-                rows(text, spans, Some(cw), from, &tf.number, f32::INFINITY).0,
+                rows(text, spans, Some(cw), from, tf, f32::INFINITY).0,
                 cw,
                 w,
             )
         }
         None => {
-            let (rows, natural) = rows(text, spans, None, from, &tf.number, f32::INFINITY);
+            let (rows, natural) = rows(text, spans, None, from, tf, f32::INFINITY);
             let cw = ceil(natural);
             (rows, cw, n * cw + (n - 1.0) * tf.gutter as f32 + h_in)
         }
@@ -883,9 +886,10 @@ fn rows(
     spans: &[Span],
     cw: Option<f32>,
     from: usize,
-    number: &str,
+    tf: &TextFrame,
     room: f32,
 ) -> (Vec<Row>, f32) {
+    let number = &tf.number;
     let ids: Vec<u32> = spans.iter().map(|s| font_id(&s.attrs.font)).collect();
     let mut used = ids.clone();
     used.sort_unstable();
@@ -1368,6 +1372,26 @@ fn rows(
         for para in paras {
             break_para(para, ceil(widest), &mut rows);
         }
+    }
+    let max = tf.max_lines as usize;
+    if max > 0 && rows.len() > max {
+        rows.truncate(max);
+        let row = &mut rows[max - 1];
+        let span = row
+            .glyphs
+            .last()
+            .map_or(span_at(row.stops[0].0), |g| g.span);
+        let (dots, w) = shape("\u{2026}", span, text.len());
+        let right = cw.unwrap_or(widest);
+        let mut x = row.stops.last().unwrap().1;
+        while x + w > right + 0.01
+            && let Some(g) = row.glyphs.pop()
+        {
+            x = g.x;
+        }
+        row.glyphs
+            .extend(dots.into_iter().map(|g| Glyph { x: x + g.x, ..g }));
+        row.after = 0.0;
     }
     (rows, widest)
 }
@@ -1919,6 +1943,27 @@ mod tests {
         assert_eq!(lines[1].iter().find(|g| g.x >= 15.0).unwrap().x, 15.0);
         assert_eq!(lines[2][0].x, 15.0);
         assert_eq!(set(List::Bullet)[0].len(), 2);
+    }
+
+    #[test]
+    fn max_lines_cuts_the_text_with_an_ellipsis() {
+        let text = "hi hi hi hi hi hi hi hi hi hi hi hi hi hi hi hi";
+        let tf = TextFrame {
+            max_lines: 2,
+            ..TextFrame::default()
+        };
+        let lines = lay_out(
+            text,
+            &one(text, attrs(10.0)),
+            [0.0, 0.0, 40.0, 200.0],
+            &tf,
+            0,
+        );
+        assert_eq!(lines.len(), 2);
+        let dots = lines[1].last().unwrap();
+        assert!(dots.cluster == text.len() && dots.x < 40.0, "{dots:?}");
+        let h = measure(text, &one(text, attrs(10.0)), &tf, Some(40.0), 0)[1];
+        assert_close(&[h], &[27.42]);
     }
 
     #[test]
