@@ -1,8 +1,8 @@
 use crate::color::Color;
 use crate::content_hash;
-use crate::display_list::{Op, Paint, rect};
+use crate::display_list::{CLOSE, CUBIC, LINE, MOVE, Op, Paint, rect};
 use crate::linebreak::{Item, break_lines};
-use crate::style::{Fill, paints};
+use crate::style::{Style, paints};
 use crate::variable::{Scope, Value};
 use harfrust::{Feature, FontRef, ShapeOptions, ShaperData, UnicodeBuffer};
 use read_fonts::TableProvider;
@@ -366,11 +366,11 @@ pub struct Glyph {
 }
 
 /// Glyph runs of `text` from the byte `from` set in `frame`; characters without a
-/// fill take `fills`.
+/// fill take the fills of `style`, its strokes go around the glyphs.
 pub fn draw(
     text: &str,
     spans: &[Span],
-    fills: &[Fill],
+    style: &Style,
     frame: [f32; 4],
     tf: &TextFrame,
     s: &Scope,
@@ -384,10 +384,12 @@ pub fn draw(
                 color: c.rgba(s),
                 ink: c.ink(s),
             }],
-            None => paints(fills, frame, s).collect(),
+            None => paints(&style.fills, frame, s).collect(),
         })
         .collect();
     let mut ops = Vec::new();
+    let stroked = style.strokes.iter().any(|f| f.visible);
+    let mut outlines = Vec::new();
     let placed = set(text, spans, frame, tf, from).0;
     for (line, geometry) in placed.lines.into_iter().zip(&placed.geometry) {
         let mut at = 0;
@@ -398,13 +400,24 @@ pub fn draw(
         }) {
             let (run_text, ranges) = source(text, &line, at..at + run.len(), &tf.number);
             at += run.len();
+            let glyphs: Vec<u16> = run.iter().map(|g| g.id).collect();
+            let positions: Vec<f32> = run.iter().flat_map(|g| [g.x, g.y]).collect();
+            if stroked {
+                let a = &spans[run[0].span].attrs;
+                outlines.extend(outline(
+                    fonts[run[0].span],
+                    a.size as f32,
+                    &glyphs,
+                    &positions,
+                ));
+            }
             for paint in &span_paints[run[0].span] {
                 ops.push(Op::GlyphRun {
                     font: fonts[run[0].span],
                     size: spans[run[0].span].attrs.size as f32,
                     paint: paint.clone(),
-                    glyphs: run.iter().map(|g| g.id).collect(),
-                    positions: run.iter().flat_map(|g| [g.x, g.y]).collect(),
+                    glyphs: glyphs.clone(),
+                    positions: positions.clone(),
                     text: run_text.clone(),
                     ranges: ranges.clone(),
                 });
@@ -422,15 +435,94 @@ pub fn draw(
             let end = geometry.stops.iter().find(|s| s.0 > last);
             let x1 = end.or(geometry.stops.last()).map_or(0.0, |s| s.1);
             let (x0, size) = (run[0].x, a.size as f32);
+            let line = rect(x0, run[0].y - at * size, x1 - x0, thick * size);
             for paint in &span_paints[run[0].span] {
                 ops.push(Op::FillPath {
                     paint: paint.clone(),
-                    path: rect(x0, run[0].y - at * size, x1 - x0, thick * size),
+                    path: line.clone(),
                 });
+            }
+            if stroked {
+                outlines.extend(line);
             }
         }
     }
+    if !outlines.is_empty() {
+        ops.extend(style.stroke(&outlines, frame, s));
+    }
     ops
+}
+
+/// The outlines of `glyphs` at `positions` in the font `id` as a display list path.
+pub fn outline(id: u32, size: f32, glyphs: &[u16], positions: &[f32]) -> Vec<f32> {
+    let bytes = font_bytes(id);
+    let Ok(font) = skrifa::FontRef::new(&bytes) else {
+        return Vec::new();
+    };
+    let outlines = font.outline_glyphs();
+    let mut pen = Pen {
+        path: Vec::new(),
+        origin: [0.0; 2],
+        at: [0.0; 2],
+    };
+    for (g, p) in glyphs.iter().zip(positions.chunks(2)) {
+        if let Some(o) = outlines.get(skrifa::GlyphId::new(*g as u32)) {
+            pen.origin = [p[0], p[1]];
+            let size = skrifa::instance::Size::new(size);
+            let settings = skrifa::outline::DrawSettings::unhinted(
+                size,
+                skrifa::instance::LocationRef::default(),
+            );
+            let _ = o.draw(settings, &mut pen);
+        }
+    }
+    pen.path
+}
+
+struct Pen {
+    path: Vec<f32>,
+    origin: [f32; 2],
+    at: [f32; 2],
+}
+
+impl Pen {
+    fn point(&mut self, x: f32, y: f32) -> [f32; 2] {
+        [self.origin[0] + x, self.origin[1] - y]
+    }
+}
+
+impl skrifa::outline::OutlinePen for Pen {
+    fn move_to(&mut self, x: f32, y: f32) {
+        self.at = self.point(x, y);
+        self.path.extend([MOVE, self.at[0], self.at[1]]);
+    }
+    fn line_to(&mut self, x: f32, y: f32) {
+        self.at = self.point(x, y);
+        self.path.extend([LINE, self.at[0], self.at[1]]);
+    }
+    fn quad_to(&mut self, cx: f32, cy: f32, x: f32, y: f32) {
+        let ([ax, ay], [cx, cy], [x, y]) = (self.at, self.point(cx, cy), self.point(x, y));
+        let k = 2.0 / 3.0;
+        self.path.extend([
+            CUBIC,
+            ax + k * (cx - ax),
+            ay + k * (cy - ay),
+            x + k * (cx - x),
+            y + k * (cy - y),
+            x,
+            y,
+        ]);
+        self.at = [x, y];
+    }
+    fn curve_to(&mut self, cx0: f32, cy0: f32, cx1: f32, cy1: f32, x: f32, y: f32) {
+        let ([ax, ay], [bx, by]) = (self.point(cx0, cy0), self.point(cx1, cy1));
+        self.at = self.point(x, y);
+        self.path
+            .extend([CUBIC, ax, ay, bx, by, self.at[0], self.at[1]]);
+    }
+    fn close(&mut self) {
+        self.path.push(CLOSE);
+    }
 }
 
 /// Top and thickness in em of the line that `decoration` draws in the font `id`, with
@@ -1101,7 +1193,15 @@ pub fn index_at(lines: &[Line], x: f32, y: f32) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::style::Fill;
     use crate::variable::{Modes, Palette};
+
+    fn black() -> Style {
+        Style {
+            fills: vec![Fill::solid(0x000000ffu32)],
+            ..Style::default()
+        }
+    }
 
     #[test]
     fn a_font_without_the_tables_text_is_set_with_is_rejected() {
@@ -1162,7 +1262,7 @@ mod tests {
             palette: &palette,
             modes: &modes,
         };
-        draw(text, spans, &[Fill::solid(0x000000ffu32)], frame, tf, &s, 0)
+        draw(text, spans, &black(), frame, tf, &s, 0)
             .into_iter()
             .map(|op| match op {
                 Op::GlyphRun {
@@ -1191,6 +1291,58 @@ mod tests {
     }
 
     #[test]
+    fn a_stroke_goes_around_the_glyphs_outside_of_them() {
+        let palette = Palette::default();
+        let modes = Modes::new();
+        let s = Scope {
+            palette: &palette,
+            modes: &modes,
+        };
+        let style = Style {
+            strokes: vec![Fill::solid(0xff0000ffu32)],
+            stroke_align: crate::style::Align::Outside,
+            ..Style::default()
+        };
+        let frame = [0.0, 0.0, 100.0, 50.0];
+        let ops = draw(
+            "Hi",
+            &one("Hi", attrs(10.0)),
+            &style,
+            frame,
+            &TextFrame::default(),
+            &s,
+            0,
+        );
+        let [
+            Op::PushClip { path, invert: true },
+            Op::StrokePath { width, .. },
+            Op::PopClip,
+        ] = &ops[..]
+        else {
+            panic!("{ops:?}");
+        };
+        assert_eq!(*width, 2.0);
+        let [x, y, w, h] = crate::geom::bounds(path);
+        assert!(
+            x > 0.0 && x < 2.0 && w > 10.0 && y > 0.0 && y + h < ASCENT + 0.5,
+            "{x} {y} {w} {h}"
+        );
+        assert!(
+            draw(
+                "Hi",
+                &one("Hi", attrs(10.0)),
+                &black(),
+                frame,
+                &TextFrame::default(),
+                &s,
+                0
+            )
+            .iter()
+            .all(|op| matches!(op, Op::GlyphRun { .. }))
+        );
+    }
+
+    #[test]
     fn short_text_sits_on_the_first_baseline() {
         let r = plain("Hi", attrs(10.0), [5.0, 7.0, 100.0, 50.0]);
         assert_eq!(r.len(), 1);
@@ -1215,8 +1367,15 @@ mod tests {
             palette: &palette,
             modes: &modes,
         };
-        let black = [Fill::solid(0x000000ffu32)];
-        let ops = draw(&marked, &one(&marked, a.clone()), &black, frame, &tf, &s, 0);
+        let ops = draw(
+            &marked,
+            &one(&marked, a.clone()),
+            &black(),
+            frame,
+            &tf,
+            &s,
+            0,
+        );
         assert!(matches!(&ops[0], Op::GlyphRun { text, .. } if text == "p12."));
         let lines = lines(&marked, &one(&marked, a), frame, &tf, 0);
         let [before, after] =
@@ -1353,11 +1512,10 @@ mod tests {
                 text_decoration,
                 ..attrs(10.0)
             };
-            let black = [Fill::solid(0x000000ffu32)];
             draw(
                 "Hi Hi",
                 &one("Hi Hi", a),
-                &black,
+                &black(),
                 [0.0, 0.0, 100.0, 50.0],
                 &TextFrame::default(),
                 &s,
@@ -1597,21 +1755,13 @@ mod tests {
             modes: &modes,
         };
         let spans = one(text, a);
-        draw(
-            text,
-            &spans,
-            &[Fill::solid(0x000000ffu32)],
-            frame,
-            &TextFrame::default(),
-            &s,
-            0,
-        )
-        .into_iter()
-        .map(|op| match op {
-            Op::GlyphRun { text, .. } => text,
-            _ => panic!("unexpected {op:?}"),
-        })
-        .collect()
+        draw(text, &spans, &black(), frame, &TextFrame::default(), &s, 0)
+            .into_iter()
+            .map(|op| match op {
+                Op::GlyphRun { text, .. } => text,
+                _ => panic!("unexpected {op:?}"),
+            })
+            .collect()
     }
 
     #[test]

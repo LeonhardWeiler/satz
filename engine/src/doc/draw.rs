@@ -457,15 +457,7 @@ pub(super) fn draw(n: &Node, ops: &mut Vec<Op>, pal: &Palette) {
             ..
         } => item(
             ops,
-            text::draw(
-                &content.text,
-                &content.spans,
-                &n.style.fills,
-                frame,
-                tf,
-                s,
-                *from,
-            ),
+            text::draw(&content.text, &content.spans, &n.style, frame, tf, s, *from),
         ),
         Kind::Group { children } => draw_all(children, ops, pal),
         Kind::Frame { clip, children } => {

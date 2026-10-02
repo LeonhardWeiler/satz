@@ -102,7 +102,7 @@ export function Properties({
     )
   const set = (props: Props) => each((n) => ({ type: 'set', id: n.id, ...props }))
   const open = nodes.length > 0 && nodes.every(isOpen)
-  const stroked = nodes.length > 0 && nodes.every((n) => n.kind === 'shape' || n.kind === 'frame')
+  const stroked = nodes.length > 0 && nodes.every((n) => n.kind !== 'group')
   const strokes = stroked ? sameList((n) => n.strokes) : null
   const line = one && ends(one)
   const length = line && Math.hypot(line[1].x - line[0].x, line[1].y - line[0].y)

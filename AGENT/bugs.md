@@ -1,4 +1,3 @@
-4. texte sollen auch eine stroke bekommen, die um den text herum geht
 5. wenn ich von rgb auf cmyk umwandle, sollen alle farben sofort mit umgewandelt werden und dann natürlich nicht im preflight angezgeit werden
 7. es ist immer noch so, dass wenn ich auf ein z.b. r halte, dass dann mein cursor weg ist
 15. implement all the points under later in TODO.md
@@ -20,7 +19,6 @@
 
 --- LATER
 1. Figma import with file and or account
-4. geh jeden part des designs ausführlich durch und schau genau wo es inkonsitezen gibt. es soll überall einheitlich aussehen, schau das auch bei den icons, dass die dazu passen, etc.
 5. overview page for all the personal projekts when opening the webapp, like in figma
 7. man soll teile der website auswählen können und in diesem bereich die ki prompten, z.b. dass dieser bereich redesigned werden soll
 10. inhaltsverzeichnis

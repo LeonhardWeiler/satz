@@ -58,7 +58,7 @@ export function Quick({ editor }: { editor: Editor }) {
       </button>
     )
   }
-  const stroked = nodes.every((n) => n.kind === 'shape' || n.kind === 'frame')
+  const stroked = nodes.every((n) => n.kind !== 'group')
   const size = sameOf(spans, (a) => a.size)
   return (
     <>

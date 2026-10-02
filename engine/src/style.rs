@@ -327,6 +327,13 @@ impl Style {
                 ]);
             }
         }
+        ops.extend(self.stroke(path, frame, s));
+        ops
+    }
+
+    /// The strokes along `path`, aligned when it is closed and with arrows when open.
+    pub fn stroke(&self, path: &[f32], frame: [f32; 4], s: &Scope) -> Vec<Op> {
+        let mut ops = Vec::new();
         let closed = closed(path);
         let align = if closed {
             self.stroke_align

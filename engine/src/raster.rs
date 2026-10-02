@@ -1,9 +1,6 @@
 use crate::display_list::{CUBIC, LINE, MOVE, Op, Paint as ListPaint, close};
 use crate::geom;
-use crate::text::font_bytes;
-use skrifa::instance::{LocationRef, Size};
-use skrifa::outline::{DrawSettings, OutlinePen};
-use skrifa::{FontRef, GlyphId, MetadataProvider};
+use crate::text::outline;
 use std::rc::Rc;
 use tiny_skia::{
     Color, FillRule, FilterQuality, GradientStop, LineCap, LineJoin, LinearGradient, Mask,
@@ -248,9 +245,10 @@ fn render(px: &mut Pixmap, ops: &[Op], t: Transform, clip: Option<&Mask>, images
                 positions,
                 ..
             } => {
-                if let (Some(p), Some(paint)) =
-                    (glyph_path(*font, *size, glyphs, positions), convert(paint))
-                {
+                if let (Some(p), Some(paint)) = (
+                    build(&outline(*font, *size, glyphs, positions)),
+                    convert(paint),
+                ) {
                     px.fill_path(&p, &paint, FillRule::Winding, t, clip);
                 }
             }
@@ -415,50 +413,6 @@ fn build(cmds: &[f32]) -> Option<Path> {
             LINE => pb.line_to(c[0], c[1]),
             CUBIC => pb.cubic_to(c[0], c[1], c[2], c[3], c[4], c[5]),
             _ => pb.close(),
-        }
-    }
-    pb.finish()
-}
-
-struct Pen<'a> {
-    pb: &'a mut PathBuilder,
-    origin: [f32; 2],
-}
-
-impl OutlinePen for Pen<'_> {
-    fn move_to(&mut self, x: f32, y: f32) {
-        self.pb.move_to(self.origin[0] + x, self.origin[1] - y);
-    }
-    fn line_to(&mut self, x: f32, y: f32) {
-        self.pb.line_to(self.origin[0] + x, self.origin[1] - y);
-    }
-    fn quad_to(&mut self, cx: f32, cy: f32, x: f32, y: f32) {
-        let [ox, oy] = self.origin;
-        self.pb.quad_to(ox + cx, oy - cy, ox + x, oy - y);
-    }
-    fn curve_to(&mut self, cx0: f32, cy0: f32, cx1: f32, cy1: f32, x: f32, y: f32) {
-        let [ox, oy] = self.origin;
-        self.pb
-            .cubic_to(ox + cx0, oy - cy0, ox + cx1, oy - cy1, ox + x, oy - y);
-    }
-    fn close(&mut self) {
-        self.pb.close();
-    }
-}
-
-fn glyph_path(font: u32, size: f32, glyphs: &[u16], positions: &[f32]) -> Option<Path> {
-    let bytes = font_bytes(font);
-    let font = FontRef::new(&bytes).ok()?;
-    let outlines = font.outline_glyphs();
-    let mut pb = PathBuilder::new();
-    for (g, p) in glyphs.iter().zip(positions.chunks(2)) {
-        if let Some(outline) = outlines.get(GlyphId::new(*g as u32)) {
-            let settings = DrawSettings::unhinted(Size::new(size), LocationRef::default());
-            let mut pen = Pen {
-                pb: &mut pb,
-                origin: [p[0], p[1]],
-            };
-            outline.draw(settings, &mut pen).ok()?;
         }
     }
     pb.finish()

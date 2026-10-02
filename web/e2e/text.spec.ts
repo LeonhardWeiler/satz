@@ -271,3 +271,21 @@ test('ctrl while resizing a text scales its type, and a new format scales the la
   await expect(field('X in mm')).toHaveValue('14.19')
   await expect(field('W in mm')).toHaveValue('106.42')
 })
+
+test('a stroke goes around the text', async ({ page }) => {
+  await open(page)
+  await page.keyboard.press('t')
+  await page.mouse.click(...(await screen(page, 10, 200, 0)))
+  await page.keyboard.type('HHHH')
+  await page.keyboard.press('Escape')
+  const [x, y] = await screen(page, 8, 199, 0)
+  const ink = async () => (await pixels(page, x, y, 80, 30)).filter((p) => p[0] < 100).length
+  const before = await ink()
+  expect(before).toBeGreaterThan(0)
+  await page.getByRole('toolbar', { name: 'Quick edit' }).getByTitle('Stroke color').click()
+  await page.getByRole('menu', { name: 'Stroke color' }).getByRole('menuitemradio', { name: 'Black' }).click()
+  const weight = page.getByRole('toolbar', { name: 'Quick edit' }).getByRole('textbox', { name: 'Stroke weight' })
+  await weight.fill('2')
+  await weight.press('Enter')
+  await expect.poll(ink).toBeGreaterThan(before * 1.3)
+})
