@@ -1,6 +1,17 @@
+3. Im layer panel click und dann auf ein anderes shift click, soll auch alle dazwischen auswählen
+4. bei den schrift optionen mit kerning, ligatures, ... soll die ui wie in figma sein. es soll nicht der text und die checkbox sein, sondern einmal das icon das gerade schon vorhanden ist und einmal ein "-", dann klickt man entweder auf das icon um es auzuwählen oder auf "-" um es abzuwählen
+5. es soll keine alerts mehr angezeigt werden, sondern mach eine eigene schöne zum thema passende ui (popup) in der mitte der seite.
+6. rulers, wenn die runtergezogen werden sollen über den ganzen sichtbaren canvas angezeigt werden und auch dragbar außerhalb der page. man soll sie auch aus oder abwählen klicken (durch wegklicken) und dann auch mit entf löschen können
+7. in dem preview modus sollen bei den pages die leiste oben wo "Pages" steht und dann columns +/- immer angezeigt werden, denn gerade ist das nur wenn man nach oben gescrollt ist
+8. auf den master seiten sehe ich auf der linken seite nur die linie zur mitte. und nicht nach oben, links, unten
+9. das select all glyphs feld sollte immer öfnen bar sein und keinen horizontalen scroll haben, sondern die passende größe haben, dass das nicht passiert
+10. das settings menü schaut sehr schlecht aus, es soll im selben stil sein wie der rest.
+11. die preflight side bar soll so gelayoutet werden, dass es nicht automatisch horizontal scrollt (nie horizontal)
+12. statt ctrl + \ soll der "preview" modus shortcut shift + w sein
+13. die quickbar soll auch im preflight modus angezeigt werden
+14. beim bild croppen soll es auch zu der größe des originalen bilds snappen
 15. implement all the points under later in TODO.md
 16. überlege dir für alle elemente noch einmal tief und schlau welche optionen alle sinnvoll und praktisch wären und implementiere sie
-47. when changing from solid to linear gradient with one of the gradients selected the layout moves up a bit, it should stay the same
 
 --- LATER
 1. Figma import with file and or account
@@ -13,6 +24,11 @@
 17. verankerte objekte
 18. move pages or double pages
 19. komplette liste von funktionen in satz als markdown datei im repo
+20. Linked images: per document, chosen at creation, embed or link. Linking uses File System Access (Chromium) with handles in IndexedDB, so links need a click per session and are missing on other computers; Firefox shows the option disabled with a hint. Preflight reports missing links with relink.
+21. Type as in Figma: axes of variable fonts (krilla 0.8.2 and CanvasKit drawGlyphs cannot draw variations yet).
+22. Performance of `settle` and `lay_out`, which walk the whole tree after every command; at 32 pages the snapshot build takes most of the time.
+23. Place SVG and PDF as vectors, kept as vectors in the exported PDF.
+24. Version history from the Loro history: browse and restore earlier states.
 
 --- with server (in the future)
 1. make it possible to work together on the same project with link and code share, alot of works needs to be done to make this work good

@@ -37,15 +37,5 @@ Open:
 
 ## Later
 
-- Linked images: per document, chosen at creation, embed or link. Linking uses
-  File System Access (Chromium) with handles in IndexedDB, so links need a click
-  per session and are missing on other computers; Firefox shows the option
-  disabled with a hint. Preflight reports missing links with relink.
-- Type as in Figma: axes of variable fonts.
-- Performance of `settle` and `lay_out`, which walk the whole tree after every
-  command.
 - Threading: click an in-port to thread a frame in before another, as InDesign does. (versteh ich nicht ganz bitte erklären bevor es umgesetzt wird)
 - Text wrap around layers, with an offset, for text frames under images and shapes.
-- Place SVG and PDF as vectors, kept as vectors in the exported PDF.
-- Version history from the Loro history: browse and restore earlier states.
-- Spell check from Hunspell word lists in the engine, marked in the text.
