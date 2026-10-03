@@ -1,4 +1,3 @@
-8. auf den master seiten sehe ich auf der linken seite nur die linie zur mitte. und nicht nach oben, links, unten
 9. das select all glyphs feld sollte immer öfnen bar sein und keinen horizontalen scroll haben, sondern die passende größe haben, dass das nicht passiert
 10. das settings menü schaut sehr schlecht aus, es soll im selben stil sein wie der rest.
 11. die preflight side bar soll so gelayoutet werden, dass es nicht automatisch horizontal scrollt (nie horizontal)

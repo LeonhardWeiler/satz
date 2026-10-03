@@ -480,7 +480,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         bar.style.left = `${Math.min(Math.max(view.x + (sel.x + sel.w / 2) * view.zoom - w / 2, 8), vw - w - 8)}px`
         bar.style.top = `${Math.min(Math.max(top >= 8 ? top : view.y + (sel.y + sel.h) * view.zoom + 14, 8), vh - h - 8)}px`
       }
-      const page = pointer ? pageAt(toDoc(pointer)) : undefined
+      const page = pointer ? pageAt(toDoc(pointer), editor.sheets) : undefined
       const target = !alt || !sel || drag || ed || pen || editor.tool !== 'move' || editor.overview !== null
         ? undefined
         : hovered || (page && { x: page.x, y: 0, w: page.width, h: page.height })
