@@ -110,12 +110,9 @@ export async function pixels(page: Page, x: number, y: number, w: number, h: num
 /** RGB pixels at screen points, from one screenshot once the canvas has drawn. */
 export async function colors(page: Page, points: (readonly [number, number])[]) {
   await drawn(page)
-  const xs = points.map(([x]) => Math.round(x))
-  const ys = points.map(([, y]) => Math.round(y))
-  const [x0, y0] = [Math.min(...xs), Math.min(...ys)]
-  const png = PNG.sync.read(await page.screenshot({ clip: { x: x0, y: y0, width: Math.max(...xs) - x0 + 1, height: Math.max(...ys) - y0 + 1 } }))
-  return points.map((_, k) => {
-    const i = ((ys[k] - y0) * png.width + xs[k] - x0) * 4
+  const png = PNG.sync.read(await page.screenshot())
+  return points.map(([x, y]) => {
+    const i = (Math.round(y) * png.width + Math.round(x)) * 4
     return [png.data[i], png.data[i + 1], png.data[i + 2]]
   })
 }

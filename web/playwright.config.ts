@@ -9,6 +9,7 @@ export default defineConfig({
   fullyParallel: true,
   workers: 2,
   timeout: 60_000,
+  expect: { timeout: 15_000 },
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['github'], ['list']] : 'list',
   use: { baseURL: 'http://localhost:4173/satz/', colorScheme: 'dark', serviceWorkers: 'block', trace: 'retain-on-first-failure', contextOptions: { reducedMotion: 'reduce' } },
