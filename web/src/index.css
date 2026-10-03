@@ -2374,9 +2374,15 @@ kbd {
 }
 
 .ov-head {
+  position: sticky;
+  z-index: 1;
+  top: -20px;
   display: flex;
   align-items: center;
   gap: 4px;
+  margin: -20px -28px 0;
+  padding: 20px 28px 6px;
+  background: var(--canvas);
 }
 
 .ov-head h2 {

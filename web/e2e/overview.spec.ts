@@ -113,3 +113,15 @@ test('the masters column is pulled wider with its thumbnails, the pages zoom and
   await region.getByRole('textbox', { name: 'Columns' }).press('Enter')
   await expect.poll(() => top(2)).toBe(await top(1))
 })
+
+test('the pages header stays in view when the overview scrolls', async ({ page }) => {
+  await open(page)
+  for (let i = 0; i < 3; i++) await addPage(page)
+  const region = await overview(page)
+  const zoomIn = region.getByRole('button', { name: 'Zoom in' })
+  while (await zoomIn.isEnabled()) await zoomIn.click()
+  await region.locator('.ov-col').last().evaluate((c) => c.scrollTo(0, c.scrollHeight))
+  await expect(region.locator('.ov-col').last()).not.toHaveJSProperty('scrollTop', 0)
+  await expect(zoomIn).toBeInViewport({ ratio: 1 })
+  await expect(region.getByRole('button', { name: 'Zoom out' })).toBeInViewport({ ratio: 1 })
+})
