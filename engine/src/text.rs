@@ -148,12 +148,15 @@ pub fn fonts() -> Vec<Typeface> {
 }
 
 /// The keys of `Attrs` a text style sets.
-pub const STYLED: [&str; 18] = [
+pub const STYLED: [&str; 21] = [
     "size",
     "lineHeight",
     "letterSpacing",
     "paragraphSpacing",
     "paragraphIndent",
+    "indentLeft",
+    "indentRight",
+    "spaceBefore",
     "font",
     "textCase",
     "textDecoration",
@@ -169,10 +172,13 @@ pub const STYLED: [&str; 18] = [
     "list",
 ];
 /// The keys of `Attrs` that hold for a whole paragraph, taken from its first character.
-pub const PARAGRAPH: [&str; 12] = [
+pub const PARAGRAPH: [&str; 15] = [
     "textAlign",
     "paragraphSpacing",
     "paragraphIndent",
+    "indentLeft",
+    "indentRight",
+    "spaceBefore",
     "hyphenate",
     "lang",
     "dropLines",
@@ -332,6 +338,11 @@ pub struct Attrs {
     /// `None` is the bundled font.
     pub font: Option<Typeface>,
     pub paragraph_indent: f64,
+    /// The paragraph's lines move in by `indent_left` and `indent_right`, and it starts
+    /// `space_before` below the paragraph before it in its column.
+    pub indent_left: f64,
+    pub indent_right: f64,
+    pub space_before: f64,
     pub text_case: TextCase,
     pub text_decoration: TextDecoration,
     pub features: Vec<String>,
@@ -382,6 +393,9 @@ impl Default for Attrs {
             lang: Lang::En,
             font: None,
             paragraph_indent: 0.0,
+            indent_left: 0.0,
+            indent_right: 0.0,
+            space_before: 0.0,
             text_case: TextCase::Original,
             text_decoration: TextDecoration::None,
             features: Vec::new(),
@@ -1104,12 +1118,15 @@ fn rows(
                       cw: f32,
                       rows: &mut Vec<Row>| {
         let set = rows.len();
+        if let Some(r) = rows.last_mut() {
+            r.after += first.space_before as f32;
+        }
         let inset = |i: usize| insets.get(set + i).copied().unwrap_or_default();
         let n = left.len().max(insets.len().saturating_sub(set));
         let widths: Vec<f32> = (0..=n)
             .map(|i| {
                 let [l, r] = if i < n { inset(i) } else { [0.0; 2] };
-                (cw - left[i.min(left.len() - 1)] - l - r).max(0.0)
+                (cw - left[i.min(left.len() - 1)] - l - r - first.indent_right as f32).max(0.0)
             })
             .collect();
         let mut from = 0;
@@ -1435,10 +1452,13 @@ fn rows(
             line0 = from;
         }
         start += para.len() + 1;
-        let natural = natural + dw + hang;
+        let indent = first.indent_left as f32;
+        let natural = natural + dw + hang + indent + first.indent_right as f32;
         widest = widest.max(natural);
-        let mut left = vec![dw + hang; if dw > 0.0 { lines } else { 1 }];
-        left.push(hang);
+        let mut left = vec![indent + dw + hang; if dw > 0.0 { lines } else { 1 }];
+        left.push(indent + hang);
+        marks.iter_mut().for_each(|g| g.x += indent);
+        lead.iter_mut().for_each(|s| s.1 += indent);
         let para = Para {
             items,
             glyphs,
@@ -2345,6 +2365,29 @@ mod tests {
         let b = baselines("Hi Hi Hi", [0.0, 0.0, 100.0, 50.0], tf);
         assert_eq!(b.len(), 2);
         assert_close(&b[0], &[5.0, 3.0 + ASCENT]);
+    }
+
+    #[test]
+    fn paragraph_indents_and_space_before_move_its_lines() {
+        let a = Attrs {
+            indent_left: 5.0,
+            indent_right: 70.0,
+            space_before: 7.0,
+            ..attrs(10.0)
+        };
+        let text = "Hi Hi Hi\nHi";
+        let b: Vec<[f32; 2]> = framed(
+            text,
+            &one(text, a),
+            [0.0, 0.0, 100.0, 80.0],
+            &TextFrame::default(),
+        )
+        .iter()
+        .map(|r| [r.2[0], r.2[1]])
+        .collect();
+        assert_eq!(b.len(), 3);
+        assert_close(&b[0], &[5.0, ASCENT]);
+        assert_close(&b[2], &[5.0, ASCENT + 2.0 * AUTO + 7.0]);
     }
 
     #[test]

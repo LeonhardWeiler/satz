@@ -537,6 +537,9 @@ pub struct TextProps {
     pub lang: Option<Lang>,
     pub font: Option<Typeface>,
     pub paragraph_indent: Option<f64>,
+    pub indent_left: Option<f64>,
+    pub indent_right: Option<f64>,
+    pub space_before: Option<f64>,
     pub text_case: Option<TextCase>,
     pub text_decoration: Option<TextDecoration>,
     pub features: Option<Vec<String>>,
@@ -559,11 +562,17 @@ impl TextProps {
             self.letter_spacing,
             self.paragraph_spacing,
         )?;
-        if self
-            .paragraph_indent
-            .is_some_and(|v| !(v >= 0.0 && v.is_finite()))
+        if [
+            self.paragraph_indent,
+            self.indent_left,
+            self.indent_right,
+            self.space_before,
+        ]
+        .iter()
+        .flatten()
+        .any(|v| !(*v >= 0.0 && v.is_finite()))
         {
-            return Err("paragraph indent must be at least 0".into());
+            return Err("indents and spacing must be at least 0".into());
         }
         if self.baseline_shift.is_some_and(|v| !v.is_finite()) {
             return Err("baseline shift must be a number".into());
@@ -724,12 +733,15 @@ const BINDABLE: [&str; 12] = [
 ];
 
 /// The keys of a text layer that belong to its story and move with it.
-const STORY: [&str; 24] = [
+const STORY: [&str; 27] = [
     "size",
     "lineHeight",
     "letterSpacing",
     "paragraphSpacing",
     "paragraphIndent",
+    "indentLeft",
+    "indentRight",
+    "spaceBefore",
     "textCase",
     "textDecoration",
     "features",

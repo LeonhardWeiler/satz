@@ -602,6 +602,9 @@ impl Doc {
                 line_height: Some(s.attrs.line_height * by),
                 paragraph_spacing: Some(s.attrs.paragraph_spacing * by),
                 paragraph_indent: Some(s.attrs.paragraph_indent * by),
+                indent_left: Some(s.attrs.indent_left * by),
+                indent_right: Some(s.attrs.indent_right * by),
+                space_before: Some(s.attrs.space_before * by),
                 baseline_shift: Some(s.attrs.baseline_shift * by),
                 ..TextProps::default()
             };

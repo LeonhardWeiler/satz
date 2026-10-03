@@ -261,6 +261,11 @@ export type Attrs = {
   /** `null` is the bundled font. */
   font: Typeface | null
   paragraphIndent: number
+  /** pt the paragraph's lines move in from the left and the right. */
+  indentLeft: number
+  indentRight: number
+  /** pt above the paragraph, added to the spacing of the one before it. */
+  spaceBefore: number
   textCase: 'original' | 'upper' | 'lower' | 'title'
   textDecoration: 'none' | 'underline' | 'strikethrough'
   /** OpenType features as harfrust parses them, e.g. "smcp" or "liga=0". */
@@ -306,7 +311,7 @@ export type TextFrame = {
 /** `len` characters in UTF-16 code units that share their attributes. */
 export type Span = Attrs & { len: number }
 /** The attributes a text style sets. */
-export const STYLED = ['size', 'lineHeight', 'letterSpacing', 'paragraphSpacing', 'paragraphIndent', 'font', 'textCase', 'textDecoration', 'features', 'position', 'baselineShift', 'dropLines', 'dropChars', 'keepLines', 'keepTogether', 'keepNext', 'tabs', 'list'] as const
+export const STYLED = ['size', 'lineHeight', 'letterSpacing', 'paragraphSpacing', 'paragraphIndent', 'indentLeft', 'indentRight', 'spaceBefore', 'font', 'textCase', 'textDecoration', 'features', 'position', 'baselineShift', 'dropLines', 'dropChars', 'keepLines', 'keepTogether', 'keepNext', 'tabs', 'list'] as const
 export type Styled = (typeof STYLED)[number]
 export type TextStyle = { id: string; name: string; bindings: Partial<Record<Bindable, string>> } & Pick<Attrs, Styled>
 

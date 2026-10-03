@@ -36,7 +36,7 @@ const RESIZING = [
 ] as const
 const LANGS = { en: 'English', de: 'German', fr: 'French', it: 'Italian', es: 'Spanish', nl: 'Dutch' } as const
 /** Styled numbers: title, label, unit, least value and the text shown for 0. */
-const METRICS: [Exclude<Styled, 'font' | 'textCase' | 'textDecoration' | 'features' | 'paragraphIndent' | 'position' | 'baselineShift' | 'dropLines' | 'dropChars' | 'keepLines' | 'keepTogether' | 'keepNext' | 'tabs' | 'list'>, string, IconName, string, number, string?][] = [
+const METRICS: [Exclude<Styled, 'font' | 'textCase' | 'textDecoration' | 'features' | 'paragraphIndent' | 'indentLeft' | 'indentRight' | 'spaceBefore' | 'position' | 'baselineShift' | 'dropLines' | 'dropChars' | 'keepLines' | 'keepTogether' | 'keepNext' | 'tabs' | 'list'>, string, IconName, string, number, string?][] = [
   ['size', 'Font size', 'fontSize', 'pt', 0.1],
   ['lineHeight', 'Line height', 'lineHeight', 'pt', 0, 'Auto'],
   ['letterSpacing', 'Letter spacing', 'letterSpacing', '%', -100],
@@ -179,6 +179,9 @@ export function TypeOptions({ spans, set }: { spans: Pick<Attrs, Styled>[]; set:
                   value={same((a) => a.paragraphIndent)}
                   onCommit={(paragraphIndent) => set({ paragraphIndent })}
                 />
+                <Field label="Left" title="Left indent" unit="pt" reset={0} value={same((a) => a.indentLeft)} onCommit={(indentLeft) => set({ indentLeft })} />
+                <Field label="Right" title="Right indent" unit="pt" reset={0} value={same((a) => a.indentRight)} onCommit={(indentRight) => set({ indentRight })} />
+                <Field label="Before" title="Space before" unit="pt" reset={0} value={same((a) => a.spaceBefore)} onCommit={(spaceBefore) => set({ spaceBefore })} />
                 <Select label="List" value={same((a) => a.list)} options={LISTS} onChange={(list) => set({ list })} />
                 <Select label="Position" value={same((a) => a.position)} options={POSITIONS} onChange={(position) => set({ position })} />
                 <Field

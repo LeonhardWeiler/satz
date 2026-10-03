@@ -36,7 +36,7 @@ test('type attributes and a text style are set in the text section and edited on
   await expect(field('Font size in pt')).toHaveValue('9')
 })
 
-test('case, decoration, indent and OpenType features are set in the type options and kept by a text style', async ({ page }) => {
+test('case, decoration, indents and OpenType features are set in the type options and kept by a text style', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
   const text = page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ })
@@ -47,6 +47,8 @@ test('case, decoration, indent and OpenType features are set in the type options
   await choose(options.getByRole('combobox', { name: 'Decoration' }), 'Underline')
   await options.getByRole('textbox', { name: 'Paragraph indent in pt' }).fill('12')
   await options.getByRole('textbox', { name: 'Paragraph indent in pt' }).press('Enter')
+  await options.getByRole('textbox', { name: 'Left indent in pt' }).fill('6')
+  await options.getByRole('textbox', { name: 'Left indent in pt' }).press('Enter')
   await choose(options.getByRole('combobox', { name: 'Position' }), 'Superscript')
   await options.getByRole('textbox', { name: 'Baseline shift in pt' }).fill('-2')
   await options.getByRole('textbox', { name: 'Baseline shift in pt' }).press('Enter')
@@ -70,6 +72,7 @@ test('case, decoration, indent and OpenType features are set in the type options
   await expect(options.getByRole('combobox', { name: 'Case' })).toHaveText('Upper case')
   await expect(options.getByRole('combobox', { name: 'Decoration' })).toHaveText('Underline')
   await expect(options.getByRole('textbox', { name: 'Paragraph indent in pt' })).toHaveValue('12')
+  await expect(options.getByRole('textbox', { name: 'Left indent in pt' })).toHaveValue('6')
   await expect(options.getByRole('radio', { name: 'Ligatures off', exact: true })).toBeChecked()
   await expect(options.getByRole('radio', { name: 'Oldstyle figures on' })).toBeChecked()
   await expect(options.getByRole('combobox', { name: 'Position' })).toHaveText('Superscript')
