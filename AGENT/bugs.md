@@ -1,4 +1,3 @@
-10. das settings menü schaut sehr schlecht aus, es soll im selben stil sein wie der rest.
 11. die preflight side bar soll so gelayoutet werden, dass es nicht automatisch horizontal scrollt (nie horizontal)
 12. statt ctrl + \ soll der "preview" modus shortcut shift + w sein
 13. die quickbar soll auch im preflight modus angezeigt werden

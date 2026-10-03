@@ -2736,20 +2736,27 @@ kbd {
 }
 
 .settings {
-  width: min(420px, 92vw);
-  height: auto;
+  width: min(400px, 92vw);
+  height: fit-content;
 }
 
 .settings-body {
   display: grid;
-  gap: 12px;
+  flex: none;
+  gap: 8px;
   padding: 16px 20px 20px;
 }
 
 .settings-row {
   display: grid;
-  grid-template-columns: 1fr 160px;
+  grid-template-columns: 1fr 180px;
   align-items: center;
+  color: var(--text-2);
+}
+
+.settings-body .check {
+  height: 28px;
+  color: var(--text-2);
 }
 
 .help-grid {

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Select } from './controls'
+import { Check, Select } from './controls'
 import { Icon } from './icons'
 import { setSettings, useSettings, type Unit } from './settings'
 
@@ -30,10 +30,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
           Layers
           <Select label="Layers" value={layers} options={{ page: 'Of the page', spread: 'Of the spread' }} onChange={(l) => setSettings({ layers: l })} />
         </div>
-        <label className="check">
-          <input type="checkbox" checked={quickEdit} onChange={(e) => setSettings({ quickEdit: e.currentTarget.checked })} />
-          Quick edit bar above the selection
-        </label>
+        <Check label="Quick edit bar above the selection" value={quickEdit} set={(quickEdit) => setSettings({ quickEdit })} />
       </div>
     </dialog>
   )
