@@ -12,7 +12,7 @@ use crate::style::{
 };
 use crate::text::{
     self, Attrs, Lang, PARAGRAPH, Position, STYLED, Span, TextAlign, TextCase, TextDecoration,
-    TextFrame, TextStyle, Typeface, VerticalAlign,
+    TextFrame, TextStyle, Typeface, VerticalAlign, Wrap,
 };
 use crate::variable::{Collection, Mode, Modes, Palette, Scope, Value, Variable};
 pub use boolean::BooleanOp;
@@ -444,6 +444,8 @@ pub struct Props {
     pub baseline_start: Option<f64>,
     pub max_lines: Option<u32>,
     pub trim: Option<bool>,
+    pub wrap: Option<Wrap>,
+    pub wrap_offset: Option<f64>,
 }
 
 impl Props {
@@ -488,6 +490,7 @@ impl Props {
         }
         within(self.columns.map(f64::from), 1.0, 20.0, "columns")?;
         within(self.gutter, 0.0, f64::MAX, "gutter")?;
+        within(self.wrap_offset, 0.0, f64::MAX, "wrap offset")?;
         within(self.baseline_grid, 0.0, f64::MAX, "baseline grid")?;
         within(self.baseline_start, 0.0, f64::MAX, "baseline start")?;
         within(self.max_lines.map(f64::from), 0.0, 1000.0, "max lines")?;
@@ -3799,6 +3802,30 @@ mod tests {
         assert!(set_frame(&mut d, 1.0, -1.0).is_err());
         set_frame(&mut d, 10.0, 0.0).unwrap();
         assert_eq!(frame(&page(&d).children[0]), [-5.0, 0.0, 10.0, 0.01 * MM]);
+    }
+
+    #[test]
+    fn text_wraps_around_a_layer_above_it_with_its_offset() {
+        let (mut d, p) = empty();
+        let t = text(&mut d, "Hi");
+        set_frame(&mut d, &t, [0.0, 0.0, 400.0, 400.0]);
+        let r = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 200.0, 50.0]);
+        let wrap = |wrap| Props {
+            wrap: Some(wrap),
+            wrap_offset: Some(10.0),
+            ..Props::default()
+        };
+        set(&mut d, &r, wrap(Wrap::Around));
+        assert!(close(first_glyph(&d)[0].into(), 210.0));
+        set(&mut d, &r, wrap(Wrap::Jump));
+        assert!(close(first_glyph(&d)[0].into(), 0.0));
+        assert!(first_glyph(&d)[1] > 60.0);
+        d.apply(Command::Order {
+            ids: vec![t],
+            to: Order::Front,
+        })
+        .unwrap();
+        assert!(first_glyph(&d)[1] < 20.0);
     }
 
     #[test]

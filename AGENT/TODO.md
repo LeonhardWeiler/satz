@@ -38,4 +38,3 @@ Open:
 ## Later
 
 - Threading: click an in-port to thread a frame in before another, as InDesign does. (versteh ich nicht ganz bitte erklären bevor es umgesetzt wird)
-- Text wrap around layers, with an offset, for text frames under images and shapes.

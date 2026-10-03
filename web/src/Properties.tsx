@@ -5,7 +5,7 @@ import { bounds, ends, MM, scopeOf, useEditor, type Editor } from './editor'
 import { Icon, KindIcon } from './icons'
 import { FORMATS, ORIENTATIONS } from './Start'
 import { addFonts, canFindFonts, findFonts, pickProfile, readLocalFonts, removeFont, useLocalFonts } from './file'
-import type { Bindable as Prop, Blend, Constraint, Command, Grid, LineStyle, Node, Page, Props, Section as Numbers } from './model'
+import type { Bindable as Prop, Blend, Constraint, Command, Grid, LineStyle, Node, Page, Props, Section as Numbers, Wrap } from './model'
 import { isOpen, radiusOf } from './model'
 import { AlignBar, BooleanBar, combinable } from './align'
 import { AutoLayout, flows, Sizing } from './AutoLayout'
@@ -13,6 +13,7 @@ import { EffectList, PaintList } from './Paints'
 import { TextFrameSection, TextSection, TextStyles } from './Text'
 import { Bindable, ModeSelects, Variables } from './Variables'
 
+const WRAPS: Record<Wrap, string> = { none: 'No text wrap', around: 'Wrap around', jump: 'Jump over' }
 const BLENDS: Record<Blend, string> = {
   normal: 'Normal', multiply: 'Multiply', screen: 'Screen', overlay: 'Overlay', darken: 'Darken',
   lighten: 'Lighten', colorDodge: 'Color dodge', colorBurn: 'Color burn', hardLight: 'Hard light',
@@ -329,6 +330,10 @@ export function Properties({
               <Field label="" title="Opacity" unit="%" max={100} value={same((n) => n.opacity * 100)} onCommit={(v) => set({ opacity: v / 100 })} />,
             )}
             <Select label="Blend mode" value={same((n) => n.blend)} options={BLENDS} onChange={(blend) => set({ blend })} />
+            <Select label="Text wrap" value={same((n) => n.wrap)} options={WRAPS} onChange={(wrap) => set({ wrap })} />
+            {nodes.some((n) => n.wrap !== 'none') && (
+              <Field label="" title="Text wrap offset" unit="length" value={same((n) => n.wrapOffset)} onCommit={(v) => set({ wrapOffset: Math.max(0, v) })} />
+            )}
             {one?.kind === 'frame' && (
               <ModeSelects editor={editor} id={one.id} own={one.modes} inherited={editor.nodes.get(one.id)?.parent?.activeModes ?? page.modes} />
             )}

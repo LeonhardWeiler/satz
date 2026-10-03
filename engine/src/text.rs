@@ -484,6 +484,17 @@ pub enum VerticalAlign {
     Bottom,
 }
 
+/// How the text of the text layers under a layer flows around it: beside it, or on
+/// above and below it.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Wrap {
+    #[default]
+    None,
+    Around,
+    Jump,
+}
+
 /// How a text layer sets its text: insets and gutter in pt, columns of equal width,
 /// and baselines on a grid of `baseline_grid` pt from `baseline_start` below the top
 /// inset; a grid of 0 is off.
@@ -506,6 +517,10 @@ pub struct TextFrame {
     /// What a page number marker stands for: the number of the page the text is on.
     #[serde(skip)]
     pub number: String,
+    /// Areas the text keeps out of, [x0, y0, x1, y1] from the frame's top left, and
+    /// whether lines jump over one instead of running beside it.
+    #[serde(skip)]
+    pub wrap: Vec<([f32; 4], bool)>,
 }
 
 impl Default for TextFrame {
@@ -523,6 +538,7 @@ impl Default for TextFrame {
             max_lines: 0,
             trim: false,
             number: String::new(),
+            wrap: Vec::new(),
         }
     }
 }
@@ -800,11 +816,34 @@ fn set(
 ) -> (Placed, Option<usize>) {
     let (inner, cw) = columns(frame, tf);
     let room = (inner[3] + 0.01) * tf.columns.max(1) as f32;
-    let rows = rows(text, spans, Some(cw), from, tf, room).0;
-    let starts: Vec<usize> = rows.iter().map(|r| r.stops[0].0).collect();
-    let placed = place(rows, inner, cw, tf);
+    let (placed, starts) = wrapped(text, spans, from, tf, room, inner, cw);
     let rest = starts.get(placed.placed).copied();
     (placed, rest)
+}
+
+/// The text from the byte `from` broken into lines and placed in `inner`, with the
+/// byte each line starts at. Lines beside the areas of `tf.wrap` are broken again to
+/// the room the areas leave them until the lines stay where they are.
+fn wrapped(
+    text: &str,
+    spans: &[Span],
+    from: usize,
+    tf: &TextFrame,
+    room: f32,
+    inner: [f32; 4],
+    cw: f32,
+) -> (Placed, Vec<usize>) {
+    let (mut insets, mut tries) = (Vec::new(), 0);
+    loop {
+        let rows = rows(text, spans, Some(cw), from, tf, room, &insets).0;
+        let starts: Vec<usize> = rows.iter().map(|r| r.stops[0].0).collect();
+        let placed = place(rows, inner, cw, tf);
+        tries += 1;
+        if tf.wrap.is_empty() || placed.insets == insets || tries == 8 {
+            return (placed, starts);
+        }
+        insets = placed.insets;
+    }
 }
 
 /// The frame size [w, h] that `text` from the byte `from` needs at the width `w`, or
@@ -821,38 +860,54 @@ pub fn measure(
         (tf.inset_top + tf.inset_bottom) as f32,
     );
     let n = tf.columns.max(1) as f32;
+    let wrap = if w.is_some() {
+        tf.wrap.clone()
+    } else {
+        Vec::new()
+    };
     let (rows, cw, w) = match w {
         Some(w) => {
             let (_, cw) = columns([0.0, 0.0, w, 0.0], tf);
             (
-                rows(text, spans, Some(cw), from, tf, f32::INFINITY).0,
+                rows(text, spans, Some(cw), from, tf, f32::INFINITY, &[]).0,
                 cw,
                 w,
             )
         }
         None => {
-            let (rows, natural) = rows(text, spans, None, from, tf, f32::INFINITY);
+            let (rows, natural) = rows(text, spans, None, from, tf, f32::INFINITY, &[]);
             let cw = ceil(natural);
             (rows, cw, n * cw + (n - 1.0) * tf.gutter as f32 + h_in)
         }
     };
     let top = tf.inset_top as f32;
+    // The text placed in columns `ih` high, and whether all of it fits.
     let fit = |ih: f32, columns: u32| {
         let tf = TextFrame {
             columns,
             vertical_align: VerticalAlign::Top,
+            wrap: wrap.clone(),
             ..tf.clone()
         };
-        place(rows.clone(), [0.0, top, cw, ih], cw, &tf)
+        let inner = [tf.inset_left as f32, top, cw, ih];
+        if wrap.is_empty() {
+            let placed = place(rows.clone(), inner, cw, &tf);
+            let all = placed.placed == rows.len();
+            (placed, all)
+        } else {
+            let (placed, starts) = wrapped(text, spans, from, &tf, f32::INFINITY, inner, cw);
+            let all = placed.placed == starts.len();
+            (placed, all)
+        }
     };
-    let one = fit(f32::MAX, 1).bottom - top;
+    let one = fit(f32::MAX, 1).0.bottom - top;
     let ih = if tf.columns <= 1 {
         one
     } else {
         let (mut lo, mut hi) = (0.0, one);
         for _ in 0..30 {
             let mid = (lo + hi) / 2.0;
-            if fit(mid, tf.columns).placed == rows.len() {
+            if fit(mid, tf.columns).1 {
                 hi = mid;
             } else {
                 lo = mid;
@@ -911,7 +966,8 @@ struct Para {
 /// The lines of `text` from the byte `from`, a line start, broken to the column width
 /// `cw`, or each paragraph on one line when `None`; and the width of the widest
 /// paragraph set on one line. A page number marker is set as `number`. Paragraphs
-/// stop once their lines need more than `room` in height.
+/// stop once their lines need more than `room` in height. Row `i` is moved in by
+/// `insets[i]` from the left and the right.
 fn rows(
     text: &str,
     spans: &[Span],
@@ -919,6 +975,7 @@ fn rows(
     from: usize,
     tf: &TextFrame,
     room: f32,
+    insets: &[[f32; 2]],
 ) -> (Vec<Row>, f32) {
     let number = &tf.number;
     let ids: Vec<u32> = spans.iter().map(|s| font_id(&s.attrs.font)).collect();
@@ -1046,11 +1103,18 @@ fn rows(
                       }: Para,
                       cw: f32,
                       rows: &mut Vec<Row>| {
-        let widths: Vec<f32> = left.iter().map(|l| (cw - l).max(0.0)).collect();
         let set = rows.len();
+        let inset = |i: usize| insets.get(set + i).copied().unwrap_or_default();
+        let n = left.len().max(insets.len().saturating_sub(set));
+        let widths: Vec<f32> = (0..=n)
+            .map(|i| {
+                let [l, r] = if i < n { inset(i) } else { [0.0; 2] };
+                (cw - left[i.min(left.len() - 1)] - l - r).max(0.0)
+            })
+            .collect();
         let mut from = 0;
         for (i, (end, r)) in break_lines(&items, &widths).into_iter().enumerate() {
-            let (left, cw) = (left[i.min(left.len() - 1)], widths[i.min(left.len() - 1)]);
+            let (left, cw) = (left[i.min(left.len() - 1)] + inset(i)[0], widths[i.min(n)]);
             let line_start = if from == 0 { start } else { clusters[from] };
             while from < end && !matches!(items[from], Item::Box(_)) {
                 from += 1;
@@ -1434,8 +1498,15 @@ fn rows(
 }
 
 /// `rows` placed in columns `cw` wide in the box `[ix, iy, _, ih]` inside the
-/// insets, as many as fit.
+/// insets, as many as fit. A row beside an area of `tf.wrap` takes the widest room
+/// the areas leave it, and moves down past them when that is less than 4 lines high.
 fn place(rows: Vec<Row>, [ix, iy, _, ih]: [f32; 4], cw: f32, tf: &TextFrame) -> Placed {
+    let (ox, oy) = (ix - tf.inset_left as f32, iy - tf.inset_top as f32);
+    let areas: Vec<([f32; 4], bool)> = tf
+        .wrap
+        .iter()
+        .map(|&([x0, y0, x1, y1], jump)| ([ox + x0, oy + y0, ox + x1, oy + y1], jump))
+        .collect();
     let n = tf.columns.max(1);
     let gutter = tf.gutter as f32;
     let (grid, grid_top) = (tf.baseline_grid as f32, iy + tf.baseline_start as f32);
@@ -1446,6 +1517,7 @@ fn place(rows: Vec<Row>, [ix, iy, _, ih]: [f32; 4], cw: f32, tf: &TextFrame) -> 
     let bottom = iy + ih + 0.01;
     let mut lines: Vec<Vec<Glyph>> = Vec::new();
     let mut geometry: Vec<Line> = Vec::new();
+    let mut insets: Vec<[f32; 2]> = Vec::new();
     let mut columns: Vec<(usize, f32)> = Vec::new();
     let (mut col, mut top, mut i, mut first) = (0, iy, 0, 0);
     while let Some(row) = rows.get(i) {
@@ -1456,6 +1528,33 @@ fn place(rows: Vec<Row>, [ix, iy, _, ih]: [f32; 4], cw: f32, tf: &TextFrame) -> 
         };
         let below = if tf.trim { 0.0 } else { row.below };
         let baseline = snap(top + above);
+        let cx = ix + col as f32 * (cw + gutter);
+        let (band, end) = ([baseline - row.above, baseline + row.below], cx + cw);
+        let hit: Vec<_> = areas
+            .iter()
+            .filter(|(a, _)| a[1] < band[1] && a[3] > band[0] && a[0] < end && a[2] > cx)
+            .collect();
+        let mut room = vec![[cx, end]];
+        for (a, _) in &hit {
+            room = room
+                .into_iter()
+                .flat_map(|[l, r]| [[l, r.min(a[0])], [l.max(a[2]), r]])
+                .filter(|[l, r]| r > l)
+                .collect();
+        }
+        let [l, r] = room
+            .into_iter()
+            .max_by(|a, b| (a[1] - a[0]).total_cmp(&(b[1] - b[0])))
+            .unwrap_or([cx, cx]);
+        let ends = |jump: bool| hit.iter().filter(move |h| h.1 || !jump).map(|h| h.0[3]);
+        if hit.iter().any(|h| h.1) {
+            top += ends(true).fold(band[0], f32::max) - band[0];
+            continue;
+        }
+        if !hit.is_empty() && r - l < 4.0 * (row.above + row.below) {
+            top += ends(false).fold(f32::INFINITY, f32::min) - band[0];
+            continue;
+        }
         if baseline + below > bottom {
             let mut j = i;
             while j > first && rows[j - 1].keep {
@@ -1464,6 +1563,7 @@ fn place(rows: Vec<Row>, [ix, iy, _, ih]: [f32; 4], cw: f32, tf: &TextFrame) -> 
             if j > first {
                 lines.truncate(j);
                 geometry.truncate(j);
+                insets.truncate(j);
                 columns[col as usize].1 =
                     geometry[j - 1].bottom - if tf.trim { rows[j - 1].below } else { 0.0 };
                 i = j;
@@ -1478,14 +1578,14 @@ fn place(rows: Vec<Row>, [ix, iy, _, ih]: [f32; 4], cw: f32, tf: &TextFrame) -> 
         if columns.len() <= col as usize {
             columns.push((lines.len(), 0.0));
         }
-        let cx = ix + col as f32 * (cw + gutter);
+        insets.push([l - cx, end - r]);
         geometry.push(Line {
             start: row.stops[0].0,
             end: row.stops.last().unwrap().0,
             top: baseline - row.above,
             bottom: baseline + row.below,
-            left: cx,
-            right: cx + cw,
+            left: l,
+            right: r,
             stops: row.stops.iter().map(|&(b, x)| (b, cx + x)).collect(),
         });
         lines.push(
@@ -1524,15 +1624,18 @@ fn place(rows: Vec<Row>, [ix, iy, _, ih]: [f32; 4], cw: f32, tf: &TextFrame) -> 
     Placed {
         placed: lines.len(),
         geometry,
+        insets,
         bottom: columns.iter().map(|c| c.1).fold(iy, f32::max),
         lines,
     }
 }
 
 /// The lines that fit, how many of the rows that is, and the lowest line bottom.
+/// Each line is moved in by its `insets` from the left and right of its column.
 struct Placed {
     lines: Vec<Vec<Glyph>>,
     geometry: Vec<Line>,
+    insets: Vec<[f32; 2]>,
     placed: usize,
     bottom: f32,
 }
@@ -2242,6 +2345,32 @@ mod tests {
         let b = baselines("Hi Hi Hi", [0.0, 0.0, 100.0, 50.0], tf);
         assert_eq!(b.len(), 2);
         assert_close(&b[0], &[5.0, 3.0 + ASCENT]);
+    }
+
+    #[test]
+    fn lines_beside_a_wrapped_area_run_in_the_room_it_leaves() {
+        let tf = TextFrame {
+            wrap: vec![([0.0, 0.0, 40.0, 2.0 * AUTO - 1.0], false)],
+            ..TextFrame::default()
+        };
+        let b = baselines(&"Hi ".repeat(20), [0.0, 0.0, 100.0, 100.0], tf);
+        assert_close(&[b[0][0], b[1][0], b[2][0]], &[40.0, 40.0, 0.0]);
+        assert_close(&[b[0][1]], &[ASCENT]);
+    }
+
+    #[test]
+    fn lines_move_below_an_area_they_jump_or_that_leaves_too_little_room() {
+        for (area, jump) in [
+            ([30.0, 0.0, 60.0, 20.0], true),
+            ([10.0, 0.0, 100.0, 20.0], false),
+        ] {
+            let tf = TextFrame {
+                wrap: vec![(area, jump)],
+                ..TextFrame::default()
+            };
+            let b = baselines("Hi Hi", [0.0, 0.0, 100.0, 100.0], tf);
+            assert_close(&b[0], &[0.0, 20.0 + ASCENT]);
+        }
     }
 
     #[test]

@@ -152,6 +152,9 @@ pub struct Node {
     pub locked: bool,
     /// Degrees counterclockwise around the centre, with its children.
     pub rotation: f64,
+    /// How the text of the text layers under it flows around it, `wrap_offset` pt away.
+    pub wrap: Wrap,
+    pub wrap_offset: f64,
     #[serde(flatten)]
     pub style: Style,
     #[serde(flatten)]
@@ -880,13 +883,65 @@ impl Doc {
         layers
     }
 
-    /// How the text layer `n` sets its text, with the number of the page it is on.
+    /// How the text layer `n` sets its text, with the number of the page it is on and
+    /// the layers above it on the page it wraps around.
     pub(super) fn text_frame_of(&self, n: TreeID) -> TextFrame {
         let v = serde_json::to_value(self.meta(n).get_deep_value()).unwrap_or_default();
         TextFrame {
             number: self.number(self.root(n)),
+            wrap: self.wrap_of(n),
             ..serde_json::from_value(v).unwrap_or_default()
         }
+    }
+
+    /// The areas of the shown layers above the text layer `n` that its text wraps
+    /// around, in its frame from its top left; auto width text wraps around none.
+    fn wrap_of(&self, n: TreeID) -> Vec<([f32; 4], bool)> {
+        fn shown(d: &Doc, id: TreeID, out: &mut Vec<TreeID>) {
+            if value(&d.meta(id), "hidden") != Some(true.into()) {
+                out.push(id);
+                d.children(id).into_iter().for_each(|c| shown(d, c, out));
+            }
+        }
+        if self.layout(n).sizing.horizontal == Size::Hug {
+            return Vec::new();
+        }
+        let mut all = Vec::new();
+        shown(self, self.root(n), &mut all);
+        let Some(i) = all.iter().position(|&id| id == n) else {
+            return Vec::new();
+        };
+        let back = geom::invert(self.turn(n));
+        let [fx, fy, ..] = self.bounds(n);
+        all[i + 1..]
+            .iter()
+            .filter_map(|&id| {
+                let m = self.meta(id);
+                let jump = match value(&m, "wrap")?.into_string().ok()?.as_str() {
+                    "around" => false,
+                    "jump" => true,
+                    _ => return None,
+                };
+                let d = num(&m, "wrapOffset");
+                let [x, y, w, h] = self.bounds(id);
+                let turn = self.turn(id);
+                let corners = [[x, y], [x + w, y], [x, y + h], [x + w, y + h]]
+                    .map(|p| geom::apply(back, geom::apply(turn, p)));
+                let [x0, y0, x1, y1] = corners.iter().fold(
+                    [
+                        f64::INFINITY,
+                        f64::INFINITY,
+                        f64::NEG_INFINITY,
+                        f64::NEG_INFINITY,
+                    ],
+                    |[a, b, c, e], &[px, py]| [a.min(px), b.min(py), c.max(px), e.max(py)],
+                );
+                Some((
+                    [x0 - d - fx, y0 - d - fy, x1 + d - fx, y1 + d - fy].map(|v| v as f32),
+                    jump,
+                ))
+            })
+            .collect()
     }
 
     /// What a page number on the page or master `root` shows: the page's number, or
@@ -1079,6 +1134,8 @@ impl Doc {
             hidden: v["hidden"] == true,
             locked: v["locked"] == true,
             rotation: v["rotation"].as_f64().unwrap_or(0.0),
+            wrap: serde_json::from_value(v["wrap"].clone()).unwrap_or_default(),
+            wrap_offset: v["wrapOffset"].as_f64().unwrap_or(0.0),
             ppi: style
                 .fills
                 .iter()

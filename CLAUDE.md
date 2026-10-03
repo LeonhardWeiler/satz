@@ -51,3 +51,5 @@ Node 22, pnpm, MuPDF (`mutool`, for the PDF tests) and
   incremental update. RGB X-4 pages blend in an sRGB group, CMYK documents blend in
   CMYK, on the canvas too (plates and a LUT of the profile in `renderer.ts`).
 - Deleted nodes move under a `trash` root so that undo restores them with their ids.
+- A text frame wraps around the shown layers above it on its page whose `wrap` is
+  set (`around` or `jump`, `wrapOffset` pt away); auto width text does not wrap.
