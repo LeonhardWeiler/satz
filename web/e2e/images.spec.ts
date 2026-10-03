@@ -110,3 +110,14 @@ test('the fit menu sizes the frame to its image', async ({ page }) => {
   await page.getByRole('menuitem', { name: 'Frame to image' }).click()
   await expect(height).toHaveValue('25.4')
 })
+
+test('a layer that keeps its aspect ratio changes its height with its width', async ({ page }) => {
+  await open(page)
+  await place(page, red(600, 300))
+  const properties = page.getByRole('complementary', { name: 'Properties' })
+  await properties.getByRole('checkbox', { name: 'Keep aspect ratio' }).check()
+  const width = properties.getByRole('textbox', { name: 'W in mm' })
+  await width.fill('101.6')
+  await width.press('Enter')
+  await expect(properties.getByRole('textbox', { name: 'H in mm' })).toHaveValue('50.8')
+})

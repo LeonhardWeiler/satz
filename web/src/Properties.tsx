@@ -84,7 +84,10 @@ export function Properties({
     })
   }
   const frame = (key: 'x' | 'y' | 'w' | 'h') => (v: number) =>
-    each((n) => ({ type: 'setFrame', id: n.id, x: n.x, y: n.y, w: n.w, h: n.h, [key]: v }))
+    each((n) => {
+      const by = n.keepRatio && (key === 'w' || key === 'h') && n[key] ? v / n[key] : 1
+      return { type: 'setFrame', id: n.id, x: n.x, y: n.y, w: n.w * by, h: n.h * by, [key]: v }
+    })
 
   const one = nodes.length === 1 ? nodes[0] : undefined
   const ids = snapshot.pages.map((p) => p.id)
@@ -261,6 +264,9 @@ export function Properties({
             )}
             {!line && nodes.every((n) => n.kind !== 'group') && (
               <Field label="∠" title="Rotation" unit="°" min={-Infinity} reset={0} value={same((n) => n.rotation)} onCommit={(v) => set({ rotation: ((v % 360) + 360) % 360 })} />
+            )}
+            {!line && nodes.length > 0 && (
+              <Check label="Keep aspect ratio" value={same((n) => n.keepRatio)} set={(keepRatio) => set({ keepRatio })} />
             )}
             {one?.kind === 'frame' && (
               <label className="check">

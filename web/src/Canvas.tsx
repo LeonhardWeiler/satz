@@ -1066,7 +1066,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           d.x += snap([...edge('w', b.x + d.x), ...edge('e', b.x + b.w + d.x)], snaps.lines.x, SNAP / view.zoom)
           d.y += snap([...edge('n', b.y + d.y), ...edge('s', b.y + b.h + d.y)], snaps.lines.y, SNAP / view.zoom)
         }
-        const turned = resized(b, h, d, e, drag.frames.map((n) => spun(placed(n), -own)))
+        const turned = resized(b, h, d, { altKey: e.altKey, shiftKey: e.shiftKey || drag.frames.some((n) => n.keepRatio) }, drag.frames.map((n) => spun(placed(n), -own)))
         const boxes = turned.map((f) => spun(f, own))
         const r = bounds(turned)
         snapped = free && !drag.turn ? guides(r, snaps.lines, [...edge('w', r.x), ...edge('e', r.x + r.w)], [...edge('n', r.y), ...edge('s', r.y + r.h)]) : []

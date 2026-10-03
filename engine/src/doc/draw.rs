@@ -150,6 +150,8 @@ pub struct Node {
     pub hidden: bool,
     /// Not hit on the canvas, with its children.
     pub locked: bool,
+    /// Its width and height change together.
+    pub keep_ratio: bool,
     /// Degrees counterclockwise around the centre, with its children.
     pub rotation: f64,
     /// How the text of the text layers under it flows around it, `wrap_offset` pt away.
@@ -1133,6 +1135,7 @@ impl Doc {
             override_of: v[OVERRIDE_OF].as_str().map(String::from),
             hidden: v["hidden"] == true,
             locked: v["locked"] == true,
+            keep_ratio: v["keepRatio"] == true,
             rotation: v["rotation"].as_f64().unwrap_or(0.0),
             wrap: serde_json::from_value(v["wrap"].clone()).unwrap_or_default(),
             wrap_offset: v["wrapOffset"].as_f64().unwrap_or(0.0),

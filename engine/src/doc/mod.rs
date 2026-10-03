@@ -397,6 +397,7 @@ pub struct Props {
     pub name: Option<String>,
     pub hidden: Option<bool>,
     pub locked: Option<bool>,
+    pub keep_ratio: Option<bool>,
     pub rotation: Option<f64>,
     pub clip: Option<bool>,
     pub radius: Option<f32>,
