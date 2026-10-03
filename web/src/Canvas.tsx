@@ -234,7 +234,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     const guideAt = (p: Point) => {
       if (!editor.grids || editor.preflight) return undefined
       for (const s of editor.sheets) {
-        if (p.x < s.x || p.x > s.x + s.width || p.y < 0 || p.y > s.height) continue
         for (const axis of ['x', 'y'] as const) {
           const index = s.guides[axis].findIndex((g) => Math.abs((axis === 'x' ? s.x + g : g) - p[axis]) < HIT / view.zoom)
           if (index >= 0) return { axis, id: s.id, dx: s.x, index }
@@ -378,6 +377,12 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     }
 
     /** Ports of the selected text frame; over a port, the lines of its thread on this spread and the frame the port links to. */
+    const guideOf = () => {
+      const g = editor.guide
+      const s = editor.sheets.find((s) => s.id === g?.id)
+      const at = g ? s?.guides[g.axis][g.index] : undefined
+      return g && s && at !== undefined ? (g.axis === 'x' ? { x: s.x + at } : { y: at }) : undefined
+    }
     const threadOverlay = () => {
       const p = drag ? undefined : ports()
       if (!p) return {}
@@ -455,6 +460,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         pen: pen && { anchors: pen.anchors.map((a) => ({ ...a, x: a.x + penDx })), cursor: drag ? undefined : cursor },
         insert: insert as [Point, Point] | undefined,
         grids: editor.grids && !editor.preflight,
+        guide: guideOf(),
         vector: vector(),
         ...threadOverlay(),
       }, editor.snapshot.colorMode === 'cmyk', editor.preflight ? editor.inks.on : 15)
@@ -684,6 +690,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         return
       }
       const guide = editor.tool === 'move' && !editor.vector && guideAt(p)
+      editor.set(guide ? { guide: { id: guide.id, axis: guide.axis, index: guide.index }, selection: [] } : { guide: null })
       if (guide) {
         drag = { kind: 'guide', ...guide, grouped: false }
         return
@@ -906,6 +913,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         const rest = guides[g.axis].filter((_, i) => i !== g.index)
         editor.apply({ type: 'setGuides', id: g.id, guides: { ...guides, [g.axis]: off ? rest : [...rest, g.axis === 'x' ? p.x - g.dx : p.y] } })
         g.index = off ? -1 : rest.length
+        editor.set({ guide: off ? null : { id: g.id, axis: g.axis, index: g.index } })
         return
       }
       if (drag.kind === 'text') {

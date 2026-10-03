@@ -1,4 +1,3 @@
-6. rulers, wenn die runtergezogen werden sollen über den ganzen sichtbaren canvas angezeigt werden und auch dragbar außerhalb der page. man soll sie auch aus oder abwählen klicken (durch wegklicken) und dann auch mit entf löschen können
 7. in dem preview modus sollen bei den pages die leiste oben wo "Pages" steht und dann columns +/- immer angezeigt werden, denn gerade ist das nur wenn man nach oben gescrollt ist
 8. auf den master seiten sehe ich auf der linken seite nur die linie zur mitte. und nicht nach oben, links, unten
 9. das select all glyphs feld sollte immer öfnen bar sein und keinen horizontalen scroll haben, sondern die passende größe haben, dass das nicht passiert

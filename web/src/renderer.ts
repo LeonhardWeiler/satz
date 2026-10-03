@@ -35,8 +35,10 @@ export type Overlay = {
   ports?: readonly { x: number; y: number; state: 'threaded' | 'overset' | 'open' }[]
   /** The knots of the path being edited and the one picked. */
   vector?: { contours: Contour[]; at: At | null }
-  /** Show the layout grids of the pages. */
+  /** Show the layout grids and guides of the pages. */
   grids?: boolean
+  /** The picked guide: a vertical one at `x` or a horizontal one at `y`. */
+  guide?: { x: number } | { y: number }
   /** Lines in screen space from each frame of a thread to the next. */
   threads?: [{ x: number; y: number }, { x: number; y: number }][]
 }
@@ -67,6 +69,7 @@ const BLEED = [56, 174, 224, 0.45] as const
 const CROP = [128, 131, 139, 1] as const
 const GRID = [255, 72, 72, 0.12] as const
 const GUIDE = [0, 170, 255, 0.9] as const
+const FAR = 1e5
 const OVERSET = '#ff6b5e'
 const BLENDS = [
   'SrcOver', 'Multiply', 'Screen', 'Overlay', 'Darken', 'Lighten', 'ColorDodge', 'ColorBurn',
@@ -217,11 +220,17 @@ export class Renderer {
           }
         }
       }
+      const line = (g: { x: number } | { y: number }) => ('x' in g ? canvas.drawLine(g.x, -FAR, g.x, FAR, paint) : canvas.drawLine(-FAR, g.y, FAR, g.y, paint))
       paint.setColor(ck.Color(...GUIDE))
       paint.setStyle(ck.PaintStyle.Stroke)
       for (const s of sheets) {
-        for (const x of s.guides?.x ?? []) canvas.drawLine(s.x + x, 0, s.x + x, s.height, paint)
-        for (const y of s.guides?.y ?? []) canvas.drawLine(s.x, y, s.x + s.width, y, paint)
+        for (const x of s.guides?.x ?? []) line({ x: s.x + x })
+        for (const y of s.guides?.y ?? []) line({ y })
+      }
+      if (overlay.guide) {
+        paint.setColor(ck.parseColorString(overlay.accent))
+        paint.setStrokeWidth(2 / view.zoom)
+        line(overlay.guide)
       }
     }
     for (const { ops, x } of overlay?.text ?? []) {

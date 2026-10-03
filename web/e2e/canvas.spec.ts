@@ -420,6 +420,38 @@ test('a guide dragged out of the ruler shows on the page, layers snap to it and 
   expect(await blue()).toBe(false)
 })
 
+test('a guide runs across the canvas, is picked and dragged beside the page and delete removes it', async ({ page }) => {
+  await open(page)
+  const ruler = (await page.locator('.ruler-x').boundingBox())!
+  const [x, y] = await screen(page, 100, 50)
+  const [ox] = await screen(page, -10, 50)
+  const blue = async (at: number, by = y) => {
+    const shown = await colors(page, [-1, 0, 1].map((d) => [at, Math.round(by) + d] as const))
+    return shown.some(([r, , b]) => b > r)
+  }
+  await drag(page, [x, ruler.y + ruler.height / 2], [x, y])
+  await page.mouse.move(1, 1)
+  expect(await blue(ox)).toBe(true)
+
+  const [, y2] = await screen(page, 0, 60)
+  await drag(page, [ox, y], [ox, y2])
+  await page.mouse.move(1, 1)
+  expect(await blue(x, y2)).toBe(true)
+  expect(await blue(x)).toBe(false)
+  await page.keyboard.press('Delete')
+  await page.mouse.move(1, 1)
+  expect(await blue(x, y2)).toBe(false)
+
+  await page.keyboard.press('Control+z')
+  await page.mouse.move(1, 1)
+  expect(await blue(x, y2)).toBe(true)
+  await page.mouse.click(ox, y2)
+  await page.mouse.click(ox, y2 + 80)
+  await page.keyboard.press('Delete')
+  await page.mouse.move(1, 1)
+  expect(await blue(x, y2)).toBe(true)
+})
+
 test('a stroke runs dashed', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })

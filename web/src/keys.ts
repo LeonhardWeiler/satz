@@ -59,7 +59,7 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
   else if (e.key === 'Escape') {
     if (editor.tool !== 'move') editor.setTool('move')
     else if (!ids.length && editor.master) editor.exitMaster()
-    else editor.set({ selection: one?.parent ? [one.parent.id] : [] })
+    else editor.set({ selection: one?.parent ? [one.parent.id] : [], guide: null })
   } else if (!mod && e.key in JUMPS) {
     const { spreads } = editor.snapshot
     const k = spreads.findIndex((s) => s.includes(editor.pageId))
@@ -70,7 +70,12 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
     const i = list.indexOf(ids[0])
     editor.set({ selection: [list[(i + (e.shiftKey ? -1 : 1) + list.length) % list.length]] })
   } else if (!mod && !e.altKey && e.shiftKey && key === 'g') editor.set({ grids: !editor.grids })
-  else if (!ids.length) return false
+  else if (editor.guide && (e.key === 'Delete' || e.key === 'Backspace')) {
+    const { id, axis, index } = editor.guide
+    const { guides } = editor.sheets.find((s) => s.id === id)!
+    editor.apply({ type: 'setGuides', id, guides: { ...guides, [axis]: guides[axis].toSpliced(index, 1) } })
+    editor.set({ guide: null })
+  } else if (!ids.length) return false
   else if (e.key === 'Delete' || e.key === 'Backspace') editor.apply({ type: 'delete', ids })
   else if (mod && e.altKey && key === 'c') editor.resize(editor.selected(), 'autoFit')
   else if (mod && (key === 'c' || key === 'x') && !e.isTrusted) {
