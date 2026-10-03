@@ -498,7 +498,7 @@ textarea {
 
 .grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -1763,7 +1763,7 @@ kbd {
 .pf-body {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden auto;
 }
 
 .pf-list {
@@ -1773,8 +1773,9 @@ kbd {
 
 .iss {
   display: grid;
-  grid-template-columns: 16px 1fr auto;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
   align-items: start;
+  overflow-wrap: anywhere;
   gap: 8px;
   padding: 7px 8px;
   border: 0;
@@ -1807,8 +1808,7 @@ kbd {
 }
 
 .iss-w,
-.plate-max,
-.pf-note {
+.plate-max {
   color: var(--text-3);
   white-space: nowrap;
 }
@@ -1827,7 +1827,7 @@ kbd {
 
 .plates {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 6px;
 }
 
@@ -1840,6 +1840,14 @@ kbd {
   border-radius: 6px;
   background: var(--input);
   box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.plate span:first-of-type {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .plate input {

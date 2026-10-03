@@ -81,6 +81,7 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
   const issues = useEditor(editor, (e) => e.snapshot.preflight)
   const pages = useEditor(editor, (e) => e.snapshot.pages)
   const masters = useEditor(editor, (e) => e.snapshot.masters)
+  const profile = useEditor(editor, (e) => e.snapshot.profile) ?? 'FOGRA51'
   const selection = useEditor(editor, (e) => e.selection)
   useSettings()
   const inks = useEditor(editor, (e) => e.inks)
@@ -152,7 +153,7 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
         {colorMode === 'cmyk' && (
           <>
           <Section title="Proof">
-            <p className="pf-note">Simulates print, FOGRA51</p>
+            <p className="pf-note">Simulates print, {profile}</p>
             <label className="check">
               <input type="checkbox" checked={inks.gamut} onChange={(e) => set({ gamut: e.currentTarget.checked })} />
               Mark colours outside the gamut

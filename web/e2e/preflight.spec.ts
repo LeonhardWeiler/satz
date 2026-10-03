@@ -130,3 +130,13 @@ test('preflight in the booklet separates the plates, reports ink over the limit 
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
   await expect(region.getByText(/^\d+ %$/).last()).toBeVisible()
 })
+
+test('the preflight of a cmyk booklet never scrolls sideways', async ({ page }) => {
+  await page.setViewportSize({ width: 1448, height: 1160 })
+  await page.goto('')
+  await page.getByRole('dialog', { name: 'New document' }).getByRole('button', { name: /Satz booklet/ }).click()
+  const region = await preflight(page)
+  await expect(region.getByText(/^max \d+ %$/).first()).toBeVisible({ timeout: 30000 })
+  const body = region.locator('.pf-body')
+  expect(await body.evaluate((b) => b.scrollWidth - b.clientWidth)).toBe(0)
+})
