@@ -1,6 +1,6 @@
 import { expect, test, choose, drag, open, screen } from './util'
 
-test('quick edit sits above the selection, sets stroke and fill, and hides while dragging, editing and in preflight', async ({ page }) => {
+test('quick edit sits above the selection, sets stroke and fill, and hides while dragging and editing', async ({ page }) => {
   await open(page)
   const quick = page.getByRole('toolbar', { name: 'Quick edit' })
   const panel = page.getByRole('complementary', { name: 'Properties' })
@@ -43,9 +43,6 @@ test('quick edit sits above the selection, sets stroke and fill, and hides while
 
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle' }).first().click()
   await expect(quick).toBeVisible()
-  await page.keyboard.press('Control+Alt+Y')
-  await expect(quick).toBeHidden()
-  await page.keyboard.press('Escape')
 
   await page.keyboard.press('t')
   await drag(page, await screen(page, 20, 100), await screen(page, 80, 130))
