@@ -1,4 +1,3 @@
-14. beim bild croppen soll es auch zu der größe des originalen bilds snappen
 15. implement all the points under later in TODO.md
 16. überlege dir für alle elemente noch einmal tief und schlau welche optionen alle sinnvoll und praktisch wären und implementiere sie
 

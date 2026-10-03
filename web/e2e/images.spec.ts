@@ -68,7 +68,7 @@ test('a file that is not an image is not placed and says why', async ({ page }) 
   await expect(page.getByRole('tree', { name: 'Layers' }).getByRole('treeitem', { name: 'notes.png' })).toHaveCount(0)
 })
 
-test('ctrl and the crop button crop an image, a drag moves it in its frame, and the bar adjusts it', async ({ page }) => {
+test('ctrl and the crop button crop an image, a drag moves it in its frame, its edges snap to the image, and the bar adjusts it', async ({ page }) => {
   await open(page)
   await place(page, png('halves.png', 600, 300, (x) => (x < 300 ? [255, 0, 0] : [0, 0, 255])))
   const at = async (x: number) => (await colors(page, [await screen(page, x, 105)]))[0]
@@ -87,6 +87,9 @@ test('ctrl and the crop button crop an image, a drag moves it in its frame, and 
   await expect(properties.getByRole('textbox', { name: 'X in mm' })).toHaveValue('48.6')
   expect(isRed(await at(52))).toBe(false)
   expect(isRed(await at(62))).toBe(true)
+  const mid = Number(await properties.getByRole('textbox', { name: 'Y in mm' }).inputValue()) + 12.7
+  await drag(page, await screen(page, 74, mid), await screen(page, 108.9, mid))
+  await expect(properties.getByRole('textbox', { name: 'W in mm' })).toHaveValue('60.8')
   await page.keyboard.press('Escape')
   await expect(quick.getByTitle('Crop')).toHaveAttribute('aria-pressed', 'false')
 

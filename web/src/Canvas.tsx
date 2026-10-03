@@ -857,7 +857,17 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       if (handle) {
         const frames = editor.selected()
         const [turn, own] = turnOf(frames)
-        drag = { kind: 'resize', start: p, handle, box: bounds(frames.map((n) => spun(placed(n), -own))), frames, snaps: snapsNow(), by: 1, turn, own }
+        const snaps = snapsNow()
+        const image = editor.cropping && frames[0].fills.find((f) => f.type === 'image')
+        if (image) {
+          const [a, b, c, d, tx, ty] = image.transform
+          const { x, y, w, h } = placed(frames[0])
+          const [x0, x1] = [x + w * (tx + Math.min(0, a) + Math.min(0, c)), x + w * (tx + Math.max(0, a) + Math.max(0, c))]
+          const [y0, y1] = [y + h * (ty + Math.min(0, b) + Math.min(0, d)), y + h * (ty + Math.max(0, b) + Math.max(0, d))]
+          snaps.lines.x.push({ at: x0, from: y0, to: y1 }, { at: x1, from: y0, to: y1 })
+          snaps.lines.y.push({ at: y0, from: x0, to: x1 }, { at: y1, from: x0, to: x1 })
+        }
+        drag = { kind: 'resize', start: p, handle, box: bounds(frames.map((n) => spun(placed(n), -own))), frames, snaps, by: 1, turn, own }
         editor.beginGroup()
         return
       }
