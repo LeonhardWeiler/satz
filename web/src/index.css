@@ -888,14 +888,16 @@ textarea {
 
 .glyph-grid {
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
+  grid-template-columns: repeat(8, minmax(0, 1fr));
   max-height: 280px;
-  overflow-y: auto;
+  overflow: hidden auto;
+  scrollbar-gutter: stable;
   font-size: 20px;
 }
 
 .glyph-grid button {
   height: 36px;
+  overflow: hidden;
   border: 0;
   border-radius: 4px;
   background: none;

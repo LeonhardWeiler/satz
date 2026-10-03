@@ -98,6 +98,17 @@ test('the insert character menu and the search of all characters put dashes, quo
   await all.getByRole('textbox', { name: 'Search characters' }).fill('section')
   await all.getByRole('button', { name: 'SECTION SIGN' }).click()
   await expect(page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'a\u2013\u201eb\u00a7', exact: true })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(all).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'a\u2013\u201eb\u00a7', exact: true }).click()
+  await page.getByRole('complementary', { name: 'Properties' }).getByRole('button', { name: 'Insert character' }).click()
+  await page.getByRole('menuitem', { name: 'All characters…' }).click()
+  const grid = all.locator('.glyph-grid')
+  expect(await grid.evaluate((g) => g.scrollWidth - g.clientWidth)).toBe(0)
+  await all.getByRole('textbox', { name: 'Search characters' }).fill('degree')
+  await all.getByRole('button', { name: 'DEGREE SIGN' }).click()
+  await expect(page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'a\u2013\u201eb\u00a7\u00b0', exact: true })).toBeVisible()
 })
 
 test('lorem with a count and tab types that many words of lorem ipsum', async ({ page, context }) => {

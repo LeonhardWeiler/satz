@@ -274,10 +274,15 @@ const CHARACTERS = [
   ['Multiplication', '\u00d7'],
 ] as const
 
-/** Inserts the page number or a character that keyboards lack into the edited text. */
-function Characters({ editor, font }: { editor: Editor; font?: string }) {
+/** Inserts the page number or a character that keyboards lack into the edited text, or at the end of `node`. */
+function Characters({ editor, node, font }: { editor: Editor; node: TextNode; font?: string }) {
   const [at, setAt] = useState<DOMRect | null>(null)
   const [all, setAll] = useState<DOMRect | null>(null)
+  const put = (c: string) => {
+    const end = editor.storyOf(node).text.length
+    if (editor.editing?.id !== node.id) editor.set({ editing: { id: node.id, anchor: end, focus: end } })
+    insert(editor, c)
+  }
   return (
     <>
       <button
@@ -300,16 +305,16 @@ function Characters({ editor, font }: { editor: Editor; font?: string }) {
             label="Insert character"
             onClose={() => setAt(null)}
             items={[
-              ['Page number', () => insert(editor, PAGE_NUMBER), true, undefined, 'Ctrl Alt Shift N'],
+              ['Page number', () => put(PAGE_NUMBER), true, undefined, 'Ctrl Alt Shift N'],
               null,
-              ...CHARACTERS.map(([name, c]): [string, () => void, boolean, undefined, string] => [name, () => insert(editor, c), true, undefined, c.trim() || '␣']),
+              ...CHARACTERS.map(([name, c]): [string, () => void, boolean, undefined, string] => [name, () => put(c), true, undefined, c.trim() || '␣']),
               null,
               ['All characters…', () => setAll(at), true],
             ]}
           />,
           document.body,
         )}
-      {all && createPortal(<Glyphs editor={editor} font={font} at={all} onClose={() => setAll(null)} />, document.body)}
+      {all && createPortal(<Glyphs editor={editor} font={font} at={all} put={put} onClose={() => setAll(null)} />, document.body)}
     </>
   )
 }
@@ -317,7 +322,7 @@ function Characters({ editor, font }: { editor: Editor; font?: string }) {
 const faces = new Set<number>()
 
 /** All characters of the font `font`, found by name, code point or themselves, and inserted on click. */
-function Glyphs({ editor, font, at, onClose }: { editor: Editor; font?: string; at: DOMRect; onClose: () => void }) {
+function Glyphs({ editor, font, at, put, onClose }: { editor: Editor; font?: string; at: DOMRect; put: (c: string) => void; onClose: () => void }) {
   const [query, setQuery] = useState('')
   const [[id, chars]] = useState(() => editor.engine.characters(font) as [number, [number, string][]])
   const family = `satz-font-${id}`
@@ -347,7 +352,7 @@ function Glyphs({ editor, font, at, onClose }: { editor: Editor; font?: string; 
           {shown.map(([c, name]) => {
             const code = `U+${c.toString(16).toUpperCase().padStart(4, '0')}`
             return (
-              <button key={c} type="button" title={`${name} ${code}`.trim()} aria-label={name || code} onMouseDown={(e) => e.preventDefault()} onClick={() => insert(editor, String.fromCodePoint(c))}>
+              <button key={c} type="button" title={`${name} ${code}`.trim()} aria-label={name || code} onMouseDown={(e) => e.preventDefault()} onClick={() => put(String.fromCodePoint(c))}>
                 {String.fromCodePoint(c)}
               </button>
             )
@@ -391,7 +396,6 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
   const spans = useEditor(editor, (e) => e.snapshot.stories[node.story])?.spans ?? []
   const same = <T,>(get: (a: Attrs) => T) => sameOf(spans, get)
   const edited = useEditor(editor, (e) => (e.editing?.id === node.id && e.editing.anchor !== e.editing.focus ? e.editing : null))
-  const editing = useEditor(editor, (e) => e.editing?.id === node.id)
   /** Formats the selection of the text being edited, or else all of it. */
   const format = (props: TextProps) => editor.apply({ type: 'format', id: node.id, range: edited && range(edited), ...props })
   const align = same((a) => a.textAlign)
@@ -404,7 +408,7 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
     <Section title="Text">
       <div className="row">
         <Specimen editor={editor} spans={spans} format={format} />
-        {editing && <Characters editor={editor} font={same((a) => a.font?.hash ?? null) ?? undefined} />}
+        <Characters editor={editor} node={node} font={same((a) => a.font?.hash ?? null) ?? undefined} />
       </div>
       <Font editor={editor} id={node.id} fonts={spans.map((a) => a.font)} set={(font) => format({ font })} />
       <div className="grid">
