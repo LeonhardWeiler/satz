@@ -50,7 +50,7 @@ test('dragging a child of an auto layout frame past its sibling reorders them', 
   }
   const layers = page.getByRole('tree', { name: 'Layers' })
   await layers.getByRole('button', { name: 'Rectangle', exact: true }).nth(0).click()
-  await layers.getByRole('button', { name: 'Rectangle', exact: true }).nth(1).click({ modifiers: ['Shift'] })
+  await layers.getByRole('button', { name: 'Rectangle', exact: true }).nth(1).click({ modifiers: ['Control'] })
   await page.keyboard.press('Shift+A')
   await expect(panel.getByRole('textbox', { name: 'Gap in mm' })).toHaveValue('10')
 
@@ -75,7 +75,7 @@ test('a child dragged out of an auto layout frame lands on the page and drags ba
   }
   const layers = page.getByRole('tree', { name: 'Layers' })
   await layers.getByRole('button', { name: 'Rectangle', exact: true }).nth(0).click()
-  await layers.getByRole('button', { name: 'Rectangle', exact: true }).nth(1).click({ modifiers: ['Shift'] })
+  await layers.getByRole('button', { name: 'Rectangle', exact: true }).nth(1).click({ modifiers: ['Control'] })
   await page.keyboard.press('Shift+A')
   await page.keyboard.press('Escape')
   await page.keyboard.down('Control')
@@ -99,7 +99,7 @@ test('a child made absolute keeps its place and stays visible', async ({ page })
   }
   const layers = page.getByRole('tree', { name: 'Layers' })
   await layers.getByRole('button', { name: 'Rectangle', exact: true }).nth(0).click()
-  await layers.getByRole('button', { name: 'Rectangle', exact: true }).nth(1).click({ modifiers: ['Shift'] })
+  await layers.getByRole('button', { name: 'Rectangle', exact: true }).nth(1).click({ modifiers: ['Control'] })
   await page.keyboard.press('Shift+A')
   await layers.getByRole('button', { name: 'Rectangle', exact: true }).nth(0).click()
   await panel.getByRole('checkbox', { name: 'Absolute position' }).check()

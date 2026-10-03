@@ -124,7 +124,7 @@ test('ctrl+alt+m on several layers makes a mask group under the highest', async 
   await expect(layers.getByTitle('Masked by Mask')).toHaveCount(1)
 
   await layers.getByRole('button', { name: /^Satz sets type/ }).click()
-  await layers.getByRole('button', { name: 'Frame', exact: true }).click({ modifiers: ['Shift'] })
+  await layers.getByRole('button', { name: 'Frame', exact: true }).click({ modifiers: ['Control'] })
   await page.keyboard.press('Control+Alt+m')
   await expect(group).toHaveCount(1)
   await expect(masks).toHaveCount(2)
@@ -220,7 +220,7 @@ test('typed values round to two decimals and stay within the bounds of their fie
   await type('X in mm', '10.004')
   await rects.last().click()
   await type('X in mm', '10')
-  await rects.first().click({ modifiers: ['Shift'] })
+  await rects.first().click({ modifiers: ['Control'] })
   await expect(field('X in mm')).toHaveValue('10')
 
   await layers.getByRole('button', { name: /^Satz sets type/ }).click()
@@ -277,7 +277,7 @@ test('mixed values fit their fields', async ({ page }) => {
   const layers = page.getByRole('tree', { name: 'Layers' })
   const rects = layers.getByRole('button', { name: 'Rectangle', exact: true })
   await rects.first().click()
-  await rects.last().click({ modifiers: ['Shift'] })
+  await rects.last().click({ modifiers: ['Control'] })
   const layout = page.getByRole('region', { name: 'Layout' })
   for (const title of ['X in mm', 'W in mm']) {
     const input = layout.getByTitle(title).getByRole('textbox')
@@ -360,7 +360,7 @@ test('the centre of one of several selected layers dragged onto another swaps th
   await drag(page, await screen(page, 20, 20), await screen(page, 40, 40))
   await page.keyboard.press('r')
   await drag(page, await screen(page, 60, 30), await screen(page, 80, 60))
-  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle' }).nth(1).click({ modifiers: ['Shift'] })
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle' }).nth(1).click({ modifiers: ['Control'] })
   await drag(page, await screen(page, 70, 45), await screen(page, 30, 30))
   await page.keyboard.press('Escape')
   await page.mouse.click(...(await screen(page, 65, 35)))

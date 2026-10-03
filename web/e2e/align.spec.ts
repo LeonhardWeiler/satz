@@ -10,7 +10,7 @@ test('layers align to each other, a single layer to its frame, and three distrib
   }
   const x = async (name: string) => (await box(name))[0]
   await layers.getByRole('button', { name: 'Sun', exact: true }).click()
-  await layers.getByRole('button', { name: 'Triangle', exact: true }).click({ modifiers: ['Shift'] })
+  await layers.getByRole('button', { name: 'Triangle', exact: true }).click({ modifiers: ['Control'] })
   await expect(panel.getByRole('button', { name: 'Distribute horizontal spacing' })).toBeDisabled()
   await panel.getByRole('button', { name: 'Align left' }).click()
   expect(await x('Triangle')).toBe(await x('Sun'))
@@ -18,8 +18,8 @@ test('layers align to each other, a single layer to its frame, and three distrib
   await page.keyboard.press('Alt+A')
   expect(await x('Sun')).toBe(0)
 
-  await layers.getByRole('button', { name: 'Star', exact: true }).click({ modifiers: ['Shift'] })
-  await layers.getByRole('button', { name: 'Triangle', exact: true }).click({ modifiers: ['Shift'] })
+  await layers.getByRole('button', { name: 'Star', exact: true }).click({ modifiers: ['Control'] })
+  await layers.getByRole('button', { name: 'Triangle', exact: true }).click({ modifiers: ['Control'] })
   await page.keyboard.press('Alt+Shift+H')
   await page.keyboard.press('Control+z')
   await page.keyboard.press('Control+Shift+z')
@@ -34,7 +34,7 @@ test('booleans combine shapes into the bottommost, from the panel and the keyboa
   const shapes = layers.getByRole('button', { name: /^(Sun|Triangle)$/ })
   await layers.getByRole('button', { name: 'Sun', exact: true }).click()
   await expect(panel.getByRole('toolbar', { name: 'Boolean' })).toBeHidden()
-  await layers.getByRole('button', { name: 'Triangle', exact: true }).click({ modifiers: ['Shift'] })
+  await layers.getByRole('button', { name: 'Triangle', exact: true }).click({ modifiers: ['Control'] })
   await panel.getByRole('toolbar', { name: 'Boolean' }).getByRole('button', { name: 'Union' }).click()
   await expect(shapes).toHaveCount(1)
   await expect(panel.getByRole('toolbar', { name: 'Boolean' })).toBeHidden()
@@ -42,7 +42,7 @@ test('booleans combine shapes into the bottommost, from the panel and the keyboa
   await expect(shapes).toHaveCount(2)
 
   await layers.getByRole('button', { name: 'Sun', exact: true }).click()
-  await layers.getByRole('button', { name: 'Triangle', exact: true }).click({ modifiers: ['Shift'] })
+  await layers.getByRole('button', { name: 'Triangle', exact: true }).click({ modifiers: ['Control'] })
   await page.keyboard.press('Control+Alt+x')
   await expect(shapes).toHaveCount(1)
 })

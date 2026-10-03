@@ -157,3 +157,18 @@ test('dragging a layer row reorders it among its siblings and drops it into a gr
   const shapes = layers(page).getByRole('treeitem', { name: 'Shapes' })
   await expect(shapes.getByRole('treeitem', { level: 2 }).getByRole('button', { name: a, exact: true })).toBeVisible()
 })
+
+test('shift click selects the layers between, ctrl click adds or drops one', async ({ page }) => {
+  await open(page)
+  const kids = layers(page).getByRole('treeitem', { name: 'Shapes' }).getByRole('group').locator('.layer-name')
+  const selected = layers(page).getByRole('treeitem', { selected: true })
+  const n = await kids.count()
+  expect(n).toBeGreaterThan(2)
+  await kids.first().click()
+  await kids.last().click({ modifiers: ['Shift'] })
+  await expect(selected).toHaveCount(n)
+  await kids.nth(1).click({ modifiers: ['Control'] })
+  await expect(selected).toHaveCount(n - 1)
+  await kids.nth(1).click({ modifiers: ['Shift'] })
+  await expect(selected).toHaveCount(2)
+})

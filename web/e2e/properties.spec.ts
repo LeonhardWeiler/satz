@@ -74,7 +74,7 @@ test('properties the selected layers share are edited together', async ({ page }
   const panel = page.getByRole('complementary', { name: 'Properties' })
   const layers = page.getByRole('tree', { name: 'Layers' })
   await layers.getByRole('button', { name: 'Sun', exact: true }).click()
-  await layers.getByRole('button', { name: 'Triangle', exact: true }).click({ modifiers: ['Shift'] })
+  await layers.getByRole('button', { name: 'Triangle', exact: true }).click({ modifiers: ['Control'] })
   await panel.getByRole('textbox', { name: 'Opacity in %', exact: true }).fill('50')
   await panel.getByRole('textbox', { name: 'Opacity in %', exact: true }).press('Enter')
   const fill = panel.getByRole('region', { name: 'Fill' })

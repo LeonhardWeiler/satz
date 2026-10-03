@@ -246,7 +246,7 @@ test('a turned multi-selection resizes in its own frame', async ({ page }) => {
   }
   const layers = page.getByRole('tree', { name: 'Layers' })
   await layers.getByRole('button', { name: 'Rectangle', exact: true }).nth(0).click()
-  await layers.getByRole('button', { name: 'Rectangle', exact: true }).nth(1).click({ modifiers: ['Shift'] })
+  await layers.getByRole('button', { name: 'Rectangle', exact: true }).nth(1).click({ modifiers: ['Control'] })
   const rotation = panel.getByRole('textbox', { name: 'Rotation in °' })
   await rotation.fill('90')
   await rotation.press('Enter')

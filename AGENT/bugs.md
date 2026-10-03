@@ -1,4 +1,3 @@
-3. Im layer panel click und dann auf ein anderes shift click, soll auch alle dazwischen auswählen
 4. bei den schrift optionen mit kerning, ligatures, ... soll die ui wie in figma sein. es soll nicht der text und die checkbox sein, sondern einmal das icon das gerade schon vorhanden ist und einmal ein "-", dann klickt man entweder auf das icon um es auzuwählen oder auf "-" um es abzuwählen
 5. es soll keine alerts mehr angezeigt werden, sondern mach eine eigene schöne zum thema passende ui (popup) in der mitte der seite.
 6. rulers, wenn die runtergezogen werden sollen über den ganzen sichtbaren canvas angezeigt werden und auch dragbar außerhalb der page. man soll sie auch aus oder abwählen klicken (durch wegklicken) und dann auch mit entf löschen können

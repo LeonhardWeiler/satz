@@ -110,7 +110,7 @@ test('quick edit aligns several layers, sizes a layer in an auto layout and sets
   await drag(page, await screen(page, 20, 20), await screen(page, 40, 40))
   await page.keyboard.press('r')
   await drag(page, await screen(page, 60, 30), await screen(page, 80, 60))
-  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle' }).nth(1).click({ modifiers: ['Shift'] })
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle' }).nth(1).click({ modifiers: ['Control'] })
   await quick.getByRole('button', { name: 'Align top' }).click()
   await expect(panel.getByRole('textbox', { name: 'Y in mm' })).toHaveValue('20')
 

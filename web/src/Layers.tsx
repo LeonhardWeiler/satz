@@ -24,10 +24,19 @@ export function Layers({ editor }: { editor: Editor }) {
       return next
     })
 
-  const select = (id: string, add: boolean) =>
+  const select = (id: string, e: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean }) => {
+    const rows = pages.flatMap((p) => shown(p.children)).map((n) => n.id)
+    const [from, to] = [rows.indexOf(selection.at(-1) ?? ''), rows.indexOf(id)]
+    const range = from < to ? rows.slice(from, to + 1).reverse() : rows.slice(to, from + 1)
     editor.set({
-      selection: add ? (selection.includes(id) ? selection.filter((s) => s !== id) : [...selection, id]) : [id],
+      selection:
+        e.shiftKey && from >= 0
+          ? range
+          : e.ctrlKey || e.metaKey
+            ? selection.includes(id) ? selection.filter((s) => s !== id) : [...selection, id]
+            : [id],
     })
+  }
 
   const rename = (id: string, name: string | null) => {
     if (name) editor.apply({ type: 'set', id, name })
@@ -166,8 +175,8 @@ export function Layers({ editor }: { editor: Editor }) {
                 type="button"
                 className="layer-name"
                 tabIndex={node.id === stop ? 0 : -1}
-                onClick={(e) => select(node.id, e.shiftKey || e.ctrlKey || e.metaKey)}
-                onContextMenu={() => selection.includes(node.id) || select(node.id, false)}
+                onClick={(e) => select(node.id, e)}
+                onContextMenu={() => selection.includes(node.id) || editor.set({ selection: [node.id] })}
                 onDoubleClick={() => editor.set({ renaming: node.id })}
               >
                 {node.name}
