@@ -1,4 +1,3 @@
-12. statt ctrl + \ soll der "preview" modus shortcut shift + w sein
 13. die quickbar soll auch im preflight modus angezeigt werden
 14. beim bild croppen soll es auch zu der größe des originalen bilds snappen
 15. implement all the points under later in TODO.md

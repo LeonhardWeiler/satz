@@ -101,8 +101,8 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
     editor.batch(() => {
       for (const n of editor.selected()) if (n.direction !== 'none') editor.apply({ type: 'set', id: n.id, direction: 'none' })
     })
-  } else if (!mod && !e.altKey && e.shiftKey && (key === 'w' || key === 'h') && editor.selected().every((n) => n.kind === 'text')) {
-    editor.resize(editor.selected(), key === 'w' ? 'autoWidth' : 'autoHeight')
+  } else if (!mod && !e.altKey && e.shiftKey && key === 'h' && editor.selected().every((n) => n.kind === 'text')) {
+    editor.resize(editor.selected(), 'autoHeight')
   } else if (!mod && !e.altKey && e.shiftKey && (key === 'h' || key === 'v')) {
     editor.batch(() => ids.forEach((id) => editor.apply({ type: 'flip', id, vertical: key === 'v' })))
   } else if (!mod && e.shiftKey && key === 'a') editor.set({ selection: editor.apply({ type: 'autoLayout', ids }) })

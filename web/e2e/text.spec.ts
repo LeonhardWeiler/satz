@@ -219,8 +219,6 @@ test('a clicked text is auto width, a dragged one a fixed empty box shown while 
   await expect(field('W in mm')).toHaveValue(w)
   await page.keyboard.press('Shift+H')
   await expect(mode('Auto height')).toBeChecked()
-  await page.keyboard.press('Shift+W')
-  await expect(mode('Auto width')).toBeChecked()
 })
 
 test('auto fit and a double click on an edge or corner of a text frame fit it to its text', async ({ page }) => {

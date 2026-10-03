@@ -389,7 +389,7 @@ test('hiding the panels, the interface or the rulers leaves the page where it is
   const [x, y] = await screen(page, 23, 37)
   const sun = () => pixels(page, x - 20, y - 20, 40, 40)
   const before = await sun()
-  for (const key of ['Alt+1', 'Alt+2', 'Shift+R', 'Control+Backslash']) {
+  for (const key of ['Alt+1', 'Alt+2', 'Shift+R', 'Shift+W']) {
     await page.keyboard.press(key)
     await page.waitForTimeout(100)
     expect(await sun(), key).toEqual(before)
