@@ -918,12 +918,21 @@ textarea {
   flex: 0 0 96px;
 }
 
+.features {
+  display: grid;
+  gap: 4px;
+}
+
+.feature-row {
+  justify-content: space-between;
+}
+
+.feature-row .segmented {
+  flex: 0 0 80px;
+}
+
 .feature {
-  flex: none;
-  width: 24px;
-  color: var(--text-2);
   font: 13px var(--doc-font);
-  text-align: center;
 }
 
 .picker-header {

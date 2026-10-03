@@ -132,7 +132,6 @@ export function Specimen({ editor, spans, format }: { editor: Editor; spans: Att
 export function TypeOptions({ spans, set }: { spans: Pick<Attrs, Styled>[]; set: (p: TextProps) => void }) {
   const [at, setAt] = useState<DOMRect | null>(null)
   const same = <T,>(get: (a: Pick<Attrs, Styled>) => T) => sameOf(spans, get)
-  const features = same((a) => a.features.join(' '))
   const on = (tag: string, dflt?: boolean) => (a: Pick<Attrs, Styled>) => (dflt ? !a.features.includes(`${tag}=0`) : a.features.includes(tag))
   const toggle = (tag: string, dflt: boolean | undefined, checked: boolean) => {
     const rest = (spans[0]?.features ?? []).filter((f) => f !== tag && f !== `${tag}=0`)
@@ -198,22 +197,23 @@ export function TypeOptions({ spans, set }: { spans: Pick<Attrs, Styled>[]; set:
                 <Check label="Keep with next" value={same((a) => a.keepNext)} set={(keepNext) => set({ keepNext })} />
               </div>
               <TabStops tabs={same((a) => JSON.stringify(a.tabs))} set={(tabs) => set({ tabs })} />
-              <div className="grid" role="group" aria-label="OpenType features">
+              <div className="features" role="group" aria-label="OpenType features">
                 {FEATURES.map(([tag, title, sample, dflt]) => {
                   const checked = same(on(tag, dflt))
                   return (
-                    <label key={tag} className="check">
-                      <input
-                        type="checkbox"
-                        checked={checked === true}
-                        ref={(el) => {
-                          if (el) el.indeterminate = features === null && checked === null
-                        }}
-                        onChange={(e) => toggle(tag, dflt, e.currentTarget.checked)}
-                      />
-                      <span className="feature" style={{ fontFeatureSettings: `"${tag}"` }} aria-hidden="true">{sample}</span>
+                    <div key={tag} className="row feature-row">
                       {title}
-                    </label>
+                      <div role="radiogroup" aria-label={title} className="segmented">
+                        <button type="button" role="radio" aria-checked={checked === true} aria-label={`${title} on`} title={`${title} on`} onClick={() => toggle(tag, dflt, true)}>
+                          <span className="feature" style={{ fontFeatureSettings: `"${tag}"` }}>
+                            {sample}
+                          </span>
+                        </button>
+                        <button type="button" role="radio" aria-checked={checked === false} aria-label={`${title} off`} title={`${title} off`} onClick={() => toggle(tag, dflt, false)}>
+                          –
+                        </button>
+                      </div>
+                    </div>
                   )
                 })}
               </div>
