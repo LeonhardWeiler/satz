@@ -1,6 +1,6 @@
 import { expect, test, addPage, choose, colors, current, drag, exportButton, near, open, openExample, pixels, preflight, screen } from './util'
 
-test('preflight of an rgb document leaves out the inks and lists a layer short of the bleed and a click selects it on its page', async ({ page }) => {
+test('preflight of an rgb document leaves out the inks and lists a layer short of the bleed and a click selects it on its page with the quick edit bar', async ({ page }) => {
   await open(page)
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).last().click()
   await page.getByRole('complementary', { name: 'Properties' }).getByRole('button', { name: 'Fill color' }).click()
@@ -24,6 +24,7 @@ test('preflight of an rgb document leaves out the inks and lists a layer short o
   await expect(short).toHaveAttribute('aria-current', 'true')
   const layers = page.getByRole('tree', { name: 'Layers' })
   await expect(layers.getByRole('treeitem', { selected: true })).toHaveCount(1)
+  await expect(page.getByRole('toolbar', { name: 'Quick edit' })).toBeVisible()
 })
 
 test('export names the errors of the preflight but still downloads the pdf', async ({ page }) => {
