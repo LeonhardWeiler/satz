@@ -1,5 +1,3 @@
-16. überlege dir für alle elemente noch einmal tief und schlau welche optionen alle sinnvoll und praktisch wären und implementiere sie
-
 --- LATER
 1. Figma import with file and or account
 5. overview page for all the personal projekts when opening the webapp, like in figma
