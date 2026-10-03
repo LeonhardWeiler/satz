@@ -145,10 +145,27 @@ export async function save(editor: Editor, as: boolean) {
   editor.saved({ name: handle.name, handle }, version)
 }
 
-export const discard = (editor: Editor) => !editor.dirty || confirm(`Discard unsaved changes to ${editor.file.name}?`)
+/** Asks `question` in a modal dialog; resolves true when `yes` is chosen. */
+export function ask(question: string, yes: string): Promise<boolean> {
+  const d = document.createElement('dialog')
+  d.className = 'ask'
+  d.innerHTML = '<form method="dialog"><p></p><div><button value="" autofocus>Cancel</button><button value="yes" class="primary"></button></div></form>'
+  d.querySelector('p')!.textContent = question
+  d.querySelector('.primary')!.textContent = yes
+  document.body.append(d)
+  d.showModal()
+  return new Promise((done) =>
+    d.addEventListener('close', () => {
+      d.remove()
+      done(d.returnValue === 'yes')
+    }),
+  )
+}
+
+export const discard = async (editor: Editor) => !editor.dirty || ask(`Discard unsaved changes to ${editor.file.name}?`, 'Discard')
 
 async function load(editor: Editor, file: File, handle: Handle | null, say: (message: string) => void) {
-  if (!discard(editor)) return
+  if (!(await discard(editor))) return
   try {
     editor.load(new Uint8Array(await file.arrayBuffer()), { name: file.name, handle })
   } catch (e) {

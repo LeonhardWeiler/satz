@@ -2558,6 +2558,42 @@ kbd {
   animation: pop 0.14s var(--ease);
 }
 
+.ask[open] {
+  width: min(360px, 92vw);
+  padding: 20px;
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+  background: var(--raised);
+  color: var(--text);
+  box-shadow: 0 24px 64px var(--shadow);
+  animation: pop 0.14s var(--ease);
+}
+
+.ask p {
+  margin: 0 0 20px;
+  line-height: 1.5;
+}
+
+.ask div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ask button:not(.primary) {
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--border);
+  cursor: pointer;
+}
+
+.ask button:not(.primary):hover {
+  background: var(--edge);
+}
+
+.ask::backdrop,
 .palette::backdrop,
 .help::backdrop {
   background: var(--scrim);

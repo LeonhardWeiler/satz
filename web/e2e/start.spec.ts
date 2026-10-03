@@ -59,11 +59,11 @@ test('escape returns to the document and an example asks before it discards chan
   await expect(page).toHaveTitle('* Untitled.satz - Satz')
 
   await page.keyboard.press('Control+n')
-  page.once('dialog', (d) => d.dismiss())
   await start(page).getByRole('button', { name: 'Poster' }).click()
+  await page.locator('.ask').getByRole('button', { name: 'Cancel' }).click()
   await expect(start(page)).toBeVisible()
-  page.once('dialog', (d) => d.accept())
   await start(page).getByRole('button', { name: 'Poster' }).click()
+  await page.locator('.ask').getByRole('button', { name: 'Discard' }).click()
   await expect(page).toHaveTitle('poster.satz - Satz')
 })
 

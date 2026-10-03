@@ -13,10 +13,11 @@ async function save(page: Page, name = 'Untitled.satz') {
 }
 
 async function choose(page: Page, files: Parameters<FileChooser['setFiles']>[0]) {
-  page.once('dialog', (d) => d.accept())
+  const dirty = (await page.title()).startsWith('*')
   const chooser = page.waitForEvent('filechooser')
   await page.keyboard.press('Control+o')
   await (await chooser).setFiles(files)
+  if (dirty) await page.locator('.ask').getByRole('button', { name: 'Discard' }).click()
 }
 
 test.beforeEach(async ({ page }) => {
@@ -100,8 +101,8 @@ test('a dropped document opens and a dropped image is placed with a click', asyn
       [name, [...bytes]] as const,
     )
   }
-  page.once('dialog', (d) => d.accept())
   await dropFile(file.name, file.buffer)
+  await page.locator('.ask').getByRole('button', { name: 'Discard' }).click()
   await expect(page).toHaveTitle('Untitled.satz - Satz')
   await pageCount(page, 2)
   await dropFile('earthrise.jpg', image)
@@ -113,15 +114,15 @@ test('a dropped document opens and a dropped image is placed with a click', asyn
 test('new asks before it discards changes and then starts over', async ({ page }) => {
   await addPage(page)
   const sample = page.getByRole('dialog', { name: 'New document' }).getByRole('button', { name: 'Sample' })
-  page.once('dialog', (d) => d.dismiss())
   await page.keyboard.press('Control+Alt+n')
   await sample.click()
+  await page.locator('.ask').getByRole('button', { name: 'Cancel' }).click()
   await page.keyboard.press('Escape')
   await drawn(page)
   await pageCount(page, 2)
-  page.once('dialog', (d) => d.accept())
   await page.keyboard.press('Control+Alt+n')
   await sample.click()
+  await page.locator('.ask').getByRole('button', { name: 'Discard' }).click()
   await pageCount(page, 1)
   await expect(page).toHaveTitle('Untitled.satz - Satz')
 })

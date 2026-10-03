@@ -45,7 +45,7 @@ export function Start({ editor, first, say, onClose }: { editor: Editor; first: 
   const plural = (n: number) => `${n} ${n === 1 ? 'page' : 'pages'}`
 
   const example = async (url: string | null, name: string) => {
-    if (!discard(editor)) return
+    if (!(await discard(editor))) return
     if (url) editor.load(new Uint8Array(await (await fetch(url)).arrayBuffer()), { name, handle: null })
     else load(Engine.sample())
     onClose()
@@ -54,8 +54,8 @@ export function Start({ editor, first, say, onClose }: { editor: Editor; first: 
     editor.load(e.save())
     e.free()
   }
-  const create = () => {
-    if (!discard(editor)) return
+  const create = async () => {
+    if (!(await discard(editor))) return
     load(Engine.blank(w, h, pages, pages > 1 && facing))
     say(`Created ${format}, ${plural(pages)}`)
     onClose()
