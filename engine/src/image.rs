@@ -127,14 +127,24 @@ impl AsRef<[u8]> for Shared {
     }
 }
 
+/// The most pixels of an image that `register` takes.
+const MAX_PIXELS: u64 = 50_000_000;
+
 /// Registers the image `bytes` unless it is there already; fails when they are not
-/// a PNG or JPEG file.
+/// a PNG or JPEG file of at most `MAX_PIXELS`.
 pub fn register(bytes: LoroBinaryValue) -> Result<ImageInfo, String> {
     let hash = content_hash(&bytes);
     if let Some(e) = entry_by_hash(&hash) {
         return Ok(e.info.clone());
     }
     let format = format(&bytes)?;
+    let (w, h) = size(&bytes)?;
+    if u64::from(w) * u64::from(h) > MAX_PIXELS {
+        return Err(format!(
+            "the image has more than {} megapixels",
+            MAX_PIXELS / 1_000_000
+        ));
+    }
     let (width, height) = pdf_image(format, &bytes)
         .map_err(|_| "not a PNG or JPEG image")?
         .size();
@@ -159,7 +169,7 @@ pub fn register(bytes: LoroBinaryValue) -> Result<ImageInfo, String> {
 }
 
 /// The width and height in the header of the PNG or JPEG file `bytes`.
-pub fn size(bytes: &[u8]) -> Result<(u32, u32), String> {
+fn size(bytes: &[u8]) -> Result<(u32, u32), String> {
     let bad = || "not a PNG or JPEG image".to_string();
     match format(bytes)? {
         Format::Png => {
