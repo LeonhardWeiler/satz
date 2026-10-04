@@ -37,6 +37,9 @@ const result = <T,>(r: IDBRequest<T>) =>
 /** The document autosaved last. */
 export const stored = async () => result<Saved | undefined>((await store('files')).get('doc'))
 
+/** Keeps an autosave that could not be restored under 'doc-unreadable', which no autosave overwrites. */
+export const keepUnreadable = async (saved: Saved) => result((await store('files')).put(saved, 'doc-unreadable'))
+
 /** The fonts added in this browser. */
 export const storedFonts = async () => result<Uint8Array[]>((await store('fonts')).getAll())
 

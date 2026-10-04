@@ -5,7 +5,7 @@ import canvaskitWasm from 'canvaskit-wasm/bin/canvaskit.wasm?url'
 import init, { Engine } from './engine/engine'
 import { App } from './App'
 import { Editor } from './editor'
-import { stored, storedFonts } from './file'
+import { download, keepUnreadable, stored, storedFonts } from './file'
 import './index.css'
 
 if (import.meta.env.PROD) navigator.serviceWorker?.register(`${import.meta.env.BASE_URL}sw.js`)
@@ -41,7 +41,9 @@ if (!document.createElement('canvas').getContext('webgl2')) {
     try {
       if (saved) editor.load(saved.bytes, { name: saved.name, handle: saved.handle }, saved.dirty)
     } catch (e) {
-      editor.status = `Could not restore ${saved!.name}: ${(e as Error).message}. Satz started a new document.`
+      await keepUnreadable(saved!)
+      download(saved!.bytes, saved!.name, 'application/x-satz')
+      editor.status = `Could not restore ${saved!.name}: ${(e as Error).message}. Satz downloaded it and started a new document.`
       first = true
     }
     root.render(

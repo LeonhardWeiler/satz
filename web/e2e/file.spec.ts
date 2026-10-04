@@ -39,6 +39,39 @@ test('a reload keeps the document and its unsaved mark', async ({ page }) => {
   await expect(page).toHaveTitle('* Untitled.satz - Satz')
 })
 
+test('an autosave that does not load is downloaded and kept apart from the next one', async ({ page }) => {
+  await addPage(page)
+  await autosaved(page)
+  await page.evaluate(
+    () =>
+      new Promise((done) => {
+        const r = indexedDB.open('satz')
+        r.onsuccess = () => {
+          const files = r.result.transaction('files', 'readwrite').objectStore('files')
+          files.get('doc').onsuccess = (e) => {
+            const put = files.put({ ...(e.target as IDBRequest).result, bytes: new Uint8Array([1, 2, 3]) }, 'doc')
+            put.onsuccess = () => done(r.result.close())
+          }
+        }
+      }),
+  )
+  const download = page.waitForEvent('download')
+  await page.reload()
+  expect((await download).suggestedFilename()).toBe('Untitled.satz')
+  await expect(page.locator('.status')).toHaveText(/Could not restore Untitled.satz: .*Satz downloaded it/)
+  const kept = await page.evaluate(
+    () =>
+      new Promise<number[]>((done) => {
+        const r = indexedDB.open('satz')
+        r.onsuccess = () => {
+          const get = r.result.transaction('files').objectStore('files').get('doc-unreadable')
+          get.onsuccess = () => done([...get.result.bytes])
+        }
+      }),
+  )
+  expect(kept).toEqual([1, 2, 3])
+})
+
 test('a reloaded document has nothing to undo', async ({ page }) => {
   await addPage(page)
   await autosaved(page)
