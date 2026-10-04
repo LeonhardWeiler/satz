@@ -118,7 +118,9 @@ export function resized(box: Box, handle: string, d: Point, keys: { altKey: bool
     if (handle.includes('s')) t = box.y - d.y
   }
   if (keys.shiftKey && box.w && box.h) {
-    const s = Math.max(Math.abs((r - l) / box.w), Math.abs((b - t) / box.h))
+    const sw = Math.abs((r - l) / box.w)
+    const sh = Math.abs((b - t) / box.h)
+    const s = !/[ns]/.test(handle) ? sw : !/[ew]/.test(handle) ? sh : Math.max(sw, sh)
     const cx = handle.includes('w') ? r : handle.includes('e') ? l : (l + r) / 2
     const cy = handle.includes('n') ? b : handle.includes('s') ? t : (t + b) / 2
     const w = box.w * s * Math.sign(r - l || 1)

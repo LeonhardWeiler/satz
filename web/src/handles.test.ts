@@ -65,4 +65,6 @@ test('Alt resizes about the centre and Shift keeps the proportions', () => {
   expect(resized(box, 'e', { x: 10, y: 0 }, { altKey: true, shiftKey: false }, frame)).toEqual([{ x: -30, y: 10, w: 70, h: 40 }])
   expect(resized(box, 'se', { x: 50, y: 0 }, { altKey: false, shiftKey: true }, frame)).toEqual([{ x: -20, y: 10, w: 100, h: 80 }])
   expect(resized(box, 's', { x: 0, y: 40 }, { altKey: false, shiftKey: true }, frame)).toEqual([{ x: -45, y: 10, w: 100, h: 80 }])
+  expect(resized(box, 's', { x: 0, y: -20 }, { altKey: false, shiftKey: true }, frame)).toEqual([{ x: -7.5, y: 10, w: 25, h: 20 }])
+  expect(resized(box, 'w', { x: 25, y: 0 }, { altKey: false, shiftKey: true }, frame)).toEqual([{ x: 5, y: 20, w: 25, h: 20 }])
 })

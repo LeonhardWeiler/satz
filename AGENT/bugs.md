@@ -18,7 +18,7 @@
 20. flatten, flip horizontally, flip vertically and add auto layout should be accesible through icons and not just the context menu or a keyboard shortcut
 21. make the canvas not go to the side indefinitely (+/- 20000mm?)
 22. have presets for layout grids
-23. when keep aspect ratio is ticked on, i cannot resize the element smaller than it was then in the canvas (on the controls on the right it works correctly).
+23. [x] when keep aspect ratio is ticked on, i cannot resize the element smaller than it was then in the canvas (on the controls on the right it works correctly).
 24. [x] open the "New Document" dialog in the center of the page
 25. [x] the rulers should also snap the same as any other element
 
