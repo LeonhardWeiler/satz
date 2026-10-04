@@ -14,7 +14,7 @@
 15. groups should have a quickbar above the selection to align the items inside the group, make it visually clear that its aligning the items inside and not the group itself
 16. inside groups and auto layouts the elemts should have a circle in the middle of them just like when both of them are selected to change position. for autolayouts its neccesesary to move them in the layer order i belive
 17. when editing the name of the file in the top left, it should still show the extension (even though it can't be edited) and the text should stay in the same position when editing compared to when not editing
-18. the arrow down icon dropdown for the element primitives selection has to little margin to the pen tool to its right
+18. [x] the arrow down icon dropdown for the element primitives selection has to little margin to the pen tool to its right
 20. flatten, flip horizontally, flip vertically and add auto layout should be accesible through icons and not just the context menu or a keyboard shortcut
 21. make the canvas not go to the side indefinitely (+/- 20000mm?)
 22. have presets for layout grids

@@ -1218,7 +1218,6 @@ textarea {
   display: grid;
   place-items: center;
   width: 18px;
-  margin-right: -4px;
   height: 28px;
   padding: 0;
   border: 0;
