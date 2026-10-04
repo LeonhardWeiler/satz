@@ -11,8 +11,8 @@ import { length, settings, subscribeSettings, UNITS } from './settings'
 import { equals, guides, measure, nearest, snap, spacings, targets, type Guide, type Lines, type Measure } from './snap'
 import { curved, nearest as nearestSegment, remove, shift, smooth, split, type At, type Contour, type Knot } from './vector'
 import { handleTextKey, insert, range, select, textOf, wordAt } from './textEdit'
-import { Switcher } from './Switcher'
 import { Quick } from './Quick'
+import { MasterBanner } from './Switcher'
 
 const PX_PER_PT = 96 / 72
 const DRAG = 3
@@ -1336,7 +1336,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         <div ref={quick} className="quick" role="toolbar" aria-label="Quick edit">
           <Quick editor={editor} />
         </div>
-        <Switcher editor={editor} />
+        <MasterBanner editor={editor} />
       </div>
     </div>
   )

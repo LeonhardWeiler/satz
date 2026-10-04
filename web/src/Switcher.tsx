@@ -7,22 +7,10 @@ export function Switcher({ editor }: { editor: Editor }) {
   const current = useEditor(editor, (e) => e.pageId)
   const master = snapshot.masters.find((m) => m.id === current)
   if (master) {
-    const used = snapshot.pages.filter((p) => p.master === master.id).length
     return (
-      <>
-        <div className="switcher">
-          <span className="switcher-name">{master.name}</span>
-        </div>
-        <div className="banner">
-          <Icon name="master" />
-          <span>
-            Editing master <strong>{master.name}</strong>, used by {used} {used === 1 ? 'page' : 'pages'}
-          </span>
-          <button type="button" onClick={() => editor.exitMaster()}>
-            Done<kbd>Esc</kbd>
-          </button>
-        </div>
-      </>
+      <div className="switcher">
+        <span className="switcher-name">{master.name}</span>
+      </div>
     )
   }
   const { spreads, pages } = snapshot
@@ -53,5 +41,25 @@ export function Switcher({ editor }: { editor: Editor }) {
         </button>
       )}
     </nav>
+  )
+}
+
+/** Over the canvas while a master is edited. */
+export function MasterBanner({ editor }: { editor: Editor }) {
+  const snapshot = useEditor(editor, (e) => e.snapshot)
+  const current = useEditor(editor, (e) => e.pageId)
+  const master = snapshot.masters.find((m) => m.id === current)
+  if (!master) return null
+  const used = snapshot.pages.filter((p) => p.master === master.id).length
+  return (
+    <div className="banner">
+      <Icon name="master" />
+      <span>
+        Editing master <strong>{master.name}</strong>, used by {used} {used === 1 ? 'page' : 'pages'}
+      </span>
+      <button type="button" onClick={() => editor.exitMaster()}>
+        Done<kbd>Esc</kbd>
+      </button>
+    </div>
   )
 }

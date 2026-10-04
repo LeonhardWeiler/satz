@@ -19,6 +19,7 @@ import { type Format, isError, Preflight } from './Preflight'
 import { Properties } from './Properties'
 import { Start } from './Start'
 import { Swatches } from './Swatches'
+import { Switcher } from './Switcher'
 import { Toolbar } from './Toolbar'
 import { Tooltip } from './Tooltip'
 
@@ -213,43 +214,47 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
         <Swatches editor={editor} />
       </div>
       <header className="bar" inert={hidden.ui}>
-        <Toolbar editor={editor} onPlaceImage={() => placeImages(editor, say)} />
-        <span className="sep" />
-        {toggle('left', 'Left panel', 'Alt+1')}
-        {toggle('right', 'Right panel', 'Alt+2')}
-        <button
-          type="button"
-          className="tool toggle"
-          aria-label="Page overview"
-          title="Page overview (.)"
-          aria-pressed={overview}
-          onClick={() => editor.toggleOverview()}
-        >
-          <Icon name="pages" />
-        </button>
-        <span className="grow" />
-        <button type="button" className="tool" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" onClick={() => setDialog('help')}>
-          <Icon name="help" />
-        </button>
-        <button type="button" className="tool" aria-label="Settings" title="Settings (Ctrl+,)" onClick={() => setDialog('settings')}>
-          <Icon name="settings" />
-        </button>
-        <button
-          type="button"
-          className="tool pf-btn"
-          aria-label={`Preflight, ${issues.length} issue${issues.length === 1 ? '' : 's'}`}
-          title="Preflight (Ctrl+Alt+Y)"
-          aria-pressed={preflight}
-          onClick={() => editor.togglePreflight()}
-        >
-          <Icon name="preflight" />
-          <span className="pf-count" data-sev={errors ? 'error' : issues.length ? 'warn' : 'ok'}>
-            {issues.length}
-          </span>
-        </button>
-        <button type="button" className="primary" title="Export PDF (Ctrl+Shift+E)" onClick={openExport}>
-          Export
-        </button>
+        <div className="bar-side">
+          <Toolbar editor={editor} onPlaceImage={() => placeImages(editor, say)} />
+          <span className="sep" />
+          {toggle('left', 'Left panel', 'Alt+1')}
+          {toggle('right', 'Right panel', 'Alt+2')}
+          <button
+            type="button"
+            className="tool toggle"
+            aria-label="Page overview"
+            title="Page overview (.)"
+            aria-pressed={overview}
+            onClick={() => editor.toggleOverview()}
+          >
+            <Icon name="pages" />
+          </button>
+        </div>
+        <Switcher editor={editor} />
+        <div className="bar-side end">
+          <button type="button" className="tool" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" onClick={() => setDialog('help')}>
+            <Icon name="help" />
+          </button>
+          <button type="button" className="tool" aria-label="Settings" title="Settings (Ctrl+,)" onClick={() => setDialog('settings')}>
+            <Icon name="settings" />
+          </button>
+          <button
+            type="button"
+            className="tool pf-btn"
+            aria-label={`Preflight, ${issues.length} issue${issues.length === 1 ? '' : 's'}`}
+            title="Preflight (Ctrl+Alt+Y)"
+            aria-pressed={preflight}
+            onClick={() => editor.togglePreflight()}
+          >
+            <Icon name="preflight" />
+            <span className="pf-count" data-sev={errors ? 'error' : issues.length ? 'warn' : 'ok'}>
+              {issues.length}
+            </span>
+          </button>
+          <button type="button" className="primary" title="Export PDF (Ctrl+Shift+E)" onClick={openExport}>
+            Export
+          </button>
+        </div>
       </header>
       <Canvas ck={ck} editor={editor} />
       {overview && <Overview ck={ck} editor={editor} />}

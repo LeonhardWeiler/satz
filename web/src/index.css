@@ -105,13 +105,25 @@ body,
 
 .bar {
   grid-area: bar;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  gap: 2px;
+  gap: 8px;
   min-width: 0;
   padding: 0 8px;
   overflow: hidden;
   border-bottom: 1px solid var(--border);
+}
+
+.bar-side {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.bar-side.end {
+  justify-content: end;
 }
 
 .sep {
@@ -1143,12 +1155,12 @@ textarea {
   color: var(--text);
 }
 
-.bar > :not(.grow),
+.bar-side > *,
 .toolbar > * {
   flex: none;
 }
 
-.bar > .toolbar {
+.bar-side > .toolbar {
   flex: 0 1 auto;
   min-width: 0;
   overflow-x: auto;
@@ -1173,7 +1185,7 @@ textarea {
   cursor: pointer;
 }
 
-.bar > .primary {
+.bar-side > .primary {
   margin-left: 2px;
 }
 
@@ -1500,7 +1512,6 @@ textarea {
   content: '';
 }
 
-.switcher,
 .banner,
 .quick {
   position: absolute;
@@ -1584,8 +1595,9 @@ textarea {
 }
 
 .switcher {
-  top: 10px;
-  left: 10px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
 }
 
 .switcher .spread {
@@ -2893,7 +2905,7 @@ kbd {
     padding: 0 5px;
   }
 
-  .bar,
+  .bar-side,
   .toolbar {
     gap: 0;
   }
