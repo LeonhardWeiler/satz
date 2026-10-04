@@ -547,14 +547,18 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const contours = editor.knots().map((c) => ({ ...c, knots: c.knots.map((k) => ({ ...k, x: k.x + dx, ix: k.ix + dx, ox: k.ox + dx })) }))
       return { contours, at: v.at }
     }
-    /** The centres of several selected layers; one dragged onto another swaps their places. */
-    const swaps = () =>
-      editor.tool !== 'move' || editor.selection.length < 2 || editor.editing || editor.vector
-        ? []
-        : editor.selected().map((n) => {
-            const b = upright(editor.shown(n))
-            return { id: n.id, box: b, x: b.x + b.w / 2, y: b.y + b.h / 2 }
-          })
+    /** The centres of several selected layers, or of a selected layer and its siblings in a group or auto layout; a selected one dragged onto another swaps their places. */
+    const swaps = () => {
+      if (editor.tool !== 'move' || editor.editing || editor.vector) return []
+      const parent = editor.selection.length === 1 && editor.nodes.get(editor.selection[0])?.parent
+      const nodes = editor.selection.length > 1 ? editor.selected()
+        : parent && (parent.kind === 'group' || (parent.kind === 'frame' && parent.direction !== 'none')) ? parent.children.filter((n) => !n.hidden)
+        : []
+      return nodes.length < 2 ? [] : nodes.map((n) => {
+        const b = upright(editor.shown(n))
+        return { id: n.id, box: b, x: b.x + b.w / 2, y: b.y + b.h / 2 }
+      })
+    }
     /** A selected layer under `p` that a mask hides there. */
     const maskedAt = (p: Point) =>
       editor.selected().find((n) => {
@@ -831,7 +835,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         drag = null
         return
       }
-      const centre = swaps().find((s) => Math.hypot(s.x - p.x, s.y - p.y) * view.zoom <= HANDLE)
+      const centre = swaps().find((s) => editor.selection.includes(s.id) && Math.hypot(s.x - p.x, s.y - p.y) * view.zoom <= HANDLE)
       if (centre) {
         drag = { kind: 'swap', id: centre.id, at: p }
         return

@@ -379,6 +379,22 @@ test('the centre of one of several selected layers dragged onto another swaps th
   await expect(panel.getByRole('textbox', { name: 'W in mm' })).toHaveValue('20')
 })
 
+test('the centre of a layer in a group dragged onto another in it swaps their places', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  await page.keyboard.press('r')
+  await drag(page, await screen(page, 20, 20), await screen(page, 40, 40))
+  await page.keyboard.press('r')
+  await drag(page, await screen(page, 60, 30), await screen(page, 80, 60))
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle' }).nth(1).click({ modifiers: ['Control'] })
+  await page.keyboard.press('Control+g')
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).first().click()
+  const x = await panel.getByRole('textbox', { name: 'X in mm' }).inputValue()
+  const [from, to] = x === '60' ? [[70, 45], [30, 30]] : [[30, 30], [70, 45]]
+  await drag(page, await screen(page, from[0], from[1]), await screen(page, to[0], to[1]))
+  await expect(panel.getByRole('textbox', { name: 'X in mm' })).toHaveValue(x === '60' ? '20' : '60')
+})
+
 test('a marquee outlines the lines it selects along the line, not around its box', async ({ page }) => {
   await open(page)
   await page.keyboard.press('l')
