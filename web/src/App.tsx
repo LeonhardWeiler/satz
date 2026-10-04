@@ -228,6 +228,12 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
           <Icon name="pages" />
         </button>
         <span className="grow" />
+        <button type="button" className="tool" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" onClick={() => setDialog('help')}>
+          <Icon name="help" />
+        </button>
+        <button type="button" className="tool" aria-label="Settings" title="Settings (Ctrl+,)" onClick={() => setDialog('settings')}>
+          <Icon name="settings" />
+        </button>
         <button
           type="button"
           className="tool pf-btn"
@@ -240,9 +246,6 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
           <span className="pf-count" data-sev={errors ? 'error' : issues.length ? 'warn' : 'ok'}>
             {issues.length}
           </span>
-        </button>
-        <button type="button" className="tool" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" onClick={() => setDialog('help')}>
-          <Icon name="help" />
         </button>
         <button type="button" className="primary" title="Export PDF (Ctrl+Shift+E)" onClick={openExport}>
           Export
