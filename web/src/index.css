@@ -2382,16 +2382,23 @@ kbd {
   box-shadow: inset -2px 0 var(--text-3);
 }
 
+.ov-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.ov-main > .ov-col {
+  flex: 1;
+  padding-top: 0;
+}
+
 .ov-head {
-  position: sticky;
-  z-index: 1;
-  top: -20px;
   display: flex;
   align-items: center;
   gap: 4px;
-  margin: -20px -28px 0;
   padding: 20px 28px 6px;
-  background: var(--canvas);
 }
 
 .ov-head h2 {

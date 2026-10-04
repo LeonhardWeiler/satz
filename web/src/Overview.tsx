@@ -305,7 +305,7 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           </button>
         </div>
       </div>
-      <div ref={scroller} className="ov-col">
+      <div ref={scroller} className="ov-main">
         <header className="ov-head">
           <h2>Pages</h2>
           <Field label="Columns" unit="" int min={0} max={12} zero="Auto" value={columns} onCommit={(v) => resize({ columns: v })} />
@@ -316,47 +316,49 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
             <Icon name="plus" />
           </button>
         </header>
-        <div
-          ref={list}
-          style={columns ? { display: 'grid', gridTemplateColumns: `repeat(${columns}, max-content)` } : undefined}
-          className="ov-spreads"
-          role="listbox"
-          aria-label="Pages"
-          aria-multiselectable
-          aria-activedescendant={selected.length ? `ov-${selected.at(-1)}` : undefined}
-          tabIndex={0}
-          onKeyDown={onKey}
-        >
-          {rows.map((spread, k) => (
-            <div
-              key={spread.join()}
-              className="ov-item"
-              role={facing ? 'group' : undefined}
-              aria-label={facing ? `Spread ${spread.map((id) => ids.indexOf(id) + 1).join('–')}` : undefined}
-              data-current={spread.includes(current) || undefined}
-            >
-              <div className="ov-pages" style={facing && k === 0 && spread.length === 1 ? { paddingLeft: width(pages[0]) } : undefined}>
-                {spread.map((id) => pageThumb(pages[ids.indexOf(id)]))}
-                {k === rows.length - 1 && joins && add}
+        <div className="ov-col">
+          <div
+            ref={list}
+            style={columns ? { display: 'grid', gridTemplateColumns: `repeat(${columns}, max-content)` } : undefined}
+            className="ov-spreads"
+            role="listbox"
+            aria-label="Pages"
+            aria-multiselectable
+            aria-activedescendant={selected.length ? `ov-${selected.at(-1)}` : undefined}
+            tabIndex={0}
+            onKeyDown={onKey}
+          >
+            {rows.map((spread, k) => (
+              <div
+                key={spread.join()}
+                className="ov-item"
+                role={facing ? 'group' : undefined}
+                aria-label={facing ? `Spread ${spread.map((id) => ids.indexOf(id) + 1).join('–')}` : undefined}
+                data-current={spread.includes(current) || undefined}
+              >
+                <div className="ov-pages" style={facing && k === 0 && spread.length === 1 ? { paddingLeft: width(pages[0]) } : undefined}>
+                  {spread.map((id) => pageThumb(pages[ids.indexOf(id)]))}
+                  {k === rows.length - 1 && joins && add}
+                </div>
+                <span className="ov-cap">
+                  {spread.map((id) => {
+                    const m = masters.find((m) => m.id === pages[ids.indexOf(id)].master)
+                    return (
+                      <span key={id}>
+                        {ids.indexOf(id) + 1}
+                        {m && <b title={`Master ${m.name}`}>{prefix(m.name)}</b>}
+                      </span>
+                    )
+                  })}
+                </span>
               </div>
-              <span className="ov-cap">
-                {spread.map((id) => {
-                  const m = masters.find((m) => m.id === pages[ids.indexOf(id)].master)
-                  return (
-                    <span key={id}>
-                      {ids.indexOf(id) + 1}
-                      {m && <b title={`Master ${m.name}`}>{prefix(m.name)}</b>}
-                    </span>
-                  )
-                })}
-              </span>
-            </div>
-          ))}
-          {!joins && (
-            <div className="ov-item">
-              <div className="ov-pages">{add}</div>
-            </div>
-          )}
+            ))}
+            {!joins && (
+              <div className="ov-item">
+                <div className="ov-pages">{add}</div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
       <div
