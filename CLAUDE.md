@@ -14,7 +14,7 @@ is stale, and `SATZ_WRITE_FIXTURES=1 cargo test fixture` writes it again.
 `cargo test --release -p engine bench -- --ignored --nocapture` measures the engine
 (`engine/src/doc/bench.rs`); it is not in CI.
 
-Setup: `nix develop` provides all tools. Without nix: stable Rust with the
+Setup: `nix develop` provides all tools, `nix develop .#e2e` only those of `./check e2e`. Without nix: stable Rust with the
 `wasm32-unknown-unknown` target, `wasm-pack`, `wasm-bindgen-cli` 0.2.127, binaryen,
 Node 22, pnpm, MuPDF (`mutool`, for the PDF tests) and
 `pnpm -C web exec playwright install chromium`.

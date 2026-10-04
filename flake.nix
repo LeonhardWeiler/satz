@@ -21,13 +21,8 @@
           extensions = [ "clippy" "rustfmt" "rust-src" "rust-analyzer" ];
           targets = [ "wasm32-unknown-unknown" ];
         };
-      in {
-        devShells.default = pkgs.mkShell {
+        e2e = {
           packages = with pkgs; [
-            rust
-            wasm-pack
-            wasm-bindgen-cli_0_2_127
-            binaryen
             nodejs_22
             pnpm
             mupdf
@@ -39,5 +34,15 @@
           };
           PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
         };
+      in {
+        devShells.default = pkgs.mkShell (e2e // {
+          packages = e2e.packages ++ (with pkgs; [
+            rust
+            wasm-pack
+            wasm-bindgen-cli_0_2_127
+            binaryen
+          ]);
+        });
+        devShells.e2e = pkgs.mkShell e2e;
       });
 }
