@@ -19,6 +19,7 @@ const DRAG = 3
 const HIT = 6
 /** Distance in px within which layers snap. */
 const SNAP = 5
+const EDGE = 20000 * MM
 const TURN = 'M6 18a12 12 0 0 1 12-12M3 15l3 3 3-3M15 3l3 3-3 3'
 const ARROW = 'M4 12h16M7 9l-3 3 3 3M17 9l3 3-3 3'
 /** Degrees counterclockwise of the arrow of each resize handle and of the turn arrow at each corner. */
@@ -411,6 +412,9 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       cancelAnimationFrame(frame)
       frame = 0
       if (!surface) return
+      const [cw, ch] = [canvas.clientWidth / 2, canvas.clientHeight / 2]
+      view.x = Math.min(Math.max(view.x, cw - EDGE * view.zoom), cw + EDGE * view.zoom)
+      view.y = Math.min(Math.max(view.y, ch - EDGE * view.zoom), ch + EDGE * view.zoom)
       const { box, line, radii: corners } = drag?.kind === 'marquee' ? {} : handles()
       const h = editor.hover ?? hover
       const over = h && !editor.selection.includes(h) ? editor.nodes.get(h)?.node : undefined

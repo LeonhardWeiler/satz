@@ -353,6 +353,17 @@ test('ctrl and the wheel over the quick edit bar zoom the canvas', async ({ page
   await expect(page.getByLabel('Zoom')).not.toHaveText(zoom!)
 })
 
+test('the canvas scrolls no further than 20000 mm from the page', async ({ page }) => {
+  await open(page)
+  const middle = await screen(page, 74, 105)
+  const [before] = await colors(page, [middle])
+  await page.mouse.move(...middle)
+  await page.mouse.wheel(1e7, 0)
+  await page.mouse.wheel(-1e7, 0)
+  await page.mouse.move(1, 1)
+  await expect.poll(async () => (await colors(page, [middle]))[0]).not.toEqual(before)
+})
+
 test('the centre of one of several selected layers dragged onto another swaps their places', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
