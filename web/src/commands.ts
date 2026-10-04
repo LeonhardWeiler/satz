@@ -9,7 +9,7 @@ const pageOrLast = (editor: Editor) =>
   editor.snapshot.pages.some((p) => p.id === editor.pageId) ? editor.pageId : editor.snapshot.pages.at(-1)!.id
 
 export const ACTIONS: Action[] = [
-  { title: 'New document', keys: 'Ctrl N', group: 'File' },
+  { title: 'New document', keys: 'Ctrl Alt N', group: 'File' },
   { title: 'Open', keys: 'Ctrl O', group: 'File' },
   { title: 'Save', keys: 'Ctrl S', group: 'File' },
   { title: 'Save as', keys: 'Ctrl Shift S', group: 'File' },

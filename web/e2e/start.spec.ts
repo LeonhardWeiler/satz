@@ -15,7 +15,7 @@ test('the start screen shows without an autosave and escape opens the booklet', 
 
 test('enter creates a document of the chosen format, orientation and pages', async ({ page }) => {
   await open(page)
-  await page.keyboard.press('Control+n')
+  await page.keyboard.press('Control+Alt+n')
   const dialog = start(page)
   await expect(dialog.getByRole('radio', { name: /A5/ })).toBeFocused()
   await page.keyboard.press('ArrowLeft')
@@ -36,7 +36,7 @@ test('enter creates a document of the chosen format, orientation and pages', asy
 
 test('a custom format takes its width and height', async ({ page }) => {
   await open(page)
-  await page.keyboard.press('Control+n')
+  await page.keyboard.press('Control+Alt+n')
   const dialog = start(page)
   await dialog.getByRole('radio', { name: /Custom/ }).click()
   await dialog.getByRole('textbox', { name: 'Width' }).fill('100')
@@ -52,13 +52,13 @@ test('escape returns to the document and an example asks before it discards chan
   await open(page)
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Sun' }).click()
   await page.keyboard.press('Delete')
-  await page.keyboard.press('Control+n')
+  await page.keyboard.press('Control+Alt+n')
   await expect(start(page).getByText('Esc returns to the document')).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(start(page)).toHaveCount(0)
   await expect(page).toHaveTitle('* Untitled.satz - Satz')
 
-  await page.keyboard.press('Control+n')
+  await page.keyboard.press('Control+Alt+n')
   await start(page).getByRole('button', { name: 'Poster' }).click()
   await page.locator('.ask').getByRole('button', { name: 'Cancel' }).click()
   await expect(start(page)).toBeVisible()
@@ -70,7 +70,7 @@ test('escape returns to the document and an example asks before it discards chan
 test('open file on the start screen asks for a file as ctrl+o does', async ({ page }) => {
   await page.addInitScript(() => delete (window as { showOpenFilePicker?: unknown }).showOpenFilePicker)
   await open(page)
-  await page.keyboard.press('Control+n')
+  await page.keyboard.press('Control+Alt+n')
   const chooser = page.waitForEvent('filechooser')
   await start(page).getByRole('button', { name: /Open file/ }).click()
   await chooser
@@ -80,7 +80,7 @@ test('open file on the start screen asks for a file as ctrl+o does', async ({ pa
 test('ctrl+o on the start screen opens the file it asks for', async ({ page }) => {
   await page.addInitScript(() => delete (window as { showOpenFilePicker?: unknown }).showOpenFilePicker)
   await open(page)
-  await page.keyboard.press('Control+n')
+  await page.keyboard.press('Control+Alt+n')
   const chooser = page.waitForEvent('filechooser')
   await page.keyboard.press('Control+o')
   await (await chooser).setFiles(`${import.meta.dirname}/../../examples/poster.satz`)

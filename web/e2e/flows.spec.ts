@@ -30,7 +30,7 @@ test('a first visit creates an a5 booklet, a reload opens it and ctrl+n opens a 
   await expect(current(page, 1)).toBeVisible()
 
   await page.evaluate(() => delete (window as { showOpenFilePicker?: unknown }).showOpenFilePicker)
-  await page.keyboard.press('Control+n')
+  await page.keyboard.press('Control+Alt+n')
   const chooser = page.waitForEvent('filechooser')
   await start(page).getByRole('button', { name: /Open file/ }).click()
   await (await chooser).setFiles(`${import.meta.dirname}/../../examples/poster.satz`)
