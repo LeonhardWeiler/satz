@@ -1149,6 +1149,13 @@ textarea {
   margin-left: 0;
 }
 
+.align-inside {
+  align-self: center;
+  padding: 0 6px;
+  color: var(--text-2);
+  font-size: 11px;
+}
+
 .icon-button:disabled {
   opacity: 0.35;
   pointer-events: none;

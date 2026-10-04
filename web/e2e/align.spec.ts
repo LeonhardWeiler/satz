@@ -64,3 +64,18 @@ test('the arrange bar flattens a shape and adds auto layout', async ({ page }) =
   await page.keyboard.press('Enter')
   await expect(page.getByRole('toolbar', { name: 'Path tools' })).toBeVisible()
 })
+
+test('the quick edit bar of a group aligns the layers inside it', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  const layers = page.getByRole('tree', { name: 'Layers' })
+  const x = async (name: string) => {
+    await layers.getByRole('button', { name, exact: true }).click()
+    return panel.getByRole('textbox', { name: 'X in mm', exact: true }).inputValue()
+  }
+  const left = await x('Shapes')
+  await page.getByRole('toolbar', { name: 'Align inside' }).getByRole('button', { name: 'Align left' }).click()
+  await expect(panel.getByRole('textbox', { name: 'X in mm', exact: true })).toHaveValue(left)
+  expect(await x('Sun')).toBe(left)
+  expect(await x('Star')).toBe(left)
+})

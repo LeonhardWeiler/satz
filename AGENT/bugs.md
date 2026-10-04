@@ -11,7 +11,7 @@
 12. [x] variables should have the same right click and hover controls as swatches (right click to rename, delete, edit, duplicate), hover to delete on the right
 13. [x] don't show the drag cursor on non draggable controls like names etc.
 14. [x] show the page thing that currently is in the top left of the canvas in the top center of the page in the same row as the toolbar and export, etc.
-15. groups should have a quickbar above the selection to align the items inside the group, make it visually clear that its aligning the items inside and not the group itself
+15. [x] groups should have a quickbar above the selection to align the items inside the group, make it visually clear that its aligning the items inside and not the group itself
 16. inside groups and auto layouts the elemts should have a circle in the middle of them just like when both of them are selected to change position. for autolayouts its neccesesary to move them in the layer order i belive
 17. [x] when editing the name of the file in the top left, it should still show the extension (even though it can't be edited) and the text should stay in the same position when editing compared to when not editing
 18. [x] the arrow down icon dropdown for the element primitives selection has to little margin to the pen tool to its right

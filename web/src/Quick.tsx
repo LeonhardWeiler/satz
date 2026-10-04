@@ -66,6 +66,7 @@ export function Quick({ editor }: { editor: Editor }) {
   return (
     <>
       {nodes.length > 1 && <AlignBar editor={editor} />}
+      {one?.kind === 'group' && one.children.length > 1 && <AlignBar editor={editor} inside={one.children} />}
       {one && <Sizing editor={editor} node={one} set={set} />}
       {one?.kind === 'text' && (
         <>

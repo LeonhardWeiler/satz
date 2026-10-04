@@ -35,11 +35,11 @@ export const ALIGNS: [Align, string, IconName, string][] = [
 ]
 
 /**
- * Aligns the selected layers to their bounds, or a single layer to its parent frame or
- * page; distributes and tidies three and two layers or more.
+ * Aligns `layers` to their bounds, or a single layer to its parent frame or page;
+ * distributes and tidies three and two layers or more.
  */
-export function align(editor: Editor, how: Align) {
-  const nodes = editor.selected().filter((n) => !n.locked)
+export function align(editor: Editor, how: Align, layers = editor.selected()) {
+  const nodes = layers.filter((n) => !n.locked)
   const parent = nodes.length === 1 && editor.nodes.get(nodes[0].id)?.parent
   const to = nodes.length > 1 ? bounds(nodes) : parent && parent.kind === 'frame' ? parent : { x: 0, y: 0, w: editor.page.width, h: editor.page.height }
   const moves = new Map<Node, [number, number]>()
@@ -83,20 +83,21 @@ export function align(editor: Editor, how: Align) {
   })
 }
 
-/** A button for each alignment of the selection, those it cannot do disabled. */
-export function AlignBar({ editor }: { editor: Editor }) {
-  const n = editor.selection.length
+/** A button for each alignment of the selection, or of the layers `inside` a group, those it cannot do disabled. */
+export function AlignBar({ editor, inside }: { editor: Editor; inside?: Node[] }) {
+  const n = inside?.length ?? editor.selection.length
   return (
-    <div role="toolbar" aria-label="Align" className="align">
+    <div role="toolbar" aria-label={inside ? 'Align inside' : 'Align'} className="align">
+      {inside && <span className="align-inside">Inside</span>}
       {ALIGNS.map(([how, title, icon, key]) => (
         <button
           key={how}
           type="button"
           className="icon-button"
           aria-label={title}
-          title={`${title} (${key})`}
+          title={inside ? `${title} inside the group` : `${title} (${key})`}
           disabled={n < (how === 'tidy' ? 2 : how.startsWith('distribute') ? 3 : 1)}
-          onClick={() => align(editor, how)}
+          onClick={() => align(editor, how, inside)}
         >
           <Icon name={icon} />
         </button>
