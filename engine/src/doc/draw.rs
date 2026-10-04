@@ -187,6 +187,8 @@ pub enum Kind {
         /// `start` as a byte offset.
         #[serde(skip)]
         from: usize,
+        #[serde(skip)]
+        placed: Rc<text::Placed>,
     },
     Group {
         children: Vec<Node>,
@@ -371,6 +373,7 @@ pub(super) fn renumber(nodes: &mut [Node], number: &str) {
                 frame,
                 next,
                 from,
+                placed,
                 ..
             } => {
                 frame.number = number.into();
@@ -383,6 +386,8 @@ pub(super) fn renumber(nodes: &mut [Node], number: &str) {
                     }
                     n.h = h.into();
                 }
+                let bounds = [n.x, n.y, n.w, n.h].map(|v| v as f32);
+                *placed = Rc::new(text::set(&content.text, &content.spans, bounds, frame, *from).0);
             }
             Kind::Group { children } | Kind::Frame { children, .. } => renumber(children, number),
             Kind::Shape(_) => {}
@@ -466,11 +471,27 @@ pub(super) fn draw(n: &Node, ops: &mut Vec<Op>, pal: &Palette) {
             content,
             frame: tf,
             from,
+            placed,
             ..
-        } => item(
-            ops,
-            text::draw(&content.text, &content.spans, &n.style, frame, tf, s, *from),
-        ),
+        } => {
+            debug_assert_eq!(
+                **placed,
+                text::set(&content.text, &content.spans, frame, tf, *from).0,
+                "text drawn where it was not set"
+            );
+            item(
+                ops,
+                text::draw(
+                    &content.text,
+                    &content.spans,
+                    &n.style,
+                    frame,
+                    tf,
+                    s,
+                    placed,
+                ),
+            )
+        }
         Kind::Group { children } => draw_all(children, ops, pal),
         Kind::Frame { clip, children } => {
             let r = rect(frame[0], frame[1], frame[2], frame[3]);
@@ -1035,10 +1056,11 @@ impl Doc {
                         next: f.next.map(|n| n.to_string()),
                         overset: f.overset,
                         from: f.start,
+                        placed: f.placed.clone(),
                     }
                 }
-                None => Kind::Text {
-                    content: Rc::new(Story {
+                None => {
+                    let content = Story {
                         text: v["text"].as_str().unwrap_or_default().into(),
                         spans: self.spans(
                             id,
@@ -1048,16 +1070,23 @@ impl Doc {
                                 modes: &active_modes,
                             },
                         ),
-                    }),
-                    frame: self.text_frame_of(id),
-                    story: id.to_string(),
-                    start: 0,
-                    end: 0,
-                    prev: None,
-                    next: None,
-                    overset: false,
-                    from: 0,
-                },
+                    };
+                    let frame = self.text_frame_of(id);
+                    let bounds = self.bounds(id).map(|v| v as f32);
+                    let placed = text::set(&content.text, &content.spans, bounds, &frame, 0).0;
+                    Kind::Text {
+                        content: Rc::new(content),
+                        frame,
+                        story: id.to_string(),
+                        start: 0,
+                        end: 0,
+                        prev: None,
+                        next: None,
+                        overset: false,
+                        from: 0,
+                        placed: Rc::new(placed),
+                    }
+                }
             },
             Some(NodeKind::Group) => Kind::Group {
                 children: children(),

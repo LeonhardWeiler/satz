@@ -1,7 +1,8 @@
 use super::*;
 
 /// Where the story of a thread, from the frame `head`, flows through a frame: the
-/// bytes `start..end`, its neighbours, and text left over at the end of the thread.
+/// bytes `start..end` as `placed` there, its neighbours, and text left over at the
+/// end of the thread.
 #[derive(Debug, PartialEq)]
 pub(super) struct Flow {
     pub(super) head: TreeID,
@@ -13,6 +14,7 @@ pub(super) struct Flow {
     pub(super) prev: Option<TreeID>,
     pub(super) next: Option<TreeID>,
     pub(super) overset: bool,
+    pub(super) placed: Rc<text::Placed>,
 }
 
 /// A story set through the frames of its thread, with the bounds and settings of
@@ -21,8 +23,12 @@ pub(super) struct Set {
     story: Rc<Story>,
     frames: Vec<(TreeID, [f32; 4], TextFrame)>,
     fonts: usize,
-    out: Vec<(TreeID, usize, Option<usize>)>,
+    out: Vec<Placing>,
 }
+
+/// A frame of a thread, the byte where its text starts, where the text left over for
+/// the next begins, and how its text is placed.
+pub(super) type Placing = (TreeID, usize, Option<usize>, Rc<text::Placed>);
 
 /// The UTF-16 range of the paragraphs that `r` touches in `text`.
 pub(super) fn paragraphs(text: &str, r: &Range<usize>) -> Range<usize> {
@@ -81,6 +87,7 @@ impl Doc {
     /// Removes the added font `hash`; text set in it falls back as a missing font.
     pub fn remove_font(&mut self, hash: &str) -> Res<()> {
         text::remove_font(hash);
+        self.sets.take();
         self.invalidate();
         self.doc.set_next_commit_origin(LAYOUT_ORIGIN);
         self.finish(vec![], false).map(drop)
@@ -90,20 +97,12 @@ impl Doc {
     pub(super) fn frame_lines(&self, n: TreeID) -> Res<(Rc<Story>, Vec<text::Line>)> {
         let flows = self.flows();
         let f = flows.get(&n).ok_or("not a text node")?;
-        let tf = self.text_frame_of(n);
-        let frame = self.bounds(n).map(|v| v as f32);
-        let lines = text::lines(&f.story.text, &f.story.spans, frame, &tf, f.start);
-        Ok((f.story.clone(), lines))
+        Ok((f.story.clone(), f.placed.geometry.clone()))
     }
 
-    /// The story of the thread starting at `head` and each frame with the byte where
-    /// its text starts and where the text left over for the next begins. A story set
+    /// The story of the thread starting at `head` set through its frames. A story set
     /// before from the same inputs is taken as it was.
-    #[allow(clippy::type_complexity)]
-    pub(super) fn flow(
-        &self,
-        head: TreeID,
-    ) -> Res<(Rc<Story>, Vec<(TreeID, usize, Option<usize>)>)> {
+    pub(super) fn flow(&self, head: TreeID) -> Res<(Rc<Story>, Vec<Placing>)> {
         let text = self.own_text(head)?.to_string();
         let v = serde_json::to_value(self.meta(head).get_deep_value()).map_err(err)?;
         let palette = self.palette();
@@ -124,8 +123,9 @@ impl Doc {
             let mut from = Some(0);
             for (f, frame, tf) in &frames {
                 let start = from.unwrap_or(t.len());
-                let next = from.and_then(|b| text::overflow(t, spans, *frame, tf, b));
-                out.push((*f, start, next));
+                let (placed, rest) = text::set(t, spans, *frame, tf, start);
+                let next = from.and(rest);
+                out.push((*f, start, next, Rc::new(placed)));
                 from = next;
             }
             out
@@ -539,18 +539,19 @@ impl Doc {
             let Ok((story, frames)) = self.flow(head) else {
                 continue;
             };
-            for (i, &(f, start, next)) in frames.iter().enumerate() {
+            for (i, (f, start, next, placed)) in frames.iter().enumerate() {
                 out.insert(
-                    f,
+                    *f,
                     Flow {
                         head,
                         story: story.clone(),
-                        start,
+                        start: *start,
                         end: next.unwrap_or(story.text.len()),
-                        rest: next,
+                        rest: *next,
                         prev: i.checked_sub(1).map(|j| frames[j].0),
                         next: frames.get(i + 1).map(|n| n.0),
                         overset: i + 1 == frames.len() && next.is_some(),
+                        placed: placed.clone(),
                     },
                 );
             }

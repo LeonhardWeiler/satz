@@ -573,8 +573,8 @@ pub struct Glyph {
     pub hyphen: bool,
 }
 
-/// Glyph runs of `text` from the byte `from` set in `frame`; characters without a
-/// fill take the fills of `style`, its strokes go around the glyphs.
+/// Glyph runs of `text` as `placed` in `frame`; characters without a fill take the
+/// fills of `style`, its strokes go around the glyphs.
 pub fn draw(
     text: &str,
     spans: &[Span],
@@ -582,7 +582,7 @@ pub fn draw(
     frame: [f32; 4],
     tf: &TextFrame,
     s: &Scope,
-    from: usize,
+    placed: &Placed,
 ) -> Vec<Op> {
     let fonts: Vec<u32> = spans.iter().map(|s| font_id(&s.attrs.font)).collect();
     let span_paints: Vec<Vec<Paint>> = spans
@@ -599,15 +599,14 @@ pub fn draw(
     let mut ops = Vec::new();
     let stroked = style.strokes.iter().any(|f| f.visible);
     let mut outlines = Vec::new();
-    let placed = set(text, spans, frame, tf, from).0;
-    for (line, geometry) in placed.lines.into_iter().zip(&placed.geometry) {
+    for (line, geometry) in placed.lines.iter().zip(&placed.geometry) {
         let mut at = 0;
         for run in line.chunk_by(|a, b| {
             a.size == b.size
                 && span_paints[a.span] == span_paints[b.span]
                 && fonts[a.span] == fonts[b.span]
         }) {
-            let (run_text, ranges) = source(text, &line, at..at + run.len(), &tf.number);
+            let (run_text, ranges) = source(text, line, at..at + run.len(), &tf.number);
             at += run.len();
             let glyphs: Vec<u16> = run.iter().map(|g| g.id).collect();
             let positions: Vec<f32> = run.iter().flat_map(|g| [g.x, g.y]).collect();
@@ -807,21 +806,10 @@ pub fn lay_out(
     set(text, spans, frame, tf, from).0.lines
 }
 
-/// The byte where the text from `from` that does not fit in `frame` starts, for the
-/// next frame of a thread; `None` when it all fits.
-pub fn overflow(
-    text: &str,
-    spans: &[Span],
-    frame: [f32; 4],
-    tf: &TextFrame,
-    from: usize,
-) -> Option<usize> {
-    set(text, spans, frame, tf, from).1
-}
-
 /// The text from the byte `from` set in `frame`, and the byte where the text that
-/// does not fit starts. Only about as many lines as the columns can hold are broken.
-fn set(
+/// does not fit starts, for the next frame of a thread. Only about as many lines as
+/// the columns can hold are broken.
+pub fn set(
     text: &str,
     spans: &[Span],
     frame: [f32; 4],
@@ -1652,9 +1640,10 @@ fn place(rows: Vec<Row>, [ix, iy, _, ih]: [f32; 4], cw: f32, tf: &TextFrame) -> 
 
 /// The lines that fit, how many of the rows that is, and the lowest line bottom.
 /// Each line is moved in by its `insets` from the left and right of its column.
-struct Placed {
-    lines: Vec<Vec<Glyph>>,
-    geometry: Vec<Line>,
+#[derive(Debug, Default, PartialEq)]
+pub struct Placed {
+    pub lines: Vec<Vec<Glyph>>,
+    pub geometry: Vec<Line>,
     insets: Vec<[f32; 2]>,
     placed: usize,
     bottom: f32,
@@ -1689,18 +1678,6 @@ pub struct Line {
     pub left: f32,
     pub right: f32,
     pub stops: Vec<(usize, f32)>,
-}
-
-/// The lines of `text` from the byte `from` that fit in `frame`, with where their
-/// characters sit.
-pub fn lines(
-    text: &str,
-    spans: &[Span],
-    frame: [f32; 4],
-    tf: &TextFrame,
-    from: usize,
-) -> Vec<Line> {
-    set(text, spans, frame, tf, from).0.geometry
 }
 
 /// The line holding the byte offset `at`: the first that reaches it, unless the next
@@ -1756,6 +1733,25 @@ pub fn index_at(lines: &[Line], x: f32, y: f32) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn drawn(
+        text: &str,
+        spans: &[Span],
+        style: &Style,
+        frame: [f32; 4],
+        tf: &TextFrame,
+        s: &Scope,
+    ) -> Vec<Op> {
+        draw(
+            text,
+            spans,
+            style,
+            frame,
+            tf,
+            s,
+            &set(text, spans, frame, tf, 0).0,
+        )
+    }
     use crate::style::Fill;
     use crate::variable::{Modes, Palette};
 
@@ -1825,7 +1821,7 @@ mod tests {
             palette: &palette,
             modes: &modes,
         };
-        draw(text, spans, &black(), frame, tf, &s, 0)
+        drawn(text, spans, &black(), frame, tf, &s)
             .into_iter()
             .map(|op| match op {
                 Op::GlyphRun {
@@ -1867,14 +1863,13 @@ mod tests {
             ..Style::default()
         };
         let frame = [0.0, 0.0, 100.0, 50.0];
-        let ops = draw(
+        let ops = drawn(
             "Hi",
             &one("Hi", attrs(10.0)),
             &style,
             frame,
             &TextFrame::default(),
             &s,
-            0,
         );
         let [
             Op::PushClip { path, invert: true },
@@ -1891,14 +1886,13 @@ mod tests {
             "{x} {y} {w} {h}"
         );
         assert!(
-            draw(
+            drawn(
                 "Hi",
                 &one("Hi", attrs(10.0)),
                 &black(),
                 frame,
                 &TextFrame::default(),
                 &s,
-                0
             )
             .iter()
             .all(|op| matches!(op, Op::GlyphRun { .. }))
@@ -1930,17 +1924,9 @@ mod tests {
             palette: &palette,
             modes: &modes,
         };
-        let ops = draw(
-            &marked,
-            &one(&marked, a.clone()),
-            &black(),
-            frame,
-            &tf,
-            &s,
-            0,
-        );
+        let ops = drawn(&marked, &one(&marked, a.clone()), &black(), frame, &tf, &s);
         assert!(matches!(&ops[0], Op::GlyphRun { text, .. } if text == "p12."));
-        let lines = lines(&marked, &one(&marked, a), frame, &tf, 0);
+        let lines = set(&marked, &one(&marked, a), frame, &tf, 0).0.geometry;
         let [before, after] =
             [1, 1 + PAGE_NUMBER.len_utf8()].map(|at| caret(&marked, &lines, at)[0]);
         assert!(after - before > 9.9, "{before} {after}");
@@ -2224,14 +2210,13 @@ mod tests {
                 text_decoration,
                 ..attrs(10.0)
             };
-            draw(
+            drawn(
                 "Hi Hi",
                 &one("Hi Hi", a),
                 &black(),
                 [0.0, 0.0, 100.0, 50.0],
                 &TextFrame::default(),
                 &s,
-                0,
             )
             .into_iter()
             .filter_map(|op| match op {
@@ -2505,7 +2490,9 @@ mod tests {
     fn carets_sit_where_the_characters_start_and_wrap_with_the_lines() {
         let t = "Hi Hi Hi";
         let frame = [5.0, 7.0, 25.0, 50.0];
-        let ls = lines(t, &one(t, attrs(10.0)), frame, &TextFrame::default(), 0);
+        let ls = set(t, &one(t, attrs(10.0)), frame, &TextFrame::default(), 0)
+            .0
+            .geometry;
         assert_eq!(ls.len(), 2);
         assert_eq!(
             (ls[0].start, ls[0].end, ls[1].start, ls[1].end),
@@ -2526,13 +2513,15 @@ mod tests {
             text_align: TextAlign::Justify,
             ..attrs(10.0)
         };
-        let ls = lines(
+        let ls = set(
             t,
             &one(t, a),
             [5.0, 7.0, 25.0, 50.0],
             &TextFrame::default(),
             0,
-        );
+        )
+        .0
+        .geometry;
         let [end, ..] = caret(t, &ls, 8);
         assert!(end > 12.88 && end < 20.0, "{end}");
     }
@@ -2540,13 +2529,15 @@ mod tests {
     #[test]
     fn a_point_finds_the_nearest_character_boundary_on_its_line() {
         let t = "Hi Hi Hi";
-        let ls = lines(
+        let ls = set(
             t,
             &one(t, attrs(10.0)),
             [5.0, 7.0, 25.0, 50.0],
             &TextFrame::default(),
             0,
-        );
+        )
+        .0
+        .geometry;
         assert_eq!(index_at(&ls, 12.0, 10.0), 1);
         assert_eq!(index_at(&ls, 0.0, 0.0), 0);
         assert_eq!(index_at(&ls, 100.0, 25.0), 8);
@@ -2561,7 +2552,7 @@ mod tests {
             modes: &modes,
         };
         let spans = one(text, a);
-        draw(text, &spans, &black(), frame, &TextFrame::default(), &s, 0)
+        drawn(text, &spans, &black(), frame, &TextFrame::default(), &s)
             .into_iter()
             .map(|op| match op {
                 Op::GlyphRun { text, .. } => text,
@@ -2616,14 +2607,14 @@ mod tests {
         let t = "Hi Hi Hi";
         let spans = one(t, attrs(10.0));
         let tf = TextFrame::default();
-        assert_eq!(overflow(t, &spans, [0.0, 0.0, 25.0, 15.0], &tf, 0), Some(6));
-        assert_eq!(overflow(t, &spans, [0.0, 0.0, 25.0, 50.0], &tf, 0), None);
-        assert_eq!(overflow(t, &spans, [0.0, 0.0, 25.0, 50.0], &tf, 6), None);
+        assert_eq!(set(t, &spans, [0.0, 0.0, 25.0, 15.0], &tf, 0).1, Some(6));
+        assert_eq!(set(t, &spans, [0.0, 0.0, 25.0, 50.0], &tf, 0).1, None);
+        assert_eq!(set(t, &spans, [0.0, 0.0, 25.0, 50.0], &tf, 6).1, None);
         let rest = lay_out(t, &spans, [100.0, 0.0, 100.0, 50.0], &tf, 6);
         assert_eq!(rest.len(), 1);
         assert_eq!(rest[0].iter().map(|g| g.id).collect::<Vec<_>>(), [H, I]);
         assert_close(&[rest[0][0].x, rest[0][0].y], &[100.0, ASCENT]);
-        let ls = lines(t, &spans, [100.0, 0.0, 100.0, 50.0], &tf, 6);
+        let ls = set(t, &spans, [100.0, 0.0, 100.0, 50.0], &tf, 6).0.geometry;
         assert_eq!((ls[0].start, ls[0].end), (6, 8));
         assert_close(&measure(t, &spans, &tf, Some(25.0), 6), &[25.0, AUTO]);
         let de = Attrs {
@@ -2633,7 +2624,7 @@ mod tests {
         };
         let w = "Silbentrennung";
         let spans = one(w, de);
-        let at = overflow(w, &spans, [0.0, 0.0, 45.0, 15.0], &tf, 0).unwrap();
+        let at = set(w, &spans, [0.0, 0.0, 45.0, 15.0], &tf, 0).1.unwrap();
         assert_eq!(&w[at..], "trennung");
         let rest = lay_out(w, &spans, [0.0, 0.0, 100.0, 50.0], &tf, at);
         assert_eq!(rest.len(), 1);
@@ -2646,10 +2637,7 @@ mod tests {
         let t = "Hi\nHi Hi";
         let spans = one(t, attrs(10.0));
         let tf = TextFrame::default();
-        assert_eq!(
-            overflow(t, &spans, [0.0, 0.0, 100.0, 15.0], &tf, 0),
-            Some(3)
-        );
+        assert_eq!(set(t, &spans, [0.0, 0.0, 100.0, 15.0], &tf, 0).1, Some(3));
         let rest = lay_out(t, &spans, [0.0, 0.0, 100.0, 50.0], &tf, 3);
         assert_eq!(rest.len(), 1);
         assert_eq!(rest[0].len(), 4);

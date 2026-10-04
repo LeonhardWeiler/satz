@@ -2369,6 +2369,7 @@ impl Doc {
             frame: tf,
             prev: None,
             next: None,
+            placed,
             ..
         } = &n.kind
         else {
@@ -2383,7 +2384,7 @@ impl Doc {
             ..Style::default()
         };
         Ok(
-            text::draw(&content.text, &content.spans, &style, frame, tf, &s, 0)
+            text::draw(&content.text, &content.spans, &style, frame, tf, &s, placed)
                 .into_iter()
                 .flat_map(|op| match op {
                     Op::GlyphRun {
