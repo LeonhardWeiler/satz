@@ -106,9 +106,9 @@ body,
 .bar {
   grid-area: bar;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr);
   align-items: center;
-  gap: 8px;
+  container: bar / inline-size;
   min-width: 0;
   padding: 0 8px;
   overflow: hidden;
@@ -1164,13 +1164,6 @@ textarea {
   flex: none;
 }
 
-.bar-side > .toolbar {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
 .toolbar {
   display: flex;
   gap: 2px;
@@ -1611,6 +1604,7 @@ textarea {
   display: flex;
   align-items: center;
   gap: 2px;
+  margin: 0 8px;
 }
 
 .switcher .spread {
@@ -2921,6 +2915,18 @@ kbd {
   .bar-side,
   .toolbar {
     gap: 0;
+  }
+}
+
+@container bar (max-width: 700px) {
+  .bar-side > .toggle,
+  .bar-side > .sep,
+  .switcher > button {
+    display: none;
+  }
+
+  .switcher {
+    margin: 0;
   }
 }
 

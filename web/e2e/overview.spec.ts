@@ -116,9 +116,9 @@ test('the masters column is pulled wider with its thumbnails, the pages zoom and
 
 test('the pages header stays in view when the overview scrolls', async ({ page }) => {
   await open(page)
-  await page.setViewportSize({ width: 1000, height: 600 })
   for (let i = 0; i < 3; i++) await addPage(page)
   const region = await overview(page)
+  await page.setViewportSize({ width: 1000, height: 600 })
   const zoomIn = region.getByRole('button', { name: 'Zoom in' })
   while (await zoomIn.isEnabled()) await zoomIn.click()
   await region.getByRole('textbox', { name: 'Columns' }).fill('4')
