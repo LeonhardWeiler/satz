@@ -774,7 +774,8 @@ textarea {
   cursor: pointer;
 }
 
-.swatch-option .chip {
+.swatch-option .chip,
+.var-value .chip {
   flex: none;
   width: 16px;
   height: 16px;
@@ -813,7 +814,7 @@ textarea {
   visibility: visible;
 }
 
-.swatch-row:is(:hover, :focus-within) [role="option"] > :last-child {
+.swatch-row:is(:hover, :focus-within) :is([role="option"] > :last-child, .var-value) {
   visibility: hidden;
 }
 
@@ -1977,6 +1978,7 @@ kbd {
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
   height: 28px;
   padding: 0 8px;
   border: 0;

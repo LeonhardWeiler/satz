@@ -8,7 +8,7 @@
 9. include the Keep aspect ratio button better into the layout
 10. does text wrap work and if yes how, because i wasn't able to figure it out, maybe it should be more intuitive
 11. [x] the rename master right click menu thing doesn't work in the page overview
-12. variables should have the same right click and hover controls as swatches (right click to rename, delete, edit, duplicate), hover to delete on the right
+12. [x] variables should have the same right click and hover controls as swatches (right click to rename, delete, edit, duplicate), hover to delete on the right
 13. [x] don't show the drag cursor on non draggable controls like names etc.
 14. [x] show the page thing that currently is in the top left of the canvas in the top center of the page in the same row as the toolbar and export, etc.
 15. groups should have a quickbar above the selection to align the items inside the group, make it visually clear that its aligning the items inside and not the group itself

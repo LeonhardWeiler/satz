@@ -13,11 +13,13 @@ type Kind = 'color' | 'number' | 'font'
 const KINDS: Record<Kind, string> = { color: 'Color', number: 'Number', font: 'Font' }
 const kindOf = (v: Value): Kind => ('color' in v ? 'color' : 'number' in v ? 'number' : 'font')
 
-/** The document's variables: the plus makes one, a click edits it in a popover. */
+/** The document's variables: the plus makes one, a click edits it in a popover; like swatches, a right click or double click renames. */
 export function Variables({ editor }: { editor: Editor }) {
   const snapshot = useEditor(editor, (e) => e.snapshot)
   const [menu, setMenu] = useState<DOMRect | null>(null)
   const [open, setOpen] = useState<string | null>(null)
+  const [renaming, setRenaming] = useState<string | null>(null)
+  const [rowMenu, setRowMenu] = useState<{ x: number; y: number; id: string } | null>(null)
   const { collections, variables, colorMode } = snapshot
   const scope = { ...scopeOf(snapshot), variables: [] }
   const fonts = [...snapshot.fonts, ...snapshot.missingFonts.map((m) => m.font)]
@@ -29,6 +31,22 @@ export function Variables({ editor }: { editor: Editor }) {
       const name = nextName(KINDS[kind], variables.map((v) => v.name))
       setOpen(editor.apply({ type: 'addVariable', collection, name, value })[0] ?? null)
     })
+  const remove = (id: string) => {
+    editor.apply({ type: 'deleteVariable', id })
+    if (open === id) setOpen(null)
+  }
+  const rename = (id: string) => {
+    setOpen(null)
+    setRenaming(id)
+  }
+  const duplicate = (id: string) =>
+    editor.batch(() => {
+      const v = variables.find((v) => v.id === id)!
+      const [mode, ...modes] = collections.find((c) => c.id === v.collection)!.modes
+      const name = nextName(v.name.replace(/ \d+$/, ''), variables.map((v) => v.name))
+      const [copy] = editor.apply({ type: 'addVariable', collection: v.collection, name, value: v.values[mode.id] })
+      if (copy) for (const m of modes) editor.apply({ type: 'setVariable', id: copy, mode: m.id, value: v.values[m.id] })
+    })
   const preview = (v: Value) =>
     'color' in v ? <Chip color={v.color} scope={scope} /> : 'number' in v ? <span>{v.number}</span> : <span>{v.font?.name ?? fonts[0].name}</span>
 
@@ -37,22 +55,52 @@ export function Variables({ editor }: { editor: Editor }) {
       {variables.length > 0 && (
         <div className="var-group">
           {variables.map((v) => (
-            <button
+            <div
               key={v.id}
-              type="button"
-              className="var"
+              className="swatch-row"
               data-variable={v.id}
-              aria-haspopup="dialog"
-              aria-expanded={open === v.id}
-              onClick={() => setOpen(open === v.id ? null : v.id)}
+              onDoubleClick={() => rename(v.id)}
+              onContextMenu={(e) => {
+                e.preventDefault()
+                setRowMenu({ x: e.clientX, y: e.clientY, id: v.id })
+              }}
             >
-              <Icon name={kindOf(Object.values(v.values)[0]) === 'font' ? 'text' : 'variable'} />
-              <span className="var-name">{v.name}</span>
-              <span className="var-value">{preview(v.values[collections.find((c) => c.id === v.collection)!.modes[0].id])}</span>
-            </button>
+              {renaming === v.id ? (
+                <div className="var" onBlur={() => setRenaming(null)}>
+                  <Icon name={kindOf(Object.values(v.values)[0]) === 'font' ? 'text' : 'variable'} />
+                  <NameInput label="Variable name" value={v.name} autoFocus onCommit={(name) => editor.apply({ type: 'setVariable', id: v.id, name })} />
+                </div>
+              ) : (
+                <>
+                  <button type="button" className="var" aria-haspopup="dialog" aria-expanded={open === v.id} onClick={() => setOpen(open === v.id ? null : v.id)}>
+                    <Icon name={kindOf(Object.values(v.values)[0]) === 'font' ? 'text' : 'variable'} />
+                    <span className="var-name">{v.name}</span>
+                    <span className="var-value">{preview(v.values[collections.find((c) => c.id === v.collection)!.modes[0].id])}</span>
+                  </button>
+                  <button type="button" className="swatch-delete" aria-label={`Delete ${v.name}`} title="Delete variable" onClick={() => remove(v.id)}>
+                    <Icon name="minus" />
+                  </button>
+                </>
+              )}
+            </div>
           ))}
         </div>
       )}
+      {rowMenu &&
+        createPortal(
+          <ContextMenu
+            anchor={() => new DOMRect(rowMenu.x, rowMenu.y)}
+            label="Variable"
+            onClose={() => setRowMenu(null)}
+            items={[
+              ['Edit', () => setOpen(rowMenu.id), true],
+              ['Rename', () => rename(rowMenu.id), true],
+              ['Duplicate', () => duplicate(rowMenu.id), true],
+              ['Delete', () => remove(rowMenu.id), true],
+            ]}
+          />,
+          document.body,
+        )}
       {menu &&
         createPortal(
           <ContextMenu
