@@ -46,26 +46,19 @@
 <div class="counters">
   <div class="counter"><b>0</b><span>Critical</span></div>
   <div class="counter"><b>0</b><span>High</span></div>
-  <div class="counter"><b>1</b><span>Medium</span></div>
-  <div class="counter"><b>7</b><span>Low</span></div>
-  <div class="counter"><b>2</b><span>Info</span></div>
-  <div class="counter"><b>10</b><span>Total</span></div>
+  <div class="counter"><b>0</b><span>Medium</span></div>
+  <div class="counter"><b>3</b><span>Low</span></div>
+  <div class="counter"><b>0</b><span>Info</span></div>
+  <div class="counter"><b>3</b><span>Total</span></div>
 </div>
 
 <nav aria-label="Contents">
 <ol>
   <li><a href="#open">Open findings</a>
     <ol>
-      <li><a href="#DATA-1">DATA-1 Unreadable autosave is overwritten</a></li>
-      <li><a href="#UX-1">UX-1 Shortcuts the browser keeps</a></li>
-      <li><a href="#UX-2">UX-2 Pages field 17 px wide</a></li>
-      <li><a href="#UX-3">UX-3 Examples fail silently</a></li>
-      <li><a href="#ROB-1">ROB-1 Pixel limit only on place</a></li>
-      <li><a href="#ROB-2">ROB-2 Traps outside apply</a></li>
-      <li><a href="#PERF-1">PERF-1 Text set 5 times per keystroke</a></li>
+      <li><a href="#UX-1">UX-1 Ctrl+Shift shortcuts in Firefox</a></li>
+      <li><a href="#PERF-1">PERF-1 Keystroke in long stories</a></li>
       <li><a href="#TEST-1">TEST-1 E2E in Chromium only</a></li>
-      <li><a href="#BUILD-1">BUILD-1 Standing build warnings</a></li>
-      <li><a href="#SEO-1">SEO-1 No meta description</a></li>
     </ol>
   </li>
   <li><a href="#strong">What is already strong</a></li>
@@ -76,53 +69,18 @@
 
 <h2 id="open">1. Open findings</h2>
 
-<article class="card medium" id="DATA-1">
-  <header><span class="id">DATA-1</span><span class="badge medium">medium</span><h3>An autosave that cannot be restored is overwritten by the next document</h3></header>
-  <p class="file"><code>web/src/main.tsx</code> (restore branch); <code>web/src/file.ts</code> <code>autosave</code></p>
-  <p>When <code>editor.load</code> rejects the autosaved bytes (a future format change, a Loro upgrade, a stricter <code>Doc::load</code> check), Satz says it started a new document and opens the start dialog. The first change after that, even Esc which opens the booklet, makes <code>autosave</code> put the new document under the same key <code>doc</code>. The unreadable bytes are gone, and for a document never saved to a file they were the only copy.</p>
-  <p class="rec">On a failed restore, move the stored entry to a second key (e.g. <code>doc-unreadable</code>) before anything is autosaved, and offer it as a download in the status message so it can be opened by a later version.</p>
-</article>
-
 <article class="card low" id="UX-1">
-  <header><span class="id">UX-1</span><span class="badge low">low</span><h3>New document is listed as Ctrl N, which the browser keeps for a new window</h3></header>
+  <header><span class="id">UX-1</span><span class="badge low">low</span><h3>Ctrl+Shift+K and Ctrl+Shift+E are not checked in Firefox</h3></header>
   <p class="file"><code>web/src/commands.ts</code> <code>ACTIONS</code>; <code>web/src/App.tsx</code> <code>onKey</code></p>
-  <p>Chromium and Firefox do not pass Ctrl+N to a page in a normal window; it opens a new browser window. Help and the palette list "Ctrl N"; the handler only works because it ignores Alt, so Ctrl+Alt+N (as the UI G inventory specifies) reaches it. Playwright presses keys inside the page and so cannot catch this. Ctrl+Shift+K (place image) and Ctrl+Shift+E (export) open developer tools panels in Firefox; not tested there.</p>
-  <p class="rec">List and bind New document as Ctrl Alt N; check the Ctrl+Shift shortcuts once by hand in Firefox and move any that the browser keeps.</p>
-</article>
-
-<article class="card low" id="UX-2">
-  <header><span class="id">UX-2</span><span class="badge low">low</span><h3>The Pages field in the document section leaves 17 px for its number</h3></header>
-  <p class="file"><code>web/src/Properties.tsx</code> <code>DocumentSection</code>; <code>web/src/index.css</code> <code>.grid</code>, <code>.field-step</code></p>
-  <p>In the half-width grid cell, the label "Pages" and the 2 step buttons of 22 px leave the input 17 × 28 px (Lighthouse <code>target-size</code>, the only accessibility failure, score 97). A 3-digit count is cut off and the input is hard to hit.</p>
-  <p class="rec">Give the Pages field the whole row, or a short label (e.g. an icon) like the other fields of the grid.</p>
-</article>
-
-<article class="card low" id="UX-3">
-  <header><span class="id">UX-3</span><span class="badge low">low</span><h3>An example that does not load gives no feedback</h3></header>
-  <p class="file"><code>web/src/Start.tsx</code> <code>example</code></p>
-  <p><code>example</code> fetches <code>booklet.satz</code> or <code>poster.satz</code> without a <code>catch</code>. Offline, after a deploy that renamed the hashed asset, or on a 404 page, the fetch or <code>editor.load</code> rejects unhandled: the dialog stays as it is and nothing is said. On the first start Esc takes this path.</p>
-  <p class="rec">Catch the error and show it through <code>say</code> (e.g. "Could not open the booklet: … Create a new document instead."), keeping the dialog open.</p>
-</article>
-
-<article class="card low" id="ROB-1">
-  <header><span class="id">ROB-1</span><span class="badge low">low</span><h3>The 50-megapixel limit holds for placing, not for opening a document</h3></header>
-  <p class="file"><code>engine/src/doc/mod.rs</code> <code>add_image</code>, <code>load</code>; <code>engine/src/image.rs</code> <code>register</code></p>
-  <p><code>MAX_PIXELS</code> is checked in <code>add_image</code> only. <code>Doc::load</code> registers every image of a <code>.satz</code> file through <code>image::register</code> without it, so a document made elsewhere (or by a changed build) with a larger image decodes it on the first draw and stops Satz with the trap notice instead of a message.</p>
-  <p class="rec">Move the size check into <code>image::register</code>, so every way in refuses the image with the same message; <code>load</code> then fails with a clear reason.</p>
-</article>
-
-<article class="card low" id="ROB-2">
-  <header><span class="id">ROB-2</span><span class="badge low">low</span><h3>Traps while adding a font or in the export worker look like ordinary errors</h3></header>
-  <p class="file"><code>web/src/file.ts</code> <code>addFont</code>, <code>findFonts</code>, <code>run</code>; <code>web/src/exportWorker.ts</code></p>
-  <p><code>placeImage</code> and <code>apply</code> rethrow <code>WebAssembly.RuntimeError</code>, <code>addFont</code> does not: a font that panics the parser shows "Could not add …" while the engine is unusable, until the next autosave throws. In the worker, a trap is posted as <code>{ error: "unreachable" }</code>; <code>run</code> keeps the broken worker, so every later export and preflight fails with the same word.</p>
-  <p class="rec">Rethrow <code>RuntimeError</code> in <code>addFont</code> like <code>placeImage</code>; in the worker post whether the error was a trap and let <code>run</code> <code>reset</code> the job then, so the next export starts a fresh worker.</p>
+  <p>Ctrl+Shift+K (place image) and Ctrl+Shift+E (export) open developer tools panels in Firefox; not tested there. Playwright presses keys inside the page and so cannot catch this.</p>
+  <p class="rec">Check them once by hand in Firefox and move any that the browser keeps.</p>
 </article>
 
 <article class="card low" id="PERF-1">
-  <header><span class="id">PERF-1</span><span class="badge low">low</span><h3>A keystroke sets the same story several times and rebuilds the whole snapshot</h3></header>
-  <p class="file"><code>engine/src/text.rs</code> <code>set</code> (via <code>lay_out</code>, <code>overflow</code>, <code>lines</code>, <code>caret</code>, <code>measure</code>); <code>engine/src/doc/draw.rs</code> snapshot</p>
-  <p>Measured today (native, release, median): keystroke 0.59 / 4.79 / 13.95 ms and <code>set_frame</code> 0.26 / 1.96 / 8.23 ms at 1 / 8 / 32 pages. Each caller shapes and breaks the story again, and every command serialises the whole snapshot to JSON. In WASM a keystroke in a 32-page document is over one frame.</p>
-  <p class="rec">Keep the set lines in the flow cache that already lives for one command and let drawing, caret and overlay read them; measure again before caching the snapshot per page.</p>
+  <header><span class="id">PERF-1</span><span class="badge low">low</span><h3>A keystroke sets every frame of its story again and rebuilds the whole snapshot</h3></header>
+  <p class="file"><code>engine/src/doc/story.rs</code> <code>flow</code>; <code>engine/src/doc/draw.rs</code> snapshot</p>
+  <p>Measured 2026-10-04 (native, release, median): keystroke 0.68 / 5.43 / 15.90 ms at 1 / 8 / 32 pages. Drawing, caret and overlay now read the lines the flow set; nearly all the time goes into shaping and breaking the 16 frames of the story. Every command still serialises the whole snapshot to JSON; JSON creation and <code>JSON.parse</code> in the browser are not measured.</p>
+  <p class="rec">Measure in the browser first. Set a story again only from the frame that changed, and cache the snapshot per page only if the measurement shows it.</p>
 </article>
 
 <article class="card low" id="TEST-1">
@@ -130,20 +88,6 @@
   <p class="file"><code>web/playwright.config.ts</code></p>
   <p>Firefox is a settled target browser, with its own save path (download instead of the file picker) and no Local Font Access, but only a Chromium (SwiftShader) project runs. UX-1 is the kind of fault this misses.</p>
   <p class="rec">Add a Firefox project, first for the file, start and webgl specs, once its WebGL path runs in CI.</p>
-</article>
-
-<article class="card info" id="BUILD-1">
-  <header><span class="id">BUILD-1</span><span class="badge info">info</span><h3>Every build warns that <code>fs</code> and <code>path</code> were externalised for CanvasKit</h3></header>
-  <p class="file"><code>web/vite.config.ts</code></p>
-  <p><code>canvaskit.js</code> requires Node's <code>fs</code> and <code>path</code> in a branch that never runs in the browser, so <code>vite build</code> prints 2 warnings on every run. The chunk size warning is gone; these 2 still hide a new one.</p>
-  <p class="rec">Filter exactly these 2 messages in the build's <code>onwarn</code>/<code>onLog</code>, so a clean build prints no warning.</p>
-</article>
-
-<article class="card info" id="SEO-1">
-  <header><span class="id">SEO-1</span><span class="badge info">info</span><h3>No meta description</h3></header>
-  <p class="file"><code>web/index.html</code></p>
-  <p>Lighthouse (desktop, live Pages build): performance 98, accessibility 97, best practices 100, SEO 90; the SEO point is the missing <code>&lt;meta name="description"&gt;</code>. The cache lifetime of 10 min is set by GitHub Pages and the unminified script belongs to browser extensions.</p>
-  <p class="rec">Add a one-line description ("Desktop publishing in the browser …", as in the README).</p>
 </article>
 
 <h2 id="strong">2. What is already strong</h2>

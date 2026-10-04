@@ -35,7 +35,7 @@
   .fix > b { color: var(--acc); }
 </style></head><body><main>
 <h1>Satz – CI-Review</h1>
-<p class="dim">Stand <code>e8c55c3</code>, 02.10.2026. Seit dem letzten Review (<code>1c632fa</code>) erledigt und entfernt: Cache-Key mit <code>**/Cargo.toml</code>, <code>paths-ignore</code> für <code>AGENT/</code> und <code>*.md</code>, 1 Retry in CI mit Flake-Report, Actions per SHA mit Dependabot, Autosave-Rennen im Reload-Test.</p>
+<p class="dim">Stand <code>e8c55c3</code>, 02.10.2026. Seit dem letzten Review (<code>1c632fa</code>) erledigt und entfernt: Cache-Key mit <code>**/Cargo.toml</code>, <code>paths-ignore</code> für <code>AGENT/</code> und <code>*.md</code>, 1 Retry in CI mit Flake-Report, Actions per SHA mit Dependabot, Autosave-Rennen im Reload-Test. Am 04.10. erledigt: 4. e2e-Shard, <code>devShells.e2e</code>.</p>
 
 <div class="grid">
   <div class="tile"><span class="dim">Run, letzte 10 grünen</span><b>8–11 min</b></div>
@@ -61,26 +61,11 @@
   <tr><td>deploy</td><td class="n">16 s</td></tr>
 </table>
 
-<h2>1. e2e ist der kritische Pfad und wächst mit jedem Feature</h2>
-<div class="card mid">
-  <span class="tag mid">≈6 min von 9</span>
-  <p>168 Tests im gemessenen Run brauchen zusammen 1827 s, im Mittel 10,9 s pro Test. Lokal sind es inzwischen 191. Die 10 längsten (PDF-Vergleiche, Preflight, ausgeblendete Ebenen) brauchen zusammen 300 s, der längste 47 s (<code>pdf.spec.ts:244</code> CMYK-Export). Pro neuem Feature-Test kommen ≈10 s Gesamtzeit dazu, pro Shard also ≈3,5 s.</p>
-  <p>Mehr Worker helfen nicht: lokal 105 / 99 / 101 s mit 2 / 4 / 6 Workern für dieselben 24 Tests. Die Tests sind CPU-gebunden durch SwiftShader, das schon jeden Kern nutzt; das passt zur Messung vom 27.09. in CI (246 statt 245 s mit 4 Workern).</p>
-  <div class="fix"><b>Fix:</b> Ein 4. Shard (<code>shard: [1, 2, 3, 4]</code> und <code>/4</code>): ≈3:45 statt 5:00 Testzeit pro Shard für 65 s Setup mehr, also Run ≈1 min kürzer. Weiter erst nötig, wenn ein Shard wieder 5 min Testzeit erreicht.</div>
-</div>
-
 <h2>2. Jeder Test rastert ein 1448×1160-Fenster in Software</h2>
 <div class="card low">
   <span class="tag low">nicht gemessen</span>
   <p><code>open()</code> setzt das Fenster auf 1448×1160, damit eine Doppelseite bei fester Zoomstufe passt; die Koordinaten aller Tests hängen daran. SwiftShader rastert jede Fläche auf der CPU. Ein halb so großer Canvas wäre grob halb so viel Rasterarbeit, aber jede Bildschirmkoordinate in den Tests müsste neu stimmen.</p>
-  <div class="fix"><b>Fix:</b> Erst angehen, wenn #1 mit 4 Shards nicht mehr reicht. Dann <code>open(page, width)</code> mit kleinerer Höhe und die Tests über <code>screen()</code> laufen lassen, das schon in mm rechnet.</div>
-</div>
-
-<h2>3. Nix-Shell in jedem Job</h2>
-<div class="card low">
-  <span class="tag low">≈65 s × 4 Jobs</span>
-  <p>Jeder Job lädt die Nix-Shell von <code>cache.nixos.org</code> (Rust, binaryen, MuPDF, Node). Die e2e-Shards brauchen nur Node, pnpm, MuPDF und Chromium. Ein Nix-Store im Actions-Cache war am 27.09. nicht schneller (2,1 GiB Restore). Eine eigene schlanke <code>devShells.e2e</code> im Flake ohne Rust und binaryen spart Download, bleibt aber beim Prinzip „Werkzeuge aus <code>flake.nix</code>“.</p>
-  <div class="fix"><b>Fix:</b> <code>devShells.e2e</code> mit Node, pnpm und MuPDF; <code>check e2e</code> läuft in CI mit <code>nix develop .#e2e</code>. Geschätzt 20–30 s pro Shard, nicht gemessen.</div>
+  <div class="fix"><b>Fix:</b> Erst angehen, wenn 4 Shards nicht mehr reichen. Dann <code>open(page, width)</code> mit kleinerer Höhe und die Tests über <code>screen()</code> laufen lassen, das schon in mm rechnet.</div>
 </div>
 
 <h2>4. Flakes</h2>
@@ -102,8 +87,6 @@
 <h2>Reihenfolge</h2>
 <table>
   <tr><th>#</th><th>Änderung</th><th>Aufwand</th><th>Wirkung</th></tr>
-  <tr><td>1</td><td>4. e2e-Shard</td><td>2 Zeilen</td><td>Run ≈1 min kürzer</td></tr>
-  <tr><td>3</td><td><code>devShells.e2e</code></td><td>klein</td><td>≈20–30 s pro Shard, ungemessen</td></tr>
-  <tr><td>2</td><td>Kleineres Testfenster</td><td>groß</td><td>erst wenn 1 nicht reicht</td></tr>
+  <tr><td>2</td><td>Kleineres Testfenster</td><td>groß</td><td>erst wenn 4 Shards nicht reichen</td></tr>
 </table>
 </main></body></html>

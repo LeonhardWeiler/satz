@@ -34,7 +34,7 @@
   .fix::before { content: "→ "; color: var(--acc); }
 </style></head><body><main>
 <h1>Satz – Code- und Struktur-Review</h1>
-<p class="dim">Stand <code>1c632fa</code>, 29.09.2026. Performance steht in performance-review.html, CI in ci-review.html, Kleinbefunde im Health-Report. Erledigt und entfernt: alte Befunde 1–4, 9–13 (atomare Kommandos, gecachter Snapshot, typisierte Link-Keys), Editor.lookup (nicht mehr heiß: 3 Aufrufer, keiner pro Tastendruck).</p>
+<p class="dim">Stand <code>1c632fa</code>, 29.09.2026. Performance steht in performance-review.html, CI in ci-review.html, Kleinbefunde im Health-Report. Erledigt und entfernt: alte Befunde 1–4, 9–13 (atomare Kommandos, gecachter Snapshot, typisierte Link-Keys), Editor.lookup (nicht mehr heiß: 3 Aufrufer, keiner pro Tastendruck). Am 04.10. erledigt und entfernt: 1–8, 12, 13 und die Blend-Reihenfolge aus 9.</p>
 
 <div class="grid">
   <div class="tile"><span class="dim">Rust-Tests</span><b>227</b></div>
@@ -51,62 +51,12 @@
   <tr><td>Nicht getestet</td><td>Befund 3 (Autosave beim Entladen) nur aus Code und CI-Log; Move in eine gedrehte Gruppe (gleiche Ursache wie 5); UI in Firefox</td></tr>
 </table>
 
-<h2>1. Neue Fehler, nach Schwere</h2>
-
-<div class="card high">
-  <span class="tag high">Absturz</span><h3>1. PDF-Export stürzt bei entartetem Pfad mit Bildfüllung ab</h3>
-  <p><code>pdf.rs:336</code> ruft beim <code>PushClip</code> <code>pb.finish().unwrap()</code> auf. Ein Pfad mit nur einem Punkt (z. B. <code>[MOVE, 0.5, 0.5]</code>, erreichbar über die Punktbearbeitung) mit Bildfüllung lässt den Export panicken. krilla panickt dann noch einmal im Drop, und die ganze PDF-Datei fehlt. <code>raster.rs</code> überspringt diesen Fall schon richtig.</p>
-  <div class="fix">Baut der Pfad nicht, springt <code>PushClip</code> wie in raster zu <code>close(ops, i)</code>. Die beiden anderen <code>unwrap()</code> (Z. 559, 680) prüfen, ob sie dieselbe Eingabe erreichen kann.</div>
-</div>
-
-<div class="card high">
-  <span class="tag high">falsches Bild</span><h3>2. „Pfad ist geschlossen“ sucht CLOSE auch in den Koordinaten</h3>
-  <p><code>style.rs:284</code> und <code>draw.rs:534</code> prüfen <code>path.contains(&amp;CLOSE)</code> über das ganze Array aus Verben und Koordinaten. Eine offene Linie mit einer Koordinate gleich dem Wert von CLOSE (bestätigt: x = 5 pt) gilt als geschlossen: Sie verliert ihre Pfeilspitze, wird bei <code>strokeAlign: inside</code> weggeclippt und ist innen treffbar. Die Pfad-Dekodierung steht 6-mal im Code: <code>display_list::shift</code>, <code>geom::map</code>, <code>geom::flatten</code>, <code>geom::valid</code>, <code>pdf::append</code> und <code>raster::build</code>.</p>
-  <div class="fix">1 Iterator in <code>geom</code> über (Verb, Punkte) für alle 6 Stellen, <code>closed</code> ist „letztes Verb ist CLOSE“. So kann derselbe Fehler nirgends ein zweites Mal entstehen.</div>
-</div>
-
-<div class="card high">
-  <span class="tag high">Datenverlust</span><h3>3. Autosave beim Entladen ist nicht sicher</h3>
-  <p><code>autosave</code> (<code>file.ts:43</code>) speichert 1 s nach der letzten Änderung und im <code>pagehide</code>. Dort wird die IndexedDB-Transaktion nur angestoßen, nicht abgeschlossen. Wer kurz nach einer Änderung neu lädt oder den Tab schließt, kann sie verlieren. Das ist die Ursache des e2e-Flakes in <code>fonts.spec.ts</code>: Nach dem Reload erscheint der Startdialog, weil kein Dokument gespeichert war.</p>
-  <div class="fix">Nach dem <code>put()</code> <code>transaction.commit()</code> aufrufen. Den Workaround mit Escape im Test löschen.</div>
-</div>
-
-<div class="card mid">
-  <span class="tag mid">falsches Bild</span><h3>4. Schatten unter gedrehten Eltern im Raster</h3>
-  <p><code>raster.rs:311</code> nimmt <code>scale = t.sx</code>. Bei 90° Drehung eines Elternknotens ist <code>sx</code> gleich 0, und Schatten-Offset und -Blur verschwinden (Test: alle Pixel mit Alpha 0). Bei 180° ist die Skalierung negativ: Der Blur fällt weg und der Offset wird gespiegelt. Das betrifft Preflight-Inks und die X-1a-Flattening. CanvasKit rechnet richtig im lokalen Raum, deshalb sehen Canvas und PDF anders aus.</p>
-  <div class="fix"><code>scale = hypot(sx, ky)</code>, den Offset durch den linearen Teil von <code>t</code> abbilden.</div>
-</div>
-
-<div class="card mid">
-  <span class="tag mid">Layout springt</span><h3>5. Ungroup vergisst die Drehung der Gruppe</h3>
-  <p><code>ungroup</code> (<code>mod.rs:1929</code>) hängt die Kinder nur um. Bei einer um 90° gedrehten Gruppe (und bei einem gedrehten Frame) stehen die Kinder danach ungedreht an ihrer alten Stelle (bestätigt über <code>turn_of</code> und <code>hit</code>). <code>move_layers</code> hängt ebenfalls ohne Ausgleich um.</p>
-  <div class="fix">1 Funktion zum Umhängen, die die sichtbare Lage erhält: Drehung der alten Eltern minus der neuen addieren, Mittelpunkt durch <code>turn</code> abbilden und x/y so setzen, dass er bleibt. <code>ungroup</code> und <code>move_layers</code> nutzen nur sie.</div>
-</div>
-
-<div class="card mid">
-  <span class="tag mid">Text verloren</span><h3>6. Reset auf Master lässt verkettete Rahmen leer</h3>
-  <p><code>reset_to_master</code> (<code>pages.rs:487</code>) verschiebt Override-Kopien ohne <code>unlink_all</code> in den Papierkorb. Fließt die Kopie eines Master-Textrahmens in einen Seitenrahmen weiter, ist dieser danach leer, und die Geschichte hängt am Papierkorb (bestätigt). <code>Delete</code> gibt sie in diesem Fall an den nächsten Rahmen weiter.</p>
-  <div class="fix"><code>unlink_all</code> in <code>Doc::remove</code> (<code>mod.rs:1658</code>) ziehen. Dann macht jedes Löschen dasselbe, und die Aufrufe in <code>pages.rs</code> und <code>mod.rs:1922</code> fallen weg.</div>
-</div>
-
-<div class="card mid">
-  <span class="tag mid">Druckqualität</span><h3>7. CMYK-JPEGs werden im CMYK-Export neu separiert</h3>
-  <p><code>image::pdf(id, cmyk = true)</code> dekodiert ein CMYK-JPEG zu RGBA und separiert es über FOGRA51 zurück. Die Originalwerte gehen verloren, reines K wird 4-farbig. Für ein Druck-DTP ist das ein echter Mangel.</p>
-  <div class="fix">Ist das Bild ein CMYK-JPEG und nicht der Proof, bettet <code>pdf_image</code> die Datei direkt ein. Nur RGB-Bilder werden separiert.</div>
-</div>
-
-<div class="card low">
-  <span class="tag low">Speicher</span><h3>8. Dekodierte Bilder bleiben für immer im Speicher</h3>
-  <p>Der <code>thread_local</code> <code>IMAGES</code> (<code>image.rs:89</code>) hält die Caches <code>pixels</code> und <code>cmyk</code> jedes Bildes, auch nach dem Laden eines anderen Dokuments, im Haupt-Thread und im Worker. <code>Renderer.images</code> in <code>renderer.ts:105</code> ebenso. Bei Fotos sind das schnell 100 MB und mehr.</p>
-  <div class="fix">Die dekodierten Caches in <code>Doc::load</code> leeren. Der Renderer löscht seine <code>Image</code>s, wenn sich die Menge der Bild-Ids ändert.</div>
-</div>
-
-<h2>2. Offene Strukturbefunde</h2>
+<h2>1. Offene Strukturbefunde</h2>
 
 <div class="card mid">
   <span class="tag mid">mittel</span><h3>9. Doppelte Verträge Rust ↔ TypeScript</h3>
-  <p><code>model.ts</code> spiegelt Command, Snapshot, Node, Style und Layout von Hand. Die Blend-Reihenfolge steht 4-mal: im Enum <code>Blend</code>, in <code>BLENDS</code> in <code>pdf.rs:206</code>, <code>raster.rs:14</code> und <code>renderer.ts:67</code>.</p>
-  <div class="fix">TS-Typen mit tsify aus Rust generieren (Kompatibilität mit wasm-bindgen 0.2.127 vorher prüfen). In Rust <code>impl Blend { fn krilla(self), fn skia(self) }</code> statt paralleler Arrays.</div>
+  <p><code>model.ts</code> spiegelt Command, Snapshot, Node, Style und Layout von Hand.</p>
+  <div class="fix">TS-Typen mit tsify aus Rust generieren (Kompatibilität mit wasm-bindgen 0.2.127 vorher prüfen).</div>
 </div>
 
 <div class="card mid">
@@ -121,23 +71,7 @@
   <div class="fix">Beim Einbau von Kollaboration nur im Snapshot berechnen.</div>
 </div>
 
-<div class="card low">
-  <span class="tag low">niedrig</span><h3>12. Teile des Schemas laufen über JSON-Literale</h3>
-  <p><code>layout()</code>, <code>modes()</code>, <code>bindings()</code> und <code>constraints()</code> gehen durch <code>serde_json</code> mit <code>unwrap_or_default</code>. Keys wie <code>"sizing"</code> sind Literale, und ein Tippfehler ergibt still einen Default.</p>
-  <div class="fix">Keys als Konstanten neben <code>KIND</code> und <code>NEXT</code> führen.</div>
-</div>
-
-<div class="card low">
-  <span class="tag low">niedrig</span><h3>13. Kleinigkeiten</h3>
-  <ul>
-    <li><code>Doc::new</code> baut das 220-zeilige Beispiel, auch in <code>new Engine()</code> vor jedem Laden und im Export-Worker. Besser: ein leeres <code>Doc::new</code> und eine <code>fn sample()</code>.</li>
-    <li>Verwaiste Doc-Kommentare in <code>mod.rs:654–656</code> über <code>fn undo_manager</code> und ein doppelter in <code>story.rs:493</code>. Löschen.</li>
-    <li><code>web/load-tmp.mjs</code> ist ein eingechecktes Wegwerf-Skript (<code>dfa45c7</code>). Löschen.</li>
-    <li><code>pdfx.rs</code> findet Seiten-Dicts per Bytesuche in krillas Ausgabe. Ein Test auf <code>/Group</code> fängt Formatänderungen ab, das reicht.</li>
-  </ul>
-</div>
-
-<h2>3. Nicht verfolgt</h2>
+<h2>2. Nicht verfolgt</h2>
 <table>
   <tr><th>Punkt</th><th>Warum nicht</th></tr>
   <tr><td>Overrides behalten ihre Seite, wenn eine Seite die Seite wechselt</td><td>Verhält sich wie InDesign, eine Designfrage und kein Fehler</td></tr>
@@ -145,15 +79,10 @@
   <tr><td>Canvas.tsx-Effekt zerlegen, index.css aufteilen</td><td>Verschiebt nur Code</td></tr>
 </table>
 
-<h2>4. Reihenfolge</h2>
+<h2>3. Reihenfolge</h2>
 <table>
   <tr><th>#</th><th>Schritt</th><th>Aufwand</th></tr>
-  <tr><td>1, 3</td><td>PDF-Absturz, Autosave-<code>commit()</code></td><td>je 2 Zeilen</td></tr>
-  <tr><td>6</td><td><code>unlink_all</code> in <code>remove</code></td><td>klein</td></tr>
-  <tr><td>2</td><td>Pfad-Iterator in geom</td><td>mittel, ersetzt Code</td></tr>
-  <tr><td>4, 5</td><td>Raster-Schatten, Umhängen mit Drehung</td><td>klein</td></tr>
-  <tr><td>7, 8</td><td>CMYK-JPEG direkt, Bild-Caches leeren</td><td>klein</td></tr>
-  <tr><td>9–13</td><td>Struktur</td><td>bei Gelegenheit</td></tr>
+  <tr><td>9–11</td><td>Struktur</td><td>bei Gelegenheit</td></tr>
 </table>
 </main>
 </body>
