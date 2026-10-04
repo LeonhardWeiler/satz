@@ -31,6 +31,13 @@ export default defineConfig({
       },
     },
   ],
-  build: { chunkSizeWarningLimit: 600 },
+  build: {
+    chunkSizeWarningLimit: 600,
+    rolldownOptions: {
+      onLog: (level, log, handler) => {
+        if (!/^Module "(fs|path)" has been externalized .*\/canvaskit\.js"/.test(log.message)) handler(level, log)
+      },
+    },
+  },
   server: { fs: { allow: ['..'] } },
 })
