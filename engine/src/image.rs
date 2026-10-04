@@ -436,13 +436,15 @@ fn rgba(e: &Entry) -> Option<(Vec<u8>, u32, u32)> {
         return decode(e.format, &e.bytes);
     };
     let (mut rgba, w, h) = rgba(source)?;
-    for p in rgba.chunks_mut(4) {
-        let [r, g, bl] = [p[0], p[1], p[2]].map(|v| v as f32 / 255.0);
-        let l = 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+    let (k, m, o) = (
+        (1.0 + c) * (1.0 + s),
+        (1.0 + c) * s,
+        (b - 0.5 * c) * 255.0 + 0.5,
+    );
+    for p in rgba.as_chunks_mut::<4>().0 {
+        let l = m * (0.2126 * p[0] as f32 + 0.7152 * p[1] as f32 + 0.0722 * p[2] as f32);
         for v in &mut p[..3] {
-            let x = l + (*v as f32 / 255.0 - l) * (1.0 + s);
-            let x = (x - 0.5) * (1.0 + c) + 0.5 + b;
-            *v = (x.clamp(0.0, 1.0) * 255.0).round() as u8;
+            *v = (k * *v as f32 - l + o) as u8;
         }
     }
     Some((rgba, w, h))
