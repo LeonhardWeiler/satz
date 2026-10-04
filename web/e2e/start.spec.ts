@@ -13,6 +13,16 @@ test('the start screen shows without an autosave and escape opens the booklet', 
   await pageCount(page, 8)
 })
 
+test('an example that does not load says so and keeps the start screen', async ({ page }) => {
+  test.info().annotations.push({ type: 'errors' })
+  await page.route('**/booklet-*.satz', (r) => r.fulfill({ status: 404 }))
+  await page.goto('')
+  await expect(start(page).getByText('Esc opens the booklet')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.locator('.status')).toHaveText(/Could not open booklet.satz: 404/)
+  await expect(start(page)).toBeVisible()
+})
+
 test('enter creates a document of the chosen format, orientation and pages', async ({ page }) => {
   await open(page)
   await page.keyboard.press('Control+Alt+n')

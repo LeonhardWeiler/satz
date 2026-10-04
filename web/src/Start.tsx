@@ -46,8 +46,15 @@ export function Start({ editor, first, say, onClose }: { editor: Editor; first: 
 
   const example = async (url: string | null, name: string) => {
     if (!(await discard(editor))) return
-    if (url) editor.load(new Uint8Array(await (await fetch(url)).arrayBuffer()), { name, handle: null })
-    else load(Engine.sample())
+    try {
+      if (url) {
+        const r = await fetch(url)
+        if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
+        editor.load(new Uint8Array(await r.arrayBuffer()), { name, handle: null })
+      } else load(Engine.sample())
+    } catch (e) {
+      return say(`Could not open ${name}: ${(e as Error).message}. Create a new document instead.`)
+    }
     onClose()
   }
   const load = (e: Engine) => {
