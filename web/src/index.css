@@ -2182,7 +2182,6 @@ kbd {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 250px;
   width: min(900px, 94vw);
-  margin-top: 10vh;
   padding: 0;
   overflow: hidden;
   border: 1px solid var(--edge);
