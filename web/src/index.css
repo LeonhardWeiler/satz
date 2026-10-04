@@ -546,8 +546,11 @@ textarea {
   min-width: 24px;
   padding: 0 6px 0 8px;
   color: var(--text-3);
-  cursor: ew-resize;
   user-select: none;
+}
+
+.field-label.scrubs {
+  cursor: ew-resize;
 }
 
 .field.scrub .field-label {

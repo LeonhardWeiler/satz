@@ -79,7 +79,7 @@ export function Field({
     <label className={`field${int ? ' int' : ''}${bad ? ' bad' : ''}${scrub ? ' scrub' : ''}`} title={title} onAnimationEnd={() => setBad(false)}>
       {label && (
         <span
-          className="field-label"
+          className={`field-label${edit ? ' scrubs' : ''}`}
           onClick={(e) => e.preventDefault()}
           onDoubleClick={() => edit && reset !== undefined && onCommit(reset)}
           onPointerDown={(e) => {
