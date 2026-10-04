@@ -68,7 +68,7 @@ test('a file that is not an image is not placed and says why', async ({ page }) 
   await expect(page.getByRole('tree', { name: 'Layers' }).getByRole('treeitem', { name: 'notes.png' })).toHaveCount(0)
 })
 
-test('ctrl and the crop button crop an image, a drag moves it in its frame, its edges snap to the image, and the bar adjusts it', async ({ page }) => {
+test('ctrl and the crop button crop an image, a drag moves it in its frame, its edges snap to the image also with ctrl, and the bar adjusts it', async ({ page }) => {
   await open(page)
   await place(page, png('halves.png', 600, 300, (x) => (x < 300 ? [255, 0, 0] : [0, 0, 255])))
   const at = async (x: number) => (await colors(page, [await screen(page, x, 105)]))[0]
@@ -79,6 +79,12 @@ test('ctrl and the crop button crop an image, a drag moves it in its frame, its 
   const properties = page.getByRole('complementary', { name: 'Properties' })
   await expect(properties.getByRole('textbox', { name: 'W in mm' })).toHaveValue('25.4')
   expect(isRed(await at(68.6))).toBe(true)
+  await page.keyboard.down('Control')
+  await drag(page, await screen(page, 74, 105), await screen(page, 98.8, 105))
+  await page.keyboard.up('Control')
+  await expect(properties.getByRole('textbox', { name: 'W in mm' })).toHaveValue('50.8')
+  await page.keyboard.press('Control+z')
+  await expect(properties.getByRole('textbox', { name: 'W in mm' })).toHaveValue('25.4')
 
   const quick = page.getByRole('toolbar', { name: 'Quick edit' })
   await quick.getByTitle('Crop').click()

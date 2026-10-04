@@ -858,7 +858,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         const frames = editor.selected()
         const [turn, own] = turnOf(frames)
         const snaps = snapsNow()
-        const image = editor.cropping && frames[0].fills.find((f) => f.type === 'image')
+        const image = (editor.cropping || e.ctrlKey || e.metaKey) && frames.length === 1 && frames[0].fills.find((f) => f.type === 'image')
         if (image) {
           const [a, b, c, d, tx, ty] = image.transform
           const { x, y, w, h } = placed(frames[0])
@@ -1062,14 +1062,14 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         const d = spin({ x: p.x - drag.start.x, y: p.y - drag.start.y }, -drag.turn)
         const { box: b, handle: h, snaps, own } = drag
         const edge = (side: string, at: number) => (h.includes(side) ? [at] : [])
-        if (free && !drag.turn) {
+        if (!drag.turn) {
           d.x += snap([...edge('w', b.x + d.x), ...edge('e', b.x + b.w + d.x)], snaps.lines.x, SNAP / view.zoom)
           d.y += snap([...edge('n', b.y + d.y), ...edge('s', b.y + b.h + d.y)], snaps.lines.y, SNAP / view.zoom)
         }
         const turned = resized(b, h, d, { altKey: e.altKey, shiftKey: e.shiftKey || drag.frames.some((n) => n.keepRatio) }, drag.frames.map((n) => spun(placed(n), -own)))
         const boxes = turned.map((f) => spun(f, own))
         const r = bounds(turned)
-        snapped = free && !drag.turn ? guides(r, snaps.lines, [...edge('w', r.x), ...edge('e', r.x + r.w)], [...edge('n', r.y), ...edge('s', r.y + r.h)]) : []
+        snapped = !drag.turn ? guides(r, snaps.lines, [...edge('w', r.x), ...edge('e', r.x + r.w)], [...edge('n', r.y), ...edge('s', r.y + r.h)]) : []
         const by = h === 'e' || h === 'w' ? r.w / b.w : r.h / b.h
         const scale = (e.ctrlKey || e.metaKey) && by > 0 ? by / drag.by : 1
         drag.by *= scale

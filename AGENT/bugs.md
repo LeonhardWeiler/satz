@@ -1,5 +1,5 @@
 --- NOW
-1. in crop mode the snapping works, but not when holding down ctrl
+1. [x] in crop mode the snapping works, but not when holding down ctrl
 3. [x] add a gear icon next to the keyboard shortcuts icon for the settings and move both of them left to the preflight icon
 4. [x] add the same amount of padding to the preflight icon on the left and the right
 6. [x] in the page overview pages section the "bar" at the top with "Pages" and columns, ... schould also stay at the exact same position when scrolling horizontally
