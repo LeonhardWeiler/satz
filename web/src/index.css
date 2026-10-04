@@ -1485,12 +1485,22 @@ textarea {
 
 .brand .ext {
   color: var(--text-3);
+  font-size: 12px;
   font-weight: 400;
 }
 
 .brand .name-input {
+  width: auto;
+  min-width: 2ch;
+  margin-left: -3px;
+  padding: 0 2px;
+  field-sizing: content;
   font-size: 12px;
   font-weight: 600;
+}
+
+.brand .name-input + .ext {
+  margin-left: -13px;
 }
 
 .mark {

@@ -202,7 +202,10 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
         <div className="brand" title="Double-click to rename" onDoubleClick={() => setRenaming(true)} onBlur={() => setRenaming(false)}>
           <span className="mark" aria-hidden="true" />
           {renaming ? (
-            <NameInput label="Document name" value={title} autoFocus onCommit={(v) => editor.saved({ ...editor.file, name: `${v}.satz` }, '')} />
+            <>
+              <NameInput label="Document name" value={title} autoFocus onCommit={(v) => editor.saved({ ...editor.file, name: `${v}.satz` }, '')} />
+              <span className="ext">.satz</span>
+            </>
           ) : (
             <h1>
               {title}
