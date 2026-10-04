@@ -20,7 +20,7 @@
 22. have presets for layout grids
 23. when keep aspect ratio is ticked on, i cannot resize the element smaller than it was then in the canvas (on the controls on the right it works correctly).
 24. [x] open the "New Document" dialog in the center of the page
-25. the rulers should also snap the same as any other element
+25. [x] the rulers should also snap the same as any other element
 
 --- LATER
 1. Figma import with file and or account

@@ -321,7 +321,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       return { ...spun(bounds(nodes.map((n) => spun(placed(n), -own))), own), rotation: turn }
     }
     /** What the layers `ids` snap to: the pages of the spread and the visible layers beside them. */
-    const snapsNow = (ids = editor.selection): Snaps => {
+    const snapsNow = (ids = editor.selection, sheets = editor.sheets): Snaps => {
       const top = (id: string) => {
         let e = editor.nodes.get(id)
         while (e?.parent) e = editor.nodes.get(e.parent.id)
@@ -331,7 +331,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const siblings = ids.flatMap((id) => editor.nodes.get(id)?.parent?.children ?? []).map(covered)
       const tops = editor.spread.flatMap((page) => page.children.map(covered))
       const others = [...new Map([...tops, ...siblings].map((n) => [n.id, n])).values()].filter((n) => !n.hidden && !skip.has(n.id))
-      return { lines: targets(editor.sheets, others, editor.grids), others }
+      return { lines: targets(sheets, others, editor.grids), others }
     }
     /** `p` moved onto what it snaps to, unless `off`, with the guides through it. */
     const snapPoint = (p: Point, snaps: Snaps | undefined, off: boolean) => {
@@ -921,7 +921,9 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         g.grouped = true
         const { guides } = editor.sheets.find((s) => s.id === g.id)!
         const rest = guides[g.axis].filter((_, i) => i !== g.index)
-        editor.apply({ type: 'setGuides', id: g.id, guides: { ...guides, [g.axis]: off ? rest : [...rest, g.axis === 'x' ? p.x - g.dx : p.y] } })
+        const sheets = editor.sheets.map((s) => (s.id === g.id ? { ...s, guides: { ...guides, [g.axis]: rest } } : s))
+        const at = p[g.axis] + (free ? snap([p[g.axis]], snapsNow([], sheets).lines[g.axis], SNAP / view.zoom) : 0)
+        editor.apply({ type: 'setGuides', id: g.id, guides: { ...guides, [g.axis]: off ? rest : [...rest, g.axis === 'x' ? at - g.dx : at] } })
         g.index = off ? -1 : rest.length
         editor.set({ guide: off ? null : { id: g.id, axis: g.axis, index: g.index } })
         return

@@ -420,6 +420,23 @@ test('a guide dragged out of the ruler shows on the page, layers snap to it and 
   expect(await blue()).toBe(false)
 })
 
+test('a guide snaps to the middle of the page unless ctrl is held', async ({ page }) => {
+  await open(page)
+  const ruler = (await page.locator('.ruler-x').boundingBox())!
+  const [x, y] = await screen(page, 20, 105)
+  const [, near] = await screen(page, 20, 104.4)
+  const blue = async () => (await colors(page, [[x, Math.round(y)]])).some(([r, , b]) => b > r)
+  await drag(page, [x, ruler.y + ruler.height / 2], [x, near])
+  await page.mouse.move(1, 1)
+  expect(await blue()).toBe(true)
+  await page.keyboard.press('Control+z')
+  await page.keyboard.down('Control')
+  await drag(page, [x, ruler.y + ruler.height / 2], [x, near])
+  await page.keyboard.up('Control')
+  await page.mouse.move(1, 1)
+  expect(await blue()).toBe(false)
+})
+
 test('a guide runs across the canvas, is picked and dragged beside the page and delete removes it', async ({ page }) => {
   await open(page)
   const ruler = (await page.locator('.ruler-x').boundingBox())!
