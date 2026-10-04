@@ -1,6 +1,8 @@
 import { neutral, solid, type ColorMode } from './color'
 import { Check, Field, NameInput, Section, Segmented, Select } from './controls'
-import { type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
+import { ContextMenu } from './ContextMenu'
 import { bounds, ends, MM, scopeOf, useEditor, type Editor } from './editor'
 import { Icon, KindIcon, type IconName } from './icons'
 import { FORMATS, ORIENTATIONS } from './Start'
@@ -513,17 +515,33 @@ function GridSection({ editor, sheets, all }: { editor: Editor; sheets: Page[]; 
   const grids = sameOf(sheets, key) === null ? null : sheets[0].grids
   const setGrids = (grids: Grid[], to = sheets) => editor.batch(() => to.forEach((p) => editor.apply({ type: 'setGrids', id: p.id, grids })))
   const fresh: Grid = { kind: 'columns', count: 2, gutter: 5 * MM, margin: 15 * MM, size: 5 * MM }
+  const [presets, setPresets] = useState<DOMRect | null>(null)
   return (
     <Section
       title="Layout grids"
       onAdd={() => setGrids([...(grids ?? []), fresh])}
       actions={
-        grids &&
-        all.some((p) => key(p) !== key(sheets[0])) && (
-          <button type="button" className="icon-button" aria-label="Apply grids to all pages" title="Apply grids to all pages" onClick={() => setGrids(grids, all)}>
-            <Icon name="pages" />
+        <>
+          {grids && all.some((p) => key(p) !== key(sheets[0])) && (
+            <button type="button" className="icon-button" aria-label="Apply grids to all pages" title="Apply grids to all pages" onClick={() => setGrids(grids, all)}>
+              <Icon name="pages" />
+            </button>
+          )}
+          <button type="button" className="icon-button" aria-label="Grid presets" title="Grid presets" aria-haspopup="menu" onClick={(e) => setPresets(e.currentTarget.getBoundingClientRect())}>
+            <Icon name="columns" />
           </button>
-        )
+          {presets &&
+            createPortal(
+              <ContextMenu
+                anchor={() => presets}
+                side="bottom"
+                label="Grid presets"
+                onClose={() => setPresets(null)}
+                items={GRID_PRESETS.map(([name, kinds]) => [name, () => setGrids(kinds.map(([kind, count]) => ({ ...fresh, kind, count, gutter: (count > 6 ? 4 : 5) * MM }))), true])}
+              />,
+              document.body,
+            )}
+        </>
       }
     >
       {!grids && <p className="empty">Click + to replace mixed grids</p>}
@@ -558,6 +576,17 @@ function GridSection({ editor, sheets, all }: { editor: Editor; sheets: Page[]; 
     </Section>
   )
 }
+
+const GRID_PRESETS: [string, [Grid['kind'], number][]][] = [
+  ['1 column', [['columns', 1]]],
+  ['2 columns', [['columns', 2]]],
+  ['3 columns', [['columns', 3]]],
+  ['4 columns', [['columns', 4]]],
+  ['12 columns', [['columns', 12]]],
+  ['3 × 3 modules', [['columns', 3], ['rows', 3]]],
+  ['6 × 6 modules', [['columns', 6], ['rows', 6]]],
+  ['5 mm grid', [['grid', 1]]],
+]
 
 type PageProps = (p: Page) => Partial<Pick<Page, 'width' | 'height' | 'bleed'>> & { scale?: boolean }
 

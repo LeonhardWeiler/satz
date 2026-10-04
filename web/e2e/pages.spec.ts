@@ -96,7 +96,7 @@ test('with facing pages the page overview shows spreads from a first right page,
   await expect(spread('Spread 2–3')).toBeVisible()
 })
 
-test('layout grids show on the page, hide with shift g and apply to all pages', async ({ page }) => {
+test('layout grids show on the page, hide with shift g, apply to all pages and come from presets', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
   const count = panel.getByRole('textbox', { name: 'Columns' })
@@ -115,4 +115,9 @@ test('layout grids show on the page, hide with shift g and apply to all pages', 
   await expect(count).toHaveValue('2')
   await panel.getByRole('button', { name: 'Remove grid' }).click()
   await expect(count).toHaveCount(0)
+
+  await panel.getByRole('button', { name: 'Grid presets' }).click()
+  await page.getByRole('menuitem', { name: '3 × 3 modules' }).click()
+  await expect(count).toHaveValue('3')
+  await expect(panel.getByRole('textbox', { name: 'Rows' })).toHaveValue('3')
 })
