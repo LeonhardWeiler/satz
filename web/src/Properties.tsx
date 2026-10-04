@@ -501,7 +501,7 @@ function DocumentSection({ editor, say }: { editor: Editor; say: (message: strin
         <Field label="W" title="Width of all pages" unit="length" value={w} onCommit={(width) => each(() => ({ width }))} />
         <Field label="H" title="Height of all pages" unit="length" value={h} onCommit={(height) => each(() => ({ height }))} />
         <Field label="Bleed" title="Bleed of all pages" unit="length" value={sameOf(pages, (p) => p.bleed)} onCommit={(bleed) => each(() => ({ bleed }))} />
-        <Field label="Pages" title="Pages" unit="" int min={1} value={pages.length} onCommit={count} />
+        <Field label="N" title="Pages" unit="" int min={1} value={pages.length} onCommit={count} />
         <Select label="Spreads" value={facingPages ? 'facing' : 'single'} options={SPREADS} onChange={(v) => editor.apply({ type: 'setDocument', facingPages: v === 'facing' })} />
         <Field label="Raster" reset={300} value={rasterPpi} unit="ppi" min={72} max={1200} onCommit={(v) => editor.apply({ type: 'setDocument', rasterPpi: v })} />
         <Select label="Color mode" value={colorMode} options={MODES} onChange={(colorMode) => editor.apply({ type: 'setDocument', colorMode })} />
