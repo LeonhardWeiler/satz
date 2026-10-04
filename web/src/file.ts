@@ -109,7 +109,10 @@ function run<T>(job: Job, editor: Editor, preview?: Preview, out?: Out) {
   const doc = version === job.version ? null : editor.engine.save()
   return new Promise<T>((done, fail) => {
     w.onmessage = ({ data }: MessageEvent<T & { error?: string }>) => {
-      if (data.error !== undefined) return fail(new Error(data.error))
+      if (data.error !== undefined) {
+        reset(job)
+        return fail(new Error(data.error))
+      }
       job.fonts = n
       job.version = version
       done(data)
@@ -209,6 +212,7 @@ async function addFont(editor: Editor, file: File, say: (message: string) => voi
   try {
     await keep(editor, new Uint8Array(await file.arrayBuffer()))
   } catch (e) {
+    if (e instanceof WebAssembly.RuntimeError) throw e
     say(`Could not add ${file.name}: ${(e as Error).message}. Choose a .ttf, .otf, .woff or .woff2 file.`)
   }
 }
@@ -290,6 +294,7 @@ export async function addLocalFont(editor: Editor, f: LocalFont) {
   try {
     return await keep(editor, new Uint8Array(await (await f.blob()).arrayBuffer()))
   } catch (e) {
+    if (e instanceof WebAssembly.RuntimeError) throw e
     editor.say(`Could not add ${f.fullName}: ${(e as Error).message}.`)
   }
 }
