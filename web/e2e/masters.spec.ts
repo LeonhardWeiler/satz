@@ -49,6 +49,17 @@ test('a new master is shown empty and is renamed by a double click', async ({ pa
   await expect(pages.getByRole('button', { name: 'Body', exact: true })).toBeVisible()
 })
 
+test('rename master in the context menu of the page overview renames it', async ({ page }) => {
+  await open(page)
+  await addMaster(page)
+  const pages = await overview(page)
+  await pages.getByRole('button', { name: 'A-Master', exact: true }).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Rename master' }).click()
+  await pages.getByRole('textbox', { name: 'Master name' }).fill('Body')
+  await pages.getByRole('textbox', { name: 'Master name' }).press('Enter')
+  await expect(pages.getByRole('button', { name: 'Body', exact: true })).toBeVisible()
+})
+
 test('a name another master has is rejected in the status bar', async ({ page }) => {
   await open(page)
   await addMaster(page)

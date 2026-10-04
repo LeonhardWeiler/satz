@@ -21,7 +21,9 @@ export function ContextMenu({
   const [back] = useState(() => document.activeElement as HTMLElement | null)
   useEffect(() => {
     if (!ref.current!.contains(document.activeElement)) ref.current!.focus()
-    return () => back?.focus({ preventScroll: true })
+    return () => {
+      if (document.activeElement === document.body) back?.focus({ preventScroll: true })
+    }
   }, [back])
   return (
     <div className="menu-backdrop" onPointerDown={onClose} onContextMenu={(e) => e.preventDefault()}>
