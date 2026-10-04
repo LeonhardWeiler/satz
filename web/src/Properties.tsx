@@ -2,17 +2,24 @@ import { neutral, solid, type ColorMode } from './color'
 import { Check, Field, NameInput, Section, Segmented, Select } from './controls'
 import { type ReactNode } from 'react'
 import { bounds, ends, MM, scopeOf, useEditor, type Editor } from './editor'
-import { Icon, KindIcon } from './icons'
+import { Icon, KindIcon, type IconName } from './icons'
 import { FORMATS, ORIENTATIONS } from './Start'
 import { addFonts, canFindFonts, findFonts, pickProfile, readLocalFonts, removeFont, useLocalFonts } from './file'
 import type { Bindable as Prop, Blend, Constraint, Command, Grid, LineStyle, Node, Page, Props, Section as Numbers, Wrap } from './model'
 import { isOpen, radiusOf } from './model'
 import { AlignBar, BooleanBar, combinable } from './align'
+import { ACTIONS, keyLabel, keysOf, press } from './commands'
 import { AutoLayout, flows, Sizing } from './AutoLayout'
 import { EffectList, PaintList } from './Paints'
 import { TextFrameSection, TextSection, TextStyles } from './Text'
 import { Bindable, ModeSelects, Variables } from './Variables'
 
+const ARRANGE: [string, IconName][] = [
+  ['Flatten', 'flatten'],
+  ['Flip horizontal', 'flipHorizontal'],
+  ['Flip vertical', 'flipVertical'],
+  ['Add auto layout', 'autoLayout'],
+]
 const WRAPS: Record<Wrap, string> = { none: 'No text wrap', around: 'Wrap around', jump: 'Jump over' }
 const BLENDS: Record<Blend, string> = {
   normal: 'Normal', multiply: 'Multiply', screen: 'Screen', overlay: 'Overlay', darken: 'Darken',
@@ -134,6 +141,26 @@ export function Properties({
         <h2>{one ? one.name : nodes.length ? `${nodes.length} layers` : isPage ? 'Page' : page.name}</h2>
       </header>
       {box && <AlignBar editor={editor} />}
+      {box && (
+        <div role="toolbar" aria-label="Arrange" className="align">
+          {ARRANGE.map(([title, icon]) => {
+            const a = ACTIONS.find((a) => a.title === title)!
+            return (
+              <button
+                key={title}
+                type="button"
+                className="icon-button"
+                aria-label={title}
+                title={`${title} (${keyLabel(keysOf(a))})`}
+                disabled={!(a.can?.(editor) ?? true)}
+                onClick={() => press(a.keys)}
+              >
+                <Icon name={icon} />
+              </button>
+            )
+          })}
+        </div>
+      )}
       {combinable(editor) && <BooleanBar editor={editor} />}
       {!box && <DocumentSection editor={editor} say={say} />}
       {!box && (

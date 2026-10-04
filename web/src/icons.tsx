@@ -98,6 +98,16 @@ const ICONS = {
       <rect x="2.5" y="9.5" width="11" height="4" rx="1.5" />
     </>
   ),
+  flatten: (
+    <>
+      <path d="M8 3.5 12.5 12h-9z" />
+      <rect x="6.5" y="2" width="3" height="3" rx=".5" fill="currentColor" />
+      <rect x="2" y="10.5" width="3" height="3" rx=".5" fill="currentColor" />
+      <rect x="11" y="10.5" width="3" height="3" rx=".5" fill="currentColor" />
+    </>
+  ),
+  flipHorizontal: <path d="M8 2v12M6 4.5v8H2.5zM10 4.5v8h3.5z" />,
+  flipVertical: <path d="M2 8h12M4.5 6h8V2.5zM4.5 10h8v3.5z" />,
   arrowDown: <path d="M8 3v10M4.5 9.5 8 13l3.5-3.5" />,
   arrowUp: <path d="M8 13V3M4.5 6.5 8 3l3.5 3.5" />,
   arrowRight: <path d="M3 8h10M9.5 4.5 13 8l-3.5 3.5" />,

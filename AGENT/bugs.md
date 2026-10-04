@@ -15,7 +15,7 @@
 16. inside groups and auto layouts the elemts should have a circle in the middle of them just like when both of them are selected to change position. for autolayouts its neccesesary to move them in the layer order i belive
 17. [x] when editing the name of the file in the top left, it should still show the extension (even though it can't be edited) and the text should stay in the same position when editing compared to when not editing
 18. [x] the arrow down icon dropdown for the element primitives selection has to little margin to the pen tool to its right
-20. flatten, flip horizontally, flip vertically and add auto layout should be accesible through icons and not just the context menu or a keyboard shortcut
+20. [x] flatten, flip horizontally, flip vertically and add auto layout should be accesible through icons and not just the context menu or a keyboard shortcut
 21. [x] make the canvas not go to the side indefinitely (+/- 20000mm?)
 22. have presets for layout grids
 23. [x] when keep aspect ratio is ticked on, i cannot resize the element smaller than it was then in the canvas (on the controls on the right it works correctly).
