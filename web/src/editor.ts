@@ -69,8 +69,6 @@ export class Editor {
   pageId: string
   /** The page shown before the current master, to return to. */
   back: string | null = null
-  /** The side of a facing master that the view fits. */
-  side: 'left' | 'right' = 'right'
   /** The pages selected in the page overview, `null` while it is closed. */
   overview: string[] | null = null
   /** The preflight is open: the pages show as they print, with what `inks` marks over them. */
@@ -307,7 +305,7 @@ export class Editor {
     }
   }
 
-  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'hover' | 'pen' | 'editing' | 'threading' | 'placing' | 'side' | 'overview' | 'preflight' | 'grids' | 'guide' | 'vector' | 'cropping' | 'inks' | 'previewed' | 'pointerInk'>>) {
+  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'hover' | 'pen' | 'editing' | 'threading' | 'placing' | 'overview' | 'preflight' | 'grids' | 'guide' | 'vector' | 'cropping' | 'inks' | 'previewed' | 'pointerInk'>>) {
     const leaves = this.editing && patch.selection && !patch.selection.includes(this.editing.id)
     if (this.vector && ((patch.selection && !patch.selection.includes(this.vector.id)) || (patch.tool && patch.tool !== 'move'))) patch = { vector: null, ...patch }
     if (this.cropping && ((patch.selection && !patch.selection.includes(this.cropping)) || (patch.tool && patch.tool !== 'move'))) patch = { cropping: null, ...patch }

@@ -1220,13 +1220,8 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       e.preventDefault()
     }
 
-    let side = editor.side
     const offSettings = subscribeSettings(redraw)
     const unsubscribe = editor.subscribe(() => {
-      if (editor.side !== side) {
-        side = editor.side
-        fit(editor.sheets.slice(side === 'left' ? 0 : -1).slice(0, 1))
-      }
       if (spreadKey() !== shown) {
         shown = spreadKey()
         fit()

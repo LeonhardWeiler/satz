@@ -3,7 +3,7 @@
 3. [x] add a gear icon next to the keyboard shortcuts icon for the settings and move both of them left to the preflight icon
 4. [x] add the same amount of padding to the preflight icon on the left and the right
 6. [x] in the page overview pages section the "bar" at the top with "Pages" and columns, ... schould also stay at the exact same position when scrolling horizontally
-7. the master pages should not have left and right pages if they are the same in the layers overview. that means that at the top left of the Canvas e.g. A-Master L R it should just say A-Master
+7. [x] the master pages should not have left and right pages if they are the same in the layers overview. that means that at the top left of the Canvas e.g. A-Master L R it should just say A-Master
 8. include the reset overrides button when changing the master layout with ctrl + shift better into the layout, so it looks better on the panel on the right
 9. include the Keep aspect ratio button better into the layout
 10. does text wrap work and if yes how, because i wasn't able to figure it out, maybe it should be more intuitive
