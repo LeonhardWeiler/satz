@@ -121,7 +121,7 @@ test('a layer that keeps its aspect ratio changes its height with its width', as
   await open(page)
   await place(page, red(600, 300))
   const properties = page.getByRole('complementary', { name: 'Properties' })
-  await properties.getByRole('checkbox', { name: 'Keep aspect ratio' }).check()
+  await properties.getByRole('button', { name: 'Keep aspect ratio' }).click()
   const width = properties.getByRole('textbox', { name: 'W in mm' })
   await width.fill('101.6')
   await width.press('Enter')

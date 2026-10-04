@@ -167,19 +167,32 @@ export function Properties({
         <Section
           title={isPage ? (targets.length > 1 ? `Pages ${numbers.join(', ')}` : `Page ${numbers[0]}`) : 'Master'}
           actions={
-            isPage &&
-            targets.length === 1 &&
-            snapshot.pages.some((p) => p.width !== page.width || p.height !== page.height || p.bleed !== page.bleed) && (
-              <button
-                type="button"
-                className="icon-button"
-                aria-label="Apply size to all pages"
-                title="Apply size to all pages"
-                onClick={() => editor.batch(() => snapshot.pages.forEach((p) => editor.apply({ type: 'setPage', id: p.id, width: page.width, height: page.height, bleed: page.bleed })))}
-              >
-                <Icon name="pages" />
-              </button>
-            )
+            <>
+              {isPage && page.detached.length > 0 && (
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label="Reset overrides"
+                  title="Reset overrides"
+                  onClick={() => editor.apply({ type: 'resetToMaster', ids: [page.id] })}
+                >
+                  <Icon name="reset" />
+                </button>
+              )}
+              {isPage &&
+                targets.length === 1 &&
+                snapshot.pages.some((p) => p.width !== page.width || p.height !== page.height || p.bleed !== page.bleed) && (
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label="Apply size to all pages"
+                    title="Apply size to all pages"
+                    onClick={() => editor.batch(() => snapshot.pages.forEach((p) => editor.apply({ type: 'setPage', id: p.id, width: page.width, height: page.height, bleed: page.bleed })))}
+                  >
+                    <Icon name="pages" />
+                  </button>
+                )}
+            </>
           }
         >
           <FormatRow page sheets={sheets} each={setSheets} />
@@ -223,11 +236,6 @@ export function Properties({
               </label>
             </div>
           )}
-          {isPage && page.detached.length > 0 && (
-            <button type="button" className="button" onClick={() => editor.apply({ type: 'resetToMaster', ids: [page.id] })}>
-              Reset overrides
-            </button>
-          )}
         </Section>
       )}
       {!box && <GridSection editor={editor} sheets={sheets} all={isPage && targets.length === 1 ? snapshot.pages : []} />}
@@ -262,19 +270,35 @@ export function Properties({
           )}
         </Section>
       )}
-      {one?.overrideOf && (
-        <Section title="Master">
-          <button type="button" className="button" onClick={() => editor.apply({ type: 'resetToMaster', ids: [one.id] })}>
-            Reset to master
-          </button>
-        </Section>
-      )}
       {!box && (
         <Variables editor={editor} />
       )}
       {!box && <TextStyles editor={editor} />}
       {box && (
-        <Section title="Layout">
+        <Section
+          title="Layout"
+          actions={
+            <>
+              {one?.overrideOf && (
+                <button type="button" className="icon-button" aria-label="Reset to master" title="Reset to master" onClick={() => editor.apply({ type: 'resetToMaster', ids: [one.id] })}>
+                  <Icon name="reset" />
+                </button>
+              )}
+              {!line && (
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label="Keep aspect ratio"
+                  title="Keep aspect ratio"
+                  aria-pressed={same((n) => n.keepRatio) ?? 'mixed'}
+                  onClick={() => set({ keepRatio: !same((n) => n.keepRatio) })}
+                >
+                  <Icon name="ratio" />
+                </button>
+              )}
+            </>
+          }
+        >
           <div className="grid">
             <Field label="X" min={-Infinity} value={nodes.length > 1 ? same((n) => n.x) : box.x} unit="length" onCommit={frame('x')} />
             <Field label="Y" min={-Infinity} value={nodes.length > 1 ? same((n) => n.y) : box.y} unit="length" onCommit={frame('y')} />
@@ -291,9 +315,6 @@ export function Properties({
             )}
             {!line && nodes.every((n) => n.kind !== 'group') && (
               <Field label="∠" title="Rotation" unit="°" min={-Infinity} reset={0} value={same((n) => n.rotation)} onCommit={(v) => set({ rotation: ((v % 360) + 360) % 360 })} />
-            )}
-            {!line && nodes.length > 0 && (
-              <Check label="Keep aspect ratio" value={same((n) => n.keepRatio)} set={(keepRatio) => set({ keepRatio })} />
             )}
             {one?.kind === 'frame' && (
               <label className="check">

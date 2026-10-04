@@ -88,13 +88,17 @@ test('ctrl+shift+click overrides a master layer with a copy on the page', async 
   await expect(page.getByRole('complementary', { name: 'Properties' }).getByRole('button', { name: 'Reset to master' })).toBeVisible()
 })
 
-test('reset to master removes the override, and undo brings it back', async ({ page }) => {
+test('reset to master removes the override, undo brings it back and the page resets all its overrides', async ({ page }) => {
   await overridden(page)
   await page.getByRole('complementary', { name: 'Properties' }).getByRole('button', { name: 'Reset to master' }).click()
   await expect(rects(page)).toHaveCount(2)
   await expect(title(page)).toHaveText('Page')
   await page.keyboard.press('Control+z')
   await expect(rects(page)).toHaveCount(3)
+
+  await page.keyboard.press('Escape')
+  await page.getByRole('complementary', { name: 'Properties' }).getByRole('button', { name: 'Reset overrides' }).click()
+  await expect(rects(page)).toHaveCount(2)
 })
 
 test('a page shows the prefix of its master as its page numbers do, in any script', async ({ page }) => {

@@ -1191,7 +1191,8 @@ textarea {
   color: var(--text);
 }
 
-.tool[aria-pressed='true'] {
+.tool[aria-pressed='true'],
+.icon-button[aria-pressed='true'] {
   background: var(--selected);
   color: var(--text);
 }

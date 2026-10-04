@@ -108,6 +108,8 @@ const ICONS = {
   ),
   flipHorizontal: <path d="M8 2v12M6 4.5v8H2.5zM10 4.5v8h3.5z" />,
   flipVertical: <path d="M2 8h12M4.5 6h8V2.5zM4.5 10h8v3.5z" />,
+  reset: <path d="M3 3v3h3M3.4 6A5 5 0 1 1 3 8.5" />,
+  ratio: <path d="M7 9l2-2M6.5 5.5l1-1a2.5 2.5 0 0 1 3.5 3.5l-1 1M9.5 10.5l-1 1a2.5 2.5 0 0 1-3.5-3.5l1-1" />,
   arrowDown: <path d="M8 3v10M4.5 9.5 8 13l3.5-3.5" />,
   arrowUp: <path d="M8 13V3M4.5 6.5 8 3l3.5 3.5" />,
   arrowRight: <path d="M3 8h10M9.5 4.5 13 8l-3.5 3.5" />,
