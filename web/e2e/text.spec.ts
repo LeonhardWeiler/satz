@@ -346,7 +346,7 @@ test('flatten turns text into the outlines of its glyphs', async ({ page }) => {
   await expect(page.getByRole('toolbar', { name: 'Path tools' })).toBeVisible()
 })
 
-test('text runs around a layer above it that wraps it and jumps over one that jumps it', async ({ page }) => {
+test('text runs around a layer above it that wraps it and jumps over one that jumps it, and a layer under all text says so', async ({ page }) => {
   await open(page)
   await page.keyboard.press('r')
   await drag(page, await screen(page, 50, 105), await screen(page, 90, 130))
@@ -363,6 +363,11 @@ test('text runs around a layer above it that wraps it and jumps over one that ju
   await expect.poll(inked).toBe(true)
   await choose(wrap, 'Jump over')
   await expect.poll(inked).toBe(false)
+  const hint = props.getByText('Only text frames below it in the layers wrap around it')
+  await expect(hint).toHaveCount(0)
+  await page.keyboard.press('Control+Shift+BracketLeft')
+  await expect(hint).toBeVisible()
   await choose(wrap, 'No text wrap')
   await expect(offset).toHaveCount(0)
+  await expect(hint).toHaveCount(0)
 })

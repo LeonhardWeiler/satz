@@ -377,6 +377,17 @@ export function Properties({
       )}
       {one?.kind === 'frame' && <AutoLayout editor={editor} node={one} set={set} />}
       {box && (
+        <Section title="Text wrap">
+          <div className="grid">
+            <Select label="Text wrap" value={same((n) => n.wrap)} options={WRAPS} onChange={(wrap) => set({ wrap })} />
+            {nodes.some((n) => n.wrap !== 'none') && (
+              <Field label="" title="Text wrap offset" unit="length" value={same((n) => n.wrapOffset)} onCommit={(v) => set({ wrapOffset: Math.max(0, v) })} />
+            )}
+          </div>
+          {nodes.some((n) => n.wrap !== 'none' && !textBelow(editor, n)) && <p className="empty">Only text frames below it in the layers wrap around it</p>}
+        </Section>
+      )}
+      {box && (
         <Section title="Layer">
           <div className="grid">
             {bindable(
@@ -386,10 +397,6 @@ export function Properties({
               <Field label="" title="Opacity" unit="%" max={100} value={same((n) => n.opacity * 100)} onCommit={(v) => set({ opacity: v / 100 })} />,
             )}
             <Select label="Blend mode" value={same((n) => n.blend)} options={BLENDS} onChange={(blend) => set({ blend })} />
-            <Select label="Text wrap" value={same((n) => n.wrap)} options={WRAPS} onChange={(wrap) => set({ wrap })} />
-            {nodes.some((n) => n.wrap !== 'none') && (
-              <Field label="" title="Text wrap offset" unit="length" value={same((n) => n.wrapOffset)} onCommit={(v) => set({ wrapOffset: Math.max(0, v) })} />
-            )}
             {one?.kind === 'frame' && (
               <ModeSelects editor={editor} id={one.id} own={one.modes} inherited={editor.nodes.get(one.id)?.parent?.activeModes ?? page.modes} />
             )}
@@ -467,6 +474,15 @@ const sameOf = <T, U>(items: T[], get: (t: T) => U): U | null => {
 const near = (a: number, b: number) => Math.abs(a - b) < 0.5
 
 /** Format, orientation, size, bleed and number of all pages, facing pages, colour mode and raster resolution. */
+function textBelow(editor: Editor, n: Node) {
+  const page = editor.nodes.get(n.id)?.page
+  for (const [id, e] of editor.nodes) {
+    if (id === n.id) return false
+    if (e.page === page && e.node.kind === 'text') return true
+  }
+  return false
+}
+
 function DocumentSection({ editor, say }: { editor: Editor; say: (message: string) => void }) {
   const { pages, masters, facingPages, colorMode, rasterPpi, profile } = useEditor(editor, (e) => e.snapshot)
   const sheets = [...pages, ...masters]

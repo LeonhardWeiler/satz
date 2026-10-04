@@ -6,7 +6,7 @@
 7. [x] the master pages should not have left and right pages if they are the same in the layers overview. that means that at the top left of the Canvas e.g. A-Master L R it should just say A-Master
 8. [x] include the reset overrides button when changing the master layout with ctrl + shift better into the layout, so it looks better on the panel on the right
 9. [x] include the Keep aspect ratio button better into the layout
-10. does text wrap work and if yes how, because i wasn't able to figure it out, maybe it should be more intuitive
+10. [x] does text wrap work and if yes how, because i wasn't able to figure it out, maybe it should be more intuitive
 11. [x] the rename master right click menu thing doesn't work in the page overview
 12. [x] variables should have the same right click and hover controls as swatches (right click to rename, delete, edit, duplicate), hover to delete on the right
 13. [x] don't show the drag cursor on non draggable controls like names etc.
