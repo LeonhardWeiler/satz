@@ -7,6 +7,8 @@ import { toPath, type At, type Contour } from './vector'
 
 /** Marks the font of a glyph run whose own font is missing, drawn in the bundled one. */
 const MISSING = 2 ** 31
+/** Marks an image id as the C, M and Y or K plate, as `image::CMY` and `image::K` do. */
+const [PLATE_CMY, PLATE_K] = [2 ** 30, 2 ** 29]
 
 type Cache = Map<number, { hash: number; picture: SkPicture }>
 
@@ -96,6 +98,35 @@ half4 main(float2 p) {
     black - b);
   return half4(s.rgb * a.a, a.a);
 }`
+/**
+ * Shows `image` adjusted by [k, m, o] as `Engine.imageSource` gives them, as it is for `plate` 0, or separated
+ * through the CMYK `separation` of a grid of `n` steps per channel as the inverted C, M and Y plate 1 or the K plate 2.
+ */
+const IMAGE = `
+uniform shader image;
+uniform shader separation;
+uniform float3 adjust;
+uniform float n;
+uniform float plate;
+float4 at(float3 i) {
+  float2 p = float2(i.r + n * i.g + 0.5, i.b + 0.5);
+  return float4(separation.eval(p).rgb, separation.eval(p + float2(0, n)).r);
+}
+half4 main(float2 p) {
+  half4 c = image.eval(p);
+  if (c.a == 0) return half4(0);
+  float3 v = c.rgb / c.a;
+  v = saturate(adjust.x * v - adjust.y * dot(v, float3(0.2126, 0.7152, 0.0722)) + adjust.z);
+  if (plate == 0) return half4(v * c.a, c.a);
+  float3 q = v * (n - 1);
+  float3 i = min(floor(q), n - 2);
+  float3 f = q - i;
+  float3 a = f.r >= f.g ? (f.r >= f.b ? float3(1, 0, 0) : float3(0, 0, 1)) : (f.g >= f.b ? float3(0, 1, 0) : float3(0, 0, 1));
+  float3 b = a + (f.r >= f.g ? (f.g >= f.b ? float3(0, 1, 0) : (f.r >= f.b ? float3(0, 0, 1) : float3(1, 0, 0))) : (f.r >= f.b ? float3(1, 0, 0) : (f.g >= f.b ? float3(0, 0, 1) : float3(0, 1, 0))));
+  float x = dot(f, a), y = dot(f, b - a), z = dot(f, 1 - b);
+  float4 ink = at(i) * (1 - x) + at(i + a) * (x - y) + at(i + b) * (y - z) + at(i + 1) * z;
+  return half4((1 - (plate == 1 ? ink.rgb : ink.aaa)) * c.a, c.a);
+}`
 const CAPS = ['Butt', 'Round', 'Square'] as const
 const JOINS = ['Miter', 'Round', 'Bevel'] as const
 
@@ -107,11 +138,15 @@ export class Renderer {
   private plates: Surface[] = []
   private inksEffect?: RuntimeEffect
   private lut?: Image
+  private imageEffect?: RuntimeEffect
+  private separation?: Image
   private profile = ''
   private typefaces = new Map<number, Typeface>()
   private fonts = new Map<string, Font>()
-  /** Decoded images by display-list id; `null` when the file does not decode. */
+  /** Decoded images by the id `source` decodes; `null` when the file does not decode. */
   private images = new Map<number, Image | null>()
+  /** `Engine.imageSource` by display-list id. */
+  private sources = new Map<number, Float64Array>()
   /** Images of the inks over pages by their pixels. */
   private inks = new Map<Uint8Array, Image>()
   /** Items, layers and images drawn since the last `sweep`. */
@@ -173,8 +208,9 @@ export class Renderer {
         const ops = decode((plate ? this.engine.plate(id, plate === 2) : this.engine.displayList(id)).slice())
         for (const op of ops) {
           if (op.op === 'image') {
-            if (!this.images.has(op.image)) this.images.set(op.image, this.decode(op.image, c))
-            shown.add(op.image)
+            const id = this.source(op.image)[0] ?? op.image
+            if (!this.images.has(id)) this.images.set(id, this.decode(id, c))
+            shown.add(id).add(op.image)
           } else if (op.op === 'beginItem') live.add(op.item)
           else if (op.op === 'pushLayer') live.add(op.hash)
         }
@@ -281,8 +317,15 @@ export class Renderer {
       image?.delete()
       this.images.delete(id)
     }
+    for (const id of this.sources.keys()) if (!this.shown.has(id)) this.sources.delete(id)
     this.live.clear()
     this.shown.clear()
+  }
+
+  private source(id: number) {
+    let s = this.sources.get(id)
+    if (!s) this.sources.set(id, (s = this.engine.imageSource(id)))
+    return s
   }
 
   /** The image `id` of the engine, shrunk to `maxImage` on a surface like `canvas`. */
@@ -608,15 +651,33 @@ export class Renderer {
 
   private drawImage(canvas: Canvas, { image, transform }: Extract<Op, { op: 'image' }>) {
     const { ck, paint } = this
-    const img = this.images.get(image)
+    const [id, ...adjust] = this.source(image)
+    const img = this.images.get(id ?? image)
     if (!img) return
     const [a, b, c, d, e, f] = transform
     canvas.save()
     canvas.concat([a, c, e, b, d, f, 0, 0, 1])
     paint.setStyle(ck.PaintStyle.Fill)
     paint.setColor(ck.BLACK)
-    const src = ck.XYWHRect(0, 0, img.width(), img.height())
-    canvas.drawImageRectOptions(img, src, ck.XYWHRect(0, 0, 1, 1), ck.FilterMode.Linear, ck.MipmapMode.Linear, paint)
+    const [w, h] = [img.width(), img.height()]
+    if (id === undefined) canvas.drawImageRectOptions(img, ck.XYWHRect(0, 0, w, h), ck.XYWHRect(0, 0, 1, 1), ck.FilterMode.Linear, ck.MipmapMode.Linear, paint)
+    else {
+      if (!this.separation) {
+        const pixels = this.engine.separation()
+        const n = Math.round(Math.cbrt(pixels.length / 8))
+        const info = { width: n * n, height: 2 * n, colorType: ck.ColorType.RGBA_8888, alphaType: ck.AlphaType.Unpremul, colorSpace: ck.ColorSpace.SRGB }
+        this.separation = ck.MakeImage(info, pixels, n * n * 4)!
+        this.imageEffect = ck.RuntimeEffect.Make(IMAGE)!
+      }
+      const plate = image & PLATE_CMY ? 1 : image & PLATE_K ? 2 : 0
+      const pixels = img.makeShaderOptions(ck.TileMode.Clamp, ck.TileMode.Clamp, ck.FilterMode.Linear, ck.MipmapMode.Linear, [1 / w, 0, 0, 0, 1 / h, 0, 0, 0, 1])
+      const table = this.separation.makeShaderOptions(ck.TileMode.Clamp, ck.TileMode.Clamp, ck.FilterMode.Nearest, ck.MipmapMode.None)
+      const shader = this.imageEffect!.makeShaderWithChildren([...adjust, this.separation.height() / 2, plate], [pixels, table])
+      paint.setShader(shader)
+      canvas.drawRect(ck.XYWHRect(0, 0, 1, 1), paint)
+      paint.setShader(null)
+      for (const s of [shader, pixels, table]) s.delete()
+    }
     canvas.restore()
   }
 
@@ -665,9 +726,8 @@ export class Renderer {
   reprofile(name: string) {
     if (name === this.profile) return
     this.profile = name
-    this.lut?.delete()
-    this.inksEffect?.delete()
-    this.lut = this.inksEffect = undefined
+    for (const x of [this.lut, this.inksEffect, this.separation, this.imageEffect]) x?.delete()
+    this.lut = this.inksEffect = this.separation = this.imageEffect = undefined
     for (const image of this.images.values()) image?.delete()
     this.images.clear()
     this.clear()
@@ -695,8 +755,7 @@ export class Renderer {
   delete() {
     this.clear()
     for (const s of this.plates) s.delete()
-    this.lut?.delete()
-    this.inksEffect?.delete()
+    for (const x of [this.lut, this.inksEffect, this.separation, this.imageEffect]) x?.delete()
     for (const image of this.inks.values()) image.delete()
     for (const font of this.fonts.values()) font.delete()
     for (const typeface of this.typefaces.values()) typeface.delete()

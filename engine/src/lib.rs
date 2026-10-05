@@ -93,6 +93,36 @@ impl Engine {
         unsafe { Uint32Array::view(&self.list) }
     }
 
+    /// The image to decode for the image `id` of display lists and [k, m, o] that
+    /// adjust it, or nothing when the canvas takes `image(id)` as it is.
+    #[wasm_bindgen(js_name = imageSource)]
+    pub fn image_source(&self, id: u32) -> Vec<f64> {
+        image::source(id).map_or(Vec::new(), |(source, f)| {
+            [source as f64]
+                .into_iter()
+                .chain(f.map(f64::from))
+                .collect()
+        })
+    }
+
+    /// CMYK of RGB on a grid of 33 steps per channel as RGBA pixels, R across and B
+    /// down within a tile, G across between tiles; C, M and Y in the upper half, K
+    /// in the lower one.
+    pub fn separation(&self) -> Vec<u8> {
+        const N: usize = 33;
+        let v = |i: usize| ((i * 255 + (N - 1) / 2) / (N - 1)) as u8;
+        let rgba: Vec<u8> = (0..N.pow(3))
+            .flat_map(|i| {
+                let (x, b) = (i % (N * N), i / (N * N));
+                [v(x % N), v(x / N), v(b), 255]
+            })
+            .collect();
+        let cmyk = color::separate_pixels(&rgba);
+        let cmy = cmyk.chunks(4).flat_map(|p| [p[0], p[1], p[2], 255]);
+        let k = cmyk.chunks(4).flat_map(|p| [p[3], p[3], p[3], 255]);
+        cmy.chain(k).collect()
+    }
+
     /// Screen colours of CMYK on a grid of 17 steps per ink as RGBA pixels, C across
     /// and Y down within a tile, M across and K down between tiles.
     pub fn lut(&self) -> Vec<u8> {

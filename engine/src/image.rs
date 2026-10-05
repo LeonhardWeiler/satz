@@ -430,17 +430,31 @@ pub fn cmyk(id: u32) -> Option<Pixels> {
     .clone()
 }
 
+/// [k, m, o] of `adjust`, which maps each channel v of a pixel of luma l, all in
+/// 0..=1, to k v - m l + o.
+fn factors([b, c, s]: [f32; 3]) -> [f32; 3] {
+    [(1.0 + c) * (1.0 + s), (1.0 + c) * s, b - 0.5 * c]
+}
+
+/// The id of the unadjusted image under the image `id` and the `factors` that
+/// adjust it, for the canvas to adjust and separate it; `None` for a CMYK image.
+pub fn source(id: u32) -> Option<(u32, [f32; 3])> {
+    let e = entry(id)?;
+    let (root, adjust) = e.source.clone().unwrap_or((e, [0.0; 3]));
+    if root.info.space == Space::Cmyk {
+        return None;
+    }
+    Some((self::id(&root.info.hash)?, factors(adjust)))
+}
+
 /// The pixels of `e` as RGBA, not premultiplied, and its size.
 fn rgba(e: &Entry) -> Option<(Vec<u8>, u32, u32)> {
-    let Some((source, [b, c, s])) = &e.source else {
+    let Some((source, adjust)) = &e.source else {
         return decode(e.format, &e.bytes);
     };
     let (mut rgba, w, h) = rgba(source)?;
-    let (k, m, o) = (
-        (1.0 + c) * (1.0 + s),
-        (1.0 + c) * s,
-        (b - 0.5 * c) * 255.0 + 0.5,
-    );
+    let [k, m, o] = factors(*adjust);
+    let o = o * 255.0 + 0.5;
     for p in rgba.as_chunks_mut::<4>().0 {
         let l = m * (0.2126 * p[0] as f32 + 0.7152 * p[1] as f32 + 0.0722 * p[2] as f32);
         for v in &mut p[..3] {
