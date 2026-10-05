@@ -411,7 +411,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     const paint = () => {
       cancelAnimationFrame(frame)
       frame = 0
-      if (!surface) return
+      if (!surface || editor.overview) return
       const [cw, ch] = [canvas.clientWidth / 2, canvas.clientHeight / 2]
       view.x = Math.min(Math.max(view.x, cw - EDGE * view.zoom), cw + EDGE * view.zoom)
       view.y = Math.min(Math.max(view.y, ch - EDGE * view.zoom), ch + EDGE * view.zoom)
@@ -468,13 +468,14 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         vector: vector(),
         ...threadOverlay(),
       }, editor.snapshot.colorMode === 'cmyk', editor.preflight ? editor.inks.on : 15)
+      renderer.sweep()
       surface.flush()
       const left = Math.min(...editor.sheets.map((s) => s.x))
       const sel = editor.selection.length ? bounds(editor.selected().map((n) => upright(editor.shown(n)))) : undefined
       const x0 = view.x + left * view.zoom
       const bar = quick.current!
       bar.hidden =
-        !sel || !settings.quickEdit || (alt && !!pointer) || !!ed || !!pen || editor.threading !== null || editor.overview !== null || editor.tool !== 'move' ||
+        !sel || !settings.quickEdit || (alt && !!pointer) || !!ed || !!pen || editor.threading !== null || editor.tool !== 'move' ||
         (!!drag && drag.kind !== 'pan' && !(drag.kind === 'move' && !drag.active))
       if (sel && !bar.hidden) {
         const { clientWidth: vw, clientHeight: vh } = canvas
@@ -485,7 +486,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         bar.style.top = `${Math.min(Math.max(top >= 8 ? top : view.y + (sel.y + sel.h) * view.zoom + 14, 8), vh - h - 8)}px`
       }
       const page = pointer ? pageAt(toDoc(pointer), editor.sheets) : undefined
-      const target = !alt || !sel || drag || ed || pen || editor.tool !== 'move' || editor.overview !== null
+      const target = !alt || !sel || drag || ed || pen || editor.tool !== 'move'
         ? undefined
         : hovered || (page && { x: page.x, y: 0, w: page.width, h: page.height })
       if (target) measures = measure(sel!, target, snapsNow().others)

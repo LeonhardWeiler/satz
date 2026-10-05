@@ -114,14 +114,18 @@ export class Renderer {
   private images = new Map<number, Image | null>()
   /** Images of the inks over pages by their pixels. */
   private inks = new Map<Uint8Array, Image>()
-  /** The pages show as they print. */
+  /** Items, layers and images drawn since the last `sweep`. */
+  private live = new Set<number>()
+  private shown = new Set<number>()
   /** Paint for display-list content; `chrome` draws the page, guides and overlay. */
   private paint: Paint
   private chrome: Paint
 
+  /** Images wider or taller than `maxImage` px are kept shrunk to it. */
   constructor(
     private ck: CanvasKit,
     private engine: Engine,
+    private maxImage = Infinity,
   ) {
     this.paint = new ck.Paint()
     this.paint.setAntiAlias(true)
@@ -157,8 +161,7 @@ export class Renderer {
       }
     }
     const bounds = bleed.getBounds()
-    const live = new Set<number>()
-    const shown = new Set<number>()
+    const { live, shown } = this
     const pages = (c: Canvas, plate: number) => {
       this.cache = this.caches[plate]
       paint.setStyle(ck.PaintStyle.Fill)
@@ -170,7 +173,7 @@ export class Renderer {
         const ops = decode((plate ? this.engine.plate(id, plate === 2) : this.engine.displayList(id)).slice())
         for (const op of ops) {
           if (op.op === 'image') {
-            if (!this.images.has(op.image)) this.images.set(op.image, this.ck.MakeImageFromEncoded(this.engine.image(op.image)))
+            if (!this.images.has(op.image)) this.images.set(op.image, this.decode(op.image, c))
             shown.add(op.image)
           } else if (op.op === 'beginItem') live.add(op.item)
           else if (op.op === 'pushLayer') live.add(op.hash)
@@ -262,18 +265,42 @@ export class Renderer {
     bleed.delete()
     canvas.restore()
     if (overlay) this.drawOverlay(canvas, view, dpr, overlay)
+  }
+
+  /** Forgets the pictures and images that no `draw` since the last sweep used. */
+  sweep() {
     for (const cache of this.caches.flatMap((c) => [c.pictures, c.layers])) {
       for (const [key, { picture }] of cache) {
-        if (live.has(key)) continue
+        if (this.live.has(key)) continue
         picture.delete()
         cache.delete(key)
       }
     }
     for (const [id, image] of this.images) {
-      if (shown.has(id)) continue
+      if (this.shown.has(id)) continue
       image?.delete()
       this.images.delete(id)
     }
+    this.live.clear()
+    this.shown.clear()
+  }
+
+  /** The image `id` of the engine, shrunk to `maxImage` on a surface like `canvas`. */
+  private decode(id: number, canvas: Canvas) {
+    const { ck } = this
+    const image = ck.MakeImageFromEncoded(this.engine.image(id))
+    const f = image ? this.maxImage / Math.max(image.width(), image.height()) : 1
+    if (!image || f >= 1) return image
+    const [width, height] = [Math.ceil(image.width() * f), Math.ceil(image.height() * f)]
+    const surface = canvas.makeSurface({ width, height, colorType: ck.ColorType.RGBA_8888, alphaType: ck.AlphaType.Premul, colorSpace: ck.ColorSpace.SRGB })
+    if (!surface) return image
+    const c = surface.getCanvas()
+    c.scale(f, f)
+    c.drawImageOptions(image, 0, 0, ck.FilterMode.Linear, ck.MipmapMode.Linear, null)
+    image.delete()
+    const small = surface.makeImageSnapshot()
+    surface.delete()
+    return small
   }
 
   /** Draws the plates 1 and 2 that `draw` draws, each on a surface of its own, as their inks print. */

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type MouseEvent } from 'react'
-import type { CanvasKit } from 'canvaskit-wasm'
+import type { CanvasKit, GrDirectContext } from 'canvaskit-wasm'
 import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
 import { Field, roam } from './controls'
@@ -18,10 +18,11 @@ const ZOOM = [80, 480]
 const clamp = (v: number, [lo, hi]: number[]) => Math.round(Math.min(hi, Math.max(lo, v)))
 const resize = (patch: Partial<typeof settings.overview>) => setSettings({ overview: { ...settings.overview, ...patch } })
 
-/** Draws pictures of pages with the canvas renderer, as many per frame as fit in 8 ms. */
+/** Draws pictures of pages with the canvas renderer on the GPU, as many per frame as fit in 8 ms. */
 function usePaint(ck: CanvasKit, editor: Editor) {
   const [painter] = useState(() => {
     let renderer: Renderer | undefined
+    let gpu: GrDirectContext | null = null
     const queue = new Map<HTMLCanvasElement, [Lists, Sheet[]]>()
     let frame = 0
     const draw = (c: HTMLCanvasElement, lists: Lists, sheets: Sheet[]) => {
@@ -30,9 +31,10 @@ function usePaint(ck: CanvasKit, editor: Editor) {
       const width = Math.round(c.clientWidth * devicePixelRatio)
       const height = Math.round(c.clientHeight * devicePixelRatio)
       const zoom = width / (Math.max(...sheets.map((s) => s.x + s.width)) - left)
-      const surface = ck.MakeSurface(width, height)
+      gpu ??= ck.MakeWebGLContext(ck.GetWebGLContext(new OffscreenCanvas(1, 1)))
+      const surface = gpu && ck.MakeRenderTarget(gpu, width, height)
       if (!surface) return
-      renderer ??= new Renderer(ck, editor.engine)
+      renderer ??= new Renderer(ck, editor.engine, 1024)
       renderer.reprofile(editor.snapshot.profile ?? '')
       renderer.draw(surface.getCanvas(), lists, sheets, { x: -left * zoom, y: 0, zoom }, 1, null, editor.snapshot.colorMode === 'cmyk')
       const info = { width, height, colorType: ck.ColorType.RGBA_8888, alphaType: ck.AlphaType.Unpremul, colorSpace: ck.ColorSpace.SRGB }
@@ -62,6 +64,8 @@ function usePaint(ck: CanvasKit, editor: Editor) {
         queue.clear()
         renderer?.delete()
         renderer = undefined
+        gpu?.delete()
+        gpu = null
       },
     }
   })
@@ -74,7 +78,7 @@ function Thumb({ paint, snapshot, lists, sheets, height }: { paint: ReturnType<t
   const ref = useRef<HTMLCanvasElement>(null)
   const w = Math.max(...sheets.map((s) => s.x + s.width)) - Math.min(...sheets.map((s) => s.x))
   const h = Math.max(...sheets.map((s) => s.height))
-  const key = JSON.stringify([lists, sheets])
+  const key = JSON.stringify([lists, sheets, height])
   useEffect(() => {
     const [l, s] = JSON.parse(key)
     paint(ref.current!, l, s)
