@@ -39,7 +39,7 @@
 
 <div class="grid">
   <div class="tile"><span class="dim">Tastendruck, 32 Seiten (nativ)</span><b>16 ms</b></div>
-  <div class="tile"><span class="dim">Bildanpassung, 20 Werte, CMYK (Browser)</span><b>25,1 → 2,0 s</b></div>
+  <div class="tile"><span class="dim">Bildanpassung, 20 Werte, CMYK (Browser)</span><b>25,1 → 1,4 s</b></div>
   <div class="tile"><span class="dim">Trenner ziehen, Frames &gt; 50 ms</span><b>14 → 0</b></div>
   <div class="tile"><span class="dim">Download beim Start (gzip)</span><b>6,6 MB</b></div>
   <div class="tile"><span class="dim">render, jede Seitenzahl</span><b>0,03 ms</b></div>
@@ -67,7 +67,7 @@
   <span class="tag good">791b577, 42cc1a7</span>
   <table>
     <tr><th>Szenario</th><th class="n">vorher</th><th class="n">nachher</th><th class="n">nachher GPU</th></tr>
-    <tr><td>Übersicht öffnen (Taste <code>.</code>)</td><td class="n">617 ms / 6</td><td class="n">800 ms / 7</td><td class="n">1167 ms / 5</td></tr>
+    <tr><td>Übersicht öffnen (Taste <code>.</code>), erstes Mal</td><td class="n">617 ms / 6</td><td class="n">150 ms / 1</td><td class="n">217 ms / 3</td></tr>
     <tr><td>1 Klick in die Übersicht</td><td class="n">617 ms / 5</td><td class="n">33 ms / 0</td><td class="n">67 ms / 1</td></tr>
     <tr><td>Strg+Rad, 20 Schritte</td><td class="n">17 ms / 0*</td><td class="n">100 ms / 4</td><td class="n">133 ms / 2</td></tr>
     <tr><td>Scrollen, 40 Schritte</td><td class="n">17 ms / 0*</td><td class="n">50 ms / 0</td><td class="n">50 ms / 0</td></tr>
@@ -80,12 +80,21 @@
     <li><b>Die Seitenbilder liefen auf der CPU.</b> <code>drawPlates</code> mischt CMYK mit einem SkSL-Shader und LUT; auf <code>ck.MakeSurface</code> rechnete das Skia in Software (3 s <code>drawPaint</code> pro Zoom). Jetzt zeichnet die Übersicht auf einem eigenen WebGL-Kontext (<code>MakeRenderTarget</code> auf einem <code>OffscreenCanvas</code>) und liest mit <code>readPixels</code> zurück.</li>
     <li><b>Zoom und Trenner ließen die Bilder unscharf.</b> Die Höhe gehört jetzt zum Schlüssel des Seitenbilds; der Haupt-Canvas zeichnet nicht mehr, solange die Übersicht ihn verdeckt.</li>
   </ol>
-  <p>Offen und klein: Das erste Öffnen hat einen langen Frame (Bilder dekodieren und verkleinern, GL-Kontext, Shader), und der Rad-Listener mit <code>passive: false</code> lässt das Scrollen auf einen beschäftigten Haupt-Thread warten.</p>
+  <ol start="5">
+    <li><b>Öffnen blockierte auf <code>readPixels</code>.</b> Jedes Seitenbild wartete synchron, bis die GPU fertig war, und kopierte seine Pixel zurück. Jetzt zeichnet die Übersicht direkt in den <code>OffscreenCanvas</code> und übergibt das Bild per <code>transferToImageBitmap</code> an einen <code>bitmaprenderer</code>, ohne Kopie.</li>
+    <li><b>Jedes Öffnen fing bei null an.</b> GL-Kontext, Shader und verkleinerte Fotos wurden beim Schließen weggeworfen. Jetzt lebt der Painter weiter und gibt beim Schließen nur frei, was das letzte Öffnen nicht gezeichnet hat (<code>Renderer.sweep</code>).</li>
+  </ol>
+  <table>
+    <tr><th>Öffnen</th><th class="n">vorher</th><th class="n">nachher</th><th class="n">nachher GPU</th></tr>
+    <tr><td>erstes Mal</td><td class="n">617 ms / 6</td><td class="n">133–150 ms / 1</td><td class="n">217 ms / 3</td></tr>
+    <tr><td>jedes weitere Mal</td><td class="n">617 ms / 6</td><td class="n">17 ms / 0</td><td class="n">17 ms / 0</td></tr>
+  </table>
+  <p>Der Rest beim ersten Öffnen: Foto 3000×3000 dekodieren und auf 1024 px verkleinern (≈108 ms) und Shader kompilieren (≈90 ms), beides einmal pro Sitzung. Weniger ginge nur mit asynchronem Dekodieren (<code>createImageBitmap</code>) im sonst synchronen Renderer. Offen und klein: Der Rad-Listener mit <code>passive: false</code> lässt das Scrollen auf einen beschäftigten Haupt-Thread warten.</p>
 </div>
 
 <h2>Bildanpassung – behoben</h2>
 <div class="card good">
-  <span class="tag good">25,1 s → 2,0 s für 20 Werte</span>
+  <span class="tag good">25,1 s → 1,4 s für 20 Werte</span>
   <p>Vorher: Helligkeit im CMYK-Booklet über 20 Werte scrubben dauerte 25 s, jeder Wert ein Frame von 1,1–1,75 s (16,2 s <code>engine.image</code>, 5,3 s <code>MakeImageFromEncoded</code>). Jeder Wert legt in <code>image::adjusted</code> einen neuen Eintrag an, und ein CMYK-Dokument zeichnet ihn als 2 Platten, also lief pro Wert die ganze Kette über 9 Millionen Pixel:</p>
   <table>
     <tr><th>Schritt, 3000×3000, nativ</th><th class="n">ms</th></tr>
@@ -95,7 +104,7 @@
     <tr><td>pro Platte: PNG in CanvasKit dekodieren, 2-mal</td><td class="n">2 × ≈36</td></tr>
   </table>
   <p><b>Fix:</b> Der Canvas dekodiert für jedes RGB- oder Graustufenbild nur noch das unangepasste Original, einmal für beide Platten (<code>Engine.imageSource</code>). Anpassen und Separieren macht der SkSL-Shader <code>IMAGE</code> in <code>renderer.ts</code> auf der GPU: Helligkeit, Kontrast und Sättigung mit denselben Faktoren wie <code>image::rgba</code> (<code>image::factors</code>), dann RGB → CMYK tetraedrisch interpoliert in einem Würfel mit 33 Stufen aus dem Profil (<code>Engine.separation</code>); Grautöne bleiben reines K. Die Display-List bleibt gleich. CMYK-JPEGs nehmen weiter den alten Weg über ihre eigenen Farben; PDF, Inks und Preflight backen die Pixel exakt wie bisher.</p>
-  <p>Nachher: 2,0 s für 20 Werte, längster Frame 233 ms, 6 Frames über 50 ms (Engine-<code>finish</code> und Snapshot pro Wert). Screenshot-Vergleich alt gegen neu, 1600×1000: vor und nach dem Scrubben weichen je 13 Pixel um mehr als 2 % ab, RMSE 0,08 % und 0,1 %. Auch die Übersicht profitiert: Ein RGB-Foto in einem CMYK-Dokument wird nicht mehr in der Engine separiert und als PNG kodiert.</p>
+  <p>Nachher: 1,4 s für 20 Werte; in 3 Läufen mit SwiftShader längster Frame 17–33 ms, mit GPU 50 ms, kein Frame über 50 ms. Ein erster Lauf direkt nach dem Umbau zeigte 233 ms und 6 Frames über 50 ms; das ließ sich in 4 weiteren Läufen nicht wiederholen. Pro Wert kosten <code>Doc::apply</code> und Snapshot ≈15 ms. Screenshot-Vergleich alt gegen neu, 1600×1000: vor und nach dem Scrubben weichen je 13 Pixel um mehr als 2 % ab, RMSE 0,08 % und 0,1 %. Auch die Übersicht profitiert: Ein RGB-Foto in einem CMYK-Dokument wird nicht mehr in der Engine separiert und als PNG kodiert.</p>
 </div>
 
 <h2>2. Bilder werden beim Seitenwechsel neu dekodiert</h2>
@@ -163,6 +172,6 @@
   <tr><th>#</th><th>Vorschlag</th><th>Aufwand</th><th>Wirkung</th></tr>
   <tr><td>2</td><td>Bilder des Dokuments behalten</td><td>klein</td><td>kein Neu-Dekodieren beim Seitenwechsel</td></tr>
   <tr><td>3</td><td>Unicode-Namen aus dem Start-Download</td><td>klein</td><td>−277 kB gzip</td></tr>
-  <tr><td>4</td><td>Im Browser messen, dann Story und Snapshot inkrementell</td><td>mittel</td><td>erst ab 16+ Seiten; auch die Rest-Frames beim Scrubben</td></tr>
+  <tr><td>4</td><td>Im Browser messen, dann Story und Snapshot inkrementell</td><td>mittel</td><td>erst ab 16+ Seiten</td></tr>
 </table>
 </main></body></html>
