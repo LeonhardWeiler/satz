@@ -35,80 +35,89 @@
   .fix > b { color: var(--acc); }
 </style></head><body><main>
 <h1>Satz – Performance- und Bundle-Review</h1>
-<p class="dim">Stand <code>e8c55c3</code>, 02.10.2026 · alle Zahlen gemessen, außer wo „nicht gemessen“ steht. Seit dem letzten Review (<code>1c632fa</code>) erledigt und entfernt: quadratischer Zeilenumbruch (aktive Stellen werden bei <code>r &lt; -1</code> entfernt), Vorgänger-Karte <code>prevs</code> im Cache, Bild-Cache in <code>Doc::load</code> geleert (<code>image::forget</code>), leeres <code>Engine::new</code> und eigenes <code>Engine::sample</code>. Am 04.10. erledigt und entfernt: #3 (gesetzte Zeilen im Flow; render 0,43 → 0,03 ms, der Tastendruck bleibt bei ≈16 ms, die Zeit geht ins Formen und Umbrechen der 16 Rahmen), 5a (das Foto war schon nicht mehr im WASM). Die Anpassungsschleife aus #1 ist 3-mal schneller (Dekodieren und Anpassen 264 → 90 ms), der PNG-Weg bleibt.</p>
+<p class="dim">Stand <code>5df7a25</code>, 05.10.2026, Branch <code>main</code> · alle Zahlen gemessen, außer wo „nicht gemessen“ steht. Seit dem letzten Review (<code>e8c55c3</code>) erledigt und entfernt: Anpassungsschleife affin (<code>5fff04a</code>, 3-mal schneller), gesetzte Zeilen pro Rahmen gemerkt (<code>3992370</code>, render 0,40 → 0,03 ms). Neu: <code>unicode_names2</code> im Engine-WASM.</p>
 
 <div class="grid">
-  <div class="tile"><span class="dim">Tastendruck, 32 Seiten (nativ)</span><b>14,1 ms</b></div>
-  <div class="tile"><span class="dim">Bildanpassung, 3000×3000 (nativ)</span><b>304 ms</b></div>
-  <div class="tile"><span class="dim">Download beim Start (gzip)</span><b>6,0 MB</b></div>
+  <div class="tile"><span class="dim">Tastendruck, 32 Seiten (nativ)</span><b>16 ms</b></div>
+  <div class="tile"><span class="dim">Bildanpassung, 3000×3000 (nativ)</span><b>137 ms</b></div>
+  <div class="tile"><span class="dim">Download beim Start (gzip)</span><b>6,6 MB</b></div>
+  <div class="tile"><span class="dim">render, jede Seitenzahl</span><b>0,03 ms</b></div>
 </div>
 
 <h2>Wie gemessen wurde</h2>
 <table>
   <tr><th>Was</th><th>Womit</th></tr>
-  <tr><td>Engine nativ</td><td><code>cargo test --release -p engine bench -- --ignored --nocapture</code>, Median, Governor powersave, Einzelläufe streuen.</td></tr>
+  <tr><td>Engine nativ</td><td><code>cargo test --release -p engine bench -- --ignored --nocapture</code>, mehrere Läufe. Die Läufe sind zweigeteilt: schnelle und ≈2-mal langsamere (Governor powersave, vermutlich P- und E-Kerne). Die Tabelle zeigt die schnellen; für Vergleiche <code>taskset</code> auf einen P-Kern.</td></tr>
   <tr><td>Bildanpassung</td><td>Temporärer Release-Test: <code>earthrise.jpg</code> (3000×3000) registrieren, <code>image::adjusted</code>, dann <code>image::bytes</code>; danach entfernt.</td></tr>
-  <tr><td>Bundle</td><td><code>vite build</code>, gzip-Größen aus der Vite-Ausgabe. JS-Anteile aus der Sourcemap nach erzeugten Bytes pro Paket. WASM-Anteile aus der Name-Section von <code>target/wasm32-unknown-unknown/release/engine.wasm</code> (vor <code>wasm-opt</code>, daher 6,9 statt 5,8 MB Code).</td></tr>
-  <tr><td>Start</td><td>Playwright lokal: <code>open()</code> bis zum ersten Zoom 2,2 s (SwiftShader).</td></tr>
-  <tr><td>Nicht gemessen</td><td>Browser mit echter GPU, Firefox, Safari, Mobilgeräte, Speicher mit vielen großen Fotos, <code>JSON.parse</code> des Snapshots (zuletzt 8 ms bei 32 Seiten).</td></tr>
+  <tr><td>Bundle</td><td><code>./check build</code>, Größen aus <code>web/dist</code>, gzip mit <code>gzip -9</code>. WASM-Anteile pro Crate aus der Name-Section vor <code>wasm-opt</code>. Ein Build ohne <code>unicode_names2</code> in einem temporären Worktree, danach entfernt.</td></tr>
+  <tr><td>Nicht gemessen</td><td>Kosten im Browser (WASM-Faktor, <code>JSON.parse</code> des Snapshots), echte GPU, Firefox, Safari, Mobilgeräte, Speicher mit vielen großen Fotos, Startzeit.</td></tr>
 </table>
 <table>
-  <tr><th>Benchmark nativ, Median ms</th><th class="n">set_frame</th><th class="n">keystroke</th><th class="n">render</th><th class="n">hit</th><th class="n">save</th><th class="n">pdf</th></tr>
-  <tr><td>1 Seite</td><td class="n">0,27</td><td class="n">0,59</td><td class="n">0,29</td><td class="n">0,01</td><td class="n">0,06</td><td class="n">46</td></tr>
-  <tr><td>8 Seiten</td><td class="n">2,05</td><td class="n">4,88</td><td class="n">0,39</td><td class="n">0,01</td><td class="n">0,30</td><td class="n">277</td></tr>
-  <tr><td>32 Seiten</td><td class="n">8,60</td><td class="n">14,14</td><td class="n">0,40</td><td class="n">0,01</td><td class="n">1,14</td><td class="n">1061</td></tr>
+  <tr><th>Benchmark nativ, ms</th><th class="n">set_frame</th><th class="n">keystroke</th><th class="n">render</th><th class="n">hit</th><th class="n">save</th><th class="n">pdf</th></tr>
+  <tr><td>1 Seite</td><td class="n">0,32–0,33</td><td class="n">0,66–0,67</td><td class="n">0,03</td><td class="n">0,01</td><td class="n">0,06</td><td class="n">46</td></tr>
+  <tr><td>8 Seiten</td><td class="n">2,32–2,37</td><td class="n">5,36–5,53</td><td class="n">0,03</td><td class="n">0,01</td><td class="n">0,31</td><td class="n">273–274</td></tr>
+  <tr><td>32 Seiten</td><td class="n">9,60–9,69</td><td class="n">15,85–16,09</td><td class="n">0,03</td><td class="n">0,01</td><td class="n">1,16–1,17</td><td class="n">1053</td></tr>
 </table>
-<p class="dim">Inks: 85 ms bei 36 ppi, 290 ms bei 72 ppi, im Export-Worker. Gegenüber 29.09. alles gleich oder schneller (Tastendruck 32 Seiten 17,2 → 14,1 ms).</p>
+<p class="dim">Inks: 84 ms bei 36 ppi, 288 ms bei 72 ppi, im Export-Worker. Gegenüber 02.10.: render 13-mal schneller, Tastendruck und set_frame bei 32 Seiten 13 % langsamer (14,1 → 16 ms, 8,6 → 9,6 ms); das liegt im Bereich der Streuung zwischen den Läufen und wurde nicht mit <code>taskset</code> nachgemessen.</p>
 
 <h2>1. Bildanpassung kodiert das ganze Bild als PNG neu</h2>
-<div class="card high">
-  <span class="tag high">≈300 ms nativ pro Schritt</span>
-  <p>Jeder Wert im Dialog „Adjust image“ legt in <code>image::adjusted</code> einen neuen Eintrag an. Das Zeichnen holt ihn über <code>image::bytes</code> → <code>file</code>: dekodieren, Pixel anpassen, als PNG kodieren (3,9 MB für 3000×3000), und CanvasKit dekodiert dieses PNG wieder (<code>MakeImageFromEncoded</code>). Nativ 304 ms, in WASM ein Mehrfaches, alles im Haupt-Thread. Beim Scrubben des Felds entsteht das pro Wert neu.</p>
-  <div class="fix"><b>Fix:</b> Helligkeit, Kontrast und Sättigung sind affin pro Pixel, also eine 4×5-Farbmatrix. Die Engine schreibt die Matrix in den <code>Image</code>-Op der Display-List, der Renderer zeichnet das Originalbild mit <code>ColorFilter.MakeMatrix</code> (0 ms, GPU). Nur PDF, Platten und Inks backen die Pixel, und die laufen schon im Worker. Dann fallen <code>Entry.source</code> und der PNG-Weg für angepasste Bilder weg.</div>
+<div class="card mid">
+  <span class="tag mid">≈137 ms nativ pro Schritt</span>
+  <p>Jeder Wert im Dialog „Adjust image“ legt in <code>image::adjusted</code> einen neuen Eintrag an. Das Zeichnen holt ihn über <code>image::bytes</code> → <code>file</code>: dekodieren, Pixel affin abbilden, als PNG kodieren (3,8–3,9 MB für 3000×3000), und CanvasKit dekodiert dieses PNG wieder (<code>renderer.ts:173</code>, <code>MakeImageFromEncoded</code>). Nativ 134–140 ms (02.10.: 304 ms), in WASM ein Mehrfaches, alles im Haupt-Thread, beim Scrubben pro Wert.</p>
+  <div class="fix"><b>Fix:</b> Helligkeit, Kontrast und Sättigung sind schon eine affine Abbildung, also eine 4×5-Farbmatrix. Die Engine schreibt die Matrix in den <code>Image</code>-Op der Display-List, der Renderer zeichnet das Original mit <code>ColorFilter.MakeMatrix</code>. Nur PDF, Platten und Inks backen die Pixel, und die laufen im Worker. Dann fallen <code>Entry.source</code> und der PNG-Weg für angepasste Bilder weg.</div>
 </div>
 
 <h2>2. Bilder werden beim Seitenwechsel neu dekodiert</h2>
-<div class="card mid">
-  <span class="tag mid">Regression aus c8a19c2</span>
-  <p><code>Renderer.draw</code> löscht seit dem Zuschneiden jedes dekodierte Bild, das im aktuellen Frame nicht gezeichnet wurde. Wer zwischen Druckbögen wechselt oder ein Bild aus dem sichtbaren Bereich schiebt, dekodiert es beim nächsten Zeichnen neu (ein 3000×3000-JPEG kostet in CanvasKit spürbar, nicht einzeln gemessen). Gelöscht wird das, damit die Zwischenstufen aus #1 nicht liegen bleiben.</p>
-  <div class="fix"><b>Fix:</b> Mit #1 gibt es keine Zwischenstufen mehr. Dann wie vorher alle Bilder des Dokuments behalten und nur die freigeben, deren Hash nicht mehr im Dokument ist.</div>
+<div class="card low">
+  <span class="tag low">nicht einzeln gemessen</span>
+  <p><code>Renderer.draw</code> (<code>renderer.ts:272–276</code>) löscht jedes dekodierte Bild, das im aktuellen Frame nicht gezeichnet wurde. Wer zwischen Druckbögen wechselt oder ein Bild aus dem sichtbaren Bereich schiebt, dekodiert es beim nächsten Zeichnen neu. Gelöscht wird, damit die Zwischenstufen aus #1 nicht liegen bleiben.</p>
+  <div class="fix"><b>Fix:</b> Nach #1 alle Bilder des Dokuments behalten und nur die freigeben, deren Hash nicht mehr im Dokument ist.</div>
 </div>
 
-<h2>4. Snapshot pro Befehl ganz gebaut und geparst</h2>
+<h2>3. Unicode-Namen kosten 277 kB gzip bei jedem Start</h2>
 <div class="card low">
-  <span class="tag low">≈5 ms + JSON.parse bei 32 Seiten</span>
-  <p>Unverändert. Pro Knoten zweimal serde_json, dazu <code>JSON.parse</code> in <code>editor.ts</code>. Erst bei Dokumenten über 16 Seiten relevant.</p>
-  <div class="fix"><b>Fix:</b> Snapshot pro Seite cachen und nur geänderte Seiten an JS schicken.</div>
+  <span class="tag low">−277 kB gzip, −8 % Engine</span>
+  <p>Das Engine-WASM wuchs seit 02.10. von 2,81 auf 3,40 MB gzip, die Daten-Section von 1,3 auf 2,16 MB. Der Großteil ist <code>unicode_names2</code> für die Namenssuche im Zeichen-Panel (<code>text.rs:119</code> <code>characters</code>). Ohne die Crate: 3.041.505 statt 3.318.372 Bytes gzip nach <code>wasm-opt</code> (−626 kB roh vor <code>wasm-opt</code>). Das Panel öffnen wenige Sitzungen.</p>
+  <div class="fix"><b>Fix:</b> Nur nach Codepunkt und Block suchen, oder eine Namensdatei beim Öffnen des Panels nachladen.</div>
+</div>
+
+<h2>4. Tastendruck setzt die ganze Story neu und baut den ganzen Snapshot</h2>
+<div class="card low">
+  <span class="tag low">16 ms nativ bei 32 Seiten</span>
+  <p>Seit <code>3992370</code> kostet das Zeichnen nichts mehr; die Zeit steckt im Formen und Umbrechen aller Rahmen der Story (<code>story.rs</code> <code>flow</code>) und im Snapshot: pro Knoten serde_json, dazu <code>JSON.parse</code> in <code>editor.ts</code>, bei jedem Befehl, auch bei jedem Ziehschritt. Ab ≈16 Seiten in einer Story spürbar; im Browser nicht gemessen.</p>
+  <div class="fix"><b>Fix:</b> Zuerst im Browser messen. Dann die Story nur ab dem geänderten Rahmen neu setzen und nur geänderte Seiten des Snapshots schicken.</div>
 </div>
 
 <h2>5. Bundle: Ladezeit</h2>
 <table>
   <tr><th>Datei</th><th class="n">roh</th><th class="n">gzip</th><th>lädt</th></tr>
+  <tr><td><code>engine_bg.wasm</code></td><td class="n">8,24 MB</td><td class="n">3,40 MB</td><td>beim Start, im Export-Worker noch einmal (aus dem HTTP-Cache)</td></tr>
   <tr><td><code>canvaskit.wasm</code></td><td class="n">7,32 MB</td><td class="n">2,99 MB</td><td>beim Start</td></tr>
-  <tr><td><code>engine_bg.wasm</code></td><td class="n">7,09 MB</td><td class="n">2,81 MB</td><td>beim Start, im Export-Worker noch einmal (aus dem HTTP-Cache)</td></tr>
-  <tr><td><code>index.js</code></td><td class="n">563 kB</td><td class="n">176 kB</td><td>beim Start</td></tr>
-  <tr><td>CSS, UI-Schrift</td><td class="n">90 kB</td><td class="n">≈60 kB</td><td>beim Start</td></tr>
+  <tr><td><code>index.js</code></td><td class="n">588 kB</td><td class="n">184 kB</td><td>beim Start (<code>chunkSizeWarningLimit</code> 600)</td></tr>
+  <tr><td>CSS</td><td class="n">37 kB</td><td class="n">8,5 kB</td><td>beim Start</td></tr>
+  <tr><td>Hanken Grotesk woff2</td><td class="n">35 + 20 kB</td><td class="n">—</td><td>beim Start</td></tr>
+  <tr><td><code>exportWorker.js</code></td><td class="n">18 kB</td><td class="n">—</td><td>beim ersten Preflight oder Export</td></tr>
   <tr><td><code>SourceSerif4-Regular.ttf</code></td><td class="n">262 kB</td><td class="n">—</td><td>wenn die Schriftliste sie zeigt</td></tr>
-  <tr><td>poster/booklet <code>.satz</code></td><td class="n">446 / 458 kB</td><td class="n">—</td><td>beim Öffnen des Beispiels</td></tr>
+  <tr><td>booklet/poster <code>.satz</code></td><td class="n">458 / 446 kB</td><td class="n">—</td><td>beim Öffnen des Beispiels</td></tr>
 </table>
-<p>JS nach Paket: eigener Code 218 kB, react-dom 203 kB, CanvasKit-Glue 116 kB, react 8 kB. Engine-WASM: 5,8 MB Code und 1,3 MB Daten. Code nach Crate (vor <code>wasm-opt</code>): loro + generic_btree ≈1,2 MB, Schriften (read_fonts, skrifa, harfrust, write_fonts, subsetter) ≈1,3 MB, core/alloc-Generika ≈1,2 MB, eigener Code 0,53 MB, serde + serde_json 0,51 MB, tiny_skia 0,39 MB, krilla + pdf_writer 0,3 MB, moxcms 0,2 MB, linesweeper 64 kB. Daten: SourceSerif 262 kB, FOGRA51 241 kB, Silbentrennung.</p>
+<p>Der Service Worker legt beim Installieren alles in den Cache, auch die Beispiele. Engine-Code nach Crate (vor <code>wasm-opt</code>): loro_internal 765 kB, core 641, alloc 628, engine 615, read_fonts 536, serde 417, tiny_skia 358, skrifa 356, harfrust 340, generic_btree 313, hashbrown 263, krilla 223, moxcms 205, serde_json 155, zune_jpeg 99, jpeg_encoder 74 kB.</p>
 
 <div class="card low">
   <span class="tag low">−262 kB roh</span>
   <h3>5b. Die Standardschrift steckt zweimal im Download</h3>
-  <p>SourceSerif liegt im Engine-WASM (<code>text::FONT</code>) und als eigene Datei für das CSS der Schriftliste. Wer die Liste öffnet, lädt sie doppelt.</p>
+  <p>SourceSerif liegt im Engine-WASM (<code>text.rs:17</code> <code>FONT</code>) und als eigene Datei für das CSS der Schriftliste (<code>index.html:16</code>).</p>
   <div class="fix"><b>Fix:</b> Erst angehen, wenn weitere eingebaute Schriften dazukommen: dann alle als Dateien laden und per <code>add_font</code> an die Engine geben.</div>
 </div>
 <div class="card low">
-  <span class="tag low">≈0,5 MB vor wasm-opt</span>
-  <h3>5c. PDF-Code im Haupt-Thread</h3>
-  <p>krilla, pdf_writer, subsetter, write_fonts und zune_jpeg braucht nur der Export-Worker, sie laden aber mit dem Haupt-WASM. Ein zweites WASM nur für den Worker hieße 2 Crates und doppelte Abhängigkeiten. Nicht empfohlen.</p>
+  <span class="tag low">≈0,6 MB vor wasm-opt</span>
+  <h3>5c. PDF- und Export-Code im Haupt-Thread</h3>
+  <p>krilla, pdf_writer, subsetter, write_fonts, zune_jpeg und jpeg_encoder braucht nur der Export-Worker, sie laden aber mit dem Haupt-WASM. Ein zweites WASM nur für den Worker hieße 2 Crates und doppelte Abhängigkeiten. Nicht empfohlen.</p>
 </div>
 
 <h2>Gemessen und nicht langsam</h2>
 <div class="card good">
   <span class="tag good">ok</span>
-  <p>Hover, Pan, Zoom: render 0,4 ms, hit 0,01 ms, unabhängig von der Seitenzahl. save 1,1 ms bei 32 Seiten. Inks und PDF im Worker. Boolesche Operationen und der Fülleimer laufen nur auf Klick.</p>
+  <p>Hover, Pan, Zoom: render 0,03 ms, hit 0,01 ms, unabhängig von der Seitenzahl. save 1,2 ms bei 32 Seiten. PDF 1,05 s bei 32 Seiten, Inks 84–288 ms, beides im Worker. Boolesche Operationen und der Fülleimer laufen nur auf Klick.</p>
 </div>
 
 <h2>Bewusst nicht empfohlen</h2>
@@ -123,6 +132,7 @@
   <tr><th>#</th><th>Vorschlag</th><th>Aufwand</th><th>Wirkung</th></tr>
   <tr><td>1</td><td>Bildanpassung als Farbmatrix</td><td>mittel</td><td>Anpassen ohne Hänger, weniger Code</td></tr>
   <tr><td>2</td><td>Bilder des Dokuments behalten</td><td>klein, nach 1</td><td>kein Neu-Dekodieren beim Seitenwechsel</td></tr>
-  <tr><td>4</td><td>Snapshot pro Seite</td><td>mittel</td><td>erst ab 16+ Seiten</td></tr>
+  <tr><td>3</td><td>Unicode-Namen aus dem Start-Download</td><td>klein</td><td>−277 kB gzip</td></tr>
+  <tr><td>4</td><td>Im Browser messen, dann Story und Snapshot inkrementell</td><td>mittel</td><td>erst ab 16+ Seiten</td></tr>
 </table>
 </main></body></html>

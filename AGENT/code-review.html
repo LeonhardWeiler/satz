@@ -34,55 +34,112 @@
   .fix::before { content: "→ "; color: var(--acc); }
 </style></head><body><main>
 <h1>Satz – Code- und Struktur-Review</h1>
-<p class="dim">Stand <code>1c632fa</code>, 29.09.2026. Performance steht in performance-review.html, CI in ci-review.html, Kleinbefunde im Health-Report. Erledigt und entfernt: alte Befunde 1–4, 9–13 (atomare Kommandos, gecachter Snapshot, typisierte Link-Keys), Editor.lookup (nicht mehr heiß: 3 Aufrufer, keiner pro Tastendruck). Am 04.10. erledigt und entfernt: 1–8, 12, 13 und die Blend-Reihenfolge aus 9.</p>
+<p class="dim">Stand <code>5df7a25</code>, 05.10.2026, Branch <code>main</code>. Performance steht in performance-review.html, CI in ci-review.html, alle Befunde in Kurzform im Health-Report. Seit dem letzten Review (<code>1c632fa</code>) erledigt und entfernt: alter Befund 10 (<code>join_masters</code> ordnet jetzt über den gemerkten Bund-Schlüssel <code>LEFT_OF</code> zu statt über <code>x + w &gt; 0</code>).</p>
 
 <div class="grid">
-  <div class="tile"><span class="dim">Rust-Tests</span><b>227</b></div>
-  <div class="tile"><span class="dim">E2E</span><b>149</b></div>
-  <div class="tile"><span class="dim">neue Fehler, per Test bestätigt</span><b>6</b></div>
-  <div class="tile"><span class="dim">davon Absturz / Datenverlust</span><b>1 / 2</b></div>
+  <div class="tile"><span class="dim">Rust-Tests</span><b>273</b></div>
+  <div class="tile"><span class="dim">vitest</span><b>39</b></div>
+  <div class="tile"><span class="dim">E2E (CI)</span><b>215</b></div>
+  <div class="tile"><span class="dim">Befunde</span><b>9</b></div>
+  <div class="tile"><span class="dim">davon per Test bestätigt</span><b>1</b></div>
 </div>
 
 <h2>Geprüft</h2>
 <table>
   <tr><th>Was</th><th>Ergebnis</th></tr>
-  <tr><td>Alle Engine-Module gelesen; lib.rs, main.tsx, file.ts, editor.ts, renderer.ts (Caches), exportWorker.ts</td><td>Befunde unten</td></tr>
-  <tr><td>Verdachtsfälle als temporäre Rust-Tests, danach entfernt</td><td>1, 2, 4, 5 und 6 bestätigt; Seitenbreite 0 im PDF und <code>Engine.blank</code> ohne Panic-Hook ohne Befund</td></tr>
-  <tr><td>Nicht getestet</td><td>Befund 3 (Autosave beim Entladen) nur aus Code und CI-Log; Move in eine gedrehte Gruppe (gleiche Ursache wie 5); UI in Firefox</td></tr>
+  <tr><td><code>./check</code> komplett</td><td>grün: fmt, clippy, 273 Rust-Tests, tsc, eslint, 39 vitest, vite, 216 Playwright-Tests (lokal inkl. <code>shot.spec.ts</code>)</td></tr>
+  <tr><td>Gelesen: <code>doc/mod.rs</code> (<code>apply</code> und alle <code>check</code>-Funktionen), <code>story.rs</code>, <code>pages.rs</code>, <code>palette.rs</code>, <code>raster.rs</code>, <code>pdf.rs</code>, <code>pdfx.rs</code>, <code>inks.rs</code>; <code>main.tsx</code>, <code>file.ts</code>, <code>editor.ts</code>, <code>controls.tsx</code>, <code>Canvas.tsx</code> (Pointer), <code>exportWorker.ts</code>, <code>sw.js</code></td><td>Befunde unten</td></tr>
+  <tr><td>Extremwerte als temporäre Release-Tests in einem Worktree, danach entfernt: Render, PDF, PNG und Inks je Wert</td><td>siehe Tabelle unter Befund 1</td></tr>
+  <tr><td><code>unwrap</code> in <code>raster.rs</code> und <code>pdf.rs</code></td><td>ohne Befund: Masken und Ebenen haben die Größe einer schon erzeugten Pixmap, <code>rasterize</code> gibt bei zu großen Flächen <code>None</code>, krilla läuft ohne Validator, <code>NormalizedF32</code> bekommt geklemmte Werte</td></tr>
+  <tr><td><code>CLAUDE.md</code> gegen den Code</td><td>stimmt: Checks, Fixture, <code>trash</code>, <code>detached</code>/<code>overrideOf</code>, Farbmodus-Umrechnung inkl. Swatches, Variablen und Textstile, Profil, Wrap, <code>wasm-bindgen</code>-Pin</td></tr>
+  <tr><td>Nicht getestet</td><td>Befunde 2–6 nur aus dem Code: Autosave mit vollem Speicher, Trap beim Wiederherstellen, Service-Worker-Update mit offenem Tab, gleichzeitige Worker-Jobs, <code>pointercancel</code> auf Touch-Geräten; Firefox und Safari</td></tr>
 </table>
 
-<h2>1. Offene Strukturbefunde</h2>
+<h2>1. Fehler</h2>
 
 <div class="card mid">
-  <span class="tag mid">mittel</span><h3>9. Doppelte Verträge Rust ↔ TypeScript</h3>
-  <p><code>model.ts</code> spiegelt Command, Snapshot, Node, Style und Layout von Hand.</p>
-  <div class="fix">TS-Typen mit tsify aus Rust generieren (Kompatibilität mit wasm-bindgen 0.2.127 vorher prüfen).</div>
+  <span class="tag mid">mittel</span><h3>1. Zahlen ohne Obergrenze: Strichstärke 1e10 lässt PNG und Inks abstürzen</h3>
+  <p><code>Props::check</code>, <code>TextProps::check</code> und <code>check_frame</code> in <code>doc/mod.rs</code> verlangen nur endliche Zahlen; <code>Field</code> in <code>controls.tsx</code> hat <code>max = Infinity</code>. Ergebnisse der Release-Proben:</p>
+  <table>
+    <tr><th>Wert</th><th>Render, PDF</th><th>PNG, Inks</th></tr>
+    <tr><td>Strichstärke 1e10 und 1e30 pt</td><td>ok</td><td><b>Panic</b> in tiny-skia <code>alpha_runs.rs:189</code></td></tr>
+    <tr><td>Strichstärke 1e5–1e8 pt</td><td>ok</td><td>ok</td></tr>
+    <tr><td>Textgröße 1e6, 1e12, 1e40 pt</td><td>ok</td><td>ok (Debug: <code>debug_assert</code> „text drawn where it was not set“ in <code>draw.rs:477</code>)</td></tr>
+    <tr><td>Blur 1e9</td><td>ok</td><td>ok (Debug: <code>i32</code>-Überlauf in <code>raster.rs:114</code>)</td></tr>
+    <tr><td>Schattenversatz 1e30, Rahmen 1e9 und 1e300, Radius <code>f32::MAX</code></td><td>ok</td><td>ok</td></tr>
+    <tr><td>Laufweite, Zeilenabstand, Spaltenabstand 1e40; Seite 1e12</td><td>ok</td><td>ok</td></tr>
+  </table>
+  <p>In WASM ist der Panic ein Trap im Export-Worker: Ink-Vorschau eines CMYK-Dokuments, PNG/JPEG-Export und das Flachrechnen für PDF/X-1a scheitern mit einer rohen Meldung. Im Browser wurde für eine Ellipse W = <code>99999999999</code> mm angenommen; sie verschwand von der Seite, und der Preflight meldete „No issues. The document is ready for print.“</p>
+  <div class="fix"><b>Fix:</b> Jede Länge in den <code>check</code>-Funktionen begrenzen (z. B. 20000 mm wie die Ansicht, Textgröße 0,1–5000 pt, Strich und Blur ≤ Seitendiagonale) und dieselben Grenzen als <code>max</code> an die Felder geben. Die Extremwerte in <code>a_command_that_fails_leaves_the_document_as_it_was</code> aufnehmen.</div>
 </div>
 
 <div class="card mid">
-  <span class="tag mid">mittel</span><h3>10. Doppelseiten-Umbau über Heuristik</h3>
-  <p><code>split_masters</code> und <code>join_masters</code> (<code>pages.rs:76–130</code>) ordnen beim Zurückschalten über <code>x + w &gt; 0</code> zu. Master-Ebenen, die über den Bund reichen, landen auf einer Seite.</p>
-  <div class="fix">Jede Kopie merkt sich beim Teilen ihre Herkunft in einem Meta-Key, und <code>join_masters</code> liest nur den.</div>
+  <span class="tag mid">mittel</span><h3>2. Ein gescheiterter Autosave geht still verloren</h3>
+  <p><code>put</code> in <code>file.ts</code> setzt <code>last = state()</code> vor dem Schreiben und wartet nicht auf <code>files.put</code>. Verweigert IndexedDB den Write (Quota bei großen Bildern, privater Modus), endet der Fehler als unbehandelte Rejection oder stiller Transaktionsabbruch, die Version gilt als gespeichert, und der nächste Versuch kommt erst mit der nächsten Änderung.</p>
+  <div class="fix"><b>Fix:</b> Auf <code>oncomplete</code>/<code>onerror</code> der Transaktion warten, <code>last</code> erst danach setzen und bei Fehler einmal <code>editor.say</code> mit „Autosave failed …, save with Ctrl+S“.</div>
 </div>
 
 <div class="card low">
-  <span class="tag low">niedrig</span><h3>11. Abgeleitete Hug-Größen im Dokument</h3>
-  <p>Text- und Auto-Layout-Größen werden in <code>finish</code> berechnet und in Loro geschrieben. Sie hängen aber von lokalen Fonts ab. Vor Kollaboration relevant, heute harmlos.</p>
-  <div class="fix">Beim Einbau von Kollaboration nur im Snapshot berechnen.</div>
+  <span class="tag low">niedrig</span><h3>3. Ein Trap beim Wiederherstellen arbeitet mit kaputter Engine weiter</h3>
+  <p>Der <code>catch</code> um <code>editor.load</code> in <code>main.tsx</code> behandelt jeden Fehler gleich: Datei als <code>doc-unreadable</code> behalten, herunterladen, neues Dokument. Nach einem <code>WebAssembly.RuntimeError</code> ist der Zustand der Engine undefiniert, und der Trap-Handler wird erst nach dem Render installiert.</p>
+  <div class="fix"><b>Fix:</b> Bei <code>e instanceof WebAssembly.RuntimeError</code> nach dem Sichern den „Satz stopped“-Hinweis zeigen; der Reload startet sauber.</div>
 </div>
 
-<h2>2. Nicht verfolgt</h2>
+<div class="card low">
+  <span class="tag low">niedrig</span><h3>4. Ein neuer Service Worker löscht den Cache eines offenen Tabs</h3>
+  <p><code>sw.js</code> ruft <code>skipWaiting</code>, löscht in <code>activate</code> alle anderen Caches und übernimmt mit <code>clients.claim</code>. Ein Tab von vor dem Deploy lädt seinen Export-Worker erst beim ersten Preflight oder Export, unter dem alten Hash-Namen, den weder Cache noch GitHub Pages noch haben.</p>
+  <div class="fix"><b>Fix:</b> <code>skipWaiting</code> und <code>clients.claim</code> streichen; die neue Version übernimmt beim nächsten Laden.</div>
+</div>
+
+<div class="card low">
+  <span class="tag low">niedrig</span><h3>5. Zwei Jobs auf demselben Worker vertauschen ihre Antworten</h3>
+  <p><code>run</code> in <code>file.ts</code> setzt <code>w.onmessage</code> und <code>w.onerror</code> pro Aufruf neu. Startet ein Aufruf, bevor der vorige geantwortet hat (Preflight während einer Vorschau geschlossen und wieder geöffnet), löst die erste Antwort das zweite Promise, und das erste bleibt für immer offen. Folge: eine veraltete Ink-Vorschau bis zur nächsten Änderung.</p>
+  <div class="fix"><b>Fix:</b> Jobs pro Worker an das vorige Promise ketten.</div>
+</div>
+
+<div class="card low">
+  <span class="tag low">niedrig</span><h3>6. Eine Geste endet nur mit <code>pointerup</code></h3>
+  <p><code>editor.gesture</code> (<code>editor.ts:544</code>) schließt die Undo-Gruppe nur bei <code>pointerup</code> auf <code>window</code>, das Scrubbing der Feldbeschriftungen (<code>controls.tsx:95</code>) räumt nur bei <code>pointerup</code> auf. Der Canvas behandelt <code>pointercancel</code> schon. Bricht der Browser die Geste ab (Touch, Systemdialog), bleibt die Gruppe offen und alle folgenden Änderungen landen im selben Undo-Schritt; beim Scrubbing bleibt <code>pointermove</code> registriert.</p>
+  <div class="fix"><b>Fix:</b> An beiden Stellen zusätzlich <code>pointercancel</code> abhören.</div>
+</div>
+
+<h2>2. Struktur</h2>
+
+<div class="card low">
+  <span class="tag low">niedrig</span><h3>7. Doppelte Verträge Rust ↔ TypeScript</h3>
+  <p><code>model.ts</code> spiegelt Command, Snapshot, Node, Style, Layout und die Texttypen von Hand. Ein umbenanntes Feld fällt erst zur Laufzeit oder im E2E auf.</p>
+  <div class="fix"><b>Fix:</b> TS-Typen mit tsify oder ts-rs aus Rust erzeugen (vorher Kompatibilität mit <code>wasm-bindgen</code> 0.2.127 prüfen).</div>
+</div>
+
+<div class="card low">
+  <span class="tag low">niedrig</span><h3>8. Abgeleitete Hug-Größen im Dokument</h3>
+  <p>Text- und Auto-Layout-Größen werden in <code>finish</code> berechnet (<code>story.rs</code> <code>fit</code>) und mit <code>set_frame</code> in Loro geschrieben. Sie hängen von den lokalen Fonts ab. Vor Kollaboration relevant, heute harmlos.</p>
+  <div class="fix"><b>Fix:</b> Beim Einbau von Kollaboration nur im Snapshot berechnen.</div>
+</div>
+
+<div class="card low">
+  <span class="tag low">info</span><h3>9. <code>pickProfile</code> trägt den Docstring von <code>placeImages</code></h3>
+  <p><code>file.ts:235</code>: „Asks for PNG and JPEG files and places each on the current page“ steht über <code>pickProfile</code>; <code>placeImages</code> darunter hat keinen.</p>
+  <div class="fix"><b>Fix:</b> Die Zeile verschieben und <code>pickProfile</code> einen eigenen geben.</div>
+</div>
+
+<h2>3. Nicht verfolgt</h2>
 <table>
   <tr><th>Punkt</th><th>Warum nicht</th></tr>
   <tr><td>Overrides behalten ihre Seite, wenn eine Seite die Seite wechselt</td><td>Verhält sich wie InDesign, eine Designfrage und kein Fehler</td></tr>
   <tr><td><code>Op</code> leitet <code>Serialize</code> ab</td><td>Wird von der Display-List-Fixture genutzt</td></tr>
   <tr><td>Canvas.tsx-Effekt zerlegen, index.css aufteilen</td><td>Verschiebt nur Code</td></tr>
+  <tr><td>Debug-only-Panics bei Textgröße 1e40 und Blur 1e9</td><td>Release läuft durch; verschwindet mit den Grenzen aus Befund 1</td></tr>
 </table>
 
-<h2>3. Reihenfolge</h2>
+<h2>4. Reihenfolge</h2>
 <table>
   <tr><th>#</th><th>Schritt</th><th>Aufwand</th></tr>
-  <tr><td>9–11</td><td>Struktur</td><td>bei Gelegenheit</td></tr>
+  <tr><td>1</td><td>Grenzen in <code>check</code> und Feldern</td><td>klein</td></tr>
+  <tr><td>2</td><td>Autosave-Fehler melden</td><td>klein</td></tr>
+  <tr><td>3–6</td><td>Trap, Service Worker, Worker-Queue, <code>pointercancel</code></td><td>je wenige Zeilen</td></tr>
+  <tr><td>9</td><td>Docstring</td><td>1 Zeile</td></tr>
+  <tr><td>7, 8</td><td>Struktur</td><td>bei Gelegenheit</td></tr>
 </table>
 </main>
 </body>

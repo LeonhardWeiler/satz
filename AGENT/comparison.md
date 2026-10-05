@@ -1,6 +1,6 @@
 # Satz im Vergleich
 
-Stand 02.10.2026, Satz bei `e066fd3`. Verglichen mit Adobe InDesign, Affinity
+Stand 05.10.2026, Satz bei `5df7a25`. Verglichen mit Adobe InDesign, Affinity
 (Publisher/Designer, seit 2025 eine App), QuarkXPress, Scribus, Figma, Penpot,
 Canva und Adobe Illustrator. Die Funktionen der anderen Programme stammen aus
 meinem Wissen über ihre aktuellen Versionen und sind nicht einzeln in den
@@ -20,139 +20,130 @@ Programmen nachgeprüft. „Hat Satz“ wurde im Code geprüft.
 | Illustrator | Vektorgrafik              | Pinsel, Formerstellung, variable Strichbreiten, Verlaufsgitter, Vektorisieren, Text auf Pfad                                            |
 
 Satz hat davon schon: Musterseiten mit Überschreiben, verkettete Rahmen,
-Knuth-Plass-Umbruch mit Silbentrennung (de, en), Grundlinienraster, Spalten,
-Text- und Absatzstile, OpenType-Features, CMYK, Volltonfarben, Farbvariablen
-mit Modi, Separationen, Farbauftrag, Gamut-Warnung, PDF/X-4 und X-1a mit
-Beschnitt und Schnittmarken, Auto Layout, Constraints, Masken, boolesche
-Operationen, Pfadbearbeitung mit Fülleimer, gestrichelte, gepunktete, wellige und Zickzack-Linien,
-Text in Konturen, Bildzuschnitt und Bildanpassung, Hilfslinien, Snapping mit
-Abständen, Befehlspalette, frei belegbare Tastenkürzel.
+Knuth-Plass-Umbruch mit Silbentrennung (de, en, fr, it, es, nl),
+Absatzumbruch-Optionen (Zeilen zusammenhalten, Absatz nicht trennen, mit nächstem
+zusammenhalten), Aufzählungen und Nummerierung, Tabulatoren mit Füllzeichen,
+Initialen, Einzüge, maximale Zeilenzahl, Versalhöhe als Rahmenoberkante,
+Grundlinienraster, Spalten, Text- und Absatzstile, Hoch- und Tiefstellung,
+Grundlinienversatz, OpenType-Features, Glyphenpalette, Suchen und Ersetzen,
+Textumfluss um Objekte (umfließen, überspringen), lokale Schriften und WOFF/WOFF2,
+CMYK, Volltonfarben, eigene CMYK-Profile, Überdrucken, Farbvariablen mit Modi,
+Separationen, Farbauftrag, Gamut-Warnung, PDF/X-4 und X-1a mit Beschnitt und
+Schnittmarken, PDF-Seitenbereich und JPEG-Neuberechnung, PNG- und JPEG-Export,
+Verpacken als ZIP, Abschnitte mit eigener Seitennummerierung, Seiten verschieben,
+Auto Layout, Constraints, Masken, boolesche Operationen, Pfadbearbeitung mit
+Fülleimer, Spiegeln, Pipette, Bild füllen und einpassen, gestrichelte,
+gepunktete, wellige und Zickzack-Linien, Text in Konturen, Bildzuschnitt und
+Bildanpassung, Hilfslinien, Snapping mit Abständen, Befehlspalette, frei belegbare
+Tastenkürzel, offline als PWA.
 
 ## Was fehlt
 
 Wert für Satz: **hoch** = typische Aufgaben im Ziel (Plakat, Broschüre, Druck)
 scheitern ohne die Funktion; **mittel** = spart viel Zeit oder fällt Profis auf;
 **niedrig** = nett, nischig oder außerhalb des Ziels. „Liste“ zeigt, wo der Punkt
-schon steht: T = `TODO.md` Later, B = `bugs.md` LATER.
+schon steht: B = `bugs.md` LATER.
 
 ### Text und Typografie
 
-| Funktion                                                                                            | Wer hat sie                              | Wert    | Liste     |
-| --------------------------------------------------------------------------------------------------- | ---------------------------------------- | ------- | --------- |
-| Aufzählungen und Nummerierung                                                                       | alle                                     | hoch    | T         |
-| Tabulatoren mit Tabstopps (links, rechts, zentriert, Dezimal, Füllzeichen)                          | InDesign, Affinity, Quark, Scribus       | hoch    |           |
-| Tabellen                                                                                            | InDesign, Affinity, Quark, Scribus       | hoch    | B         |
-| Textumfluss um Objekte                                                                              | InDesign, Affinity, Quark, Scribus       | hoch    | T         |
-| Suchen und Ersetzen                                                                                 | alle                                     | hoch    | T         |
-| Rechtschreibprüfung                                                                                 | alle außer Penpot                        | hoch    |           |
-| Initialen (Drop Caps)                                                                               | InDesign, Affinity, Quark, Scribus       | mittel  |           |
-| Absatzumbruch-Optionen: Hurenkinder, Schusterjungen, „nicht trennen“, „mit nächstem zusammenhalten“ | InDesign, Affinity, Quark, Scribus       | hoch    |           |
-| Zeichenformate getrennt von Absatzformaten, „nächstes Format“                                       | InDesign, Affinity, Quark, Scribus       | mittel  |           |
-| Verschachtelte und GREP-Stile                                                                       | InDesign, Affinity (teilweise)           | niedrig |           |
-| Hochgestellt, tiefgestellt, Grundlinienversatz, manuelles Kerning                                   | alle Layoutprogramme                     | mittel  |           |
-| Optischer Randausgleich, hängende Interpunktion                                                     | InDesign, Affinity                       | mittel  |           |
-| Absatzlinien und -schattierung, Rahmen um Absätze                                                   | InDesign, Affinity                       | niedrig |           |
-| Spaltenspannende Absätze, ausgeglichene Spalten                                                     | InDesign, Affinity                       | mittel  |           |
-| Text auf Pfad                                                                                       | InDesign, Affinity, Scribus, Illustrator | mittel  |           |
-| Verankerte Objekte im Text                                                                          | InDesign, Affinity, Quark                | mittel  | B         |
-| Fußnoten und Endnoten                                                                               | InDesign, Affinity, Quark                | mittel  |           |
-| Inhaltsverzeichnis aus Absatzformaten                                                               | InDesign, Affinity, Scribus              | mittel  | B         |
-| Index, Querverweise, lebende Kolumnentitel                                                          | InDesign, Affinity                       | niedrig |           |
-| Textvariablen (Datum, Dateiname, Kapitel)                                                           | InDesign, Affinity                       | mittel  | B (Datum) |
-| Bedingter Text                                                                                      | InDesign                                 | niedrig | B         |
-| Glyphenpalette, Achsen variabler Schriften                                                          | InDesign, Affinity, Figma                | mittel  | T         |
-| Weitere Silbentrennungssprachen (fr, it, es, nl …)                                                  | alle                                     | mittel  |           |
-| Text aus Word, RTF, Markdown platzieren                                                             | InDesign, Affinity, Quark, Scribus       | mittel  |           |
-| Textmodus-Editor (Story Editor)                                                                     | InDesign                                 | niedrig |           |
-| Vertikaler Text, Rechts-nach-links                                                                  | InDesign ME, Affinity (teilweise)        | niedrig |           |
+| Funktion                                                      | Wer hat sie                              | Wert    | Liste     |
+| ------------------------------------------------------------- | ---------------------------------------- | ------- | --------- |
+| Tabellen                                                      | InDesign, Affinity, Quark, Scribus       | hoch    | B         |
+| Rechtschreibprüfung                                           | alle außer Penpot                        | hoch    |           |
+| Zeichenformate getrennt von Absatzformaten, „nächstes Format“ | InDesign, Affinity, Quark, Scribus       | mittel  |           |
+| Manuelles Kerning                                             | alle Layoutprogramme                     | mittel  |           |
+| Optischer Randausgleich, hängende Interpunktion               | InDesign, Affinity                       | mittel  |           |
+| Spaltenspannende Absätze, ausgeglichene Spalten               | InDesign, Affinity                       | mittel  |           |
+| Text auf Pfad                                                 | InDesign, Affinity, Scribus, Illustrator | mittel  |           |
+| Verankerte Objekte im Text                                    | InDesign, Affinity, Quark                | mittel  | B         |
+| Fußnoten und Endnoten                                         | InDesign, Affinity, Quark                | mittel  |           |
+| Inhaltsverzeichnis aus Absatzformaten                         | InDesign, Affinity, Scribus              | mittel  | B         |
+| Textvariablen (Datum, Dateiname, Kapitel)                     | InDesign, Affinity                       | mittel  | B (Datum) |
+| Achsen variabler Schriften                                    | InDesign, Affinity, Figma                | mittel  | B         |
+| Text aus Word, RTF, Markdown platzieren                       | InDesign, Affinity, Quark, Scribus       | mittel  |           |
+| Verschachtelte und GREP-Stile                                 | InDesign, Affinity (teilweise)           | niedrig | B         |
+| Absatzlinien und -schattierung, Rahmen um Absätze             | InDesign, Affinity                       | niedrig |           |
+| Index, Querverweise, lebende Kolumnentitel                    | InDesign, Affinity                       | niedrig |           |
+| Bedingter Text                                                | InDesign                                 | niedrig | B         |
+| Textmodus-Editor (Story Editor)                               | InDesign                                 | niedrig |           |
+| Vertikaler Text, Rechts-nach-links                            | InDesign ME, Affinity (teilweise)        | niedrig |           |
 
 ### Formen, Pfade und Bilder
 
 | Funktion                                                        | Wer hat sie                          | Wert    | Liste |
 | --------------------------------------------------------------- | ------------------------------------ | ------- | ----- |
-| Spiegeln horizontal und vertikal                                | alle                                 | hoch    |       |
+| SVG und PDF als Vektoren platzieren                             | alle                                 | hoch    | B     |
 | Neigen (Scheren)                                                | InDesign, Affinity, Illustrator      | mittel  |       |
 | Freihand-Bleistift und Pinsel                                   | Figma, Affinity, Illustrator, Penpot | mittel  |       |
+| Effekte: Schatten innen, Schein, Hintergrundunschärfe, Rauschen | Figma, Affinity, InDesign            | mittel  |       |
+| Verknüpfte Bilder mit Neu-Verknüpfen                            | InDesign, Affinity, Quark, Scribus   | mittel  | B     |
+| Freistellungspfad aus Alphakanal, Beschneidungspfad             | InDesign, Affinity                   | mittel  |       |
+| PSD, TIFF platzieren                                            | InDesign, Affinity, Quark, Scribus   | mittel  |       |
+| Schritt und Wiederholen, Raster aus Kopien                      | InDesign, Affinity, Figma (Plugins)  | mittel  |       |
+| Bild in Rahmen kacheln                                          | Figma, InDesign, Affinity            | niedrig |       |
 | Formerstellung durch Ziehen über Flächen                        | Illustrator, Affinity                | niedrig |       |
 | Variable Strichbreite, Pinselspitzen                            | Illustrator, Affinity                | niedrig |       |
 | Eckenglättung (Squircle)                                        | Figma                                | niedrig |       |
 | Kegel- und Rautenverlauf, Verlaufsgitter                        | Figma, Affinity, Illustrator         | niedrig |       |
-| Effekte: Schatten innen, Schein, Hintergrundunschärfe, Rauschen | Figma, Affinity, InDesign            | mittel  |       |
-| Bild in Rahmen: Füllen, Einpassen, Kacheln, proportional        | Figma, InDesign, Affinity            | hoch    |       |
-| SVG und PDF als Vektoren platzieren                             | alle                                 | hoch    | T     |
-| Verknüpfte Bilder mit Neu-Verknüpfen                            | InDesign, Affinity, Quark, Scribus   | mittel  | T     |
-| Freistellungspfad aus Alphakanal, Beschneidungspfad             | InDesign, Affinity                   | mittel  |       |
-| PSD, TIFF platzieren                                            | InDesign, Affinity, Quark, Scribus   | mittel  |       |
 | Hintergrund entfernen, Bild vektorisieren                       | Canva, Illustrator, Affinity         | niedrig |       |
-| Pipette                                                         | alle                                 | hoch    |       |
-| Schritt und Wiederholen, Raster aus Kopien                      | InDesign, Affinity, Figma (Plugins)  | mittel  |       |
 | Transformation wiederholen                                      | InDesign, Illustrator, Affinity      | niedrig |       |
 
 ### Dokument und Layout
 
 | Funktion                                                                  | Wer hat sie                          | Wert    | Liste      |
 | ------------------------------------------------------------------------- | ------------------------------------ | ------- | ---------- |
-| Abschnitte mit eigener Seitennummerierung (römisch, Präfix, Startzahl)    | InDesign, Affinity, Quark, Scribus   | hoch    |            |
-| Seiten und Doppelseiten verschieben                                       | alle                                 | mittel  | B          |
 | Objektformate (gespeicherte Füllung, Kontur, Effekte, Textrahmenoptionen) | InDesign, Figma (Styles), Affinity   | mittel  |            |
 | Komponenten und Instanzen, Bibliotheken                                   | Figma, Penpot, Affinity (Symbole)    | mittel  |            |
 | Auto Layout mit Umbruch (Wrap) und Grid-Layout                            | Figma, Penpot                        | mittel  |            |
-| Ebenen über das ganze Dokument (wie InDesign-Ebenen)                      | InDesign, Affinity, Scribus          | niedrig |            |
 | Formatwechsel mit Anpassung (Magic Resize, Liquid Layout)                 | Canva, InDesign                      | mittel  |            |
 | Datenzusammenführung (Serienbrief aus CSV)                                | InDesign, Affinity, Scribus (Skript) | mittel  |            |
-| Buchdateien aus mehreren Dokumenten                                       | InDesign, Affinity                   | niedrig |            |
 | Mehrere offene Dokumente, Projektübersicht                                | alle                                 | mittel  | B          |
-| Skripte und Plugins                                                       | InDesign, Scribus, Figma, Penpot     | niedrig |            |
 | Kommentare, Echtzeit-Zusammenarbeit                                       | Figma, Penpot, Canva                 | mittel  | B (Server) |
-| Versionsverlauf                                                           | Figma, Penpot, Canva                 | mittel  | T          |
+| Versionsverlauf                                                           | Figma, Penpot, Canva                 | mittel  | B          |
+| Ebenen über das ganze Dokument (wie InDesign-Ebenen)                      | InDesign, Affinity, Scribus          | niedrig |            |
+| Buchdateien aus mehreren Dokumenten                                       | InDesign, Affinity                   | niedrig |            |
+| Skripte und Plugins                                                       | InDesign, Scribus, Figma, Penpot     | niedrig |            |
 
 ### Farbe und Druck
 
-| Funktion                                                                                                    | Wer hat sie                        | Wert    | Liste         |
-| ----------------------------------------------------------------------------------------------------------- | ---------------------------------- | ------- | ------------- |
-| Überdrucken (Fläche, Kontur) mit Überdruckenvorschau                                                        | InDesign, Affinity, Quark, Scribus | hoch    |               |
-| Eigene CMYK-Profile                                                                                         | alle Layoutprogramme               | mittel  | T             |
-| Druckermarken über Schnittmarken hinaus: Passermarken, Farbkontrollstreifen, Seiteninfo, Infobereich (Slug) | InDesign, Affinity, Quark, Scribus | mittel  |               |
-| PDF-Optionen: Seitenbereich, Bildneuberechnung und Kompression, Druckbögen statt Seiten                     | InDesign, Affinity, Quark, Scribus | hoch    |               |
-| Interaktives PDF: Links, Lesezeichen aus Überschriften                                                      | InDesign, Affinity, Quark, Scribus | mittel  |               |
-| Barrierefreies PDF (getaggt, Alternativtexte)                                                               | InDesign, Affinity                 | mittel  |               |
-| PNG-, JPEG-, SVG-Export                                                                                     | alle                               | hoch    | T (PNG, JPEG) |
-| EPUB- und HTML-Export                                                                                       | InDesign, Quark                    | niedrig |               |
-| Verpacken für die Druckerei                                                                                 | InDesign, Affinity, Quark, Scribus | mittel  | T             |
-| Ausschießen (Broschürendruck)                                                                               | InDesign, Affinity                 | mittel  |               |
-| Preflight-Profile, Live-Preflight mit Regeln                                                                | InDesign                           | niedrig |               |
-| Farbmischung aus Volltonfarben (Mixed Ink)                                                                  | InDesign                           | niedrig |               |
+| Funktion                                                                                | Wer hat sie                        | Wert    | Liste |
+| --------------------------------------------------------------------------------------- | ---------------------------------- | ------- | ----- |
+| SVG-Export                                                                              | alle                               | mittel  |       |
+| Druckermarken über Schnittmarken hinaus: Passermarken, Farbkontrollstreifen, Seiteninfo | InDesign, Affinity, Quark, Scribus | mittel  |       |
+| Druckbögen statt Seiten im PDF                                                          | InDesign, Affinity, Quark, Scribus | mittel  |       |
+| Interaktives PDF: Links, Lesezeichen aus Überschriften                                  | InDesign, Affinity, Quark, Scribus | mittel  |       |
+| Barrierefreies PDF (getaggt, Alternativtexte)                                           | InDesign, Affinity                 | mittel  |       |
+| Ausschießen (Broschürendruck)                                                           | InDesign, Affinity                 | mittel  |       |
+| EPUB- und HTML-Export                                                                   | InDesign, Quark                    | niedrig |       |
+| Preflight-Profile, Live-Preflight mit Regeln                                            | InDesign                           | niedrig |       |
+| Farbmischung aus Volltonfarben (Mixed Ink)                                              | InDesign                           | niedrig |       |
 
 ### Import und Austausch
 
 | Funktion                  | Wer hat sie                          | Wert    | Liste |
 | ------------------------- | ------------------------------------ | ------- | ----- |
 | IDML-Import               | Affinity, Quark, Scribus (teilweise) | mittel  |       |
-| PDF öffnen und bearbeiten | Affinity, Quark, Scribus             | niedrig |       |
 | Figma-Import              | Penpot                               | mittel  | B     |
-| Offline als App           | Desktop-Programme, Figma (Desktop)   | mittel  | T     |
+| PDF öffnen und bearbeiten | Affinity, Quark, Scribus             | niedrig |       |
 
 ## Empfehlung
 
-Die größten Lücken für Plakat und Broschüre, nach Wert und Aufwand. Was schon
-in `TODO.md` steht, ist nicht wiederholt.
+Die größten Lücken für Plakat und Broschüre, nach Wert und Aufwand. Die
+Empfehlungen 1–7 vom 02.10. (Absatzumbruch-Optionen, Tabulatoren, Spiegeln und
+Pipette, Bild einpassen, Überdrucken, Abschnitte, PDF-Optionen) sind umgesetzt.
 
-1. **Absatzumbruch-Optionen** (Hurenkinder, Schusterjungen, zusammenhalten): Der
-   Knuth-Plass-Umbruch und der Flow über Rahmen sind da, es fehlen Regeln im Flow.
-2. **Tabulatoren**: Preislisten, Inhaltsverzeichnisse und Formulare brauchen sie
-   vor Tabellen.
-3. **Spiegeln und Pipette**: klein, und jeder Nutzer sucht sie.
-4. **Bild in Rahmen einpassen und füllen**: der Zuschnitt ist da, es fehlen die
-   Befehle, die ihn ausrechnen.
-5. **Überdrucken mit Vorschau**: für Druckdaten (schwarzer Text auf Farbflächen)
-   üblich, und die Separationen im Preflight zeigen es dann richtig.
-6. **Abschnitte mit Seitennummerierung**: Broschüren mit Umschlag beginnen selten
-   bei 1.
-7. **PDF-Optionen**: Seitenbereich und Bildneuberechnung, weil Fotos sonst die PDFs
-   aufblähen.
-8. **Rechtschreibprüfung**: Der Browser kann sie im Texteditor nicht, weil Satz den
+1. **Rechtschreibprüfung**: Der Browser kann sie im Texteditor nicht, weil Satz den
    Text selbst setzt. Eine Wortliste pro Sprache (Hunspell-Daten) in der Engine
-   wäre der Weg.
+   wäre der Weg; die Silbentrennung kennt die Sprachen schon.
+2. **SVG platzieren**: Logos kommen fast immer als SVG; heute müssen sie als PNG
+   herein und verlieren im PDF ihre Schärfe.
+3. **Tabellen**: Preislisten und Fahrpläne gehen mit Tabulatoren, alles mit
+   Zeilenumbruch in Zellen nicht.
+4. **Zeichenformate**: Hervorhebungen werden heute pro Textstelle gesetzt und
+   lassen sich nicht gemeinsam ändern.
+5. **Manuelles Kerning**: Plakattitel brauchen es zwischen einzelnen Buchstaben.
+6. **Schatten innen und Neigen**: klein, und Nutzer aus Figma oder Illustrator
+   erwarten sie.
 
 Bewusst nicht empfohlen: GREP-Stile, Skripte, Buchdateien, EPUB, Verlaufsgitter,
 Vektorisieren. Sie kosten viel und passen nicht zum Ziel „Plakat und Broschüre“.
