@@ -1244,6 +1244,9 @@ impl Doc {
     }
 
     pub fn apply(&mut self, cmd: Command) -> Res<Vec<String>> {
+        if matches!(cmd, Command::BeginUndoGroup | Command::EndUndoGroup) {
+            return self.run(cmd);
+        }
         self.invalidate();
         let history = matches!(cmd, Command::Undo | Command::Redo);
         let out = self.run(cmd);

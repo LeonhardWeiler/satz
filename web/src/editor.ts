@@ -237,11 +237,11 @@ export class Editor {
 
   /** Opens an undo group that lasts until `endGroup`; groups opened inside it join it. */
   beginGroup() {
-    if (this.groups++ === 0) this.apply({ type: 'beginUndoGroup' })
+    if (this.groups++ === 0) this.engine.apply({ type: 'beginUndoGroup' })
   }
 
   endGroup() {
-    if (this.groups > 0 && --this.groups === 0) this.apply({ type: 'endUndoGroup' })
+    if (this.groups > 0 && --this.groups === 0) this.engine.apply({ type: 'endUndoGroup' })
   }
 
   /** Runs `f` as one undo step, or as part of the group already open. */
