@@ -9,7 +9,9 @@ test('dot opens the page overview on the current page with drawn thumbnails, and
     option(page, 1)
       .locator('canvas')
       .evaluate((c: HTMLCanvasElement) => {
-        const { data } = c.getContext('2d')!.getImageData(0, 0, c.width, c.height)
+        const copy = new OffscreenCanvas(c.width, c.height).getContext('2d')!
+        copy.drawImage(c, 0, 0)
+        const { data } = copy.getImageData(0, 0, c.width, c.height)
         const seen = new Set<number>()
         for (let i = 0; i < data.length; i += 4) seen.add((data[i] << 16) | (data[i + 1] << 8) | data[i + 2])
         return seen.size

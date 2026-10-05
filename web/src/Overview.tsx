@@ -18,59 +18,62 @@ const ZOOM = [80, 480]
 const clamp = (v: number, [lo, hi]: number[]) => Math.round(Math.min(hi, Math.max(lo, v)))
 const resize = (patch: Partial<typeof settings.overview>) => setSettings({ overview: { ...settings.overview, ...patch } })
 
-/** Draws pictures of pages with the canvas renderer on the GPU, as many per frame as fit in 8 ms. */
+let painter: ReturnType<typeof makePainter> | undefined
+
+/**
+ * Draws pictures of pages with the canvas renderer on the GPU and hands them over without a copy, as many per
+ * frame as fit in 8 ms. It lives on after the overview closes, keeping what the last opening drew.
+ */
+function makePainter(ck: CanvasKit, editor: Editor) {
+  let renderer: Renderer | undefined
+  let gpu: GrDirectContext | null = null
+  const off = new OffscreenCanvas(1, 1)
+  const queue = new Map<HTMLCanvasElement, [Lists, Sheet[]]>()
+  let frame = 0
+  const draw = (c: HTMLCanvasElement, lists: Lists, sheets: Sheet[]) => {
+    if (!c.isConnected) return
+    const left = Math.min(...sheets.map((s) => s.x))
+    const width = Math.round(c.clientWidth * devicePixelRatio)
+    const height = Math.round(c.clientHeight * devicePixelRatio)
+    const zoom = width / (Math.max(...sheets.map((s) => s.x + s.width)) - left)
+    ;[off.width, off.height] = [width, height]
+    gpu ??= ck.MakeWebGLContext(ck.GetWebGLContext(off))
+    const surface = gpu && ck.MakeOnScreenGLSurface(gpu, width, height, ck.ColorSpace.SRGB)
+    if (!surface) return
+    renderer ??= new Renderer(ck, editor.engine, 1024)
+    renderer.reprofile(editor.snapshot.profile ?? '')
+    renderer.draw(surface.getCanvas(), lists, sheets, { x: -left * zoom, y: 0, zoom }, 1, null, editor.snapshot.colorMode === 'cmyk')
+    surface.flush()
+    surface.delete()
+    c.getContext('bitmaprenderer')!.transferFromImageBitmap(off.transferToImageBitmap())
+  }
+  const run = () => {
+    const end = performance.now() + 8
+    for (const [c, [lists, sheets]] of queue) {
+      if (performance.now() > end) break
+      queue.delete(c)
+      draw(c, lists, sheets)
+    }
+    frame = queue.size ? requestAnimationFrame(run) : 0
+  }
+  return {
+    paint: (c: HTMLCanvasElement, lists: Lists, sheets: Sheet[]) => {
+      queue.set(c, [lists, sheets])
+      frame ||= requestAnimationFrame(run)
+    },
+    stop: () => {
+      cancelAnimationFrame(frame)
+      frame = 0
+      queue.clear()
+      renderer?.sweep()
+    },
+  }
+}
+
 function usePaint(ck: CanvasKit, editor: Editor) {
-  const [painter] = useState(() => {
-    let renderer: Renderer | undefined
-    let gpu: GrDirectContext | null = null
-    const queue = new Map<HTMLCanvasElement, [Lists, Sheet[]]>()
-    let frame = 0
-    const draw = (c: HTMLCanvasElement, lists: Lists, sheets: Sheet[]) => {
-      if (!c.isConnected) return
-      const left = Math.min(...sheets.map((s) => s.x))
-      const width = Math.round(c.clientWidth * devicePixelRatio)
-      const height = Math.round(c.clientHeight * devicePixelRatio)
-      const zoom = width / (Math.max(...sheets.map((s) => s.x + s.width)) - left)
-      gpu ??= ck.MakeWebGLContext(ck.GetWebGLContext(new OffscreenCanvas(1, 1)))
-      const surface = gpu && ck.MakeRenderTarget(gpu, width, height)
-      if (!surface) return
-      renderer ??= new Renderer(ck, editor.engine, 1024)
-      renderer.reprofile(editor.snapshot.profile ?? '')
-      renderer.draw(surface.getCanvas(), lists, sheets, { x: -left * zoom, y: 0, zoom }, 1, null, editor.snapshot.colorMode === 'cmyk')
-      const info = { width, height, colorType: ck.ColorType.RGBA_8888, alphaType: ck.AlphaType.Unpremul, colorSpace: ck.ColorSpace.SRGB }
-      const px = surface.getCanvas().readPixels(0, 0, info) as Uint8Array | null
-      surface.delete()
-      if (!px) return
-      ;[c.width, c.height] = [width, height]
-      c.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(px), width), 0, 0)
-    }
-    const run = () => {
-      const end = performance.now() + 8
-      for (const [c, [lists, sheets]] of queue) {
-        if (performance.now() > end) break
-        queue.delete(c)
-        draw(c, lists, sheets)
-      }
-      frame = queue.size ? requestAnimationFrame(run) : 0
-    }
-    return {
-      paint: (c: HTMLCanvasElement, lists: Lists, sheets: Sheet[]) => {
-        queue.set(c, [lists, sheets])
-        frame ||= requestAnimationFrame(run)
-      },
-      stop: () => {
-        cancelAnimationFrame(frame)
-        frame = 0
-        queue.clear()
-        renderer?.delete()
-        renderer = undefined
-        gpu?.delete()
-        gpu = null
-      },
-    }
-  })
-  useEffect(() => painter.stop, [painter])
-  return painter.paint
+  const p = (painter ??= makePainter(ck, editor))
+  useEffect(() => p.stop, [p])
+  return p.paint
 }
 
 /** A picture of the pages `sheets` drawn from `lists`, `height` px tall, redrawn when the document changes. */
