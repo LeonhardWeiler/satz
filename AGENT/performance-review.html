@@ -35,11 +35,12 @@
   .fix > b { color: var(--acc); }
 </style></head><body><main>
 <h1>Satz – Performance- und Bundle-Review</h1>
-<p class="dim">Stand <code>5df7a25</code>, 05.10.2026, Branch <code>main</code> · alle Zahlen gemessen, außer wo „nicht gemessen“ steht. Seit dem letzten Review (<code>e8c55c3</code>) erledigt und entfernt: Anpassungsschleife affin (<code>5fff04a</code>, 3-mal schneller), gesetzte Zeilen pro Rahmen gemerkt (<code>3992370</code>, render 0,40 → 0,03 ms). Neu: <code>unicode_names2</code> im Engine-WASM.</p>
+<p class="dim">Stand <code>42cc1a7</code>, 05.10.2026, Branch <code>main</code> · alle Zahlen gemessen, außer wo „nicht gemessen“ steht. Neu in diesem Stand: Messung im Browser für Seitenübersicht, Trenner und Bildanpassung; die Übersicht ist behoben (<code>791b577</code>, <code>42cc1a7</code>).</p>
 
 <div class="grid">
   <div class="tile"><span class="dim">Tastendruck, 32 Seiten (nativ)</span><b>16 ms</b></div>
-  <div class="tile"><span class="dim">Bildanpassung, 3000×3000 (nativ)</span><b>137 ms</b></div>
+  <div class="tile"><span class="dim">Bildanpassung im CMYK-Booklet (Browser)</span><b>≈1,2 s</b></div>
+  <div class="tile"><span class="dim">Trenner ziehen, Frames &gt; 50 ms</span><b>14 → 0</b></div>
   <div class="tile"><span class="dim">Download beim Start (gzip)</span><b>6,6 MB</b></div>
   <div class="tile"><span class="dim">render, jede Seitenzahl</span><b>0,03 ms</b></div>
 </div>
@@ -50,7 +51,8 @@
   <tr><td>Engine nativ</td><td><code>cargo test --release -p engine bench -- --ignored --nocapture</code>, mehrere Läufe. Die Läufe sind zweigeteilt: schnelle und ≈2-mal langsamere (Governor powersave, vermutlich P- und E-Kerne). Die Tabelle zeigt die schnellen; für Vergleiche <code>taskset</code> auf einen P-Kern.</td></tr>
   <tr><td>Bildanpassung</td><td>Temporärer Release-Test: <code>earthrise.jpg</code> (3000×3000) registrieren, <code>image::adjusted</code>, dann <code>image::bytes</code>; danach entfernt.</td></tr>
   <tr><td>Bundle</td><td><code>./check build</code>, Größen aus <code>web/dist</code>, gzip mit <code>gzip -9</code>. WASM-Anteile pro Crate aus der Name-Section vor <code>wasm-opt</code>. Ein Build ohne <code>unicode_names2</code> in einem temporären Worktree, danach entfernt.</td></tr>
-  <tr><td>Nicht gemessen</td><td>Kosten im Browser (WASM-Faktor, <code>JSON.parse</code> des Snapshots), echte GPU, Firefox, Safari, Mobilgeräte, Speicher mit vielen großen Fotos, Startzeit.</td></tr>
+  <tr><td>Browser</td><td>Temporärer Playwright-Test gegen einen unminifizierten Build (<code>vite build --minify false</code>), 1600×1000, DPR 1, Beispiel „Satz booklet“ (8 Seiten, CMYK, Foto 3000×3000). Pro Szenario rAF-Frame-Zeiten und ein CPU-Profil über CDP. Chromium mit SwiftShader, „Nachher“ zusätzlich mit <code>--use-angle=vulkan</code> (GPU-Spalte). „Vorher“ ist <code>ca164cd</code> aus einem Worktree. Test, Config und Worktree danach entfernt.</td></tr>
+  <tr><td>Nicht gemessen</td><td>Tastendruck im Browser (<code>JSON.parse</code> des Snapshots), „Vorher“ auf der GPU, mehr als 8 Seiten in der Übersicht (das Duplizieren per Kontextmenü hing im Test), Firefox, Safari, Mobilgeräte, Speicher mit vielen großen Fotos, Startzeit.</td></tr>
 </table>
 <table>
   <tr><th>Benchmark nativ, ms</th><th class="n">set_frame</th><th class="n">keystroke</th><th class="n">render</th><th class="n">hit</th><th class="n">save</th><th class="n">pdf</th></tr>
@@ -60,11 +62,40 @@
 </table>
 <p class="dim">Inks: 84 ms bei 36 ppi, 288 ms bei 72 ppi, im Export-Worker. Gegenüber 02.10.: render 13-mal schneller, Tastendruck und set_frame bei 32 Seiten 13 % langsamer (14,1 → 16 ms, 8,6 → 9,6 ms); das liegt im Bereich der Streuung zwischen den Läufen und wurde nicht mit <code>taskset</code> nachgemessen.</p>
 
-<h2>1. Bildanpassung kodiert das ganze Bild als PNG neu</h2>
-<div class="card mid">
-  <span class="tag mid">≈137 ms nativ pro Schritt</span>
-  <p>Jeder Wert im Dialog „Adjust image“ legt in <code>image::adjusted</code> einen neuen Eintrag an. Das Zeichnen holt ihn über <code>image::bytes</code> → <code>file</code>: dekodieren, Pixel affin abbilden, als PNG kodieren (3,8–3,9 MB für 3000×3000), und CanvasKit dekodiert dieses PNG wieder (<code>renderer.ts:173</code>, <code>MakeImageFromEncoded</code>). Nativ 134–140 ms (02.10.: 304 ms), in WASM ein Mehrfaches, alles im Haupt-Thread, beim Scrubben pro Wert.</p>
-  <div class="fix"><b>Fix:</b> Helligkeit, Kontrast und Sättigung sind schon eine affine Abbildung, also eine 4×5-Farbmatrix. Die Engine schreibt die Matrix in den <code>Image</code>-Op der Display-List, der Renderer zeichnet das Original mit <code>ColorFilter.MakeMatrix</code>. Nur PDF, Platten und Inks backen die Pixel, und die laufen im Worker. Dann fallen <code>Entry.source</code> und der PNG-Weg für angepasste Bilder weg.</div>
+<h2>Seitenübersicht, Zoom, Scrollen und Trenner – behoben</h2>
+<div class="card good">
+  <span class="tag good">791b577, 42cc1a7</span>
+  <table>
+    <tr><th>Szenario</th><th class="n">vorher</th><th class="n">nachher</th><th class="n">nachher GPU</th></tr>
+    <tr><td>Übersicht öffnen (Taste <code>.</code>)</td><td class="n">617 ms / 6</td><td class="n">800 ms / 7</td><td class="n">1167 ms / 5</td></tr>
+    <tr><td>1 Klick in die Übersicht</td><td class="n">617 ms / 5</td><td class="n">33 ms / 0</td><td class="n">67 ms / 1</td></tr>
+    <tr><td>Strg+Rad, 20 Schritte</td><td class="n">17 ms / 0*</td><td class="n">100 ms / 4</td><td class="n">133 ms / 2</td></tr>
+    <tr><td>Scrollen, 40 Schritte</td><td class="n">17 ms / 0*</td><td class="n">50 ms / 0</td><td class="n">50 ms / 0</td></tr>
+    <tr><td>Trenner ziehen, 40 Schritte</td><td class="n">1317 ms / 14</td><td class="n">333 ms / 12</td><td class="n">50 ms / 0</td></tr>
+  </table>
+  <p class="dim">Längster Frame / Frames über 50 ms. * Vorher wurden die Bilder beim Zoomen nicht neu gezeichnet, nur hochskaliert, und blieben unscharf.</p>
+  <ol>
+    <li><b>Jeder Klick baute die Übersicht 2-mal neu.</b> <code>editor.gesture</code> öffnet bei pointerdown eine Undo-Gruppe und schließt sie bei pointerup, beides lief über <code>change</code>: ganzes <code>finish</code> der Engine, neuer Snapshot, alle Seitenbilder neu. Jetzt gehen <code>beginUndoGroup</code>/<code>endUndoGroup</code> an der Engine vorbei (<code>Doc::apply</code>, <code>editor.ts</code>).</li>
+    <li><b>Jedes Seitenbild dekodierte die Fotos neu.</b> Der Renderer der Übersicht warf nach jedem Bild Pictures und Bilder weg, bei CMYK samt Separation und PNG-Kodierung der Platten in der Engine. Jetzt räumt <code>Renderer.sweep</code> erst nach dem Haupt-Canvas auf, die Übersicht behält ihre Bilder auf 1024 px verkleinert.</li>
+    <li><b>Die Seitenbilder liefen auf der CPU.</b> <code>drawPlates</code> mischt CMYK mit einem SkSL-Shader und LUT; auf <code>ck.MakeSurface</code> rechnete das Skia in Software (3 s <code>drawPaint</code> pro Zoom). Jetzt zeichnet die Übersicht auf einem eigenen WebGL-Kontext (<code>MakeRenderTarget</code> auf einem <code>OffscreenCanvas</code>) und liest mit <code>readPixels</code> zurück.</li>
+    <li><b>Zoom und Trenner ließen die Bilder unscharf.</b> Die Höhe gehört jetzt zum Schlüssel des Seitenbilds; der Haupt-Canvas zeichnet nicht mehr, solange die Übersicht ihn verdeckt.</li>
+  </ol>
+  <p>Offen und klein: Das erste Öffnen hat einen langen Frame (Bilder dekodieren und verkleinern, GL-Kontext, Shader), und der Rad-Listener mit <code>passive: false</code> lässt das Scrollen auf einen beschäftigten Haupt-Thread warten.</p>
+</div>
+
+<h2>1. Bildanpassung trennt das ganze Foto bei jedem Wert neu</h2>
+<div class="card high">
+  <span class="tag high">≈1,2 s pro Wert im CMYK-Booklet</span>
+  <p>Helligkeit im Dialog „Adjust image“ über 20 Werte scrubben: 25 s, jeder Wert ein Frame von 1,1–1,75 s (vorher, nachher und GPU gleich). Im Profil 16,2 s <code>engine.image</code> und 5,3 s <code>MakeImageFromEncoded</code>. Jeder Wert legt in <code>image::adjusted</code> einen neuen Eintrag an, und ein CMYK-Dokument zeichnet ihn als 2 Platten. Pro Wert läuft deshalb die ganze Kette über 9 Millionen Pixel:</p>
+  <table>
+    <tr><th>Schritt, 3000×3000, nativ</th><th class="n">ms</th></tr>
+    <tr><td>JPEG dekodieren (Quelle, nicht gecacht)</td><td class="n">30</td></tr>
+    <tr><td>RGB → CMYK über FOGRA51 (<code>separate_pixels</code>, moxcms)</td><td class="n">280</td></tr>
+    <tr><td>pro Platte: Kanäle wählen + PNG kodieren (3,8 MB), 2-mal</td><td class="n">2 × 65</td></tr>
+    <tr><td>pro Platte: PNG in CanvasKit dekodieren, 2-mal</td><td class="n">2 × ≈36</td></tr>
+  </table>
+  <p>Die Separation macht den größten Teil aus, deshalb hilft der Austausch von PNG gegen Rohpixel allein nur gut ein Drittel. Eine Farbmatrix in der Display-List hilft nur RGB-Dokumenten: CMYK-Platten entstehen aus dem angepassten RGB, und die Separation ist nicht linear.</p>
+  <div class="fix"><b>Fix: offen.</b> Kandidaten: die Separation als 3D-LUT im Platten-Shader auf der GPU, mit der Anpassung als Farbmatrix davor; oder beim Scrubben eine Vorschau mit Farbmatrix ohne Separation und erst beim Loslassen die exakten Platten.</div>
 </div>
 
 <h2>2. Bilder werden beim Seitenwechsel neu dekodiert</h2>
@@ -130,7 +161,7 @@
 <h2>Reihenfolge</h2>
 <table>
   <tr><th>#</th><th>Vorschlag</th><th>Aufwand</th><th>Wirkung</th></tr>
-  <tr><td>1</td><td>Bildanpassung als Farbmatrix</td><td>mittel</td><td>Anpassen ohne Hänger, weniger Code</td></tr>
+  <tr><td>1</td><td>Bildanpassung ohne volle Separation pro Wert</td><td>mittel</td><td>Anpassen ohne Hänger</td></tr>
   <tr><td>2</td><td>Bilder des Dokuments behalten</td><td>klein, nach 1</td><td>kein Neu-Dekodieren beim Seitenwechsel</td></tr>
   <tr><td>3</td><td>Unicode-Namen aus dem Start-Download</td><td>klein</td><td>−277 kB gzip</td></tr>
   <tr><td>4</td><td>Im Browser messen, dann Story und Snapshot inkrementell</td><td>mittel</td><td>erst ab 16+ Seiten</td></tr>
