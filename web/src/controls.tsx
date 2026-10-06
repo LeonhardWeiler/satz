@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { useId, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
 import { evalExpr, step } from './field'
@@ -56,6 +56,7 @@ export function Field({
   const [draft, setDraft] = useState<string | null>(null)
   const [bad, setBad] = useState(false)
   const [scrub, setScrub] = useState(false)
+  const id = useId()
   const lengths = useSettings().unit
   const unit = given === 'length' ? lengths : given
   const per = given === 'length' ? UNITS[lengths] : 1
@@ -76,7 +77,7 @@ export function Field({
   }
   const bump = (d: number) => edit && put(cur + d)
   return (
-    <label className={`field${int ? ' int' : ''}${bad ? ' bad' : ''}${scrub ? ' scrub' : ''}`} title={title} onAnimationEnd={() => setBad(false)}>
+    <label htmlFor={id} className={`field${int ? ' int' : ''}${bad ? ' bad' : ''}${scrub ? ' scrub' : ''}`} title={title} onAnimationEnd={() => setBad(false)}>
       {label && (
         <span
           className={`field-label${edit ? ' scrubs' : ''}`}
@@ -110,6 +111,7 @@ export function Field({
         </button>
       )}
       <input
+        id={id}
         name={title.toLowerCase().replaceAll(' ', '-')}
         aria-label={title}
         inputMode="decimal"

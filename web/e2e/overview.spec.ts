@@ -111,6 +111,8 @@ test('the masters column is pulled wider with its thumbnails, the pages zoom and
   await expect.poll(() => width(first)).toBeGreaterThan(small)
   const top = async (n: number) => Math.round((await option(page, n).boundingBox())!.y)
   expect(await top(2)).toBeGreaterThan(await top(1))
+  await region.getByRole('textbox', { name: 'Columns' }).hover()
+  expect(await region.getByRole('button', { name: 'Decrease Columns' }).evaluate((b) => b.matches(':hover'))).toBe(false)
   await region.getByRole('textbox', { name: 'Columns' }).fill('2')
   await region.getByRole('textbox', { name: 'Columns' }).press('Enter')
   await expect.poll(() => top(2)).toBe(await top(1))
