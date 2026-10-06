@@ -61,3 +61,16 @@ export function fromHsv([h, s, v]: Hsv) {
 export const solid = (color: Color): Fill => ({ type: 'solid', color, stops: [], transform: [1, 0, 0, 1, 0, 0], visible: true })
 
 export const neutral = (name: 'black' | 'white' | 'gray', mode: ColorMode) => engineNeutral(name, mode) as Color
+
+/** CMYK in % as "C:20 M:40 Y:0 K:10". */
+export const cmykText = (cmyk: number[]) => cmyk.map((v, i) => `${'CMYK'[i]}:${Math.round(v * 1000) / 10}`).join(' ')
+
+/** CMYK 0..1 from four values in %, e.g. "20, 40, 0, 10", "C20 M40 Y0 K10" or "20% 40% 0% 10%"; null for anything else. */
+export function parseCmyk(text: string): number[] | null {
+  const parts = text.trim().replace(/:\s*/g, '').split(/\s*[\s,/]\s*/)
+  const values = parts.map((p, i) => {
+    const m = /^([cmyk]?)(\d+(?:\.\d+)?)%?$/i.exec(p)
+    return m && (!m[1] || m[1].toUpperCase() === 'CMYK'[i]) && Number(m[2]) <= 100 ? Number(m[2]) / 100 : NaN
+  })
+  return values.length === 4 && values.every((v) => v >= 0) ? values : null
+}

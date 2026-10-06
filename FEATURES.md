@@ -33,7 +33,7 @@
 - Several fills and strokes per layer: solid, linear and radial gradients, images
 - Stroke weight (or one per side of rectangles and frames), alignment, joins, caps, dashed and dotted lines
 - Opacity, blend modes, shadows and blur
-- RGB and CMYK documents, spot colours with tints, swatches, an uploaded CMYK ICC profile or FOGRA51
+- RGB and CMYK documents, spot colours with tints, swatches, an uploaded CMYK ICC profile or FOGRA51; CMYK values copy and paste as text
 - Variables (colour, number, font) in collections with modes per frame and page
 
 ## Images

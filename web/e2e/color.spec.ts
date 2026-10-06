@@ -82,6 +82,28 @@ test('hex, saturation, hue and alpha change the fill', async ({ page }) => {
   await expect(panel.getByTitle('Fill opacity').getByRole('textbox')).toHaveValue('100')
 })
 
+test('the picker copies cmyk as text and takes it pasted in common notations', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  await choose(panel.getByRole('combobox', { name: 'Color mode' }), 'CMYK')
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).last().click()
+  await panel.getByRole('button', { name: 'Fill color' }).click()
+  const picker = page.getByRole('dialog', { name: 'Fill color' })
+  const field = (name: string) => picker.getByRole('textbox', { name })
+  for (const text of ['20 / 40 / 0 / 10', 'C20 M40 Y0 K10']) {
+    await page.evaluate((t) => navigator.clipboard.writeText(t), text)
+    await field('Black').focus()
+    await page.keyboard.press('Control+v')
+    for (const [name, v] of [['Cyan', '20'], ['Magenta', '40'], ['Yellow', '0'], ['Black', '10']]) await expect(field(name)).toHaveValue(v)
+    await field('Cyan').fill('0')
+    await field('Cyan').press('Enter')
+  }
+  await picker.focus()
+  await page.keyboard.press('Control+c')
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('C:0 M:40 Y:0 K:10')
+})
+
 test('a cmyk document shows and takes cmyk values in the picker', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })

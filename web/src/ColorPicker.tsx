@@ -11,9 +11,11 @@ import {
 import { createPortal } from 'react-dom'
 import {
   alpha,
+  cmykText,
   css,
   fromHsv,
   fromRgb,
+  parseCmyk,
   resolve,
   rgb as screen,
   toHsv,
@@ -193,6 +195,17 @@ export function Picker({
       role="dialog"
       aria-label={label}
       tabIndex={-1}
+      onCopy={(e) => {
+        if (mode !== 'cmyk' || typeof cmyk === 'number' || !('cmyk' in cmyk)) return
+        e.clipboardData.setData('text/plain', cmykText(cmyk.cmyk))
+        e.preventDefault()
+      }}
+      onPaste={(e) => {
+        const values = mode === 'cmyk' ? parseCmyk(e.clipboardData.getData('text/plain')) : null
+        if (!values) return
+        e.preventDefault()
+        onChange({ cmyk: values, alpha: alpha(process) / 100 })
+      }}
     >
       <header className="picker-header">
         {tabs ? (
