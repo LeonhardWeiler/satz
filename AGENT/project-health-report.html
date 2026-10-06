@@ -41,40 +41,46 @@
 <body>
 <main>
 <h1>Satz – project health report</h1>
-<p class="meta">2026-10-06 · branch <code>main</code> · commit <code>e554868</code> · browser DTP (Rust/WASM engine, CanvasKit renderer, React UI, krilla PDF)</p>
+<p class="meta">2026-10-07 · branch <code>main</code> · commit <code>cdb4594</code> · browser DTP (Rust/WASM engine, CanvasKit renderer, React UI, krilla PDF)</p>
 
 <div class="counters">
   <div class="counter"><b>0</b><span>Critical</span></div>
-  <div class="counter"><b>0</b><span>High</span></div>
+  <div class="counter"><b>1</b><span>High</span></div>
   <div class="counter"><b>3</b><span>Medium</span></div>
-  <div class="counter"><b>13</b><span>Low</span></div>
-  <div class="counter"><b>3</b><span>Info</span></div>
-  <div class="counter"><b>19</b><span>Total</span></div>
+  <div class="counter"><b>17</b><span>Low</span></div>
+  <div class="counter"><b>4</b><span>Info</span></div>
+  <div class="counter"><b>25</b><span>Total</span></div>
 </div>
 
 <nav aria-label="Contents">
 <ol>
   <li><a href="#open">Open findings</a>
     <ol>
-      <li><a href="#BUG-1">BUG-1 Unbounded numbers break raster output</a></li>
+      <li><a href="#BUG-1">BUG-1 Unbounded lengths trap the engine</a></li>
+      <li><a href="#BUG-6">BUG-6 Group with its own child leaves a stray group</a></li>
       <li><a href="#BUG-2">BUG-2 A failed autosave is silent</a></li>
       <li><a href="#A11Y-1">A11Y-1 Secondary text below AA contrast</a></li>
+      <li><a href="#BUG-7">BUG-7 Page size 0 breaks the PDF export</a></li>
       <li><a href="#BUG-3">BUG-3 Trap while restoring the autosave</a></li>
       <li><a href="#BUG-4">BUG-4 Service worker drops the cache of an open tab</a></li>
       <li><a href="#BUG-5">BUG-5 Two jobs on one worker</a></li>
       <li><a href="#UX-1">UX-1 Ctrl+Shift shortcuts in Firefox</a></li>
       <li><a href="#UX-2">UX-2 One download per exported page</a></li>
+      <li><a href="#UX-3">UX-3 Raw and wrong error messages</a></li>
       <li><a href="#PERF-3">PERF-3 Keystroke in long stories</a></li>
       <li><a href="#PERF-4">PERF-4 Character names in the engine</a></li>
+      <li><a href="#PERF-6">PERF-6 Image registry grows all session</a></li>
       <li><a href="#TEST-1">TEST-1 E2E in Chromium only</a></li>
       <li><a href="#TEST-2">TEST-2 Red CI runs are real failures</a></li>
       <li><a href="#TEST-3">TEST-3 Failure paths without tests</a></li>
+      <li><a href="#TEST-4">TEST-4 No randomized test of Doc::apply</a></li>
       <li><a href="#CI-1">CI-1 Dependabot watches actions only</a></li>
       <li><a href="#ARCH-1">ARCH-1 model.ts mirrors Rust by hand</a></li>
       <li><a href="#ARCH-2">ARCH-2 Derived sizes in the document</a></li>
       <li><a href="#DOC-1">DOC-1 Wrong docstring on pickProfile</a></li>
       <li><a href="#SEC-1">SEC-1 No content security policy</a></li>
       <li><a href="#PERF-5">PERF-5 Source Serif downloaded twice</a></li>
+      <li><a href="#BUG-8">BUG-8 SW cache name ignores file contents</a></li>
     </ol>
   </li>
   <li><a href="#strong">What is already strong</a></li>
@@ -85,11 +91,18 @@
 
 <h2 id="open">1. Open findings</h2>
 
-<article class="card medium" id="BUG-1">
-  <header><span class="id">BUG-1</span><span class="badge medium">medium</span><h3>Numbers without an upper bound break raster output and pass the preflight</h3></header>
-  <p class="file"><code>engine/src/doc/mod.rs</code> <code>Props::check</code> (<code>f64::MAX</code> bounds), <code>TextProps::check</code>, <code>check_frame</code>; <code>web/src/controls.tsx</code> <code>Field</code> (<code>max = Infinity</code>)</p>
-  <p>Commands require finite numbers but mostly no maximum: stroke weight, radius, blur, shadow offset, text size, letter spacing, line height, indents, gutter, frame size and the newer per-side stroke weights, column rule weight, min height and wrap offsets accept anything up to <code>f32::MAX</code> or <code>f64::MAX</code>. Release-mode probe tests (temporary, removed): a stroke weight of 1e10 pt panics in tiny-skia (<code>alpha_runs.rs:189</code>, <code>unwrap</code> on <code>None</code>) in <code>png</code> and <code>inks</code>; 1e8 still works. In WASM this traps the export worker, so the ink preview of a CMYK document, PNG/JPEG export and the flattening of PDF/X-1a fail with a raw message; render and PDF survive. In debug builds text size 1e40 trips <code>debug_assert</code> “text drawn where it was not set” and blur 1e9 overflows <code>i32</code> in <code>raster.rs:114</code>. In the browser a width of <code>99999999999</code> mm was accepted: the ellipse vanished from the page and the preflight said “No issues. The document is ready for print.”</p>
-  <p class="rec">Give every length a maximum in the <code>check</code> functions (e.g. 20000 mm, the limit the view already has; text size 0.1–5000 pt; stroke and blur ≤ the page diagonal) and pass the same bounds as <code>max</code> to the fields. Add a test with the extremes to <code>a_command_that_fails_leaves_the_document_as_it_was</code>.</p>
+<article class="card high" id="BUG-1">
+  <header><span class="id">BUG-1</span><span class="badge high">high</span><h3>Lengths without an upper bound make the engine ask for gigabytes and trap</h3></header>
+  <p class="file"><code>engine/src/doc/mod.rs</code> <code>Props::check</code> (<code>f64::MAX</code> bounds), <code>TextProps::check</code>, <code>check_frame</code>; <code>engine/src/doc/pages.rs</code> <code>set_page</code>; <code>engine/src/geom.rs</code> <code>pattern</code>; <code>engine/src/raster.rs</code> <code>rasterize</code>; <code>web/src/controls.tsx</code> <code>Field</code> (<code>max = Infinity</code>)</p>
+  <p>Commands require finite numbers but mostly no maximum: stroke weight, radius, blur, shadow offset, text size, letter spacing, line height, indents, gutter, frame and page size, per-side stroke weights, column rule weight, min height and wrap offsets accept anything up to <code>f32::MAX</code> or <code>f64::MAX</code>. A temporary engine fuzzer (random command sequences, then render, png, inks, pdf and save; removed again) and release-mode probes found three ways to stop the engine: <b>(1)</b> a dashed or dotted stroke makes <code>geom::pattern</code> build <code>room / period</code> dashes with no cap, so a dashed rectangle a few km wide asks for 8 GB inside <code>Doc::render</code> on the main thread, i.e. the whole app traps on an input the W field accepts; <b>(2)</b> a shadow or blur makes <code>pdf::raster</code> rasterize its area at the export ppi with no limit but the page, so on a 5000 × 20000 pt page <code>rasterize</code> asked for 34.7 GB (backtrace <code>rasterize ← plane ← raster ← draw ← pdf</code>), and an A0 page with a full-page shadow already needs about 0.5 GB per plane; <b>(3)</b> a stroke weight of 1e10 pt panics in tiny-skia (<code>alpha_runs.rs:189</code>) in <code>png</code> and <code>inks</code>. In WASM (4 GB) the first traps the editor, the others trap the export worker or, above 4 GB, silently leave the shadow out. In debug builds text size 1e40 trips “text drawn where it was not set” and blur 1e9 overflows <code>i32</code> in <code>raster.rs:114</code>. In the browser a width of <code>99999999999</code> mm was accepted, the ellipse vanished and the preflight said “No issues”. (1)–(3) confirmed natively, (1) not run in the browser.</p>
+  <p class="rec">Give every length one maximum in the <code>check</code> functions and in <code>set_page</code> (e.g. 20000 mm, the limit the view already has; text size 0.1–5000 pt; stroke and blur ≤ the page diagonal), pass the same bounds as <code>max</code> to the fields, cap the dash count in <code>pattern</code> (draw solid above some thousands) and the pixel count in <code>rasterize</code> (lower the ppi of that raster). Add the extremes to <code>a_command_that_fails_leaves_the_document_as_it_was</code>.</p>
+</article>
+
+<article class="card medium" id="BUG-6">
+  <header><span class="id">BUG-6</span><span class="badge medium">medium</span><h3>Grouping a group together with its own child leaves a stray group that undo keeps</h3></header>
+  <p class="file"><code>engine/src/doc/mod.rs</code> <code>group</code> (also reached by <code>mask</code> and <code>auto_layout</code>), <code>sorted</code>; <code>web/src/Layers.tsx</code> <code>select</code></p>
+  <p><code>sorted</code> keeps a node and its descendants together, so <code>group</code> calls <code>create_at</code> for the new group and then fails in <code>reparent</code> when it moves the parent into itself. The created group stays as a pending op, breaking the rule that a failing command writes nothing (the <code>debug_assert</code> fires only in debug builds; the WASM build is release). In the browser: select a group and one of its children (Shift+click in the layers tree selects a range that includes both), press Ctrl+G: the status shows the error, an empty “Group” appears in the layers tree and Ctrl+Z does not remove it. The same with Ctrl+Alt+M and auto layout. Confirmed natively by the fuzzer and in Chromium.</p>
+  <p class="rec">In <code>group</code> drop every id whose ancestor is also in the list (or reject such a list) before the first write, and add the case to <code>a_command_that_fails_leaves_the_document_as_it_was</code>; a release-mode check of <code>pending_txn</code> after each failing <code>apply</code> (rollback with <code>revert_to</code>) would turn any further such fault into a no-op.</p>
 </article>
 
 <article class="card medium" id="BUG-2">
@@ -106,10 +119,17 @@
   <p class="rec">Raise <code>--text-3</code> to about 62 % in dark and 68 % in light, and darken the light theme's accent, bad and warn until each reaches 4.5:1; check once with the browser's contrast tool.</p>
 </article>
 
+<article class="card low" id="BUG-7">
+  <header><span class="id">BUG-7</span><span class="badge low">low</span><h3>A page of width or height 0 breaks the PDF export</h3></header>
+  <p class="file"><code>engine/src/doc/pages.rs</code> <code>set_page</code>; <code>engine/src/pdf.rs:98</code>; <code>web/src/Properties.tsx</code> page W/H fields</p>
+  <p><code>set_page</code> accepts 0 (“must not be negative”), and the page fields have no minimum above 0. <code>PageSettings::from_wh(width + 2·bleed, …).unwrap()</code> then panics for a page of 0 × 0 or 0 width without bleed, which traps the export worker; preflight shows no issue for an empty page. Confirmed natively, the browser message not checked.</p>
+  <p class="rec">Require width and height ≥ 1 pt in <code>set_page</code> (and the bound of BUG-1 above), set <code>min</code> on the fields, and replace the <code>unwrap</code> with an error.</p>
+</article>
+
 <article class="card low" id="BUG-3">
   <header><span class="id">BUG-3</span><span class="badge low">low</span><h3>A trap while restoring the autosave goes on with a broken engine</h3></header>
   <p class="file"><code>web/src/main.tsx</code> restore <code>catch</code></p>
-  <p>The <code>catch</code> around <code>editor.load</code> treats every error alike: keep, download, start a new document. A <code>WebAssembly.RuntimeError</code> leaves the engine in an undefined state (wasm-bindgen borrow flags, half-applied state), and the trap handler is only installed after the render, so the user works on in an engine that may fail later.</p>
+  <p>The <code>catch</code> around <code>editor.load</code> treats every error alike: keep, download, start a new document. A <code>WebAssembly.RuntimeError</code> leaves the engine in an undefined state (wasm-bindgen borrow flags, half-applied state), and the trap handler is only installed after the render, so the user works on in an engine that may fail later. With BUG-1 this path is reachable from normal input: a dashed shape made huge traps the render, the autosave already holds it, and the reload traps again while restoring, so the document ends under <code>doc-unreadable</code> and the user gets a new one.</p>
   <p class="rec">In the <code>catch</code>, after keeping and downloading, show the “Satz stopped” notice when <code>e instanceof WebAssembly.RuntimeError</code>; the reload then starts clean because the autosave was moved to <code>doc-unreadable</code>.</p>
 </article>
 
@@ -141,6 +161,13 @@
   <p class="rec">Bundle more than one page into a zip, as the package export already does.</p>
 </article>
 
+<article class="card low" id="UX-3">
+  <header><span class="id">UX-3</span><span class="badge low">low</span><h3>Error messages pass raw engine text and one says the wrong thing</h3></header>
+  <p class="file"><code>web/src/editor.ts:232</code>; <code>web/src/file.ts</code> <code>keep</code>, <code>addFont</code></p>
+  <p>A failing command shows the engine's own text in the status bar (as after Ctrl+G in BUG-6), without saying what was not done. <code>keep</code> adds the font to the engine before it stores it; if the IndexedDB write fails, the user reads “Could not add font.ttf: … Choose a .ttf, .otf, .woff or .woff2 file” although the font is in use and only missing after the next reload.</p>
+  <p class="rec">Prefix command errors with the action that failed (“Could not group: …”), and in <code>addFont</code> word a storage failure as “… is used now but not kept for the next visit”.</p>
+</article>
+
 <article class="card low" id="PERF-3">
   <header><span class="id">PERF-3</span><span class="badge low">low</span><h3>Every command serialises the whole snapshot to JSON and the UI parses it again</h3></header>
   <p class="file"><code>engine/src/lib.rs</code> <code>snapshot</code>; <code>web/src/editor.ts</code> <code>change</code>, <code>index</code></p>
@@ -153,6 +180,13 @@
   <p class="file"><code>engine/Cargo.toml</code> <code>unicode_names2</code>; <code>engine/src/text.rs:119</code> <code>characters</code></p>
   <p>The engine WASM is 8.3 MB, 3,333,977 bytes with <code>gzip -9</code> on <code>e554868</code>. A build without <code>unicode_names2</code> measured on 05.10 was 277 kB gzip smaller: 8 % of the engine for the search by name in the characters panel, which few sessions open.</p>
   <p class="rec">Search by code point and block only, or fetch a names file when the panel opens.</p>
+</article>
+
+<article class="card low" id="PERF-6">
+  <header><span class="id">PERF-6</span><span class="badge low">low</span><h3>The image registry grows for the whole session</h3></header>
+  <p class="file"><code>engine/src/image.rs</code> <code>IMAGES</code>, <code>adjusted</code>, <code>id</code>, <code>entry_by_hash</code></p>
+  <p>The thread-local registry is a <code>Vec</code> that is only appended to: the bytes of every image of every document opened in the tab stay, and <code>adjusted</code> adds one entry per brightness, contrast or saturation value used (<code>forget</code> drops the decoded pixels, not the entries). <code>id</code> and <code>entry_by_hash</code> scan linearly. Dragging an adjustment slider over its range on one image adds about 100 entries. Read from the code, not measured.</p>
+  <p class="rec">Key the registry by hash in a <code>HashMap</code>, keep only the newest adjusted entry per source image, and drop the entries the loaded document no longer references when a document is opened.</p>
 </article>
 
 <article class="card low" id="TEST-1">
@@ -174,6 +208,13 @@
   <p class="file"><code>web/src/file.ts</code>, <code>web/src/main.tsx</code></p>
   <p>E2E covers a trap on the main thread, unreadable files and fonts, a missing engine and a broken autosave restore. Nothing covers a refused autosave write (BUG-2), a trap inside the export worker (BUG-1) or a worker reset during a job (BUG-5).</p>
   <p class="rec">Add e2e tests that stub <code>IDBObjectStore.put</code> to fail and that make the worker throw, and assert the message.</p>
+</article>
+
+<article class="card low" id="TEST-4">
+  <header><span class="id">TEST-4</span><span class="badge low">low</span><h3>No randomized test of <code>Doc::apply</code></h3></header>
+  <p class="file"><code>engine/src/doc/</code> tests</p>
+  <p>The rule that a failing command leaves no pending ops and the output paths are tested with chosen examples only. A random command sequence fuzzer written for this review found BUG-6, BUG-7 and the three traps of BUG-1 within minutes.</p>
+  <p class="rec">Keep a seeded command fuzzer as an <code>#[ignore]</code> test next to the benchmark (render, png, inks, pdf and save after each step, assert no pending ops), and run it under <code>ulimit -v</code> before releases.</p>
 </article>
 
 <article class="card low" id="CI-1">
@@ -218,11 +259,18 @@
   <p class="rec">Leave it until more built-in fonts arrive; then load all as files and pass them to <code>add_font</code>.</p>
 </article>
 
+<article class="card info" id="BUG-8">
+  <header><span class="id">BUG-8</span><span class="badge info">info</span><h3>The service worker cache name ignores the content of public files</h3></header>
+  <p class="file"><code>web/vite.config.ts</code> <code>service-worker</code> plugin; <code>web/sw.js</code></p>
+  <p>The cache name is a hash of the file names only. Bundled files carry a content hash in their names, but <code>manifest.webmanifest</code>, the icons and <code>index.html</code> do not, so a deploy that changes only those keeps the old cache name and installed clients, served cache-first, never see the change.</p>
+  <p class="rec">Hash the file contents (the bundle's <code>source</code>/<code>code</code> and the public files) into the cache name.</p>
+</article>
+
 <h2 id="strong">2. What is already strong</h2>
 <ul class="plain">
   <li><span class="badge good">gate</span> <code>./check</code> in <code>nix develop</code> passes end to end on <code>e554868</code>: <code>./check build</code> in 45 s warm (fmt, clippy <code>-D warnings</code>, 283 cargo tests plus the ignored benchmark, wasm build, <code>tsc</code>, eslint, 40 vitest tests in 9 files, vite build), then 221 Playwright tests in 5:00 min. E2E fails on console errors and waits for the drawn frame. CI runs the same script, e2e in 4 shards of 53–54 tests from a slim <code>.#e2e</code> shell, 1 retry reported as flaky, traces uploaded on failure.</li>
   <li><span class="badge good">test</span> Pixel diff of the live canvas against the exported PDF rasterised by MuPDF, in RGB and CMYK and per page; presets, separations, overprint and the package zip are checked. The display-list fixture is committed and <code>cargo test</code> fails when it is stale.</li>
-  <li><span class="badge good">test</span> Engine tests read as specifications and check undo with stable ids; <code>a_command_that_fails_leaves_the_document_as_it_was</code> and a debug assertion guard every command arm. E2E covers unreadable files, fonts and images, a failed engine load, a trap with reload, offline install and the 880 px bar.</li>
+  <li><span class="badge good">test</span> Engine tests read as specifications and check undo with stable ids; <code>a_command_that_fails_leaves_the_document_as_it_was</code> and a debug assertion guard every command arm (BUG-6 slips past both because release builds skip the assertion). E2E covers unreadable files, fonts and images, a failed engine load, a trap with reload, offline install and the 880 px bar.</li>
   <li><span class="badge good">engine</span> Colours, page sizes, document settings and image size (50 megapixels, also for opened documents) are checked before the first write; deleted nodes keep their ids under <code>trash</code>; a story keeps the lines it set per frame, so render costs 0.03 ms at any page count; a snapshot rebuilds only the pages a change reaches.</li>
   <li><span class="badge good">design</span> One display list feeds canvas, PDF and rasters; PDF, inks and image export run in a worker that starts fresh after a failure; canvas images decode off the main thread with <code>createImageBitmap</code>, adjust and separate on the GPU and stay within a memory budget across page changes; an unreadable autosave is downloaded and kept under <code>doc-unreadable</code>.</li>
   <li><span class="badge good">build</span> Toolchain fully in <code>flake.nix</code>; <code>wasm-bindgen</code> pinned to the CLI in the flake; 3 runtime web dependencies; actions pinned to commits; CI with <code>contents: read</code>, cancelled when superseded and skipped for agent-only pushes; <code>CLAUDE.md</code> matches the code.</li>
