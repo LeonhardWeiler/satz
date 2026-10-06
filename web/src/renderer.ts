@@ -162,7 +162,7 @@ export class Renderer {
   /** Some page was recorded since the last `sweep`. */
   private recorded = false
   /** The pages as `drawScene` last drew them, and what of. */
-  private scene?: { surface: Surface; key: unknown[]; ops: Uint32Array[] }
+  private scene?: { surface: Surface; key: unknown[] }
   /** Paint for display-list content; `chrome` draws the page, guides and overlay. */
   private paint: Paint
   private chrome: Paint
@@ -391,11 +391,9 @@ export class Renderer {
   private drawScene(canvas: Canvas, lists: { id: string; x: number; inks?: Inked }[], sheets: Sheet[], view: View, dpr: number, cmyk: boolean, on: number, content: (c: Canvas) => void) {
     const { ck } = this
     const [, , width, height] = canvas.getDeviceClipBounds()
-    const key = [width, height, dpr, view.x, view.y, view.zoom, cmyk, on, ...sheets.flatMap((s) => [s.x, s.width, s.height, s.bleed]), ...lists.flatMap((l) => [l.x, l.inks?.image])]
-    const ops = lists.map((l) => this.engine.displayList(l.id).slice())
-    const same = (a: ArrayLike<unknown>, b: ArrayLike<unknown>) => a.length === b.length && Array.prototype.every.call(a, (v, i) => v === b[i])
+    const key = [width, height, dpr, view.x, view.y, view.zoom, cmyk, on, ...sheets.flatMap((s) => [s.x, s.width, s.height, s.bleed]), ...lists.flatMap((l) => [l.id, l.x, l.inks?.image, this.engine.listVersion(l.id)])]
     let scene = this.scene
-    if (!scene || !same(scene.key, key) || scene.ops.length !== ops.length || ops.some((o, i) => !same(o, scene!.ops[i]))) {
+    if (!scene || scene.key.length !== key.length || scene.key.some((v, i) => v !== key[i])) {
       let surface = scene?.surface
       if (surface?.width() !== width || surface.height() !== height) {
         surface?.delete()
@@ -405,7 +403,7 @@ export class Renderer {
       }
       surface.getCanvas().clear(ck.TRANSPARENT)
       content(surface.getCanvas())
-      scene = this.scene = { surface, key, ops }
+      scene = this.scene = { surface, key }
     }
     const image = scene.surface.makeImageSnapshot()
     canvas.drawImage(image, 0, 0, null)

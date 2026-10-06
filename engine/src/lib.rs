@@ -22,6 +22,8 @@ pub use doc::{Command, Doc, Snapshot};
 use color::ColorMode;
 use js_sys::{Uint8Array, Uint32Array};
 use serde::Serialize;
+use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -30,6 +32,12 @@ pub struct Engine {
     doc: Doc,
     list: Vec<u32>,
     overlay: Vec<u32>,
+    /// The display list of each page and master, and its version.
+    lists: HashMap<String, (u32, Vec<u32>)>,
+    /// The snapshot that `lists` were checked against, and the ids checked.
+    seen: Option<Rc<Snapshot>>,
+    fresh: HashSet<String>,
+    versions: u32,
 }
 
 #[wasm_bindgen]
@@ -44,8 +52,7 @@ impl Engine {
     pub fn sample() -> Engine {
         Engine {
             doc: Doc::sample(),
-            list: Vec::new(),
-            overlay: Vec::new(),
+            ..Engine::default()
         }
     }
 
@@ -53,8 +60,7 @@ impl Engine {
     pub fn blank(w: f64, h: f64, pages: usize, facing: bool) -> Engine {
         Engine {
             doc: Doc::blank(w, h, pages, facing, ColorMode::Cmyk),
-            list: Vec::new(),
-            overlay: Vec::new(),
+            ..Engine::default()
         }
     }
 
@@ -87,8 +93,13 @@ impl Engine {
     /// The view is invalid after the next call into the engine.
     #[wasm_bindgen(js_name = displayList)]
     pub fn display_list(&mut self, page: &str) -> Uint32Array {
-        self.list = encode(&self.doc.render(page));
-        unsafe { Uint32Array::view(&self.list) }
+        unsafe { Uint32Array::view(&self.drawn(page).1) }
+    }
+
+    /// The version of the display list of the page `page`, which changes only with it.
+    #[wasm_bindgen(js_name = listVersion)]
+    pub fn list_version(&mut self, page: &str) -> u32 {
+        self.drawn(page).0
     }
 
     /// The display list of the page `id` as its inverted C, M and Y plate, or its K
@@ -301,6 +312,32 @@ impl Engine {
     }
 }
 
+impl Engine {
+    fn drawn(&mut self, page: &str) -> &(u32, Vec<u32>) {
+        let snap = self.doc.snapshot();
+        if !self.seen.as_ref().is_some_and(|s| Rc::ptr_eq(s, &snap)) {
+            let ids: HashSet<&str> = snap
+                .pages
+                .iter()
+                .chain(&snap.masters)
+                .map(|p| p.id.as_str())
+                .collect();
+            self.lists.retain(|id, _| ids.contains(id.as_str()));
+            self.fresh.clear();
+            self.seen = Some(snap);
+        }
+        if self.fresh.insert(page.to_string()) {
+            let list = encode(&self.doc.render(page));
+            let entry = self.lists.entry(page.to_string()).or_default();
+            if entry.1 != list {
+                self.versions += 1;
+                *entry = (self.versions, list);
+            }
+        }
+        &self.lists[page]
+    }
+}
+
 /// FNV-1a hash of `bytes` in hex, which names fonts and images by their content.
 pub(crate) fn content_hash(bytes: &[u8]) -> String {
     let hash = bytes.iter().fold(0xcbf29ce484222325u64, |h, &b| {
@@ -366,4 +403,36 @@ pub fn resolve(color: JsValue, scope: JsValue) -> Result<JsValue, JsError> {
     };
     let ser = serde_wasm_bindgen::Serializer::json_compatible();
     Ok(color.resolve(&scope).serialize(&ser)?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_display_list_keeps_its_version_until_its_page_changes() {
+        let mut e = Engine::sample();
+        let a = e.doc.snapshot().pages[0].id.clone();
+        let b = e
+            .doc
+            .apply(Command::DuplicatePage { id: a.clone() })
+            .unwrap()
+            .remove(0);
+        let rect = e.doc.snapshot().pages[0].children[0].id.clone();
+        let (va, vb) = (e.drawn(&a).0, e.drawn(&b).0);
+        assert_ne!(va, vb);
+        let cmd = Command::SetFrame {
+            id: rect,
+            x: 5.0,
+            y: 5.0,
+            w: 50.0,
+            h: 50.0,
+            crop: false,
+        };
+        e.doc.apply(cmd).unwrap();
+        assert_ne!(e.drawn(&a).0, va);
+        assert_eq!(e.drawn(&b).0, vb);
+        let list = encode(&e.doc.render(&b));
+        assert_eq!(e.drawn(&b).1, list);
+    }
 }
