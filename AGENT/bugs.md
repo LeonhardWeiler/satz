@@ -14,6 +14,7 @@
 - [] Version history from the Loro history: browse and restore earlier states.
 - [] grep styles
 - [] add a color wheel inside the color picker for color combinations, like analogous, complementary, etc. 
+- [] good and useful ai connection for all different providers (similar to figma)
 
 --- with server (in the future)
 - [] make it possible to work together on the same project with link and code share, alot of works needs to be done to make this work good
