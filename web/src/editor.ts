@@ -222,7 +222,10 @@ export class Editor {
       this.groups = 0
     }
     try {
-      return this.change(() => this.engine.apply(rounded(cmd, 'id' in cmd ? this.nodes.get(cmd.id)?.node : undefined)))
+      const out = this.change(() => this.engine.apply(rounded(cmd, 'id' in cmd ? this.nodes.get(cmd.id)?.node : undefined)))
+      const notes = this.engine.notes()
+      if (notes.length) this.say(notes.join('. '))
+      return out
     } catch (e) {
       if (e instanceof WebAssembly.RuntimeError) throw e
       this.say((e as Error).message)

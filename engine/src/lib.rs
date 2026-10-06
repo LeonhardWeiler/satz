@@ -63,6 +63,11 @@ impl Engine {
         self.doc.apply(cmd).map_err(|e| JsError::new(&e))
     }
 
+    /// What the last command changed beyond what it was asked to.
+    pub fn notes(&self) -> Vec<String> {
+        self.doc.notes()
+    }
+
     pub fn snapshot(&self) -> Result<String, JsError> {
         Ok(serde_json::to_string(&*self.doc.snapshot())?)
     }

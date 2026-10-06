@@ -139,3 +139,18 @@ test('deleting the last child of a hugging frame keeps its size and makes it fix
   await expect(panel.getByRole('combobox', { name: 'Width sizing' })).toHaveText('Fixed')
   await expect(panel.getByRole('combobox', { name: 'Height sizing' })).toHaveText('Fixed')
 })
+
+test('a hugging frame turns fixed with a note when its only child fills it', async ({ page }) => {
+  await open(page)
+  const layers = page.getByRole('tree', { name: 'Layers' })
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  await layers.getByRole('button', { name: 'Frame', exact: true }).click()
+  await page.keyboard.press('Shift+A')
+  const w = await panel.getByRole('textbox', { name: 'W in mm' }).inputValue()
+  await layers.getByRole('button', { name: 'Rectangle', exact: true }).first().click()
+  await choose(panel.getByRole('combobox', { name: 'Width sizing' }), 'Fill')
+  await expect(page.getByText('Width of Frame set to fixed: its layers fill it')).toBeVisible()
+  await layers.getByRole('button', { name: 'Frame', exact: true }).click()
+  await expect(panel.getByRole('combobox', { name: 'Width sizing' })).toHaveText('Fixed')
+  await expect(panel.getByRole('textbox', { name: 'W in mm' })).toHaveValue(w)
+})

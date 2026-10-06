@@ -739,6 +739,8 @@ pub struct Doc {
     sheets: RefCell<Sheets>,
     /// The version of the last change other than text set again for a new font.
     version: String,
+    /// What the last command changed beyond what it was asked to.
+    notes: RefCell<Vec<String>>,
 }
 
 type Res<T> = Result<T, String>;
@@ -962,6 +964,7 @@ impl Doc {
             changed,
             _changes,
             sheets: RefCell::default(),
+            notes: RefCell::default(),
             undo: undo_manager(&doc),
             version: format!("{:?}", doc.oplog_frontiers()),
             doc,
@@ -1330,6 +1333,7 @@ impl Doc {
             return self.run(cmd);
         }
         self.invalidate();
+        self.notes.take();
         let history = matches!(cmd, Command::Undo | Command::Redo);
         let out = self.run(cmd);
         debug_assert!(
@@ -1339,6 +1343,11 @@ impl Doc {
         let out = self.finish(out?, history)?;
         self.version = format!("{:?}", self.doc.oplog_frontiers());
         Ok(out)
+    }
+
+    /// What the last command changed beyond what it was asked to, for the status bar.
+    pub fn notes(&self) -> Vec<String> {
+        self.notes.take()
     }
 
     /// Carries out a command; it checks everything before it writes, so that one that
@@ -1611,7 +1620,7 @@ impl Doc {
             Some(NodeKind::Frame) => {}
             _ => return Ok(()),
         }
-        let l = self.layout(id);
+        let mut l = self.layout(id);
         let Some((horizontal, pad)) = l.axes() else {
             return Ok(());
         };
@@ -1619,17 +1628,36 @@ impl Doc {
             .into_iter()
             .filter(|&c| !self.layout(c).absolute)
             .collect();
-        if flow.is_empty() {
-            // With nothing left to hug, a frame keeps its size instead of shrinking
-            // to its padding.
-            let fixed = |s| if s == Size::Hug { Size::Fixed } else { s };
-            let sizing = Sizing {
-                horizontal: fixed(l.sizing.horizontal),
-                vertical: fixed(l.sizing.vertical),
-            };
-            if sizing != l.sizing {
-                self.meta(id).insert(SIZING, loro(sizing)?).map_err(err)?;
+        // With nothing of a size of its own to hug, a frame keeps its size instead
+        // of shrinking to its padding.
+        let mut fixed = Vec::new();
+        for (a, side) in [(true, "width"), (false, "height")] {
+            if l.size(a) == Size::Hug && flow.iter().all(|&c| self.layout(c).size(a) == Size::Fill)
+            {
+                *if a {
+                    &mut l.sizing.horizontal
+                } else {
+                    &mut l.sizing.vertical
+                } = Size::Fixed;
+                fixed.push(side);
             }
+        }
+        if !fixed.is_empty() {
+            self.meta(id).insert(SIZING, loro(l.sizing)?).map_err(err)?;
+            if !flow.is_empty() {
+                let note = format!(
+                    "{} of {} set to fixed: its layers fill it",
+                    fixed.join(" and "),
+                    Some(self.name(id))
+                        .filter(|n| !n.is_empty())
+                        .unwrap_or("Frame".into())
+                );
+                self.notes
+                    .borrow_mut()
+                    .push(note[..1].to_uppercase() + &note[1..]);
+            }
+        }
+        if flow.is_empty() {
             return Ok(());
         }
         let axes = |[x, y, w, h]: [f64; 4]| {

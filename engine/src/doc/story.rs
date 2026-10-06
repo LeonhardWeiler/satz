@@ -1418,6 +1418,38 @@ mod tests {
     }
 
     #[test]
+    fn a_hugging_frame_whose_layers_all_fill_it_turns_fixed_with_a_note() {
+        let (mut d, p) = empty();
+        let f = create(&mut d, &p, NewKind::Frame, [0.0, 0.0, 1.0, 1.0]);
+        let r = create(&mut d, &f, NewKind::Rect, [0.0, 0.0, 30.0, 20.0]);
+        auto(
+            &mut d,
+            &f,
+            Props {
+                sizing: sizing(Size::Hug, Size::Hug),
+                ..Props::default()
+            },
+        );
+        assert!(d.notes().is_empty());
+        set(
+            &mut d,
+            &r,
+            Props {
+                sizing: sizing(Size::Fixed, Size::Fill),
+                ..Props::default()
+            },
+        );
+        assert_eq!(frames(&d, &f), [[0.0, 0.0, 30.0, 20.0]; 2]);
+        assert_eq!(node_sizing(&d, &f), sizing(Size::Hug, Size::Fixed).unwrap());
+        let name = d.snapshot().pages[0].children[0].name.clone();
+        assert_eq!(
+            d.notes(),
+            [format!("Height of {name} set to fixed: its layers fill it")]
+        );
+        assert!(d.notes().is_empty());
+    }
+
+    #[test]
     fn a_frame_with_more_text_than_fits_is_overset() {
         let (mut d, p1) = empty();
         let a = fixed_text(&mut d, &p1, [0.0, 0.0, 100.0, 2.0 * LEADING + 1.0]);
