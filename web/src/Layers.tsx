@@ -120,7 +120,7 @@ export function Layers({ editor }: { editor: Editor }) {
             style={{ paddingLeft: 4 + (level - 1) * 16 }}
             data-hidden={node.hidden || undefined}
             data-locked={node.locked || undefined}
-            onMouseEnter={() => editor.set({ hover: node.id })}
+            onMouseEnter={() => editor.point({ hover: node.id })}
             data-drop={drop?.id === node.id ? drop.at : undefined}
             draggable={renaming !== node.id}
             onDragStart={(e) => {
@@ -221,7 +221,7 @@ export function Layers({ editor }: { editor: Editor }) {
         aria-multiselectable="true"
         className="tree"
         onKeyDown={onKey}
-        onMouseLeave={() => editor.set({ hover: null })}
+        onMouseLeave={() => editor.point({ hover: null })}
       >
         {pages.length > 1
           ? pages.map((p) => (

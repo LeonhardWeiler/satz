@@ -106,7 +106,7 @@ function drawRuler(c: HTMLCanvasElement, horizontal: boolean, origin: number, sc
   const { clientWidth: w, clientHeight: h } = c
   if (!w || !h) return
   const dpr = devicePixelRatio
-  const key = JSON.stringify([w, h, dpr, origin, scale, extent, guides, matchMedia('(prefers-color-scheme: light)').matches, document.fonts.status])
+  const key = JSON.stringify([w, h, dpr, origin, scale, extent, guides])
   if (rulers.get(c) === key) return
   rulers.set(c, key)
   if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) [c.width, c.height] = [Math.round(w * dpr), Math.round(h * dpr)]
@@ -949,7 +949,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       pointer = { offsetX: e.offsetX, offsetY: e.offsetY, ctrlKey: e.ctrlKey || e.metaKey }
       if (editor.preflight) {
         const ink = inkAt(p)
-        if (ink !== editor.pointerInk) editor.set({ pointerInk: ink })
+        if (ink !== editor.pointerInk) editor.point({ pointerInk: ink })
       }
       if ((editor.pen || editor.placing.length) && !drag) {
         cursor = p
@@ -1249,7 +1249,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       editor.pointer = undefined
       hover = undefined
       cursor = undefined
-      if (editor.pointerInk !== null) editor.set({ pointerInk: null })
+      if (editor.pointerInk !== null) editor.point({ pointerInk: null })
       redraw()
     }
     const onKey = (e: KeyboardEvent) => {
@@ -1288,6 +1288,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     }
 
     const offSettings = subscribeSettings(redraw)
+    const offPointer = editor.subscribePointer(redraw)
     const unsubscribe = editor.subscribe(() => {
       if (spreadKey() !== shown) {
         shown = spreadKey()
@@ -1315,15 +1316,20 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     const scheme = matchMedia('(prefers-color-scheme: light)')
     const restyle = () => {
       accent = ''
+      rulers.delete(top)
+      rulers.delete(left)
       redraw()
     }
     scheme.addEventListener('change', restyle)
+    document.fonts.addEventListener('loadingdone', restyle)
     return () => {
       scheme.removeEventListener('change', restyle)
+      document.fonts.removeEventListener('loadingdone', restyle)
       cancelAnimationFrame(frame)
       cancelAnimationFrame(anim)
       clearInterval(blink)
       unsubscribe()
+      offPointer()
       offSettings()
       resize.disconnect()
       canvas.parentElement!.removeEventListener('wheel', onWheel)

@@ -102,6 +102,7 @@ export class Editor {
   groups = 0
   private savedAt: string
   private listeners = new Set<() => void>()
+  private pointed = new Set<() => void>()
 
   constructor(readonly engine: Engine) {
     this.snapshot = JSON.parse(engine.snapshot())
@@ -308,7 +309,7 @@ export class Editor {
     }
   }
 
-  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'hover' | 'pen' | 'editing' | 'threading' | 'placing' | 'overview' | 'preflight' | 'grids' | 'guide' | 'vector' | 'cropping' | 'inks' | 'previewed' | 'pointerInk'>>) {
+  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'pen' | 'editing' | 'threading' | 'placing' | 'overview' | 'preflight' | 'grids' | 'guide' | 'vector' | 'cropping' | 'inks' | 'previewed'>>) {
     const leaves = this.editing && patch.selection && !patch.selection.includes(this.editing.id)
     if (this.vector && ((patch.selection && !patch.selection.includes(this.vector.id)) || (patch.tool && patch.tool !== 'move'))) patch = { vector: null, ...patch }
     if (this.cropping && ((patch.selection && !patch.selection.includes(this.cropping)) || (patch.tool && patch.tool !== 'move'))) patch = { cropping: null, ...patch }
@@ -463,7 +464,8 @@ export class Editor {
   }
 
   togglePreflight() {
-    this.set({ preflight: !this.preflight, pointerInk: null })
+    this.pointerInk = null
+    this.set({ preflight: !this.preflight })
   }
 
   /** Leaves the current master for the page shown before it. */
@@ -553,9 +555,28 @@ export class Editor {
     return this.selection.flatMap((id) => this.nodes.get(id)?.node ?? [])
   }
 
+  /** Shows what the pointer is over; only the listeners of `subscribePointer` and `useEditor` hear of it. */
+  point(patch: Partial<Pick<Editor, 'hover' | 'pointerInk'>>) {
+    Object.assign(this, patch)
+    for (const l of this.pointed) l()
+  }
+
   subscribe = (listener: () => void) => {
     this.listeners.add(listener)
     return () => this.listeners.delete(listener)
+  }
+
+  subscribePointer = (listener: () => void) => {
+    this.pointed.add(listener)
+    return () => this.pointed.delete(listener)
+  }
+
+  watch = (listener: () => void) => {
+    const [a, b] = [this.subscribe(listener), this.subscribePointer(listener)]
+    return () => {
+      a()
+      b()
+    }
   }
 
   private emit() {
@@ -564,7 +585,7 @@ export class Editor {
 }
 
 export function useEditor<T>(editor: Editor, read: (e: Editor) => T): T {
-  return useSyncExternalStore(editor.subscribe, () => read(editor))
+  return useSyncExternalStore(editor.watch, () => read(editor))
 }
 
 export type Point = { x: number; y: number }
