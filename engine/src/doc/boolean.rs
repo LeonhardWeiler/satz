@@ -124,22 +124,39 @@ fn faces(path: &[f32]) -> Res<Vec<(BezPath, Point)>> {
         .collect();
     let t = Topology::<Lines>::from_paths(subs.iter().map(|s| (s, ())), 1e-6).map_err(err)?;
     let pos = t.compute_positions();
-    let key = |p: Point| (p.x.to_bits(), p.y.to_bits());
-    let mut edges = Vec::new();
-    for i in t.segment_indices() {
-        let p = &pos[i].path;
-        edges.extend([p.clone(), p.reverse_subpaths()]);
-    }
     let ends = |b: &BezPath| {
         let s = b.segments();
         let (first, last) = (s.clone().next(), s.last());
         first.zip(last).map(|(f, l)| (f, l.end()))
     };
+    // The sweep joins points that nearly meet with segments too short to have a
+    // direction; their ends count as one point.
+    let mut same = HashMap::new();
+    let key = |same: &HashMap<_, _>, p: Point| {
+        let mut k = (p.x.to_bits(), p.y.to_bits());
+        while let Some(&n) = same.get(&k) {
+            k = n;
+        }
+        k
+    };
+    let mut edges = Vec::new();
+    for i in t.segment_indices() {
+        let p = &pos[i].path;
+        let Some((f, end)) = ends(p) else { continue };
+        if (end - f.start()).hypot() < 1e-9 {
+            let (a, b) = (key(&same, f.start()), key(&same, end));
+            if a != b {
+                same.insert(a, b);
+            }
+            continue;
+        }
+        edges.extend([p.clone(), p.reverse_subpaths()]);
+    }
     let mut out: HashMap<_, Vec<(f64, usize)>> = HashMap::new();
     for (h, e) in edges.iter().enumerate() {
         let Some((f, _)) = ends(e) else { continue };
         let d = f.eval(0.01) - f.start();
-        out.entry(key(f.start()))
+        out.entry(key(&same, f.start()))
             .or_default()
             .push((d.y.atan2(d.x), h));
     }
@@ -148,7 +165,7 @@ fn faces(path: &[f32]) -> Res<Vec<(BezPath, Point)>> {
     }
     let next = |h: usize| {
         let (_, end) = ends(&edges[h])?;
-        let v = out.get(&key(end))?;
+        let v = out.get(&key(&same, end))?;
         let i = v.iter().position(|&(_, e)| e == h ^ 1)?;
         Some(v[(i + v.len() - 1) % v.len()].1)
     };
@@ -205,17 +222,65 @@ fn area(faces: &[(BezPath, Point)], at: Point) -> Res<BezPath> {
     Ok(out)
 }
 
-/// The areas of `path` around the points `at`.
+/// The areas of `path` around the points `at` that lie in one.
 pub(super) fn areas(lines: &[f32], at: &[f32]) -> Res<Vec<f32>> {
     let faces = faces(lines)?;
     let mut out = Vec::new();
     for (_, p) in geom::segments(at) {
-        out.extend(path(&area(&faces, Point::new(p[0].into(), p[1].into()))?));
+        if let Ok(a) = area(&faces, Point::new(p[0].into(), p[1].into())) {
+            out.extend(path(&a));
+        }
     }
     Ok(out)
 }
 
+/// The points `seeds` moved from the lines `old` to `new`: each into the area of
+/// `new` that overlaps its area most, or left where it is.
+pub(super) fn follow(old: &[f32], new: &[f32], seeds: &[f32]) -> Vec<f32> {
+    let (Ok(was), Ok(now)) = (faces(old), faces(new)) else {
+        return seeds.to_vec();
+    };
+    let mut found: Vec<(Point, BezPath)> = Vec::new();
+    for &(_, p) in &now {
+        if !found.iter().any(|(_, a)| a.winding(p) != 0)
+            && let Ok(a) = area(&now, p)
+        {
+            found.push((p, a));
+        }
+    }
+    let overlap = |a: &BezPath, b: &BezPath| {
+        combine(a, b, BinaryOp::Intersection).map_or(0.0, |c| flat(c.contours()).area().abs())
+    };
+    let mut out = Vec::new();
+    for (_, s) in geom::segments(seeds) {
+        let seed = Point::new(s[0].into(), s[1].into());
+        let to = area(&was, seed).ok().and_then(|a| {
+            let near = found
+                .iter()
+                .filter(|(_, b)| b.bounding_box().overlaps(a.bounding_box()));
+            near.map(|(p, b)| (overlap(&a, b), *p, b))
+                .filter(|o| o.0 > 0.0)
+                .max_by(|x, y| x.0.total_cmp(&y.0))
+                .map(|(_, p, b)| if b.winding(seed) != 0 { seed } else { p })
+        });
+        let p = to.unwrap_or(seed);
+        out.extend([MOVE, p.x as f32, p.y as f32]);
+    }
+    out
+}
+
 impl Doc {
+    /// The lines of the path `id` in its frame, unturned.
+    pub(super) fn lines_of(&self, id: TreeID) -> Res<Vec<f32>> {
+        let unturn = geom::invert(geom::rotation(
+            num(&self.meta(id), "rotation"),
+            self.bounds(id),
+        ));
+        Ok(geom::map(&self.outline_of(id)?, |q| {
+            geom::apply(unturn, q.map(f64::from)).map(|v| v as f32)
+        }))
+    }
+
     /// Fills the area of the path `id` around [x, y] in its parent's space, or empties it
     /// when it is filled.
     pub(super) fn fill_area(&self, id: String, x: f64, y: f64) -> Res<Vec<String>> {
@@ -230,9 +295,7 @@ impl Doc {
         let frame = self.bounds(id);
         let parent = parent_node(self.tree.parent(id).ok_or("no parent")?).ok_or("no parent")?;
         let unturn = geom::invert(geom::rotation(num(&m, "rotation"), frame));
-        let lines = geom::map(&self.outline_of(id)?, |q| {
-            geom::apply(unturn, q.map(f64::from)).map(|v| v as f32)
-        });
+        let lines = self.lines_of(id)?;
         let [x, y] = geom::apply(unturn, geom::apply(geom::invert(self.turn(parent)), [x, y]));
         let [l, t, w, h] = frame.map(|v| v as f32);
         let faces = faces(&lines)?;
@@ -457,6 +520,85 @@ mod tests {
         assert_eq!(fill(5.0, 5.0).unwrap(), [[0.0, 0.0, 20.0, 20.0]]);
         assert_eq!(fill(51.0, 6.0).unwrap(), [[0.0, 0.0, 55.0, 20.0]]);
         assert!(fill(80.0, 80.0).is_err());
+    }
+
+    #[test]
+    fn the_area_is_the_face_the_lines_bound_where_they_cross_at_nearly_one_point() {
+        let at = |lines: &[f32], x: f32, y: f32| {
+            areas(lines, &[MOVE, x, y]).map(|a| bounds(&a).map(|v| (v * 10.0).round() / 10.0))
+        };
+        let star = [
+            MOVE, 50.0, 0.0, LINE, 79.0, 90.0, LINE, 2.0, 35.0, LINE, 98.0, 35.0, LINE, 21.0, 90.0,
+            CLOSE,
+        ];
+        assert_eq!(at(&star, 50.0, 50.0), Ok([31.9, 35.0, 36.3, 34.3]));
+        let curve = [
+            MOVE, 0.0, 0.0, CUBIC, 30.0, -10.0, 60.0, 50.0, 0.0, 40.0, MOVE, 5.0, -10.0, LINE, 5.0,
+            60.0,
+        ];
+        assert_eq!(at(&curve, 15.0, 20.0).unwrap()[0], 5.0);
+    }
+
+    #[test]
+    fn filled_areas_stay_while_a_point_of_the_lines_moves() {
+        let (mut d, p) = empty();
+        let v = create(&mut d, &p, NewKind::Path, [0.0, 0.0, 1.0, 1.0]);
+        let shape = |d: &mut Doc, k: f32| {
+            let path = vec![
+                MOVE,
+                0.0,
+                0.0,
+                LINE,
+                100.0,
+                0.0,
+                LINE,
+                100.0 + k,
+                100.0,
+                LINE,
+                0.0,
+                100.0,
+                CLOSE,
+                MOVE,
+                -10.0,
+                37.3,
+                LINE,
+                110.0 + k * 0.7,
+                61.1,
+                MOVE,
+                33.3,
+                -5.0,
+                LINE,
+                70.0,
+                105.0,
+            ];
+            d.apply(Command::SetPath {
+                id: v.clone(),
+                path,
+            })
+            .unwrap();
+        };
+        shape(&mut d, 0.0);
+        for [x, y] in [[20.0, 20.0], [80.0, 80.0]] {
+            d.apply(Command::FillArea {
+                id: v.clone(),
+                x,
+                y,
+            })
+            .unwrap();
+        }
+        for i in 0..100 {
+            shape(&mut d, (i as f32 * 0.37).sin() * 40.0);
+            let areas: usize = page_ops(&d)
+                .iter()
+                .map(|o| match o {
+                    Op::FillPath { path, .. } => {
+                        geom::segments(path).filter(|s| s.0 == MOVE).count()
+                    }
+                    _ => 0,
+                })
+                .sum();
+            assert_eq!(areas, 2, "step {i}");
+        }
     }
 
     #[test]

@@ -2235,9 +2235,13 @@ impl Doc {
         let [l, t, nw, nh] = bounds(&path);
         let scale = |v: f32, s: f32| if s > 0.0 { v / s } else { 0.0 };
         let areas: Vec<f32> = self.json(id, "areas");
-        let areas = geom::map(&areas, |[u, v]| {
-            [scale(x + u * w - l, nw), scale(y + v * h - t, nh)]
-        });
+        let seeds = geom::map(&areas, |[u, v]| [x + u * w, y + v * h]);
+        let seeds = if seeds.is_empty() {
+            seeds
+        } else {
+            boolean::follow(&self.lines_of(id)?, &path, &seeds)
+        };
+        let areas = geom::map(&seeds, |[px, py]| [scale(px - l, nw), scale(py - t, nh)]);
         self.set(
             id,
             Props {
