@@ -2776,9 +2776,10 @@ kbd {
   overflow: auto;
 }
 
-.settings {
+.help.settings {
   width: min(400px, 92vw);
   height: fit-content;
+  margin-top: auto;
 }
 
 .settings-body {
