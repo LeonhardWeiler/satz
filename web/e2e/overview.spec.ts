@@ -1,7 +1,7 @@
 import type { Locator } from '@playwright/test'
 import { expect, test, addMaster, addPage, current, open, option, overview } from './util'
 
-test('dot opens the page overview on the current page with drawn thumbnails, and dot or escape closes it', async ({ page }) => {
+test('dot opens the page overview on the current page with drawn thumbnails kept for the next opening, and dot or escape closes it', async ({ page }) => {
   await open(page)
   const region = page.getByRole('region', { name: 'Page overview' })
   await page.keyboard.press('.')
@@ -21,6 +21,7 @@ test('dot opens the page overview on the current page with drawn thumbnails, and
   await page.keyboard.press('.')
   await expect(region).toHaveCount(0)
   await page.keyboard.press('.')
+  expect(await colours()).toBeGreaterThan(3)
   await page.keyboard.press('Escape')
   await expect(region).toHaveCount(0)
 })
@@ -108,7 +109,10 @@ test('the masters column is pulled wider with its thumbnails, the pages zoom and
   await expect.poll(() => width(master)).toBe(before + 100)
   const first = option(page, 1)
   const small = await width(first)
-  await region.getByRole('button', { name: 'Zoom in' }).click()
+  await first.hover()
+  await page.keyboard.down('Control')
+  await page.mouse.wheel(0, -100)
+  await page.keyboard.up('Control')
   await expect.poll(() => width(first)).toBeGreaterThan(small)
   const top = async (n: number) => Math.round((await option(page, n).boundingBox())!.y)
   expect(await top(2)).toBeGreaterThan(await top(1))
@@ -124,18 +128,20 @@ test('the pages header stays in view when the overview scrolls', async ({ page }
   for (let i = 0; i < 3; i++) await addPage(page)
   const region = await overview(page)
   await page.setViewportSize({ width: 1000, height: 600 })
-  const zoomIn = region.getByRole('button', { name: 'Zoom in' })
-  while (await zoomIn.isEnabled()) await zoomIn.click()
+  await option(page, 1).hover()
+  await page.keyboard.down('Control')
+  for (let i = 0; i < 3; i++) await page.mouse.wheel(0, -300)
+  await page.keyboard.up('Control')
+  const columns = region.getByRole('textbox', { name: 'Columns' })
   await region.getByRole('textbox', { name: 'Columns' }).fill('4')
   await region.getByRole('textbox', { name: 'Columns' }).press('Enter')
-  const before = await zoomIn.boundingBox()
+  const before = await columns.boundingBox()
   const pages = region.locator('.ov-col').last()
   await pages.evaluate((c) => c.scrollTo(c.scrollWidth, c.scrollHeight))
   await expect(pages).not.toHaveJSProperty('scrollTop', 0)
   await expect(pages).not.toHaveJSProperty('scrollLeft', 0)
-  expect(await zoomIn.boundingBox()).toEqual(before)
-  await expect(zoomIn).toBeInViewport({ ratio: 1 })
-  await expect(region.getByRole('button', { name: 'Zoom out' })).toBeInViewport({ ratio: 1 })
+  expect(await columns.boundingBox()).toEqual(before)
+  await expect(columns).toBeInViewport({ ratio: 1 })
 })
 
 test('ctrl click and a band select pages or masters, shift click a range, the selection drags to its new place and a click opens', async ({ page }) => {

@@ -21,8 +21,8 @@ const resize = (patch: Partial<typeof settings.overview>) => setSettings({ overv
 let painter: ReturnType<typeof makePainter> | undefined
 
 /**
- * Draws pictures of pages with the canvas renderer on the GPU and hands them over without a copy, as many per
- * frame as fit in 8 ms. It lives on after the overview closes, keeping what the last opening drew.
+ * Draws pictures of pages with the canvas renderer on the GPU, as many per frame as fit in 8 ms. It lives on
+ * after the overview closes and keeps the last picture of each page, which a canvas shows until it is drawn again.
  */
 function makePainter(ck: CanvasKit, editor: Editor) {
   let renderer: Renderer | undefined
@@ -30,6 +30,12 @@ function makePainter(ck: CanvasKit, editor: Editor) {
   const off = new OffscreenCanvas(1, 1)
   const queue = new Map<HTMLCanvasElement, [Lists, Sheet[]]>()
   const drawn = new Map<HTMLCanvasElement, [Lists, Sheet[]]>()
+  const pictures = new Map<string, ImageBitmap>()
+  const show = (c: HTMLCanvasElement, picture?: ImageBitmap) => {
+    if (!picture) return
+    ;[c.width, c.height] = [Math.round(c.clientWidth * devicePixelRatio), Math.round(c.clientHeight * devicePixelRatio)]
+    c.getContext('2d')!.drawImage(picture, 0, 0, c.width, c.height)
+  }
   let frame = 0
   const draw = (c: HTMLCanvasElement, lists: Lists, sheets: Sheet[]) => {
     if (!c.isConnected) return
@@ -50,7 +56,10 @@ function makePainter(ck: CanvasKit, editor: Editor) {
     renderer.draw(surface.getCanvas(), lists, sheets, { x: -left * zoom, y: 0, zoom }, 1, null, editor.snapshot.colorMode === 'cmyk')
     surface.flush()
     surface.delete()
-    c.getContext('bitmaprenderer')!.transferFromImageBitmap(off.transferToImageBitmap())
+    const key = JSON.stringify([lists, sheets])
+    pictures.get(key)?.close()
+    pictures.set(key, off.transferToImageBitmap())
+    show(c, pictures.get(key))
   }
   const run = () => {
     const end = performance.now() + 8
@@ -63,6 +72,7 @@ function makePainter(ck: CanvasKit, editor: Editor) {
   }
   return {
     paint: (c: HTMLCanvasElement, lists: Lists, sheets: Sheet[]) => {
+      show(c, pictures.get(JSON.stringify([lists, sheets])))
       queue.set(c, [lists, sheets])
       frame ||= requestAnimationFrame(run)
     },
@@ -381,12 +391,6 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         <header className="ov-head">
           <h2>Pages</h2>
           <Field label="Columns" unit="" int min={0} max={12} zero="Auto" value={columns} onCommit={(v) => resize({ columns: v })} />
-          <button type="button" className="icon-button" aria-label="Zoom out" title="Zoom out (Ctrl+wheel)" disabled={PAGE <= ZOOM[0]} onClick={() => resize({ pages: clamp(PAGE / 1.25, ZOOM) })}>
-            <Icon name="minus" />
-          </button>
-          <button type="button" className="icon-button" aria-label="Zoom in" title="Zoom in (Ctrl+wheel)" disabled={PAGE >= ZOOM[1]} onClick={() => resize({ pages: clamp(PAGE * 1.25, ZOOM) })}>
-            <Icon name="plus" />
-          </button>
         </header>
         <div className="ov-col">
           <div
