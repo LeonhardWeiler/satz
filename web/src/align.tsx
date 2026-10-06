@@ -83,6 +83,35 @@ export function align(editor: Editor, how: Align, layers = editor.selected()) {
   })
 }
 
+/** Layers that follow each other along `axis` without overlapping, each beside the next, and the gaps between them. */
+export type Row = { axis: 'x' | 'y'; nodes: Node[]; gaps: number[] }
+
+/** The selected layers as a row, or null when they are not one or an auto layout places them. */
+export function rowOf(editor: Editor): Row | null {
+  const nodes = editor.selected()
+  const parents = new Set(nodes.map((n) => editor.nodes.get(n.id)?.parent))
+  const [parent] = parents
+  if (nodes.length < 2 || parents.size > 1 || (parent?.kind === 'frame' && parent.direction !== 'none') || nodes.some((n) => n.locked || n.rotation)) return null
+  for (const [x, w, y, h] of [['x', 'w', 'y', 'h'], ['y', 'h', 'x', 'w']] as const) {
+    const s = [...nodes].sort((a, b) => a[x] - b[x])
+    const gaps = s.slice(1).map((n, i) => n[x] - s[i][x] - s[i][w])
+    if (gaps.every((g) => g >= 0) && s.slice(1).every((n, i) => n[y] < s[i][y] + s[i][h] && s[i][y] < n[y] + n[h])) return { axis: x, nodes: s, gaps }
+  }
+  return null
+}
+
+/** Moves the layers of `row` after its first so that `gap` lies between each and the next. */
+export function setGap(editor: Editor, { axis, nodes }: Row, gap: number) {
+  const w = axis === 'x' ? 'w' : 'h'
+  let at = nodes[0][axis]
+  editor.batch(() => {
+    for (const n of nodes) {
+      if (n[axis] !== at) editor.apply({ type: 'setFrame', id: n.id, x: n.x, y: n.y, w: n.w, h: n.h, [axis]: at })
+      at += n[w] + gap
+    }
+  })
+}
+
 /** A button for each alignment of the selection, or of the layers `inside` a group, those it cannot do disabled. */
 export function AlignBar({ editor, inside }: { editor: Editor; inside?: Node[] }) {
   const n = inside?.length ?? editor.selection.length

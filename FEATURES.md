@@ -22,7 +22,7 @@
 - Rectangle with per-corner radius, ellipse as arc or ring, polygon, star, line with arrows, pen paths, frames, text
 - Path edit mode: move, add, delete, smooth or corner points, marquee and shift selection of points, a bucket that fills or empties the areas that lines enclose
 - Group, ungroup, masks, booleans (union, subtract, intersect, exclude), flatten shapes and text to outlines
-- Move, resize, rotate, flip, align, distribute, swap places by dragging centres
+- Move, resize, rotate, flip, align, distribute, swap places by dragging centres; the gap between layers in a row shows in the panel and drags on the canvas
 - Auto layout with direction, gap, padding, alignment, hug, fill and absolute children; a frame that would hug only filling layers turns fixed with a note; constraints in frames
 - Layers tree with drag and drop, hide, lock, rename and keyboard navigation
 - Copy, paste, duplicate, alt-drag, eyedropper

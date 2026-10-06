@@ -26,6 +26,8 @@ export type Overlay = {
   handles?: Box
   /** Corner radius handles in screen space. */
   radii?: { x: number; y: number }[]
+  /** Handles in screen space between the layers of a row, dragged to change their gap. */
+  gaps?: { x: number; y: number; axis: 'x' | 'y' }[]
   /** Ends of a selected line, shown instead of box handles. */
   ends?: { x: number; y: number }[]
   /** Where dragged layers land in an auto layout frame. */
@@ -440,7 +442,7 @@ export class Renderer {
     canvas: Canvas,
     view: View,
     dpr: number,
-    { accent: color, selection, hover, marquee, handles, radii, ends, pen, insert, ports, threads, vector }: Overlay,
+    { accent: color, selection, hover, marquee, handles, radii, gaps, ends, pen, insert, ports, threads, vector }: Overlay,
   ) {
     const { ck, chrome: paint } = this
     const screen = (b: Box) =>
@@ -554,6 +556,16 @@ export class Renderer {
           canvas.drawCircle(p.x, p.y, HANDLE / 2, paint)
         }
       })
+    }
+    for (const g of gaps ?? []) {
+      const [w, h] = g.axis === 'x' ? [4, 14] : [14, 4]
+      const r = ck.RRectXY(ck.XYWHRect(Math.round(g.x - w / 2) + 0.5, Math.round(g.y - h / 2) + 0.5, w, h), 2, 2)
+      paint.setStyle(ck.PaintStyle.Fill)
+      paint.setColor(ck.WHITE)
+      canvas.drawRRect(r, paint)
+      paint.setStyle(ck.PaintStyle.Stroke)
+      paint.setColor(accent)
+      canvas.drawRRect(r, paint)
     }
     for (const [a, b] of threads ?? []) canvas.drawLine(a.x, a.y, b.x, b.y, paint)
     for (const p of ports ?? []) {

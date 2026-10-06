@@ -9,7 +9,7 @@ import { FORMATS, ORIENTATIONS } from './Start'
 import { addFonts, canFindFonts, findFonts, pickProfile, readLocalFonts, removeFont, useLocalFonts } from './file'
 import type { Bindable as Prop, Blend, Constraint, Command, Grid, LineStyle, Node, Page, Props, Section as Numbers, Wrap } from './model'
 import { isOpen, radiusOf } from './model'
-import { AlignBar, BooleanBar, combinable } from './align'
+import { AlignBar, BooleanBar, combinable, rowOf, setGap } from './align'
 import { ACTIONS, keyLabel, keysOf, press } from './commands'
 import { AutoLayout, flows, Sizing } from './AutoLayout'
 import { EffectList, PaintList } from './Paints'
@@ -100,6 +100,7 @@ export function Properties({
     })
 
   const one = nodes.length === 1 ? nodes[0] : undefined
+  const row = rowOf(editor)
   const ids = snapshot.pages.map((p) => p.id)
   const picked = overview?.filter((id) => ids.includes(id)) ?? []
   const targets = isPage && picked.length ? picked : [page.id]
@@ -319,6 +320,15 @@ export function Properties({
             )}
             {!line && nodes.every((n) => n.kind !== 'group') && (
               <Field label="∠" title="Rotation" unit="°" min={-Infinity} reset={0} value={same((n) => n.rotation)} onCommit={(v) => set({ rotation: ((v % 360) + 360) % 360 })} />
+            )}
+            {row && (
+              <Field
+                label={row.axis === 'x' ? '↔' : '↕'}
+                title={row.axis === 'x' ? 'Horizontal gap' : 'Vertical gap'}
+                unit="length"
+                value={row.gaps.every((g) => Math.abs(g - row.gaps[0]) < 1e-6) ? row.gaps[0] : null}
+                onCommit={(v) => setGap(editor, row, v)}
+              />
             )}
             {one?.kind === 'frame' && (
               <label className="check">

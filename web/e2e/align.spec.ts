@@ -1,4 +1,4 @@
-import { expect, test, open } from './util'
+import { drag, expect, test, open, screen } from './util'
 
 test('layers align to each other, a single layer to its frame, and three distribute', async ({ page }) => {
   await open(page)
@@ -78,4 +78,25 @@ test('the quick edit bar of a group aligns the layers inside it', async ({ page 
   await expect(panel.getByRole('textbox', { name: 'X in mm', exact: true })).toHaveValue(left)
   expect(await x('Sun')).toBe(left)
   expect(await x('Star')).toBe(left)
+})
+
+test('layers side by side show their gap in the panel and drag it on the canvas', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  for (const x of [20, 50]) {
+    await page.keyboard.press('r')
+    await drag(page, await screen(page, x, 20), await screen(page, x + 20, 40))
+  }
+  await page.keyboard.down('Shift')
+  await page.mouse.click(...(await screen(page, 30, 30)))
+  await page.keyboard.up('Shift')
+  const gap = panel.getByRole('textbox', { name: 'Horizontal gap in mm' })
+  await expect(gap).toHaveValue('10')
+  await gap.fill('5')
+  await gap.press('Enter')
+  await expect(gap).toHaveValue('5')
+  await drag(page, await screen(page, 42.5, 30), await screen(page, 47.5, 30))
+  await expect(gap).toHaveValue('10')
+  await page.keyboard.press('Control+z')
+  await expect(gap).toHaveValue('5')
 })

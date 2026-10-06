@@ -4,7 +4,8 @@ import { MM, bounds, ends, insertion, useEditor, type Editor, type Point, type T
 import type { Container, NewKind, Node, Page, TextNode } from './model'
 import { radii } from './model'
 import { penPath } from './pen'
-import { handleAt, portAt, portsOf, radiusHandles, rect, resized, spin, upright } from './handles'
+import { rowOf, setGap, type Row } from './align'
+import { gapHandles, handleAt, portAt, portsOf, radiusHandles, rect, resized, spin, upright } from './handles'
 import { Renderer, fitView, HANDLE, type Box, type View } from './renderer'
 import { pick, type Entry } from './select'
 import { length, settings, subscribeSettings, UNITS } from './settings'
@@ -34,6 +35,7 @@ function cursorOf(handle: string, turn: number) {
       `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke-linecap="round" stroke-linejoin="round">
       <g transform="rotate(${-Math.round(degrees)} 12 12)"><path d="${path}" stroke="#000" stroke-width="3.5"/><path d="${path}" stroke="#fff" stroke-width="1.5"/></g></svg>`,
     )}") 12 12, ${fallback}`
+  if (handle.startsWith('gap')) return handle[3] === 'x' ? 'ew-resize' : 'ns-resize'
   if (handle.startsWith('rotate')) return svg(TURN, TURNS[handle.slice(6)] + turn, 'crosshair')
   if (!(handle in RESIZE)) return handle.startsWith('end') ? 'crosshair' : ''
   const a = (((RESIZE[handle] + turn) % 180) + 180) % 180
@@ -65,6 +67,7 @@ type Drag =
   | { kind: 'resize'; start: Point; handle: string; box: Box; frames: Node[]; snaps: Snaps; by: number; turn: number; own: number }
   | { kind: 'rotate'; c: Point; from: number; nodes: Node[]; handle: string; turn: number }
   | { kind: 'end'; start: Point; id: string; ends: [Point, Point]; index: number }
+  | { kind: 'gap'; start: Point; row: Row; index: number }
   | { kind: 'radius'; start: Point; id: string; box: Box; radii: number[]; index: number; turn: number }
   | { kind: 'marquee'; start: Point; end: Point; base: string[]; knots?: At[] }
   | { kind: 'draw'; start: Point; id: string; dx: number; moved: boolean; tool: keyof typeof DEFAULT_SIZE; thread?: string; snaps?: Snaps }
@@ -313,7 +316,12 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       if (line) return { line }
       const shown = n && editor.shown(editor.selected()[0])
       const box: Box = shown ? grow(shown, outset(n)) : turnOf(nodes)[0] ? boxOf(nodes) : bounds(nodes.map((n) => grow(n, outset(n))))
-      return { box, radii: shown && n.kind === 'shape' && n.shape === 'rect' ? radiusHandles(view, shown, radii(n)) : undefined }
+      const row = rowOf(editor)
+      return {
+        box,
+        radii: shown && n.kind === 'shape' && n.shape === 'rect' ? radiusHandles(view, shown, radii(n)) : undefined,
+        gaps: row ? gapHandles(view, row.axis, row.nodes.map(placed)) : undefined,
+      }
     }
 
     /** The turn of `nodes` as shown and their own, when they are one layer or all turn alike on unturned parents. */
@@ -423,7 +431,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const [cw, ch] = [canvas.clientWidth / 2, canvas.clientHeight / 2]
       view.x = Math.min(Math.max(view.x, cw - EDGE * view.zoom), cw + EDGE * view.zoom)
       view.y = Math.min(Math.max(view.y, ch - EDGE * view.zoom), ch + EDGE * view.zoom)
-      const { box, line, radii: corners } = drag?.kind === 'marquee' ? {} : handles()
+      const { box, line, radii: corners, gaps } = drag?.kind === 'marquee' ? {} : handles()
       const h = editor.hover ?? hover
       const over = h && !editor.selection.includes(h) ? editor.nodes.get(h)?.node : undefined
       const outline = (n: Node) => ends(placed(n)) ?? editor.shown(n)
@@ -468,6 +476,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         marquee,
         handles: box,
         radii: corners,
+        gaps,
         ends: line,
         pen: pen && { anchors: pen.anchors.map((a) => ({ ...a, x: a.x + penDx })), cursor: drag ? undefined : cursor },
         insert: insert as [Point, Point] | undefined,
@@ -871,6 +880,12 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         editor.beginGroup()
         return
       }
+      const row = handle?.startsWith('gap') && rowOf(editor)
+      if (row) {
+        drag = { kind: 'gap', start: p, row, index: Number(handle!.slice(4)) }
+        editor.beginGroup()
+        return
+      }
       if (handle?.startsWith('radius')) {
         const n = placed(editor.selected()[0])
         const turn = editor.shown(n).rotation!
@@ -1090,6 +1105,9 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         if (e.shiftKey) by = Math.round(by / 15) * 15
         editor.turn(drag.nodes, by, drag.c)
         canvas.style.cursor = cursorOf(drag.handle, drag.turn + by)
+      } else if (drag.kind === 'gap') {
+        const { row, index, start } = drag
+        setGap(editor, row, Math.max(0, row.gaps[index] + p[row.axis] - start[row.axis]))
       } else if (drag.kind === 'radius') {
         const { box: b, index: i } = drag
         const [sx, sy] = [i === 1 || i === 2 ? -1 : 1, i < 2 ? 1 : -1]
@@ -1175,7 +1193,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         }
         for (const [to, ids] of moves) editor.apply({ type: 'move', ids, parent: to.id, index: to.children.length })
       }
-      if ((drag?.kind === 'draw' && drag.id) || (drag?.kind === 'guide' && drag.grouped) || drag?.kind === 'resize' || drag?.kind === 'end' || drag?.kind === 'radius' || drag?.kind === 'rotate' || drag?.kind === 'knot' || drag?.kind === 'image' || (drag?.kind === 'move' && drag.active)) {
+      if ((drag?.kind === 'draw' && drag.id) || (drag?.kind === 'guide' && drag.grouped) || drag?.kind === 'resize' || drag?.kind === 'end' || drag?.kind === 'radius' || drag?.kind === 'gap' || drag?.kind === 'rotate' || drag?.kind === 'knot' || drag?.kind === 'image' || (drag?.kind === 'move' && drag.active)) {
         editor.endGroup()
       }
       if (drag?.kind === 'move' && !drag.active && !e.shiftKey) {

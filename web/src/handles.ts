@@ -33,7 +33,9 @@ export function upright(b: Box): Box {
  * line, a corner such as `nw` or an edge such as `e` of the box, `rotate` and the corner
  * just outside a corner, such as `rotatene`, or nothing. Radius handles are in the unturned space of the box.
  */
-export function handleAt(view: View, x: number, y: number, { box, line, radii }: { box?: Box; line?: [Point, Point]; radii?: Point[] }) {
+export function handleAt(view: View, x: number, y: number, { box, line, radii, gaps }: { box?: Box; line?: [Point, Point]; radii?: Point[]; gaps?: Gap[] }) {
+  const g = gaps?.findIndex((p) => Math.hypot(p.x - x, p.y - y) <= HANDLE) ?? -1
+  if (g >= 0) return `gap${gaps![g].axis}${g}`
   if (box?.rotation) {
     const c = screen(view, { x: box.x + box.w / 2, y: box.y + box.h / 2 })
     ;({ x, y } = spin({ x, y }, -box.rotation, c))
@@ -67,6 +69,19 @@ export function handleAt(view: View, x: number, y: number, { box, line, radii }:
   if (box.w && near(x, l, EDGE)) return 'w'
   if (box.w && near(x, r, EDGE)) return 'e'
   return undefined
+}
+
+/** A handle in screen space in the middle of the gap between two layers of a row along `axis`. */
+export type Gap = Point & { axis: 'x' | 'y' }
+
+/** The gap handles in screen space of a row of `boxes` along `axis`. */
+export function gapHandles(view: View, axis: 'x' | 'y', boxes: Box[]): Gap[] {
+  const [x, w, y, h] = axis === 'x' ? (['x', 'w', 'y', 'h'] as const) : (['y', 'h', 'x', 'w'] as const)
+  return boxes.slice(1).map((b, i) => {
+    const a = boxes[i]
+    const p = { [x]: (a[x] + a[w] + b[x]) / 2, [y]: (Math.max(a[y], b[y]) + Math.min(a[y] + a[h], b[y] + b[h])) / 2 } as Point
+    return { ...screen(view, p), axis }
+  })
 }
 
 /** The corner radius handles in screen space of `box` with `radii`, from the top left clockwise. */
