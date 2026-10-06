@@ -41,7 +41,7 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
 
   if (editor.dragging) return false
   if (editor.vector && (e.key === 'Escape' || e.key === 'Enter')) editor.set({ vector: null })
-  else if (editor.vector?.at && (e.key === 'Delete' || e.key === 'Backspace')) editor.setKnots(remove(editor.knots(), editor.vector.at))
+  else if (editor.vector?.at.length && (e.key === 'Delete' || e.key === 'Backspace')) editor.setKnots(remove(editor.knots(), editor.vector.at))
   else if (editor.vector && !mod && !e.altKey && !e.shiftKey && key in VECTOR_KEYS) editor.set({ vector: { ...editor.vector, mode: VECTOR_KEYS[key] } })
   else if (editor.cropping && (e.key === 'Escape' || e.key === 'Enter')) editor.set({ cropping: null })
   else if (editor.placing.length && e.key === 'Escape') editor.set({ placing: [] })

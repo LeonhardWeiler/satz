@@ -206,6 +206,21 @@ test('enter edits the points of a shape, moving, adding and deleting them', asyn
   await expect(page.getByRole('toolbar', { name: 'Tools' })).toBeVisible()
 })
 
+test('a marquee in path edit mode picks several points to move and delete together', async ({ page }) => {
+  await open(page)
+  const props = page.getByRole('complementary', { name: 'Properties' })
+  await page.keyboard.press('r')
+  await drag(page, await screen(page, 20, 20), await screen(page, 60, 60))
+  await page.keyboard.press('Enter')
+  await drag(page, await screen(page, 55, -8), await screen(page, 70, 70))
+  await drag(page, await screen(page, 60, 20), await screen(page, 80, 20))
+  await expect(props.getByRole('textbox', { name: 'W' })).toHaveValue('60')
+  await expect(props.getByRole('textbox', { name: 'H' })).toHaveValue('40')
+  await page.keyboard.press('Delete')
+  await expect(props.getByRole('textbox', { name: 'W' })).toHaveValue('0')
+  await expect(page.getByRole('toolbar', { name: 'Path tools' })).toBeVisible()
+})
+
 test('the bucket fills the area under the pointer with a new layer below the path', async ({ page }) => {
   await open(page)
   const items = page.getByRole('tree', { name: 'Layers' }).getByRole('treeitem')

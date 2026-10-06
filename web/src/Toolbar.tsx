@@ -75,8 +75,8 @@ export function Toolbar({ editor, onPlaceImage }: { editor: Editor; onPlaceImage
             className="tool"
             aria-label={label}
             title={`${label} (Ctrl click a point)`}
-            disabled={!vector.at}
-            onClick={() => editor.setKnots(smooth(editor.knots(), vector.at!, on), vector.at)}
+            disabled={!vector.at.length}
+            onClick={() => editor.setKnots(vector.at.reduce((cs, at) => smooth(cs, at, on), editor.knots()), vector.at)}
           >
             <Icon name={icon} />
           </button>

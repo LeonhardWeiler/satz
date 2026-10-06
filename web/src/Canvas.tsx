@@ -66,10 +66,10 @@ type Drag =
   | { kind: 'rotate'; c: Point; from: number; nodes: Node[]; handle: string; turn: number }
   | { kind: 'end'; start: Point; id: string; ends: [Point, Point]; index: number }
   | { kind: 'radius'; start: Point; id: string; box: Box; radii: number[]; index: number; turn: number }
-  | { kind: 'marquee'; start: Point; end: Point; base: string[] }
+  | { kind: 'marquee'; start: Point; end: Point; base: string[]; knots?: At[] }
   | { kind: 'draw'; start: Point; id: string; dx: number; moved: boolean; tool: keyof typeof DEFAULT_SIZE; thread?: string; snaps?: Snaps }
   | { kind: 'pen'; start: Point }
-  | { kind: 'knot'; start: Point; cs: Contour[]; at: At; part: 'point' | 'in' | 'out' }
+  | { kind: 'knot'; start: Point; cs: Contour[]; at: At[]; part: 'point' | 'in' | 'out' }
   | { kind: 'text' }
   | { kind: 'swap'; id: string; at: Point }
   | { kind: 'image'; start: Point; node: Node; turn: number }
@@ -787,16 +787,18 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         const q = { x: p.x - editor.dx(v.id), y: p.y }
         const r = HIT / view.zoom
         const on = (x: number, y: number, k: Knot) => Math.hypot(x - q.x, y - q.y) <= r && (x !== k.x || y !== k.y)
-        const k = v.at && cs[v.at[0]]?.knots[v.at[1]]
-        let under: { at: At; part: 'point' | 'in' | 'out' } | undefined =
-          k && v.at ? (on(k.ix, k.iy, k) ? { at: v.at, part: 'in' } : on(k.ox, k.oy, k) ? { at: v.at, part: 'out' } : undefined) : undefined
+        let under: { at: At; part: 'point' | 'in' | 'out' } | undefined
+        for (const at of v.at) {
+          const k = cs[at[0]]?.knots[at[1]]
+          if (k && !under) under = on(k.ix, k.iy, k) ? { at, part: 'in' } : on(k.ox, k.oy, k) ? { at, part: 'out' } : undefined
+        }
         cs.forEach(({ knots }, c) => knots.forEach((k, i) => {
           if (!under && Math.hypot(k.x - q.x, k.y - q.y) <= r) under = { at: [c, i], part: 'point' }
         }))
         const segment = nearestSegment(cs, q)
         if ((e.ctrlKey || e.metaKey) && under?.part === 'point') {
           const k = cs[under.at[0]].knots[under.at[1]]
-          editor.setKnots(smooth(cs, under.at, !curved(k)), under.at)
+          editor.setKnots(smooth(cs, under.at, !curved(k)), [under.at])
           drag = null
           return
         }
@@ -806,7 +808,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           return
         }
         if (v.mode === 'delete') {
-          if (under?.part === 'point') editor.setKnots(remove(cs, under.at))
+          if (under?.part === 'point') editor.setKnots(remove(cs, [under.at]))
           drag = null
           return
         }
@@ -814,19 +816,30 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           const at: At = [segment.at[0], segment.at[1] + 1]
           const next = split(cs, segment.at, segment.t)
           editor.beginGroup()
-          editor.setKnots(next, at)
-          drag = { kind: 'knot', start: p, cs: next, at, part: 'point' }
+          editor.setKnots(next, [at])
+          drag = { kind: 'knot', start: p, cs: next, at: [at], part: 'point' }
           return
         }
         if (under) {
+          const { at: one, part } = under
+          const same = (a: At) => a[0] === one[0] && a[1] === one[1]
+          const picked = v.at.some(same)
+          const at = part !== 'point' || (picked && !e.shiftKey) ? v.at : !e.shiftKey ? [one] : picked ? v.at.filter((a) => !same(a)) : [...v.at, one]
           editor.beginGroup()
-          editor.set({ vector: { ...v, at: under.at } })
-          drag = { kind: 'knot', start: p, cs, ...under }
+          editor.set({ vector: { ...v, at } })
+          drag = { kind: 'knot', start: p, cs, at: part === 'point' ? at : [one], part }
           return
         }
         if (segment.d <= r) {
-          editor.set({ vector: { ...v, at: null } })
+          editor.set({ vector: { ...v, at: [] } })
           drag = null
+          return
+        }
+        const other = pickAt(p, 'click')
+        if (!other || other === v.id) {
+          const knots = e.shiftKey ? v.at : []
+          editor.set({ vector: { ...v, at: knots } })
+          drag = { kind: 'marquee', start: p, end: p, base: editor.selection, knots }
           return
         }
         editor.set({ vector: null })
@@ -965,6 +978,15 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       } else if (drag.kind === 'swap') {
         drag.at = p
         redraw()
+      } else if (drag.kind === 'marquee' && drag.knots && editor.vector) {
+        drag.end = p
+        const m = rect(drag.start, p)
+        const dx = editor.dx(editor.vector.id)
+        const inside = editor.knots().flatMap(({ knots }, c) =>
+          knots.flatMap((k, i): At[] => (k.x + dx >= m.x && k.x + dx <= m.x + m.w && k.y >= m.y && k.y <= m.y + m.h ? [[c, i]] : [])),
+        )
+        const base = drag.knots.filter((a) => !inside.some((b) => a[0] === b[0] && a[1] === b[1]))
+        editor.set({ vector: { ...editor.vector, at: [...base, ...inside] } })
       } else if (drag.kind === 'marquee') {
         drag.end = p
         const m = rect(drag.start, p)
@@ -1062,7 +1084,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         measures = [...new Map(all.map((m) => [`${m.x1} ${m.y1} ${m.x2} ${m.y2}`, m])).values()]
         for (const n of drag.frames) editor.apply({ type: 'setFrame', id: n.id, x: n.x + dx, y: n.y + dy, w: n.w, h: n.h })
       } else if (drag.kind === 'knot') {
-        editor.setKnots(shift(drag.cs, drag.at, drag.part, p.x - drag.start.x, p.y - drag.start.y), drag.at)
+        editor.setKnots(shift(drag.cs, drag.at, drag.part, p.x - drag.start.x, p.y - drag.start.y), editor.vector?.at)
       } else if (drag.kind === 'rotate') {
         let by = angle(drag.c, p) - drag.from
         if (e.shiftKey) by = Math.round(by / 15) * 15

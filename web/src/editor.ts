@@ -76,7 +76,7 @@ export class Editor {
   /** The layout grids of the pages show and layers snap to them. */
   grids = true
   /** The path being edited on the canvas, what a click on it does and its picked knot. */
-  vector: { id: string; mode: 'move' | 'add' | 'delete' | 'fill'; at: At | null } | null = null
+  vector: { id: string; mode: 'move' | 'add' | 'delete' | 'fill'; at: At[] } | null = null
   /** The image whose handles crop it and which a drag moves inside its frame. */
   cropping: string | null = null
   /** The plates shown (bit 0 for C to 3 for K, then the spots), and whether ink above the limit and colours out of gamut are marked. */
@@ -472,7 +472,7 @@ export class Editor {
     const n = this.nodes.get(id)?.node
     if (n?.kind !== 'shape') return
     if (n.shape !== 'path' || n.rotation) this.apply({ type: 'flatten', id })
-    this.set({ selection: [id], vector: { id, mode: 'move', at: null } })
+    this.set({ selection: [id], vector: { id, mode: 'move', at: [] } })
   }
 
   /** The knots of the path being edited, in the space of its page. */
@@ -487,7 +487,7 @@ export class Editor {
   }
 
   /** Gives the path being edited the knots `cs` and picks `at`; without knots the path goes. */
-  setKnots(cs: Contour[], at: At | null = null) {
+  setKnots(cs: Contour[], at: At[] = []) {
     const v = this.vector!
     if (!cs.length) this.apply({ type: 'delete', ids: [v.id] })
     else {

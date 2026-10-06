@@ -102,11 +102,11 @@ export function split(cs: Contour[], [c, i]: At, t: number): Contour[] {
   return out
 }
 
-/** `cs` without the knot `at`, and without its contour once that has fewer than 2 knots. */
-export function remove(cs: Contour[], [c, i]: At): Contour[] {
-  const out = structuredClone(cs)
-  out[c].knots.splice(i, 1)
-  return out.filter((k) => k.knots.length > 1)
+/** `cs` without the knots `at`, and without a contour once that has fewer than 2 knots. */
+export function remove(cs: Contour[], at: At[]): Contour[] {
+  return cs
+    .map((k, c) => ({ ...k, knots: k.knots.filter((_, i) => !at.some((a) => a[0] === c && a[1] === i)) }))
+    .filter((k) => k.knots.length > 1)
 }
 
 /** Whether the knot has a handle off its point. */
@@ -127,12 +127,14 @@ export function smooth(cs: Contour[], [c, i]: At, on: boolean): Contour[] {
   return out
 }
 
-/** `cs` with the knot `at`, or with `part` only its handle, moved by (dx, dy). */
-export function shift(cs: Contour[], [c, i]: At, part: 'point' | 'in' | 'out', dx: number, dy: number): Contour[] {
+/** `cs` with the knots `at`, or with `part` only their handle, moved by (dx, dy). */
+export function shift(cs: Contour[], at: At[], part: 'point' | 'in' | 'out', dx: number, dy: number): Contour[] {
   const out = structuredClone(cs)
-  const k = out[c].knots[i]
-  if (part !== 'out') Object.assign(k, { ix: k.ix + dx, iy: k.iy + dy })
-  if (part !== 'in') Object.assign(k, { ox: k.ox + dx, oy: k.oy + dy })
-  if (part === 'point') Object.assign(k, { x: k.x + dx, y: k.y + dy })
+  for (const [c, i] of at) {
+    const k = out[c].knots[i]
+    if (part !== 'out') Object.assign(k, { ix: k.ix + dx, iy: k.iy + dy })
+    if (part !== 'in') Object.assign(k, { ox: k.ox + dx, oy: k.oy + dy })
+    if (part === 'point') Object.assign(k, { x: k.x + dx, y: k.y + dy })
+  }
   return out
 }

@@ -31,12 +31,12 @@ test('a knot splits a curve into two curves along it', () => {
 })
 
 test('a removed knot joins its neighbours and a contour of one knot goes', () => {
-  expect(toPath(remove(contours(square), [0, 1]))).toEqual([MOVE, 0, 0, LINE, 10, 10, LINE, 0, 10, LINE, 0, 0, CLOSE])
-  expect(remove(contours([MOVE, 0, 0, LINE, 1, 1]), [0, 0])).toEqual([])
+  expect(toPath(remove(contours(square), [[0, 1]]))).toEqual([MOVE, 0, 0, LINE, 10, 10, LINE, 0, 10, LINE, 0, 0, CLOSE])
+  expect(remove(contours([MOVE, 0, 0, LINE, 1, 1]), [[0, 0]])).toEqual([])
 })
 
 test('a moved knot takes its handles along, a moved handle only itself', () => {
   const cs = contours(arc)
-  expect(shift(cs, [0, 1], 'point', 1, 2)[0].knots[1]).toMatchObject({ x: 11, y: 12, ix: 6, iy: 12 })
-  expect(shift(cs, [0, 0], 'out', 1, 0)[0].knots[0]).toMatchObject({ x: 0, y: 0, ox: 1, oy: 5 })
+  expect(shift(cs, [[0, 1]], 'point', 1, 2)[0].knots[1]).toMatchObject({ x: 11, y: 12, ix: 6, iy: 12 })
+  expect(shift(cs, [[0, 0]], 'out', 1, 0)[0].knots[0]).toMatchObject({ x: 0, y: 0, ox: 1, oy: 5 })
 })

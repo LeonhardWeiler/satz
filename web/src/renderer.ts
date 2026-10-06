@@ -36,7 +36,7 @@ export type Overlay = {
   /** Ports of a text frame in screen space: threaded, holding overset text, or open to thread on. */
   ports?: readonly { x: number; y: number; state: 'threaded' | 'overset' | 'open' }[]
   /** The knots of the path being edited and the one picked. */
-  vector?: { contours: Contour[]; at: At | null }
+  vector?: { contours: Contour[]; at: At[] }
   /** Show the layout grids and guides of the pages. */
   grids?: boolean
   /** The picked guide: a vertical one at `x` or a horizontal one at `y`. */
@@ -511,7 +511,7 @@ export class Renderer {
       path?.delete()
       screen.forEach(({ knots }, c) =>
         knots.forEach((k, i) => {
-          const picked = vector.at?.[0] === c && vector.at[1] === i
+          const picked = vector.at.some((a) => a[0] === c && a[1] === i)
           if (picked) {
             for (const [x, y] of [[k.ix, k.iy], [k.ox, k.oy]]) {
               if (x === k.x && y === k.y) continue
