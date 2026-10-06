@@ -444,13 +444,14 @@ textarea {
   border-radius: 4px;
   background: none;
   color: var(--text-3);
-  visibility: hidden;
 }
 
-.layer:hover .acts button,
-.layer:focus-within .acts button,
-[aria-selected='true'] > .layer .acts button {
-  visibility: visible;
+.layer .acts button:not([data-on]) {
+  display: none;
+}
+
+.layer:hover .acts button {
+  display: grid;
 }
 
 .acts button:hover {
