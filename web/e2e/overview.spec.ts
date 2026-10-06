@@ -168,6 +168,16 @@ test('ctrl click and a band select pages or masters, shift click a range, the se
   await expect(region).toBeVisible()
   await expect(pages.getByRole('option', { selected: true })).toHaveCount(2)
   await expect(region.getByText('1', { exact: true })).toHaveCSS('user-select', 'none')
+  const ghost = await option(page, 2).evaluate((el) => {
+    el.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: new DataTransfer() }))
+    const cards = [...document.querySelectorAll<HTMLCanvasElement>('.ov-ghost canvas')]
+    const c = cards.at(-1)!
+    const d = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data
+    const drawn = d.some((v, i) => i % 4 === 3 && v > 0)
+    el.dispatchEvent(new DragEvent('dragend', { bubbles: true }))
+    return [cards.length, drawn, document.querySelector('.ov-ghost b')?.textContent]
+  })
+  expect(ghost).toEqual([2, true, '2'])
   await option(page, 2).dragTo(option(page, 5), { targetPosition: { x: 10, y: 10 } })
   await expect.poll(() => order('Pages')).toEqual([before[0], before[3], before[1], before[2], before[4]])
   await page.keyboard.press('Control+z')

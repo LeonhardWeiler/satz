@@ -2490,6 +2490,33 @@ kbd {
   outline-offset: 1px;
 }
 
+.ov-ghost {
+  position: fixed;
+  top: -1000px;
+  left: 0;
+  width: 400px;
+  height: 240px;
+}
+
+.ov-ghost canvas {
+  position: absolute;
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--border), 0 4px 12px rgb(0 0 0 / 30%);
+}
+
+.ov-ghost b {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  min-width: 20px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  text-align: center;
+}
+
 .ov-page[data-drop='before'] {
   box-shadow: -3px 0 0 var(--magenta);
 }

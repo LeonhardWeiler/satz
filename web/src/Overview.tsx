@@ -95,6 +95,30 @@ function Thumb({ paint, snapshot, lists, sheets, height }: { paint: ReturnType<t
   return <canvas ref={ref} className="thumb" style={{ width: Math.round((height * w) / h), height }} />
 }
 
+/** Shows the thumbnails of `ids` stacked behind `grabbed` as the drag image, with their count. */
+function ghost(data: DataTransfer, grabbed: HTMLElement, ids: string[]) {
+  const deck = document.createElement('div')
+  deck.className = 'ov-ghost'
+  const cards = [...ids.filter((id) => `ov-${id}` !== grabbed.id).slice(0, 4).reverse().map((id) => document.getElementById(`ov-${id}`)), grabbed]
+  const h = Math.min(grabbed.clientHeight, 160)
+  cards.forEach((card, i) => {
+    const src = card?.querySelector('canvas')
+    if (!src) return
+    const c = document.createElement('canvas')
+    ;[c.width, c.height] = [src.width, src.height]
+    c.getContext('2d')!.drawImage(src, 0, 0)
+    const at = (cards.length - 1 - i) * 8
+    Object.assign(c.style, { left: `${at}px`, top: `${at}px`, width: `${(h * src.width) / src.height}px`, height: `${h}px` })
+    deck.append(c)
+  })
+  const count = document.createElement('b')
+  count.textContent = String(ids.length)
+  deck.append(count)
+  document.body.append(deck)
+  data.setDragImage(deck, 16, 16)
+  setTimeout(() => deck.remove())
+}
+
 const sheet = (p: Page, x = 0): Sheet => ({ x, width: p.width, height: p.height, bleed: p.bleed })
 
 /**
@@ -244,7 +268,7 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         if (!selected.includes(id)) {
           setAnchor(id)
           select([id])
-        }
+        } else if (selected.length > 1) ghost(e.dataTransfer, e.currentTarget, selected)
         e.dataTransfer.effectAllowed = 'move'
         e.dataTransfer.setData('text/plain', id)
         setDragging(listOf(id))
