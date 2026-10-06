@@ -12,7 +12,7 @@
 
 - Add, duplicate, reorder and delete pages with undo; page size per page
 - Facing pages as spreads from a first right page; layers across the spine
-- Page overview with thumbnails and a master column; click, Ctrl and Shift click select pages or masters, the selection drags to its new place; assign masters
+- Page overview with thumbnails and a master column; a click opens a page or master, Ctrl and Shift click and a dragged band select them, the selection drags to its new place; assign masters
 - Masters and master spreads with left and right pages, prefixes and page numbers counted per section
 - Override master layers on a page and reset them
 - Layout grids with presets, guides from the rulers, snapping to page, guides and layers

@@ -67,7 +67,7 @@ test('the overview lists masters beside vertical spreads, assigns a master and r
   await option(page, 6).dragTo(option(page, 2), { targetPosition: { x: 20, y: 2 } })
   for (const [n, b] of [[3, false], [4, true], [5, true]] as const) {
     await overview(page)
-    await option(page, n).dblclick()
+    await option(page, n).click()
     await expect(region).toHaveCount(0)
     if (b) await expect(master).toHaveText('B-Master')
     else await expect(master).not.toHaveText('B-Master')

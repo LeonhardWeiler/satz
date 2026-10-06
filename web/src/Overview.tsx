@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from 'react'
 import type { CanvasKit, GrDirectContext } from 'canvaskit-wasm'
 import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
@@ -99,8 +99,8 @@ const sheet = (p: Page, x = 0): Sheet => ({ x, width: p.width, height: p.height,
 
 /**
  * The page overview over the canvas: the masters in a column, the spreads beside them one
- * under another. Click, Ctrl and Shift click select pages or masters, a double click or Enter
- * opens one; the selected ones are dragged or moved with Alt and an arrow key to reorder,
+ * under another. A click or Enter opens a page or master; Ctrl and Shift click and a band dragged
+ * over the empty space select them in their list; the selected ones are dragged or moved with Alt and an arrow key to reorder,
  * deleted with Del and have a context menu.
  */
 export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
@@ -115,6 +115,7 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   const [renaming, setRenaming] = useState<string | null>(null)
   const [dragging, setDragging] = useState<string[] | null>(null)
   const [drop, setDrop] = useState<{ id: string; before: boolean } | null>(null)
+  const [band, setBand] = useState<DOMRect | null>(null)
   const { pages, masters, spreads, facingPages: facing } = snapshot
   const ids = pages.map((p) => p.id)
   const masterIds = masters.map((m) => m.id)
@@ -144,6 +145,7 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   }
   const click = (e: MouseEvent, id: string) => {
     const all = listOf(id)
+    if (!e.ctrlKey && !e.metaKey && !e.shiftKey) return openPage(id)
     ;(all === ids ? list : masterList).current?.focus()
     if (e.shiftKey && anchor && all.includes(anchor)) {
       const [a, b] = [all.indexOf(anchor), all.indexOf(id)].sort((x, y) => x - y)
@@ -151,7 +153,34 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     }
     setAnchor(id)
     const mine = selected.filter((s) => all.includes(s))
-    select(e.ctrlKey || e.metaKey ? (mine.includes(id) ? mine.filter((s) => s !== id) : [...mine, id]) : [id])
+    select(mine.includes(id) ? mine.filter((s) => s !== id) : [...mine, id])
+  }
+  /** Selects the pages or masters of `all` that a band dragged from the empty space of a list touches, with Ctrl or Shift added to those selected. */
+  const marquee = (e: PointerEvent<HTMLElement>, all: string[], box: HTMLElement | null) => {
+    if (e.button !== 0 || (e.target as Element).closest('.ov-item, button, input, .ov-head')) return
+    e.preventDefault()
+    box?.focus()
+    const el = e.currentTarget
+    el.setPointerCapture(e.pointerId)
+    const [x, y] = [e.clientX, e.clientY]
+    const base = e.ctrlKey || e.metaKey || e.shiftKey ? selected.filter((id) => all.includes(id)) : []
+    select(base)
+    const moved = (m: globalThis.PointerEvent) => {
+      const r = new DOMRect(Math.min(x, m.clientX), Math.min(y, m.clientY), Math.abs(m.clientX - x), Math.abs(m.clientY - y))
+      setBand(r)
+      const hit = all.filter((id) => {
+        const o = document.getElementById(`ov-${id}`)!.getBoundingClientRect()
+        return o.left < r.right && r.left < o.right && o.top < r.bottom && r.top < o.bottom
+      })
+      select([...base.filter((id) => !hit.includes(id)), ...hit])
+    }
+    const up = () => {
+      el.removeEventListener('pointermove', moved)
+      el.removeEventListener('pointerup', up)
+      setBand(null)
+    }
+    el.addEventListener('pointermove', moved)
+    el.addEventListener('pointerup', up)
   }
   const move = (moving: string[], index: number) => editor.apply({ type: 'movePages', ids: moving, index })
   const show = (id?: string) => {
@@ -210,7 +239,6 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       data-drop={drop?.id === id ? (drop.before ? 'before' : 'after') : undefined}
       draggable
       onClick={(e) => click(e, id)}
-      onDoubleClick={() => openPage(id)}
       onContextMenu={(e) => openMenu(e, id, vertical)}
       onDragStart={(e) => {
         if (!selected.includes(id)) {
@@ -271,7 +299,7 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
 
   return (
     <section className="overview" aria-label="Page overview" style={{ gridTemplateColumns: `${wide}px 1fr` }} onPointerDown={editor.gesture}>
-      <div className="ov-col">
+      <div className="ov-col" onPointerDown={(e) => marquee(e, masterIds, masterList.current)}>
         <h2>Masters</h2>
         <div
           ref={masterList}
@@ -288,7 +316,7 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
               {thumb(
                 m.id,
                 m.name,
-                `${m.name}, double click to edit`,
+                `${m.name}, click to edit`,
                 true,
                 <Thumb
                   paint={paint}
@@ -325,7 +353,7 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           </button>
         </div>
       </div>
-      <div ref={scroller} className="ov-main">
+      <div ref={scroller} className="ov-main" onPointerDown={(e) => marquee(e, ids, list.current)}>
         <header className="ov-head">
           <h2>Pages</h2>
           <Field label="Columns" unit="" int min={0} max={12} zero="Auto" value={columns} onCommit={(v) => resize({ columns: v })} />
@@ -398,6 +426,7 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         }}
         onDoubleClick={() => resize({ masters: 170 })}
       />
+      {band && <div className="ov-band" style={{ left: band.x, top: band.y, width: band.width, height: band.height }} />}
       {menu &&
         createPortal(
           <ContextMenu

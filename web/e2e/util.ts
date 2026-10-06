@@ -168,7 +168,7 @@ export async function addPage(page: Page) {
 
 /** Shows page `n` by a click in the page overview, which closes it. */
 export async function showPage(page: Page, n: number) {
-  await (await overview(page)).getByRole('option', { name: `Page ${n}`, exact: true }).dblclick()
+  await (await overview(page)).getByRole('option', { name: `Page ${n}`, exact: true }).click()
   await expect(page.getByRole('region', { name: 'Page overview' })).toHaveCount(0)
 }
 

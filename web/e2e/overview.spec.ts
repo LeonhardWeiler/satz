@@ -1,3 +1,4 @@
+import type { Locator } from '@playwright/test'
 import { expect, test, addMaster, addPage, current, open, option, overview } from './util'
 
 test('dot opens the page overview on the current page with drawn thumbnails, and dot or escape closes it', async ({ page }) => {
@@ -137,7 +138,7 @@ test('the pages header stays in view when the overview scrolls', async ({ page }
   await expect(region.getByRole('button', { name: 'Zoom out' })).toBeInViewport({ ratio: 1 })
 })
 
-test('a click selects pages or masters, shift click a range, and the selection drags to its new place', async ({ page }) => {
+test('ctrl click and a band select pages or masters, shift click a range, the selection drags to its new place and a click opens', async ({ page }) => {
   await open(page)
   for (let i = 0; i < 4; i++) await addPage(page)
   for (let i = 0; i < 3; i++) {
@@ -147,10 +148,25 @@ test('a click selects pages or masters, shift click a range, and the selection d
   const region = await overview(page)
   const order = (name: string) => region.getByRole('listbox', { name }).getByRole('option').evaluateAll((es) => es.map((e) => e.id))
   const before = await order('Pages')
-  await option(page, 2).click()
+  const pages = region.getByRole('listbox', { name: 'Pages' })
+  const band = async (from: [number, number], to: Locator) => {
+    const b = (await to.boundingBox())!
+    await page.mouse.move(...from)
+    await page.mouse.down()
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 4 })
+    await page.mouse.up()
+  }
+  const corner = async (name: string) => {
+    const b = (await region.getByRole('listbox', { name }).locator('xpath=..').boundingBox())!
+    return [b.x + b.width - 12, b.y + b.height - 12] as [number, number]
+  }
+  await band(await corner('Pages'), option(page, 4))
+  await expect(option(page, 4)).toHaveAttribute('aria-selected', 'true')
+  await expect(option(page, 1)).toHaveAttribute('aria-selected', 'false')
+  await option(page, 2).click({ modifiers: ['Control'] })
   await option(page, 3).click({ modifiers: ['Shift'] })
   await expect(region).toBeVisible()
-  await expect(region.getByRole('listbox', { name: 'Pages' }).getByRole('option', { selected: true })).toHaveCount(2)
+  await expect(pages.getByRole('option', { selected: true })).toHaveCount(2)
   await expect(region.getByText('1', { exact: true })).toHaveCSS('user-select', 'none')
   await option(page, 2).dragTo(option(page, 5), { targetPosition: { x: 10, y: 10 } })
   await expect.poll(() => order('Pages')).toEqual([before[0], before[3], before[1], before[2], before[4]])
@@ -159,12 +175,12 @@ test('a click selects pages or masters, shift click a range, and the selection d
 
   const masters = await order('Masters')
   const master = (name: string) => region.getByRole('option', { name, exact: true })
-  await master('B-Master').click()
-  await master('C-Master').click({ modifiers: ['Shift'] })
-  await expect(region.getByRole('listbox', { name: 'Pages' }).getByRole('option', { selected: true })).toHaveCount(0)
+  await band(await corner('Masters'), master('B-Master'))
+  await expect(region.getByRole('listbox', { name: 'Masters' }).getByRole('option', { selected: true })).toHaveCount(2)
+  await expect(pages.getByRole('option', { selected: true })).toHaveCount(0)
   await master('B-Master').dragTo(master('A-Master'), { targetPosition: { x: 10, y: 2 } })
   await expect.poll(() => order('Masters')).toEqual([masters[1], masters[2], masters[0]])
-  await master('A-Master').dblclick()
+  await master('A-Master').click()
   await expect(region).toHaveCount(0)
   await expect(page.getByText(/Editing master/)).toContainText('A-Master')
 })

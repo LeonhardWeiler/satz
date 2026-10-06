@@ -1,6 +1,6 @@
 --- NOW
-- [ ] drag selection in der page overview bei master und pages seperat um mehrere pages leicht auszuwählen
-- [ ] in der page overview soll single click immer noch go into sein und ctrl select
+- [x] drag selection in der page overview bei master und pages seperat um mehrere pages leicht auszuwählen
+- [x] in der page overview soll single click immer noch go into sein und ctrl select
 
 --- LATER
 - [] Figma import with file and or account

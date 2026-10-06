@@ -2390,6 +2390,14 @@ kbd {
   font-weight: 600;
 }
 
+.ov-band {
+  position: fixed;
+  z-index: 10;
+  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  pointer-events: none;
+}
+
 .ov-row {
   display: flex;
   flex-direction: column;
