@@ -41,9 +41,9 @@ test('ctrl click selects the deepest layer', () => {
   expect(pick(tree, ['h', 'i', 'c'], [], 'deep')).toBe('c')
 })
 
-test('shift click spans from the last selected one of the list, which stays last', () => {
+test('shift click adds the span from the last selected one of the list, which stays last', () => {
   const list = ['a', 'b', 'c', 'd', 'e']
-  expect(span(list, ['x', 'b', 'e', 'y'], 'c')).toEqual(['c', 'd', 'e'])
+  expect(span(list, ['a', 'x', 'e', 'y'], 'c')).toEqual(['a', 'x', 'y', 'c', 'd', 'e'])
   expect(span(list, ['b'], 'd')).toEqual(['d', 'c', 'b'])
   expect(span(list, ['x'], 'd')).toBeNull()
 })

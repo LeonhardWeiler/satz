@@ -199,9 +199,9 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     const all = listOf(id)
     if (!e.ctrlKey && !e.metaKey && !e.shiftKey) return openPage(id)
     ;(all === ids ? list : masterList).current?.focus()
-    const range = e.shiftKey && span(all, selected, id)
-    if (range) return select(range)
     const mine = selected.filter((s) => all.includes(s))
+    const range = e.shiftKey && span(all, mine, id)
+    if (range) return select(range)
     select(mine.includes(id) ? mine.filter((s) => s !== id) : [...mine, id])
   }
   /** Selects the pages or masters of `all` that a band dragged from the empty space of a list touches, with Ctrl or Shift added to those selected. */
