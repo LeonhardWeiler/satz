@@ -26,17 +26,22 @@ test('dot opens the page overview on the current page with drawn thumbnails kept
   await expect(region).toHaveCount(0)
 })
 
-test('shift click adds the pages from the last selected one, however it was selected', async ({ page }) => {
+test('shift click fills up to a page before or after the selected ones and drops those after one among them', async ({ page }) => {
   await open(page)
   for (let i = 0; i < 4; i++) await addPage(page)
   const region = await overview(page)
-  await option(page, 1).click({ button: 'right' })
+  const expectSelected = async (...on: number[]) => {
+    for (let n = 1; n <= 5; n++) await expect(option(page, n)).toHaveAttribute('aria-selected', String(on.includes(n)))
+  }
+  await option(page, 2).click({ button: 'right' })
   await page.keyboard.press('Escape')
-  await option(page, 5).click({ modifiers: ['Control'] })
+  await option(page, 3).click({ modifiers: ['Control'] })
+  await option(page, 5).click({ modifiers: ['Shift'] })
+  await expectSelected(2, 3, 4, 5)
   await option(page, 3).click({ modifiers: ['Shift'] })
-  for (let n = 1; n <= 5; n++) await expect(option(page, n)).toHaveAttribute('aria-selected', String(n !== 2))
-  await option(page, 4).click({ modifiers: ['Shift'] })
-  for (let n = 1; n <= 5; n++) await expect(option(page, n)).toHaveAttribute('aria-selected', String(n !== 2 && n !== 3))
+  await expectSelected(2, 3)
+  await option(page, 1).click({ modifiers: ['Shift'] })
+  await expectSelected(1, 2, 3)
   await expect(region).toBeVisible()
 })
 

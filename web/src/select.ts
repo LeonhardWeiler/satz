@@ -25,18 +25,15 @@ export function pick(nodes: Node[], path: string[], selection: string[], mode: '
   return path[i]
 }
 
-let last = { base: [] as string[], result: [] as string[] }
-
 /**
- * `selection` with the ids of `list` from its last one of `list` to `id` added, that last one last again;
- * null when `selection` holds none of `list`. A `selection` that is the last result spans again from its base.
+ * `selection` after a shift click on `id` of `list`: before or after the selected ones of `list` it adds those up to `id`,
+ * among them it drops those after `id`. Null when `selection` holds none of `list`.
  */
 export function span(list: string[], selection: string[], id: string) {
-  const base = selection.length === last.result.length && selection.every((s, i) => s === last.result[i]) ? last.base : selection
-  const from = list.indexOf(base.findLast((s) => list.includes(s)) ?? '')
-  const to = list.indexOf(id)
-  if (from < 0 || to < 0) return null
-  const range = from < to ? list.slice(from, to + 1).reverse() : list.slice(to, from + 1)
-  last = { base, result: [...base.filter((s) => !range.includes(s)), ...range] }
-  return last.result
+  const at = selection.map((s) => list.indexOf(s)).filter((i) => i >= 0)
+  const c = list.indexOf(id)
+  if (!at.length || c < 0) return null
+  const [a, b] = [Math.min(...at), Math.max(...at)]
+  const range = c < a ? list.slice(c, a) : list.slice(b + 1, c + 1)
+  return [...selection.filter((s) => s !== id && (c < a || list.indexOf(s) <= c)), ...range.filter((s) => s !== id), id]
 }

@@ -41,19 +41,14 @@ test('ctrl click selects the deepest layer', () => {
   expect(pick(tree, ['h', 'i', 'c'], [], 'deep')).toBe('c')
 })
 
-test('shift click adds the span from the last selected one of the list, which stays last', () => {
-  const list = ['a', 'b', 'c', 'd', 'e']
-  expect(span(list, ['a', 'x', 'e', 'y'], 'c')).toEqual(['a', 'x', 'y', 'c', 'd', 'e'])
-  expect(span(list, ['b'], 'd')).toEqual(['d', 'c', 'b'])
-  expect(span(list, ['x'], 'd')).toBeNull()
-})
-
-test('a second shift click replaces the span of the first', () => {
-  const list = ['a', 'b', 'c', 'd', 'e']
-  const first = span(list, ['a', 'b', 'c'], 'e')!
-  expect(first.toSorted()).toEqual(list)
-  const second = span(list, [...first], 'd')!
-  expect(second.toSorted()).toEqual(['a', 'b', 'c', 'd'])
-  expect(span(list, second, 'a')!.toSorted()).toEqual(['a', 'b', 'c'])
-  expect(span(list, ['b'], 'c')).toEqual(['c', 'b'])
+test('shift click fills up to a layer before or after the selection and drops those after one among it', () => {
+  const list = ['0', '1', '2', '3', '4', '5', '6']
+  const sorted = (sel: string[] | null) => sel?.toSorted()
+  expect(sorted(span(list, ['1', '2', '3', '4'], '6'))).toEqual(['1', '2', '3', '4', '5', '6'])
+  expect(sorted(span(list, ['1', '2', '3', '4', '5', '6'], '2'))).toEqual(['1', '2'])
+  expect(sorted(span(list, ['1', '2'], '0'))).toEqual(['0', '1', '2'])
+  expect(sorted(span(list, ['1', '2', '3', '4'], '2'))).toEqual(['1', '2'])
+  expect(sorted(span(list, ['x', '1', '3'], '5'))).toEqual(['1', '3', '4', '5', 'x'])
+  expect(span(list, ['3'], '5')?.at(-1)).toBe('5')
+  expect(span(list, ['x'], '5')).toBeNull()
 })
