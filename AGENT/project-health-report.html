@@ -183,7 +183,7 @@
   <header><span class="id">TEST-2</span><span class="badge low">low</span><h3>9 of the last 20 CI runs were red, each time also in the retry</h3></header>
   <p class="file"><code>.github/workflows/ci.yml</code>; <code>web/e2e/*.spec.ts</code></p>
   <p>All failures were in e2e (cmyk booklet preflight twice, auto layout, 880 px bar, overview header, text wrap, images, preflight) and the retry failed as well, so these were real breakages of a test or the app that reached <code>main</code>, not flakes. A red run skips the deploy. The last one is fixed in <code>a6ac28b</code>; the last green run took 10:16 min.</p>
-  <p class="rec">Before a push run the specs of the touched area, e.g. <code>./check e2e autolayout overview</code>; see ci-review.html.</p>
+  <p class="rec">Before a push run the specs of the touched area, e.g. <code>./check e2e autolayout overview</code>.</p>
 </article>
 
 <article class="card low" id="TEST-3">

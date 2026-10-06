@@ -8,13 +8,6 @@ that match the canvas.
 Out of scope for M1: components, realtime collaboration, Figma import,
 font helper, i18n.
 
-## UI design G (branch ui-g, spec AGENT/ui-ux/g-register.html)
-
-Built: everything in `AGENT/ui-g-inventory.md`.
-Open:
-
-- Commit 5b5a630 does not build alone (the Pages.tsx deletion landed there).
-
 ## Settled design
 
 - Engine (Rust → WASM) owns the Loro doc, layout and undo. React sends commands and
@@ -27,7 +20,7 @@ Open:
 - Color: document is RGB or CMYK + spot colors. Screen preview via `moxcms`, with black
   point compensation, and a bundled FOGRA51 profile built from the ICC registry data (`engine/icc/build`); the
   ECI's PSO Coated v3 may not be redistributed.
-- UI: design G (`AGENT/ui-ux/g-register.html`), fixed: a top bar, layers and
+- UI: design G, fixed: a top bar, layers and
   swatches left, properties or the preflight mode right, mm rulers; no floating
   panels, no bottom bar. Pages in the overview on "." over the canvas, which always
   shows one spread. Figma keybinds (Ctrl for Cmd), dark look, English, units mm by default
