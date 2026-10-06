@@ -24,3 +24,11 @@ export function pick(nodes: Node[], path: string[], selection: string[], mode: '
   while (i < path.length - 1 && all.get(path[i])?.node.kind === 'frame') i++
   return path[i]
 }
+
+/** The ids of `list` from the last one of `selection` to `id`, that last one last again; null when `selection` holds none of `list`. */
+export function span(list: string[], selection: string[], id: string) {
+  const from = list.indexOf(selection.findLast((s) => list.includes(s)) ?? '')
+  const to = list.indexOf(id)
+  if (from < 0 || to < 0) return null
+  return from < to ? list.slice(from, to + 1).reverse() : list.slice(to, from + 1)
+}

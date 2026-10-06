@@ -8,6 +8,7 @@ import { useEditor, type Editor } from './editor'
 import { Icon } from './icons'
 import type { Page, Snapshot } from './model'
 import { Renderer, type Sheet } from './renderer'
+import { span } from './select'
 import { setSettings, settings, useSettings } from './settings'
 
 type Lists = { id: string; x: number }[]
@@ -162,7 +163,6 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   const paint = usePaint(ck, editor)
   const list = useRef<HTMLDivElement>(null)
   const masterList = useRef<HTMLDivElement>(null)
-  const [anchor, setAnchor] = useState(selected[0])
   const [menu, setMenu] = useState<Menu | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [dragging, setDragging] = useState<string[] | null>(null)
@@ -199,11 +199,8 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     const all = listOf(id)
     if (!e.ctrlKey && !e.metaKey && !e.shiftKey) return openPage(id)
     ;(all === ids ? list : masterList).current?.focus()
-    if (e.shiftKey && anchor && all.includes(anchor)) {
-      const [a, b] = [all.indexOf(anchor), all.indexOf(id)].sort((x, y) => x - y)
-      return select(all.slice(a, b + 1))
-    }
-    setAnchor(id)
+    const range = e.shiftKey && span(all, selected, id)
+    if (range) return select(range)
     const mine = selected.filter((s) => all.includes(s))
     select(mine.includes(id) ? mine.filter((s) => s !== id) : [...mine, id])
   }
@@ -264,10 +261,7 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     } else if (d) {
       const j = Math.max(0, Math.min(all.length - 1, i + d))
       if (e.shiftKey) select([...mine.filter((id) => id !== all[j]), all[j]])
-      else {
-        setAnchor(all[j])
-        select([all[j]])
-      }
+      else select([all[j]])
     } else if (e.key === 'Delete' || e.key === 'Backspace') {
       if (all === ids) editor.deletePages(mine.length ? mine : [all[i]])
       else if (mine.length) editor.batch(() => mine.forEach((id) => editor.apply({ type: 'deleteMaster', id })))
@@ -293,10 +287,8 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       onClick={(e) => click(e, id)}
       onContextMenu={(e) => openMenu(e, id, vertical)}
       onDragStart={(e) => {
-        if (!selected.includes(id)) {
-          setAnchor(id)
-          select([id])
-        } else if (selected.length > 1) ghost(e.dataTransfer, e.currentTarget, selected)
+        if (!selected.includes(id)) select([id])
+        else if (selected.length > 1) ghost(e.dataTransfer, e.currentTarget, selected)
         e.dataTransfer.effectAllowed = 'move'
         e.dataTransfer.setData('text/plain', id)
         setDragging(listOf(id))

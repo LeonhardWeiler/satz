@@ -26,6 +26,17 @@ test('dot opens the page overview on the current page with drawn thumbnails kept
   await expect(region).toHaveCount(0)
 })
 
+test('shift click spans from the last selected page, however it was selected', async ({ page }) => {
+  await open(page)
+  for (let i = 0; i < 4; i++) await addPage(page)
+  const region = await overview(page)
+  await option(page, 2).click({ button: 'right' })
+  await page.keyboard.press('Escape')
+  await option(page, 4).click({ modifiers: ['Shift'] })
+  for (let n = 1; n <= 5; n++) await expect(option(page, n)).toHaveAttribute('aria-selected', String(n >= 2 && n <= 4))
+  await expect(region).toBeVisible()
+})
+
 test('delete removes the selected pages with a toast, and undo restores them', async ({ page }) => {
   await open(page)
   await addPage(page)

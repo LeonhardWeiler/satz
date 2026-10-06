@@ -3,6 +3,7 @@ import { roam } from './controls'
 import { useEditor, type Editor } from './editor'
 import { Icon, KindIcon } from './icons'
 import type { Node } from './model'
+import { span } from './select'
 import { useSettings } from './settings'
 
 type Drop = { id: string; at: 'above' | 'below' | 'into' }
@@ -25,16 +26,9 @@ export function Layers({ editor }: { editor: Editor }) {
     })
 
   const select = (id: string, e: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean }) => {
-    const rows = pages.flatMap((p) => shown(p.children)).map((n) => n.id)
-    const [from, to] = [rows.indexOf(selection.at(-1) ?? ''), rows.indexOf(id)]
-    const range = from < to ? rows.slice(from, to + 1).reverse() : rows.slice(to, from + 1)
+    const range = e.shiftKey && span(pages.flatMap((p) => shown(p.children)).map((n) => n.id), selection, id)
     editor.set({
-      selection:
-        e.shiftKey && from >= 0
-          ? range
-          : e.ctrlKey || e.metaKey
-            ? selection.includes(id) ? selection.filter((s) => s !== id) : [...selection, id]
-            : [id],
+      selection: range || (e.ctrlKey || e.metaKey ? (selection.includes(id) ? selection.filter((s) => s !== id) : [...selection, id]) : [id]),
     })
   }
 

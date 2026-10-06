@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { pick } from './select'
+import { pick, span } from './select'
 import type { Layout, Node, Style } from './model'
 
 const style: Style = {
@@ -39,4 +39,11 @@ test('a double click enters the selected group', () => {
 
 test('ctrl click selects the deepest layer', () => {
   expect(pick(tree, ['h', 'i', 'c'], [], 'deep')).toBe('c')
+})
+
+test('shift click spans from the last selected one of the list, which stays last', () => {
+  const list = ['a', 'b', 'c', 'd', 'e']
+  expect(span(list, ['x', 'b', 'e', 'y'], 'c')).toEqual(['c', 'd', 'e'])
+  expect(span(list, ['b'], 'd')).toEqual(['d', 'c', 'b'])
+  expect(span(list, ['x'], 'd')).toBeNull()
 })
