@@ -42,22 +42,22 @@ test('a new master is shown empty and is renamed by a double click', async ({ pa
   await addMaster(page)
   await expect(page.getByRole('tree', { name: 'Layers' }).getByRole('treeitem')).toHaveCount(0)
   const pages = await overview(page)
-  await expect(pages.getByRole('button', { name: 'A-Master', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(pages.getByRole('option', { name: 'A-Master', exact: true })).toHaveAttribute('aria-current', 'page')
   await pages.getByText('A-Master', { exact: true }).dblclick()
   await pages.getByRole('textbox', { name: 'Master name' }).fill('Body')
   await pages.getByRole('textbox', { name: 'Master name' }).press('Enter')
-  await expect(pages.getByRole('button', { name: 'Body', exact: true })).toBeVisible()
+  await expect(pages.getByRole('option', { name: 'Body', exact: true })).toBeVisible()
 })
 
 test('rename master in the context menu of the page overview renames it', async ({ page }) => {
   await open(page)
   await addMaster(page)
   const pages = await overview(page)
-  await pages.getByRole('button', { name: 'A-Master', exact: true }).click({ button: 'right' })
+  await pages.getByRole('option', { name: 'A-Master', exact: true }).click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Rename master' }).click()
   await pages.getByRole('textbox', { name: 'Master name' }).fill('Body')
   await pages.getByRole('textbox', { name: 'Master name' }).press('Enter')
-  await expect(pages.getByRole('button', { name: 'Body', exact: true })).toBeVisible()
+  await expect(pages.getByRole('option', { name: 'Body', exact: true })).toBeVisible()
 })
 
 test('a name another master has is rejected in the status bar', async ({ page }) => {
@@ -69,7 +69,7 @@ test('a name another master has is rejected in the status bar', async ({ page })
   await pages.getByRole('textbox', { name: 'Master name' }).fill('A-Master')
   await pages.getByRole('textbox', { name: 'Master name' }).press('Enter')
   await expect(page.getByText('a master named A-Master exists')).toBeVisible()
-  await expect(pages.getByRole('button', { name: 'B-Master', exact: true })).toBeVisible()
+  await expect(pages.getByRole('option', { name: 'B-Master', exact: true })).toBeVisible()
 })
 
 test('a page draws the layers of its master under its own, which a click does not pick', async ({ page }) => {

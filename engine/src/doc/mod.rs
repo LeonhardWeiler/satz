@@ -261,9 +261,10 @@ pub enum Command {
     DeletePage {
         id: String,
     },
-    /// Moves a page to `index` among the pages.
-    MovePage {
-        id: String,
+    /// Moves the pages or the masters `ids` to follow each other at `index` among
+    /// the other pages or masters.
+    MovePages {
+        ids: Vec<String>,
         index: usize,
     },
     /// Adds a master of the size of the page `like` or the first page, named with
@@ -1470,7 +1471,7 @@ impl Doc {
             Command::SetGrids { id, grids } => self.set_grids(id, grids),
             Command::SetGuides { id, guides } => self.set_guides(id, guides),
             Command::DeletePage { id } => self.delete_page(id),
-            Command::MovePage { id, index } => self.move_page(id, index),
+            Command::MovePages { ids, index } => self.move_pages(ids, index),
             Command::AddMaster { like } => self.add_master(like),
             Command::SetMaster { id, name } => self.set_master(id, name),
             Command::DeleteMaster { id } => self.delete_master(id),

@@ -2396,6 +2396,7 @@ kbd {
   align-items: center;
   gap: 18px;
   padding: 4px;
+  outline: none;
 }
 
 .ov-split {
@@ -2474,7 +2475,8 @@ kbd {
   background: #fff;
 }
 
-.ov-page[aria-selected='true'] {
+.ov-page[aria-selected='true'],
+.ov-master[aria-selected='true'] {
   z-index: 1;
   outline: 2px solid var(--accent);
   outline-offset: 1px;
@@ -2488,13 +2490,16 @@ kbd {
   box-shadow: 3px 0 0 var(--magenta);
 }
 
-.ov-master:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
+.ov-master[data-drop='before'] {
+  box-shadow: 0 -3px 0 var(--magenta);
+}
+
+.ov-master[data-drop='after'] {
+  box-shadow: 0 3px 0 var(--magenta);
 }
 
 .ov-item[data-current] .ov-pages,
-.ov-item[data-current] .ov-master:not(:focus-visible) {
+.ov-item[data-current] .ov-master:not([aria-selected='true']) {
   outline: 1px solid var(--text-3);
   outline-offset: 3px;
 }
@@ -2502,6 +2507,7 @@ kbd {
 .ov-cap {
   display: flex;
   gap: 10px;
+  user-select: none;
   color: var(--text-2);
   font-size: 11px;
 }

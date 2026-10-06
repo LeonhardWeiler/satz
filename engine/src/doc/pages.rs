@@ -499,15 +499,31 @@ impl Doc {
         Ok(vec![])
     }
 
-    pub(super) fn move_page(&self, id: String, index: usize) -> Res<Vec<String>> {
-        let p = self.page(&id)?;
-        let others: Vec<_> = self.pages().into_iter().filter(|&o| o != p).collect();
-        match others.get(index) {
-            Some(&o) => self.tree.mov_before(p, o).map_err(err)?,
-            None => self
-                .tree
-                .mov_after(p, *others.last().ok_or("no other page")?)
-                .map_err(err)?,
+    pub(super) fn move_pages(&self, ids: Vec<String>, index: usize) -> Res<Vec<String>> {
+        let master = ids.first().is_some_and(|id| self.master(id).is_ok());
+        let moving = ids
+            .iter()
+            .map(|id| {
+                if master {
+                    self.master(id)
+                } else {
+                    self.page(id)
+                }
+            })
+            .collect::<Res<Vec<_>>>()?;
+        if (1..moving.len()).any(|i| moving[..i].contains(&moving[i])) {
+            return Err("a page twice".into());
+        }
+        let all = if master { self.masters() } else { self.pages() };
+        let others: Vec<_> = all.into_iter().filter(|o| !moving.contains(o)).collect();
+        for (i, &p) in moving.iter().enumerate() {
+            match (i, others.get(index), others.last()) {
+                (0, Some(&o), _) => self.tree.mov_before(p, o),
+                (0, None, Some(&o)) => self.tree.mov_after(p, o),
+                (0, None, None) => Ok(()),
+                _ => self.tree.mov_after(p, moving[i - 1]),
+            }
+            .map_err(err)?;
         }
         Ok(vec![])
     }
@@ -731,17 +747,22 @@ mod tests {
         );
         assert!(s.pages[1].children.is_empty());
         let r = create(&mut d, &p3, NewKind::Rect, [1.0, 2.0, 3.0, 4.0]);
-        d.apply(Command::MovePage {
-            id: p3.clone(),
-            index: 0,
-        })
-        .unwrap();
+        let move_pages = |d: &mut Doc, ids: [&String; 2], index| {
+            d.apply(Command::MovePages {
+                ids: ids.map(String::clone).to_vec(),
+                index,
+            })
+        };
+        move_pages(&mut d, [&p3, &p2], 0).unwrap();
+        assert_eq!(page_ids(&d), [&p3, &p2, &p1].map(String::clone));
+        move_pages(&mut d, [&p3, &p1], 9).unwrap();
+        assert_eq!(page_ids(&d), [&p2, &p3, &p1].map(String::clone));
+        move_pages(&mut d, [&p1, &p2], 1).unwrap();
         assert_eq!(page_ids(&d), [&p3, &p1, &p2].map(String::clone));
-        d.apply(Command::MovePage {
-            id: p3.clone(),
-            index: 9,
-        })
-        .unwrap();
+        assert!(move_pages(&mut d, [&p1, &p1], 0).is_err());
+        d.apply(Command::Undo).unwrap();
+        d.apply(Command::Undo).unwrap();
+        d.apply(Command::Undo).unwrap();
         assert_eq!(page_ids(&d), [&p1, &p2, &p3].map(String::clone));
         d.apply(Command::DeletePage { id: p3.clone() }).unwrap();
         assert_eq!(page_ids(&d), [&p1, &p2].map(String::clone));
@@ -760,7 +781,13 @@ mod tests {
         d.apply(Command::DeletePage { id: p1.clone() }).unwrap();
         d.apply(Command::DeletePage { id: p2.clone() }).unwrap();
         assert!(d.apply(Command::DeletePage { id: p3.clone() }).is_err());
-        assert!(d.apply(Command::MovePage { id: r, index: 0 }).is_err());
+        assert!(
+            d.apply(Command::MovePages {
+                ids: vec![r],
+                index: 0
+            })
+            .is_err()
+        );
         assert!(
             d.apply(Command::SetPage {
                 id: p3,
@@ -1128,6 +1155,32 @@ mod tests {
     }
 
     #[test]
+    fn masters_move_among_masters_and_not_with_pages() {
+        let (mut d, p) = empty();
+        let [a, b, c] = [(); 3].map(|_| add_master(&mut d));
+        let order = |d: &Doc| {
+            d.snapshot()
+                .masters
+                .iter()
+                .map(|m| m.id.clone())
+                .collect::<Vec<_>>()
+        };
+        d.apply(Command::MovePages {
+            ids: vec![c.clone(), a.clone()],
+            index: 0,
+        })
+        .unwrap();
+        assert_eq!(order(&d), [&c, &a, &b].map(String::clone));
+        assert!(
+            d.apply(Command::MovePages {
+                ids: vec![b, p],
+                index: 0
+            })
+            .is_err()
+        );
+    }
+
+    #[test]
     fn overrides_become_page_layers_when_the_page_leaves_its_master() {
         for delete in [true, false] {
             let (mut d, p) = empty();
@@ -1356,8 +1409,8 @@ mod tests {
         assert_eq!(run_texts(&d.render(&p3)), ["Page3"]);
         assert_eq!(page(&d).children[0].name, "#");
         assert!(page(&d).children[0].w > 0.0);
-        d.apply(Command::MovePage {
-            id: p1.clone(),
+        d.apply(Command::MovePages {
+            ids: vec![p1.clone()],
             index: 2,
         })
         .unwrap();

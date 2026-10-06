@@ -44,7 +44,7 @@ test('the overview lists masters beside vertical spreads, assigns a master and r
   await addMaster(page)
   await page.keyboard.press('Escape')
   const region = await overview(page)
-  const box = async (name: string) => (await region.getByRole('group', { name, exact: true }).boundingBox())!
+  const box = async (name: string) => (await region.getByRole(name === 'Masters' ? 'listbox' : 'group', { name, exact: true }).boundingBox())!
   const masters = await box('Masters')
   const [one, two, four] = [await box('Spread 1'), await box('Spread 2–3'), await box('Spread 4–5')]
   expect(masters.x + masters.width).toBeLessThanOrEqual(one.x)
@@ -67,7 +67,7 @@ test('the overview lists masters beside vertical spreads, assigns a master and r
   await option(page, 6).dragTo(option(page, 2), { targetPosition: { x: 20, y: 2 } })
   for (const [n, b] of [[3, false], [4, true], [5, true]] as const) {
     await overview(page)
-    await option(page, n).click()
+    await option(page, n).dblclick()
     await expect(region).toHaveCount(0)
     if (b) await expect(master).toHaveText('B-Master')
     else await expect(master).not.toHaveText('B-Master')

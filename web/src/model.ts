@@ -114,7 +114,7 @@ export type Command =
   | { type: 'boolean'; ids: string[]; op: BooleanOp }
   | { type: 'fillArea'; id: string; x: number; y: number }
   | { type: 'scaleText'; id: string; by: number }
-  | { type: 'movePage'; id: string; index: number }
+  | { type: 'movePages'; ids: string[]; index: number }
   | { type: 'addMaster'; like: string | null }
   | { type: 'setMaster'; id: string; name: string }
   | { type: 'deleteMaster'; id: string }

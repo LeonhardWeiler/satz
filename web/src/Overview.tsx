@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type MouseEvent } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react'
 import type { CanvasKit, GrDirectContext } from 'canvaskit-wasm'
 import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
-import { Field, roam } from './controls'
+import { Field } from './controls'
 import { prefix } from './engine/engine'
 import { useEditor, type Editor } from './editor'
 import { Icon } from './icons'
@@ -99,8 +99,9 @@ const sheet = (p: Page, x = 0): Sheet => ({ x, width: p.width, height: p.height,
 
 /**
  * The page overview over the canvas: the masters in a column, the spreads beside them one
- * under another. Click or Enter opens a page, Ctrl and Shift click select; pages are dragged
- * or moved with Alt ←/→ to reorder, deleted with Del and have a context menu.
+ * under another. Click, Ctrl and Shift click select pages or masters, a double click or Enter
+ * opens one; the selected ones are dragged or moved with Alt and an arrow key to reorder,
+ * deleted with Del and have a context menu.
  */
 export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   const snapshot = useEditor(editor, (e) => e.snapshot)
@@ -108,13 +109,16 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   const current = useEditor(editor, (e) => e.pageId)
   const paint = usePaint(ck, editor)
   const list = useRef<HTMLDivElement>(null)
+  const masterList = useRef<HTMLDivElement>(null)
   const [anchor, setAnchor] = useState(selected[0])
   const [menu, setMenu] = useState<Menu | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
-  const [dragging, setDragging] = useState(false)
+  const [dragging, setDragging] = useState<string[] | null>(null)
   const [drop, setDrop] = useState<{ id: string; before: boolean } | null>(null)
   const { pages, masters, spreads, facingPages: facing } = snapshot
   const ids = pages.map((p) => p.id)
+  const masterIds = masters.map((m) => m.id)
+  const listOf = (id: string) => (masterIds.includes(id) ? masterIds : ids)
   const { masters: wide, pages: PAGE, columns } = useSettings().overview
   const width = (p: Page) => Math.round((PAGE * p.width) / p.height)
   const grab = useRef(0)
@@ -139,25 +143,17 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     close()
   }
   const click = (e: MouseEvent, id: string) => {
-    list.current?.focus()
-    if (e.shiftKey) {
-      const [a, b] = [ids.indexOf(anchor ?? id), ids.indexOf(id)].sort((x, y) => x - y)
-      return select(ids.slice(a, b + 1))
+    const all = listOf(id)
+    ;(all === ids ? list : masterList).current?.focus()
+    if (e.shiftKey && anchor && all.includes(anchor)) {
+      const [a, b] = [all.indexOf(anchor), all.indexOf(id)].sort((x, y) => x - y)
+      return select(all.slice(a, b + 1))
     }
     setAnchor(id)
-    if (e.ctrlKey || e.metaKey) select(selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id])
-    else openPage(id)
+    const mine = selected.filter((s) => all.includes(s))
+    select(e.ctrlKey || e.metaKey ? (mine.includes(id) ? mine.filter((s) => s !== id) : [...mine, id]) : [id])
   }
-  /** Moves the pages `moving` so that they follow each other at `at` among the other pages. */
-  const move = (moving: string[], at: number) => {
-    const others = ids.filter((id) => !moving.includes(id))
-    const order = [...others.slice(0, at), ...moving, ...others.slice(at)]
-    editor.batch(() => {
-      order.forEach((id, i) => {
-        if (editor.snapshot.pages[i].id !== id) editor.apply({ type: 'movePage', id, index: i })
-      })
-    })
-  }
+  const move = (moving: string[], index: number) => editor.apply({ type: 'movePages', ids: moving, index })
   const show = (id?: string) => {
     if (!id) return
     editor.showPage(id)
@@ -174,81 +170,94 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   }
   const openMenu = (e: MouseEvent, id: string, master: boolean) => {
     e.preventDefault()
-    if (!master && !selected.includes(id)) select([id])
+    if (!selected.includes(id)) select([id])
     setMenu({ id, master, x: e.clientX, y: e.clientY })
   }
 
-  const onKey = (e: KeyboardEvent) => {
-    const last = selected.at(-1) ?? current
-    const i = Math.max(0, ids.indexOf(last))
+  const onKey = (e: KeyboardEvent, all: string[]) => {
+    const mine = selected.filter((id) => all.includes(id))
+    const i = Math.max(0, all.indexOf(mine.at(-1) ?? current))
     const d = e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : 0
     if (d && e.altKey) {
-      if (selected.length === 1 && ids[i + d]) move(selected, i + d)
+      if (mine.length === 1 && all[i + d]) move(mine, i + d)
     } else if (d) {
-      const j = Math.max(0, Math.min(ids.length - 1, i + d))
-      if (e.shiftKey) select([...selected.filter((id) => id !== ids[j]), ids[j]])
+      const j = Math.max(0, Math.min(all.length - 1, i + d))
+      if (e.shiftKey) select([...mine.filter((id) => id !== all[j]), all[j]])
       else {
-        setAnchor(ids[j])
-        select([ids[j]])
+        setAnchor(all[j])
+        select([all[j]])
       }
-    } else if (e.key === 'Delete' || e.key === 'Backspace') editor.deletePages(selected.length ? selected : [last])
-    else if (e.key === 'Enter') openPage(ids[i])
+    } else if (e.key === 'Delete' || e.key === 'Backspace') {
+      if (all === ids) editor.deletePages(mine.length ? mine : [all[i]])
+      else if (mine.length) editor.batch(() => mine.forEach((id) => editor.apply({ type: 'deleteMaster', id })))
+    } else if (e.key === 'Enter' && all[i]) openPage(all[i])
+    else if (e.key === 'F2' && all === masterIds && all[i]) setRenaming(all[i])
     else return
     e.preventDefault()
   }
 
-  const over = (e: DragEvent, id: string) => {
-    if (!dragging) return
-    e.preventDefault()
-    const r = e.currentTarget.getBoundingClientRect()
-    const before = e.clientX < r.left + r.width / 2
-    if (drop?.id !== id || drop.before !== before) setDrop({ id, before })
-  }
-  const onDrop = (e: DragEvent) => {
-    e.preventDefault()
-    if (drop && !selected.includes(drop.id)) {
-      const others = ids.filter((id) => !selected.includes(id))
-      move(
-        ids.filter((id) => selected.includes(id)),
-        others.indexOf(drop.id) + (drop.before ? 0 : 1),
-      )
-    }
-    setDrop(null)
-  }
+  /** A page or master `id` in the overview, `vertical` when its list runs down. */
+  const thumb = (id: string, label: string, title: string, vertical: boolean, picture: ReactNode) => (
+    <div
+      key={id}
+      id={`ov-${id}`}
+      role="option"
+      className={vertical ? 'ov-master' : 'ov-page'}
+      aria-selected={selected.includes(id)}
+      aria-current={id === current ? 'page' : undefined}
+      aria-label={label}
+      title={title}
+      data-drop={drop?.id === id ? (drop.before ? 'before' : 'after') : undefined}
+      draggable
+      onClick={(e) => click(e, id)}
+      onDoubleClick={() => openPage(id)}
+      onContextMenu={(e) => openMenu(e, id, vertical)}
+      onDragStart={(e) => {
+        if (!selected.includes(id)) {
+          setAnchor(id)
+          select([id])
+        }
+        e.dataTransfer.effectAllowed = 'move'
+        e.dataTransfer.setData('text/plain', id)
+        setDragging(listOf(id))
+      }}
+      onDragOver={(e) => {
+        if (!dragging?.includes(id)) return
+        e.preventDefault()
+        const r = e.currentTarget.getBoundingClientRect()
+        const before = vertical ? e.clientY < r.top + r.height / 2 : e.clientX < r.left + r.width / 2
+        if (drop?.id !== id || drop.before !== before) setDrop({ id, before })
+      }}
+      onDragLeave={() => setDrop(null)}
+      onDrop={(e) => {
+        e.preventDefault()
+        if (dragging && drop && !selected.includes(drop.id)) {
+          const others = dragging.filter((o) => !selected.includes(o))
+          move(
+            dragging.filter((o) => selected.includes(o)),
+            others.indexOf(drop.id) + (drop.before ? 0 : 1),
+          )
+        }
+        setDrop(null)
+      }}
+      onDragEnd={() => {
+        setDragging(null)
+        setDrop(null)
+      }}
+    >
+      {picture}
+    </div>
+  )
 
   const pageThumb = (p: Page) => {
     const n = ids.indexOf(p.id) + 1
     const master = masters.find((m) => m.id === p.master)
-    return (
-      <div
-        key={p.id}
-        id={`ov-${p.id}`}
-        role="option"
-        className="ov-page"
-        aria-selected={selected.includes(p.id)}
-        aria-current={p.id === current ? 'page' : undefined}
-        aria-label={`Page ${n}`}
-        title={`Page ${n}${master ? `, master ${master.name}` : ''}`}
-        data-drop={drop?.id === p.id ? (drop.before ? 'before' : 'after') : undefined}
-        draggable
-        onClick={(e) => click(e, p.id)}
-        onContextMenu={(e) => openMenu(e, p.id, false)}
-        onDragStart={(e) => {
-          if (!selected.includes(p.id)) select([p.id])
-          e.dataTransfer.effectAllowed = 'move'
-          e.dataTransfer.setData('text/plain', p.id)
-          setDragging(true)
-        }}
-        onDragOver={(e) => over(e, p.id)}
-        onDragLeave={() => setDrop(null)}
-        onDrop={onDrop}
-        onDragEnd={() => {
-          setDragging(false)
-          setDrop(null)
-        }}
-      >
-        <Thumb paint={paint} snapshot={snapshot} lists={[{ id: p.id, x: 0 }]} sheets={[sheet(p)]} height={PAGE} />
-      </div>
+    return thumb(
+      p.id,
+      `Page ${n}`,
+      `Page ${n}${master ? `, master ${master.name}` : ''}`,
+      false,
+      <Thumb paint={paint} snapshot={snapshot} lists={[{ id: p.id, x: 0 }]} sheets={[sheet(p)]} height={PAGE} />,
     )
   }
 
@@ -264,33 +273,31 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     <section className="overview" aria-label="Page overview" style={{ gridTemplateColumns: `${wide}px 1fr` }} onPointerDown={editor.gesture}>
       <div className="ov-col">
         <h2>Masters</h2>
-        <div className="ov-row" role="group" aria-label="Masters" onKeyDown={(e) => roam(e, [...e.currentTarget.querySelectorAll('.ov-master')])}>
-          {masters.map((m, k) => (
+        <div
+          ref={masterList}
+          className="ov-row"
+          role="listbox"
+          aria-label="Masters"
+          aria-multiselectable
+          aria-activedescendant={selected.some((id) => masterIds.includes(id)) ? `ov-${selected.at(-1)}` : undefined}
+          tabIndex={0}
+          onKeyDown={(e) => e.target === e.currentTarget && onKey(e, masterIds)}
+        >
+          {masters.map((m) => (
             <div key={m.id} className="ov-item" data-current={m.id === current || undefined}>
-              <button
-                type="button"
-                className="ov-master"
-                aria-label={m.name}
-                aria-current={m.id === current ? 'page' : undefined}
-                title={`Edit ${m.name}`}
-                tabIndex={k ? -1 : 0}
-                onClick={() => openPage(m.id)}
-                onContextMenu={(e) => openMenu(e, m.id, true)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') openPage(m.id)
-                  else if (e.key === 'F2') setRenaming(m.id)
-                  else return
-                  e.preventDefault()
-                }}
-              >
+              {thumb(
+                m.id,
+                m.name,
+                `${m.name}, double click to edit`,
+                true,
                 <Thumb
                   paint={paint}
                   snapshot={snapshot}
                   lists={[{ id: m.id, x: 0 }]}
                   sheets={facing ? [sheet(m, -m.width), sheet(m)] : [sheet(m)]}
                   height={Math.max(40, Math.round(((wide - 64) * m.height) / (m.width * (facing ? 2 : 1))))}
-                />
-              </button>
+                />,
+              )}
               {renaming === m.id ? (
                 <input
                   className="rename"
@@ -337,9 +344,9 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
             role="listbox"
             aria-label="Pages"
             aria-multiselectable
-            aria-activedescendant={selected.length ? `ov-${selected.at(-1)}` : undefined}
+            aria-activedescendant={selected.some((id) => ids.includes(id)) ? `ov-${selected.at(-1)}` : undefined}
             tabIndex={0}
-            onKeyDown={onKey}
+            onKeyDown={(e) => onKey(e, ids)}
           >
             {rows.map((spread, k) => (
               <div

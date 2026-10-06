@@ -437,6 +437,8 @@ export class Editor {
   /** Deletes the pages `del`, keeping at least 1, and selects the page after them in the overview. */
   deletePages(del: string[]) {
     const ids = this.snapshot.pages.map((p) => p.id)
+    del = del.filter((id) => ids.includes(id))
+    if (!del.length) return
     if (del.length >= ids.length) return this.say('A document keeps at least 1 page')
     const numbers = del.map((id) => ids.indexOf(id) + 1)
     const next = ids.find((id, i) => !del.includes(id) && i >= Math.min(...numbers) - 1) ?? ids.findLast((id) => !del.includes(id))!
@@ -454,7 +456,7 @@ export class Editor {
 
   /** Opens the page overview with the current page selected, or closes it. */
   toggleOverview() {
-    this.set({ overview: this.overview ? null : this.master ? [] : [this.pageId] })
+    this.set({ overview: this.overview ? null : [this.pageId] })
   }
 
   togglePreflight() {

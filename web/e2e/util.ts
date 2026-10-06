@@ -168,7 +168,7 @@ export async function addPage(page: Page) {
 
 /** Shows page `n` by a click in the page overview, which closes it. */
 export async function showPage(page: Page, n: number) {
-  await (await overview(page)).getByRole('option', { name: `Page ${n}`, exact: true }).click()
+  await (await overview(page)).getByRole('option', { name: `Page ${n}`, exact: true }).dblclick()
   await expect(page.getByRole('region', { name: 'Page overview' })).toHaveCount(0)
 }
 
@@ -180,7 +180,7 @@ export async function addMaster(page: Page) {
 
 /** The number of pages the page overview lists; closes it again. */
 export async function pageCount(page: Page, n: number) {
-  await expect((await overview(page)).getByRole('option')).toHaveCount(n)
+  await expect((await overview(page)).getByRole('listbox', { name: 'Pages' }).getByRole('option')).toHaveCount(n)
   await page.keyboard.press('.')
 }
 
