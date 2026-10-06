@@ -54,10 +54,15 @@ impl Doc {
             palette,
             modes: &modes,
         };
+        let bindings = self.bindings(id);
         let m = self.meta(id);
-        let old = self.bounds(id);
+        let old = if bindings.is_empty() {
+            [0.0; 4]
+        } else {
+            self.bounds(id)
+        };
         let mut frame = old;
-        for (prop, var) in self.bindings(id) {
+        for (prop, var) in bindings {
             let v = match scope.value(&var) {
                 Some(&Value::Number(v)) => v,
                 Some(Value::Font(f)) if prop == "font" => {

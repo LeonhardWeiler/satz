@@ -1,5 +1,5 @@
 --- NOW
-- [] Performance of `settle` and `lay_out`, which walk the whole tree after every command; at 32 pages the snapshot build takes most of the time.
+- [x] Performance of `settle` and `lay_out`, which walk the whole tree after every command; at 32 pages the snapshot build takes most of the time.
 - [] Kontur innen/außen pro Seite, Absatzlinien oder ‑hintergrund, Textrahmen-Spaltenlinie, Mindesthöhe bei Auto height.
 - [] the bucket tool should only not fill over line crossings. an area is when it is surrounded by lines in all directions, there does not have to be vertices that connect the lines around it. it should work like in indesign. it does not work correctly only sometimes does it work like its supposed to, most of the time it says that there's no area, even though there is
 - [] wenn ich im path edit mode bin, dann gibt es einen done button, der weiter oben ist als der rest. er sollte etwas weiter unten sein, also auf der gleichen höhe wie die icons

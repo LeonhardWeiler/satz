@@ -21,7 +21,7 @@ fn median(runs: usize, mut f: impl FnMut()) -> Duration {
 /// one story of 4 paragraphs per frame: (doc, page ids, frame ids of the story).
 fn pages(n: usize) -> (Doc, Vec<String>, Vec<String>) {
     let mut d = Doc::sample();
-    let mut ids = vec![page(&d).id];
+    let mut ids = vec![page(&d).id.clone()];
     for _ in 1..n {
         let id = ids.last().unwrap().clone();
         ids.push(d.apply(Command::DuplicatePage { id }).unwrap().remove(0));

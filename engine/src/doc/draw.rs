@@ -3,8 +3,8 @@ use super::*;
 #[derive(Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
-    pub pages: Vec<Page>,
-    pub masters: Vec<Page>,
+    pub pages: Vec<Rc<Page>>,
+    pub masters: Vec<Rc<Page>>,
     pub facing_pages: bool,
     /// The ids of the pages of each spread from left to right: with facing pages the
     /// first page alone on the right, then pairs; else each page alone.
@@ -599,20 +599,73 @@ impl Doc {
     }
 
     pub(crate) fn build_snapshot(&self) -> Snapshot {
-        let palette = self.palette();
         let flows = self.flows();
-        let sheet = |p: TreeID| {
+        let kept = self.kept_sheets(&flows);
+        let snap = self.snapshot_of(&flows, &kept);
+        debug_assert!(
+            kept.is_empty() || snap == self.snapshot_of(&flows, &HashMap::new()),
+            "a kept page differs from one built again"
+        );
+        let sheets = snap.pages.iter().chain(&snap.masters);
+        let sheets = sheets.map(|p| (TreeID::try_from(p.id.as_str()).unwrap(), p.clone()));
+        self.sheets.replace((flows, sheets.collect()));
+        snap
+    }
+
+    /// The pages and masters of the last snapshot that no change since reaches.
+    fn kept_sheets(&self, flows: &HashMap<TreeID, Flow>) -> HashMap<TreeID, Rc<Page>> {
+        if self.doc.get_pending_txn_len() > 0 {
+            return HashMap::new();
+        }
+        let Some(nodes) = self.changed.lock().unwrap().replace(HashSet::new()) else {
+            return HashMap::new();
+        };
+        let (old, mut sheets) = self.sheets.take();
+        let same = |a: &Flow, b: &Flow| {
+            Rc::ptr_eq(&a.story, &b.story)
+                && Rc::ptr_eq(&a.placed, &b.placed)
+                && (a.head, a.start, a.end, a.rest, a.prev, a.next, a.overset)
+                    == (b.head, b.start, b.end, b.rest, b.prev, b.next, b.overset)
+        };
+        let reflowed = flows
+            .iter()
+            .filter(|(f, a)| !old.get(f).is_some_and(|b| same(a, b)))
+            .map(|(f, _)| f);
+        let roots: HashSet<TreeID> = nodes
+            .iter()
+            .chain(reflowed)
+            .map(|&n| self.root(n))
+            .collect();
+        if nodes.iter().any(|n| roots.contains(n)) {
+            return HashMap::new();
+        }
+        sheets.retain(|r, _| !roots.contains(r));
+        sheets
+    }
+
+    /// The snapshot with the pages and masters in `kept` as they are.
+    fn snapshot_of(
+        &self,
+        flows: &HashMap<TreeID, Flow>,
+        kept: &HashMap<TreeID, Rc<Page>>,
+    ) -> Snapshot {
+        let palette = self.palette();
+        let places = self.places();
+        let sheet = |p: TreeID, place: Option<&Place>| {
+            if let Some(page) = kept.get(&p) {
+                return page.clone();
+            }
             let m = self.meta(p);
             let v = serde_json::to_value(m.get_value()).unwrap_or_default();
             let modes = self.modes(p);
-            Page {
+            Rc::new(Page {
                 id: p.to_string(),
                 name: v["name"].as_str().unwrap_or_default().into(),
                 width: num(&m, "width"),
                 height: num(&m, "height"),
                 bleed: num(&m, "bleed"),
-                side: None,
-                x: 0.0,
+                side: place.and_then(|p| p.side),
+                x: place.map_or(0.0, |p| p.x),
                 master: self.master_of(p).map(|m| m.to_string()),
                 detached: serde_json::from_value(v[DETACHED].clone()).unwrap_or_default(),
                 grids: serde_json::from_value(v[GRIDS].clone()).unwrap_or_default(),
@@ -621,17 +674,13 @@ impl Doc {
                 children: self
                     .children(p)
                     .into_iter()
-                    .map(|c| self.snap(c, &modes, &palette, &flows))
+                    .map(|c| self.snap(c, &modes, &palette, flows))
                     .collect(),
                 modes,
-            }
+            })
         };
         let facing_pages = self.facing_pages();
-        let mut pages: Vec<Page> = self.pages().into_iter().map(sheet).collect();
-        let places = self.places();
-        for (p, place) in pages.iter_mut().zip(&places) {
-            (p.side, p.x) = (place.side, place.x);
-        }
+        let pages: Vec<_> = places.iter().map(|p| sheet(p.id, Some(p))).collect();
         let spreads = spreads(pages.len(), facing_pages);
         let stories: BTreeMap<_, _> = flows
             .values()
@@ -670,7 +719,7 @@ impl Doc {
                 .map(|s| s.iter().map(|&i| pages[i].id.clone()).collect())
                 .collect(),
             pages,
-            masters: self.masters().into_iter().map(sheet).collect(),
+            masters: self.masters().into_iter().map(|m| sheet(m, None)).collect(),
             facing_pages,
             raster_ppi: num(&document, "rasterPpi"),
             ink_limit: Some(num(&document, "inkLimit"))
@@ -1108,12 +1157,12 @@ impl Doc {
                 clip: v["clip"] == true,
                 children: children(),
             },
-            _ => Kind::Shape(serde_json::from_value(v.clone()).unwrap_or(Shape::Rect {
+            _ => Kind::Shape(Shape::deserialize(&v).unwrap_or(Shape::Rect {
                 radius: 0.0,
                 corners: vec![],
             })),
         };
-        let style: Style = serde_json::from_value(v.clone()).unwrap_or_default();
+        let style = Style::deserialize(&v).unwrap_or_default();
         let name = v["name"]
             .as_str()
             .map(String::from)
@@ -1188,7 +1237,7 @@ impl Doc {
                 .filter(|f| f.visible)
                 .filter_map(|f| f.ppi(w, h))
                 .reduce(f64::min),
-            layout: serde_json::from_value(v.clone()).unwrap_or_default(),
+            layout: Layout::deserialize(&v).unwrap_or_default(),
             style,
             kind,
         }
@@ -1725,7 +1774,7 @@ mod tests {
             height: h,
             bleed: b,
             ..
-        } = page(&d);
+        } = *page(&d);
         let bleeds = create(&mut d, &p, NewKind::Rect, [-b, -b, w + 2.0 * b, 20.0]);
         let short = create(&mut d, &p, NewKind::Rect, [0.0, 50.0, 20.0, 20.0]);
         let inside = create(&mut d, &p, NewKind::Rect, [20.0, 100.0, 20.0, 20.0]);
@@ -1838,7 +1887,7 @@ mod tests {
             height,
             bleed,
             ..
-        } = page(&d);
+        } = *page(&d);
         let solid = |color| Props {
             fills: Some(vec![Fill {
                 color,
@@ -2034,7 +2083,7 @@ mod tests {
             height: h,
             bleed: b,
             ..
-        } = page(&d);
+        } = *page(&d);
         create(&mut d, &left, NewKind::Rect, [-b, -b, w + b, h + 2.0 * b]);
         let top = create(&mut d, &left, NewKind::Rect, [w - 10.0, 0.0, 20.0, 10.0]);
         assert_eq!(problems(&d), [(top, Problem::ShortOfBleed)]);

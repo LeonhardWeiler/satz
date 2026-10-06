@@ -1111,8 +1111,8 @@ mod tests {
         let masters = |d: &Doc| -> Vec<Option<String>> {
             d.build_snapshot()
                 .pages
-                .into_iter()
-                .map(|p| p.master)
+                .iter()
+                .map(|p| p.master.clone())
                 .collect()
         };
         assert_eq!(

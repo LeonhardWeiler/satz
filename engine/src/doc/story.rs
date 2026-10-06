@@ -78,6 +78,7 @@ impl Doc {
     /// Adds a font to those text can be set in and sets the text again.
     pub fn add_font(&mut self, bytes: &[u8]) -> Res<Typeface> {
         let face = text::add_font(bytes)?;
+        self.changed.lock().unwrap().take();
         self.invalidate();
         self.doc.set_next_commit_origin(LAYOUT_ORIGIN);
         self.finish(vec![], false)?;
@@ -88,6 +89,7 @@ impl Doc {
     pub fn remove_font(&mut self, hash: &str) -> Res<()> {
         text::remove_font(hash);
         self.sets.take();
+        self.changed.lock().unwrap().take();
         self.invalidate();
         self.doc.set_next_commit_origin(LAYOUT_ORIGIN);
         self.finish(vec![], false).map(drop)
@@ -1133,7 +1135,8 @@ mod tests {
         );
         let [x1, y1] = first_glyph(&d);
         assert!((x1 - x0 - 4.0).abs() < 1e-4 && (y1 - y0 - 6.0).abs() < 1e-4);
-        let Kind::Text { frame, .. } = page(&d).children.pop().unwrap().kind else {
+        let p = page(&d);
+        let Kind::Text { frame, .. } = &p.children.last().unwrap().kind else {
             panic!("not text");
         };
         assert_eq!(frame.columns, 3);

@@ -17,10 +17,11 @@ use crate::text::{
 use crate::variable::{Collection, Mode, Modes, Palette, Scope, Value, Variable};
 pub use boolean::BooleanOp;
 use harfrust::Feature;
+use loro::event::{ContainerDiff, Diff};
 use loro::{
-    Container, ExpandType, ExportMode, LoroBinaryValue, LoroDoc, LoroMap, LoroText, LoroTree,
-    LoroValue, StyleConfig, TextDelta, TreeID, TreeParentId, UndoManager, UpdateOptions,
-    ValueOrContainer,
+    Container, ExpandType, ExportMode, Index, LoroBinaryValue, LoroDoc, LoroMap, LoroText,
+    LoroTree, LoroValue, StyleConfig, Subscription, TextDelta, TreeExternalDiff, TreeID,
+    TreeParentId, UndoManager, UpdateOptions, ValueOrContainer,
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::cell::RefCell;
@@ -28,6 +29,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Display;
 use std::ops::Range;
 use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 #[cfg(test)]
 mod bench;
@@ -698,11 +700,18 @@ pub struct Doc {
     prevs: RefCell<Option<Rc<HashMap<TreeID, TreeID>>>>,
     /// Each story as last set, by its first frame.
     sets: RefCell<HashMap<TreeID, Set>>,
+    /// The nodes changed since the last snapshot, `None` for everything.
+    changed: Arc<Mutex<Option<HashSet<TreeID>>>>,
+    _changes: Subscription,
+    sheets: RefCell<Sheets>,
     /// The version of the last change other than text set again for a new font.
     version: String,
 }
 
 type Res<T> = Result<T, String>;
+
+/// The flows and the pages and masters by id of the last snapshot.
+type Sheets = (Rc<HashMap<TreeID, Flow>>, HashMap<TreeID, Rc<Page>>);
 
 const MM: f64 = 72.0 / 25.4;
 
@@ -818,6 +827,30 @@ fn constrain(
     }
 }
 
+/// Adds the nodes that `d` changes to `nodes`; false when it changes more than nodes.
+fn touched(d: &ContainerDiff, nodes: &mut HashSet<TreeID>) -> bool {
+    if let Diff::Tree(t) = &d.diff {
+        return t.diff.iter().all(|i| {
+            nodes.insert(i.target);
+            let parents = match i.action {
+                TreeExternalDiff::Create { parent, .. } => [parent, parent],
+                TreeExternalDiff::Move {
+                    parent, old_parent, ..
+                } => [parent, old_parent],
+                TreeExternalDiff::Delete { old_parent, .. } => [old_parent, old_parent],
+            };
+            parents
+                .into_iter()
+                .all(|p| parent_node(p).map(|p| nodes.insert(p)).is_some())
+        });
+    }
+    let node = d.path.iter().find_map(|(_, i)| match i {
+        Index::Node(n) => Some(*n),
+        _ => None,
+    });
+    node.map(|n| nodes.insert(n)).is_some()
+}
+
 fn parent_node(p: TreeParentId) -> Option<TreeID> {
     match p {
         TreeParentId::Node(p) => Some(p),
@@ -881,7 +914,20 @@ impl Doc {
         }));
         let tree = doc.get_tree("nodes");
         tree.enable_fractional_index(0);
+        let changed = Arc::new(Mutex::new(None));
+        let c = changed.clone();
+        let _changes = doc.subscribe_root(Arc::new(move |e| {
+            let mut c = c.lock().unwrap();
+            if let Some(nodes) = c.as_mut()
+                && !e.events.iter().all(|d| touched(d, nodes))
+            {
+                *c = None;
+            }
+        }));
         Doc {
+            changed,
+            _changes,
+            sheets: RefCell::default(),
             undo: undo_manager(&doc),
             version: format!("{:?}", doc.oplog_frontiers()),
             doc,
@@ -1526,12 +1572,13 @@ impl Doc {
         for &c in &kids {
             self.lay_out(c)?;
         }
-        if self.kind(id) == Some(NodeKind::Text) {
-            return self.fit(id);
+        match self.kind(id) {
+            Some(NodeKind::Text) => return self.fit(id),
+            Some(NodeKind::Frame) => {}
+            _ => return Ok(()),
         }
         let l = self.layout(id);
-        let Some((horizontal, pad)) = l.axes().filter(|_| self.kind(id) == Some(NodeKind::Frame))
-        else {
+        let Some((horizontal, pad)) = l.axes() else {
             return Ok(());
         };
         let flow: Vec<TreeID> = kids
@@ -2592,7 +2639,7 @@ mod tests {
 
     pub(super) use crate::display_list::Paint;
 
-    pub(super) fn page(d: &Doc) -> Page {
+    pub(super) fn page(d: &Doc) -> Rc<Page> {
         d.build_snapshot().pages.remove(0)
     }
 
@@ -2629,7 +2676,7 @@ mod tests {
         let p = page(&d);
         let ids = p.children.iter().map(|n| n.id.clone()).collect();
         d.apply(Command::Delete { ids }).unwrap();
-        (d, p.id)
+        (d, p.id.clone())
     }
 
     pub(super) fn frame(n: &Node) -> [f64; 4] {
@@ -2805,7 +2852,7 @@ mod tests {
     }
 
     pub(super) fn text(d: &mut Doc, content: &str) -> String {
-        let p = page(d).id;
+        let p = page(d).id.clone();
         let t = create(d, &p, NewKind::Text, [0.0, 0.0, 400.0, 400.0]);
         d.apply(Command::SetText {
             id: t.clone(),
@@ -2829,7 +2876,7 @@ mod tests {
     }
 
     pub(super) fn spans(d: &Doc) -> Vec<Span> {
-        match page(d).children.pop().unwrap().kind {
+        match &page(d).children.last().unwrap().kind {
             Kind::Text { content, .. } => content.spans.clone(),
             k => panic!("not text: {k:?}"),
         }
@@ -2926,7 +2973,11 @@ mod tests {
     }
 
     pub(super) fn page_ids(d: &Doc) -> Vec<String> {
-        d.build_snapshot().pages.into_iter().map(|p| p.id).collect()
+        d.build_snapshot()
+            .pages
+            .iter()
+            .map(|p| p.id.clone())
+            .collect()
     }
 
     pub(super) fn facing(d: &mut Doc, on: bool) {
@@ -3862,6 +3913,32 @@ mod tests {
     }
 
     #[test]
+    fn a_change_on_one_page_keeps_the_others_of_the_snapshot() {
+        let mut d = Doc::sample();
+        let first = page(&d);
+        d.apply(Command::DuplicatePage {
+            id: first.id.clone(),
+        })
+        .unwrap();
+        let before = d.snapshot();
+        let rect = &before.pages[0].children[0];
+        d.apply(Command::SetFrame {
+            id: rect.id.clone(),
+            x: rect.x + 10.0,
+            y: rect.y,
+            w: rect.w,
+            h: rect.h,
+            crop: false,
+        })
+        .unwrap();
+        let after = d.snapshot();
+        assert!(!Rc::ptr_eq(&before.pages[0], &after.pages[0]));
+        assert!(Rc::ptr_eq(&before.pages[1], &after.pages[1]));
+        set_width(&mut d, &first.id, 300.0);
+        assert!(!Rc::ptr_eq(&after.pages[1], &d.snapshot().pages[1]));
+    }
+
+    #[test]
     fn a_command_that_fails_leaves_the_document_as_it_was() {
         let (mut d, p) = empty();
         let r = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
@@ -4741,8 +4818,8 @@ mod tests {
                 fit,
             })
             .unwrap();
-            let n = page(d).children.remove(0);
-            (frame(&n), n.style.fills[0].transform)
+            let n = &page(d).children[0];
+            (frame(n), n.style.fills[0].transform)
         };
         assert_eq!(fit(&mut d, Fit::Cover).1, [2.0, 0.0, 0.0, 1.0, -0.5, 0.0]);
         assert_eq!(fit(&mut d, Fit::Contain).1, [1.0, 0.0, 0.0, 0.5, 0.0, 0.25]);

@@ -50,6 +50,9 @@ Node 22, pnpm, MuPDF (`mutool`, for the PDF tests) and
   the PDF; `engine/src/pdfx.rs` adds the profile's OutputIntent, XMP and Info in an
   incremental update. RGB X-4 pages blend in an sRGB group, CMYK documents blend in
   CMYK, on the canvas too (plates and a LUT of the profile in `renderer.ts`).
+- A snapshot keeps the pages and masters of the last one that no change reaches; a
+  subscription to the Loro document collects the changed nodes, any other change
+  builds every page again.
 - Deleted nodes move under a `trash` root so that undo restores them with their ids.
 - A text frame wraps around the shown layers above it on its page whose `wrap` is
   set (`around` or `jump`, `wrapOffset` pt away); auto width text does not wrap.
