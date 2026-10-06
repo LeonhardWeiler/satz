@@ -563,7 +563,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       if (editor.tool !== 'move' || editor.editing || editor.vector) return []
       const one = editor.selection.length === 1 && editor.selected()[0]
       const nodes = editor.selection.length > 1 ? editor.selected()
-        : one && (one.kind === 'group' || (one.kind === 'frame' && one.direction !== 'none')) ? one.children.filter((n) => !n.hidden)
+        : one && (one.kind === 'group' || (one.kind === 'frame' && one.direction !== 'none')) ? one.children.filter((n) => !n.hidden && !n.absolute)
         : []
       return nodes.length < 2 ? [] : nodes.map((n) => {
         const b = upright(editor.shown(n))
