@@ -938,11 +938,17 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         if (g.index < 0) ({ id: g.id, x: g.dx } = pageAt(p, editor.sheets))
         if (!g.grouped) editor.beginGroup()
         g.grouped = true
-        const { guides } = editor.sheets.find((s) => s.id === g.id)!
-        const rest = guides[g.axis].filter((_, i) => i !== g.index)
-        const sheets = editor.sheets.map((s) => (s.id === g.id ? { ...s, guides: { ...guides, [g.axis]: rest } } : s))
-        const at = p[g.axis] + (free ? snap([p[g.axis]], snapsNow([], sheets).lines[g.axis], SNAP / view.zoom) : 0)
-        editor.apply({ type: 'setGuides', id: g.id, guides: { ...guides, [g.axis]: off ? rest : [...rest, g.axis === 'x' ? at - g.dx : at] } })
+        const { guides: had } = editor.sheets.find((s) => s.id === g.id)!
+        const rest = had[g.axis].filter((_, i) => i !== g.index)
+        const sheets = editor.sheets.map((s) => (s.id === g.id ? { ...s, guides: { ...had, [g.axis]: rest } } : s))
+        const { lines, others } = snapsNow([], sheets)
+        const at = p[g.axis] + (free ? snap([p[g.axis]], lines[g.axis], SNAP / view.zoom) : 0)
+        const sheet = sheets.find((s) => s.id === g.id)!
+        const page = { x: sheet.x, y: 0, w: sheet.width, h: sheet.height }
+        const line = g.axis === 'x' ? { ...page, x: at, w: 0 } : { ...page, y: at, h: 0 }
+        snapped = free && !off ? guides(line, lines, g.axis === 'x' ? [at] : [], g.axis === 'y' ? [at] : []) : []
+        measures = off ? [] : measure(line, page, others)
+        editor.apply({ type: 'setGuides', id: g.id, guides: { ...had, [g.axis]: off ? rest : [...rest, g.axis === 'x' ? at - g.dx : at] } })
         g.index = off ? -1 : rest.length
         editor.set({ guide: off ? null : { id: g.id, axis: g.axis, index: g.index } })
         return

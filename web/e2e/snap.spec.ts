@@ -92,3 +92,18 @@ test('distance labels never cover each other', async ({ page }) => {
     for (const b of boxes.slice(i + 1)) expect(a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top).toBe(true)
   await page.mouse.up()
 })
+
+test('a guide dragged out of the ruler shows its distances to the layers and the page', async ({ page }) => {
+  await open(page)
+  await page.keyboard.press('r')
+  await drag(page, await screen(page, 20, 20), await screen(page, 40, 40))
+  await page.keyboard.press('Escape')
+  const ruler = (await page.locator('.ruler-x').boundingBox())!
+  const [x, y] = await screen(page, 30, 50)
+  await page.mouse.move(x, ruler.y + ruler.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(x, y, { steps: 4 })
+  await expect(labels(page)).toHaveText(['10 mm', /^\d+ mm$/])
+  await page.mouse.up()
+  await expect(labels(page)).toHaveCount(0)
+})
