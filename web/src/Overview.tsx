@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from 'react'
-import type { CanvasKit, GrDirectContext } from 'canvaskit-wasm'
+import type { CanvasKit, GrDirectContext, Surface } from 'canvaskit-wasm'
 import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
 import { Field } from './controls'
@@ -21,16 +21,20 @@ const resize = (patch: Partial<typeof settings.overview>) => setSettings({ overv
 let painter: ReturnType<typeof makePainter> | undefined
 
 /**
- * Draws pictures of pages with the canvas renderer on the GPU, as many per frame as fit in 8 ms. It lives on
- * after the overview closes and keeps the last picture of each page, which a canvas shows until it is drawn again.
+ * Draws pictures of pages with the canvas renderer on the GPU, as many per frame as fit in 8 ms, only when their
+ * display lists or size changed. It lives on after the overview closes and keeps the last picture of each spread
+ * shown, which a canvas shows until it is drawn again.
  */
 function makePainter(ck: CanvasKit, editor: Editor) {
   let renderer: Renderer | undefined
   let gpu: GrDirectContext | null = null
+  let surface: Surface | null = null
   const off = new OffscreenCanvas(1, 1)
   const queue = new Map<HTMLCanvasElement, [Lists, Sheet[]]>()
-  const drawn = new Map<HTMLCanvasElement, [Lists, Sheet[]]>()
-  const pictures = new Map<string, ImageBitmap>()
+  /** Canvases drawn while their images were decoding. */
+  const waiting = new Map<HTMLCanvasElement, [Lists, Sheet[]]>()
+  const pictures = new Map<string, { bitmap: ImageBitmap; of: string }>()
+  const used = new Set<string>()
   const show = (c: HTMLCanvasElement, picture?: ImageBitmap) => {
     if (!picture) return
     ;[c.width, c.height] = [Math.round(c.clientWidth * devicePixelRatio), Math.round(c.clientHeight * devicePixelRatio)]
@@ -39,27 +43,33 @@ function makePainter(ck: CanvasKit, editor: Editor) {
   let frame = 0
   const draw = (c: HTMLCanvasElement, lists: Lists, sheets: Sheet[]) => {
     if (!c.isConnected) return
-    drawn.set(c, [lists, sheets])
-    const left = Math.min(...sheets.map((s) => s.x))
     const width = Math.round(c.clientWidth * devicePixelRatio)
     const height = Math.round(c.clientHeight * devicePixelRatio)
+    const { colorMode, profile } = editor.snapshot
+    const key = JSON.stringify([lists, sheets])
+    const of = JSON.stringify([width, height, colorMode, profile, lists.map((l) => editor.engine.listVersion(l.id))])
+    if (pictures.get(key)?.of === of) return show(c, pictures.get(key)!.bitmap)
+    const left = Math.min(...sheets.map((s) => s.x))
     const zoom = width / (Math.max(...sheets.map((s) => s.x + s.width)) - left)
-    ;[off.width, off.height] = [width, height]
-    gpu ??= ck.MakeWebGLContext(ck.GetWebGLContext(off))
-    const surface = gpu && ck.MakeOnScreenGLSurface(gpu, width, height, ck.ColorSpace.SRGB)
-    if (!surface) return
+    if (off.width !== width || off.height !== height || !surface) {
+      ;[off.width, off.height] = [width, height]
+      gpu ??= ck.MakeWebGLContext(ck.GetWebGLContext(off))
+      surface?.delete()
+      surface = gpu && ck.MakeOnScreenGLSurface(gpu, width, height, ck.ColorSpace.SRGB)
+      if (!surface) return
+    }
     renderer ??= new Renderer(ck, editor.engine, () => {
-      for (const [c, args] of drawn) if (c.isConnected) queue.set(c, args)
+      for (const [c, args] of waiting) if (c.isConnected) queue.set(c, args)
       frame ||= requestAnimationFrame(run)
     }, 1024)
-    renderer.reprofile(editor.snapshot.profile ?? '')
-    renderer.draw(surface.getCanvas(), lists, sheets, { x: -left * zoom, y: 0, zoom }, 1, null, editor.snapshot.colorMode === 'cmyk')
+    renderer.reprofile(profile ?? '')
+    renderer.draw(surface.getCanvas(), lists, sheets, { x: -left * zoom, y: 0, zoom }, 1, null, colorMode === 'cmyk')
     surface.flush()
-    surface.delete()
-    const key = JSON.stringify([lists, sheets])
-    pictures.get(key)?.close()
-    pictures.set(key, off.transferToImageBitmap())
-    show(c, pictures.get(key))
+    if (renderer.decoding) waiting.set(c, [lists, sheets])
+    else waiting.delete(c)
+    pictures.get(key)?.bitmap.close()
+    pictures.set(key, { bitmap: off.transferToImageBitmap(), of: renderer.decoding ? '' : of })
+    show(c, pictures.get(key)!.bitmap)
   }
   const run = () => {
     const end = performance.now() + 8
@@ -72,7 +82,9 @@ function makePainter(ck: CanvasKit, editor: Editor) {
   }
   return {
     paint: (c: HTMLCanvasElement, lists: Lists, sheets: Sheet[]) => {
-      show(c, pictures.get(JSON.stringify([lists, sheets])))
+      const key = JSON.stringify([lists, sheets])
+      used.add(key)
+      show(c, pictures.get(key)?.bitmap)
       queue.set(c, [lists, sheets])
       frame ||= requestAnimationFrame(run)
     },
@@ -80,7 +92,13 @@ function makePainter(ck: CanvasKit, editor: Editor) {
       cancelAnimationFrame(frame)
       frame = 0
       queue.clear()
-      drawn.clear()
+      waiting.clear()
+      for (const [key, { bitmap }] of pictures) {
+        if (used.has(key)) continue
+        bitmap.close()
+        pictures.delete(key)
+      }
+      used.clear()
       renderer?.sweep()
     },
   }
