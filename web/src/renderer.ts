@@ -10,7 +10,7 @@ const MISSING = 2 ** 31
 /** Marks an image id as the C, M and Y or K plate, as `image::CMY` and `image::K` do. */
 const [PLATE_CMY, PLATE_K] = [2 ** 30, 2 ** 29]
 
-type Cache = Map<number, { hash: number; picture: SkPicture }>
+type Cache = Map<number, { hash: number; picture: SkPicture; images: Set<number> }>
 
 export type View = { x: number; y: number; zoom: number }
 /** A box turned `rotation` degrees counterclockwise around its centre. */
@@ -157,6 +157,8 @@ export class Renderer {
   /** Items, layers and images drawn since the last `sweep`. */
   private live = new Set<number>()
   private shown = new Set<number>()
+  /** The images of each picture being recorded, innermost last. */
+  private recording: Set<number>[] = []
   /** Some page was recorded since the last `sweep`. */
   private recorded = false
   /** The pages as `drawScene` last drew them, and what of. */
@@ -365,7 +367,14 @@ export class Renderer {
       this.decoding--
       if (images.get(id) !== null) return bitmap?.close()
       images.set(id, bitmap && ck.MakeLazyImageFromTextureSource(bitmap, { width: bitmap.width, height: bitmap.height, colorType: ck.ColorType.RGBA_8888, alphaType: ck.AlphaType.Unpremul, colorSpace: ck.ColorSpace.SRGB }))
-      this.clear()
+      if (this.scene) this.scene.key = []
+      for (const cache of this.caches.flatMap((c) => [c.pictures, c.layers])) {
+        for (const [key, { picture, images }] of cache) {
+          if (!images.has(id)) continue
+          picture.delete()
+          cache.delete(key)
+        }
+      }
       this.loaded()
     }
     createImageBitmap(new Blob([this.engine.image(id) as Uint8Array<ArrayBuffer>]))
@@ -670,9 +679,13 @@ export class Renderer {
     let entry = cache.get(key)
     if (entry?.hash !== hash) {
       entry?.picture.delete()
-      entry = { hash, picture: record() }
+      const images = new Set<number>()
+      this.recording.push(images)
+      entry = { hash, picture: record(), images }
+      this.recording.pop()
       cache.set(key, entry)
     }
+    for (const s of this.recording) for (const i of entry.images) s.add(i)
     return entry.picture
   }
 
@@ -719,6 +732,7 @@ export class Renderer {
   private drawImage(canvas: Canvas, { image, transform }: Extract<Op, { op: 'image' }>) {
     const { ck, paint } = this
     const [id, ...adjust] = this.source(image)
+    for (const s of this.recording) s.add(id ?? image)
     const img = this.images.get(id ?? image)
     if (!img) return
     const [a, b, c, d, e, f] = transform
