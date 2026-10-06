@@ -35,6 +35,8 @@ test('shift click adds the pages from the last selected one, however it was sele
   await option(page, 5).click({ modifiers: ['Control'] })
   await option(page, 3).click({ modifiers: ['Shift'] })
   for (let n = 1; n <= 5; n++) await expect(option(page, n)).toHaveAttribute('aria-selected', String(n !== 2))
+  await option(page, 4).click({ modifiers: ['Shift'] })
+  for (let n = 1; n <= 5; n++) await expect(option(page, n)).toHaveAttribute('aria-selected', String(n !== 2 && n !== 3))
   await expect(region).toBeVisible()
 })
 

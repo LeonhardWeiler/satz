@@ -25,11 +25,18 @@ export function pick(nodes: Node[], path: string[], selection: string[], mode: '
   return path[i]
 }
 
-/** `selection` with the ids of `list` from its last one of `list` to `id` added, that last one last again; null when `selection` holds none of `list`. */
+let last = { base: [] as string[], result: [] as string[] }
+
+/**
+ * `selection` with the ids of `list` from its last one of `list` to `id` added, that last one last again;
+ * null when `selection` holds none of `list`. A `selection` that is the last result spans again from its base.
+ */
 export function span(list: string[], selection: string[], id: string) {
-  const from = list.indexOf(selection.findLast((s) => list.includes(s)) ?? '')
+  const base = selection.length === last.result.length && selection.every((s, i) => s === last.result[i]) ? last.base : selection
+  const from = list.indexOf(base.findLast((s) => list.includes(s)) ?? '')
   const to = list.indexOf(id)
   if (from < 0 || to < 0) return null
   const range = from < to ? list.slice(from, to + 1).reverse() : list.slice(to, from + 1)
-  return [...selection.filter((s) => !range.includes(s)), ...range]
+  last = { base, result: [...base.filter((s) => !range.includes(s)), ...range] }
+  return last.result
 }

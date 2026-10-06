@@ -47,3 +47,13 @@ test('shift click adds the span from the last selected one of the list, which st
   expect(span(list, ['b'], 'd')).toEqual(['d', 'c', 'b'])
   expect(span(list, ['x'], 'd')).toBeNull()
 })
+
+test('a second shift click replaces the span of the first', () => {
+  const list = ['a', 'b', 'c', 'd', 'e']
+  const first = span(list, ['a', 'b', 'c'], 'e')!
+  expect(first.toSorted()).toEqual(list)
+  const second = span(list, [...first], 'd')!
+  expect(second.toSorted()).toEqual(['a', 'b', 'c', 'd'])
+  expect(span(list, second, 'a')!.toSorted()).toEqual(['a', 'b', 'c'])
+  expect(span(list, ['b'], 'c')).toEqual(['c', 'b'])
+})
