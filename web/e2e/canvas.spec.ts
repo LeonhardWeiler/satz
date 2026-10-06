@@ -379,19 +379,23 @@ test('the centre of one of several selected layers dragged onto another swaps th
   await expect(panel.getByRole('textbox', { name: 'W in mm' })).toHaveValue('20')
 })
 
-test('the centre of a layer in a group dragged onto another in it swaps their places', async ({ page }) => {
+test('the centre of a layer in a selected group dragged onto another in it swaps their places', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
+  const tree = page.getByRole('tree', { name: 'Layers' })
   await page.keyboard.press('r')
   await drag(page, await screen(page, 20, 20), await screen(page, 40, 40))
   await page.keyboard.press('r')
   await drag(page, await screen(page, 60, 30), await screen(page, 80, 60))
-  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle' }).nth(1).click({ modifiers: ['Control'] })
+  await tree.getByRole('button', { name: 'Rectangle' }).nth(1).click({ modifiers: ['Control'] })
   await page.keyboard.press('Control+g')
-  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).first().click()
+  await tree.getByRole('button', { name: 'Rectangle', exact: true }).first().click()
   const x = await panel.getByRole('textbox', { name: 'X in mm' }).inputValue()
-  const [from, to] = x === '60' ? [[70, 45], [30, 30]] : [[30, 30], [70, 45]]
-  await drag(page, await screen(page, from[0], from[1]), await screen(page, to[0], to[1]))
+  await expect(page.locator('.swap')).toHaveCount(0)
+  await tree.getByRole('button', { name: 'Group', exact: true }).click()
+  await expect(page.locator('.swap')).toHaveCount(2)
+  await drag(page, await screen(page, 30, 30), await screen(page, 70, 45))
+  await tree.getByRole('button', { name: 'Rectangle', exact: true }).first().click()
   await expect(panel.getByRole('textbox', { name: 'X in mm' })).toHaveValue(x === '60' ? '20' : '60')
 })
 

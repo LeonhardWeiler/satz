@@ -2,7 +2,7 @@
 - [x] inside groups and auto layouts the elemts should have a circle in the middle of them just like when both of them are selected to change position. for autolayouts its neccesesary to move them in the layer order i belive
 - [x] settings menu should be centered on the page
 - [x] the rulers should also snap the same as any other element
-- [] point 16 is done, but it should also work if the group is selected, right now it only works if an element inside the group is selected, there it should not be the circle. only if the group is selected
+- [x] point 16 is done, but it should also work if the group is selected, right now it only works if an element inside the group is selected, there it should not be the circle. only if the group is selected
 - [] point 25 works, but it should show the smart snap lines with mm, like any other element
 - [] komplette liste von funktionen in satz als markdown datei im repo
 - [] wrap around für height und width getrennt einstellbar
