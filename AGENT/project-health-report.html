@@ -41,15 +41,15 @@
 <body>
 <main>
 <h1>Satz – project health report</h1>
-<p class="meta">2026-10-05 · branch <code>main</code> · commit <code>5df7a25</code> · browser DTP (Rust/WASM engine, CanvasKit renderer, React UI, krilla PDF)</p>
+<p class="meta">2026-10-06 · branch <code>main</code> · commit <code>e554868</code> · browser DTP (Rust/WASM engine, CanvasKit renderer, React UI, krilla PDF)</p>
 
 <div class="counters">
   <div class="counter"><b>0</b><span>Critical</span></div>
   <div class="counter"><b>0</b><span>High</span></div>
-  <div class="counter"><b>4</b><span>Medium</span></div>
-  <div class="counter"><b>14</b><span>Low</span></div>
-  <div class="counter"><b>4</b><span>Info</span></div>
-  <div class="counter"><b>22</b><span>Total</span></div>
+  <div class="counter"><b>3</b><span>Medium</span></div>
+  <div class="counter"><b>13</b><span>Low</span></div>
+  <div class="counter"><b>3</b><span>Info</span></div>
+  <div class="counter"><b>19</b><span>Total</span></div>
 </div>
 
 <nav aria-label="Contents">
@@ -59,13 +59,11 @@
       <li><a href="#BUG-1">BUG-1 Unbounded numbers break raster output</a></li>
       <li><a href="#BUG-2">BUG-2 A failed autosave is silent</a></li>
       <li><a href="#A11Y-1">A11Y-1 Secondary text below AA contrast</a></li>
-      <li><a href="#PERF-1">PERF-1 Image adjustment through PNG</a></li>
       <li><a href="#BUG-3">BUG-3 Trap while restoring the autosave</a></li>
       <li><a href="#BUG-4">BUG-4 Service worker drops the cache of an open tab</a></li>
       <li><a href="#BUG-5">BUG-5 Two jobs on one worker</a></li>
       <li><a href="#UX-1">UX-1 Ctrl+Shift shortcuts in Firefox</a></li>
       <li><a href="#UX-2">UX-2 One download per exported page</a></li>
-      <li><a href="#PERF-2">PERF-2 Images decoded again per spread</a></li>
       <li><a href="#PERF-3">PERF-3 Keystroke in long stories</a></li>
       <li><a href="#PERF-4">PERF-4 Character names in the engine</a></li>
       <li><a href="#TEST-1">TEST-1 E2E in Chromium only</a></li>
@@ -76,7 +74,6 @@
       <li><a href="#ARCH-2">ARCH-2 Derived sizes in the document</a></li>
       <li><a href="#DOC-1">DOC-1 Wrong docstring on pickProfile</a></li>
       <li><a href="#SEC-1">SEC-1 No content security policy</a></li>
-      <li><a href="#TEST-4">TEST-4 Local measuring spec in ./check</a></li>
       <li><a href="#PERF-5">PERF-5 Source Serif downloaded twice</a></li>
     </ol>
   </li>
@@ -90,8 +87,8 @@
 
 <article class="card medium" id="BUG-1">
   <header><span class="id">BUG-1</span><span class="badge medium">medium</span><h3>Numbers without an upper bound break raster output and pass the preflight</h3></header>
-  <p class="file"><code>engine/src/doc/mod.rs</code> <code>Props::check</code>, <code>TextProps::check</code>, <code>check_frame</code>; <code>web/src/controls.tsx</code> <code>Field</code> (<code>max = Infinity</code>)</p>
-  <p>Commands require finite numbers but mostly no maximum: stroke weight, radius, blur, shadow offset, text size, letter spacing, line height, indents, gutter and frame size accept anything up to <code>f32::MAX</code> or <code>f64::MAX</code>. Release-mode probe tests (temporary, removed): a stroke weight of 1e10 pt panics in tiny-skia (<code>alpha_runs.rs:189</code>, <code>unwrap</code> on <code>None</code>) in <code>png</code> and <code>inks</code>; 1e8 still works. In WASM this traps the export worker, so the ink preview of a CMYK document, PNG/JPEG export and the flattening of PDF/X-1a fail with a raw message; render and PDF survive. In debug builds text size 1e40 trips <code>debug_assert</code> “text drawn where it was not set” and blur 1e9 overflows <code>i32</code> in <code>raster.rs:114</code>. In the browser a width of <code>99999999999</code> mm was accepted: the ellipse vanished from the page and the preflight said “No issues. The document is ready for print.”</p>
+  <p class="file"><code>engine/src/doc/mod.rs</code> <code>Props::check</code> (<code>f64::MAX</code> bounds), <code>TextProps::check</code>, <code>check_frame</code>; <code>web/src/controls.tsx</code> <code>Field</code> (<code>max = Infinity</code>)</p>
+  <p>Commands require finite numbers but mostly no maximum: stroke weight, radius, blur, shadow offset, text size, letter spacing, line height, indents, gutter, frame size and the newer per-side stroke weights, column rule weight, min height and wrap offsets accept anything up to <code>f32::MAX</code> or <code>f64::MAX</code>. Release-mode probe tests (temporary, removed): a stroke weight of 1e10 pt panics in tiny-skia (<code>alpha_runs.rs:189</code>, <code>unwrap</code> on <code>None</code>) in <code>png</code> and <code>inks</code>; 1e8 still works. In WASM this traps the export worker, so the ink preview of a CMYK document, PNG/JPEG export and the flattening of PDF/X-1a fail with a raw message; render and PDF survive. In debug builds text size 1e40 trips <code>debug_assert</code> “text drawn where it was not set” and blur 1e9 overflows <code>i32</code> in <code>raster.rs:114</code>. In the browser a width of <code>99999999999</code> mm was accepted: the ellipse vanished from the page and the preflight said “No issues. The document is ready for print.”</p>
   <p class="rec">Give every length a maximum in the <code>check</code> functions (e.g. 20000 mm, the limit the view already has; text size 0.1–5000 pt; stroke and blur ≤ the page diagonal) and pass the same bounds as <code>max</code> to the fields. Add a test with the extremes to <code>a_command_that_fails_leaves_the_document_as_it_was</code>.</p>
 </article>
 
@@ -107,13 +104,6 @@
   <p class="file"><code>web/src/index.css</code> <code>--text-3</code> (50 uses), light theme <code>--accent</code>, <code>--bad</code>, <code>--warn</code></p>
   <p><code>--text-3</code> is the foreground mixed 50 % into the background. Computed contrast: dark theme 4.0:1 on panels, 3.75:1 on inputs, 3.5:1 on raised rows; light theme 3.0:1. At 11–12 px these need 4.5:1. In the light theme the accent is 2.9:1, errors 3.4:1 and warnings 3.2:1 on the panel.</p>
   <p class="rec">Raise <code>--text-3</code> to about 62 % in dark and 68 % in light, and darken the light theme's accent, bad and warn until each reaches 4.5:1; check once with the browser's contrast tool.</p>
-</article>
-
-<article class="card medium" id="PERF-1">
-  <header><span class="id">PERF-1</span><span class="badge medium">medium</span><h3>Each image adjustment encodes the whole image as PNG on the main thread</h3></header>
-  <p class="file"><code>engine/src/image.rs</code> <code>adjusted</code>, <code>file</code>, <code>encode</code>; <code>web/src/renderer.ts:173</code> <code>MakeImageFromEncoded</code></p>
-  <p>Since <code>5fff04a</code> the per-pixel map is affine and 3 times faster, but every new brightness/contrast/saturation value still makes a new entry, decodes the source, maps it, encodes a 3.9 MB PNG and lets CanvasKit decode it again. Measured natively on <code>earthrise.jpg</code> (3000×3000): 134–140 ms per step (304 ms on 02.10); in WASM a multiple of that, on the main thread, once per scrubbed value.</p>
-  <p class="rec">Put the 4×5 colour matrix into the display list's image op and draw the original with <code>ColorFilter.MakeMatrix</code>; only PDF, plates and inks bake pixels, and they already run in the worker.</p>
 </article>
 
 <article class="card low" id="BUG-3">
@@ -151,24 +141,17 @@
   <p class="rec">Bundle more than one page into a zip, as the package export already does.</p>
 </article>
 
-<article class="card low" id="PERF-2">
-  <header><span class="id">PERF-2</span><span class="badge low">low</span><h3>Images are decoded again after a spread change</h3></header>
-  <p class="file"><code>web/src/renderer.ts:272–276</code></p>
-  <p>The renderer deletes every CanvasKit image not drawn in the current frame, so switching spreads or scrolling an image out of view decodes it again (a 3000×3000 JPEG noticeably; not measured alone). The pruning exists for the intermediate images of PERF-1.</p>
-  <p class="rec">After PERF-1, keep the images of the document and free only those whose hash left it.</p>
-</article>
-
 <article class="card low" id="PERF-3">
-  <header><span class="id">PERF-3</span><span class="badge low">low</span><h3>A keystroke sets its whole story again and rebuilds the whole snapshot</h3></header>
-  <p class="file"><code>engine/src/doc/story.rs</code> <code>flow</code>; <code>engine/src/doc/draw.rs</code> snapshot; <code>web/src/editor.ts</code> <code>change</code></p>
-  <p>Native benchmark, release, fast runs: keystroke 0.67 / 5.4 / 16 ms at 1 / 8 / 32 pages (14.1 ms on 02.10), set_frame 9.6 ms at 32 pages, render 0.03 ms. Every command also serialises the full snapshot to JSON and the UI parses it again, on every drag move too. Browser cost not measured.</p>
-  <p class="rec">Measure in the browser first. Set a story again only from the frame that changed, and send only changed pages of the snapshot if the measurement shows it.</p>
+  <header><span class="id">PERF-3</span><span class="badge low">low</span><h3>Every command serialises the whole snapshot to JSON and the UI parses it again</h3></header>
+  <p class="file"><code>engine/src/lib.rs</code> <code>snapshot</code>; <code>web/src/editor.ts</code> <code>change</code>, <code>index</code></p>
+  <p>Since <code>202582b</code> the engine rebuilds only the pages a change reaches, but <code>Engine::snapshot</code> still returns all pages, masters and stories as one JSON string, and <code>Editor.change</code> parses it and rebuilds the node index after every command, on every drag move too. This grows with the document while the engine work no longer does. Neither cost measured in the browser in this review.</p>
+  <p class="rec">Measure a drag on the 32-page benchmark document in the browser profiler first; if parse and index show up, send only the changed pages and keep the unchanged objects of the last snapshot.</p>
 </article>
 
 <article class="card low" id="PERF-4">
-  <header><span class="id">PERF-4</span><span class="badge low">low</span><h3>Unicode character names cost 277 kB gzip at every start</h3></header>
+  <header><span class="id">PERF-4</span><span class="badge low">low</span><h3>Unicode character names cost about 277 kB gzip at every start</h3></header>
   <p class="file"><code>engine/Cargo.toml</code> <code>unicode_names2</code>; <code>engine/src/text.rs:119</code> <code>characters</code></p>
-  <p>The engine WASM grew from 2.81 to 3.40 MB gzip since 02.10. A build without <code>unicode_names2</code> (temporary worktree) is 3,041,505 instead of 3,318,372 bytes gzip after <code>wasm-opt</code>: 8 % of the engine for the search by name in the characters panel, which few sessions open.</p>
+  <p>The engine WASM is 8.3 MB, 3,333,977 bytes with <code>gzip -9</code> on <code>e554868</code>. A build without <code>unicode_names2</code> measured on 05.10 was 277 kB gzip smaller: 8 % of the engine for the search by name in the characters panel, which few sessions open.</p>
   <p class="rec">Search by code point and block only, or fetch a names file when the panel opens.</p>
 </article>
 
@@ -180,10 +163,10 @@
 </article>
 
 <article class="card low" id="TEST-2">
-  <header><span class="id">TEST-2</span><span class="badge low">low</span><h3>9 of the last 20 CI runs were red, each time also in the retry</h3></header>
+  <header><span class="id">TEST-2</span><span class="badge low">low</span><h3>5 of the last 20 CI runs were red, each time also in the retry</h3></header>
   <p class="file"><code>.github/workflows/ci.yml</code>; <code>web/e2e/*.spec.ts</code></p>
-  <p>All failures were in e2e (cmyk booklet preflight twice, auto layout, 880 px bar, overview header, text wrap, images, preflight) and the retry failed as well, so these were real breakages of a test or the app that reached <code>main</code>, not flakes. A red run skips the deploy. The last one is fixed in <code>a6ac28b</code>; the last green run took 10:16 min.</p>
-  <p class="rec">Before a push run the specs of the touched area, e.g. <code>./check e2e autolayout overview</code>.</p>
+  <p>All failures were in e2e and the retry failed as well, so they were real breakages that reached <code>main</code>, not flakes; a red run skips the deploy. The last one (<code>8824a5d</code>, <code>autolayout.spec.ts:93</code> “a child made absolute keeps its place”) passed again from the next push. The trend is better: 1 red of the last 10 runs, 3 cancelled because a newer push superseded them. Since <code>f5d3642</code> the full <code>./check</code> runs only before the push.</p>
+  <p class="rec">Keep running <code>./check</code> before each push; it takes 5 min locally with all workers.</p>
 </article>
 
 <article class="card low" id="TEST-3">
@@ -228,13 +211,6 @@
   <p class="rec">Add <code>&lt;meta http-equiv="Content-Security-Policy"&gt;</code> with <code>default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; img-src 'self' blob: data:; style-src 'self' 'unsafe-inline'</code> and run the e2e suite against it.</p>
 </article>
 
-<article class="card info" id="TEST-4">
-  <header><span class="id">TEST-4</span><span class="badge info">info</span><h3>An untracked measuring spec runs inside the local <code>./check</code></h3></header>
-  <p class="file"><code>web/e2e/shot.spec.ts</code> (excluded in <code>.git/info/exclude</code>)</p>
-  <p>It has no assertions, waits with fixed timeouts and prints page lines, so the local run counts 216 tests against 215 in CI and adds noise.</p>
-  <p class="rec">Keep it outside <code>web/e2e</code> or behind an environment variable.</p>
-</article>
-
 <article class="card info" id="PERF-5">
   <header><span class="id">PERF-5</span><span class="badge info">info</span><h3>Source Serif 4 is downloaded twice</h3></header>
   <p class="file"><code>engine/src/text.rs:17</code> <code>FONT</code>; <code>web/index.html:16</code> <code>@font-face</code></p>
@@ -244,13 +220,13 @@
 
 <h2 id="strong">2. What is already strong</h2>
 <ul class="plain">
-  <li><span class="badge good">gate</span> <code>./check</code> in <code>nix develop</code> passes end to end on <code>5df7a25</code> in 12:38 min: fmt, clippy <code>-D warnings</code>, 273 cargo tests (plus the ignored benchmark), wasm build, <code>tsc</code>, eslint, 39 vitest tests in 8 files, build, 216 Playwright tests (215 in CI). E2E fails on console errors and waits for the drawn frame. CI runs the same script, e2e in 4 shards of 53–54 tests from a slim <code>.#e2e</code> shell, 1 retry reported as flaky, traces uploaded on failure.</li>
+  <li><span class="badge good">gate</span> <code>./check</code> in <code>nix develop</code> passes end to end on <code>e554868</code>: <code>./check build</code> in 45 s warm (fmt, clippy <code>-D warnings</code>, 283 cargo tests plus the ignored benchmark, wasm build, <code>tsc</code>, eslint, 40 vitest tests in 9 files, vite build), then 221 Playwright tests in 5:00 min. E2E fails on console errors and waits for the drawn frame. CI runs the same script, e2e in 4 shards of 53–54 tests from a slim <code>.#e2e</code> shell, 1 retry reported as flaky, traces uploaded on failure.</li>
   <li><span class="badge good">test</span> Pixel diff of the live canvas against the exported PDF rasterised by MuPDF, in RGB and CMYK and per page; presets, separations, overprint and the package zip are checked. The display-list fixture is committed and <code>cargo test</code> fails when it is stale.</li>
   <li><span class="badge good">test</span> Engine tests read as specifications and check undo with stable ids; <code>a_command_that_fails_leaves_the_document_as_it_was</code> and a debug assertion guard every command arm. E2E covers unreadable files, fonts and images, a failed engine load, a trap with reload, offline install and the 880 px bar.</li>
-  <li><span class="badge good">engine</span> Colours, page sizes, document settings and image size (50 megapixels, also for opened documents) are checked before the first write; deleted nodes keep their ids under <code>trash</code>; a story keeps the lines it set per frame, so render costs 0.03 ms at any page count.</li>
-  <li><span class="badge good">design</span> One display list feeds canvas, PDF and rasters; PDF, inks and image export run in a worker that starts fresh after a failure; an unreadable autosave is downloaded and kept under <code>doc-unreadable</code>.</li>
+  <li><span class="badge good">engine</span> Colours, page sizes, document settings and image size (50 megapixels, also for opened documents) are checked before the first write; deleted nodes keep their ids under <code>trash</code>; a story keeps the lines it set per frame, so render costs 0.03 ms at any page count; a snapshot rebuilds only the pages a change reaches.</li>
+  <li><span class="badge good">design</span> One display list feeds canvas, PDF and rasters; PDF, inks and image export run in a worker that starts fresh after a failure; canvas images decode off the main thread with <code>createImageBitmap</code>, adjust and separate on the GPU and stay within a memory budget across page changes; an unreadable autosave is downloaded and kept under <code>doc-unreadable</code>.</li>
   <li><span class="badge good">build</span> Toolchain fully in <code>flake.nix</code>; <code>wasm-bindgen</code> pinned to the CLI in the flake; 3 runtime web dependencies; actions pinned to commits; CI with <code>contents: read</code>, cancelled when superseded and skipped for agent-only pushes; <code>CLAUDE.md</code> matches the code.</li>
-  <li><span class="badge good">a11y</span> Labelled controls, <code>:focus-visible</code>, menu, radio, tree and tooltip roles; layers and pages lists are one tab stop with arrow keys; <code>prefers-reduced-motion</code> honoured; loading, WebGL 2, start-failure and trap notices, each with an e2e test.</li>
+  <li><span class="badge good">a11y</span> Labelled controls, <code>:focus-visible</code>, menu, radio, tree and tooltip roles; layers and pages lists and the overview listboxes are one tab stop with arrow keys; <code>prefers-reduced-motion</code> honoured; loading, WebGL 2, start-failure and trap notices, each with an e2e test.</li>
 </ul>
 
 <h2 id="decided">3. Deliberately decided</h2>
