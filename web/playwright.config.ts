@@ -7,7 +7,7 @@ const env = Object.fromEntries(
 export default defineConfig({
   testDir: 'e2e',
   fullyParallel: true,
-  workers: 2,
+  workers: process.env.CI ? 2 : undefined,
   timeout: 60_000,
   expect: { timeout: 15_000 },
   retries: process.env.CI ? 1 : 0,
