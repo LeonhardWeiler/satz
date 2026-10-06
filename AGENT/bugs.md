@@ -4,7 +4,7 @@
 - [x] the rulers should also snap the same as any other element
 - [x] point 16 is done, but it should also work if the group is selected, right now it only works if an element inside the group is selected, there it should not be the circle. only if the group is selected
 - [x] point 25 works, but it should show the smart snap lines with mm, like any other element
-- [] komplette liste von funktionen in satz als markdown datei im repo
+- [x] komplette liste von funktionen in satz als markdown datei im repo
 - [x] wrap around für height und width getrennt einstellbar
 - [] Performance of `settle` and `lay_out`, which walk the whole tree after every command; at 32 pages the snapshot build takes most of the time.
 - [] Kontur innen/außen pro Seite, Absatzlinien oder ‑hintergrund, Textrahmen-Spaltenlinie, Mindesthöhe bei Auto height.
