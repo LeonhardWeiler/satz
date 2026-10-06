@@ -1372,7 +1372,7 @@ mod tests {
         d.apply(Command::Flatten { id: t.clone() }).unwrap();
         let p = page(&d);
         let n = p.children.iter().find(|n| n.id == t).unwrap();
-        let Kind::Shape(Shape::Path { path }) = &n.kind else {
+        let Kind::Shape(Shape::Path { path, .. }) = &n.kind else {
             panic!("{:?}", n.kind);
         };
         assert!(geom::closed(path));

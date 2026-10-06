@@ -1,8 +1,9 @@
 use super::*;
 use crate::display_list::{CLOSE, CUBIC};
-use kurbo::{BezPath, PathEl, Point, Shape as _};
-use linesweeper::topology::{Contour, Contours};
+use kurbo::{BezPath, ParamCurve, PathEl, Point, Shape as _, Vec2};
+use linesweeper::topology::{Contour, Contours, Topology, WindingNumber};
 use linesweeper::{BinaryOp, FillRule, binary_op};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -13,32 +14,40 @@ pub enum BooleanOp {
     Exclude,
 }
 
-/// `path` with every subpath closed.
-fn bez(path: &[f32]) -> BezPath {
+/// The subpaths of `path`, open ones left open.
+fn subpaths(path: &[f32]) -> Vec<BezPath> {
     let at = |p: &[f32], i: usize| Point::new(p[i].into(), p[i + 1].into());
-    let mut b = BezPath::new();
-    let mut open = false;
+    let mut out: Vec<BezPath> = Vec::new();
     for (v, p) in geom::segments(path) {
+        if v == MOVE {
+            out.push(BezPath::new());
+        }
+        let Some(b) = out.last_mut() else { continue };
         match v {
-            MOVE => {
-                if open {
-                    b.close_path();
-                }
-                b.move_to(at(p, 0));
-                open = true;
-            }
+            MOVE => b.move_to(at(p, 0)),
             LINE => b.line_to(at(p, 0)),
             CUBIC => b.curve_to(at(p, 0), at(p, 2), at(p, 4)),
-            _ => {
-                b.close_path();
-                open = false;
-            }
+            _ => b.close_path(),
         }
     }
-    if open {
-        b.close_path();
-    }
-    b
+    out
+}
+
+fn is_closed(b: &BezPath) -> bool {
+    matches!(b.elements().last(), Some(PathEl::ClosePath))
+}
+
+/// `path` with every subpath closed.
+fn bez(path: &[f32]) -> BezPath {
+    subpaths(path)
+        .into_iter()
+        .flat_map(|mut b| {
+            if !is_closed(&b) {
+                b.close_path();
+            }
+            b.into_elements()
+        })
+        .collect()
 }
 
 fn path(b: &BezPath) -> Vec<f32> {
@@ -72,83 +81,216 @@ fn flat<'a>(c: impl Iterator<Item = &'a Contour>) -> BezPath {
     c.flat_map(|c| c.path.elements().to_vec()).collect()
 }
 
-/// The closed subpaths of `path`.
-fn closed(path: &[f32]) -> Vec<BezPath> {
-    let mut out = Vec::new();
-    let mut sub = Vec::new();
-    for (v, p) in geom::segments(path) {
-        if v == MOVE {
-            sub.clear();
-        }
-        sub.push(v);
-        sub.extend(p);
-        if v == CLOSE {
-            out.push(bez(&sub));
-        }
+/// A winding number that every line raises, so that a line run there and back stays.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct Lines(u32);
+
+impl std::ops::Add for Lines {
+    type Output = Self;
+    fn add(self, o: Self) -> Self {
+        Lines(self.0.wrapping_add(o.0))
     }
-    out
 }
 
-/// The area that the closed subpaths of `path` bound around `at`, with its holes.
-fn area(path: &[f32], at: Point) -> Res<BezPath> {
-    let subs = closed(path);
-    let (ins, outs): (Vec<_>, Vec<_>) = subs.iter().partition(|s| s.winding(at) != 0);
-    let [first, ins @ ..] = &ins[..] else {
-        return Err("no area there".into());
-    };
-    let mut c = combine(first, &BezPath::new(), BinaryOp::Union)?;
-    for s in ins {
-        c = combine(&flat(c.contours()), s, BinaryOp::Intersection)?;
+impl std::ops::AddAssign for Lines {
+    fn add_assign(&mut self, o: Self) {
+        *self = *self + o;
     }
-    for s in outs {
-        c = combine(&flat(c.contours()), s, BinaryOp::Difference)?;
+}
+
+impl WindingNumber for Lines {
+    type Tag = ();
+    fn single((): (), _: bool) -> Self {
+        Lines(1)
     }
-    let face = c
-        .grouped()
+    fn of_tag(&self, (): ()) -> Self {
+        *self
+    }
+}
+
+/// The boundaries of the faces that the lines of `path` cut the plane into, crossings
+/// included; each comes with a point just inside its face.
+fn faces(path: &[f32]) -> Res<Vec<(BezPath, Point)>> {
+    let subs: Vec<BezPath> = subpaths(path)
         .into_iter()
-        .flatten()
-        .filter(|&i| c[i].outer && c[i].path.winding(at) != 0)
-        .min_by(|&a, &b| c[a].path.area().abs().total_cmp(&c[b].path.area().abs()))
+        .map(|mut b| {
+            if !is_closed(&b) {
+                let back = b.reverse_subpaths();
+                b.extend(back.elements()[1..].iter().copied());
+                b.close_path();
+            }
+            b
+        })
+        .collect();
+    let t = Topology::<Lines>::from_paths(subs.iter().map(|s| (s, ())), 1e-6).map_err(err)?;
+    let pos = t.compute_positions();
+    let key = |p: Point| (p.x.to_bits(), p.y.to_bits());
+    let mut edges = Vec::new();
+    for i in t.segment_indices() {
+        let p = &pos[i].path;
+        edges.extend([p.clone(), p.reverse_subpaths()]);
+    }
+    let ends = |b: &BezPath| {
+        let s = b.segments();
+        let (first, last) = (s.clone().next(), s.last());
+        first.zip(last).map(|(f, l)| (f, l.end()))
+    };
+    let mut out: HashMap<_, Vec<(f64, usize)>> = HashMap::new();
+    for (h, e) in edges.iter().enumerate() {
+        let Some((f, _)) = ends(e) else { continue };
+        let d = f.eval(0.01) - f.start();
+        out.entry(key(f.start()))
+            .or_default()
+            .push((d.y.atan2(d.x), h));
+    }
+    for v in out.values_mut() {
+        v.sort_by(|a, b| a.0.total_cmp(&b.0));
+    }
+    let next = |h: usize| {
+        let (_, end) = ends(&edges[h])?;
+        let v = out.get(&key(end))?;
+        let i = v.iter().position(|&(_, e)| e == h ^ 1)?;
+        Some(v[(i + v.len() - 1) % v.len()].1)
+    };
+    let mut seen = vec![false; edges.len()];
+    let mut faces = Vec::new();
+    for h in 0..edges.len() {
+        let mut b = BezPath::new();
+        let mut e = h;
+        while !seen[e] {
+            seen[e] = true;
+            let els = edges[e].elements();
+            if b.is_empty() {
+                b.push(els[0]);
+            }
+            b.extend(els[1..].iter().copied());
+            let Some(n) = next(e) else { break };
+            e = n;
+        }
+        let Some((f, _)) = ends(&edges[h]).filter(|_| !b.is_empty()) else {
+            continue;
+        };
+        b.close_path();
+        let d = f.eval(0.51) - f.eval(0.49);
+        let inside = f.eval(0.5) + Vec2::new(-d.y, d.x).normalize() * 1e-3;
+        faces.push((b, inside));
+    }
+    Ok(faces)
+}
+
+/// The area that the lines of `faces` enclose around `at`, with its holes.
+fn area(faces: &[(BezPath, Point)], at: Point) -> Res<BezPath> {
+    let up = |b: &BezPath| {
+        if b.area() < 0.0 {
+            b.reverse_subpaths()
+        } else {
+            b.clone()
+        }
+    };
+    let (ins, outs): (Vec<_>, Vec<_>) = faces
+        .iter()
+        .map(|f| &f.0)
+        .filter(|b| b.area().abs() > 1e-9)
+        .partition(|b| b.winding(at) != 0);
+    let face = ins
+        .into_iter()
+        .min_by(|a, b| a.area().abs().total_cmp(&b.area().abs()))
         .ok_or("no area there")?;
-    Ok(flat(c.contours().filter(|k| {
-        std::ptr::eq(*k, &c[face]) || k.parent == Some(face)
-    })))
+    let holes: BezPath = outs.iter().flat_map(|b| up(b).into_elements()).collect();
+    let c = combine(&up(face), &holes, BinaryOp::Difference)?;
+    let out = flat(c.contours());
+    if out.is_empty() {
+        return Err("no area there".into());
+    }
+    Ok(out)
+}
+
+/// The areas of `path` around the points `at`.
+pub(super) fn areas(lines: &[f32], at: &[f32]) -> Res<Vec<f32>> {
+    let faces = faces(lines)?;
+    let mut out = Vec::new();
+    for (_, p) in geom::segments(at) {
+        out.extend(path(&area(&faces, Point::new(p[0].into(), p[1].into()))?));
+    }
+    Ok(out)
 }
 
 impl Doc {
+    /// Fills the area of the path `id` around [x, y] in its parent's space, or empties it
+    /// when it is filled.
     pub(super) fn fill_area(&self, id: String, x: f64, y: f64) -> Res<Vec<String>> {
         let id = self.layer(&id)?;
-        if self.kind(id) != Some(NodeKind::Shape) {
-            return Err("only shapes have areas".into());
+        let m = self.meta(id);
+        if value(&m, "shape") != Some("path".into()) {
+            return Err("only paths have areas".into());
         }
         if !x.is_finite() || !y.is_finite() {
             return Err("not a point".into());
         }
-        let parent = self.tree.parent(id).ok_or("no parent")?;
-        let p = parent_node(parent).ok_or("no parent")?;
-        let turn = self.turn(p);
-        let to_page = |[x, y]: [f32; 2]| geom::apply(turn, [x.into(), y.into()]).map(|v| v as f32);
-        let out = area(&geom::map(&self.outline_of(id)?, to_page), Point::new(x, y))?;
-        let back = geom::invert(turn);
-        let out = geom::map(&path(&out), |[x, y]| {
-            geom::apply(back, [x.into(), y.into()]).map(|v| v as f32)
+        let frame = self.bounds(id);
+        let parent = parent_node(self.tree.parent(id).ok_or("no parent")?).ok_or("no parent")?;
+        let unturn = geom::invert(geom::rotation(num(&m, "rotation"), frame));
+        let lines = geom::map(&self.outline_of(id)?, |q| {
+            geom::apply(unturn, q.map(f64::from)).map(|v| v as f32)
         });
-        let fills: Vec<Fill> = value(&self.meta(id), "fills")
-            .and_then(|v| serde_json::from_value(serde_json::to_value(v).ok()?).ok())
-            .unwrap_or_default();
-        let new = self.create(&p.to_string(), NewKind::Rect, bounds(&out).map(f64::from))?;
-        self.make_path(new, &out)?;
-        if !fills.is_empty() {
-            self.set(
-                new,
-                Props {
-                    fills: Some(fills),
-                    ..Props::default()
-                },
-            )?;
+        let [x, y] = geom::apply(unturn, geom::apply(geom::invert(self.turn(parent)), [x, y]));
+        let [l, t, w, h] = frame.map(|v| v as f32);
+        let faces = faces(&lines)?;
+        let at = Point::new(x, y);
+        let here = area(&faces, at)?;
+        let fills: Vec<Fill> = self.json(id, "fills");
+        let saved: Vec<f32> = self.json(id, "areas");
+        let mut seeds: Vec<Point> = geom::segments(&saved)
+            .map(|(_, p)| p)
+            .map(|p| Point::new((l + p[0] * w).into(), (t + p[1] * h).into()))
+            .collect();
+        if seeds.is_empty() && fills.iter().any(|f| f.visible) {
+            let all = bez(&lines);
+            for &(_, p) in &faces {
+                if all.winding(p) == 0
+                    || seeds
+                        .iter()
+                        .any(|s| area(&faces, *s).is_ok_and(|a| a.winding(p) != 0))
+                {
+                    continue;
+                }
+                if area(&faces, p).is_ok() {
+                    seeds.push(p);
+                }
+            }
         }
-        self.tree.mov_to(new, parent, self.index(id)).map_err(err)?;
-        Ok(vec![new.to_string()])
+        match seeds.iter().position(|s| here.winding(*s) != 0) {
+            Some(i) => _ = seeds.remove(i),
+            None => seeds.push(at),
+        }
+        let scale = |v: f64, from: f32, size: f32| {
+            if size > 0.0 {
+                (v as f32 - from) / size
+            } else {
+                0.0
+            }
+        };
+        let areas: Vec<f32> = seeds
+            .iter()
+            .flat_map(|p| [MOVE, scale(p.x, l, w), scale(p.y, t, h)])
+            .collect();
+        let fills = if areas.is_empty() {
+            Vec::new()
+        } else if fills.iter().any(|f| f.visible) {
+            fills
+        } else {
+            vec![Fill::solid(Color::gray(self.color_mode()))]
+        };
+        self.set(
+            id,
+            Props {
+                fills: Some(fills),
+                ..Props::default()
+            },
+        )?;
+        m.insert("areas", loro(serde_json::to_value(areas).map_err(err)?)?)
+            .map_err(err)?;
+        Ok(vec![])
     }
 
     pub(super) fn boolean(&self, ids: Vec<String>, op: BooleanOp) -> Res<Vec<String>> {
@@ -257,7 +399,7 @@ mod tests {
     }
 
     #[test]
-    fn a_bucket_fills_the_area_around_a_point_below_the_path() {
+    fn a_bucket_fills_and_empties_the_areas_that_lines_enclose_in_the_path() {
         let (mut d, p) = empty();
         let v = create(&mut d, &p, NewKind::Path, [0.0, 0.0, 1.0, 1.0]);
         let square = |x: f32| {
@@ -281,6 +423,9 @@ mod tests {
             square(0.0).as_slice(),
             &square(10.0),
             &[MOVE, 0.0, 40.0, LINE, 40.0, 0.0],
+            &[MOVE, 50.0, 0.0, LINE, 50.0, 30.0],
+            &[MOVE, 45.0, 5.0, LINE, 70.0, 5.0],
+            &[MOVE, 45.0, 15.0, LINE, 60.0, 0.0],
         ]
         .concat();
         d.apply(Command::SetPath {
@@ -289,23 +434,79 @@ mod tests {
         })
         .unwrap();
         let mut fill = |x, y| {
-            let out = d.apply(Command::FillArea {
+            d.apply(Command::FillArea {
                 id: v.clone(),
                 x,
                 y,
-            });
-            let s = d.snapshot();
-            let kids = &s.pages[0].children;
-            out.map(|out| {
-                assert_eq!(ids(kids), [out[0].clone(), v.clone()]);
-                let f = frame(&kids[0]);
-                d.apply(Command::Delete { ids: out }).unwrap();
-                f
-            })
+            })?;
+            assert_eq!(d.snapshot().pages[0].children.len(), 1);
+            Ok::<_, String>(
+                page_ops(&d)
+                    .iter()
+                    .filter_map(|o| match o {
+                        Op::FillPath { path, .. } => Some(bounds(path).map(|v| v.round())),
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>(),
+            )
         };
-        assert_eq!(fill(15.0, 15.0).unwrap(), [10.0, 10.0, 10.0, 10.0]);
-        assert_eq!(fill(5.0, 5.0).unwrap(), [0.0, 0.0, 20.0, 20.0]);
-        assert_eq!(fill(25.0, 25.0).unwrap(), [10.0, 10.0, 20.0, 20.0]);
-        assert!(fill(50.0, 50.0).is_err());
+        assert_eq!(fill(15.0, 15.0).unwrap(), [[10.0, 10.0, 10.0, 10.0]]);
+        assert_eq!(fill(25.0, 25.0).unwrap(), [[10.0, 10.0, 20.0, 20.0]]);
+        assert_eq!(fill(15.0, 15.0).unwrap(), [[10.0, 10.0, 20.0, 20.0]]);
+        assert_eq!(fill(25.0, 25.0).unwrap(), Vec::<[f32; 4]>::new());
+        assert_eq!(fill(5.0, 5.0).unwrap(), [[0.0, 0.0, 20.0, 20.0]]);
+        assert_eq!(fill(51.0, 6.0).unwrap(), [[0.0, 0.0, 55.0, 20.0]]);
+        assert!(fill(80.0, 80.0).is_err());
+    }
+
+    #[test]
+    fn a_bucket_on_a_filled_path_empties_only_the_area_it_hits() {
+        let (mut d, p) = empty();
+        let v = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 20.0, 20.0]);
+        d.apply(Command::Flatten { id: v.clone() }).unwrap();
+        let s = d.snapshot();
+        let Kind::Shape(Shape::Path { path, .. }) = &s.pages[0].children[0].kind else {
+            panic!("a flattened rect is a path");
+        };
+        d.apply(Command::SetPath {
+            id: v.clone(),
+            path: [
+                geom::fit(path, [0.0, 0.0, 20.0, 20.0]).as_slice(),
+                &[MOVE, 10.0, 0.0, LINE, 10.0, 20.0],
+            ]
+            .concat(),
+        })
+        .unwrap();
+        d.apply(Command::FillArea {
+            id: v.clone(),
+            x: 5.0,
+            y: 5.0,
+        })
+        .unwrap();
+        let fills = |d: &Doc| {
+            page_ops(d)
+                .iter()
+                .filter_map(|o| match o {
+                    Op::FillPath { path, .. } => Some(bounds(path).map(|v| v.round())),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(fills(&d), [[10.0, 0.0, 10.0, 20.0]]);
+        d.apply(Command::Flip {
+            id: v.clone(),
+            vertical: false,
+        })
+        .unwrap();
+        assert_eq!(fills(&d), [[0.0, 0.0, 10.0, 20.0]]);
+        d.apply(Command::SetPath {
+            id: v,
+            path: vec![
+                MOVE, 0.0, 0.0, LINE, 40.0, 0.0, LINE, 40.0, 20.0, LINE, 0.0, 20.0, CLOSE, MOVE,
+                10.0, 0.0, LINE, 10.0, 20.0,
+            ],
+        })
+        .unwrap();
+        assert_eq!(fills(&d), [[0.0, 0.0, 10.0, 20.0]]);
     }
 }

@@ -466,7 +466,18 @@ pub(super) fn draw(n: &Node, ops: &mut Vec<Op>, pal: &Palette) {
         });
     }
     match &n.kind {
-        Kind::Shape(shape) => item(ops, n.style.shape(&outline(shape, frame), frame, s)),
+        Kind::Shape(shape) => {
+            let path = outline(shape, frame);
+            let fill = match shape {
+                Shape::Path { areas, .. } if !areas.is_empty() => {
+                    let [x, y, w, h] = frame;
+                    let at = geom::map(areas, |[u, v]| [x + u * w, y + v * h]);
+                    boolean::areas(&path, &at).unwrap_or_default()
+                }
+                _ => path.clone(),
+            };
+            item(ops, n.style.shape(&fill, &path, frame, s))
+        }
         Kind::Text {
             content,
             frame: tf,
@@ -495,7 +506,7 @@ pub(super) fn draw(n: &Node, ops: &mut Vec<Op>, pal: &Palette) {
         Kind::Group { children } => draw_all(children, ops, pal),
         Kind::Frame { clip, children } => {
             let r = rect(frame[0], frame[1], frame[2], frame[3]);
-            item(ops, n.style.shape(&r, frame, s));
+            item(ops, n.style.shape(&r, &r, frame, s));
             if !*clip {
                 draw_all(children, ops, pal);
             } else if n.w > 0.0 && n.h > 0.0 {
@@ -1112,7 +1123,7 @@ impl Doc {
                 Kind::Shape(Shape::Path { .. }) if style.arrow_start || style.arrow_end => {
                     "Arrow".into()
                 }
-                Kind::Shape(Shape::Path { path }) if path.len() == 6 => "Line".into(),
+                Kind::Shape(Shape::Path { path, .. }) if path.len() == 6 => "Line".into(),
                 Kind::Shape(Shape::Path { .. }) => "Vector".into(),
                 Kind::Text { content, from, .. } if content.text[*from..].is_empty() => {
                     "Text".into()
@@ -1418,7 +1429,7 @@ mod tests {
         })
         .unwrap();
         let pg = page(&d);
-        let Kind::Shape(Shape::Path { path }) = &children(&pg.children[0])[1].kind else {
+        let Kind::Shape(Shape::Path { path, .. }) = &children(&pg.children[0])[1].kind else {
             panic!("an odd star flipped upside down is a path");
         };
         assert_eq!(path[..3], [MOVE, 0.5, 1.0]);

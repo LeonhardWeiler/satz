@@ -31,6 +31,9 @@ pub enum Shape {
     },
     Path {
         path: Vec<f32>,
+        /// A move into each area that the fills paint; empty for the whole path.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        areas: Vec<f32>,
     },
 }
 
@@ -159,7 +162,7 @@ pub fn outline(shape: &Shape, [x, y, w, h]: [f32; 4]) -> Vec<f32> {
             |i| if i % 2 == 0 { 1.0 } else { *ratio },
             [x, y, w, h],
         ),
-        Shape::Path { path } => map(path, |[u, v]| [x + u * w, y + v * h]),
+        Shape::Path { path, .. } => map(path, |[u, v]| [x + u * w, y + v * h]),
     }
 }
 
@@ -566,6 +569,7 @@ mod tests {
     fn a_path_scales_from_unit_space_into_its_frame() {
         let line = Shape::Path {
             path: vec![MOVE, 0.0, 0.0, LINE, 1.0, 1.0],
+            areas: vec![],
         };
         let path = outline(&line, [10.0, 10.0, 20.0, 10.0]);
         assert_eq!(path, [MOVE, 10.0, 10.0, LINE, 30.0, 20.0]);

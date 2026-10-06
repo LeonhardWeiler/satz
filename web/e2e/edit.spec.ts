@@ -221,10 +221,11 @@ test('a marquee in path edit mode picks several points to move and delete togeth
   await expect(page.getByRole('toolbar', { name: 'Path tools' })).toBeVisible()
 })
 
-test('the bucket fills the area under the pointer with a new layer below the path', async ({ page }) => {
+test('the bucket empties and fills the area under the pointer in the path itself', async ({ page }) => {
   await open(page)
   const items = page.getByRole('tree', { name: 'Layers' }).getByRole('treeitem')
   const tools = page.getByRole('toolbar', { name: 'Path tools' })
+  const paints = page.getByRole('complementary', { name: 'Properties' }).getByRole('region', { name: 'Fill' }).locator('.paint')
   await page.keyboard.press('r')
   await drag(page, await screen(page, 20, 20), await screen(page, 60, 60))
   const n = await items.count()
@@ -232,9 +233,11 @@ test('the bucket fills the area under the pointer with a new layer below the pat
   await page.keyboard.press('b')
   await expect(tools.getByRole('button', { name: 'Fill area' })).toHaveAttribute('aria-pressed', 'true')
   await page.mouse.click(...(await screen(page, 40, 40)))
-  await expect(items).toHaveCount(n + 1)
+  await expect(paints).toHaveCount(0)
+  await page.mouse.click(...(await screen(page, 40, 40)))
+  await expect(paints).toHaveCount(1)
   await page.mouse.click(...(await screen(page, 100, 150)))
-  await expect(items).toHaveCount(n + 1)
+  await expect(items).toHaveCount(n)
   await expect(tools).toBeVisible()
 })
 

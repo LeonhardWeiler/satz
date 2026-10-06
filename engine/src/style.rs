@@ -323,14 +323,14 @@ pub fn paints<'a>(
 }
 
 impl Style {
-    /// Fill and stroke ops for `path`; closed paths honour the stroke alignment.
-    pub fn shape(&self, path: &[f32], frame: [f32; 4], s: &Scope) -> Vec<Op> {
+    /// Fill ops for `fill` and stroke ops for `path`; closed paths honour the stroke alignment.
+    pub fn shape(&self, fill: &[f32], path: &[f32], frame: [f32; 4], s: &Scope) -> Vec<Op> {
         let mut ops = Vec::new();
         for f in self.fills.iter().filter(|f| f.visible) {
             if let Some(paint) = paint(f, frame, s, self.overprint_fill) {
                 ops.push(Op::FillPath {
                     paint,
-                    path: path.to_vec(),
+                    path: fill.to_vec(),
                 });
             } else if let Some(image) = f
                 .image
@@ -339,7 +339,7 @@ impl Style {
             {
                 ops.extend([
                     Op::PushClip {
-                        path: path.to_vec(),
+                        path: fill.to_vec(),
                         invert: false,
                     },
                     Op::Image {
@@ -472,7 +472,7 @@ mod tests {
             stroke_weight: 2.0,
             ..Style::default()
         };
-        let ops = scope(|s| style.shape(&SQUARE, [0.0; 4], s));
+        let ops = scope(|s| style.shape(&SQUARE, &SQUARE, [0.0; 4], s));
         assert!(matches!(
             ops[..],
             [
@@ -481,7 +481,7 @@ mod tests {
                 Op::PopClip
             ]
         ));
-        let open = scope(|s| style.shape(&SQUARE[..9], [0.0; 4], s));
+        let open = scope(|s| style.shape(&SQUARE[..9], &SQUARE[..9], [0.0; 4], s));
         assert!(matches!(open[..], [Op::StrokePath { width: 2.0, .. }]));
     }
 

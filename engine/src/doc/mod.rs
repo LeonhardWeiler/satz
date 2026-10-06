@@ -2149,6 +2149,13 @@ impl Doc {
         if !geom::valid(&path) {
             return Err("not a path".into());
         }
+        let [x, y, w, h] = self.bounds(id).map(|v| v as f32);
+        let [l, t, nw, nh] = bounds(&path);
+        let scale = |v: f32, s: f32| if s > 0.0 { v / s } else { 0.0 };
+        let areas: Vec<f32> = self.json(id, "areas");
+        let areas = geom::map(&areas, |[u, v]| {
+            [scale(x + u * w - l, nw), scale(y + v * h - t, nh)]
+        });
         self.set(
             id,
             Props {
@@ -2156,6 +2163,11 @@ impl Doc {
                 ..Props::default()
             },
         )?;
+        if !areas.is_empty() {
+            self.meta(id)
+                .insert("areas", loro(serde_json::to_value(areas).map_err(err)?)?)
+                .map_err(err)?;
+        }
         self.set_frame(id, bounds(&path).map(f64::from))?;
         Ok(vec![])
     }
@@ -2275,7 +2287,16 @@ impl Doc {
                     m.insert("shape", "path").map_err(err)?;
                     props.path = Some(flipped(&outline(&s, [0.0, 0.0, 1.0, 1.0])));
                 }
-                Shape::Path { path } => props.path = Some(flipped(&path)),
+                Shape::Path { path, areas } => {
+                    props.path = Some(flipped(&path));
+                    if !areas.is_empty() {
+                        m.insert(
+                            "areas",
+                            loro(serde_json::to_value(flipped(&areas)).map_err(err)?)?,
+                        )
+                        .map_err(err)?;
+                    }
+                }
                 _ => {}
             }
         }
@@ -2341,6 +2362,7 @@ impl Doc {
         }
         m.insert("shape", "path").map_err(err)?;
         m.insert("rotation", 0.0).map_err(err)?;
+        m.delete("areas").map_err(err)?;
         self.set(
             id,
             Props {

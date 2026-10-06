@@ -9,8 +9,8 @@
 - [] Performance of `settle` and `lay_out`, which walk the whole tree after every command; at 32 pages the snapshot build takes most of the time.
 - [] Kontur innen/außen pro Seite, Absatzlinien oder ‑hintergrund, Textrahmen-Spaltenlinie, Mindesthöhe bei Auto height.
 - [x] you should be able to drag select multiple vertices in path edit mode to e.g. delete a bunch of them
-- [] when using the bucket tool in path edit mode it should not create new vektors but color the existing one
-- [] the bucket tool should only not fill over line crossings. an area is when it is surrounded by lines in all directions, there does not have to be vertices that connect the lines around it. it should work like in indesign
+- [x] when using the bucket tool in path edit mode it should not create new vektors but color the existing one
+- [x] the bucket tool should only not fill over line crossings. an area is when it is surrounded by lines in all directions, there does not have to be vertices that connect the lines around it. it should work like in indesign
 - [x] in the layers panel the names of the elements are faded out to the right, even though they don't need to be truncated. it should only be truncated (faded away) when hovered or hide or lock are selected, because they're the reason for the truncation
 - [x] everytime i go into the page overview the layout slighty moves up and then down. i don't know why this happens. investigate and then fix it
 
