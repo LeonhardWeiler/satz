@@ -415,6 +415,7 @@ pub struct Props {
     pub strokes: Option<Vec<Fill>>,
     pub stroke_weight: Option<f32>,
     pub stroke_align: Option<Align>,
+    pub stroke_sides: Option<Vec<f32>>,
     pub join: Option<Join>,
     pub cap: Option<Cap>,
     pub line_style: Option<LineStyle>,
@@ -447,6 +448,8 @@ pub struct Props {
     pub baseline_start: Option<f64>,
     pub max_lines: Option<u32>,
     pub trim: Option<bool>,
+    pub column_rule: Option<text::Rule>,
+    pub min_height: Option<f64>,
     pub wrap: Option<Wrap>,
     pub wrap_offset_x: Option<f64>,
     pub wrap_offset_y: Option<f64>,
@@ -460,6 +463,14 @@ impl Props {
         };
         let f = |v: Option<f32>| v.map(f64::from);
         within(f(self.stroke_weight), 0.0, f64::MAX, "stroke weight")?;
+        if let Some(c) = &self.stroke_sides {
+            if !matches!(c.len(), 0 | 4) {
+                return Err("stroke sides take 4 weights or none".into());
+            }
+            for &w in c {
+                within(Some(w.into()), 0.0, f64::MAX, "stroke weight")?;
+            }
+        }
         within(f(self.radius), 0.0, f64::MAX, "radius")?;
         if let Some(c) = &self.corners {
             if !matches!(c.len(), 0 | 4) {
@@ -494,6 +505,11 @@ impl Props {
         }
         within(self.columns.map(f64::from), 1.0, 20.0, "columns")?;
         within(self.gutter, 0.0, f64::MAX, "gutter")?;
+        within(self.min_height, 0.0, f64::MAX, "min height")?;
+        if let Some(r) = &self.column_rule {
+            within(f(Some(r.weight)), 0.0, f64::MAX, "rule weight")?;
+            r.color.check()?;
+        }
         within(self.wrap_offset_x, 0.0, f64::MAX, "wrap offset")?;
         within(self.wrap_offset_y, 0.0, f64::MAX, "wrap offset")?;
         within(self.baseline_grid, 0.0, f64::MAX, "baseline grid")?;
@@ -557,6 +573,19 @@ pub struct TextProps {
     pub keep_next: Option<bool>,
     pub tabs: Option<Vec<text::Tab>>,
     pub list: Option<text::List>,
+    /// `Some(None)` takes the shading off.
+    #[serde(
+        default,
+        deserialize_with = "some",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub shading: Option<Option<Color>>,
+}
+
+fn some<'de, D: serde::Deserializer<'de>, T: Deserialize<'de>>(
+    d: D,
+) -> Result<Option<T>, D::Error> {
+    T::deserialize(d).map(Some)
 }
 
 impl TextProps {
@@ -608,7 +637,10 @@ impl TextProps {
         {
             return Err(format!("{f} is not an OpenType feature"));
         }
-        self.fill.as_ref().map_or(Ok(()), Color::check)
+        self.fill
+            .iter()
+            .chain(self.shading.iter().flatten())
+            .try_for_each(Color::check)
     }
 }
 
@@ -743,7 +775,8 @@ const BINDABLE: [&str; 12] = [
 ];
 
 /// The keys of a text layer that belong to its story and move with it.
-const STORY: [&str; 27] = [
+const STORY: [&str; 28] = [
+    "shading",
     "size",
     "lineHeight",
     "letterSpacing",
@@ -2298,9 +2331,14 @@ impl Doc {
             })
         };
         let effects: Vec<Effect> = self.json(id, "effects");
+        let sides: Vec<f32> = self.json(id, "strokeSides");
         let mut props = Props {
             fills: paints("fills"),
             strokes: paints("strokes"),
+            stroke_sides: (sides.len() == 4).then(|| {
+                let order = if vertical { [2, 1, 0, 3] } else { [0, 3, 2, 1] };
+                order.map(|i| sides[i]).to_vec()
+            }),
             effects: (!effects.is_empty()).then(|| {
                 effects
                     .into_iter()

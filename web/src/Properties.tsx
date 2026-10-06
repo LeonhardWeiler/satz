@@ -31,6 +31,7 @@ const BLENDS: Record<Blend, string> = {
 }
 const LINE_STYLES: Record<LineStyle, string> = { solid: 'Solid', dashed: 'Dashed', dotted: 'Dotted', wavy: 'Wavy', zigzag: 'Zigzag' }
 
+const SIDES = ['Top', 'Right', 'Bottom', 'Left']
 const STROKE_ALIGNS = [
   ['inside', 'Inside', 'strokeInside'],
   ['center', 'Center', 'strokeCenter'],
@@ -121,6 +122,7 @@ export function Properties({
   const set = (props: Props) => each((n) => ({ type: 'set', id: n.id, ...props }))
   const open = nodes.length > 0 && nodes.every(isOpen)
   const stroked = nodes.length > 0 && nodes.every((n) => n.kind !== 'group')
+  const sided = nodes.length > 0 && nodes.every((n) => n.kind === 'frame' || (n.kind === 'shape' && n.shape === 'rect'))
   const strokes = stroked ? sameList((n) => n.strokes) : null
   const line = one && ends(one)
   const length = line && Math.hypot(line[1].x - line[0].x, line[1].y - line[0].y)
@@ -446,6 +448,24 @@ export function Properties({
                 '',
                 <Field label="" title="Stroke weight" unit="pt" value={same((n) => n.strokeWeight)} onCommit={(v) => set({ strokeWeight: v })} />,
               )}
+              {sided && (
+                <Check
+                  label="Each side"
+                  value={same((n) => !!n.strokeSides?.length)}
+                  set={(on) => set({ strokeSides: on ? Array(4).fill(one?.strokeWeight ?? 1) : [] })}
+                />
+              )}
+              {sided && one?.strokeSides?.length === 4 &&
+                SIDES.map((side, i) => (
+                  <Field
+                    key={side}
+                    label={side[0]}
+                    title={`${side} stroke`}
+                    unit="pt"
+                    value={one.strokeSides![i]}
+                    onCommit={(v) => set({ strokeSides: one.strokeSides!.map((w, j) => (j === i ? v : w)) })}
+                  />
+                ))}
               {nodes.every((n) => n.kind !== 'text') && (
                 <Select label="Line style" value={same((n) => n.lineStyle)} options={LINE_STYLES} onChange={(lineStyle) => set({ lineStyle })} />
               )}

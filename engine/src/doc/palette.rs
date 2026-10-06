@@ -5,7 +5,7 @@ pub(super) fn map_colors(v: &mut serde_json::Value, f: &impl Fn(&Color) -> Optio
     match v {
         serde_json::Value::Object(o) => o.iter_mut().fold(false, |d, (k, v)| {
             let mapped = match serde_json::from_value::<Color>(v.clone()) {
-                Ok(c) if k == "color" || k == "fill" => f(&c),
+                Ok(c) if k == "color" || k == "fill" || k == "shading" => f(&c),
                 _ => None,
             };
             match mapped {
@@ -122,7 +122,14 @@ impl Doc {
                 modes,
             };
             let m = self.meta(id);
-            for key in ["fills", "strokes", "effects", "fill"] {
+            for key in [
+                "fills",
+                "strokes",
+                "effects",
+                "fill",
+                "shading",
+                "columnRule",
+            ] {
                 let Some(v) = value(&m, key) else { continue };
                 let mut v = serde_json::to_value(v).map_err(err)?;
                 if map_colors(&mut v, &|c| f(c, &s)) {
@@ -139,12 +146,14 @@ impl Doc {
                 };
                 let r = at..at + insert.encode_utf16().count();
                 at = r.end;
-                let Some(v) = attributes.and_then(|a| a.get("fill").cloned()) else {
-                    continue;
-                };
-                let mut v = serde_json::json!({ "fill": v });
-                if map_colors(&mut v, &|c| f(c, &s)) {
-                    t.mark_utf16(r, "fill", loro(&v["fill"])?).map_err(err)?;
+                for key in ["fill", "shading"] {
+                    let Some(v) = attributes.as_ref().and_then(|a| a.get(key).cloned()) else {
+                        continue;
+                    };
+                    let mut v = serde_json::json!({ key: v });
+                    if map_colors(&mut v, &|c| f(c, &s)) {
+                        t.mark_utf16(r.clone(), key, loro(&v[key])?).map_err(err)?;
+                    }
                 }
             }
             Ok(())

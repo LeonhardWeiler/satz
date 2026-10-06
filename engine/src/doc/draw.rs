@@ -211,7 +211,11 @@ pub(super) fn master_dx(m: &Page, p: &Page) -> f64 {
 /// The box of a layer with its strokes and effects: what it can draw into.
 pub(super) fn reach(n: &Node) -> [f64; 4] {
     let s = &n.style;
-    let mut m = 3.0 * f64::from(s.stroke_weight);
+    let weight = s
+        .stroke_sides
+        .iter()
+        .fold(s.stroke_weight, |a, &b| a.max(b));
+    let mut m = 3.0 * f64::from(weight);
     for e in &s.effects {
         m = m.max(f64::from(e.x.abs().max(e.y.abs()) + 3.0 * e.radius));
     }
@@ -280,13 +284,20 @@ pub(super) fn visit(
             content,
             story,
             overset,
+            frame,
             ..
         } => {
+            colors.extend(frame.column_rule.as_ref().map(|r| &r.color));
             if *overset {
                 problems.push(Problem::Overset);
             }
             if *story == n.id {
-                colors.extend(content.spans.iter().filter_map(|s| s.attrs.fill.as_ref()));
+                colors.extend(
+                    content
+                        .spans
+                        .iter()
+                        .flat_map(|s| s.attrs.fill.iter().chain(&s.attrs.shading)),
+                );
                 problems.extend(
                     snap.missing_fonts
                         .iter()
@@ -1285,6 +1296,7 @@ impl Doc {
                     keep_next: p.keep_next,
                     tabs: p.tabs.clone(),
                     list: p.list,
+                    shading: p.shading.clone(),
                     ..attrs.clone()
                 };
                 let len = piece.encode_utf16().count();

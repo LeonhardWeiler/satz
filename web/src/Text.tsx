@@ -2,7 +2,9 @@ import { Fragment, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
 import { Check, Field, FontSelect, NameInput, nextName, Section, Segmented, Select } from './controls'
-import { useEditor, type Editor } from './editor'
+import { ColorPicker } from './ColorPicker'
+import { neutral, type Color } from './color'
+import { scopeOf, useEditor, type Editor } from './editor'
 import { addLocalFont, useLocalFonts } from './file'
 import { Icon, type IconName } from './icons'
 import { Popover } from './Popover'
@@ -404,6 +406,7 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
   const align = same((a) => a.textAlign)
   const hyphenate = same((a) => a.hyphenate)
   const lang = same((a) => a.lang)
+  const shading = same((a) => JSON.stringify(a.shading))
   const langs: Record<string, string> = { ...LANGS }
   if (lang === null) langs.mixed = 'Mixed'
 
@@ -441,6 +444,13 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
         <Segmented label="Text align" value={align} options={ALIGNS} onChange={(textAlign) => format({ textAlign })} />
         <TypeOptions spans={spans} set={format} />
       </div>
+      <ColorCheck
+        editor={editor}
+        node={node}
+        label="Shading"
+        color={shading === null ? undefined : JSON.parse(shading)}
+        set={(c) => format({ shading: c })}
+      />
       <div className="grid">
         <Check label="Hyphenate" value={hyphenate} set={(hyphenate) => format({ hyphenate })} />
         <Select
@@ -508,6 +518,7 @@ function StyleRow({ editor, style }: { editor: Editor; style: TextStyle }) {
 export function TextFrameSection({ editor, node, set }: { editor: Editor; node: TextNode; set: (p: Props) => void }) {
   const { horizontal, vertical } = node.sizing
   const resizing = horizontal === 'hug' ? 'autoWidth' : vertical === 'hug' ? 'autoHeight' : 'fixedSize'
+  const rule = node.columnRule?.weight ? node.columnRule : null
   return (
     <Section title="Text frame">
       <Segmented
@@ -525,10 +536,36 @@ export function TextFrameSection({ editor, node, set }: { editor: Editor; node: 
         <Field label={<Icon name="gutter" />} title="Gutter" unit="length" value={node.gutter} onCommit={(gutter) => set({ gutter })} />
         <Field label={<Icon name="baselineGrid" />} title="Baseline grid" unit="pt" zero="Off" reset={0} value={node.baselineGrid} onCommit={(baselineGrid) => set({ baselineGrid })} />
         <Field label={<Icon name="baselineStart" />} title="Baseline grid start" unit="pt" reset={0} value={node.baselineStart} onCommit={(baselineStart) => set({ baselineStart })} />
+        {resizing === 'autoHeight' && (
+          <Field label="Min" title="Min height" unit="length" zero="Off" reset={0} value={node.minHeight} onCommit={(minHeight) => set({ minHeight })} />
+        )}
         <Field label="Lines" title="Max lines" unit="" int max={1000} zero="Off" reset={0} value={node.maxLines} onCommit={(maxLines) => set({ maxLines })} />
         <Check label="Trim to cap height" value={node.trim} set={(trim) => set({ trim })} />
       </div>
+      {node.columns > 1 && (
+        <ColorCheck
+          editor={editor}
+          node={node}
+          label="Column rule"
+          color={rule && rule.color}
+          set={(color) => set({ columnRule: color ? { weight: 1, color } : { ...rule!, weight: 0 } })}
+        >
+          {rule && <Field label="" title="Column rule weight" unit="pt" value={rule.weight} onCommit={(weight) => set({ columnRule: { ...rule, weight } })} />}
+        </ColorCheck>
+      )}
       <Segmented label="Vertical align" value={node.verticalAlign} options={VERTICAL} onChange={(verticalAlign) => set({ verticalAlign })} />
     </Section>
+  )
+}
+
+/** A check that turns a colour on or off, and the colour's picker while it is on; `undefined` is mixed. */
+function ColorCheck({ editor, node, label, color, set, children }: { editor: Editor; node: TextNode; label: string; color: Color | null | undefined; set: (c: Color | null) => void; children?: ReactNode }) {
+  const snapshot = useEditor(editor, (e) => e.snapshot)
+  return (
+    <div className="row">
+      <Check label={label} value={color === undefined ? null : !!color} set={(on) => set(on ? neutral('gray', snapshot.colorMode) : null)} />
+      {color && <ColorPicker label={`${label} color`} color={color} mode={snapshot.colorMode} scope={scopeOf(snapshot, node.activeModes)} onChange={set} />}
+      {children}
+    </div>
   )
 }

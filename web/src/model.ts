@@ -29,6 +29,8 @@ export type Style = {
   strokes: Fill[]
   strokeWeight: number
   strokeAlign: 'inside' | 'center' | 'outside'
+  /** The weights of the top, right, bottom and left side, or none for `strokeWeight` all round. */
+  strokeSides?: number[]
   join: 'miter' | 'round' | 'bevel'
   cap: 'none' | 'round' | 'square'
   lineStyle: LineStyle
@@ -286,6 +288,8 @@ export type Attrs = {
   tabs: Tab[]
   /** A bullet, or a number counting on from the paragraph before, hung in front. */
   list: 'none' | 'bullet' | 'number'
+  /** The colour behind the paragraph across its column. */
+  shading: Color | null
 }
 /** A tab stop `at` pt from the column's left edge, with a leader repeated over the gap. */
 export type Tab = { at: number; align: 'left' | 'center' | 'right' | 'decimal'; leader: string }
@@ -310,6 +314,10 @@ export type TextFrame = {
   maxLines: number
   /** Trims the frame to the cap height of the first line and the last baseline. */
   trim: boolean
+  /** The line down the middle of each gutter, off at weight 0. */
+  columnRule: { weight: number; color: Color } | null
+  /** The least height of an auto height frame in pt. */
+  minHeight: number
 }
 /** `len` characters in UTF-16 code units that share their attributes. */
 export type Span = Attrs & { len: number }

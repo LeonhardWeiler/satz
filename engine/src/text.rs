@@ -2,7 +2,7 @@ use crate::color::Color;
 use crate::content_hash;
 use crate::display_list::{CLOSE, CUBIC, LINE, MOVE, Op, Paint, rect};
 use crate::linebreak::{Item, break_lines};
-use crate::style::{Style, paints};
+use crate::style::{Cap, Join, Style, paints};
 use crate::variable::{Scope, Value};
 use harfrust::{Feature, FontRef, ShapeOptions, ShaperData, UnicodeBuffer};
 use read_fonts::TableProvider;
@@ -172,8 +172,9 @@ pub const STYLED: [&str; 21] = [
     "list",
 ];
 /// The keys of `Attrs` that hold for a whole paragraph, taken from its first character.
-pub const PARAGRAPH: [&str; 15] = [
+pub const PARAGRAPH: [&str; 16] = [
     "textAlign",
+    "shading",
     "paragraphSpacing",
     "paragraphIndent",
     "indentLeft",
@@ -357,6 +358,8 @@ pub struct Attrs {
     pub keep_next: bool,
     pub tabs: Vec<Tab>,
     pub list: List,
+    /// The colour behind the paragraph across its column.
+    pub shading: Option<Color>,
 }
 
 impl Attrs {
@@ -408,6 +411,7 @@ impl Default for Attrs {
             keep_next: false,
             tabs: Vec::new(),
             list: List::None,
+            shading: None,
         }
     }
 }
@@ -528,6 +532,10 @@ pub struct TextFrame {
     pub max_lines: u32,
     /// Trims the frame to the cap height of the first line and the last baseline.
     pub trim: bool,
+    /// The line down the middle of each gutter.
+    pub column_rule: Option<Rule>,
+    /// The least height of an auto height frame in pt.
+    pub min_height: f64,
     /// What a page number marker stands for: the number of the page the text is on.
     #[serde(skip)]
     pub number: String,
@@ -551,10 +559,18 @@ impl Default for TextFrame {
             baseline_start: 0.0,
             max_lines: 0,
             trim: false,
+            column_rule: None,
+            min_height: 0.0,
             number: String::new(),
             wrap: Vec::new(),
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Rule {
+    pub weight: f32,
+    pub color: Color,
 }
 
 /// Stands for the number of the page a text is on, as InDesign's Current Page Number.
@@ -596,7 +612,7 @@ pub fn draw(
             None => paints(&style.fills, frame, s, style.overprint_fill).collect(),
         })
         .collect();
-    let mut ops = Vec::new();
+    let mut ops = shading(text, spans, placed, s, style.overprint_fill);
     let stroked = style.strokes.iter().any(|f| f.visible);
     let mut outlines = Vec::new();
     for (line, geometry) in placed.lines.iter().zip(&placed.geometry) {
@@ -663,6 +679,62 @@ pub fn draw(
     }
     if !outlines.is_empty() {
         ops.extend(style.stroke(&outlines, frame, s));
+    }
+    if let Some(r) = tf.column_rule.as_ref().filter(|r| r.weight > 0.0) {
+        let ([x, y, _, h], cw) = columns(frame, tf);
+        let gutter = tf.gutter as f32;
+        for k in 1..tf.columns.max(1) {
+            let at = x + k as f32 * (cw + gutter) - gutter / 2.0;
+            ops.push(Op::StrokePath {
+                paint: Paint::Solid {
+                    color: r.color.rgba(s),
+                    ink: r.color.ink(s),
+                    overprint: style.overprint_stroke,
+                },
+                width: r.weight,
+                cap: Cap::None as u32,
+                join: Join::Miter as u32,
+                path: vec![MOVE, at, y, LINE, at, y + h],
+            });
+        }
+    }
+    ops
+}
+
+/// A rect behind each run of lines of a shaded paragraph in one column.
+fn shading(text: &str, spans: &[Span], placed: &Placed, s: &Scope, overprint: bool) -> Vec<Op> {
+    let mut ops = Vec::new();
+    let mut i = 0;
+    while i < placed.lines.len() {
+        let first = &placed.geometry[i];
+        let color = placed.lines[i]
+            .first()
+            .and_then(|g| spans[g.span].attrs.shading.as_ref());
+        let mut bottom = first.bottom;
+        i += 1;
+        while let Some(l) = placed.geometry.get(i).filter(|l| {
+            l.left == first.left
+                && l.top >= bottom - 0.01
+                && !text[first.start..l.start].contains('\n')
+        }) {
+            bottom = l.bottom;
+            i += 1;
+        }
+        if let Some(c) = color {
+            ops.push(Op::FillPath {
+                paint: Paint::Solid {
+                    color: c.rgba(s),
+                    ink: c.ink(s),
+                    overprint,
+                },
+                path: rect(
+                    first.left,
+                    first.top,
+                    first.right - first.left,
+                    bottom - first.top,
+                ),
+            });
+        }
     }
     ops
 }
@@ -2195,6 +2267,57 @@ mod tests {
             ..attrs(10.0)
         });
         assert_close(&indented.1[..1], &[20.0]);
+    }
+
+    #[test]
+    fn a_shaded_paragraph_fills_its_column_behind_its_lines_and_rules_split_the_columns() {
+        let palette = Palette::default();
+        let modes = Modes::new();
+        let s = Scope {
+            palette: &palette,
+            modes: &modes,
+        };
+        let text = "Hi\nHo";
+        let spans = [
+            Span {
+                len: 3,
+                attrs: Attrs {
+                    shading: Some(Color::Rgb(0xff0000ff)),
+                    ..attrs(10.0)
+                },
+            },
+            Span {
+                len: 2,
+                attrs: attrs(10.0),
+            },
+        ];
+        let tf = TextFrame {
+            columns: 2,
+            gutter: 10.0,
+            column_rule: Some(Rule {
+                weight: 1.0,
+                color: Color::Rgb(0xff),
+            }),
+            ..TextFrame::default()
+        };
+        let ops = drawn(text, &spans, &black(), [0.0, 0.0, 110.0, 50.0], &tf, &s);
+        let fills: Vec<_> = ops
+            .iter()
+            .filter_map(|op| match op {
+                Op::FillPath { path, .. } => Some(crate::geom::bounds(path)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(fills.len(), 1);
+        assert_eq!(fills[0][..3], [0.0, 0.0, 50.0]);
+        let rules: Vec<_> = ops
+            .iter()
+            .filter_map(|op| match op {
+                Op::StrokePath { path, .. } => Some(path.clone()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(rules, [vec![MOVE, 55.0, 0.0, LINE, 55.0, 50.0]]);
     }
 
     #[test]

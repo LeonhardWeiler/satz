@@ -1,5 +1,5 @@
 use crate::color::Color;
-use crate::display_list::{Op, Paint, Shadow, Stop};
+use crate::display_list::{Op, Paint, Shadow, Stop, rect};
 use crate::geom::{LineStyle, arrow, closed, pattern};
 use crate::image;
 use crate::variable::Scope;
@@ -12,6 +12,8 @@ pub struct Style {
     pub strokes: Vec<Fill>,
     pub stroke_weight: f32,
     pub stroke_align: Align,
+    /// The stroke weights of the top, right, bottom and left side, or none for `stroke_weight` all round.
+    pub stroke_sides: Vec<f32>,
     pub join: Join,
     pub cap: Cap,
     pub line_style: LineStyle,
@@ -33,6 +35,7 @@ impl Default for Style {
             strokes: Vec::new(),
             stroke_weight: 1.0,
             stroke_align: Align::Center,
+            stroke_sides: Vec::new(),
             join: Join::Miter,
             cap: Cap::None,
             line_style: LineStyle::Solid,
@@ -350,7 +353,43 @@ impl Style {
                 ]);
             }
         }
-        ops.extend(self.stroke(path, frame, s));
+        if self.stroke_sides.len() == 4 && closed(path) {
+            ops.extend(self.sides(path, frame, s));
+        } else {
+            ops.extend(self.stroke(path, frame, s));
+        }
+        ops
+    }
+
+    /// The strokes of each side of `frame` at its own weight, clipped to `path` when inside.
+    fn sides(&self, path: &[f32], [x, y, w, h]: [f32; 4], s: &Scope) -> Vec<Op> {
+        let [t, r, b, l] = [0, 1, 2, 3].map(|i| self.stroke_sides[i]);
+        let k = match self.stroke_align {
+            Align::Inside => 0.0,
+            Align::Center => 0.5,
+            Align::Outside => 1.0,
+        };
+        let [x, y, w, h] = [x - l * k, y - t * k, w + (l + r) * k, h + (t + b) * k];
+        let [iw, ih] = [(w - l - r).max(0.0), (h - t - b).max(0.0)];
+        let mut ring = rect(x, y, w, h);
+        ring.extend(rect(x + l + iw, y + t, -iw, ih));
+        let mut ops = Vec::new();
+        for paint in paints(&self.strokes, [x, y, w, h], s, self.overprint_stroke) {
+            ops.push(Op::FillPath {
+                paint,
+                path: ring.clone(),
+            });
+        }
+        if self.stroke_align == Align::Inside && !ops.is_empty() {
+            ops.insert(
+                0,
+                Op::PushClip {
+                    path: path.to_vec(),
+                    invert: false,
+                },
+            );
+            ops.push(Op::PopClip);
+        }
         ops
     }
 
@@ -427,6 +466,7 @@ impl Style {
 mod tests {
     use super::*;
     use crate::display_list::{CLOSE, LINE, MOVE};
+    use crate::geom;
     use crate::variable::{Modes, Palette};
 
     fn scope<T>(f: impl FnOnce(&Scope) -> T) -> T {
@@ -483,6 +523,24 @@ mod tests {
         ));
         let open = scope(|s| style.shape(&SQUARE[..9], &SQUARE[..9], [0.0; 4], s));
         assert!(matches!(open[..], [Op::StrokePath { width: 2.0, .. }]));
+    }
+
+    #[test]
+    fn sides_fill_a_ring_of_their_own_weights() {
+        let style = Style {
+            strokes: vec![Fill::solid(Color::Rgb(0xff))],
+            stroke_align: Align::Outside,
+            stroke_sides: vec![1.0, 0.0, 2.0, 0.0],
+            ..Style::default()
+        };
+        let ops = scope(|s| style.shape(&SQUARE, &SQUARE, [0.0, 0.0, 10.0, 10.0], s));
+        let [Op::FillPath { path, .. }] = &ops[..] else {
+            panic!("{ops:?}")
+        };
+        assert_eq!(geom::bounds(path), [0.0, -1.0, 10.0, 13.0]);
+        assert!(!geom::contains(path, 5.0, 5.0));
+        assert!(geom::contains(path, 5.0, -0.5));
+        assert!(geom::contains(path, 5.0, 11.0));
     }
 
     #[test]

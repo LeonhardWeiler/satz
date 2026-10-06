@@ -501,7 +501,8 @@ impl Doc {
         let [x, y, w, _] = old;
         let auto_width = horizontal == Size::Hug;
         let [nw, nh] = text::measure(t, spans, &tf, (!auto_width).then_some(w as f32), from);
-        let new = [x, y, if auto_width { nw.into() } else { w }, nh.into()];
+        let h = f64::from(nh).max(tf.min_height);
+        let new = [x, y, if auto_width { nw.into() } else { w }, h];
         if new != old {
             self.set_frame(id, new)?;
         }
@@ -650,7 +651,10 @@ impl Doc {
         let serde_json::Value::Object(set) = serde_json::to_value(&props).map_err(err)? else {
             return Err("props are not a map".into());
         };
-        let set: Vec<_> = set.into_iter().filter(|(_, v)| !v.is_null()).collect();
+        let set: Vec<_> = set
+            .into_iter()
+            .filter(|(k, v)| !v.is_null() || k == "shading")
+            .collect();
         if props.text_style.is_none() && set.iter().any(|(k, _)| STYLED.contains(&k.as_str())) {
             self.detach(n, range.clone(), |_| true)?;
         }
@@ -664,6 +668,23 @@ impl Doc {
             };
             match r {
                 Some(r) if r.is_empty() => {}
+                Some(r) if v.is_null() => {
+                    if let Some(own) = value(&m, k).filter(|v| !v.is_null()) {
+                        let mut at = 0;
+                        for d in t.to_delta() {
+                            let TextDelta::Insert { insert, attributes } = d else {
+                                continue;
+                            };
+                            let end = at + insert.encode_utf16().count();
+                            if !attributes.is_some_and(|a| a.contains_key(k)) {
+                                t.mark_utf16(at..end, k, own.clone()).map_err(err)?;
+                            }
+                            at = end;
+                        }
+                        m.insert(k, LoroValue::Null).map_err(err)?;
+                    }
+                    t.unmark_utf16(r, k).map_err(err)?;
+                }
                 Some(r) => {
                     t.mark_utf16(r.clone(), k, loro(v)?).map_err(err)?;
                     for c in cleared {
@@ -903,6 +924,26 @@ mod tests {
         assert_eq!((s[1].attrs.hyphenate, s[1].attrs.lang), (true, Lang::De));
         assert_eq!((s[2].attrs.hyphenate, s[2].attrs.lang), (false, Lang::En));
         assert_eq!(s[1].attrs.tabs[0].leader, ".");
+    }
+
+    #[test]
+    fn shading_set_on_all_text_comes_off_one_paragraph() {
+        let (mut d, _) = empty();
+        let t = text(&mut d, "ab\ncd");
+        let shade = |c| TextProps {
+            shading: Some(c),
+            ..TextProps::default()
+        };
+        let red = Color::Rgb(0xff0000ff);
+        format(&mut d, &t, None, shade(Some(red.clone()))).unwrap();
+        format(&mut d, &t, Some([4, 4]), shade(None)).unwrap();
+        let s: Vec<_> = spans(&d)
+            .into_iter()
+            .map(|s| (s.len, s.attrs.shading))
+            .collect();
+        assert_eq!(s, [(3, Some(red)), (2, None)]);
+        format(&mut d, &t, None, shade(None)).unwrap();
+        assert_eq!(spans(&d)[0].attrs.shading, None);
     }
 
     #[test]
@@ -1198,6 +1239,23 @@ mod tests {
         set_value(&mut d, &v, &m, Value::Number(6.0)).unwrap();
         let [_, _, w4, h4] = frames(&d, &t)[0];
         assert!(close(w4, w2 / 2.0) && close(h4, h2 / 2.0), "{w4} {h4}");
+    }
+
+    #[test]
+    fn auto_height_text_is_at_least_its_min_height() {
+        let (mut d, p) = empty();
+        let t = create(&mut d, &p, NewKind::Text, [0.0, 0.0, 100.0, 0.0]);
+        set_text(&mut d, &t, "Hi");
+        set(
+            &mut d,
+            &t,
+            Props {
+                sizing: sizing(Size::Fixed, Size::Hug),
+                min_height: Some(80.0),
+                ..Props::default()
+            },
+        );
+        assert_eq!(frames(&d, &t)[0][3], 80.0);
     }
 
     #[test]

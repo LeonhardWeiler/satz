@@ -31,7 +31,7 @@
 ## Paint
 
 - Several fills and strokes per layer: solid, linear and radial gradients, images
-- Stroke weight, alignment, joins, caps, dashed and dotted lines
+- Stroke weight (or one per side of rectangles and frames), alignment, joins, caps, dashed and dotted lines
 - Opacity, blend modes, shadows and blur
 - RGB and CMYK documents, spot colours with tints, swatches, an uploaded CMYK ICC profile or FOGRA51
 - Variables (colour, number, font) in collections with modes per frame and page
@@ -42,9 +42,9 @@
 
 ## Text
 
-- Frames that are auto width, auto height or fixed; fit frame to text
+- Frames that are auto width, auto height (with a min height) or fixed; fit frame to text
 - Fonts, size, leading, tracking, case, decoration, OpenType features, indents, alignment
-- Knuth-Plass line breaking, hyphenation per language, baseline grid, columns, insets, vertical alignment, max lines, trim
+- Knuth-Plass line breaking, hyphenation per language, baseline grid, columns with column rules, paragraph shading, insets, vertical alignment, max lines, trim
 - Text styles, special characters, lorem ipsum, find and replace across stories
 - Threaded frames across pages, text wrap around or jumping over layers with separate horizontal and vertical offsets
 
