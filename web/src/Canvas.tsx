@@ -97,10 +97,15 @@ const RULER = 20
  * Draws a ruler whose 0 is at `origin` px, at `scale` px per unit, with the span
  * `extent` in px shaded and a mark at each of `guides` in px.
  */
+const rulers = new WeakMap<HTMLCanvasElement, string>()
+
 function drawRuler(c: HTMLCanvasElement, horizontal: boolean, origin: number, scale: number, extent?: [number, number], guides: number[] = []) {
   const { clientWidth: w, clientHeight: h } = c
   if (!w || !h) return
   const dpr = devicePixelRatio
+  const key = JSON.stringify([w, h, dpr, origin, scale, extent, guides, matchMedia('(prefers-color-scheme: light)').matches, document.fonts.status])
+  if (rulers.get(c) === key) return
+  rulers.set(c, key)
   if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) [c.width, c.height] = [Math.round(w * dpr), Math.round(h * dpr)]
   const g = c.getContext('2d')!
   g.setTransform(dpr, 0, 0, dpr, 0, 0)
@@ -175,6 +180,8 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     let space = false
     let drag: Drag | null = null
     let hover: string | undefined
+    let accent = ''
+    let markup = ''
     let cursor: Point | undefined
     /** Last pointer position and Ctrl state over the canvas, for hover and cursor. */
     let pointer: Pointer | undefined
@@ -405,7 +412,8 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     }
 
     const redraw = () => {
-      canvas.dataset.sheets = JSON.stringify(editor.sheets.map(({ x, width, height, bleed }) => ({ x, width, height, bleed })))
+      const sheets = JSON.stringify(editor.sheets.map(({ x, width, height, bleed }) => ({ x, width, height, bleed })))
+      if (canvas.dataset.sheets !== sheets) canvas.dataset.sheets = sheets
       frame ||= requestAnimationFrame(paint)
     }
     const paint = () => {
@@ -454,7 +462,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       renderer.reprofile(editor.snapshot.profile ?? '')
       renderer.draw(surface.getCanvas(), lists, editor.sheets, view, canvas.width / canvas.clientWidth, {
         text,
-        accent: getComputedStyle(canvas).getPropertyValue('--accent'),
+        accent: (accent ||= getComputedStyle(canvas).getPropertyValue('--accent')),
         selection: editor.selection.length > 1 || ed || drag?.kind === 'marquee' ? editor.selected().map(outline) : [],
         hover: image && cursor ? { x: cursor.x - image.w / 2, y: cursor.y - image.h / 2, w: image.w, h: image.h } : over && outline(over),
         marquee,
@@ -492,7 +500,8 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         : hovered || (page && { x: page.x, y: 0, w: page.width, h: page.height })
       if (target) measures = measure(sel!, target, snapsNow().others)
       else if (!drag) measures = []
-      marks.current!.innerHTML = svgOf(target)
+      const next = svgOf(target)
+      if (next !== markup) marks.current!.innerHTML = markup = next
       const at = (axis: 'x' | 'y', o: number) => snapped.filter((g) => g.axis === axis).map((g) => o + g.at * view.zoom)
       drawRuler(rulerX.current!, true, x0, view.zoom * UNITS[settings.unit], sel && [view.x + sel.x * view.zoom, view.x + (sel.x + sel.w) * view.zoom], at('x', view.x))
       drawRuler(rulerY.current!, false, view.y, view.zoom * UNITS[settings.unit], sel && [view.y + sel.y * view.zoom, view.y + (sel.y + sel.h) * view.zoom], at('y', view.y))
@@ -1258,9 +1267,13 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     window.addEventListener('keydown', onKey)
     window.addEventListener('keyup', onKey)
     const scheme = matchMedia('(prefers-color-scheme: light)')
-    scheme.addEventListener('change', redraw)
+    const restyle = () => {
+      accent = ''
+      redraw()
+    }
+    scheme.addEventListener('change', restyle)
     return () => {
-      scheme.removeEventListener('change', redraw)
+      scheme.removeEventListener('change', restyle)
       cancelAnimationFrame(frame)
       cancelAnimationFrame(anim)
       clearInterval(blink)

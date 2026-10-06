@@ -155,6 +155,10 @@ export class Renderer {
   /** Items, layers and images drawn since the last `sweep`. */
   private live = new Set<number>()
   private shown = new Set<number>()
+  /** Some page was recorded since the last `sweep`. */
+  private recorded = false
+  /** The pages as `drawScene` last drew them, and what of. */
+  private scene?: { surface: Surface; key: unknown[]; ops: Uint32Array[] }
   /** Paint for display-list content; `chrome` draws the page, guides and overlay. */
   private paint: Paint
   private chrome: Paint
@@ -176,6 +180,7 @@ export class Renderer {
    * pages `sheets`, clipped to their bleed together: a layer across the spine shows on
    * both pages, and the bleed runs around the spread's outer edges, with their `inks`
    * over them; `cmyk` pages blend their inks as they print, of C, M, Y and K those whose bit is set in `on`.
+   * With an `overlay` the pages are drawn again only when their display lists, inks or the view change.
    */
   draw(canvas: Canvas, lists: { id: string; x: number; inks?: Inked }[], sheets: Sheet[], view: View, dpr: number, overlay: Overlay | null, cmyk = false, on = 15) {
     const { ck, chrome: paint } = this
@@ -203,6 +208,7 @@ export class Renderer {
     const { live, shown } = this
     const pages = (c: Canvas, plate: number) => {
       this.cache = this.caches[plate]
+      this.recorded = true
       paint.setStyle(ck.PaintStyle.Fill)
       paint.setColor(ck.WHITE)
       for (const r of trims) c.drawRect(r, paint)
@@ -226,29 +232,33 @@ export class Renderer {
       }
       c.restore()
     }
-    if (cmyk) {
-      this.drawPlates(canvas, on, (c, plate) => {
-        place(c)
-        pages(c, plate)
-        c.restore()
-      })
+    const content = (c: Canvas) => {
+      if (cmyk) {
+        this.drawPlates(c, on, (p, plate) => {
+          place(p)
+          pages(p, plate)
+          p.restore()
+        })
+      }
+      place(c)
+      if (!cmyk) pages(c, 0)
+      c.clipPath(bleed, ck.ClipOp.Intersect, true)
+      for (const { x, inks } of lists) {
+        const image = inks && this.inkImage(inks)
+        if (!image) continue
+        const { x: l, y: t, w, h } = inks.rect
+        c.drawImageRectOptions(image, ck.XYWHRect(0, 0, inks.width, inks.height), ck.XYWHRect(x + l, t, w, h), ck.FilterMode.Nearest, ck.MipmapMode.None, null)
+      }
+      c.restore()
     }
-    place(canvas)
-    if (!cmyk) pages(canvas, 0)
-    canvas.save()
-    canvas.clipPath(bleed, ck.ClipOp.Intersect, true)
-    for (const { x, inks } of lists) {
-      const image = inks && this.inkImage(inks)
-      if (!image) continue
-      const { x: l, y: t, w, h } = inks.rect
-      canvas.drawImageRectOptions(image, ck.XYWHRect(0, 0, inks.width, inks.height), ck.XYWHRect(x + l, t, w, h), ck.FilterMode.Nearest, ck.MipmapMode.None, null)
-    }
+    if (overlay) this.drawScene(canvas, lists, sheets, view, dpr, cmyk, on, content)
+    else content(canvas)
     for (const [pixels, image] of this.inks) {
       if (lists.some((l) => l.inks?.image === pixels)) continue
       image.delete()
       this.inks.delete(pixels)
     }
-    canvas.restore()
+    place(canvas)
     if (overlay?.grids) {
       paint.setColor(ck.Color(...GRID))
       paint.setStrokeWidth(1 / view.zoom)
@@ -309,6 +319,8 @@ export class Renderer {
 
   /** Forgets the pictures that no `draw` since the last sweep used, and the least recently shown images beyond `IMAGE_BYTES`. */
   sweep() {
+    if (!this.recorded) return
+    this.recorded = false
     for (const cache of this.caches.flatMap((c) => [c.pictures, c.layers])) {
       for (const [key, { picture }] of cache) {
         if (this.live.has(key)) continue
@@ -362,6 +374,31 @@ export class Renderer {
         return createImageBitmap(full, { resizeWidth, resizeHeight, resizeQuality: 'high' }).finally(() => full.close())
       })
       .then(done, () => done(null))
+  }
+
+  /** Draws what `content` draws through a surface that keeps it while the pages, the view and the size of `canvas` stay. */
+  private drawScene(canvas: Canvas, lists: { id: string; x: number; inks?: Inked }[], sheets: Sheet[], view: View, dpr: number, cmyk: boolean, on: number, content: (c: Canvas) => void) {
+    const { ck } = this
+    const [, , width, height] = canvas.getDeviceClipBounds()
+    const key = [width, height, dpr, view.x, view.y, view.zoom, cmyk, on, ...sheets.flatMap((s) => [s.x, s.width, s.height, s.bleed]), ...lists.flatMap((l) => [l.x, l.inks?.image])]
+    const ops = lists.map((l) => this.engine.displayList(l.id).slice())
+    const same = (a: ArrayLike<unknown>, b: ArrayLike<unknown>) => a.length === b.length && Array.prototype.every.call(a, (v, i) => v === b[i])
+    let scene = this.scene
+    if (!scene || !same(scene.key, key) || scene.ops.length !== ops.length || ops.some((o, i) => !same(o, scene!.ops[i]))) {
+      let surface = scene?.surface
+      if (surface?.width() !== width || surface.height() !== height) {
+        surface?.delete()
+        this.scene = undefined
+        if (!width || !height) return
+        surface = canvas.makeSurface({ width, height, colorType: ck.ColorType.RGBA_8888, alphaType: ck.AlphaType.Premul, colorSpace: ck.ColorSpace.SRGB })!
+      }
+      surface.getCanvas().clear(ck.TRANSPARENT)
+      content(surface.getCanvas())
+      scene = this.scene = { surface, key, ops }
+    }
+    const image = scene.surface.makeImageSnapshot()
+    canvas.drawImage(image, 0, 0, null)
+    image.delete()
   }
 
   /** Draws the plates 1 and 2 that `draw` draws, each on a surface of its own, as their inks print. */
@@ -751,8 +788,10 @@ export class Renderer {
     this.clear()
   }
 
-  /** Forgets the pictures of all items and layers. */
+  /** Forgets the pictures of all items and layers, and the pages last drawn. */
   private clear() {
+    this.scene?.surface.delete()
+    this.scene = undefined
     for (const cache of this.caches.flatMap((c) => [c.pictures, c.layers])) {
       for (const { picture } of cache.values()) picture.delete()
       cache.clear()
