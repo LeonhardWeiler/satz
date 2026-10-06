@@ -58,6 +58,7 @@ export function autosave(editor: Editor) {
     files.transaction.commit()
   }
   const later = () => {
+    if (state() === last) return
     clearTimeout(timer)
     timer = window.setTimeout(put, 1000)
   }
