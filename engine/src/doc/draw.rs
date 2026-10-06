@@ -154,9 +154,11 @@ pub struct Node {
     pub keep_ratio: bool,
     /// Degrees counterclockwise around the centre, with its children.
     pub rotation: f64,
-    /// How the text of the text layers under it flows around it, `wrap_offset` pt away.
+    /// How the text of the text layers under it flows around it, `wrap_offset_x` pt away
+    /// beside it and `wrap_offset_y` pt above and below.
     pub wrap: Wrap,
-    pub wrap_offset: f64,
+    pub wrap_offset_x: f64,
+    pub wrap_offset_y: f64,
     #[serde(flatten)]
     pub style: Style,
     #[serde(flatten)]
@@ -956,7 +958,7 @@ impl Doc {
                     "jump" => true,
                     _ => return None,
                 };
-                let d = num(&m, "wrapOffset");
+                let [dx, dy] = [num(&m, "wrapOffsetX"), num(&m, "wrapOffsetY")];
                 let [x, y, w, h] = self.bounds(id);
                 let turn = self.turn(id);
                 let corners = [[x, y], [x + w, y], [x, y + h], [x + w, y + h]]
@@ -971,7 +973,7 @@ impl Doc {
                     |[a, b, c, e], &[px, py]| [a.min(px), b.min(py), c.max(px), e.max(py)],
                 );
                 Some((
-                    [x0 - d - fx, y0 - d - fy, x1 + d - fx, y1 + d - fy].map(|v| v as f32),
+                    [x0 - dx - fx, y0 - dy - fy, x1 + dx - fx, y1 + dy - fy].map(|v| v as f32),
                     jump,
                 ))
             })
@@ -1178,7 +1180,8 @@ impl Doc {
             keep_ratio: v["keepRatio"] == true,
             rotation: v["rotation"].as_f64().unwrap_or(0.0),
             wrap: serde_json::from_value(v["wrap"].clone()).unwrap_or_default(),
-            wrap_offset: v["wrapOffset"].as_f64().unwrap_or(0.0),
+            wrap_offset_x: v["wrapOffsetX"].as_f64().unwrap_or(0.0),
+            wrap_offset_y: v["wrapOffsetY"].as_f64().unwrap_or(0.0),
             ppi: style
                 .fills
                 .iter()

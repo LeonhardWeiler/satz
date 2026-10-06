@@ -75,7 +75,7 @@ export type Layout = {
 }
 
 export type Wrap = 'none' | 'around' | 'jump'
-export type Props = Partial<Style> & Partial<Layout> & Partial<TextFrame> & { name?: string; hidden?: boolean; locked?: boolean; keepRatio?: boolean; rotation?: number; wrap?: Wrap; wrapOffset?: number; clip?: boolean; radius?: number; corners?: number[]; start?: number; sweep?: number; inner?: number; count?: number; ratio?: number }
+export type Props = Partial<Style> & Partial<Layout> & Partial<TextFrame> & { name?: string; hidden?: boolean; locked?: boolean; keepRatio?: boolean; rotation?: number; wrap?: Wrap; wrapOffsetX?: number; wrapOffsetY?: number; clip?: boolean; radius?: number; corners?: number[]; start?: number; sweep?: number; inner?: number; count?: number; ratio?: number }
 
 export type NewKind = 'rect' | 'ellipse' | 'polygon' | 'star' | 'line' | 'path' | 'text' | 'frame'
 
@@ -160,9 +160,10 @@ export type Node = {
   keepRatio: boolean
   /** Degrees counterclockwise around the centre, with the children. */
   rotation: number
-  /** How the text of the text layers under it flows around it, `wrapOffset` pt away. */
+  /** How the text of the text layers under it flows around it, `wrapOffsetX` pt away beside it and `wrapOffsetY` above and below. */
   wrap: Wrap
-  wrapOffset: number
+  wrapOffsetX: number
+  wrapOffsetY: number
   /** The upright box on the page that the layer and what it does not clip cover, turned by its rotation and its ancestors'. */
   bounds: [number, number, number, number]
 } & Style &

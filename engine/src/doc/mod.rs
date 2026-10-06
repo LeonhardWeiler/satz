@@ -446,7 +446,8 @@ pub struct Props {
     pub max_lines: Option<u32>,
     pub trim: Option<bool>,
     pub wrap: Option<Wrap>,
-    pub wrap_offset: Option<f64>,
+    pub wrap_offset_x: Option<f64>,
+    pub wrap_offset_y: Option<f64>,
 }
 
 impl Props {
@@ -491,7 +492,8 @@ impl Props {
         }
         within(self.columns.map(f64::from), 1.0, 20.0, "columns")?;
         within(self.gutter, 0.0, f64::MAX, "gutter")?;
-        within(self.wrap_offset, 0.0, f64::MAX, "wrap offset")?;
+        within(self.wrap_offset_x, 0.0, f64::MAX, "wrap offset")?;
+        within(self.wrap_offset_y, 0.0, f64::MAX, "wrap offset")?;
         within(self.baseline_grid, 0.0, f64::MAX, "baseline grid")?;
         within(self.baseline_start, 0.0, f64::MAX, "baseline start")?;
         within(self.max_lines.map(f64::from), 0.0, 1000.0, "max lines")?;
@@ -3842,14 +3844,15 @@ mod tests {
         let r = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 200.0, 50.0]);
         let wrap = |wrap| Props {
             wrap: Some(wrap),
-            wrap_offset: Some(10.0),
+            wrap_offset_x: Some(10.0),
+            wrap_offset_y: Some(20.0),
             ..Props::default()
         };
         set(&mut d, &r, wrap(Wrap::Around));
         assert!(close(first_glyph(&d)[0].into(), 210.0));
         set(&mut d, &r, wrap(Wrap::Jump));
         assert!(close(first_glyph(&d)[0].into(), 0.0));
-        assert!(first_glyph(&d)[1] > 60.0);
+        assert!(first_glyph(&d)[1] > 70.0);
         d.apply(Command::Order {
             ids: vec![t],
             to: Order::Front,

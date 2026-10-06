@@ -352,7 +352,7 @@ test('text runs around a layer above it that wraps it and jumps over one that ju
   await drag(page, await screen(page, 50, 105), await screen(page, 90, 130))
   const props = page.getByRole('complementary', { name: 'Properties' })
   const wrap = props.getByRole('combobox', { name: 'Text wrap' })
-  const offset = props.getByRole('textbox', { name: 'Text wrap offset' })
+  const offset = props.getByRole('textbox', { name: 'Text wrap offset beside' })
   await expect(offset).toHaveCount(0)
   const [x, y] = await screen(page, 95, 110)
   const [x1, y1] = await screen(page, 130, 128)

@@ -381,7 +381,10 @@ export function Properties({
           <div className="grid">
             <Select label="Text wrap" value={same((n) => n.wrap)} options={WRAPS} onChange={(wrap) => set({ wrap })} />
             {nodes.some((n) => n.wrap !== 'none') && (
-              <Field label="" title="Text wrap offset" unit="length" value={same((n) => n.wrapOffset)} onCommit={(v) => set({ wrapOffset: Math.max(0, v) })} />
+              <>
+                <Field label="X" title="Text wrap offset beside" unit="length" value={same((n) => n.wrapOffsetX)} onCommit={(v) => set({ wrapOffsetX: Math.max(0, v) })} />
+                <Field label="Y" title="Text wrap offset above and below" unit="length" value={same((n) => n.wrapOffsetY)} onCommit={(v) => set({ wrapOffsetY: Math.max(0, v) })} />
+              </>
             )}
           </div>
           {nodes.some((n) => n.wrap !== 'none' && !textBelow(editor, n)) && <p className="empty">Only text frames below it in the layers wrap around it</p>}
