@@ -46,6 +46,7 @@ export type Overlay = {
 }
 
 const FIT_PADDING = 64
+const IMAGE_BYTES = 256 * 2 ** 20
 export const HANDLE = 8
 const PORT = 10
 /** Path verbs of CanvasKit's path commands. */
@@ -143,8 +144,10 @@ export class Renderer {
   private profile = ''
   private typefaces = new Map<number, Typeface>()
   private fonts = new Map<string, Font>()
-  /** Decoded images by the id `source` decodes; `null` when the file does not decode. */
+  /** Decoded images by the id `source` decodes, least recently shown first; `null` while decoding or when the file does not decode. */
   private images = new Map<number, Image | null>()
+  /** Images being decoded. */
+  decoding = 0
   /** `Engine.imageSource` by display-list id. */
   private sources = new Map<number, Float64Array>()
   /** Images of the inks over pages by their pixels. */
@@ -156,10 +159,11 @@ export class Renderer {
   private paint: Paint
   private chrome: Paint
 
-  /** Images wider or taller than `maxImage` px are kept shrunk to it. */
+  /** Images wider or taller than `maxImage` px are kept shrunk to it; `loaded` runs when an image has decoded. */
   constructor(
     private ck: CanvasKit,
     private engine: Engine,
+    private loaded: () => void,
     private maxImage = Infinity,
   ) {
     this.paint = new ck.Paint()
@@ -209,7 +213,7 @@ export class Renderer {
         for (const op of ops) {
           if (op.op === 'image') {
             const id = this.source(op.image)[0] ?? op.image
-            if (!this.images.has(id)) this.images.set(id, this.decode(id, c))
+            if (!this.images.has(id)) this.decode(id)
             shown.add(id).add(op.image)
           } else if (op.op === 'beginItem') live.add(op.item)
           else if (op.op === 'pushLayer') live.add(op.hash)
@@ -303,7 +307,7 @@ export class Renderer {
     if (overlay) this.drawOverlay(canvas, view, dpr, overlay)
   }
 
-  /** Forgets the pictures and images that no `draw` since the last sweep used. */
+  /** Forgets the pictures that no `draw` since the last sweep used, and the least recently shown images beyond `IMAGE_BYTES`. */
   sweep() {
     for (const cache of this.caches.flatMap((c) => [c.pictures, c.layers])) {
       for (const [key, { picture }] of cache) {
@@ -312,8 +316,18 @@ export class Renderer {
         cache.delete(key)
       }
     }
+    for (const id of this.shown) {
+      const image = this.images.get(id)
+      if (image === undefined) continue
+      this.images.delete(id)
+      this.images.set(id, image)
+    }
+    const size = (i: Image | null) => (i ? i.width() * i.height() * 4 : 0)
+    let bytes = 0
+    for (const image of this.images.values()) bytes += size(image)
     for (const [id, image] of this.images) {
-      if (this.shown.has(id)) continue
+      if (bytes <= IMAGE_BYTES || this.shown.has(id)) break
+      bytes -= size(image)
       image?.delete()
       this.images.delete(id)
     }
@@ -328,22 +342,26 @@ export class Renderer {
     return s
   }
 
-  /** The image `id` of the engine, shrunk to `maxImage` on a surface like `canvas`. */
-  private decode(id: number, canvas: Canvas) {
-    const { ck } = this
-    const image = ck.MakeImageFromEncoded(this.engine.image(id))
-    const f = image ? this.maxImage / Math.max(image.width(), image.height()) : 1
-    if (!image || f >= 1) return image
-    const [width, height] = [Math.ceil(image.width() * f), Math.ceil(image.height() * f)]
-    const surface = canvas.makeSurface({ width, height, colorType: ck.ColorType.RGBA_8888, alphaType: ck.AlphaType.Premul, colorSpace: ck.ColorSpace.SRGB })
-    if (!surface) return image
-    const c = surface.getCanvas()
-    c.scale(f, f)
-    c.drawImageOptions(image, 0, 0, ck.FilterMode.Linear, ck.MipmapMode.Linear, null)
-    image.delete()
-    const small = surface.makeImageSnapshot()
-    surface.delete()
-    return small
+  /** Decodes the image `id` of the engine off the main thread, shrunk to `maxImage`. */
+  private decode(id: number) {
+    const { ck, images } = this
+    images.set(id, null)
+    this.decoding++
+    const done = (bitmap: ImageBitmap | null) => {
+      this.decoding--
+      if (images.get(id) !== null) return bitmap?.close()
+      images.set(id, bitmap && ck.MakeLazyImageFromTextureSource(bitmap, { width: bitmap.width, height: bitmap.height, colorType: ck.ColorType.RGBA_8888, alphaType: ck.AlphaType.Unpremul, colorSpace: ck.ColorSpace.SRGB }))
+      this.clear()
+      this.loaded()
+    }
+    createImageBitmap(new Blob([this.engine.image(id) as Uint8Array<ArrayBuffer>]))
+      .then((full) => {
+        const f = this.maxImage / Math.max(full.width, full.height)
+        if (f >= 1) return full
+        const [resizeWidth, resizeHeight] = [Math.ceil(full.width * f), Math.ceil(full.height * f)]
+        return createImageBitmap(full, { resizeWidth, resizeHeight, resizeQuality: 'high' }).finally(() => full.close())
+      })
+      .then(done, () => done(null))
   }
 
   /** Draws the plates 1 and 2 that `draw` draws, each on a surface of its own, as their inks print. */
@@ -760,6 +778,7 @@ export class Renderer {
     for (const font of this.fonts.values()) font.delete()
     for (const typeface of this.typefaces.values()) typeface.delete()
     for (const image of this.images.values()) image?.delete()
+    this.images.clear()
     this.paint.delete()
     this.chrome.delete()
   }

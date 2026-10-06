@@ -163,7 +163,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
 
   useEffect(() => {
     const canvas = ref.current!
-    const renderer = new Renderer(ck, editor.engine)
+    const renderer = new Renderer(ck, editor.engine, () => redraw())
     const view: View = { x: 0, y: 0, zoom: 1 }
     /** The view of each spread left for another, as Figma keeps it for pages. */
     const spreadKey = () => `${editor.spread.map((p) => p.id).join()}/${editor.sheets.map((s) => `${s.width}x${s.height}`).join()}`
@@ -470,6 +470,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       }, editor.snapshot.colorMode === 'cmyk', editor.preflight ? editor.inks.on : 15)
       renderer.sweep()
       surface.flush()
+      canvas.toggleAttribute('data-decoding', renderer.decoding > 0)
       const left = Math.min(...editor.sheets.map((s) => s.x))
       const sel = editor.selection.length ? bounds(editor.selected().map((n) => upright(editor.shown(n)))) : undefined
       const x0 = view.x + left * view.zoom

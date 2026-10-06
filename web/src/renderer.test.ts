@@ -18,7 +18,7 @@ test('layers with shadows are recorded again only when their content changes', a
       },
     }),
   })
-  const renderer = new Renderer(ck, engine)
+  const renderer = new Renderer(ck, engine, () => {})
   const surface = ck.MakeSurface(300, 400)!
   const draw = () => {
     recorded = 0
@@ -58,7 +58,7 @@ test('text in several sizes shares one typeface per font, freed with the rendere
     typefaces.push(t)
     return t
   }
-  const renderer = new Renderer(ck, engine)
+  const renderer = new Renderer(ck, engine, () => {})
   const surface = ck.MakeSurface(300, 400)!
   const [page] = (JSON.parse(engine.snapshot()) as Snapshot).pages
   const text = page.children.find((n) => n.kind === 'text')!
@@ -76,7 +76,7 @@ test('text in a missing font is highlighted pink', async () => {
   const ck = await CanvasKitInit()
   initSync({ module: readFileSync(new URL('engine/engine_bg.wasm', import.meta.url)) })
   const engine = Engine.sample()
-  const renderer = new Renderer(ck, engine)
+  const renderer = new Renderer(ck, engine, () => {})
   const surface = ck.MakeSurface(300, 400)!
   const [page] = (JSON.parse(engine.snapshot()) as Snapshot).pages
   const text = page.children.find((n) => n.kind === 'text')!

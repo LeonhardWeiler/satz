@@ -29,9 +29,11 @@ function makePainter(ck: CanvasKit, editor: Editor) {
   let gpu: GrDirectContext | null = null
   const off = new OffscreenCanvas(1, 1)
   const queue = new Map<HTMLCanvasElement, [Lists, Sheet[]]>()
+  const drawn = new Map<HTMLCanvasElement, [Lists, Sheet[]]>()
   let frame = 0
   const draw = (c: HTMLCanvasElement, lists: Lists, sheets: Sheet[]) => {
     if (!c.isConnected) return
+    drawn.set(c, [lists, sheets])
     const left = Math.min(...sheets.map((s) => s.x))
     const width = Math.round(c.clientWidth * devicePixelRatio)
     const height = Math.round(c.clientHeight * devicePixelRatio)
@@ -40,7 +42,10 @@ function makePainter(ck: CanvasKit, editor: Editor) {
     gpu ??= ck.MakeWebGLContext(ck.GetWebGLContext(off))
     const surface = gpu && ck.MakeOnScreenGLSurface(gpu, width, height, ck.ColorSpace.SRGB)
     if (!surface) return
-    renderer ??= new Renderer(ck, editor.engine, 1024)
+    renderer ??= new Renderer(ck, editor.engine, () => {
+      for (const [c, args] of drawn) if (c.isConnected) queue.set(c, args)
+      frame ||= requestAnimationFrame(run)
+    }, 1024)
     renderer.reprofile(editor.snapshot.profile ?? '')
     renderer.draw(surface.getCanvas(), lists, sheets, { x: -left * zoom, y: 0, zoom }, 1, null, editor.snapshot.colorMode === 'cmyk')
     surface.flush()
@@ -65,6 +70,7 @@ function makePainter(ck: CanvasKit, editor: Editor) {
       cancelAnimationFrame(frame)
       frame = 0
       queue.clear()
+      drawn.clear()
       renderer?.sweep()
     },
   }

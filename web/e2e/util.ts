@@ -93,9 +93,14 @@ export async function place(page: Page, file: { name: string; mimeType: string; 
   await page.mouse.click(x, y)
 }
 
-/** Waits until the canvas has drawn the frame it has asked for, if any. */
+/** Waits until the canvas has drawn the frame it has asked for, if any, and the images it decodes. */
 export async function drawn(page: Page) {
-  await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+  const frames = () => page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+  await frames()
+  if (await page.locator('canvas[data-decoding]').count()) {
+    await page.waitForFunction(() => !document.querySelector('canvas[data-decoding]'))
+    await frames()
+  }
 }
 
 /** RGB pixels of the screen area [x, y, w, h] once the canvas has drawn. */
