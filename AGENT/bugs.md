@@ -12,7 +12,7 @@
 - [] when using the bucket tool in path edit mode it should not create new vektors but color the existing one
 - [] the bucket tool should only not fill over line crossings. an area is when it is surrounded by lines in all directions, there does not have to be vertices that connect the lines around it. it should work like in indesign
 - [x] in the layers panel the names of the elements are faded out to the right, even though they don't need to be truncated. it should only be truncated (faded away) when hovered or hide or lock are selected, because they're the reason for the truncation
-- [] everytime i go into the page overview the layout slighty moves up and then down. i don't know why this happens. investigate and then fix it
+- [x] everytime i go into the page overview the layout slighty moves up and then down. i don't know why this happens. investigate and then fix it
 
 --- LATER
 1. Figma import with file and or account
