@@ -41,15 +41,15 @@
 <body>
 <main>
 <h1>Satz – project health report</h1>
-<p class="meta">2026-10-07 · branch <code>main</code> · commit <code>62bf917</code> · browser DTP (Rust/WASM engine, CanvasKit renderer, React UI, krilla PDF)</p>
+<p class="meta">2026-10-07 · branch <code>main</code> · commit <code>6418ef9</code> · browser DTP (Rust/WASM engine, CanvasKit renderer, React UI, krilla PDF)</p>
 
 <div class="counters">
   <div class="counter"><b>0</b><span>Critical</span></div>
   <div class="counter"><b>2</b><span>High</span></div>
-  <div class="counter"><b>8</b><span>Medium</span></div>
-  <div class="counter"><b>21</b><span>Low</span></div>
+  <div class="counter"><b>10</b><span>Medium</span></div>
+  <div class="counter"><b>22</b><span>Low</span></div>
   <div class="counter"><b>5</b><span>Info</span></div>
-  <div class="counter"><b>36</b><span>Total</span></div>
+  <div class="counter"><b>39</b><span>Total</span></div>
 </div>
 
 <nav aria-label="Contents">
@@ -65,6 +65,8 @@
       <li><a href="#BUG-12">BUG-12 A broken image or font passes the checks and stops the PDF export</a></li>
       <li><a href="#BUG-13">BUG-13 Photos with an EXIF orientation are distorted on the canvas and turned in the PDF</a></li>
       <li><a href="#BUG-14">BUG-14 Characters the font lacks print as .notdef boxes</a></li>
+      <li><a href="#BUG-17">BUG-17 Two tabs overwrite each other's autosave</a></li>
+      <li><a href="#BUG-16">BUG-16 Find misses matches on other pages</a></li>
       <li><a href="#A11Y-1">A11Y-1 Secondary text below AA contrast</a></li>
       <li><a href="#BUG-7">BUG-7 Page size 0 breaks the PDF export</a></li>
       <li><a href="#BUG-3">BUG-3 Trap while restoring the autosave</a></li>
@@ -87,6 +89,7 @@
       <li><a href="#BUG-11">BUG-11 Fractions are rounded to whole percent</a></li>
       <li><a href="#BUG-15">BUG-15 Copied layers do not reach another document</a></li>
       <li><a href="#UX-6">UX-6 The text caret splits characters and ignores the macOS keys</a></li>
+      <li><a href="#UX-7">UX-7 Section numbers not shown</a></li>
       <li><a href="#DOC-1">DOC-1 Wrong docstring on pickProfile</a></li>
       <li><a href="#SEC-1">SEC-1 No content security policy</a></li>
       <li><a href="#PERF-5">PERF-5 Source Serif downloaded twice</a></li>
@@ -129,6 +132,8 @@
 <article class="card medium" id="BUG-12"><header><span class="id">BUG-12</span><span class="badge medium">medium</span><h3>A broken image or font passes the checks and stops the PDF export</h3></header><p class="file">engine/src/image.rs register; engine/src/text.rs add_font; engine/src/pdf.rs:148 <code>doc.finish().unwrap()</code></p><p><code>image::register</code> reads only the header and <code>add_font</code> only the name table, so damaged files are taken, placed and shown. krilla then fails while it encodes the image or subsets the font, and the <code>unwrap</code> panics, which traps the export worker for every PDF and package of that document, without naming the file. A probe that changed a few bytes of PNG and JPEG files: 140 of 400 were placed and then panicked in the PDF export (“Corrupt deflate stream”); of 400 changed TrueType fonts, 13 loaded, shaped and rendered and then panicked (“failed to subset font: malformed font”). WOFF2 files with changed bytes were all rejected cleanly.</p><p class="rec">Decode an image fully in <code>register</code> and subset a font once in <code>add_font</code>, rejecting what fails, and return krilla’s error from <code>pdf</code> with the layer it comes from instead of unwrapping.</p></article>
 <article class="card medium" id="BUG-13"><header><span class="id">BUG-13</span><span class="badge medium">medium</span><h3>Photos with an EXIF orientation are distorted on the canvas and turned in the PDF</h3></header><p class="file">engine/src/image.rs; web/src/renderer.ts:380 createImageBitmap; engine/src/raster.rs; krilla</p><p>Neither the engine nor krilla reads the EXIF orientation, so size, aspect, PDF and PNG/JPEG export use the stored pixels, which phones keep turned (orientation 6 or 8). The browser’s <code>createImageBitmap</code> turns the image by default, and the renderer draws that bitmap into the unturned unit square, so the canvas shows a squeezed picture and the export a picture lying on its side. Found by reading the code; not tried with a phone photo in the browser.</p><p class="rec">Read the orientation in <code>register</code>, swap width and height for 5 to 8 and apply it as the image transform for every output; create the bitmap with <code>imageOrientation: 'none'</code> so canvas and PDF agree.</p></article>
 <article class="card medium" id="BUG-14"><header><span class="id">BUG-14</span><span class="badge medium">medium</span><h3>Characters the font lacks print as .notdef boxes</h3></header><p class="file">engine/src/text.rs shaping (glyph ids taken as they come); engine/src/doc/draw.rs Problem</p><p>There is no font fallback and no preflight problem for a missing glyph: the shaper’s glyph 0 goes into the canvas, the PDF and the raster. A probe set text in the bundled font and found glyph 0 for U+000B (Word’s line break), U+2028 (InDesign’s forced line break), U+000C and U+0000, all of which come in by pasting; Cyrillic, CJK or symbols that a Latin font lacks behave the same. Only <code>\n</code> breaks a line.</p><p class="rec">Add a preflight problem for glyph 0 (with the character), map U+000B and U+2028 to a line break inside the paragraph on paste and in <code>edit_text</code>, and drop other control characters there.</p></article>
+<article class="card medium" id="BUG-17"><header><span class="id">BUG-17</span><span class="badge medium">medium</span><h3>Two tabs overwrite each other's autosave</h3></header><p class="file">web/src/file.ts autosave, web/src/main.tsx</p><p>Every tab autosaves into the one IndexedDB key <code>doc</code> and nothing tells a tab that another one is open. Tab A renames a layer, tab B opens and restores it, renames another layer and closes, then A changes something: the reload shows A's state, B's rename is gone without a word. Confirmed with Playwright in 2 pages of one context.</p><p class="rec">Take <code>navigator.locks.request('satz', { ifAvailable: true })</code> at start; a tab that does not get the lock shows a notice that Satz is open in another tab and does not autosave. An e2e test with 2 pages.</p></article>
+<article class="card medium" id="BUG-16"><header><span class="id">BUG-16</span><span class="badge medium">medium</span><h3>Find does not go to a match on another page, and Replace never replaces it</h3></header><p class="file">web/src/Find.tsx show, current, replaceOne</p><p><code>show</code> only sets <code>editing</code>; the page stays, because <code>editor.follow</code> turns the page only when the caret leaves the frame. <code>current</code> looks the story up in <code>editor.nodes</code>, which holds the shown spread only, so for a match elsewhere it stays −1: the count stays at “1 found”, Enter keeps editing an unseen frame, and Replace only calls <code>next(1)</code> again. Confirmed with Playwright: duplicate the page, type “Zebra” on page 2, go to page 1, Ctrl+F “Zebra”, Enter. After the last match of a story, <code>replaceOne</code> also goes to the first other story, not the next one.</p><p class="rec">In <code>show</code> turn to the page of <code>textFrame(m.story, m.at)</code>; take the head of the edited story from the snapshot, not from <code>nodes</code>; continue with the first match after <code>m</code> in <code>all</code>'s order. An e2e test across 2 pages.</p></article>
 <article class="card medium" id="A11Y-1">
   <header><span class="id">A11Y-1</span><span class="badge medium">medium</span><h3>Labels, units and hints in <code>--text-3</code> stay below WCAG AA</h3></header>
   <p class="file"><code>web/src/index.css</code> <code>--text-3</code> (50 uses), light theme <code>--accent</code>, <code>--bad</code>, <code>--warn</code></p>
@@ -259,6 +264,7 @@
 
 <article class="card low" id="BUG-15"><header><span class="id">BUG-15</span><span class="badge low">low</span><h3>Copied layers do not reach another document</h3></header><p class="file">web/src/editor.ts load, copy, paste; web/src/App.tsx clip; engine/src/lib.rs load</p><p>The engine keeps copied layers inside its <code>Doc</code>, which <code>load</code> replaces, but <code>editor.copied</code> stays. After opening another document Ctrl V finds the clipboard text equal to <code>copied</code>, calls <code>paste</code>, and nothing happens; in a second tab the layer names arrive as a new text frame. <code>load</code> also keeps <code>vector</code> and <code>copies</code>, so after opening a document while a path was being edited, V, P, B and − switch the path mode of a layer that is gone until Escape.</p><p class="rec">Put the clips on the system clipboard as a custom format (or JSON in text/html) and paste from there; reset <code>copied</code>, <code>vector</code> and <code>copies</code> in <code>load</code>.</p></article>
 <article class="card low" id="UX-6"><header><span class="id">UX-6</span><span class="badge low">low</span><h3>The text caret splits characters and ignores the macOS keys</h3></header><p class="file">web/src/textEdit.ts before, after, handleTextKey</p><p>Arrows and Backspace step by code point: the caret stops between a letter and its combining accent (decomposed text from macOS) and inside emoji sequences and flags, and Backspace takes one part of a family emoji. With Ctrl for Cmd, Cmd Arrow jumps by word on a Mac, where it goes to the line end, and Option Arrow, the Mac word jump, moves one character.</p><p class="rec">Step over <code>Intl.Segmenter</code> grapheme segments, as words already do, and on macOS use Option for words and Cmd for line ends.</p></article>
+<article class="card low" id="UX-7"><header><span class="id">UX-7</span><span class="badge low">low</span><h3>Page lists and the export range ignore section numbers</h3></header><p class="file">web/src/Overview.tsx, web/src/Layers.tsx, web/src/Preflight.tsx pagesOf</p><p>A section can start at 5 or count in roman numerals, and the page number variable prints that, but the overview, the layers panel (“Page 3”) and the export field “Pages” count pages 1 to n. A book with roman front matter exports its printed page 1 with “5”.</p><p class="rec">Show the section label (the engine has <code>Section::label</code>) in the overview and layers, and read it in <code>pagesOf</code>, with the physical number as fallback.</p></article>
 <article class="card info" id="DOC-1">
   <header><span class="id">DOC-1</span><span class="badge info">info</span><h3>pickProfile carries the docstring of placeImages</h3></header>
   <p class="file"><code>web/src/file.ts:235</code></p>
@@ -298,6 +304,7 @@
   <li><span class="badge good">build</span> Toolchain fully in <code>flake.nix</code>; <code>wasm-bindgen</code> pinned to the CLI in the flake; 3 runtime web dependencies; actions pinned to commits; CI with <code>contents: read</code>, cancelled when superseded and skipped for agent-only pushes; <code>CLAUDE.md</code> matches the code.</li>
   <li><span class="badge good">a11y</span> Labelled controls, <code>:focus-visible</code>, menu, radio, tree and tooltip roles; layers and pages lists and the overview listboxes are one tab stop with arrow keys; <code>prefers-reduced-motion</code> honoured; loading, WebGL 2, start-failure and trap notices, each with an e2e test.</li>
   <li><span class="badge good">test</span> A temporary seeded probe (random commands, then undo to the start, undo/redo of each change, save/load every 10 steps) passed on more than 90 seeds: undo returns to the empty document, undo/redo give the same display list, and a loaded document renders the same apart from ARCH-3.</li>
+  <li><span class="badge good">test</span> A temporary seeded monkey test in the browser (30 seeds, up to 250 random keys, clicks, drags and typing) logged no error; undo to the start gave a pixel-equal canvas on 12 seeds. Threads keep their text when the page of the first frame or the first frame is deleted, the page or frame duplicated or the last frame copied.</li>
 </ul>
 
 <h2 id="decided">3. Deliberately decided</h2>
