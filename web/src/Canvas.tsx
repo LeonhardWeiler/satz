@@ -205,14 +205,14 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       }, BLINK)
     }
     wake()
-    /** The last move of a band, moved again as the view scrolls under it. */
-    let banding: PointerEvent | undefined
+    /** The last move of a drag, moved again as the view scrolls under it. */
+    let held: PointerEvent | undefined
     const edge = edgeScroll(
       () => canvas.getBoundingClientRect(),
       (dx, dy) => {
         view.x -= dx
         view.y -= dy
-        if (banding) onPointerMove(banding)
+        if (held) onPointerMove(held)
         redraw()
       },
     )
@@ -971,8 +971,8 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         return
       }
       if (!drag) return track()
-      if (drag.kind === 'marquee') {
-        banding = e
+      if (drag.kind !== 'pan' && drag.kind !== 'guide' && !(drag.kind === 'move' && !drag.active) && !(drag.kind === 'draw' && !drag.moved)) {
+        held = e
         edge.move(e)
       }
       if (drag.kind === 'guide') {
@@ -1217,7 +1217,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         if (id && editor.selection.length > 1) editor.set({ selection: [id] })
       }
       drag = null
-      banding = undefined
+      held = undefined
       edge.stop()
       snapped = []
       measures = []

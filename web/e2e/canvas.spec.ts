@@ -430,6 +430,22 @@ test('a marquee held at the edge of the canvas scrolls it until released', async
   expect((await colors(page, [middle]))[0]).toEqual(after)
 })
 
+test('a layer dragged to the edge of the canvas moves on as the canvas scrolls', async ({ page }) => {
+  await open(page)
+  await page.keyboard.press('r')
+  await drag(page, await screen(page, 20, 40), await screen(page, 60, 80))
+  const box = (await page.getByLabel('Page canvas').boundingBox())!
+  const [x, y] = await screen(page, 40, 60)
+  const mm = (await screen(page, 40, 61))[1] - y
+  const bottom = box.y + box.height - 4
+  await page.mouse.move(x, y)
+  await page.mouse.down()
+  await page.mouse.move(x, bottom, { steps: 4 })
+  const top = page.getByRole('complementary', { name: 'Properties' }).getByRole('region', { name: 'Layout' }).getByRole('textbox', { name: 'Y in mm' })
+  await expect.poll(async () => Number(await top.inputValue()), { timeout: 15000 }).toBeGreaterThan(40 + (bottom - y) / mm + 10)
+  await page.mouse.up()
+})
+
 test('hiding the panels, the interface or the rulers leaves the page where it is on screen', async ({ page }) => {
   await open(page)
   const [x, y] = await screen(page, 23, 37)
