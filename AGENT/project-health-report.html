@@ -41,15 +41,15 @@
 <body>
 <main>
 <h1>Satz – project health report</h1>
-<p class="meta">2026-10-07 · branch <code>main</code> · commit <code>6418ef9</code> · browser DTP (Rust/WASM engine, CanvasKit renderer, React UI, krilla PDF)</p>
+<p class="meta">2026-10-07 · branch <code>main</code> · commit <code>a2ca000</code> · browser DTP (Rust/WASM engine, CanvasKit renderer, React UI, krilla PDF)</p>
 
 <div class="counters">
   <div class="counter"><b>0</b><span>Critical</span></div>
   <div class="counter"><b>2</b><span>High</span></div>
-  <div class="counter"><b>10</b><span>Medium</span></div>
-  <div class="counter"><b>22</b><span>Low</span></div>
-  <div class="counter"><b>5</b><span>Info</span></div>
-  <div class="counter"><b>39</b><span>Total</span></div>
+  <div class="counter"><b>12</b><span>Medium</span></div>
+  <div class="counter"><b>34</b><span>Low</span></div>
+  <div class="counter"><b>7</b><span>Info</span></div>
+  <div class="counter"><b>55</b><span>Total</span></div>
 </div>
 
 <nav aria-label="Contents">
@@ -68,6 +68,8 @@
       <li><a href="#BUG-17">BUG-17 Two tabs overwrite each other's autosave</a></li>
       <li><a href="#BUG-16">BUG-16 Find misses matches on other pages</a></li>
       <li><a href="#A11Y-1">A11Y-1 Secondary text below AA contrast</a></li>
+      <li><a href="#PERF-7">PERF-7 Every command measures all texts</a></li>
+      <li><a href="#BUG-19">BUG-19 Grid count freezes the tab</a></li>
       <li><a href="#BUG-7">BUG-7 Page size 0 breaks the PDF export</a></li>
       <li><a href="#BUG-3">BUG-3 Trap while restoring the autosave</a></li>
       <li><a href="#BUG-4">BUG-4 Service worker drops the cache of an open tab</a></li>
@@ -90,11 +92,25 @@
       <li><a href="#BUG-15">BUG-15 Copied layers do not reach another document</a></li>
       <li><a href="#UX-6">UX-6 The text caret splits characters and ignores the macOS keys</a></li>
       <li><a href="#UX-7">UX-7 Section numbers not shown</a></li>
+      <li><a href="#BUG-18">BUG-18 Section start without upper bound</a></li>
+      <li><a href="#BUG-20">BUG-20 Gradient without stops panics PDF</a></li>
+      <li><a href="#BUG-21">BUG-21 Stops out of order: invalid PDF</a></li>
+      <li><a href="#BUG-22">BUG-22 Negative gap on hug frame</a></li>
+      <li><a href="#BUG-23">BUG-23 OpenType toggle on mixed spans</a></li>
+      <li><a href="#UX-8">UX-8 Gradient stops fixed at 2</a></li>
+      <li><a href="#UX-9">UX-9 Text panel ignores the selection</a></li>
+      <li><a href="#UX-10">UX-10 Shortcut conflicts not shown</a></li>
+      <li><a href="#PERF-8">PERF-8 spans clones node JSON per segment</a></li>
+      <li><a href="#PERF-9">PERF-9 Raster export: page-size pixmaps per shadow</a></li>
+      <li><a href="#PERF-10">PERF-10 CMYK plates on every frame</a></li>
+      <li><a href="#DOC-2">DOC-2 Doc comments misplaced</a></li>
       <li><a href="#DOC-1">DOC-1 Wrong docstring on pickProfile</a></li>
       <li><a href="#SEC-1">SEC-1 No content security policy</a></li>
       <li><a href="#PERF-5">PERF-5 Source Serif downloaded twice</a></li>
       <li><a href="#BUG-8">BUG-8 SW cache name ignores file contents</a></li>
       <li><a href="#ARCH-3">ARCH-3 Auto layout sizes drift on each load</a></li>
+      <li><a href="#ARCH-4">ARCH-4 sameOf twice</a></li>
+      <li><a href="#PERF-11">PERF-11 Package zip deflates images</a></li>
     </ol>
   </li>
   <li><a href="#strong">What is already strong</a></li>
@@ -104,7 +120,6 @@
 </nav>
 
 <h2 id="open">1. Open findings</h2>
-
 <article class="card high" id="BUG-9"><header><span class="id">BUG-9</span><span class="badge high">high</span><h3>Redo of a creating command gives new ids and breaks references</h3></header><p class="file">engine/src/doc/mod.rs Doc::apply (Create, AddPage, AddMaster, Duplicate, DuplicatePage, Mask, Group, AutoLayout, Paste); Loro UndoManager</p><p>Undo of a command that creates nodes deletes them, and redo creates them again with new TreeIDs. Everything that names the old id breaks: a page loses its <code>master</code>, a thread loses its <code>next</code>, a master override keeps <code>overrideOf</code> on the old id so master layer and override are both drawn, and the UI selection points at nothing. Confirmed natively with a probe: AddMaster + UseMaster, undo ×2, redo ×2 leaves the page without master; two threaded frames, undo ×2, redo ×2 leave them unthreaded; an override after undo/redo names the old id while the master layer has id 42. Delete does not have this problem, because it moves into <code>trash</code>.</p><p class="rec">Let undo of a creation move the nodes into <code>trash</code> as delete does (or keep the ids on redo), and add an engine test that undoes and redoes AddMaster+UseMaster, a thread and an override.</p></article>
 <article class="card high" id="BUG-1">
   <header><span class="id">BUG-1</span><span class="badge high">high</span><h3>Lengths without an upper bound make the engine ask for gigabytes and trap</h3></header>
@@ -112,21 +127,18 @@
   <p>Commands require finite numbers but mostly no maximum: stroke weight, radius, blur, shadow offset, text size, letter spacing, line height, indents, gutter, frame and page size, per-side stroke weights, column rule weight, min height and wrap offsets accept anything up to <code>f32::MAX</code> or <code>f64::MAX</code>. A temporary engine fuzzer (random command sequences, then render, png, inks, pdf and save; removed again) and release-mode probes found three ways to stop the engine: <b>(1)</b> a dashed or dotted stroke makes <code>geom::pattern</code> build <code>room / period</code> dashes with no cap, so a dashed rectangle a few km wide asks for 8 GB inside <code>Doc::render</code> on the main thread, i.e. the whole app traps on an input the W field accepts; <b>(2)</b> a shadow or blur makes <code>pdf::raster</code> rasterize its area at the export ppi with no limit but the page, so on a 5000 × 20000 pt page <code>rasterize</code> asked for 34.7 GB (backtrace <code>rasterize ← plane ← raster ← draw ← pdf</code>), and an A0 page with a full-page shadow already needs about 0.5 GB per plane; <b>(3)</b> a stroke weight of 1e10 pt panics in tiny-skia (<code>alpha_runs.rs:189</code>) in <code>png</code> and <code>inks</code>. In WASM (4 GB) the first traps the editor, the others trap the export worker or, above 4 GB, silently leave the shadow out. In debug builds text size 1e40 trips “text drawn where it was not set” and blur 1e9 overflows <code>i32</code> in <code>raster.rs:114</code>. In the browser a width of <code>99999999999</code> mm was accepted, the ellipse vanished and the preflight said “No issues”. (1)–(3) confirmed natively, (1) not run in the browser.</p>
   <p class="rec">Give every length one maximum in the <code>check</code> functions and in <code>set_page</code> (e.g. 20000 mm, the limit the view already has; text size 0.1–5000 pt; stroke and blur ≤ the page diagonal), pass the same bounds as <code>max</code> to the fields, cap the dash count in <code>pattern</code> (draw solid above some thousands) and the pixel count in <code>rasterize</code> (lower the ppi of that raster). Add the extremes to <code>a_command_that_fails_leaves_the_document_as_it_was</code>.</p>
 </article>
-
 <article class="card medium" id="BUG-6">
   <header><span class="id">BUG-6</span><span class="badge medium">medium</span><h3>Grouping a group together with its own child leaves a stray group that undo keeps</h3></header>
   <p class="file"><code>engine/src/doc/mod.rs</code> <code>group</code> (also reached by <code>mask</code> and <code>auto_layout</code>), <code>sorted</code>; <code>web/src/Layers.tsx</code> <code>select</code></p>
   <p><code>sorted</code> keeps a node and its descendants together, so <code>group</code> calls <code>create_at</code> for the new group and then fails in <code>reparent</code> when it moves the parent into itself. The created group stays as a pending op, breaking the rule that a failing command writes nothing (the <code>debug_assert</code> fires only in debug builds; the WASM build is release). In the browser: select a group and one of its children (Shift+click in the layers tree selects a range that includes both), press Ctrl+G: the status shows the error, an empty “Group” appears in the layers tree and Ctrl+Z does not remove it. The same with Ctrl+Alt+M and auto layout. Confirmed natively by the fuzzer and in Chromium.</p>
   <p class="rec">In <code>group</code> drop every id whose ancestor is also in the list (or reject such a list) before the first write, and add the case to <code>a_command_that_fails_leaves_the_document_as_it_was</code>; a release-mode check of <code>pending_txn</code> after each failing <code>apply</code> (rollback with <code>revert_to</code>) would turn any further such fault into a no-op.</p>
 </article>
-
 <article class="card medium" id="BUG-2">
   <header><span class="id">BUG-2</span><span class="badge medium">medium</span><h3>A failed autosave is lost without a word and not retried</h3></header>
   <p class="file"><code>web/src/file.ts</code> <code>autosave</code> → <code>put</code></p>
   <p><code>put</code> sets <code>last = state()</code> before it writes and neither awaits nor checks <code>files.put</code>. If IndexedDB refuses the write (quota with large images, private mode, a blocked database), the error ends as an unhandled rejection or a silent transaction abort, the version counts as saved, and the next save waits for the next change. The user believes the work is kept until the reload shows an older document. Not reproduced in the browser; read from the code.</p>
   <p class="rec">Await the transaction (<code>oncomplete</code>/<code>onerror</code>), set <code>last</code> only after success, and on failure call <code>editor.say</code> once with “Autosave failed: …, save the file with Ctrl+S”.</p>
 </article>
-
 <article class="card medium" id="BUG-10"><header><span class="id">BUG-10</span><span class="badge medium">medium</span><h3>Opened files are not checked like commands</h3></header><p class="file">engine/src/doc/mod.rs Doc::load (~1300); engine/src/pdf.rs; engine/src/raster.rs</p><p><code>Doc::load</code> checks the root kinds and the images, but no node values. A file with stroke weight −1 makes the PDF export panic in pdf-writer (<code>content.rs:170</code>), and the following krilla destructor aborts the worker; a page height of 1e308 asks for about 2 TB on render. 600 mutated copies of the sample (meta values changed, deleted, moved): 587 opened and rendered, 12 were rejected cleanly, 1 panicked. Files come from other people, so this is the input path that most needs the checks.</p><p class="rec">Run the checks of the commands (<code>Props::check</code>, <code>set_page</code>, BUG-1 bounds) over every node in <code>Doc::load</code> and reject or clamp the file before it is shown.</p></article>
 <article class="card medium" id="UX-4"><header><span class="id">UX-4</span><span class="badge medium">medium</span><h3>Alt shortcuts fail on macOS and with AltGr</h3></header><p class="file">web/src/keys.ts handleKey, altKey; web/src/commands.ts comboOf; web/src/align.tsx ALIGNS</p><p><code>handleKey</code> and <code>comboOf</code> read letters from <code>e.key</code>. On macOS Option changes the character (Option A is “å”, Option H “˙”), so all 8 alignment shortcuts (Alt A/H/D/W/V/S, Alt Shift H/V), Remove auto layout (Shift Alt A), Use as mask (Cmd Option M is “µ”), Auto fit (Cmd Option C is “ç”) and Frame selection do nothing, and remapping in the settings records the wrong character. On Windows with a German layout Ctrl Alt is AltGr, so Ctrl Alt M gives “µ” and Ctrl Alt Q “@”. Found by reading the code; not tried on a Mac.</p><p class="rec">Read letters and digits from <code>e.code</code> (<code>KeyA</code>, <code>Digit1</code>) when Alt or Ctrl is held, in <code>handleKey</code>, <code>altKey</code> and <code>comboOf</code>, as <code>App.tsx</code> already does.</p></article>
 <article class="card medium" id="BUG-12"><header><span class="id">BUG-12</span><span class="badge medium">medium</span><h3>A broken image or font passes the checks and stops the PDF export</h3></header><p class="file">engine/src/image.rs register; engine/src/text.rs add_font; engine/src/pdf.rs:148 <code>doc.finish().unwrap()</code></p><p><code>image::register</code> reads only the header and <code>add_font</code> only the name table, so damaged files are taken, placed and shown. krilla then fails while it encodes the image or subsets the font, and the <code>unwrap</code> panics, which traps the export worker for every PDF and package of that document, without naming the file. A probe that changed a few bytes of PNG and JPEG files: 140 of 400 were placed and then panicked in the PDF export (“Corrupt deflate stream”); of 400 changed TrueType fonts, 13 loaded, shaped and rendered and then panicked (“failed to subset font: malformed font”). WOFF2 files with changed bytes were all rejected cleanly.</p><p class="rec">Decode an image fully in <code>register</code> and subset a font once in <code>add_font</code>, rejecting what fails, and return krilla’s error from <code>pdf</code> with the layer it comes from instead of unwrapping.</p></article>
@@ -140,119 +152,104 @@
   <p><code>--text-3</code> is the foreground mixed 50 % into the background. Computed contrast: dark theme 4.0:1 on panels, 3.75:1 on inputs, 3.5:1 on raised rows; light theme 3.0:1. At 11–12 px these need 4.5:1. In the light theme the accent is 2.9:1, errors 3.4:1 and warnings 3.2:1 on the panel.</p>
   <p class="rec">Raise <code>--text-3</code> to about 62 % in dark and 68 % in light, and darken the light theme's accent, bad and warn until each reaches 4.5:1; check once with the browser's contrast tool.</p>
 </article>
-
+<article class="card medium" id="PERF-7"><header><span class="id">PERF-7</span><span class="badge medium">medium</span><h3>Every command lays out and measures every text of the document</h3></header><p class="file"><code>engine/src/doc/mod.rs</code> <code>Doc::finish</code>; <code>engine/src/story.rs</code> <code>lay_out</code>, <code>fit</code></p><p>After each command <code>finish</code> lays out all pages and shapes every auto-size (hug) text again, even when the command touched one rectangle. Measured in release: <code>SetFrame</code> of a rectangle takes 2.2 ms with 1 page, 5 ms with 16 pages of fixed frames and 33.8 ms with 16 pages and 160 hug texts. Dragging on such a document drops below 30 fps.</p><p class="rec">Lay out only the stories whose content, style or frames changed (the snapshot already knows the changed nodes), or cache the measured size per story version.</p></article>
+<article class="card medium" id="BUG-19"><header><span class="id">BUG-19</span><span class="badge medium">medium</span><h3>A grid count or size without bounds freezes the tab</h3></header><p class="file"><code>engine/src/doc/pages.rs</code> <code>set_grids</code>; <code>engine/src/doc/mod.rs</code> <code>baselineGrid</code>; <code>web/src/snap.ts</code> <code>gridSpans</code>, <code>targets</code>; <code>web/src/Properties.tsx</code> grid fields</p><p><code>set_grids</code> only checks <code>count != 0</code> and <code>size &gt;= 0</code>; the N field has <code>min={1}</code> and no max, Size only needs &gt; 0. <code>gridSpans</code> runs on every canvas draw (<code>renderer.ts</code>) and in <code>targets</code> on every snapping move and loops over all columns or all <code>width / size</code> cells, so a count of 1e8 or a size of 0.001 pt freezes the tab, and the setting is saved and autosaved, so a reload freezes again. A baseline grid of 0.01 pt has the same effect in <code>snap.ts</code>. Read from the code, not run in the browser.</p><p class="rec">Bound the values in the engine as <code>columns</code> is (≤ 20): count ≤ 100, cell size and baseline grid ≥ 1 pt, and give the fields the same <code>min</code>/<code>max</code>.</p></article>
 <article class="card low" id="BUG-7">
   <header><span class="id">BUG-7</span><span class="badge low">low</span><h3>A page of width or height 0 breaks the PDF export</h3></header>
   <p class="file"><code>engine/src/doc/pages.rs</code> <code>set_page</code>; <code>engine/src/pdf.rs:98</code>; <code>web/src/Properties.tsx</code> page W/H fields</p>
   <p><code>set_page</code> accepts 0 (“must not be negative”), and the page fields have no minimum above 0. <code>PageSettings::from_wh(width + 2·bleed, …).unwrap()</code> then panics for a page of 0 × 0 or 0 width without bleed, which traps the export worker; preflight shows no issue for an empty page. Confirmed natively, the browser message not checked.</p>
   <p class="rec">Require width and height ≥ 1 pt in <code>set_page</code> (and the bound of BUG-1 above), set <code>min</code> on the fields, and replace the <code>unwrap</code> with an error.</p>
 </article>
-
 <article class="card low" id="BUG-3">
   <header><span class="id">BUG-3</span><span class="badge low">low</span><h3>A trap while restoring the autosave goes on with a broken engine</h3></header>
   <p class="file"><code>web/src/main.tsx</code> restore <code>catch</code></p>
   <p>The <code>catch</code> around <code>editor.load</code> treats every error alike: keep, download, start a new document. A <code>WebAssembly.RuntimeError</code> leaves the engine in an undefined state (wasm-bindgen borrow flags, half-applied state), and the trap handler is only installed after the render, so the user works on in an engine that may fail later. With BUG-1 this path is reachable from normal input: a dashed shape made huge traps the render, the autosave already holds it, and the reload traps again while restoring, so the document ends under <code>doc-unreadable</code> and the user gets a new one.</p>
   <p class="rec">In the <code>catch</code>, after keeping and downloading, show the “Satz stopped” notice when <code>e instanceof WebAssembly.RuntimeError</code>; the reload then starts clean because the autosave was moved to <code>doc-unreadable</code>.</p>
 </article>
-
 <article class="card low" id="BUG-4">
   <header><span class="id">BUG-4</span><span class="badge low">low</span><h3>A new service worker deletes the cache an open tab still needs</h3></header>
   <p class="file"><code>web/sw.js</code>; <code>web/src/file.ts</code> <code>new Worker(new URL('./exportWorker.ts', …))</code></p>
   <p><code>install</code> calls <code>skipWaiting</code>, <code>activate</code> deletes every other cache and claims the clients. A tab opened before a deploy creates its export worker only on the first preflight or export, under the old hashed name; that file is no longer in any cache nor on GitHub Pages, so preflight and export fail until a reload. Read from the code, not reproduced.</p>
   <p class="rec">Drop <code>skipWaiting</code> and <code>clients.claim</code> so the new version takes over on the next load, or keep the previous cache until no client uses it.</p>
 </article>
-
 <article class="card low" id="BUG-5">
   <header><span class="id">BUG-5</span><span class="badge low">low</span><h3>A second job on the same worker takes over the first one's answer</h3></header>
   <p class="file"><code>web/src/file.ts</code> <code>run</code></p>
   <p><code>run</code> assigns <code>w.onmessage</code> and <code>w.onerror</code> per call. If a call starts before the last one answered (preflight closed and opened again during a preview, so the new effect is not <code>busy</code>), the first answer resolves the second promise and the first promise never settles. The effect is a stale ink preview until the next change.</p>
   <p class="rec">Queue jobs per worker (chain on the previous promise) or tag each message with an id and resolve by id.</p>
 </article>
-
 <article class="card low" id="UX-1">
   <header><span class="id">UX-1</span><span class="badge low">low</span><h3>Ctrl+Shift+K and Ctrl+Shift+E are not checked in Firefox</h3></header>
   <p class="file"><code>web/src/commands.ts</code> <code>ACTIONS</code></p>
   <p>Ctrl+Shift+K (place image) and Ctrl+Shift+E (export) open the web console and the network monitor in Firefox, and Ctrl+Shift+S (save as) takes a screenshot there. Not tested in Firefox; Playwright presses keys inside the page and cannot see this.</p>
   <p class="rec">Check them once by hand in Firefox and move any that the browser keeps.</p>
 </article>
-
 <article class="card low" id="UX-2">
   <header><span class="id">UX-2</span><span class="badge low">low</span><h3>PNG or JPEG export of several pages starts one download per page</h3></header>
   <p class="file"><code>web/src/App.tsx</code> <code>exportAs</code>; <code>web/src/file.ts</code> <code>download</code></p>
   <p>An 8-page booklet as PNG triggers 8 downloads in a row; Chromium asks whether the site may download multiple files, and a denied prompt drops all but the first without a message in Satz.</p>
   <p class="rec">Bundle more than one page into a zip, as the package export already does.</p>
 </article>
-
 <article class="card low" id="UX-3">
   <header><span class="id">UX-3</span><span class="badge low">low</span><h3>Error messages pass raw engine text and one says the wrong thing</h3></header>
   <p class="file"><code>web/src/editor.ts:232</code>; <code>web/src/file.ts</code> <code>keep</code>, <code>addFont</code></p>
   <p>A failing command shows the engine's own text in the status bar (as after Ctrl+G in BUG-6), without saying what was not done. <code>keep</code> adds the font to the engine before it stores it; if the IndexedDB write fails, the user reads “Could not add font.ttf: … Choose a .ttf, .otf, .woff or .woff2 file” although the font is in use and only missing after the next reload.</p>
   <p class="rec">Prefix command errors with the action that failed (“Could not group: …”), and in <code>addFont</code> word a storage failure as “… is used now but not kept for the next visit”.</p>
 </article>
-
 <article class="card low" id="PERF-3">
   <header><span class="id">PERF-3</span><span class="badge low">low</span><h3>Every command serialises the whole snapshot to JSON and the UI parses it again</h3></header>
   <p class="file"><code>engine/src/lib.rs</code> <code>snapshot</code>; <code>web/src/editor.ts</code> <code>change</code>, <code>index</code></p>
   <p>Since <code>202582b</code> the engine rebuilds only the pages a change reaches, but <code>Engine::snapshot</code> still returns all pages, masters and stories as one JSON string, and <code>Editor.change</code> parses it and rebuilds the node index after every command, on every drag move too. This grows with the document while the engine work no longer does. Neither cost measured in the browser in this review.</p>
   <p class="rec">Measure a drag on the 32-page benchmark document in the browser profiler first; if parse and index show up, send only the changed pages and keep the unchanged objects of the last snapshot.</p>
 </article>
-
 <article class="card low" id="PERF-4">
   <header><span class="id">PERF-4</span><span class="badge low">low</span><h3>Unicode character names cost about 277 kB gzip at every start</h3></header>
   <p class="file"><code>engine/Cargo.toml</code> <code>unicode_names2</code>; <code>engine/src/text.rs:119</code> <code>characters</code></p>
   <p>The engine WASM is 8.3 MB, 3,333,977 bytes with <code>gzip -9</code> on <code>e554868</code>. A build without <code>unicode_names2</code> measured on 05.10 was 277 kB gzip smaller: 8 % of the engine for the search by name in the characters panel, which few sessions open.</p>
   <p class="rec">Search by code point and block only, or fetch a names file when the panel opens.</p>
 </article>
-
 <article class="card low" id="PERF-6">
   <header><span class="id">PERF-6</span><span class="badge low">low</span><h3>The image registry grows for the whole session</h3></header>
   <p class="file"><code>engine/src/image.rs</code> <code>IMAGES</code>, <code>adjusted</code>, <code>id</code>, <code>entry_by_hash</code></p>
   <p>The thread-local registry is a <code>Vec</code> that is only appended to: the bytes of every image of every document opened in the tab stay, and <code>adjusted</code> adds one entry per brightness, contrast or saturation value used (<code>forget</code> drops the decoded pixels, not the entries). <code>id</code> and <code>entry_by_hash</code> scan linearly. Dragging an adjustment slider over its range on one image adds about 100 entries. Read from the code, not measured.</p>
   <p class="rec">Key the registry by hash in a <code>HashMap</code>, keep only the newest adjusted entry per source image, and drop the entries the loaded document no longer references when a document is opened.</p>
 </article>
-
 <article class="card low" id="TEST-1">
   <header><span class="id">TEST-1</span><span class="badge low">low</span><h3>E2E runs in Chromium only</h3></header>
   <p class="file"><code>web/playwright.config.ts</code></p>
   <p>Firefox is a target browser with its own save path (download instead of the file picker) and no Local Font Access, but only a Chromium (SwiftShader) project runs. UX-1 is the kind of fault this misses.</p>
   <p class="rec">Add a Firefox project for the file, start, offline and webgl specs once its WebGL path runs in CI.</p>
 </article>
-
 <article class="card low" id="TEST-2">
   <header><span class="id">TEST-2</span><span class="badge low">low</span><h3>5 of the last 20 CI runs were red, each time also in the retry</h3></header>
   <p class="file"><code>.github/workflows/ci.yml</code>; <code>web/e2e/*.spec.ts</code></p>
   <p>All failures were in e2e and the retry failed as well, so they were real breakages that reached <code>main</code>, not flakes; a red run skips the deploy. The last one (<code>8824a5d</code>, <code>autolayout.spec.ts:93</code> “a child made absolute keeps its place”) passed again from the next push. The trend is better: 1 red of the last 10 runs, 3 cancelled because a newer push superseded them. Since <code>f5d3642</code> the full <code>./check</code> runs only before the push.</p>
   <p class="rec">Keep running <code>./check</code> before each push; it takes 5 min locally with all workers.</p>
 </article>
-
 <article class="card low" id="TEST-3">
   <header><span class="id">TEST-3</span><span class="badge low">low</span><h3>The failure paths of storage and workers have no tests</h3></header>
   <p class="file"><code>web/src/file.ts</code>, <code>web/src/main.tsx</code></p>
   <p>E2E covers a trap on the main thread, unreadable files and fonts, a missing engine and a broken autosave restore. Nothing covers a refused autosave write (BUG-2), a trap inside the export worker (BUG-1) or a worker reset during a job (BUG-5).</p>
   <p class="rec">Add e2e tests that stub <code>IDBObjectStore.put</code> to fail and that make the worker throw, and assert the message.</p>
 </article>
-
 <article class="card low" id="TEST-4">
   <header><span class="id">TEST-4</span><span class="badge low">low</span><h3>No randomized test of <code>Doc::apply</code></h3></header>
   <p class="file"><code>engine/src/doc/</code> tests</p>
   <p>The rule that a failing command leaves no pending ops and the output paths are tested with chosen examples only. A random command sequence fuzzer written for this review found BUG-6, BUG-7 and the three traps of BUG-1 within minutes; a second one with an undo/redo oracle and mutated files found BUG-9 and BUG-10, and probes with damaged images and fonts found BUG-12.</p>
   <p class="rec">Keep a seeded command fuzzer as an <code>#[ignore]</code> test next to the benchmark (render, png, inks, pdf and save after each step, assert no pending ops), and run it under <code>ulimit -v</code> before releases.</p>
 </article>
-
 <article class="card low" id="CI-1">
   <header><span class="id">CI-1</span><span class="badge low">low</span><h3>Dependabot watches GitHub Actions only</h3></header>
   <p class="file"><code>.github/dependabot.yml</code></p>
   <p>Cargo and pnpm dependencies (loro, krilla, harfrust, tiny-skia, React, CanvasKit) get no update or advisory PRs, and CI runs no <code>cargo audit</code> or <code>pnpm audit</code>.</p>
   <p class="rec">Add <code>cargo</code> and <code>npm</code> ecosystems to Dependabot, monthly and grouped, keeping <code>wasm-bindgen</code> ignored because it moves with the flake.</p>
 </article>
-
 <article class="card low" id="ARCH-1">
   <header><span class="id">ARCH-1</span><span class="badge low">low</span><h3>model.ts mirrors the Rust types by hand</h3></header>
   <p class="file"><code>web/src/model.ts</code>; <code>engine/src/doc/mod.rs</code>, <code>style.rs</code></p>
   <p>Command, Snapshot, Node, Style, Layout and text types exist twice. A field renamed in Rust only fails at runtime or in e2e.</p>
   <p class="rec">Generate the TS types from Rust (tsify or ts-rs), after checking compatibility with <code>wasm-bindgen</code> 0.2.127.</p>
 </article>
-
 <article class="card low" id="ARCH-2">
   <header><span class="id">ARCH-2</span><span class="badge low">low</span><h3>Derived hug sizes are written into the Loro document</h3></header>
   <p class="file"><code>engine/src/doc/story.rs</code> <code>fit</code>; <code>engine/src/doc/mod.rs</code> <code>finish</code></p>
@@ -261,31 +258,39 @@
 </article>
 <article class="card low" id="UX-5"><header><span class="id">UX-5</span><span class="badge low">low</span><h3>Shift H is two commands</h3></header><p class="file">web/src/commands.ts ACTIONS; web/src/keys.ts handleKey; web/src/App.tsx remap</p><p>“Flip horizontal” and “Auto height” both have Shift H; <code>handleKey</code> picks by the selection. Remapping one of them in the settings blocks Shift H for both, and the remapped key presses Shift H, so a remapped Auto height flips a shape that is not text. The shortcut list shows Shift H twice.</p><p class="rec">Give Auto height its own key (Figma has none for it; Shift Alt H is free).</p></article>
 <article class="card low" id="BUG-11"><header><span class="id">BUG-11</span><span class="badge low">low</span><h3>Fractions are rounded to whole percent</h3></header><p class="file">web/src/editor.ts rounded; web/src/Properties.tsx opacity, sweep, inner and star ratio fields</p><p><code>rounded</code> rounds every top-level number of a command to 2 decimals. Opacity, arc sweep, inner radius and star ratio are fractions of 1, so 12.5 % opacity is stored as 0.13 and shows 13 %, and the Alt step of 0.1 % in these fields does nothing.</p><p class="rec">Round only lengths (the pt values) in <code>rounded</code>, or round fractions to 4 decimals.</p></article>
-
 <article class="card low" id="BUG-15"><header><span class="id">BUG-15</span><span class="badge low">low</span><h3>Copied layers do not reach another document</h3></header><p class="file">web/src/editor.ts load, copy, paste; web/src/App.tsx clip; engine/src/lib.rs load</p><p>The engine keeps copied layers inside its <code>Doc</code>, which <code>load</code> replaces, but <code>editor.copied</code> stays. After opening another document Ctrl V finds the clipboard text equal to <code>copied</code>, calls <code>paste</code>, and nothing happens; in a second tab the layer names arrive as a new text frame. <code>load</code> also keeps <code>vector</code> and <code>copies</code>, so after opening a document while a path was being edited, V, P, B and − switch the path mode of a layer that is gone until Escape.</p><p class="rec">Put the clips on the system clipboard as a custom format (or JSON in text/html) and paste from there; reset <code>copied</code>, <code>vector</code> and <code>copies</code> in <code>load</code>.</p></article>
 <article class="card low" id="UX-6"><header><span class="id">UX-6</span><span class="badge low">low</span><h3>The text caret splits characters and ignores the macOS keys</h3></header><p class="file">web/src/textEdit.ts before, after, handleTextKey</p><p>Arrows and Backspace step by code point: the caret stops between a letter and its combining accent (decomposed text from macOS) and inside emoji sequences and flags, and Backspace takes one part of a family emoji. With Ctrl for Cmd, Cmd Arrow jumps by word on a Mac, where it goes to the line end, and Option Arrow, the Mac word jump, moves one character.</p><p class="rec">Step over <code>Intl.Segmenter</code> grapheme segments, as words already do, and on macOS use Option for words and Cmd for line ends.</p></article>
 <article class="card low" id="UX-7"><header><span class="id">UX-7</span><span class="badge low">low</span><h3>Page lists and the export range ignore section numbers</h3></header><p class="file">web/src/Overview.tsx, web/src/Layers.tsx, web/src/Preflight.tsx pagesOf</p><p>A section can start at 5 or count in roman numerals, and the page number variable prints that, but the overview, the layers panel (“Page 3”) and the export field “Pages” count pages 1 to n. A book with roman front matter exports its printed page 1 with “5”.</p><p class="rec">Show the section label (the engine has <code>Section::label</code>) in the overview and layers, and read it in <code>pagesOf</code>, with the physical number as fallback.</p></article>
+<article class="card low" id="BUG-18"><header><span class="id">BUG-18</span><span class="badge low">low</span><h3>A section start without upper bound overflows and builds huge labels</h3></header><p class="file"><code>engine/src/doc/pages.rs</code> <code>set_section</code>; <code>engine/src/draw.rs</code> page labels; <code>web/src/Properties.tsx</code> section start field</p><p><code>set_section</code> only rejects 0 and the field has no max. Start 4e9 with Upper Roman took 134 ms per label and built a label of 4 million characters (one M per thousand); <code>s.start + (i - j) as u32</code> overflows near <code>u32::MAX</code> (panic in debug, wrap in release).</p><p class="rec">Allow at most 9999, and at most 3999 for Roman numbering, in <code>set_section</code> and the field.</p></article>
+<article class="card low" id="BUG-20"><header><span class="id">BUG-20</span><span class="badge low">low</span><h3>A gradient without stops panics the PDF export</h3></header><p class="file"><code>engine/src/doc/mod.rs</code> <code>Fill</code> check; krilla <code>shading_function.rs:240</code></p><p><code>Command::Set</code> accepts a linear or radial fill with <code>stops: []</code>; the check only looks at <code>at</code> and the colours of the stops that exist. The PDF export then panics in krilla (index out of bounds) and aborts the worker. The UI always makes 2 stops, so it is reached through a loaded, pasted or imported document. Confirmed natively.</p><p class="rec">Require at least 2 stops for linear and radial fills in the check.</p></article>
+<article class="card low" id="BUG-21"><header><span class="id">BUG-21</span><span class="badge low">low</span><h3>Stops out of order make an invalid PDF</h3></header><p class="file"><code>web/src/Paints.tsx</code> stop position field; <code>engine/src/style.rs</code> <code>paint</code>; krilla</p><p>Stop 1 can be set to 80 % and stop 2 to 20 %; nothing sorts them. krilla writes <code>/Bounds [.8 .2]</code>, MuPDF reports “subfunction 1 boundary out of range”, and other readers draw it differently from the canvas, where Skia clamps the positions to be monotonic. Confirmed with <code>mutool</code>.</p><p class="rec">Sort the stops by position (stable) in the engine before drawing and exporting, or in the check.</p></article>
+<article class="card low" id="BUG-22"><header><span class="id">BUG-22</span><span class="badge low">low</span><h3>A negative gap on a hug frame fails with a raw error</h3></header><p class="file"><code>engine/src/doc/mod.rs</code> <code>gap</code> check; <code>engine/src/layout.rs</code> <code>arrange</code>; <code>web/src/AutoLayout.tsx</code> gap field</p><p>The gap accepts any finite value and the field has <code>min=-Infinity</code>. A gap of -200 on a hug frame makes <code>arrange</code> compute a negative size and the command fails with “width and height must not be negative”; later shrinking a child of a frame with gap -20 fails the same way. Confirmed natively.</p><p class="rec">Clamp the hug size of an auto layout frame at 0, or reject gaps below <code>-(smallest child size)</code> with a message that names the gap.</p></article>
+<article class="card low" id="BUG-23"><header><span class="id">BUG-23</span><span class="badge low">low</span><h3>Toggling an OpenType feature copies the first span's features to all</h3></header><p class="file"><code>web/src/Text.tsx</code> <code>toggle</code></p><p><code>toggle</code> builds the new feature list from <code>spans[0].features</code> and applies it to the whole range. With a selection whose spans have different features, switching one feature replaces the features of all other spans with those of the first.</p><p class="rec">Add or remove only the toggled tag per span (a <code>format</code> per run, or an engine command that sets one feature).</p></article>
+<article class="card low" id="UX-8"><header><span class="id">UX-8</span><span class="badge low">low</span><h3>Gradient stops cannot be added or removed</h3></header><p class="file"><code>web/src/Paints.tsx</code></p><p>A gradient always has the 2 stops <code>retype</code> made; the list shows them but offers no add or remove, so a three-colour gradient is only possible through a file.</p><p class="rec">Add + and − to the stops list.</p></article>
+<article class="card low" id="UX-9"><header><span class="id">UX-9</span><span class="badge low">low</span><h3>The text panel reflects the whole story, not the selection</h3></header><p class="file"><code>web/src/Text.tsx</code> <code>TextSection</code>; <code>web/src/Quick.tsx</code></p><p>The panel takes <code>same()</code> over all spans of the story. With a uniformly formatted selection inside a mixed story it shows “Mixed”, while a change applies to the selection only.</p><p class="rec">Use the spans inside the editor's text selection when there is one.</p></article>
+<article class="card low" id="UX-10"><header><span class="id">UX-10</span><span class="badge low">low</span><h3>A recorded shortcut silently takes the keys of another command</h3></header><p class="file"><code>web/src/Help.tsx</code> <code>assign</code>; <code>web/src/App.tsx</code> <code>remap</code></p><p><code>assign</code> stores any combo without checking whether another command already uses it. <code>remap</code> then sends the keys to the reassigned command, and the command whose default it was can no longer be reached by keyboard, with no hint.</p><p class="rec">When the combo is taken, say which command has it and swap or ask before assigning.</p></article>
+<article class="card low" id="PERF-8"><header><span class="id">PERF-8</span><span class="badge low">low</span><h3>Text spans clone the node JSON per delta segment</h3></header><p class="file"><code>engine/src/draw.rs</code> <code>spans</code></p><p><code>spans</code> clones the whole node JSON for each segment of the Loro delta. A keystroke costs 1.3 ms at 39 k characters, 4.1 ms with 400 runs and 11 ms with 1500 runs (release, native). Adds to PERF-3.</p><p class="rec">Borrow the node props and clone only the attributes of each segment.</p></article>
+<article class="card low" id="PERF-9"><header><span class="id">PERF-9</span><span class="badge low">low</span><h3>PNG and JPEG export allocate page-size pixmaps per layer and shadow</h3></header><p class="file"><code>engine/src/raster.rs</code> <code>render</code></p><p>Each layer with opacity, blend or effect and each shadow gets its own pixmap the size of the page. At 300 ppi an A4 page with 1 shadow exports in 0.5 s, with 30 small shadows in 14.1 s (release, native).</p><p class="rec">Crop the pixmaps to the layer's extent plus blur, as <code>pdf::raster</code> does.</p></article>
+<article class="card low" id="PERF-10"><header><span class="id">PERF-10</span><span class="badge low">low</span><h3>The CMYK canvas computes the plates on every frame</h3></header><p class="file"><code>web/src/renderer.ts</code> <code>draw</code>; <code>engine/src/draw.rs</code> <code>plate</code></p><p>In a CMYK document <code>draw</code> asks the engine for 2 plates per visible page on every pan and zoom frame; nothing caches them between frames where the page did not change. Read from the code, not measured.</p><p class="rec">Cache the plates per page and snapshot version and only rasterize again when the page or the zoom bucket changes.</p></article>
+<article class="card low" id="DOC-2"><header><span class="id">DOC-2</span><span class="badge low">low</span><h3>Doc comments above the wrong declaration</h3></header><p class="file"><code>engine/src/doc/pages.rs</code> above <code>Guides</code>; <code>web/src/Canvas.tsx</code> near <code>angle</code>, the ruler, <code>flowing</code>, <code>textUnder</code>, <code>guideOf</code>; <code>web/src/Properties.tsx</code> <code>textBelow</code></p><p>Several comments describe a neighbour: the layout grid comment sits on top of <code>Guides</code>, “Snaps a vector to 45°” is stacked over <code>angle</code>, “The page of pages under p” over <code>flowing</code>, “The path of layers at p” over <code>textUnder</code>, a port comment over <code>guideOf</code>, and the comment for <code>DocumentSection</code> over <code>textBelow</code>. Editors then show the wrong hover text.</p><p class="rec">Move each comment to its declaration or delete it where the declaration it described is gone.</p></article>
 <article class="card info" id="DOC-1">
   <header><span class="id">DOC-1</span><span class="badge info">info</span><h3>pickProfile carries the docstring of placeImages</h3></header>
   <p class="file"><code>web/src/file.ts:235</code></p>
   <p>“Asks for PNG and JPEG files and places each on the current page” sits above <code>pickProfile</code>; <code>placeImages</code> below has none. <code>CLAUDE.md</code> matches the code (checks, trash root, overrides, colour mode conversion, profile, wrap, pinning).</p>
   <p class="rec">Move the line to <code>placeImages</code> and give <code>pickProfile</code> its own.</p>
 </article>
-
 <article class="card info" id="SEC-1">
   <header><span class="id">SEC-1</span><span class="badge info">info</span><h3>No content security policy</h3></header>
   <p class="file"><code>web/index.html</code></p>
   <p>GitHub Pages sends no security headers and the page sets no CSP meta tag. Risk is small: no backend, user files are parsed by Rust and CanvasKit, no user HTML is rendered.</p>
   <p class="rec">Add <code>&lt;meta http-equiv="Content-Security-Policy"&gt;</code> with <code>default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; img-src 'self' blob: data:; style-src 'self' 'unsafe-inline'</code> and run the e2e suite against it.</p>
 </article>
-
 <article class="card info" id="PERF-5">
   <header><span class="id">PERF-5</span><span class="badge info">info</span><h3>Source Serif 4 is downloaded twice</h3></header>
   <p class="file"><code>engine/src/text.rs:17</code> <code>FONT</code>; <code>web/index.html:16</code> <code>@font-face</code></p>
   <p>The default font is in the engine WASM and again as a 262 kB TTF for the font menus' CSS.</p>
   <p class="rec">Leave it until more built-in fonts arrive; then load all as files and pass them to <code>add_font</code>.</p>
 </article>
-
 <article class="card info" id="BUG-8">
   <header><span class="id">BUG-8</span><span class="badge info">info</span><h3>The service worker cache name ignores the content of public files</h3></header>
   <p class="file"><code>web/vite.config.ts</code> <code>service-worker</code> plugin; <code>web/sw.js</code></p>
@@ -293,6 +298,8 @@
   <p class="rec">Hash the file contents (the bundle's <code>source</code>/<code>code</code> and the public files) into the cache name.</p>
 </article>
 <article class="card info" id="ARCH-3"><header><span class="id">ARCH-3</span><span class="badge info">info</span><h3>Auto layout sizes drift on each load</h3></header><p class="file">engine/src/doc/mod.rs Doc::finish; engine/src/layout.rs</p><p>After save and load, auto layout sizes differ by about 1e-13 pt, so <code>finish</code> writes layout ops on every load and the reloaded document is not equal to the saved one. Harmless for output, but it makes save/load comparisons need a tolerance and marks documents as changed.</p><p class="rec">Round derived sizes (for example to 1e-6 pt) before writing, or skip the write when the change is below that.</p></article>
+<article class="card info" id="ARCH-4"><header><span class="id">ARCH-4</span><span class="badge info">info</span><h3>sameOf exists twice</h3></header><p class="file"><code>web/src/Properties.tsx</code>; <code>web/src/Text.tsx</code></p><p>Both files define the same <code>sameOf</code>.</p><p class="rec">Keep the exported one in <code>Text.tsx</code> and import it.</p></article>
+<article class="card info" id="PERF-11"><header><span class="id">PERF-11</span><span class="badge info">info</span><h3>The package zip deflates already compressed files</h3></header><p class="file"><code>engine/src/zip.rs</code>; <code>engine/src/draw.rs</code> <code>package</code></p><p>Every entry is deflated at level 6, also JPEG, PNG and font files; 50 MB of incompressible data take 1.5 s for no gain. Only the package export uses it.</p><p class="rec">Store images and fonts with method 0.</p></article>
 
 <h2 id="strong">2. What is already strong</h2>
 <ul class="plain">
