@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test'
+import os from 'node:os'
 
 const env = Object.fromEntries(
   Object.entries(process.env).filter(([k]) => k !== 'WAYLAND_DISPLAY' && k !== 'DISPLAY'),
@@ -7,7 +8,7 @@ const env = Object.fromEntries(
 export default defineConfig({
   testDir: 'e2e',
   fullyParallel: true,
-  workers: process.env.CI ? 2 : undefined,
+  workers: process.env.CI ? 2 : Math.max(1, Math.min(os.availableParallelism() / 2, Math.floor(os.freemem() / 1.5e9))),
   timeout: 60_000,
   expect: { timeout: 15_000 },
   retries: process.env.CI ? 1 : 0,
