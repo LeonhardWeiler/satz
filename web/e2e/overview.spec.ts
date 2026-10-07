@@ -45,6 +45,29 @@ test('shift click fills up to a page before or after the selected ones and drops
   await expect(region).toBeVisible()
 })
 
+test('a band dragged to the edge of the pages scrolls them and selects the pages it reaches', async ({ page }) => {
+  await open(page)
+  for (let i = 0; i < 4; i++) await addPage(page)
+  const region = await overview(page)
+  await page.setViewportSize({ width: 1000, height: 600 })
+  await option(page, 1).hover()
+  await page.keyboard.down('Control')
+  for (let i = 0; i < 3; i++) await page.mouse.wheel(0, -300)
+  await page.keyboard.up('Control')
+  const pane = region.getByRole('listbox', { name: 'Pages' }).locator('xpath=..')
+  const b = (await pane.boundingBox())!
+  await expect(option(page, 4)).not.toBeInViewport()
+  await page.mouse.move(b.x + 4, b.y + 40)
+  await page.mouse.down()
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height - 4, { steps: 4 })
+  await expect(option(page, 4)).toHaveAttribute('aria-selected', 'true')
+  await page.mouse.up()
+  const top = await pane.evaluate((el) => el.scrollTop)
+  expect(top).toBeGreaterThan(0)
+  await page.waitForTimeout(200)
+  expect(await pane.evaluate((el) => el.scrollTop)).toBe(top)
+})
+
 test('delete removes the selected pages with a toast, and undo restores them', async ({ page }) => {
   await open(page)
   await addPage(page)

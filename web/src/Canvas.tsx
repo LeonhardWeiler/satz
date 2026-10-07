@@ -8,6 +8,7 @@ import { rowOf, setGap, type Row } from './align'
 import { gapHandles, handleAt, portAt, portsOf, radiusHandles, rect, resized, spin, upright } from './handles'
 import { Renderer, fitView, HANDLE, type Box, type View } from './renderer'
 import { pick, type Entry } from './select'
+import { edgeScroll } from './scroll'
 import { length, settings, subscribeSettings, UNITS } from './settings'
 import { equals, guides, measure, nearest, snap, spacings, targets, type Guide, type Lines, type Measure } from './snap'
 import { curved, nearest as nearestSegment, remove, shift, smooth, split, type At, type Contour, type Knot } from './vector'
@@ -204,6 +205,17 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       }, BLINK)
     }
     wake()
+    /** The last move of a band, moved again as the view scrolls under it. */
+    let banding: PointerEvent | undefined
+    const edge = edgeScroll(
+      () => canvas.getBoundingClientRect(),
+      (dx, dy) => {
+        view.x -= dx
+        view.y -= dy
+        if (banding) onPointerMove(banding)
+        redraw()
+      },
+    )
 
     /** A point in the space of the spread, whose spine is at x 0. */
     const toDoc = (e: { offsetX: number; offsetY: number }): Point => ({
@@ -959,6 +971,10 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         return
       }
       if (!drag) return track()
+      if (drag.kind === 'marquee') {
+        banding = e
+        edge.move(e)
+      }
       if (drag.kind === 'guide') {
         const g = drag
         const off = g.axis === 'x' ? e.offsetX < 0 : e.offsetY < 0
@@ -1201,6 +1217,8 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         if (id && editor.selection.length > 1) editor.set({ selection: [id] })
       }
       drag = null
+      banding = undefined
+      edge.stop()
       snapped = []
       measures = []
       editor.dragging = false
@@ -1327,6 +1345,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       document.fonts.removeEventListener('loadingdone', restyle)
       cancelAnimationFrame(frame)
       cancelAnimationFrame(anim)
+      edge.stop()
       clearInterval(blink)
       unsubscribe()
       offPointer()

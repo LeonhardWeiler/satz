@@ -8,6 +8,7 @@ import { useEditor, type Editor } from './editor'
 import { Icon } from './icons'
 import type { Page, Snapshot } from './model'
 import { Renderer, type Sheet } from './renderer'
+import { edgeScroll } from './scroll'
 import { span } from './select'
 import { setSettings, settings, useSettings } from './settings'
 
@@ -211,21 +212,39 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     box?.focus()
     const el = e.currentTarget
     el.setPointerCapture(e.pointerId)
-    const [x, y] = [e.clientX, e.clientY]
+    const pane = box!.closest<HTMLElement>('.ov-col')!
+    const start = { x: e.clientX + pane.scrollLeft, y: e.clientY + pane.scrollTop }
+    let at = { clientX: e.clientX, clientY: e.clientY }
     const base = e.ctrlKey || e.metaKey || e.shiftKey ? selected.filter((id) => all.includes(id)) : []
     select(base)
-    const moved = (m: globalThis.PointerEvent) => {
-      const r = new DOMRect(Math.min(x, m.clientX), Math.min(y, m.clientY), Math.abs(m.clientX - x), Math.abs(m.clientY - y))
-      setBand(r)
+    const update = () => {
+      const [x, y] = [start.x - pane.scrollLeft, start.y - pane.scrollTop]
+      const r = new DOMRect(Math.min(x, at.clientX), Math.min(y, at.clientY), Math.abs(at.clientX - x), Math.abs(at.clientY - y))
+      const p = pane.getBoundingClientRect()
+      const [left, top] = [Math.max(r.left, p.left), Math.max(r.top, p.top)]
+      setBand(new DOMRect(left, top, Math.max(0, Math.min(r.right, p.right) - left), Math.max(0, Math.min(r.bottom, p.bottom) - top)))
       const hit = all.filter((id) => {
         const o = document.getElementById(`ov-${id}`)!.getBoundingClientRect()
         return o.left < r.right && r.left < o.right && o.top < r.bottom && r.top < o.bottom
       })
       select([...base.filter((id) => !hit.includes(id)), ...hit])
     }
+    const edge = edgeScroll(
+      () => pane.getBoundingClientRect(),
+      (dx, dy) => {
+        pane.scrollBy(dx, dy)
+        update()
+      },
+    )
+    const moved = (m: globalThis.PointerEvent) => {
+      at = m
+      edge.move(m)
+      update()
+    }
     const up = () => {
       el.removeEventListener('pointermove', moved)
       el.removeEventListener('pointerup', up)
+      edge.stop()
       setBand(null)
     }
     el.addEventListener('pointermove', moved)

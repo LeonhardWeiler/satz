@@ -415,6 +415,21 @@ test('a marquee outlines the lines it selects along the line, not around its box
   await page.mouse.up()
 })
 
+test('a marquee held at the edge of the canvas scrolls it until released', async ({ page }) => {
+  await open(page)
+  const box = (await page.getByLabel('Page canvas').boundingBox())!
+  const middle = await screen(page, 74, 105)
+  const [before] = await colors(page, [middle])
+  await page.mouse.move(box.x + 5, box.y + box.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(box.x + 40, box.y + box.height - 4, { steps: 4 })
+  await expect.poll(async () => (await colors(page, [middle]))[0]).not.toEqual(before)
+  await page.mouse.up()
+  const [after] = await colors(page, [middle])
+  await page.waitForTimeout(200)
+  expect((await colors(page, [middle]))[0]).toEqual(after)
+})
+
 test('hiding the panels, the interface or the rulers leaves the page where it is on screen', async ({ page }) => {
   await open(page)
   const [x, y] = await screen(page, 23, 37)
