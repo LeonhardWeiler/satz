@@ -170,7 +170,7 @@ export function Properties({
       {!box && <DocumentSection editor={editor} say={say} />}
       {!box && (
         <Section
-          title={isPage ? (targets.length > 1 ? `Pages ${numbers.join(', ')}` : `Page ${numbers[0]}`) : 'Master'}
+          title={isPage ? (targets.length > 1 ? `Pages ${numbers.toSorted((a, b) => a - b).join(', ')}` : `Page ${numbers[0]}`) : 'Master'}
           actions={
             <>
               {isPage && page.detached.length > 0 && (
