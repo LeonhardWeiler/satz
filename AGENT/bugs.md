@@ -1,4 +1,5 @@
 --- NOW
+- [] A word over 45 bytes in a hyphenated paragraph panics in hypher (`syllables` in `engine/src/text.rs`, hypher is built without `alloc`).
 
 --- LATER
 - [] Figma import with file and or account
