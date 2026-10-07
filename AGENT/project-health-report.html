@@ -41,15 +41,15 @@
 <body>
 <main>
 <h1>Satz – project health report</h1>
-<p class="meta">2026-10-07 · branch <code>main</code> · commit <code>23ed0e0</code> · browser DTP (Rust/WASM engine, CanvasKit renderer, React UI, krilla PDF)</p>
+<p class="meta">2026-10-07 · branch <code>main</code> · commit <code>62bf917</code> · browser DTP (Rust/WASM engine, CanvasKit renderer, React UI, krilla PDF)</p>
 
 <div class="counters">
   <div class="counter"><b>0</b><span>Critical</span></div>
   <div class="counter"><b>2</b><span>High</span></div>
-  <div class="counter"><b>5</b><span>Medium</span></div>
-  <div class="counter"><b>19</b><span>Low</span></div>
+  <div class="counter"><b>8</b><span>Medium</span></div>
+  <div class="counter"><b>21</b><span>Low</span></div>
   <div class="counter"><b>5</b><span>Info</span></div>
-  <div class="counter"><b>31</b><span>Total</span></div>
+  <div class="counter"><b>36</b><span>Total</span></div>
 </div>
 
 <nav aria-label="Contents">
@@ -62,6 +62,9 @@
       <li><a href="#BUG-2">BUG-2 A failed autosave is silent</a></li>
       <li><a href="#BUG-10">BUG-10 Opened files are not checked like commands</a></li>
       <li><a href="#UX-4">UX-4 Alt shortcuts fail on macOS and with AltGr</a></li>
+      <li><a href="#BUG-12">BUG-12 A broken image or font passes the checks and stops the PDF export</a></li>
+      <li><a href="#BUG-13">BUG-13 Photos with an EXIF orientation are distorted on the canvas and turned in the PDF</a></li>
+      <li><a href="#BUG-14">BUG-14 Characters the font lacks print as .notdef boxes</a></li>
       <li><a href="#A11Y-1">A11Y-1 Secondary text below AA contrast</a></li>
       <li><a href="#BUG-7">BUG-7 Page size 0 breaks the PDF export</a></li>
       <li><a href="#BUG-3">BUG-3 Trap while restoring the autosave</a></li>
@@ -82,6 +85,8 @@
       <li><a href="#ARCH-2">ARCH-2 Derived sizes in the document</a></li>
       <li><a href="#UX-5">UX-5 Shift H is two commands</a></li>
       <li><a href="#BUG-11">BUG-11 Fractions are rounded to whole percent</a></li>
+      <li><a href="#BUG-15">BUG-15 Copied layers do not reach another document</a></li>
+      <li><a href="#UX-6">UX-6 The text caret splits characters and ignores the macOS keys</a></li>
       <li><a href="#DOC-1">DOC-1 Wrong docstring on pickProfile</a></li>
       <li><a href="#SEC-1">SEC-1 No content security policy</a></li>
       <li><a href="#PERF-5">PERF-5 Source Serif downloaded twice</a></li>
@@ -121,6 +126,9 @@
 
 <article class="card medium" id="BUG-10"><header><span class="id">BUG-10</span><span class="badge medium">medium</span><h3>Opened files are not checked like commands</h3></header><p class="file">engine/src/doc/mod.rs Doc::load (~1300); engine/src/pdf.rs; engine/src/raster.rs</p><p><code>Doc::load</code> checks the root kinds and the images, but no node values. A file with stroke weight −1 makes the PDF export panic in pdf-writer (<code>content.rs:170</code>), and the following krilla destructor aborts the worker; a page height of 1e308 asks for about 2 TB on render. 600 mutated copies of the sample (meta values changed, deleted, moved): 587 opened and rendered, 12 were rejected cleanly, 1 panicked. Files come from other people, so this is the input path that most needs the checks.</p><p class="rec">Run the checks of the commands (<code>Props::check</code>, <code>set_page</code>, BUG-1 bounds) over every node in <code>Doc::load</code> and reject or clamp the file before it is shown.</p></article>
 <article class="card medium" id="UX-4"><header><span class="id">UX-4</span><span class="badge medium">medium</span><h3>Alt shortcuts fail on macOS and with AltGr</h3></header><p class="file">web/src/keys.ts handleKey, altKey; web/src/commands.ts comboOf; web/src/align.tsx ALIGNS</p><p><code>handleKey</code> and <code>comboOf</code> read letters from <code>e.key</code>. On macOS Option changes the character (Option A is “å”, Option H “˙”), so all 8 alignment shortcuts (Alt A/H/D/W/V/S, Alt Shift H/V), Remove auto layout (Shift Alt A), Use as mask (Cmd Option M is “µ”), Auto fit (Cmd Option C is “ç”) and Frame selection do nothing, and remapping in the settings records the wrong character. On Windows with a German layout Ctrl Alt is AltGr, so Ctrl Alt M gives “µ” and Ctrl Alt Q “@”. Found by reading the code; not tried on a Mac.</p><p class="rec">Read letters and digits from <code>e.code</code> (<code>KeyA</code>, <code>Digit1</code>) when Alt or Ctrl is held, in <code>handleKey</code>, <code>altKey</code> and <code>comboOf</code>, as <code>App.tsx</code> already does.</p></article>
+<article class="card medium" id="BUG-12"><header><span class="id">BUG-12</span><span class="badge medium">medium</span><h3>A broken image or font passes the checks and stops the PDF export</h3></header><p class="file">engine/src/image.rs register; engine/src/text.rs add_font; engine/src/pdf.rs:148 <code>doc.finish().unwrap()</code></p><p><code>image::register</code> reads only the header and <code>add_font</code> only the name table, so damaged files are taken, placed and shown. krilla then fails while it encodes the image or subsets the font, and the <code>unwrap</code> panics, which traps the export worker for every PDF and package of that document, without naming the file. A probe that changed a few bytes of PNG and JPEG files: 140 of 400 were placed and then panicked in the PDF export (“Corrupt deflate stream”); of 400 changed TrueType fonts, 13 loaded, shaped and rendered and then panicked (“failed to subset font: malformed font”). WOFF2 files with changed bytes were all rejected cleanly.</p><p class="rec">Decode an image fully in <code>register</code> and subset a font once in <code>add_font</code>, rejecting what fails, and return krilla’s error from <code>pdf</code> with the layer it comes from instead of unwrapping.</p></article>
+<article class="card medium" id="BUG-13"><header><span class="id">BUG-13</span><span class="badge medium">medium</span><h3>Photos with an EXIF orientation are distorted on the canvas and turned in the PDF</h3></header><p class="file">engine/src/image.rs; web/src/renderer.ts:380 createImageBitmap; engine/src/raster.rs; krilla</p><p>Neither the engine nor krilla reads the EXIF orientation, so size, aspect, PDF and PNG/JPEG export use the stored pixels, which phones keep turned (orientation 6 or 8). The browser’s <code>createImageBitmap</code> turns the image by default, and the renderer draws that bitmap into the unturned unit square, so the canvas shows a squeezed picture and the export a picture lying on its side. Found by reading the code; not tried with a phone photo in the browser.</p><p class="rec">Read the orientation in <code>register</code>, swap width and height for 5 to 8 and apply it as the image transform for every output; create the bitmap with <code>imageOrientation: 'none'</code> so canvas and PDF agree.</p></article>
+<article class="card medium" id="BUG-14"><header><span class="id">BUG-14</span><span class="badge medium">medium</span><h3>Characters the font lacks print as .notdef boxes</h3></header><p class="file">engine/src/text.rs shaping (glyph ids taken as they come); engine/src/doc/draw.rs Problem</p><p>There is no font fallback and no preflight problem for a missing glyph: the shaper’s glyph 0 goes into the canvas, the PDF and the raster. A probe set text in the bundled font and found glyph 0 for U+000B (Word’s line break), U+2028 (InDesign’s forced line break), U+000C and U+0000, all of which come in by pasting; Cyrillic, CJK or symbols that a Latin font lacks behave the same. Only <code>\n</code> breaks a line.</p><p class="rec">Add a preflight problem for glyph 0 (with the character), map U+000B and U+2028 to a line break inside the paragraph on paste and in <code>edit_text</code>, and drop other control characters there.</p></article>
 <article class="card medium" id="A11Y-1">
   <header><span class="id">A11Y-1</span><span class="badge medium">medium</span><h3>Labels, units and hints in <code>--text-3</code> stay below WCAG AA</h3></header>
   <p class="file"><code>web/src/index.css</code> <code>--text-3</code> (50 uses), light theme <code>--accent</code>, <code>--bad</code>, <code>--warn</code></p>
@@ -222,7 +230,7 @@
 <article class="card low" id="TEST-4">
   <header><span class="id">TEST-4</span><span class="badge low">low</span><h3>No randomized test of <code>Doc::apply</code></h3></header>
   <p class="file"><code>engine/src/doc/</code> tests</p>
-  <p>The rule that a failing command leaves no pending ops and the output paths are tested with chosen examples only. A random command sequence fuzzer written for this review found BUG-6, BUG-7 and the three traps of BUG-1 within minutes; a second one with an undo/redo oracle and mutated files found BUG-9 and BUG-10.</p>
+  <p>The rule that a failing command leaves no pending ops and the output paths are tested with chosen examples only. A random command sequence fuzzer written for this review found BUG-6, BUG-7 and the three traps of BUG-1 within minutes; a second one with an undo/redo oracle and mutated files found BUG-9 and BUG-10, and probes with damaged images and fonts found BUG-12.</p>
   <p class="rec">Keep a seeded command fuzzer as an <code>#[ignore]</code> test next to the benchmark (render, png, inks, pdf and save after each step, assert no pending ops), and run it under <code>ulimit -v</code> before releases.</p>
 </article>
 
@@ -249,6 +257,8 @@
 <article class="card low" id="UX-5"><header><span class="id">UX-5</span><span class="badge low">low</span><h3>Shift H is two commands</h3></header><p class="file">web/src/commands.ts ACTIONS; web/src/keys.ts handleKey; web/src/App.tsx remap</p><p>“Flip horizontal” and “Auto height” both have Shift H; <code>handleKey</code> picks by the selection. Remapping one of them in the settings blocks Shift H for both, and the remapped key presses Shift H, so a remapped Auto height flips a shape that is not text. The shortcut list shows Shift H twice.</p><p class="rec">Give Auto height its own key (Figma has none for it; Shift Alt H is free).</p></article>
 <article class="card low" id="BUG-11"><header><span class="id">BUG-11</span><span class="badge low">low</span><h3>Fractions are rounded to whole percent</h3></header><p class="file">web/src/editor.ts rounded; web/src/Properties.tsx opacity, sweep, inner and star ratio fields</p><p><code>rounded</code> rounds every top-level number of a command to 2 decimals. Opacity, arc sweep, inner radius and star ratio are fractions of 1, so 12.5 % opacity is stored as 0.13 and shows 13 %, and the Alt step of 0.1 % in these fields does nothing.</p><p class="rec">Round only lengths (the pt values) in <code>rounded</code>, or round fractions to 4 decimals.</p></article>
 
+<article class="card low" id="BUG-15"><header><span class="id">BUG-15</span><span class="badge low">low</span><h3>Copied layers do not reach another document</h3></header><p class="file">web/src/editor.ts load, copy, paste; web/src/App.tsx clip; engine/src/lib.rs load</p><p>The engine keeps copied layers inside its <code>Doc</code>, which <code>load</code> replaces, but <code>editor.copied</code> stays. After opening another document Ctrl V finds the clipboard text equal to <code>copied</code>, calls <code>paste</code>, and nothing happens; in a second tab the layer names arrive as a new text frame. <code>load</code> also keeps <code>vector</code> and <code>copies</code>, so after opening a document while a path was being edited, V, P, B and − switch the path mode of a layer that is gone until Escape.</p><p class="rec">Put the clips on the system clipboard as a custom format (or JSON in text/html) and paste from there; reset <code>copied</code>, <code>vector</code> and <code>copies</code> in <code>load</code>.</p></article>
+<article class="card low" id="UX-6"><header><span class="id">UX-6</span><span class="badge low">low</span><h3>The text caret splits characters and ignores the macOS keys</h3></header><p class="file">web/src/textEdit.ts before, after, handleTextKey</p><p>Arrows and Backspace step by code point: the caret stops between a letter and its combining accent (decomposed text from macOS) and inside emoji sequences and flags, and Backspace takes one part of a family emoji. With Ctrl for Cmd, Cmd Arrow jumps by word on a Mac, where it goes to the line end, and Option Arrow, the Mac word jump, moves one character.</p><p class="rec">Step over <code>Intl.Segmenter</code> grapheme segments, as words already do, and on macOS use Option for words and Cmd for line ends.</p></article>
 <article class="card info" id="DOC-1">
   <header><span class="id">DOC-1</span><span class="badge info">info</span><h3>pickProfile carries the docstring of placeImages</h3></header>
   <p class="file"><code>web/src/file.ts:235</code></p>
