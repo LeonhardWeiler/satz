@@ -1,5 +1,6 @@
-import { useId, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { Fragment, useId, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { keyName } from './commands'
 import { ContextMenu } from './ContextMenu'
 import { evalExpr, step } from './field'
 import { Icon, type IconName } from './icons'
@@ -34,6 +35,7 @@ export function Field({
   min = 0,
   max = Infinity,
   reset,
+  disabled,
   title: name = typeof label === 'string' ? label : undefined,
 }: {
   label: ReactNode
@@ -51,6 +53,7 @@ export function Field({
   max?: number
   /** The default value, in pt for lengths. */
   reset?: number
+  disabled?: boolean
   title?: string
 }) {
   const [draft, setDraft] = useState<string | null>(null)
@@ -66,18 +69,23 @@ export function Field({
     const c = zero && v === 0 ? 0 : Math.min(max, Math.max(min, v))
     onCommit?.((int ? Math.round(c) : round(c, unit)) * per)
   }
-  const edit = !readOnly && onCommit && shown !== null
+  const edit = !readOnly && !disabled && onCommit && shown !== null
   const cur = shown ?? 0
   const commit = () => {
     setDraft(null)
     if (draft === null) return
-    const v = zero && draft.trim().toLowerCase() === zero.toLowerCase() ? 0 : evalExpr(draft, cur, unit)
+    const v = zero && ['', zero.toLowerCase()].includes(draft.trim().toLowerCase()) ? 0 : evalExpr(draft, cur, unit)
     if (v === null) setBad(true)
     else put(v)
   }
   const bump = (d: number) => edit && put(cur + d)
   return (
-    <label htmlFor={id} className={`field${int ? ' int' : ''}${bad ? ' bad' : ''}${scrub ? ' scrub' : ''}`} title={title} onAnimationEnd={() => setBad(false)}>
+    <label
+      htmlFor={id}
+      className={`field${int ? ' int' : ''}${bad ? ' bad' : ''}${scrub ? ' scrub' : ''}${disabled ? ' disabled' : ''}`}
+      title={title}
+      onAnimationEnd={() => setBad(false)}
+    >
       {label && (
         <span
           className={`field-label${edit ? ' scrubs' : ''}`}
@@ -118,7 +126,9 @@ export function Field({
         autoComplete="off"
         spellCheck={false}
         readOnly={readOnly}
-        value={draft ?? (shown === null ? 'Mixed' : shown === 0 && zero ? zero : String(shown))}
+        disabled={disabled}
+        placeholder={zero}
+        value={draft ?? (shown === null ? 'Mixed' : shown === 0 && zero ? '' : String(shown))}
         onChange={(e) => {
           setDraft(e.currentTarget.value)
           setBad(false)
@@ -190,12 +200,15 @@ export function Select<T extends string>({
   value,
   options,
   disabled = [],
+  prefix,
   onChange,
 }: {
   label: string
   value: T | null
   options: Record<T, ReactNode>
   disabled?: T[]
+  /** Shown before the value, like a field's label. */
+  prefix?: ReactNode
   onChange: (v: T) => void
 }) {
   const ref = useRef<HTMLButtonElement>(null)
@@ -218,6 +231,7 @@ export function Select<T extends string>({
           open(e)
         }}
       >
+        {prefix && <span className="select-prefix">{prefix}</span>}
         <span>{value === null ? 'Mixed' : options[value]}</span>
         <Icon name="chevron" />
       </button>
@@ -326,16 +340,19 @@ export function Segmented<T extends string>({
   value,
   options,
   disabled,
+  prefix,
   onChange,
 }: {
   label: string
   value: T | null
   options: readonly (readonly [T, string, IconName])[]
   disabled?: (v: T) => boolean
+  prefix?: string
   onChange: (v: T) => void
 }) {
   return (
     <div role="radiogroup" aria-label={label} className="segmented">
+      {prefix && <span className="field-label">{prefix}</span>}
       {options.map(([v, title, icon]) => (
         <button key={v} type="button" role="radio" aria-checked={value === v} aria-label={title} title={title} disabled={disabled?.(v)} onClick={() => onChange(v)}>
           <Icon name={icon} />
@@ -394,5 +411,71 @@ export function Check({ label, value, set }: { label: string; value: boolean | n
       />
       {label}
     </label>
+  )
+}
+
+const KEYCAP = /^(Ctrl|Alt|Shift|Space|Enter|Esc|Tab|Del|Backspace|Home|End|PgUp|PgDn|F\d+|[^a-z])$/
+
+/** The shortcut `keys` as keycaps, the words of a gesture in it as text. */
+export function Keys({ keys }: { keys: string }) {
+  return (
+    <span className="keys">
+      {keys.replace(/(\w)\+/g, '$1 ').split(' ').map((k, i) => (KEYCAP.test(k) ? <kbd key={i}>{keyName(k)}</kbd> : <em key={i}>{k}</em>))}
+    </span>
+  )
+}
+
+const SIDES = ['Top', 'Right', 'Bottom', 'Left']
+
+/** Lengths of the four sides, top first, as a horizontal and a vertical field or, opened, one field per side; `wrap` wraps those. */
+export function Sides({
+  what,
+  values,
+  wrap = (_, f) => f,
+  opened,
+  set,
+}: {
+  what: string
+  values: number[]
+  wrap?: (side: number, field: ReactNode) => ReactNode
+  /** Keeps the sides open, e.g. while one is bound to a variable. */
+  opened?: boolean
+  set: (values: number[]) => void
+}) {
+  const [open, setOpen] = useState(values[0] !== values[2] || values[1] !== values[3])
+  const each = open || opened
+  return (
+    <div className="sides">
+      <div className="grid">
+        {each
+          ? SIDES.map((side, i) => (
+              <Fragment key={side}>
+                {wrap(i, <Field label={side} title={`${side} ${what}`} unit="length" reset={0} value={values[i]} onCommit={(v) => set(values.with(i, v))} />)}
+              </Fragment>
+            ))
+          : ([['↔', 'Horizontal', 1, 3], ['↕', 'Vertical', 0, 2]] as const).map(([label, name, a, b]) => (
+              <Field
+                key={name}
+                label={label}
+                title={`${name} ${what}`}
+                unit="length"
+                reset={0}
+                value={values[a] === values[b] ? values[a] : null}
+                onCommit={(v) => set(values.with(a, v).with(b, v))}
+              />
+            ))}
+      </div>
+      <button
+        type="button"
+        className="icon-button"
+        aria-label={`${what[0].toUpperCase()}${what.slice(1)} of each side`}
+        title={`${what[0].toUpperCase()}${what.slice(1)} of each side`}
+        aria-pressed={!!each}
+        disabled={opened}
+        onClick={() => setOpen(!open)}
+      >
+        <Icon name="sides" />
+      </button>
+    </div>
   )
 }

@@ -24,7 +24,7 @@ export const ACTIONS: Action[] = [
   { title: 'Show or hide rulers', keys: 'Shift R', group: 'View' },
   { title: 'Zoom to fit', keys: 'Shift 1', group: 'View' },
   { title: 'Zoom to selection', keys: 'Shift 2', group: 'View' },
-  { title: 'Zoom to 100 %', keys: 'Ctrl 0', group: 'View' },
+  { title: 'Zoom to 100%', keys: 'Ctrl 0', group: 'View' },
   { title: 'Zoom in', keys: 'Ctrl +', group: 'View' },
   { title: 'Zoom out', keys: 'Ctrl -', group: 'View' },
   { title: 'Next spread', keys: 'PgDn', group: 'Pages' },
@@ -128,8 +128,8 @@ export const MENU = {
 
 const MAC = /Mac|iP/.test(navigator.platform)
 const SYMBOLS: Record<string, string> = { Ctrl: '⌘', Alt: '⌥', Shift: '⇧' }
-/** `keys` as the platform shows them: ⌘ ⌥ ⇧ on a Mac. */
-export const keyLabel = (keys: string) => (MAC ? keys.split(' ').map((k) => SYMBOLS[k] ?? k).join(' ') : keys)
+/** The key `k` as the platform names it: ⌘ ⌥ ⇧ on a Mac. */
+export const keyName = (k: string) => (MAC ? (SYMBOLS[k] ?? k) : k)
 
 const KEYS: Record<string, [key: string, code: string]> = {
   PgDn: ['PageDown', 'PageDown'],
@@ -170,14 +170,4 @@ export function press(keys: string) {
   document.body.dispatchEvent(
     new KeyboardEvent('keydown', { key, code, shiftKey, ctrlKey: parts.includes('Ctrl'), altKey: parts.includes('Alt'), bubbles: true, cancelable: true }),
   )
-}
-
-/** 2 when `query` is in `text`, 1 when its letters are in order, else 0. */
-export function fuzzy(query: string, text: string) {
-  const q = query.toLowerCase()
-  const s = text.toLowerCase()
-  if (s.includes(q)) return 2
-  let i = 0
-  for (const c of s) if (c === q[i]) i++
-  return i === q.length ? 1 : 0
 }

@@ -1,3 +1,4 @@
+import { Keys } from './controls'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 const DELAY = 500
@@ -56,9 +57,16 @@ export function Tooltip() {
     if (!tip || !el) return
     el.showPopover()
     const { offsetWidth: w, offsetHeight: h } = el
-    const below = tip.at.bottom + 6 + h <= window.innerHeight - MARGIN
+    const above = tip.at.top - 6 - h >= MARGIN
     el.style.left = `${Math.max(MARGIN, Math.min(tip.at.left + tip.at.width / 2 - w / 2, window.innerWidth - MARGIN - w))}px`
-    el.style.top = `${below ? tip.at.bottom + 6 : tip.at.top - 6 - h}px`
+    el.style.top = `${above ? tip.at.top - 6 - h : tip.at.bottom + 6}px`
   }, [tip])
-  return tip && <div ref={ref} className="tooltip" role="tooltip" popover="manual">{tip.text}</div>
+  if (!tip) return null
+  const m = tip.text.match(/^(.*) \(((?:Ctrl|Alt|Shift|Space|Enter|Esc|Del|[A-Z0-9]|[^\w\s])(?:[+ ].*)?)\)$/)
+  return (
+    <div ref={ref} className="tooltip" role="tooltip" popover="manual">
+      {m ? m[1] : tip.text}
+      {m && <Keys keys={m[2]} />}
+    </div>
+  )
 }

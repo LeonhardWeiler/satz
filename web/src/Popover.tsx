@@ -15,7 +15,7 @@ function flip(lo: number, hi: number, size: number, room: number, after: boolean
 
 const shift = (v: number, size: number, room: number) => Math.max(MARGIN, Math.min(v, room - MARGIN - size))
 
-/** Floats beside `anchor` on `side`, flipped to the other side and shifted to stay inside the window. */
+/** Floats beside `anchor` on `side`, flipped to the other side and shifted to stay inside the window; above or below it starts at its left edge or ends at its right one. */
 export function Popover({
   anchor,
   side,
@@ -39,7 +39,7 @@ export function Popover({
       const { offsetWidth: w, offsetHeight: h } = el
       const [vw, vh] = [window.innerWidth, window.innerHeight]
       const [x, y] =
-        side === 'top' || side === 'bottom' ? [a.left, flip(a.top, a.bottom, h, vh, side === 'bottom')] : [flip(a.left, a.right, w, vw, side === 'right'), a.top]
+        side === 'top' || side === 'bottom' ? [a.left + w <= vw - MARGIN ? a.left : a.right - w, flip(a.top, a.bottom, h, vh, side === 'bottom')] : [flip(a.left, a.right, w, vw, side === 'right'), a.top]
       el.style.left = `${shift(x, w, vw)}px`
       el.style.top = `${shift(y, h, vh)}px`
     }

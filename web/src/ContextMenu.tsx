@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { roam } from './controls'
+import { Keys, roam } from './controls'
 import { Icon } from './icons'
 import { Popover, type Anchor } from './Popover'
 
@@ -33,6 +33,7 @@ export function ContextMenu({
         ref={ref}
         tabIndex={-1}
         className="menu"
+        style={side === 'bottom' ? { minWidth: anchor().width } : undefined}
         role="menu"
         aria-label={label}
         onPointerDown={(e) => e.stopPropagation()}
@@ -70,7 +71,7 @@ export function ContextMenu({
           >
             <span>{checked && <Icon name="check" />}</span>
             <span>{label}</span>
-            {keys && <kbd>{keys}</kbd>}
+            {keys && <Keys keys={keys} />}
           </button>
           )
         })}

@@ -10,7 +10,7 @@ import { addFonts, canFindFonts, findFonts, pickProfile, readLocalFonts, removeF
 import type { Bindable as Prop, Blend, Constraint, Command, Grid, LineStyle, Node, Page, Props, Section as Numbers, Wrap } from './model'
 import { isOpen, radiusOf } from './model'
 import { AlignBar, BooleanBar, combinable, rowOf, setGap } from './align'
-import { ACTIONS, keyLabel, keysOf, press } from './commands'
+import { ACTIONS, keysOf, press } from './commands'
 import { AutoLayout, flows, Sizing } from './AutoLayout'
 import { EffectList, PaintList } from './Paints'
 import { TextFrameSection, TextSection, TextStyles } from './Text'
@@ -156,7 +156,7 @@ export function Properties({
                 type="button"
                 className="icon-button"
                 aria-label={title}
-                title={`${title} (${keyLabel(keysOf(a))})`}
+                title={`${title} (${keysOf(a)})`}
                 disabled={!(a.can?.(editor) ?? true)}
                 onClick={() => press(a.keys)}
               >

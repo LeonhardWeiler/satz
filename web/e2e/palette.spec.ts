@@ -15,7 +15,7 @@ test('ctrl k finds and runs commands, layers, pages and text styles', async ({ p
   const layers = page.getByRole('tree', { name: 'Layers' })
   await page.keyboard.press('Control+k')
   await expect(palette(page).getByRole('option')).toHaveCount(9)
-  await expect(palette(page).getByRole('option', { name: /Export PDF/ })).toContainText('Ctrl Shift E')
+  await expect(palette(page).getByRole('option', { name: /Export PDF/ })).toContainText('CtrlShiftE')
   await palette(page).getByRole('textbox', { name: 'Search' }).fill('zzqx')
   await expect(palette(page).getByText('Nothing matches. Try a layer name or a command.')).toBeVisible()
   await page.keyboard.press('Escape')
@@ -53,7 +53,7 @@ test('ctrl k finds and runs commands, layers, pages and text styles', async ({ p
   await expect(style).toContainText('No style')
   await run(page, 'style text', /Style Text style 1/)
   await expect(style).toContainText('Text style 1')
-  await expect(panel.getByRole('textbox', { name: 'Line height in pt' })).toHaveValue('Auto')
+  await expect(panel.getByRole('textbox', { name: 'Line height in pt' })).toHaveAttribute('placeholder', 'Auto')
 })
 
 test('the arrow keys pick a result and a click runs it', async ({ page }) => {
@@ -90,7 +90,7 @@ test('question mark and the help button show the keyboard shortcuts', async ({ p
   const help = page.getByRole('dialog', { name: 'Keyboard shortcuts' })
   await page.keyboard.press('?')
   for (const group of ['Canvas', 'Tools', 'Edit', 'Align', 'Layers', 'Pages', 'View', 'Fields', 'File']) await expect(help.getByRole('region', { name: group })).toBeVisible()
-  await expect(help.getByRole('region', { name: 'View' })).toContainText('Command paletteCtrl K')
+  await expect(help.getByRole('region', { name: 'View' })).toContainText('Command paletteCtrlK')
   await expect(help.getByRole('region', { name: 'Tools' })).toContainText('Pen toolP')
   await help.getByRole('textbox', { name: 'Search shortcuts' }).fill('zoom')
   await expect(help.getByRole('region')).toHaveCount(2)

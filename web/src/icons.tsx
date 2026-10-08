@@ -295,6 +295,7 @@ const ICONS = {
       <path d="M8 2.5a5.5 5.5 0 0 1 0 11z" fill="currentColor" stroke="none" />
     </>
   ),
+  sides: <path d="M5 2.5h6M13.5 5v6M5 13.5h6M2.5 5v6" />,
   radius: <path d="M3 13V8a5 5 0 0 1 5-5h5" />,
   stroke: (
     <>
@@ -318,7 +319,6 @@ const ICONS = {
       <path d="m10 10 3.5 3.5" />
     </>
   ),
-  cmd: <path d="M6 6h4v4H6zM6 6H4.5A1.5 1.5 0 1 1 6 4.5zM10 6V4.5A1.5 1.5 0 1 1 11.5 6zM10 10h1.5a1.5 1.5 0 1 1-1.5 1.5zM6 10v1.5A1.5 1.5 0 1 1 4.5 10z" />,
   preflight: <path d="M8 1.8 13.5 4v4c0 3.2-2.4 5.3-5.5 6.2C4.9 13.3 2.5 11.2 2.5 8V4zM5.5 8l1.8 1.8L10.5 6.5" />,
   panelLeft: (
     <>

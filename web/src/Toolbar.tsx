@@ -3,6 +3,7 @@ import { useEditor, type Editor, type Shape, type Tool } from './editor'
 import { Icon, type IconName } from './icons'
 import { smooth } from './vector'
 import { Popover } from './Popover'
+import { Keys } from './controls'
 
 type Entry = { tool: Tool; label: string; key: string; icon: IconName }
 
@@ -132,7 +133,7 @@ export function Toolbar({ editor, onPlaceImage }: { editor: Editor; onPlaceImage
               >
                 <Icon name={icon} />
                 <span>{label}</span>
-                <kbd>{key}</kbd>
+                <Keys keys={key} />
               </button>
             ))}
           </Popover>

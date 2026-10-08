@@ -11,7 +11,7 @@ test('type attributes and a text style are set in the text section and edited on
   }
   await text.click()
   await expect(field('Font size in pt')).toHaveValue('14')
-  await expect(field('Line height in pt')).toHaveValue('Auto')
+  await expect(field('Line height in pt')).toHaveAttribute('placeholder', 'Auto')
   await expect(panel.getByRole('radio', { name: 'Justify' })).toBeChecked()
 
   await commit('Font size in pt', '11')
@@ -31,7 +31,7 @@ test('type attributes and a text style are set in the text section and edited on
   await text.click()
   await expect(field('Font size in pt')).toHaveValue('9')
   await commit('Line height in pt', 'auto')
-  await expect(field('Line height in pt')).toHaveValue('Auto')
+  await expect(field('Line height in pt')).toHaveAttribute('placeholder', 'Auto')
   await expect(panel.getByTitle('Text style', { exact: true })).toContainText('No style')
   await expect(field('Font size in pt')).toHaveValue('9')
 })
@@ -155,7 +155,7 @@ test('insets, columns, vertical alignment, baseline grid, max lines and trim are
   const frame = panel.getByRole('region', { name: 'Text frame' })
   const field = (name: string) => frame.getByRole('textbox', { name })
   await expect(field('Columns')).toHaveValue('1')
-  await expect(field('Baseline grid in pt')).toHaveValue('Off')
+  await expect(field('Baseline grid in pt')).toHaveAttribute('placeholder', 'Off')
   for (const [name, value] of [['Top inset in mm', '2'], ['Columns', '2'], ['Gutter in mm', '5'], ['Baseline grid in pt', '18'], ['Max lines', '3']]) {
     await field(name).fill(value)
     await field(name).press('Enter')

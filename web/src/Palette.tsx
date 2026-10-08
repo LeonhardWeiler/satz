@@ -1,24 +1,35 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { ACTIONS, fuzzy, keyLabel, keysOf, press } from './commands'
+import { ACTIONS, keysOf, press } from './commands'
 import { Chip, ink, NO_SCOPE } from './ColorPicker'
 import type { Editor } from './editor'
+import { Keys } from './controls'
 import { Icon, KindIcon } from './icons'
 import type { Fill, Node } from './model'
 
-type Item = { group: string; title: string; keys: string; icon: ReactNode; run: () => void }
+type Item = { group: string; title: string; keys?: string; hint?: string; icon?: ReactNode; run: () => void }
+
+/** How well `query` matches `text`: 3 at its start or a word's, 2 inside, 1 as letters in order, 0 not; and the matched letters. */
+function match(query: string, text: string): [number, number[]] {
+  const q = query.toLowerCase()
+  const s = text.toLowerCase()
+  const at = s.indexOf(q)
+  if (at >= 0) return [at === 0 || s[at - 1] === ' ' ? 3 : 2, [...q].map((_, k) => at + k)]
+  const hits: number[] = []
+  for (let k = 0; k < s.length && hits.length < q.length; k++) if (s[k] === q[hits.length]) hits.push(k)
+  return [hits.length === q.length ? 1 : 0, hits]
+}
 
 const flat = (nodes: Node[]): Node[] => nodes.flatMap((n) => [n, ...('children' in n ? flat(n.children) : [])])
 
 function items(editor: Editor): Item[] {
   const { pages, swatches, textStyles } = editor.snapshot
-  const cmd = <Icon name="cmd" />
   return [
-    ...ACTIONS.map((a) => ({ group: 'Commands', title: a.title, keys: keysOf(a), icon: cmd, run: () => (a.run ? a.run(editor) : press(a.keys)) })),
+    ...ACTIONS.map((a) => ({ group: 'Commands', title: a.title, keys: keysOf(a), run: () => (a.run ? a.run(editor) : press(a.keys)) })),
     ...pages.flatMap((p, i) =>
       flat(p.children).map((n) => ({
         group: 'Layers',
         title: n.name,
-        keys: `Page ${i + 1}`,
+        hint: `Page ${i + 1}`,
         icon: <KindIcon node={n} />,
         run: () => {
           editor.showPage(p.id)
@@ -29,7 +40,7 @@ function items(editor: Editor): Item[] {
     ...pages.map((p, i) => ({
       group: 'Pages',
       title: `Page ${i + 1}`,
-      keys: editor.masterOf(p)?.name ?? '',
+      hint: editor.masterOf(p)?.name,
       icon: <Icon name="doc" />,
       run: () => {
         editor.showPage(p.id)
@@ -39,14 +50,14 @@ function items(editor: Editor): Item[] {
     ...swatches.map((s) => ({
       group: 'Swatches',
       title: `Fill with ${s.name}`,
-      keys: ink(s.color),
+      hint: ink(s.color),
       icon: <Chip color={s.color} scope={NO_SCOPE} />,
       run: () => fillWith(editor, s.id) || editor.say('Select a layer first'),
     })),
     ...textStyles.map((s) => ({
       group: 'Text styles',
       title: `Style ${s.name}`,
-      keys: `${s.size}/${s.lineHeight || 'auto'}`,
+      hint: `${s.size}/${s.lineHeight || 'auto'}`,
       icon: <Icon name="text" />,
       run: () => {
         const texts = editor.selected().filter((n) => n.kind === 'text')
@@ -83,14 +94,12 @@ export function Palette({ editor, onClose }: { editor: Editor; onClose: () => vo
   }, [at])
 
   const all = items(editor)
-  const shown = query
-    ? all
-        .map((x) => ({ x, s: fuzzy(query, x.title) }))
-        .filter((m) => m.s)
-        .sort((a, b) => b.s - a.s)
-        .map((m) => m.x)
-        .slice(0, 40)
-    : all.filter((x) => x.group === 'Commands').slice(0, 9)
+  const ranked = all
+    .map((x) => ({ ...x, m: match(query, x.title) }))
+    .filter((x) => x.m[0])
+    .sort((a, b) => b.m[0] - a.m[0])
+  const groups = [...new Set(ranked.map((x) => x.group))]
+  const shown = query ? ranked.sort((a, b) => groups.indexOf(a.group) - groups.indexOf(b.group)).slice(0, 40) : ranked.filter((x) => x.group === 'Commands').slice(0, 9)
   const run = (x?: Item) => {
     if (!x) return
     ref.current!.close()
@@ -134,8 +143,8 @@ export function Palette({ editor, onClose }: { editor: Editor; onClose: () => vo
             {x.group !== shown[i - 1]?.group && <div className="pal-g">{x.group}</div>}
             <button type="button" tabIndex={-1} className="pal-it" role="option" aria-selected={i === at} onClick={() => run(x)}>
               {x.icon}
-              <span>{x.title}</span>
-              {x.keys && <kbd>{keyLabel(x.keys)}</kbd>}
+              <span className="pal-t">{[...x.title].map((c, k) => (x.m[1].includes(k) ? <b key={k}>{c}</b> : c))}</span>
+              {x.keys ? <Keys keys={x.keys} /> : x.hint && <small>{x.hint}</small>}
             </button>
           </div>
         ))}

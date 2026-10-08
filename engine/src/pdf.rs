@@ -1068,13 +1068,10 @@ mod tests {
     /// `pdf` with its streams decompressed by MuPDF, which must read it without
     /// repairs, and its whitespace collapsed to single spaces.
     fn clean(pdf: &[u8]) -> String {
+        static RUN: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let run = RUN.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let dir = std::env::temp_dir();
-        let name = |s| {
-            dir.join(format!(
-                "satz-{s}-{:x}.pdf",
-                pdf.len() ^ std::process::id() as usize
-            ))
-        };
+        let name = |s| dir.join(format!("satz-{s}-{}-{run}.pdf", std::process::id()));
         let (from, to) = (name("in"), name("out"));
         std::fs::write(&from, pdf).unwrap();
         let out = std::process::Command::new("mutool")
@@ -1092,7 +1089,6 @@ mod tests {
             .split_whitespace()
             .collect::<Vec<_>>()
             .join(" ");
-        std::fs::write("/tmp/satz-clean.pdf", &text).unwrap();
         std::fs::remove_file(from).unwrap();
         std::fs::remove_file(to).unwrap();
         text
