@@ -5,7 +5,7 @@ test('a child pinned right keeps its distance to the right edge when the frame w
   const layers = page.getByRole('tree', { name: 'Layers' })
   const panel = page.getByRole('complementary', { name: 'Properties' })
   await layers.getByRole('button', { name: 'Rectangle', exact: true }).first().click()
-  await expect(panel.getByRole('combobox', { name: 'Vertical constraint' })).toHaveText('Top')
+  await expect(panel.getByRole('combobox', { name: 'Vertical constraint' })).toHaveText(/Top$/)
   await choose(panel.getByRole('combobox', { name: 'Horizontal constraint' }), 'Right')
 
   await layers.getByRole('button', { name: 'Frame', exact: true }).click()
@@ -15,5 +15,5 @@ test('a child pinned right keeps its distance to the right edge when the frame w
 
   await layers.getByRole('button', { name: 'Rectangle', exact: true }).first().click()
   await expect(panel.getByRole('textbox', { name: 'X in mm' })).toHaveValue('115')
-  await expect(panel.getByRole('combobox', { name: 'Horizontal constraint' })).toHaveText('Right')
+  await expect(panel.getByRole('combobox', { name: 'Horizontal constraint' })).toHaveText(/Right$/)
 })

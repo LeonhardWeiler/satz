@@ -69,7 +69,7 @@ export function PaintList({
   const [dragged, setDragged] = useState<number | null>(null)
   return (
     <Section title={title} onAdd={() => onChange([...(paints ?? []), added])}>
-      {!paints && <p className="empty">Click + to replace mixed {what}s</p>}
+      {!paints && <p className="empty">Mixed — + replaces</p>}
       {paints && paints.length > 0 && (
         <ul className="rows">
           {paints
@@ -125,7 +125,7 @@ export function PaintList({
                           {swatch ? swatch.name : 'Missing swatch'}
                         </span>
                         <Field
-                          label=""
+                          label={swatch?.spot ? 'Tint' : <Icon name="opacity" />}
                           title={`${title} ${swatch?.spot ? 'tint' : 'opacity'}`}
                           unit="%"
                           max={100}
@@ -138,6 +138,7 @@ export function PaintList({
                       </>
                     ) : boundVar ? (
                       <span className="bound-name" title={variable ? variable.name : 'Missing variable'}>
+                        <Icon name="variable" size={12} />
                         {variable ? variable.name : 'Missing variable'}
                       </span>
                     ) : (
@@ -145,7 +146,7 @@ export function PaintList({
                     )}
                     {p.type === 'solid' && !bound && (
                       <Field
-                        label=""
+                        label={<Icon name="opacity" />}
                         title={`${title} opacity`}
                         unit="%"
                         value={alpha(p.color)}
@@ -177,7 +178,7 @@ export function PaintList({
                           <div key={k} className="row">
                             <ColorPicker label={`Stop ${k + 1} color`} color={s.color} mode={mode} scope={scope} onChange={(color) => stop({ color })} />
                             <Field
-                              label=""
+                              label="Pos"
                               title={`Stop ${k + 1} position`}
                               unit="%"
                               max={100}
@@ -185,7 +186,7 @@ export function PaintList({
                               onCommit={(v) => stop({ at: v / 100 })}
                             />
                             <Field
-                              label=""
+                              label="Alpha"
                               title={`Stop ${k + 1} opacity`}
                               unit="%"
                               value={alpha(s.color)}
@@ -220,7 +221,7 @@ export function EffectList({
 }) {
   return (
     <Section title="Effects" onAdd={() => onChange([...(effects ?? []), shadow(mode)])}>
-      {!effects && <p className="empty">Click + to replace mixed effects</p>}
+      {!effects && <p className="empty">Mixed — + replaces</p>}
       {effects && effects.length > 0 && (
         <ul className="rows">
           {effects.map((e, i) => {
@@ -245,8 +246,8 @@ export function EffectList({
                 <div className="grid">
                   {e.type === 'dropShadow' && (
                     <>
-                      <Field label="X" title="Shadow X" unit="length" min={-Infinity} value={e.x} onCommit={(x) => set({ x })} />
-                      <Field label="Y" title="Shadow Y" unit="length" min={-Infinity} value={e.y} onCommit={(y) => set({ y })} />
+                      <Field label="Offset X" title="Shadow offset X" unit="length" min={-Infinity} value={e.x} onCommit={(x) => set({ x })} />
+                      <Field label="Offset Y" title="Shadow offset Y" unit="length" min={-Infinity} value={e.y} onCommit={(y) => set({ y })} />
                     </>
                   )}
                   <Field
@@ -259,7 +260,7 @@ export function EffectList({
                     <div className="row">
                       <ColorPicker label="Shadow color" color={e.color} mode={mode} scope={scope} onChange={(color) => set({ color })} />
                       <Field
-                        label=""
+                        label="Opacity"
                         title="Shadow opacity"
                         unit="%"
                         value={alpha(e.color)}

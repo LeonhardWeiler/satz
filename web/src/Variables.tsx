@@ -1,13 +1,14 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { isValidElement, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Chip, ColorPicker } from './ColorPicker'
 import { ContextMenu } from './ContextMenu'
 import { neutral } from './color'
 import { Field, FontSelect, NameInput, nextName, Section, Select } from './controls'
-import { scopeOf, useEditor, type Editor } from './editor'
+import { MM, scopeOf, useEditor, type Editor } from './editor'
 import { Icon } from './icons'
 import type { Bindable as Prop, Modes, Typeface, Value } from './model'
 import { Popover } from './Popover'
+import { useSettings } from './settings'
 
 type Kind = 'color' | 'number' | 'font'
 const KINDS: Record<Kind, string> = { color: 'Color', number: 'Number', font: 'Font' }
@@ -259,6 +260,16 @@ export function Bindable({
   children: ReactNode
 }) {
   const snapshot = useEditor(editor, (e) => e.snapshot)
+  const lengths = useSettings().unit
+  const field = isValidElement<{ unit?: string; value?: number | null }>(children) ? children.props : {}
+  const unit = field.unit
+  const create = () =>
+    editor.batch(() => {
+      const collection = snapshot.collections[0]?.id ?? editor.apply({ type: 'addCollection', name: 'Variables' })[0]
+      const number = unit === 'length' ? field.value! / MM : field.value!
+      const [made] = editor.apply({ type: 'addVariable', collection, name: nextName(title, snapshot.variables.map((v) => v.name)), value: { number } })
+      if (made) bind(made)
+    })
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const bound = (snapshot.textStyles.find((s) => s.id === id)?.bindings ?? editor.nodes.get(id)?.node.bindings)?.[prop]
@@ -296,8 +307,10 @@ export function Bindable({
             aria-expanded={open}
             onClick={() => setOpen((o) => !o)}
           >
+            <Icon name="variable" size={12} />
             {variable.name}
           </button>
+          {unit && <span className="field-unit">{unit === 'length' ? lengths : unit}</span>}
           <button
             type="button"
             className="icon-button"
@@ -326,7 +339,15 @@ export function Bindable({
       )}
       {open && (
         <Popover anchor={() => ref.current!.getBoundingClientRect()} side="left" className="menu" role="listbox" aria-label={`${KINDS[kind]} variables`}>
-          {numbers.length === 0 && <p className="menu-empty">No {kind} variables yet. Add them under Variables.</p>}
+          {numbers.length === 0 &&
+            (kind === 'number' && typeof field.value === 'number' ? (
+              <button type="button" className="menu-item" onClick={create}>
+                <span />
+                <span>Create from value</span>
+              </button>
+            ) : (
+              <p className="menu-empty">No {kind} variables yet. Add them under Variables.</p>
+            ))}
           {numbers.map((v) => (
             <button key={v.id} type="button" role="option" aria-selected={v.id === bound} className="menu-item" onClick={() => bind(v.id)}>
               <span>{v.name}</span>

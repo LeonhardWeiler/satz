@@ -277,7 +277,7 @@ test('a cmyk document takes an uploaded icc profile and goes back to fogra51', a
   const panel = page.getByRole('complementary', { name: 'Properties' })
   await choose(panel.getByRole('combobox', { name: 'Color mode' }), 'CMYK')
   const profile = panel.getByRole('combobox', { name: 'Profile' })
-  await expect(profile).toHaveText('FOGRA51')
+  await expect(profile).toHaveText(/FOGRA51$/)
   const upload = async (name: string, buffer: Buffer) => {
     const chooser = page.waitForEvent('filechooser')
     await choose(profile, 'Upload ICC…')
@@ -288,7 +288,7 @@ test('a cmyk document takes an uploaded icc profile and goes back to fogra51', a
   const icc = readFileSync(new URL('../../engine/icc/FOGRA51.icc', import.meta.url))
   icc[24] ^= 1
   await upload('own.icc', icc)
-  await expect(profile).toHaveText('FOGRA51 (Satz)')
+  await expect(profile).toHaveText(/FOGRA51 \(Satz\)$/)
   await choose(profile, 'FOGRA51')
-  await expect(profile).toHaveText('FOGRA51')
+  await expect(profile).toHaveText(/FOGRA51$/)
 })

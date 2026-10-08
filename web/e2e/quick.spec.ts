@@ -73,12 +73,12 @@ test('an ellipse opens to an arc and hollows to a ring', async ({ page }) => {
   const props = page.getByRole('complementary', { name: 'Properties' })
   await page.keyboard.press('o')
   await drag(page, await screen(page, 20, 20), await screen(page, 60, 60))
-  for (const [name, value] of [['Arc sweep in %', '50'], ['Inner radius in %', '40'], ['Arc start in °', '-90']]) {
+  for (const [name, value] of [['Arc sweep in °', '180'], ['Inner radius in %', '40'], ['Arc start in °', '-90']]) {
     const field = props.getByRole('textbox', { name })
     await field.fill(value)
     await field.press('Enter')
   }
-  await expect(props.getByRole('textbox', { name: 'Arc sweep in %' })).toHaveValue('50')
+  await expect(props.getByRole('textbox', { name: 'Arc sweep in °' })).toHaveValue('180')
   await expect(props.getByRole('textbox', { name: 'Inner radius in %' })).toHaveValue('40')
   await expect(props.getByRole('textbox', { name: 'Arc start in °' })).toHaveValue('270')
 })

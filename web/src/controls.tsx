@@ -200,6 +200,7 @@ export function Select<T extends string>({
   value,
   options,
   disabled = [],
+  breaks = [],
   prefix,
   onChange,
 }: {
@@ -207,6 +208,8 @@ export function Select<T extends string>({
   value: T | null
   options: Record<T, ReactNode>
   disabled?: T[]
+  /** Options followed by a separator. */
+  breaks?: T[]
   /** Shown before the value, like a field's label. */
   prefix?: ReactNode
   onChange: (v: T) => void
@@ -224,6 +227,7 @@ export function Select<T extends string>({
         aria-label={label}
         aria-expanded={!!host}
         aria-haspopup="menu"
+        disabled={Object.keys(options).length < 2 && value !== null}
         onClick={open}
         onKeyDown={(e) => {
           if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
@@ -242,7 +246,7 @@ export function Select<T extends string>({
             side="bottom"
             label={label}
             onClose={() => setHost(null)}
-            items={(Object.keys(options) as T[]).map((v) => [options[v], () => onChange(v), !disabled.includes(v), v === value])}
+            items={(Object.keys(options) as T[]).flatMap((v) => [[options[v], () => onChange(v), !disabled.includes(v), v === value] as const, ...(breaks.includes(v) ? [null] : [])])}
           />,
           host,
         )}
@@ -425,7 +429,7 @@ export function Keys({ keys }: { keys: string }) {
   )
 }
 
-const SIDES = ['Top', 'Right', 'Bottom', 'Left']
+export const SIDE_NAMES = ['Top', 'Right', 'Bottom', 'Left']
 
 /** Lengths of the four sides, top first, as a horizontal and a vertical field or, opened, one field per side; `wrap` wraps those. */
 export function Sides({
@@ -448,7 +452,7 @@ export function Sides({
     <div className="sides">
       <div className="grid">
         {each
-          ? SIDES.map((side, i) => (
+          ? SIDE_NAMES.map((side, i) => (
               <Fragment key={side}>
                 {wrap(i, <Field label={side} title={`${side} ${what}`} unit="length" reset={0} value={values[i]} onCommit={(v) => set(values.with(i, v))} />)}
               </Fragment>

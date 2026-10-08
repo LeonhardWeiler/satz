@@ -1,19 +1,19 @@
 import { expect, test, addMaster, addPage, open, option, overview, choose } from './util'
 
-test('the document section sets the format, orientation and page count of all pages', async ({ page }) => {
+test('the page section sets the format and orientation, the document section the page count', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
   const document = panel.getByRole('region', { name: 'Document' })
-  const width = document.getByRole('textbox', { name: 'Width of all pages in mm' })
   await addPage(page)
-  await expect(document.getByRole('combobox', { name: 'Format' })).toHaveText('A5')
+  const sheet = panel.getByRole('region', { name: 'Page 2' })
+  const width = sheet.getByRole('textbox', { name: 'W in mm' })
+  await expect(sheet.getByRole('combobox', { name: 'Format' })).toHaveText('A5')
   const zoom = await page.getByLabel('Zoom').textContent()
-  await choose(document.getByRole('combobox', { name: 'Format' }), 'A4')
+  await choose(sheet.getByRole('combobox', { name: 'Format' }), 'A4')
   await expect(width).toHaveValue('210')
   await expect(page.getByLabel('Zoom')).not.toHaveText(zoom!)
-  await document.getByRole('radio', { name: 'Landscape' }).click()
+  await sheet.getByRole('radio', { name: 'Landscape' }).click()
   await expect(width).toHaveValue('297')
-  await expect(panel.getByRole('region', { name: 'Page 2' }).getByRole('textbox', { name: 'W in mm' })).toHaveValue('297')
 
   const pages = document.getByRole('textbox', { name: 'Pages', exact: true })
   await expect(pages).toHaveValue('2')
@@ -78,7 +78,7 @@ test('properties the selected layers share are edited together', async ({ page }
   await panel.getByRole('textbox', { name: 'Opacity in %', exact: true }).fill('50')
   await panel.getByRole('textbox', { name: 'Opacity in %', exact: true }).press('Enter')
   const fill = panel.getByRole('region', { name: 'Fill' })
-  await expect(fill).toContainText('Click + to replace mixed fills')
+  await expect(fill).toContainText('Mixed — + replaces')
   await fill.getByRole('button', { name: 'Add fill' }).click()
   await expect(fill.getByRole('button', { name: 'Fill color' })).toHaveCount(1)
   for (const name of ['Sun', 'Triangle']) {

@@ -103,6 +103,7 @@ test('layout grids show on the page, hide with shift g, apply to all pages and c
   const at = async (x: number, y: number) => (await colors(page, [await screen(page, x, y)]))[0]
   await addPage(page)
   await panel.getByRole('button', { name: 'Add layout grid' }).click()
+  await page.getByRole('menuitem', { name: '2 columns', exact: true }).click()
   await expect(count).toHaveValue('2')
   await expect.poll(() => at(40, 100)).not.toEqual([255, 255, 255])
   expect(await at(5, 100)).toEqual([255, 255, 255])
@@ -116,7 +117,7 @@ test('layout grids show on the page, hide with shift g, apply to all pages and c
   await panel.getByRole('button', { name: 'Remove grid' }).click()
   await expect(count).toHaveCount(0)
 
-  await panel.getByRole('button', { name: 'Grid presets' }).click()
+  await panel.getByRole('button', { name: 'Add layout grid' }).click()
   await page.getByRole('menuitem', { name: '3 × 3 modules' }).click()
   await expect(count).toHaveValue('3')
   await expect(panel.getByRole('textbox', { name: 'Rows' })).toHaveValue('3')

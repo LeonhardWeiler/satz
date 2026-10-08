@@ -186,7 +186,7 @@ const ICONS = {
     </>
   ),
   variable: <path d="M8 2.5 13 5.25v5.5L8 13.5 3 10.75v-5.5z" />,
-  detach: <path d="M6 10 4.5 11.5a2 2 0 0 1-2.8-2.8L3.2 7.2M10 6l1.5-1.5a2 2 0 0 1 2.8 2.8L12.8 8.8M5.5 2.5V4M2.5 5.5H4M10.5 13.5V12M13.5 10.5H12" />,
+  detach: <path d="M6.5 9.5 5 11a2.1 2.1 0 0 1-3-3l1.5-1.5M9.5 6.5 11 5a2.1 2.1 0 0 1 3 3l-1.5 1.5M3 3l10 10" />,
   alignLeft: <path d="M3 4h10M3 7h6M3 10h10M3 13h6" />,
   alignCenter: <path d="M3 4h10M5 7h6M3 10h10M5 13h6" />,
   alignRight: <path d="M3 4h10M7 7h6M3 10h10M7 13h6" />,

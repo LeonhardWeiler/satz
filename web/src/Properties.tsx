@@ -24,12 +24,26 @@ const ARRANGE: [string, IconName][] = [
 ]
 const WRAPS: Record<Wrap, string> = { none: 'No text wrap', around: 'Wrap around', jump: 'Jump over' }
 const BLENDS: Record<Blend, string> = {
-  normal: 'Normal', multiply: 'Multiply', screen: 'Screen', overlay: 'Overlay', darken: 'Darken',
-  lighten: 'Lighten', colorDodge: 'Color dodge', colorBurn: 'Color burn', hardLight: 'Hard light',
-  softLight: 'Soft light', difference: 'Difference', exclusion: 'Exclusion', hue: 'Hue',
-  saturation: 'Saturation', color: 'Color', luminosity: 'Luminosity',
+  normal: 'Normal', darken: 'Darken', multiply: 'Multiply', colorBurn: 'Color burn',
+  lighten: 'Lighten', screen: 'Screen', colorDodge: 'Color dodge',
+  overlay: 'Overlay', softLight: 'Soft light', hardLight: 'Hard light',
+  difference: 'Difference', exclusion: 'Exclusion',
+  hue: 'Hue', saturation: 'Saturation', color: 'Color', luminosity: 'Luminosity',
 }
-const LINE_STYLES: Record<LineStyle, string> = { solid: 'Solid', dashed: 'Dashed', dotted: 'Dotted', wavy: 'Wavy', zigzag: 'Zigzag' }
+const BLEND_GROUPS: Blend[] = ['normal', 'colorBurn', 'colorDodge', 'hardLight', 'exclusion']
+const DASHES: Record<LineStyle, string> = { solid: 'M1 4h22', dashed: 'M1 4h5M10 4h5M19 4h4', dotted: 'M2 4h.01M7 4h.01M12 4h.01M17 4h.01M22 4h.01', wavy: 'M1 4q2.75-3 5.5 0t5.5 0 5.5 0 5.5 0', zigzag: 'M1 5.5l2.75-3 2.75 3 2.75-3 2.75 3 2.75-3 2.75 3 2.75-3 2.75 3' }
+const LINE_STYLES = Object.fromEntries(
+  Object.entries(DASHES).map(([k, d]) => [
+    k,
+    <>
+      <svg className="dash" viewBox="0 0 24 8" aria-hidden="true">
+        <path d={d} />
+      </svg>
+      {k[0].toUpperCase() + k.slice(1)}
+    </>,
+  ]),
+) as Record<LineStyle, ReactNode>
+const ARROWS = { none: 'None', arrow: 'Arrow' }
 
 const SIDES = ['Top', 'Right', 'Bottom', 'Left']
 const STROKE_ALIGNS = [
@@ -46,14 +60,6 @@ const CAPS = [
   ['none', 'No cap', 'capNone'],
   ['round', 'Round cap', 'capRound'],
   ['square', 'Square cap', 'capSquare'],
-] as const
-const STARTS = [
-  ['none', 'No start arrow', 'plainLine'],
-  ['arrow', 'Start arrow', 'arrowLeft'],
-] as const
-const ENDS = [
-  ['none', 'No end arrow', 'plainLine'],
-  ['arrow', 'End arrow', 'arrowRight'],
 ] as const
 const MODES: Record<ColorMode, string> = { rgb: 'RGB', cmyk: 'CMYK' }
 const NUMBERINGS = { arabic: '1, 2, 3', upperRoman: 'I, II, III', lowerRoman: 'i, ii, iii' }
@@ -143,7 +149,7 @@ export function Properties({
     >
       <header className="panel-header">
         {one ? <KindIcon node={one} /> : <Icon name={nodes.length ? 'group' : isPage ? 'doc' : 'master'} />}
-        <h2>{one ? one.name : nodes.length ? `${nodes.length} layers` : isPage ? 'Page' : page.name}</h2>
+        <h2>{one ? (one.kind === 'text' ? 'Text frame' : one.name) : nodes.length ? `${nodes.length} layers` : isPage ? 'Document' : page.name}</h2>
       </header>
       {box && <AlignBar editor={editor} />}
       {box && (
@@ -200,7 +206,7 @@ export function Properties({
             </>
           }
         >
-          <FormatRow page sheets={sheets} each={setSheets} />
+          <FormatRow sheets={sheets} each={setSheets} />
           <div className="grid">
             {(['width', 'height', 'bleed'] as const).map((k) => (
               <Field
@@ -265,7 +271,7 @@ export function Properties({
           </ul>
           {canFindFonts && !locals.length && (
             <button type="button" className="button" onClick={() => readLocalFonts(say)}>
-              List the fonts of this computer
+              Use local fonts
             </button>
           )}
           {canFindFonts && missingFonts.length > 0 && (
@@ -330,12 +336,6 @@ export function Properties({
                 onCommit={(v) => setGap(editor, row, v)}
               />
             )}
-            {one?.kind === 'frame' && (
-              <label className="check">
-                <input type="checkbox" checked={one.clip} onChange={(e) => set({ clip: e.currentTarget.checked })} />
-                Clip content
-              </label>
-            )}
             {nodes.length > 0 && nodes.every((n) => n.kind === 'shape' && n.shape === 'rect') && (
               bindable(
                 'radius',
@@ -351,20 +351,8 @@ export function Properties({
                 />,
               )
             )}
-            {one?.kind === 'shape' && (one.shape === 'polygon' || one.shape === 'star') && (
-              <Field label="N" title="Count" unit="" int min={3} max={60} value={one.count} onCommit={(count) => set({ count })} />
-            )}
-            {one?.kind === 'shape' && one.shape === 'ellipse' && (
-              <>
-                <Field label="Start" title="Arc start" unit="°" min={-Infinity} reset={0} value={one.start} onCommit={(v) => set({ start: ((v % 360) + 360) % 360 })} />
-                <Field label="Sweep" title="Arc sweep" unit="%" max={100} reset={100} value={one.sweep * 100} onCommit={(v) => set({ sweep: v / 100 })} />
-                <Field label="Ratio" title="Inner radius" unit="%" max={100} reset={0} value={one.inner * 100} onCommit={(v) => set({ inner: v / 100 })} />
-              </>
-            )}
-            {one?.kind === 'shape' && one.shape === 'star' && (
-              <Field label="Ratio" title="Star ratio" unit="%" min={1} max={100} value={one.ratio * 100} onCommit={(v) => set({ ratio: v / 100 })} />
-            )}
           </div>
+          {one?.kind === 'frame' && <Check label="Clip content" value={one.clip} set={(clip) => set({ clip })} />}
           {one && <Sizing editor={editor} node={one} set={set} />}
           {one && parent?.kind === 'frame' && parent.direction !== 'none' && (
             <label className="check">
@@ -378,6 +366,7 @@ export function Properties({
                 <Select
                   key={axis}
                   label={`${axis === 'horizontal' ? 'Horizontal' : 'Vertical'} constraint`}
+                  prefix={axis === 'horizontal' ? '↔' : '↕'}
                   value={one.constraints[axis]}
                   options={axis === 'horizontal' ? HORIZONTAL : VERTICAL}
                   onChange={(k) => set({ constraints: { ...one.constraints, [axis]: k } })}
@@ -387,17 +376,40 @@ export function Properties({
           )}
         </Section>
       )}
+      {one?.kind === 'shape' && (one.shape === 'ellipse' || one.shape === 'polygon' || one.shape === 'star') && (
+        <Section title="Shape">
+          <div className="grid">
+            {(one.shape === 'polygon' || one.shape === 'star') && (
+              <Field label="Points" title="Points" unit="" int min={3} max={60} value={one.count} onCommit={(count) => set({ count })} />
+            )}
+            {one.shape === 'star' && (
+              <Field label="Inner radius" title="Inner radius" unit="%" min={1} max={100} value={one.ratio * 100} onCommit={(v) => set({ ratio: v / 100 })} />
+            )}
+            {one.shape === 'ellipse' && (
+              <>
+                <Field label="Start" title="Arc start" unit="°" min={-Infinity} reset={0} value={one.start} onCommit={(v) => set({ start: ((v % 360) + 360) % 360 })} />
+                <Field label="Sweep" title="Arc sweep" unit="°" max={360} reset={360} value={one.sweep * 360} onCommit={(v) => set({ sweep: v / 360 })} />
+                <Field label="Inner radius" title="Inner radius" unit="%" max={100} reset={0} value={one.inner * 100} onCommit={(v) => set({ inner: v / 100 })} />
+              </>
+            )}
+          </div>
+        </Section>
+      )}
+      {one?.kind === 'text' && <TextSection editor={editor} node={one} />}
+      {one?.kind === 'text' && <TextFrameSection editor={editor} node={one} set={set} />}
       {one?.kind === 'frame' && <AutoLayout editor={editor} node={one} set={set} />}
       {box && (
         <Section title="Text wrap">
           <div className="grid">
             <Select label="Text wrap" value={same((n) => n.wrap)} options={WRAPS} onChange={(wrap) => set({ wrap })} />
-            {nodes.some((n) => n.wrap !== 'none') && (
-              <>
-                <Field label="X" title="Text wrap offset beside" unit="length" value={same((n) => n.wrapOffsetX)} onCommit={(v) => set({ wrapOffsetX: Math.max(0, v) })} />
-                <Field label="Y" title="Text wrap offset above and below" unit="length" value={same((n) => n.wrapOffsetY)} onCommit={(v) => set({ wrapOffsetY: Math.max(0, v) })} />
-              </>
-            )}
+            <Field
+              label="Offset"
+              title="Text wrap offset"
+              unit="length"
+              disabled={nodes.every((n) => n.wrap === 'none')}
+              value={same((n) => (n.wrapOffsetX === n.wrapOffsetY ? n.wrapOffsetX : undefined))}
+              onCommit={(v) => set({ wrapOffsetX: Math.max(0, v), wrapOffsetY: Math.max(0, v) })}
+            />
           </div>
           {nodes.some((n) => n.wrap !== 'none' && !textBelow(editor, n)) && <p className="empty">Only text frames below it in the layers wrap around it</p>}
         </Section>
@@ -408,29 +420,23 @@ export function Properties({
             {bindable(
               'opacity',
               'Opacity',
-              '',
-              <Field label="" title="Opacity" unit="%" max={100} value={same((n) => n.opacity * 100)} onCommit={(v) => set({ opacity: v / 100 })} />,
+              'Opacity',
+              <Field label="Opacity" title="Opacity" unit="%" max={100} value={same((n) => n.opacity * 100)} onCommit={(v) => set({ opacity: v / 100 })} />,
             )}
-            <Select label="Blend mode" value={same((n) => n.blend)} options={BLENDS} onChange={(blend) => set({ blend })} />
+            <Select label="Blend mode" value={same((n) => n.blend)} options={BLENDS} breaks={BLEND_GROUPS} onChange={(blend) => set({ blend })} />
             {one?.kind === 'frame' && (
               <ModeSelects editor={editor} id={one.id} own={one.modes} inherited={editor.nodes.get(one.id)?.parent?.activeModes ?? page.modes} />
             )}
           </div>
-          {one ? (
-            <label className="check">
-              <input type="checkbox" checked={one.mask} onChange={(e) => set({ mask: e.currentTarget.checked })} />
-              Use as mask
-            </label>
-          ) : (
           <button
             type="button"
             className="button"
             title="Use as mask (Ctrl+Alt+M)"
-            onClick={() => editor.set({ selection: editor.apply({ type: 'mask', ids: selection }) })}
+            aria-pressed={one?.mask}
+            onClick={() => (one ? set({ mask: !one.mask }) : editor.set({ selection: editor.apply({ type: 'mask', ids: selection }) }))}
           >
             Use as mask
           </button>
-          )}
         </Section>
       )}
       {nodes.length > 0 && nodes.every((n) => n.kind !== 'group') && (
@@ -443,20 +449,35 @@ export function Properties({
           mode={mode}
           scope={scope}
           onChange={(fills) => set({ fills })}>
-          {sameList((n) => n.fills)?.length !== 0 && (
+          {mode === 'cmyk' && !!sameList((n) => n.fills)?.length && (
             <Check label="Overprint fill" value={same((n) => n.overprintFill)} set={(overprintFill) => set({ overprintFill })} />
           )}
         </PaintList>
       )}
       {stroked && (
         <PaintList title="Stroke" paints={strokes} added={solid(neutral('black', mode))} mode={mode} scope={scope} onChange={(strokes) => set({ strokes })}>
-          {strokes?.length !== 0 && (
+          {!!strokes?.length && (
             <div className="grid">
               {bindable(
                 'strokeWeight',
                 'Stroke weight',
-                '',
-                <Field label="" title="Stroke weight" unit="pt" value={same((n) => n.strokeWeight)} onCommit={(v) => set({ strokeWeight: v })} />,
+                'Weight',
+                <Field label="Weight" title="Stroke weight" unit="pt" value={same((n) => n.strokeWeight)} onCommit={(v) => set({ strokeWeight: v })} />,
+              )}
+              {nodes.every((n) => n.kind !== 'text') && (
+                <Select label="Line style" value={same((n) => n.lineStyle)} options={LINE_STYLES} onChange={(lineStyle) => set({ lineStyle })} />
+              )}
+              {open ? (
+                <Segmented label="Stroke cap" prefix="Cap" value={same((n) => n.cap)} options={CAPS} onChange={(cap) => set({ cap })} />
+              ) : (
+                !nodes.some(isOpen) && <Segmented label="Stroke position" prefix="Align" value={same((n) => n.strokeAlign)} options={STROKE_ALIGNS} onChange={(strokeAlign) => set({ strokeAlign })} />
+              )}
+              <Segmented label="Stroke join" prefix="Join" value={same((n) => n.join)} options={JOINS} onChange={(join) => set({ join })} />
+              {open && (
+                <>
+                  <Select label="Start point" prefix="Start" value={same((n) => (n.arrowStart ? 'arrow' : 'none'))} options={ARROWS} onChange={(v) => set({ arrowStart: v === 'arrow' })} />
+                  <Select label="End point" prefix="End" value={same((n) => (n.arrowEnd ? 'arrow' : 'none'))} options={ARROWS} onChange={(v) => set({ arrowEnd: v === 'arrow' })} />
+                </>
               )}
               {sided && (
                 <Check
@@ -469,33 +490,19 @@ export function Properties({
                 SIDES.map((side, i) => (
                   <Field
                     key={side}
-                    label={side[0]}
+                    label={side}
                     title={`${side} stroke`}
                     unit="pt"
                     value={one.strokeSides![i]}
                     onCommit={(v) => set({ strokeSides: one.strokeSides!.map((w, j) => (j === i ? v : w)) })}
                   />
                 ))}
-              {nodes.every((n) => n.kind !== 'text') && (
-                <Select label="Line style" value={same((n) => n.lineStyle)} options={LINE_STYLES} onChange={(lineStyle) => set({ lineStyle })} />
-              )}
-              {!nodes.some(isOpen) && <Segmented label="Stroke position" value={same((n) => n.strokeAlign)} options={STROKE_ALIGNS} onChange={(strokeAlign) => set({ strokeAlign })} />}
-              {open && (
-                <>
-                  <Segmented label="Stroke cap" value={same((n) => n.cap)} options={CAPS} onChange={(cap) => set({ cap })} />
-                  <Segmented label="Start point" value={same((n) => (n.arrowStart ? 'arrow' : 'none'))} options={STARTS} onChange={(v) => set({ arrowStart: v === 'arrow' })} />
-                  <Segmented label="End point" value={same((n) => (n.arrowEnd ? 'arrow' : 'none'))} options={ENDS} onChange={(v) => set({ arrowEnd: v === 'arrow' })} />
-                </>
-              )}
-              <Segmented label="Stroke join" value={same((n) => n.join)} options={JOINS} onChange={(join) => set({ join })} />
-              <Check label="Overprint stroke" value={same((n) => n.overprintStroke)} set={(overprintStroke) => set({ overprintStroke })} />
+              {mode === 'cmyk' && <Check label="Overprint stroke" value={same((n) => n.overprintStroke)} set={(overprintStroke) => set({ overprintStroke })} />}
             </div>
           )}
         </PaintList>
       )}
       {box && <EffectList effects={sameList((n) => n.effects)} mode={mode} scope={scope} onChange={(effects) => set({ effects })} />}
-      {one?.kind === 'text' && <TextSection editor={editor} node={one} />}
-      {one?.kind === 'text' && <TextFrameSection editor={editor} node={one} set={set} />}
     </aside>
   )
 }
@@ -517,11 +524,7 @@ function textBelow(editor: Editor, n: Node) {
 }
 
 function DocumentSection({ editor, say }: { editor: Editor; say: (message: string) => void }) {
-  const { pages, masters, facingPages, colorMode, rasterPpi, profile } = useEditor(editor, (e) => e.snapshot)
-  const sheets = [...pages, ...masters]
-  const w = sameOf(pages, (p) => p.width)
-  const h = sameOf(pages, (p) => p.height)
-  const each = (props: PageProps) => editor.batch(() => sheets.forEach((p) => editor.apply({ type: 'setPage', id: p.id, ...props(p) })))
+  const { pages, facingPages, colorMode, rasterPpi, profile } = useEditor(editor, (e) => e.snapshot)
   const count = (n: number) =>
     editor.batch(() => {
       for (let i = pages.length; i < n; i++) editor.apply({ type: 'addPage', after: editor.snapshot.pages.at(-1)!.id })
@@ -529,28 +532,18 @@ function DocumentSection({ editor, say }: { editor: Editor; say: (message: strin
     })
   return (
     <Section title="Document">
-      <FormatRow sheets={pages} each={each} />
       <div className="grid">
-        <Field label="W" title="Width of all pages" unit="length" value={w} onCommit={(width) => each(() => ({ width }))} />
-        <Field label="H" title="Height of all pages" unit="length" value={h} onCommit={(height) => each(() => ({ height }))} />
-        <Field label="Bleed" title="Bleed of all pages" unit="length" value={sameOf(pages, (p) => p.bleed)} onCommit={(bleed) => each(() => ({ bleed }))} />
-        <Field label="N" title="Pages" unit="" int min={1} value={pages.length} onCommit={count} />
+        <Field label="Pages" title="Pages" unit="" int min={1} value={pages.length} onCommit={count} />
         <Select label="Spreads" value={facingPages ? 'facing' : 'single'} options={SPREADS} onChange={(v) => editor.apply({ type: 'setDocument', facingPages: v === 'facing' })} />
         <Field label="Raster" reset={300} value={rasterPpi} unit="ppi" min={72} max={1200} onCommit={(v) => editor.apply({ type: 'setDocument', rasterPpi: v })} />
-        <Select label="Color mode" value={colorMode} options={MODES} onChange={(colorMode) => editor.apply({ type: 'setDocument', colorMode })} />
-        {colorMode === 'cmyk' ? (
-          <Select<string>
-            label="Profile"
-            value={profile === null ? 'fogra' : 'own'}
-            options={{ fogra: 'FOGRA51', ...(profile !== null && { own: profile || 'Uploaded' }), upload: 'Upload ICC…' }}
-            onChange={(v) => (v === 'upload' ? pickProfile(editor, say) : v === 'fogra' && editor.setProfile(null))}
-          />
-        ) : (
-          <div className="kv" title="Output profile">
-            <span>Profile</span>
-            <strong>sRGB</strong>
-          </div>
-        )}
+        <Select label="Color mode" prefix="Color" value={colorMode} options={MODES} onChange={(colorMode) => editor.apply({ type: 'setDocument', colorMode })} />
+        <Select<string>
+          label="Profile"
+          prefix="Profile"
+          value={colorMode === 'rgb' ? 'srgb' : profile === null ? 'fogra' : 'own'}
+          options={colorMode === 'rgb' ? { srgb: 'sRGB' } : { fogra: 'FOGRA51', ...(profile !== null && { own: profile || 'Uploaded' }), upload: 'Upload ICC…' }}
+          onChange={(v) => (v === 'upload' ? pickProfile(editor, say) : v === 'fogra' && editor.setProfile(null))}
+        />
       </div>
     </Section>
   )
@@ -568,7 +561,7 @@ function GridSection({ editor, sheets, all }: { editor: Editor; sheets: Page[]; 
   return (
     <Section
       title="Layout grids"
-      onAdd={() => setGrids([...(grids ?? []), fresh])}
+      onAdd={(e) => setPresets(e.currentTarget.getBoundingClientRect())}
       actions={
         <>
           {grids && all.some((p) => key(p) !== key(sheets[0])) && (
@@ -576,24 +569,21 @@ function GridSection({ editor, sheets, all }: { editor: Editor; sheets: Page[]; 
               <Icon name="pages" />
             </button>
           )}
-          <button type="button" className="icon-button" aria-label="Grid presets" title="Grid presets" aria-haspopup="menu" onClick={(e) => setPresets(e.currentTarget.getBoundingClientRect())}>
-            <Icon name="columns" />
-          </button>
           {presets &&
             createPortal(
               <ContextMenu
                 anchor={() => presets}
                 side="bottom"
-                label="Grid presets"
+                label="Add layout grid"
                 onClose={() => setPresets(null)}
-                items={GRID_PRESETS.map(([name, kinds]) => [name, () => setGrids(kinds.map(([kind, count]) => ({ ...fresh, kind, count, gutter: (count > 6 ? 4 : 5) * MM }))), true])}
+                items={GRID_PRESETS.map(([name, kinds]) => [name, () => setGrids([...(grids ?? []), ...kinds.map(([kind, count]) => ({ ...fresh, kind, count, gutter: (count > 6 ? 4 : 5) * MM }))]), true])}
               />,
               document.body,
             )}
         </>
       }
     >
-      {!grids && <p className="empty">Click + to replace mixed grids</p>}
+      {!grids && <p className="empty">Mixed — + replaces</p>}
       {grids && grids.length > 0 && (
         <ul className="rows">
           {grids.map((g, i) => {
@@ -611,7 +601,7 @@ function GridSection({ editor, sheets, all }: { editor: Editor; sheets: Page[]; 
                     <Field label="Size" title="Cell size" unit="length" value={g.size} onCommit={(size) => size > 0 && set({ size })} />
                   ) : (
                     <>
-                      <Field label="N" title={GRIDS[g.kind]} unit="" int min={1} value={g.count} onCommit={(count) => set({ count })} />
+                      <Field label={GRIDS[g.kind]} title={GRIDS[g.kind]} unit="" int min={1} value={g.count} onCommit={(count) => set({ count })} />
                       <Field label="Gutter" title="Gutter" unit="length" value={g.gutter} onCommit={(gutter) => set({ gutter })} />
                       <Field label="Margin" title="Margin" unit="length" value={g.margin} onCommit={(margin) => set({ margin: Math.max(0, margin) })} />
                     </>
@@ -640,7 +630,7 @@ const GRID_PRESETS: [string, [Grid['kind'], number][]][] = [
 type PageProps = (p: Page) => Partial<Pick<Page, 'width' | 'height' | 'bleed'>> & { scale?: boolean }
 
 /** A format and orientation picker for `sheets`. */
-function FormatRow({ page, sheets, each }: { page?: boolean; sheets: Page[]; each: (props: PageProps) => void }) {
+function FormatRow({ sheets, each }: { sheets: Page[]; each: (props: PageProps) => void }) {
   const w = sameOf(sheets, (p) => p.width)
   const h = sameOf(sheets, (p) => p.height)
   const landscape = w !== null && h !== null ? w > h : null
@@ -650,18 +640,18 @@ function FormatRow({ page, sheets, each }: { page?: boolean; sheets: Page[]; eac
   return (
       <div className="grid">
         <Select
-          label={page ? 'Page format' : 'Format'}
+          label="Format"
           value={format}
-          options={Object.fromEntries([...FORMATS.map(([n]) => [n, n]), ['Custom', 'Custom']])}
-          disabled={['Custom']}
+          options={Object.fromEntries([...FORMATS.map(([n]) => [n, n]), ...(format === 'Custom' ? [['Custom', 'Custom']] : [])])}
           onChange={(n) => {
-            const [, a, b] = FORMATS.find(([f]) => f === n)!
+            const [, a, b] = FORMATS.find(([f]) => f === n) ?? []
+            if (!a || !b) return
             const [width, height] = landscape ? [b, a] : [a, b]
             each(() => ({ width: width * MM, height: height * MM, scale: true }))
           }}
         />
         <Segmented
-          label={page ? 'Page orientation' : 'Orientation'}
+          label="Orientation"
           value={landscape === null ? null : landscape ? 'landscape' : 'portrait'}
           options={ORIENTATIONS}
           onChange={(o) => orient(o === 'landscape')}

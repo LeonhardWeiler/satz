@@ -1,4 +1,4 @@
-import { Field, Section, Segmented, Select } from './controls'
+import { Field, Section, Segmented, Select, SIDE_NAMES, Sides } from './controls'
 import type { Editor } from './editor'
 import { Icon } from './icons'
 import type { Layout, Node, Props, Size } from './model'
@@ -8,13 +8,8 @@ const SPOTS = ['start', 'center', 'end'] as const
 const ROWS = ['top', 'center', 'bottom']
 const COLUMNS = ['left', 'center', 'right']
 const STEPS: Record<string, [number, number]> = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }
-const SPACING = { packed: 'Packed', spaceBetween: 'Space between' }
-const PADDING = [
-  ['paddingTop', 'Top padding', 'T'],
-  ['paddingRight', 'Right padding', 'R'],
-  ['paddingBottom', 'Bottom padding', 'B'],
-  ['paddingLeft', 'Left padding', 'L'],
-] as const
+const SPACING = { packed: 'Fixed', spaceBetween: 'Space between' }
+const PADDING = ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'] as const
 
 const SIZES: Record<Size, string> = { fixed: 'Fixed', hug: 'Hug', fill: 'Fill' }
 const DIRECTIONS = [
@@ -40,6 +35,7 @@ export function Sizing({ editor, node, set }: { editor: Editor; node: Node; set:
         <Select
           key={axis}
           label={`${axis === 'horizontal' ? 'Width' : 'Height'} sizing`}
+          prefix={axis === 'horizontal' ? 'W' : 'H'}
           value={node.sizing[axis]}
           options={sizes}
           onChange={(s) => set({ sizing: { ...node.sizing, [axis]: s } })}
@@ -58,25 +54,16 @@ export function AutoLayout({ editor, node, set }: { editor: Editor; node: Node &
     const [main, cross] = horizontal ? [c, r] : [r, c]
     set({ alignMain: between ? 'spaceBetween' : SPOTS[main], alignCross: SPOTS[cross] })
   }
-  const length = (prop: 'gap' | (typeof PADDING)[number][0], title: string, label: string) => (
-    <Bindable editor={editor} id={node.id} prop={prop} title={title} label={label}>
-      <Field label={label} title={title} unit="length" min={prop === 'gap' ? -Infinity : 0} reset={0} value={node[prop]} onCommit={(v) => set({ [prop]: v })} />
-    </Bindable>
-  )
   return (
-    <Section title="Auto layout">
-      <div className="row">
-        <Segmented label="Direction" value={node.direction} options={DIRECTIONS} onChange={(direction) => set({ direction })} />
-        <button
-          type="button"
-          className="icon-button"
-          aria-label="Remove auto layout"
-          title="Remove auto layout (Shift+Alt+A)"
-          onClick={() => set({ direction: 'none' })}
-        >
+    <Section
+      title="Auto layout"
+      actions={
+        <button type="button" className="icon-button" aria-label="Remove auto layout" title="Remove auto layout (Shift+Alt+A)" onClick={() => set({ direction: 'none' })}>
           <Icon name="minus" />
         </button>
-      </div>
+      }
+    >
+      <Segmented label="Direction" prefix="Direction" value={node.direction} options={DIRECTIONS} onChange={(direction) => set({ direction })} />
       <div className="auto-layout">
         <div
           role="radiogroup"
@@ -114,16 +101,30 @@ export function AutoLayout({ editor, node, set }: { editor: Editor; node: Node &
           )}
         </div>
         <div className="auto-layout-gap">
-          {length('gap', 'Gap', 'Gap')}
+          <Bindable editor={editor} id={node.id} prop="gap" title="Gap" label="Gap">
+            <Field label="Gap" unit="length" min={-Infinity} reset={0} value={node.gap} onCommit={(gap) => set({ gap })} />
+          </Bindable>
           <Select
             label="Spacing mode"
+            prefix="Spacing"
             value={between ? 'spaceBetween' : 'packed'}
             options={SPACING}
             onChange={(v) => set({ alignMain: v === 'spaceBetween' ? 'spaceBetween' : 'start' })}
           />
         </div>
       </div>
-      <div className="grid">{PADDING.map(([prop, title, label]) => length(prop, title, label))}</div>
+      <Sides
+        key={node.id}
+        what="padding"
+        values={PADDING.map((p) => node[p])}
+        opened={PADDING.some((p) => node.bindings[p])}
+        wrap={(i, field) => (
+          <Bindable editor={editor} id={node.id} prop={PADDING[i]} title={`${SIDE_NAMES[i]} padding`} label={SIDE_NAMES[i]}>
+            {field}
+          </Bindable>
+        )}
+        set={(v) => set(Object.fromEntries(PADDING.map((p, i) => [p, Math.max(0, v[i])])))}
+      />
     </Section>
   )
 }

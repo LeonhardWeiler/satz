@@ -14,7 +14,7 @@ test('shift+a adds a hugging auto layout whose padding, sizing and alignment mov
   await expect(panel.getByRole('radio', { name: 'Horizontal layout' })).toBeChecked()
   await expect(field('W in mm')).toHaveValue('140')
   await expect(field('H in mm')).toHaveValue('48')
-  await expect(panel.getByRole('combobox', { name: 'Width sizing' })).toHaveText('Hug')
+  await expect(panel.getByRole('combobox', { name: 'Width sizing' })).toHaveText(/Hug$/)
 
   await type('Left padding in mm', '10')
   await expect(field('W in mm')).toHaveValue('70')
@@ -136,8 +136,8 @@ test('deleting the last child of a hugging frame keeps its size and makes it fix
   await layers.getByRole('button', { name: 'Frame', exact: true }).click()
   await expect(panel.getByRole('textbox', { name: 'W in mm' })).toHaveValue('140')
   await expect(panel.getByRole('textbox', { name: 'H in mm' })).toHaveValue('48')
-  await expect(panel.getByRole('combobox', { name: 'Width sizing' })).toHaveText('Fixed')
-  await expect(panel.getByRole('combobox', { name: 'Height sizing' })).toHaveText('Fixed')
+  await expect(panel.getByRole('combobox', { name: 'Width sizing' })).toHaveText(/Fixed$/)
+  await expect(panel.getByRole('combobox', { name: 'Height sizing' })).toHaveText(/Fixed$/)
 })
 
 test('a hugging frame turns fixed with a note when its only child fills it', async ({ page }) => {
@@ -151,6 +151,6 @@ test('a hugging frame turns fixed with a note when its only child fills it', asy
   await choose(panel.getByRole('combobox', { name: 'Width sizing' }), 'Fill')
   await expect(page.getByText('Width of Frame set to fixed: its layers fill it')).toBeVisible()
   await layers.getByRole('button', { name: 'Frame', exact: true }).click()
-  await expect(panel.getByRole('combobox', { name: 'Width sizing' })).toHaveText('Fixed')
+  await expect(panel.getByRole('combobox', { name: 'Width sizing' })).toHaveText(/Fixed$/)
   await expect(panel.getByRole('textbox', { name: 'W in mm' })).toHaveValue(w)
 })
