@@ -35,6 +35,10 @@ test('export names the errors of the preflight but still downloads the pdf', asy
   await exportPdf.click()
   await download
   await expect(page.getByText('Exported Untitled.pdf')).toBeVisible({ timeout: 30000 })
+  const box = (await page.getByText('Exported Untitled.pdf').boundingBox())!
+  const go = (await exportPdf.boundingBox())!
+  expect(box.y + box.height).toBeLessThan(go.y)
+  expect(Math.abs(box.x + box.width - go.x - go.width)).toBeLessThan(2)
 
   await page.keyboard.press('r')
   await drag(page, await screen(page, 20, -1), await screen(page, 40, 20))

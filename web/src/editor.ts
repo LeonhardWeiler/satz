@@ -91,8 +91,9 @@ export class Editor {
   file = UNTITLED
   /** The document has changed since it was last saved to or opened from its file. */
   dirty = false
-  /** The message in the status bar. */
+  /** The message in the status bar, shown above `statusAt` if set. */
   status = ''
+  statusAt: DOMRect | null = null
   /** The engine trapped; nothing is saved any more. */
   broken = false
   /** Typing into the edited text is one undo step until the caret moves. */
@@ -237,8 +238,9 @@ export class Editor {
     }
   }
 
-  say = (status: string) => {
+  say = (status: string, near?: Element | null) => {
     this.status = status
+    this.statusAt = near?.getBoundingClientRect() ?? null
     this.emit()
   }
 

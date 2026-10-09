@@ -25,6 +25,7 @@ import { Tooltip } from './Tooltip'
 
 export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; first: boolean }) {
   const status = useEditor(editor, (e) => e.status)
+  const statusAt = useEditor(editor, (e) => e.statusAt)
   const say = editor.say
   const dirty = useEditor(editor, (e) => e.dirty)
   const name = useEditor(editor, (e) => e.file.name)
@@ -50,7 +51,8 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
     const ext = format === 'jpeg' ? 'jpg' : format
     const type = format === 'pdf' || format === 'zip' ? `application/${format}` : `image/${format}`
     setExporting(true)
-    say(`Exporting ${kind}…`)
+    const near = document.querySelector('.pf-go')
+    say(`Exporting ${kind}…`, near)
     exportFiles(editor, format === 'pdf' || format === 'zip' ? { type: `application/${format}`, title, pages } : { type: `image/${format}`, ppi: editor.snapshot.rasterPpi, pages })
       .then(
         (files) => {
@@ -59,9 +61,9 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
             download(bytes, file, type)
             return file
           })
-          say(`Exported ${names.length > 1 ? `${names.length} pages` : names[0]}`)
+          say(`Exported ${names.length > 1 ? `${names.length} pages` : names[0]}`, near)
         },
-        (e: Error) => say(`Could not export the ${kind}: ${e.message}. Reload the page and try again.`),
+        (e: Error) => say(`Could not export the ${kind}: ${e.message}. Reload the page and try again.`, near),
       )
       .finally(() => setExporting(false))
   }
@@ -295,7 +297,11 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
           })}
         />
       )}
-      <p className="status" role="status">
+      <p
+        className="status"
+        role="status"
+        style={statusAt ? { left: 'auto', right: innerWidth - statusAt.right, bottom: innerHeight - statusAt.top + 8, transform: 'none' } : undefined}
+      >
         {status}
       </p>
     </main>

@@ -1509,7 +1509,7 @@ textarea {
 @keyframes toast {
   from {
     opacity: 0;
-    transform: translate(-50%, 6px);
+    margin-bottom: -6px;
   }
 }
 
