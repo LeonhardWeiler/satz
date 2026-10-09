@@ -94,6 +94,7 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
   const limit = useEditor(editor, (e) => e.snapshot.inkLimit)
   const { preset, cropMarks, includeBleed, colorMode, imagePpi, jpegQuality, rasterPpi } = useEditor(editor, (e) => e.snapshot)
   const previewed = useEditor(editor, (e) => e.previewed)
+  const swatches = useEditor(editor, (e) => e.snapshot.swatches)
   const pointerInk = useEditor(editor, (e) => e.pointerInk)
   usePreview(editor, colorMode === 'cmyk')
 
@@ -168,7 +169,7 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
           <Section title="Separations">
             <div className="plates">
               {PLATES.map(([name, cls], bit) => plate(bit, name, cls))}
-              {previewed?.spots.map((name, i) => plate(4 + i, name, 'spot'))}
+              {(previewed?.spots ?? swatches.filter((s) => s.spot).map((s) => s.name)).map((name, i) => plate(4 + i, name, 'spot'))}
             </div>
           </Section>
           <Section title="Ink coverage">

@@ -136,6 +136,7 @@ test('text marks', async ({ page }) => {
   await rest(page)
   await shot(page, K, '30 text frame selected', 'Text frame selected: ports', [view()], 0)
   await page.mouse.dblclick(...TEXT)
+  await page.mouse.dblclick(...TEXT)
   await shot(page, K, '31 text editing, word selected', 'Editing text with a selected word', [view()], 0)
   await page.keyboard.press('ArrowRight')
   await shot(page, K, '32 text caret', 'Text caret while editing', [view()], 0)
