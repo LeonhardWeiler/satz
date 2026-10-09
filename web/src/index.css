@@ -1710,11 +1710,11 @@ textarea {
 }
 
 .quick > .specimen {
-  width: 160px;
+  width: 110px;
 }
 
-.quick > .grid {
-  width: 240px;
+.quick > .select {
+  width: 170px;
 }
 
 .quick .segmented {
