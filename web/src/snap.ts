@@ -13,8 +13,8 @@ const EPSILON = 1e-6
 
 /** The columns and rows of the layout grids of `s` as spans on their axis in the space of the spread; the lines of a grid span nothing. */
 export function gridSpans(s: Sheet) {
-  const x: [number, number][] = []
-  const y: [number, number][] = []
+  const x: [number, number, number?][] = []
+  const y: [number, number, number?][] = []
   for (const g of s.grids ?? []) {
     if (g.kind === 'grid') {
       for (let at = g.size; at < s.width - EPSILON; at += g.size) x.push([s.x + at, s.x + at])
@@ -25,7 +25,7 @@ export function gridSpans(s: Sheet) {
     const size = (length - 2 * g.margin - g.gutter * (g.count - 1)) / g.count
     for (let i = 0; i < g.count; i++) {
       const at = start + g.margin + i * (size + g.gutter)
-      out.push([at, at + size])
+      out.push([at, at + size, g.margin])
     }
   }
   return { x, y }
@@ -49,8 +49,8 @@ export function targets(sheets: Sheet[], nodes: Node[], grids = false): Lines {
     for (const at of s.guides?.x ?? []) x.push({ at: s.x + at, from: 0, to: s.height })
     for (const at of s.guides?.y ?? []) y.push({ at, from: s.x, to: s.x + s.width })
     const spans = gridSpans(s)
-    for (const at of spans.x.flat()) x.push({ at, from: 0, to: s.height })
-    for (const at of spans.y.flat()) y.push({ at, from: s.x, to: s.x + s.width })
+    for (const at of spans.x.flatMap(([a, b]) => [a, b])) x.push({ at, from: 0, to: s.height })
+    for (const at of spans.y.flatMap(([a, b]) => [a, b])) y.push({ at, from: s.x, to: s.x + s.width })
   }
   for (const n of nodes) {
     box(n)

@@ -377,7 +377,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const [xs, ys] = [[x + dx, x + dx + w / 2, x + dx + w], [y + dy, y + dy + h / 2, y + dy + h]]
       return { p: { x: p.x + dx, y: p.y + dy }, guides: off ? [] : guides({ x: x + dx, y: y + dy, w, h }, lines, xs, ys) }
     }
-    const svgOf = (target?: Box) => {
+    const svgOf = (target?: Box, size?: Box) => {
       const [X, Y] = [(x: number) => view.x + x * view.zoom, (y: number) => view.y + y * view.zoom]
       const line = (x1: number, y1: number, x2: number, y2: number, cls = '') =>
         `<line class="${cls}" x1="${X(x1)}" y1="${Y(y1)}" x2="${X(x2)}" y2="${Y(y2)}"/>`
@@ -390,10 +390,16 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         if (m.dashed) continue
         const t = length(m.length)
         const w = t.length * 6.2 + 10
-        const cx = m.y1 === m.y2 ? X((m.x1 + m.x2) / 2) : X(m.x1) + 9 + w / 2
-        let cy = m.y1 === m.y2 ? Y(m.y1) + 13 : Y((m.y1 + m.y2) / 2)
+        const cx = m.y1 === m.y2 ? X((m.x1 + m.x2) / 2) : X(m.x1)
+        let cy = m.y1 === m.y2 ? Y(m.y1) : Y((m.y1 + m.y2) / 2)
         while (labels.some((l) => Math.abs(l.x - cx) < (l.w + w) / 2 && Math.abs(l.y - cy) < 20)) cy += 20
         labels.push({ x: cx, y: cy, w, h: 18 })
+        tags += `<rect class="label" x="${cx - w / 2}" y="${cy - 9}" width="${w}" height="18" rx="4"/><text x="${cx}" y="${cy}">${t}</text>`
+      }
+      if (size) {
+        const t = `${length(size.w)} × ${length(size.h)}`
+        const w = t.length * 6.2 + 10
+        const [cx, cy] = [X(size.x + size.w / 2), Y(size.y + size.h) + 18]
         tags += `<rect class="label" x="${cx - w / 2}" y="${cy - 9}" width="${w}" height="18" rx="4"/><text x="${cx}" y="${cy}">${t}</text>`
       }
       const moving = drag?.kind === 'swap' ? drag : undefined
@@ -530,7 +536,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         : hovered || (page && { x: page.x, y: 0, w: page.width, h: page.height })
       if (target) measures = measure(sel!, target, snapsNow().others)
       else if (!drag) measures = []
-      const next = svgOf(target)
+      const next = svgOf(target, drag?.kind === 'draw' && drag.id && drag.tool !== 'line' ? sel : undefined)
       if (next !== markup) marks.current!.innerHTML = markup = next
       const at = (axis: 'x' | 'y', o: number) => snapped.filter((g) => g.axis === axis).map((g) => o + g.at * view.zoom)
       drawRuler(rulerX.current!, true, x0, view.zoom * UNITS[settings.unit], sel && [view.x + sel.x * view.zoom, view.x + (sel.x + sel.w) * view.zoom], at('x', view.x))
@@ -779,6 +785,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           editor.beginGroup()
           const { id, dx } = create('path', p)
           editor.set({ pen: { id, anchors: [{ x: p.x - dx, y: p.y, hx: 0, hy: 0 }] }, selection: [] })
+          editor.say('Enter finishes · click the start point closes')
           return
         }
         // Anchors are in the space of the path's page.

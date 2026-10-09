@@ -74,7 +74,7 @@ export function fitView(sheets: Sheet[], width: number, height: number): View {
 
 const BLEED = [56, 174, 224, 0.45] as const
 const CROP = [128, 131, 139, 1] as const
-const GRID = [255, 72, 72, 0.12] as const
+const GRID = [255, 72, 72] as const
 const GUIDE = [0, 170, 255, 0.9] as const
 const FAR = 1e5
 const OVERSET = '#ff6b5e'
@@ -266,13 +266,13 @@ export class Renderer {
     }
     place(canvas)
     if (overlay?.grids) {
-      paint.setColor(ck.Color(...GRID))
       paint.setStrokeWidth(1 / view.zoom)
       for (const s of sheets) {
         const { x, y } = gridSpans(s)
         for (const [spans, across] of [[x, s.height], [y, s.width]] as const) {
-          for (const [a, b] of spans) {
-            const r = spans === x ? ck.XYWHRect(a, 0, b - a, across) : ck.XYWHRect(s.x, a, across, b - a)
+          for (const [a, b, m = 0] of spans) {
+            const r = spans === x ? ck.XYWHRect(a, m, b - a, across - 2 * m) : ck.XYWHRect(s.x + m, a, across - 2 * m, b - a)
+            paint.setColor(ck.Color(...GRID, a === b ? 0.3 : 0.12))
             paint.setStyle(a === b ? ck.PaintStyle.Stroke : ck.PaintStyle.Fill)
             if (a === b) canvas.drawLine(r[0], r[1], r[2], r[3], paint)
             else canvas.drawRect(r, paint)
