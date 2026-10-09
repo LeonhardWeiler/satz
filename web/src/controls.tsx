@@ -202,6 +202,7 @@ export function Select<T extends string>({
   disabled = [],
   breaks = [],
   prefix,
+  search,
   onChange,
 }: {
   label: string
@@ -212,6 +213,7 @@ export function Select<T extends string>({
   breaks?: T[]
   /** Shown before the value, like a field's label. */
   prefix?: ReactNode
+  search?: boolean
   onChange: (v: T) => void
 }) {
   const ref = useRef<HTMLButtonElement>(null)
@@ -245,6 +247,7 @@ export function Select<T extends string>({
             anchor={() => ref.current!.getBoundingClientRect()}
             side="bottom"
             label={label}
+            search={search}
             onClose={() => setHost(null)}
             items={(Object.keys(options) as T[]).flatMap((v) => [[options[v], () => onChange(v), !disabled.includes(v), v === value] as const, ...(breaks.includes(v) ? [null] : [])])}
           />,
@@ -268,7 +271,7 @@ export function FontSelect({ label, faces, missing = [], value, onChange }: { la
   }
   return (
     <div className="grid">
-      <Select label={label} value={face ? family(face) : null} options={families} onChange={pick} />
+      <Select label={label} value={face ? family(face) : null} options={families} search onChange={pick} />
       <Select
         label={`${label} style`}
         value={face?.hash ?? null}

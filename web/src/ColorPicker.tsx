@@ -43,7 +43,7 @@ export function Chip({ color, scope }: { color: Color; scope: Scope }) {
 export const NO_SCOPE: Scope = { swatches: [], collections: [], variables: [], modes: {} }
 
 /** A swatch colour's CMYK values in %, or RGB. */
-export const ink = (c: Color) => (typeof c === 'object' && 'cmyk' in c ? c.cmyk.map((v) => Math.round(v * 100)).join(' ') : 'RGB')
+export const ink = (c: Color) => (typeof c === 'object' && 'cmyk' in c ? c.cmyk.map((v, i) => 'CMYK'[i] + Math.round(v * 100)).join(' ') : 'RGB')
 
 export function SwatchOption({ swatch, selected, onPick }: { swatch: Swatch; selected: boolean; onPick: () => void }) {
   const values = ink(swatch.color)

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Engine } from './engine/engine'
 import { MM, type Editor } from './editor'
 import { discard, open } from './file'
-import { Field, Segmented } from './controls'
+import { Field, Keys, Segmented } from './controls'
 import { length } from './settings'
 import { Icon } from './icons'
 import booklet from '../../examples/booklet.satz?url'
@@ -19,7 +19,7 @@ export const FORMATS: [string, number, number][] = [
   ['A5', 148, 210],
   ['A6', 105, 148],
   ['DL', 99, 210],
-  ['US Letter', 215.9, 279.4],
+  ['Letter', 215.9, 279.4],
 ]
 const EXAMPLES = [
   ['Satz booklet', 'A5, 8 pages, master pages', booklet, 'booklet.satz'],
@@ -27,7 +27,7 @@ const EXAMPLES = [
   ['Sample', 'A5, 1 page with shapes and text', null, 'Untitled.satz'],
 ] as const
 
-export function Start({ editor, first, say, onClose }: { editor: Editor; first: boolean; say: (m: string) => void; onClose: () => void }) {
+export function Start({ editor, say, onClose }: { editor: Editor; say: (m: string) => void; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null)
   const [format, setFormat] = useState('A5')
   const [custom, setCustom] = useState([148 * MM, 210 * MM])
@@ -85,8 +85,7 @@ export function Start({ editor, first, say, onClose }: { editor: Editor; first: 
       aria-label="New document"
       onCancel={(e) => {
         e.preventDefault()
-        if (first) example(booklet, 'booklet.satz')
-        else onClose()
+        onClose()
       }}
       onKeyDown={(e) => {
         const target = e.target as HTMLElement
@@ -121,7 +120,13 @@ export function Start({ editor, first, say, onClose }: { editor: Editor; first: 
                 onClick={() => setFormat(f[0])}
               >
                 <span className="format-box">
-                  <span style={{ width: Math.min(a * k, 64), height: Math.min(b * k, 64) }} />
+                  {f[0] === 'Custom' ? (
+                    <span className="format-custom">
+                      <Icon name="plus" />
+                    </span>
+                  ) : (
+                    <span style={{ width: Math.min(a * k, 64), height: Math.min(b * k, 64) }} />
+                  )}
                 </span>
                 <strong>{f[0]}</strong>
                 <small>
@@ -145,10 +150,17 @@ export function Start({ editor, first, say, onClose }: { editor: Editor; first: 
             Facing pages
           </label>
         </div>
-        <button type="button" className="primary start-create" onClick={create}>
-          Create {format}, {plural(pages)}
-          <kbd>Enter</kbd>
-        </button>
+        <footer className="start-footer">
+          <button type="button" onClick={openFile}>
+            <Icon name="folder" />
+            Open file…
+            <Keys keys="Ctrl O" />
+          </button>
+          <button type="button" className="primary" title={`${format}, ${plural(pages)}`} onClick={create}>
+            Create
+            <Keys keys="Enter" />
+          </button>
+        </footer>
       </div>
       <aside className="start-side">
         <h3>Examples</h3>
@@ -161,14 +173,6 @@ export function Start({ editor, first, say, onClose }: { editor: Editor; first: 
             <small>{text}</small>
           </button>
         ))}
-        <button type="button" className="example" onClick={openFile}>
-          <span>
-            <Icon name="search" />
-            Open file…
-          </span>
-          <small>Ctrl+O</small>
-        </button>
-        <p>{first ? 'Esc opens the booklet' : 'Esc returns to the document'}</p>
       </aside>
     </dialog>
   )

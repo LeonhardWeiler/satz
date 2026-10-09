@@ -6,7 +6,7 @@ const B = [80, 20, 120, 40]
 
 const overset = async (page: Page, at: readonly [number, number]) =>
   (await pixels(page, at[0] - 4, at[1] - 4, 9, 9)).some(([r, g, b]) => r > 200 && g < 110 && b < 110)
-const title = (page: Page) => page.getByRole('complementary', { name: 'Properties' }).getByRole('heading', { level: 2 })
+const title = (page: Page) => page.getByRole('tree', { name: 'Layers' }).locator('[aria-selected=true] .layer-name').first()
 
 /** Page 2 with the story in frame A, more than fits. */
 async function story(page: Page) {

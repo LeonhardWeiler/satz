@@ -43,7 +43,7 @@ const LINE_STYLES = Object.fromEntries(
     </>,
   ]),
 ) as Record<LineStyle, ReactNode>
-const ARROWS = { none: 'None', arrow: 'Arrow' }
+export const ARROWS = { none: 'None', arrow: 'Arrow' }
 
 const SIDES = ['Top', 'Right', 'Bottom', 'Left']
 const STROKE_ALIGNS = [

@@ -61,6 +61,8 @@ export class Editor {
   pointer: Point | undefined
   /** The text layer edited in its frame, which is then the selection. */
   editing: Editing | null = null
+  /** Matches of find and replace, marked on the canvas. */
+  found: { story: string; at: number; end: number }[] = []
   /** The text frame whose out-port was clicked, to thread into the next one clicked. */
   threading: string | null = null
   /** Images to place, the first at the next click on the canvas. */
@@ -309,7 +311,7 @@ export class Editor {
     }
   }
 
-  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'pen' | 'editing' | 'threading' | 'placing' | 'overview' | 'preflight' | 'grids' | 'guide' | 'vector' | 'cropping' | 'inks' | 'previewed'>>) {
+  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'pen' | 'editing' | 'threading' | 'placing' | 'overview' | 'preflight' | 'grids' | 'guide' | 'vector' | 'cropping' | 'inks' | 'previewed' | 'found'>>) {
     const leaves = this.editing && patch.selection && !patch.selection.includes(this.editing.id)
     if (this.vector && ((patch.selection && !patch.selection.includes(this.vector.id)) || (patch.tool && patch.tool !== 'move'))) patch = { vector: null, ...patch }
     if (this.cropping && ((patch.selection && !patch.selection.includes(this.cropping)) || (patch.tool && patch.tool !== 'move'))) patch = { cropping: null, ...patch }

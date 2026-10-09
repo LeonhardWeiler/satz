@@ -36,7 +36,6 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
 
   const [exporting, setExporting] = useState(false)
   const [starting, setStarting] = useState(first)
-  const [started, setStarted] = useState(!first)
   const [dialog, setDialog] = useState<'palette' | 'help' | 'settings' | null>(null)
   const [finding, setFinding] = useState(false)
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
@@ -110,8 +109,10 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
       if (e.altKey && !mod && e.code === 'Digit1') hide('left')
       else if (e.altKey && !mod && e.code === 'Digit2') hide('right')
       else if (e.shiftKey && !mod && !e.altKey && e.code === 'KeyR') hide('rulers')
-      else if (e.shiftKey && !mod && !e.altKey && e.code === 'KeyW') hide('ui')
-      else if (mod && e.shiftKey && e.code === 'KeyE') openExport()
+      else if (e.shiftKey && !mod && !e.altKey && e.code === 'KeyW') {
+        if (!hidden.ui) editor.say('Shift W shows the interface again')
+        hide('ui')
+      } else if (mod && e.shiftKey && e.code === 'KeyE') openExport()
       else if (mod && e.altKey && e.code === 'KeyY') editor.togglePreflight()
       else if (mod && !e.altKey && e.code === 'KeyS') saveFile(e.shiftKey)
       else if (mod && !e.altKey && !e.shiftKey && e.code === 'KeyO') open(editor, say)
@@ -219,7 +220,9 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
       <header className="bar" inert={hidden.ui}>
         <div className="bar-side">
           <Toolbar editor={editor} onPlaceImage={() => placeImages(editor, say)} />
-          <span className="sep" />
+        </div>
+        <Switcher editor={editor} />
+        <div className="bar-side end">
           {toggle('left', 'Left panel', 'Alt+1')}
           {toggle('right', 'Right panel', 'Alt+2')}
           <button
@@ -232,9 +235,7 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
           >
             <Icon name="pages" />
           </button>
-        </div>
-        <Switcher editor={editor} />
-        <div className="bar-side end">
+          <span className="sep" />
           <button type="button" className="tool" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" onClick={() => setDialog('help')}>
             <Icon name="help" />
           </button>
@@ -254,7 +255,7 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
               {issues.length}
             </span>
           </button>
-          <button type="button" className="primary" title="Export PDF (Ctrl+Shift+E)" onClick={openExport}>
+          <button type="button" className="primary" title="Export (Ctrl+Shift+E)" onClick={openExport}>
             Export
           </button>
         </div>
@@ -268,12 +269,8 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
       {starting && (
         <Start
           editor={editor}
-          first={!started}
           say={say}
-          onClose={() => {
-            setStarting(false)
-            setStarted(true)
-          }}
+          onClose={() => setStarting(false)}
         />
       )}
       {finding && <Find editor={editor} onClose={() => setFinding(false)} />}

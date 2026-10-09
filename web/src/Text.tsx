@@ -1,7 +1,7 @@
 import { Fragment, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
-import { Check, Field, FontSelect, NameInput, nextName, Section, Segmented, Select } from './controls'
+import { Check, Field, FontSelect, NameInput, nextName, Section, Segmented, Select, Sides } from './controls'
 import { ColorPicker } from './ColorPicker'
 import { neutral, type Color } from './color'
 import { scopeOf, useEditor, type Editor } from './editor'
@@ -19,12 +19,7 @@ export const ALIGNS = [
   ['right', 'Align right', 'alignRight'],
   ['justify', 'Justify', 'alignJustify'],
 ] as const
-const INSETS = [
-  ['insetTop', 'Top inset', 'insetTop'],
-  ['insetRight', 'Right inset', 'insetRight'],
-  ['insetBottom', 'Bottom inset', 'insetBottom'],
-  ['insetLeft', 'Left inset', 'insetLeft'],
-] as const
+const INSETS = ['insetTop', 'insetRight', 'insetBottom', 'insetLeft'] as const
 const VERTICAL = [
   ['top', 'Align top', 'alignTop'],
   ['center', 'Align middle', 'alignMiddle'],
@@ -49,23 +44,24 @@ const CASES = { original: 'As typed', upper: 'Upper case', lower: 'Lower case', 
 const DECORATIONS = { none: 'No decoration', underline: 'Underline', strikethrough: 'Strikethrough' } as const
 const LISTS = { none: 'No list', bullet: 'Bullets', number: 'Numbers' } as const
 const POSITIONS = { normal: 'Normal position', superscript: 'Superscript', subscript: 'Subscript' } as const
-/** OpenType features: tag, title, a sample it changes and whether fonts apply it unless turned off. */
-const FEATURES: [string, string, string, boolean?][] = [
-  ['kern', 'Kerning', 'AV', true],
-  ['liga', 'Ligatures', 'fi', true],
-  ['dlig', 'Discretionary ligatures', 'ct'],
-  ['smcp', 'Small caps', 'Ab'],
-  ['c2sc', 'Capitals to small caps', 'AB'],
-  ['case', 'Case-sensitive forms', '(H)'],
-  ['lnum', 'Lining figures', '196'],
-  ['onum', 'Oldstyle figures', '196'],
-  ['pnum', 'Proportional figures', '11'],
-  ['tnum', 'Tabular figures', '11'],
-  ['frac', 'Fractions', '1/2'],
-  ['zero', 'Slashed zero', '0'],
-  ['sups', 'Superscript glyphs', 'x2'],
-  ['subs', 'Subscript glyphs', 'x2'],
-  ['ordn', 'Ordinals', '1st'],
+/** OpenType features: tag, title and whether fonts apply it unless turned off. */
+const FEATURES: [string, string, boolean?][] = [
+  ['kern', 'Kerning', true],
+  ['liga', 'Ligatures', true],
+  ['dlig', 'Discretionary ligatures'],
+  ['smcp', 'Small caps'],
+  ['c2sc', 'Capitals to small caps'],
+  ['case', 'Case-sensitive forms'],
+  ['frac', 'Fractions'],
+  ['zero', 'Slashed zero'],
+  ['sups', 'Superscript glyphs'],
+  ['subs', 'Subscript glyphs'],
+  ['ordn', 'Ordinals'],
+]
+/** Features of which one at most applies: title, a sample and the tags with their titles. */
+const FIGURES: [string, string, [string, string][]][] = [
+  ['Figures', '196', [['lnum', 'Lining'], ['onum', 'Oldstyle']]],
+  ['Figure spacing', '11', [['pnum', 'Proportional'], ['tnum', 'Tabular']]],
 ]
 
 /** The text style's name set at its size, within what a panel row takes. */
@@ -105,6 +101,9 @@ export function Specimen({ editor, spans, format }: { editor: Editor; spans: Att
         {current && <span className="specimen-size">{`${current.size}/${current.lineHeight || 'Auto'} pt`}</span>}
         <Icon name="chevron" />
       </button>
+      <button type="button" className="icon-button" aria-label="Create text style" title="Create text style" disabled={!spans.length} onClick={create}>
+        <Icon name="plus" />
+      </button>
       {menu &&
         createPortal(
           <ContextMenu
@@ -120,8 +119,6 @@ export function Specimen({ editor, spans, format }: { editor: Editor; spans: Att
                 true,
                 style === s.id,
               ]),
-              null,
-              ['Create text style', create, spans.length > 0],
             ]}
           />,
           document.body,
@@ -135,11 +132,8 @@ export function TypeOptions({ spans, set }: { spans: Pick<Attrs, Styled>[]; set:
   const [at, setAt] = useState<DOMRect | null>(null)
   const same = <T,>(get: (a: Pick<Attrs, Styled>) => T) => sameOf(spans, get)
   const on = (tag: string, dflt?: boolean) => (a: Pick<Attrs, Styled>) => (dflt ? !a.features.includes(`${tag}=0`) : a.features.includes(tag))
-  const toggle = (tag: string, dflt: boolean | undefined, checked: boolean) => {
-    const rest = (spans[0]?.features ?? []).filter((f) => f !== tag && f !== `${tag}=0`)
-    const own = dflt ? (checked ? [] : [`${tag}=0`]) : checked ? [tag] : []
-    set({ features: [...rest, ...own].sort() })
-  }
+  const put = (drop: string[], add: string[]) =>
+    set({ features: [...(spans[0]?.features ?? []).filter((f) => !drop.some((t) => f === t || f === `${t}=0`)), ...add].sort() })
   return (
     <>
       <button
@@ -170,63 +164,64 @@ export function TypeOptions({ spans, set }: { spans: Pick<Attrs, Styled>[]; set:
                 setAt(null)
               }}
             >
-              <div className="grid">
+              <Group title="Character">
                 <Select label="Case" value={same((a) => a.textCase)} options={CASES} onChange={(textCase) => set({ textCase })} />
                 <Select label="Decoration" value={same((a) => a.textDecoration)} options={DECORATIONS} onChange={(textDecoration) => set({ textDecoration })} />
-                <Field
-                  label={<Icon name="paragraphIndent" />}
-                  title="Paragraph indent"
-                  unit="pt"
-                  reset={0}
-                  value={same((a) => a.paragraphIndent)}
-                  onCommit={(paragraphIndent) => set({ paragraphIndent })}
-                />
+                <Select label="Position" value={same((a) => a.position)} options={POSITIONS} onChange={(position) => set({ position })} />
+                <Field label="Shift" title="Baseline shift" unit="pt" min={-Infinity} reset={0} value={same((a) => a.baselineShift)} onCommit={(baselineShift) => set({ baselineShift })} />
+              </Group>
+              <Group title="Indents & spacing">
+                <Field label="First line" title="First line indent" unit="pt" reset={0} value={same((a) => a.paragraphIndent)} onCommit={(paragraphIndent) => set({ paragraphIndent })} />
                 <Field label="Left" title="Left indent" unit="pt" reset={0} value={same((a) => a.indentLeft)} onCommit={(indentLeft) => set({ indentLeft })} />
                 <Field label="Right" title="Right indent" unit="pt" reset={0} value={same((a) => a.indentRight)} onCommit={(indentRight) => set({ indentRight })} />
                 <Field label="Before" title="Space before" unit="pt" reset={0} value={same((a) => a.spaceBefore)} onCommit={(spaceBefore) => set({ spaceBefore })} />
+                <Field label="After" title="Space after" unit="pt" reset={0} value={same((a) => a.paragraphSpacing)} onCommit={(paragraphSpacing) => set({ paragraphSpacing })} />
+              </Group>
+              <Group title="Paragraph">
                 <Select label="List" value={same((a) => a.list)} options={LISTS} onChange={(list) => set({ list })} />
-                <Select label="Position" value={same((a) => a.position)} options={POSITIONS} onChange={(position) => set({ position })} />
-                <Field
-                  label={<Icon name="baselineShift" />}
-                  title="Baseline shift in pt"
-                  unit="pt"
-                  min={-Infinity}
-                  reset={0}
-                  value={same((a) => a.baselineShift)}
-                  onCommit={(baselineShift) => set({ baselineShift })}
-                />
-                <Field label="Drop" title="Drop cap lines" unit="" int min={0} max={20} reset={0} value={same((a) => a.dropLines)} onCommit={(dropLines) => set({ dropLines })} />
-                <Field label="Chars" title="Drop cap characters" unit="" int min={1} max={20} reset={1} value={same((a) => a.dropChars)} onCommit={(dropChars) => set({ dropChars })} />
                 <Field label="Keep" title="Lines kept together at start and end" unit="" int min={1} max={20} reset={1} value={same((a) => a.keepLines)} onCommit={(keepLines) => set({ keepLines })} />
                 <Check label="Keep lines together" value={same((a) => a.keepTogether)} set={(keepTogether) => set({ keepTogether })} />
                 <Check label="Keep with next" value={same((a) => a.keepNext)} set={(keepNext) => set({ keepNext })} />
-              </div>
+              </Group>
+              <Group title="Drop cap">
+                <Field label="Lines" title="Drop cap lines" unit="" int min={0} max={20} reset={0} value={same((a) => a.dropLines)} onCommit={(dropLines) => set({ dropLines })} />
+                <Field label="Characters" title="Drop cap characters" unit="" int min={1} max={20} reset={1} value={same((a) => a.dropChars)} onCommit={(dropChars) => set({ dropChars })} />
+              </Group>
               <TabStops tabs={same((a) => JSON.stringify(a.tabs))} set={(tabs) => set({ tabs })} />
-              <div className="features" role="group" aria-label="OpenType features">
-                {FEATURES.map(([tag, title, sample, dflt]) => {
-                  const checked = same(on(tag, dflt))
+              <Group title="OpenType">
+                {FIGURES.map(([title, sample, tags]) => {
+                  const value = same((a) => tags.find(([t]) => a.features.includes(t))?.[0] ?? '')
                   return (
-                    <div key={tag} className="row feature-row">
-                      {title}
-                      <div role="radiogroup" aria-label={title} className="segmented">
-                        <button type="button" role="radio" aria-checked={checked === true} aria-label={`${title} on`} title={`${title} on`} onClick={() => toggle(tag, dflt, true)}>
-                          <span className="feature" style={{ fontFeatureSettings: `"${tag}"` }}>
-                            {sample}
-                          </span>
+                    <div key={title} role="radiogroup" aria-label={title} className="segmented figures">
+                      {[['', 'Default'], ...tags].map(([tag, name]) => (
+                        <button key={tag} type="button" role="radio" aria-checked={value === tag} aria-label={`${name} ${title.toLowerCase()}`} title={`${name} ${title.toLowerCase()}`} onClick={() => put(tags.map(([t]) => t), tag ? [tag] : [])}>
+                          {tag ? <span className="feature" style={{ fontFeatureSettings: `"${tag}"` }}>{sample}</span> : 'Auto'}
                         </button>
-                        <button type="button" role="radio" aria-checked={checked === false} aria-label={`${title} off`} title={`${title} off`} onClick={() => toggle(tag, dflt, false)}>
-                          –
-                        </button>
-                      </div>
+                      ))}
                     </div>
                   )
                 })}
-              </div>
+                {FEATURES.map(([tag, title, dflt]) => (
+                  <Check key={tag} label={title} value={same(on(tag, dflt))} set={(c) => put([tag], dflt ? (c ? [] : [`${tag}=0`]) : c ? [tag] : [])} />
+                ))}
+              </Group>
             </Popover>
           </div>,
           document.body,
         )}
     </>
+  )
+}
+
+function Group({ title, action, children }: { title: string; action?: ReactNode; children?: ReactNode }) {
+  return (
+    <div role="group" aria-label={title} className="options-group">
+      <header>
+        <h4>{title}</h4>
+        {action}
+      </header>
+      {children && <div className="grid">{children}</div>}
+    </div>
   )
 }
 
@@ -237,7 +232,15 @@ function TabStops({ tabs, set }: { tabs: string | null; set: (tabs: Tab[]) => vo
   const list: Tab[] = tabs === null ? [] : JSON.parse(tabs)
   const put = (i: number, t: Partial<Tab>) => set(list.with(i, { ...list[i], ...t }).sort((a, b) => a.at - b.at))
   return (
-    <div className="tab-stops" role="group" aria-label="Tab stops">
+    <div className="tab-stops">
+      <Group
+        title="Tabs"
+        action={
+          <button type="button" className="icon-button" aria-label="Add tab stop" title="Add tab stop" onClick={() => set([...list, { at: (list.at(-1)?.at ?? 0) + 36, align: 'left', leader: '' }])}>
+            <Icon name="plus" />
+          </button>
+        }
+      />
       {list.map((t, i) => (
         <div key={i} className="row">
           <Field label="Tab" title={`Tab stop ${i + 1}`} unit="length" value={t.at} onCommit={(at) => put(i, { at })} />
@@ -251,9 +254,6 @@ function TabStops({ tabs, set }: { tabs: string | null; set: (tabs: Tab[]) => vo
           </button>
         </div>
       ))}
-      <button type="button" className="button" onClick={() => set([...list, { at: (list.at(-1)?.at ?? 0) + 36, align: 'left', leader: '' }])}>
-        Add tab stop
-      </button>
     </div>
   )
 }
@@ -292,7 +292,7 @@ function Characters({ editor, node, font }: { editor: Editor; node: TextNode; fo
     <>
       <button
         type="button"
-        className="icon-button page-number"
+        className="icon-button"
         aria-label="Insert character"
         title="Insert character"
         aria-haspopup="menu"
@@ -300,7 +300,7 @@ function Characters({ editor, node, font }: { editor: Editor; node: TextNode; fo
         onMouseDown={(e) => e.preventDefault()}
         onClick={(e) => setAt(e.currentTarget.getBoundingClientRect())}
       >
-        <Icon name="pageNumber" />
+        <Icon name="omega" />
       </button>
       {at &&
         createPortal(
@@ -329,6 +329,7 @@ const faces = new Set<number>()
 /** All characters of the font `font`, found by name, code point or themselves, and inserted on click. */
 function Glyphs({ editor, font, at, put, onClose }: { editor: Editor; font?: string; at: DOMRect; put: (c: string) => void; onClose: () => void }) {
   const [query, setQuery] = useState('')
+  const [hover, setHover] = useState('')
   const [[id, chars]] = useState(() => editor.engine.characters(font) as [number, [number, string][]])
   const family = `satz-font-${id}`
   if (!faces.has(id)) {
@@ -357,12 +358,13 @@ function Glyphs({ editor, font, at, put, onClose }: { editor: Editor; font?: str
           {shown.map(([c, name]) => {
             const code = `U+${c.toString(16).toUpperCase().padStart(4, '0')}`
             return (
-              <button key={c} type="button" title={`${name} ${code}`.trim()} aria-label={name || code} onMouseDown={(e) => e.preventDefault()} onClick={() => put(String.fromCodePoint(c))}>
+              <button key={c} type="button" title={`${name} ${code}`.trim()} aria-label={name || code} onMouseEnter={() => setHover(`${name} ${code}`.trim())} onMouseDown={(e) => e.preventDefault()} onClick={() => put(String.fromCodePoint(c))}>
                 {String.fromCodePoint(c)}
               </button>
             )
           })}
         </div>
+        <div className="glyph-name">{hover || `${shown.length} characters`}</div>
       </Popover>
     </div>
   )
@@ -523,23 +525,21 @@ export function TextFrameSection({ editor, node, set }: { editor: Editor; node: 
     <Section title="Text frame">
       <Segmented
         label="Resizing"
+        prefix="Size"
         value={resizing}
         options={RESIZING}
         disabled={(v) => (v === 'autoWidth' && !!(node.prev || node.next)) || (v !== 'autoWidth' && v !== 'fixedSize' && !!node.next)}
         onChange={(mode) => (mode === 'autoFit' ? editor.resize([node], mode) : set({ sizing: textSizing(node.sizing, mode) }))}
       />
+      <Sides key={node.id} what="inset" values={INSETS.map((p) => node[p])} set={(v) => set(Object.fromEntries(INSETS.map((p, i) => [p, v[i]])))} />
       <div className="grid">
-        {INSETS.map(([prop, title, label]) => (
-          <Field key={prop} label={<Icon name={label} />} title={title} unit="length" reset={0} value={node[prop]} onCommit={(v) => set({ [prop]: v })} />
-        ))}
-        <Field label={<Icon name="columns" />} title="Columns" unit="" int min={1} max={20} reset={1} value={node.columns} onCommit={(columns) => set({ columns })} />
-        <Field label={<Icon name="gutter" />} title="Gutter" unit="length" value={node.gutter} onCommit={(gutter) => set({ gutter })} />
-        <Field label={<Icon name="baselineGrid" />} title="Baseline grid" unit="pt" zero="Off" reset={0} value={node.baselineGrid} onCommit={(baselineGrid) => set({ baselineGrid })} />
-        <Field label={<Icon name="baselineStart" />} title="Baseline grid start" unit="pt" reset={0} value={node.baselineStart} onCommit={(baselineStart) => set({ baselineStart })} />
-        {resizing === 'autoHeight' && (
-          <Field label="Min" title="Min height" unit="length" zero="Off" reset={0} value={node.minHeight} onCommit={(minHeight) => set({ minHeight })} />
-        )}
+        <Field label="Columns" title="Columns" unit="" int min={1} max={20} reset={1} value={node.columns} onCommit={(columns) => set({ columns })} />
+        <Field label="Gutter" title="Gutter" unit="length" value={node.gutter} onCommit={(gutter) => set({ gutter })} />
+        <Field label="Baseline" title="Baseline grid" unit="pt" zero="Off" reset={0} value={node.baselineGrid} onCommit={(baselineGrid) => set({ baselineGrid })} />
+        <Field label="Start" title="Baseline grid start" unit="pt" reset={0} value={node.baselineStart} onCommit={(baselineStart) => set({ baselineStart })} />
+        <Field label="Min" title="Min height" unit="length" zero="Off" reset={0} disabled={resizing !== 'autoHeight'} value={node.minHeight} onCommit={(minHeight) => set({ minHeight })} />
         <Field label="Lines" title="Max lines" unit="" int max={1000} zero="Off" reset={0} value={node.maxLines} onCommit={(maxLines) => set({ maxLines })} />
+        <Segmented label="Vertical align" prefix="Align" value={node.verticalAlign} options={VERTICAL} onChange={(verticalAlign) => set({ verticalAlign })} />
         <Check label="Trim to cap height" value={node.trim} set={(trim) => set({ trim })} />
       </div>
       {node.columns > 1 && (
@@ -550,10 +550,9 @@ export function TextFrameSection({ editor, node, set }: { editor: Editor; node: 
           color={rule && rule.color}
           set={(color) => set({ columnRule: color ? { weight: 1, color } : { ...rule!, weight: 0 } })}
         >
-          {rule && <Field label="" title="Column rule weight" unit="pt" value={rule.weight} onCommit={(weight) => set({ columnRule: { ...rule, weight } })} />}
+          {rule && <Field label="Weight" title="Column rule weight" unit="pt" value={rule.weight} onCommit={(weight) => set({ columnRule: { ...rule, weight } })} />}
         </ColorCheck>
       )}
-      <Segmented label="Vertical align" value={node.verticalAlign} options={VERTICAL} onChange={(verticalAlign) => set({ verticalAlign })} />
     </Section>
   )
 }

@@ -472,6 +472,9 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           }))
         }
       }
+      const found = editor.found.slice(0, 200).flatMap((m) =>
+        editor.spread.map((p) => ({ ops: editor.engine.textOverlay(m.story, m.at, m.end, 0, p.id).slice(), x: p.x })),
+      )
       const spread = editor.spread
       const pen = editor.pen
       const penDx = pen ? editor.dx(pen.id) : 0
@@ -482,6 +485,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       renderer.reprofile(editor.snapshot.profile ?? '')
       renderer.draw(surface.getCanvas(), lists, editor.sheets, view, canvas.width / canvas.clientWidth, {
         text,
+        found,
         accent: (accent ||= getComputedStyle(canvas).getPropertyValue('--accent')),
         selection: editor.selection.length > 1 || ed || drag?.kind === 'marquee' ? editor.selected().map(outline) : [],
         hover: image && cursor ? { x: cursor.x - image.w / 2, y: cursor.y - image.h / 2, w: image.w, h: image.h } : over && outline(over),
@@ -511,9 +515,14 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         const { clientWidth: vw, clientHeight: vh } = canvas
         const w = bar.offsetWidth
         const h = bar.offsetHeight
-        const top = view.y + sel.y * view.zoom - h - 14
-        bar.style.left = `${Math.min(Math.max(view.x + (sel.x + sel.w / 2) * view.zoom - w / 2, 8), vw - w - 8)}px`
-        bar.style.top = `${Math.min(Math.max(top >= 8 ? top : view.y + (sel.y + sel.h) * view.zoom + 14, 8), vh - h - 8)}px`
+        const x = Math.min(Math.max(view.x + (sel.x + sel.w / 2) * view.zoom - w / 2, 8), vw - w - 8)
+        const above = view.y + sel.y * view.zoom - h - 14
+        const below = view.y + (sel.y + sel.h) * view.zoom + 14
+        const others = editor.spread.flatMap((p) => p.children.map(covered)).filter((n) => !n.hidden && !editor.selection.includes(n.id))
+        const covers = (top: number) =>
+          others.some((n) => view.x + n.x * view.zoom < x + w && view.x + (n.x + n.w) * view.zoom > x && view.y + n.y * view.zoom < top + h && view.y + (n.y + n.h) * view.zoom > top)
+        bar.style.left = `${x}px`
+        bar.style.top = `${Math.min(Math.max(above >= 8 && (!covers(above) || covers(below)) ? above : below, 8), vh - h - 8)}px`
       }
       const page = pointer ? pageAt(toDoc(pointer), editor.sheets) : undefined
       const target = !alt || !sel || drag || ed || pen || editor.tool !== 'move'

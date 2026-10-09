@@ -8,6 +8,9 @@ import { useSettings } from './settings'
 
 type Drop = { id: string; at: 'above' | 'below' | 'into' }
 
+const flows = (n: object) => 'direction' in n && n.direction !== 'none'
+const inOrder = (nodes: Node[], flow: boolean) => (flow ? nodes : nodes.toReversed())
+
 export function Layers({ editor }: { editor: Editor }) {
   const page = useEditor(editor, (e) => e.page)
   const selection = useEditor(editor, (e) => e.selection)
@@ -37,8 +40,8 @@ export function Layers({ editor }: { editor: Editor }) {
     editor.set({ renaming: null })
   }
 
-  const shown = (nodes: Node[]): Node[] =>
-    nodes.toReversed().flatMap((n) => [n, ...('children' in n && !collapsed.has(n.id) ? shown(n.children) : [])])
+  const shown = (nodes: Node[], flow = false): Node[] =>
+    inOrder(nodes, flow).flatMap((n) => [n, ...('children' in n && !collapsed.has(n.id) ? shown(n.children, flows(n)) : [])])
   const stop = pages.flatMap((p) => shown(p.children)).find((n) => selection.includes(n.id))?.id ?? pages[0].children.at(-1)?.id
 
   const onKey = (e: KeyboardEvent<HTMLUListElement>) => {
@@ -89,14 +92,14 @@ export function Layers({ editor }: { editor: Editor }) {
         type: 'move',
         ids: dragging,
         parent: parent.id,
-        index: at === 'above' ? i + 1 : i,
+        index: (at === 'above') !== flows(parent) ? i + 1 : i,
       })
     }
     setDrop(null)
   }
 
-  const rows = (nodes: Node[], level: number): ReactNode =>
-    nodes.toReversed().map((node) => {
+  const rows = (nodes: Node[], level: number, flow = false): ReactNode =>
+    inOrder(nodes, flow).map((node) => {
       const mask = nodes.slice(nodes.indexOf(node) + 1).find((n) => n.mask)
       const kids = 'children' in node && node.children.length > 0
       const open = kids && !collapsed.has(node.id)
@@ -199,7 +202,7 @@ export function Layers({ editor }: { editor: Editor }) {
               </button>
             </span>
           </div>
-          {open && <ul role="group">{rows(node.children, level + 1)}</ul>}
+          {open && <ul role="group">{rows(node.children, level + 1, flows(node))}</ul>}
         </li>
       )
     })

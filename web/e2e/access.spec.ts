@@ -83,7 +83,7 @@ test('the fonts of this computer are listed and picked like added ones', async (
   const select = page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Font', exact: true })
   await select.click()
   await page.keyboard.press('d')
-  await expect(page.getByRole('menuitemradio', { name: 'DM Mono' })).toBeFocused()
+  await expect(page.getByRole('menuitemradio')).toHaveText(['DM Mono'])
   await page.keyboard.press('Enter')
   await expect(select).toHaveText('DM Mono')
   await page.keyboard.press('Escape')

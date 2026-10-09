@@ -112,6 +112,8 @@ export const ACTIONS: Action[] = [
   { title: 'Rectangle tool', keys: 'R', group: 'Tools' },
   { title: 'Ellipse tool', keys: 'O', group: 'Tools' },
   { title: 'Line tool', keys: 'L', group: 'Tools' },
+  { title: 'Polygon tool', keys: 'Y', group: 'Tools' },
+  { title: 'Star tool', keys: 'S', group: 'Tools' },
   { title: 'Pen tool', keys: 'P', group: 'Tools' },
   { title: 'Text tool', keys: 'T', group: 'Tools' },
   { title: 'Eyedropper', keys: 'I', group: 'Tools' },

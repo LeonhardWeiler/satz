@@ -31,15 +31,13 @@ export function Switcher({ editor }: { editor: Editor }) {
           )
         })}
       </span>
-      {k < spreads.length - 1 ? (
-        <button type="button" aria-label="Next spread" title="Next spread (PgDn)" onClick={() => go(k + 1)}>
-          <Icon name="chevron" />
-        </button>
-      ) : (
-        <button type="button" aria-label="Add page" title="Add page" onClick={() => editor.showPage(editor.apply({ type: 'addPage', after: pages.at(-1)!.id })[0])}>
-          <Icon name="plus" />
-        </button>
-      )}
+      <span className="switcher-total">/ {pages.length}</span>
+      <button type="button" aria-label="Next spread" title="Next spread (PgDn)" disabled={k >= spreads.length - 1} onClick={() => go(k + 1)}>
+        <Icon name="chevron" />
+      </button>
+      <button type="button" aria-label="Add page" title="Add page" onClick={() => editor.showPage(editor.apply({ type: 'addPage', after: pages.at(-1)!.id })[0])}>
+        <Icon name="plus" />
+      </button>
     </nav>
   )
 }

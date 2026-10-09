@@ -13,6 +13,7 @@ export function Swatches({ editor }: { editor: Editor }) {
   const mode = useEditor(editor, (e) => e.snapshot.colorMode)
   const [editing, setEditing] = useState<string | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
+  const [open, setOpen] = useState(true)
   const [menu, setMenu] = useState<{ x: number; y: number; id: string } | null>(null)
   const list = useRef<HTMLDivElement>(null)
   const swatch = swatches.find((s) => s.id === editing)
@@ -43,12 +44,17 @@ export function Swatches({ editor }: { editor: Editor }) {
     <section className="panel swatches" aria-label="Swatches" onPointerDown={editor.gesture}>
       <Edge side="swatches" />
       <header className="panel-header">
-        <h2>Swatches</h2>
+        <button type="button" className="panel-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
+          <span className="chevron" data-open={open || undefined}>
+            <Icon name="chevron" />
+          </span>
+          <h2>Swatches</h2>
+        </button>
         <button type="button" className="icon-button" aria-label="Add swatch" title="Add swatch" onClick={add}>
           <Icon name="plus" />
         </button>
       </header>
-      <div ref={list} role="listbox" aria-label="Swatches" className="swatch-list">
+      <div ref={list} role="listbox" aria-label="Swatches" className="swatch-list" hidden={!open}>
         {swatches.map((s) => (
           <div
             key={s.id}

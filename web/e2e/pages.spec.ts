@@ -43,16 +43,16 @@ test('pages are added, shown, reordered, duplicated and deleted with undo', asyn
   await expect(row(3)).toBeVisible()
 })
 
-test('the last spread adds a page where the next one would be', async ({ page }) => {
+test('the spread navigation counts the pages and adds one at the end', async ({ page }) => {
   await open(page)
   const spreads = page.getByRole('navigation', { name: 'Spreads' })
-  await expect(spreads.getByRole('button', { name: 'Next spread' })).toHaveCount(0)
+  await expect(spreads.getByRole('button', { name: 'Next spread' })).toBeDisabled()
   await spreads.getByRole('button', { name: 'Add page' }).click()
   await expect(current(page, 2)).toHaveAttribute('aria-pressed', 'true')
   await spreads.getByRole('button', { name: 'Add page' }).click()
   await expect(current(page, 3)).toHaveAttribute('aria-pressed', 'true')
+  await expect(spreads).toContainText('/ 3')
   await page.keyboard.press('Home')
-  await expect(spreads.getByRole('button', { name: 'Add page' })).toHaveCount(0)
   await spreads.getByRole('button', { name: 'Next spread' }).click()
   await expect(current(page, 2)).toHaveAttribute('aria-pressed', 'true')
 })

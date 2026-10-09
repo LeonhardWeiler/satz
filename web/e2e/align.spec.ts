@@ -9,11 +9,20 @@ test('layers align to each other, a single layer to its frame, and three distrib
     return Promise.all(['X in mm', 'W in mm'].map(async (f) => Number(await panel.getByRole('textbox', { name: f, exact: true }).inputValue())))
   }
   const x = async (name: string) => (await box(name))[0]
-  await layers.getByRole('button', { name: 'Sun', exact: true }).click()
-  await layers.getByRole('button', { name: 'Triangle', exact: true }).click({ modifiers: ['Control'] })
-  await expect(panel.getByRole('button', { name: 'Distribute horizontal spacing' })).toBeDisabled()
+  const pick = async () => {
+    await layers.getByRole('button', { name: 'Sun', exact: true }).click()
+    await layers.getByRole('button', { name: 'Triangle', exact: true }).click({ modifiers: ['Control'] })
+  }
+  await pick()
+  await expect(panel.getByRole('button', { name: 'Distribute horizontal spacing' })).toHaveCount(0)
   await panel.getByRole('button', { name: 'Align left' }).click()
   expect(await x('Triangle')).toBe(await x('Sun'))
+  await pick()
+  await panel.getByRole('button', { name: 'Align to the parent frame or page' }).click()
+  await panel.getByRole('button', { name: 'Align left' }).click()
+  expect(await x('Triangle')).toBe(0)
+  await page.keyboard.press('Control+z')
+  await layers.getByRole('button', { name: 'Sun', exact: true }).click()
 
   await page.keyboard.press('Alt+A')
   expect(await x('Sun')).toBe(0)

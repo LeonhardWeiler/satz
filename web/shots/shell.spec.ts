@@ -6,7 +6,7 @@ const D = '02 Dialogs'
 test('start dialog', async ({ page }) => {
   await start(page, { doc: null })
   const d = page.getByRole('dialog', { name: 'New document' })
-  await shot(page, D, '01 new document, first launch', 'New document dialog on first launch (Esc opens the booklet)')
+  await shot(page, D, '01 new document, first launch', 'New document dialog on first launch (Esc closes)')
   await shot(page, D, '02 new document, close-up', 'New document dialog, close-up', [d])
   await d.getByText('Custom', { exact: true }).click()
   await shot(page, D, '03 new document, custom format', 'Custom format with W and H fields', [d])

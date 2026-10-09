@@ -1,10 +1,10 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Select } from './controls'
 import { useEditor, type Editor } from './editor'
 import type { Node, Snapshot } from './model'
 import { Icon } from './icons'
 
-type Match = { story: string; at: number; end: number }
+type Match = Editor['found'][number]
 
 /** Every match of `find` in the stories in page order, in whole words or case if asked, in text of the text style `style` if given. */
 function matches(snapshot: Snapshot, find: string, matchCase: boolean, words: boolean, style: string): Match[] {
@@ -39,6 +39,10 @@ export function Find({ editor, onClose }: { editor: Editor; onClose: () => void 
   const snapshot = useEditor(editor, (e) => e.snapshot)
   const editing = useEditor(editor, (e) => e.editing)
   const all = useMemo(() => matches(snapshot, find, matchCase, words, style), [snapshot, find, matchCase, words, style])
+  useEffect(() => {
+    editor.set({ found: all })
+    return () => editor.set({ found: [] })
+  }, [editor, all])
   const story = editing && editor.nodes.get(editing.id)?.node
   const head = story?.kind === 'text' ? story.story : null
   const lo = editing ? Math.min(editing.anchor, editing.focus) : 0
@@ -86,11 +90,13 @@ export function Find({ editor, onClose }: { editor: Editor; onClose: () => void 
             placeholder="Find"
             autoFocus
             autoComplete="off"
+            aria-invalid={!!find && !all.length}
             value={find}
             onChange={(e) => setFind(e.currentTarget.value)}
             onKeyDown={(e) => e.key === 'Enter' && next(e.shiftKey ? -1 : 1)}
           />
         </label>
+        <span className="find-acts">
         <span className="find-count" aria-live="polite">
           {find && (current >= 0 ? `${current + 1} of ${all.length}` : `${all.length} found`)}
         </span>
@@ -103,28 +109,31 @@ export function Find({ editor, onClose }: { editor: Editor; onClose: () => void 
         <button type="button" className="icon-button" aria-label="Close" onClick={onClose}>
           <Icon name="close" />
         </button>
+        </span>
       </div>
       <div className="find-row">
         <label className="field">
           <input aria-label="Replace with" placeholder="Replace with" autoComplete="off" value={replace} onChange={(e) => setReplace(e.currentTarget.value)} onKeyDown={(e) => e.key === 'Enter' && replaceOne()} />
         </label>
-        <button type="button" className="button" disabled={!all.length} onClick={replaceOne}>
-          Replace
-        </button>
-        <button type="button" className="button" disabled={!all.length} onClick={replaceAll}>
-          All
-        </button>
+        <span className="find-acts">
+          <button type="button" className="button" disabled={!all.length} onClick={replaceOne}>
+            Replace
+          </button>
+          <button type="button" className="button" disabled={!all.length} onClick={replaceAll}>
+            Replace all
+          </button>
+        </span>
       </div>
-      <div className="find-row">
+      <div className="find-row find-options">
         <label className="check">
           <input type="checkbox" checked={matchCase} onChange={(e) => setMatchCase(e.currentTarget.checked)} />
-          Case
+          Match case
         </label>
         <label className="check">
           <input type="checkbox" checked={words} onChange={(e) => setWords(e.currentTarget.checked)} />
           Whole words
         </label>
-        <Select label="In text style" value={style} options={Object.fromEntries([['', 'Any style'], ...snapshot.textStyles.map((s) => [s.id, s.name])])} onChange={setStyle} />
+        <Select label="In text style" prefix="Style" value={style} options={Object.fromEntries([['', 'any'], ...snapshot.textStyles.map((s) => [s.id, s.name])])} onChange={setStyle} />
       </div>
     </section>
   )

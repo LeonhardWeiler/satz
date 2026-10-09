@@ -31,7 +31,7 @@ test('a new text is edited in its frame: typing, arrows, backspace, enter, escap
 
   await page.keyboard.press('Escape')
   await expect(page.getByRole('textbox', { name: 'Text editor' })).toHaveCount(0)
-  await expect(panel.getByRole('heading', { level: 2 })).toHaveText('HeLlo World')
+  await expect(layers.getByRole('button', { name: 'HeLlo World', exact: true })).toBeVisible()
   await page.keyboard.press('Control+z')
   await expect(layers.getByRole('button', { name: 'HeLlo', exact: true })).toBeVisible()
   await expect(height).toHaveValue(lines(1))
@@ -187,7 +187,7 @@ test('enter edits the points of a shape, moving, adding and deleting them', asyn
   await page.keyboard.press('Enter')
   await expect(tools.getByRole('button', { name: 'Move point' })).toHaveAttribute('aria-pressed', 'true')
   await drag(page, await screen(page, 60, 60), await screen(page, 80, 60))
-  await expect(props.getByRole('textbox', { name: 'W' })).toHaveValue('60')
+  await expect(props.getByRole('textbox', { name: 'W in mm' })).toHaveValue('60')
 
   await page.keyboard.press('p')
   await expect(tools.getByRole('button', { name: 'Add point' })).toHaveAttribute('aria-pressed', 'true')
@@ -199,7 +199,7 @@ test('enter edits the points of a shape, moving, adding and deleting them', asyn
   await expect(props.getByRole('textbox', { name: 'H' })).toHaveValue('40')
   await tools.getByRole('button', { name: 'Delete point' }).click()
   await page.mouse.click(...(await screen(page, 80, 60)))
-  await expect(props.getByRole('textbox', { name: 'W' })).toHaveValue('40')
+  await expect(props.getByRole('textbox', { name: 'W in mm' })).toHaveValue('40')
 
   await page.keyboard.press('Enter')
   await expect(tools).toHaveCount(0)
@@ -214,10 +214,10 @@ test('a marquee in path edit mode picks several points to move and delete togeth
   await page.keyboard.press('Enter')
   await drag(page, await screen(page, 55, -8), await screen(page, 70, 70))
   await drag(page, await screen(page, 60, 20), await screen(page, 80, 20))
-  await expect(props.getByRole('textbox', { name: 'W' })).toHaveValue('60')
+  await expect(props.getByRole('textbox', { name: 'W in mm' })).toHaveValue('60')
   await expect(props.getByRole('textbox', { name: 'H' })).toHaveValue('40')
   await page.keyboard.press('Delete')
-  await expect(props.getByRole('textbox', { name: 'W' })).toHaveValue('0')
+  await expect(props.getByRole('textbox', { name: 'W in mm' })).toHaveValue('0')
   await expect(page.getByRole('toolbar', { name: 'Path tools' })).toBeVisible()
 })
 
@@ -295,7 +295,7 @@ test('the eyedropper gives the selection the fill and stroke of the layer clicke
 
 test('ctrl click and the path tools make a point smooth or a corner', async ({ page }) => {
   await open(page)
-  const w = page.getByRole('complementary', { name: 'Properties' }).getByRole('textbox', { name: 'W' })
+  const w = page.getByRole('complementary', { name: 'Properties' }).getByRole('textbox', { name: 'W in mm' })
   const tools = page.getByRole('toolbar', { name: 'Path tools' })
   await page.keyboard.press('r')
   await drag(page, await screen(page, 20, 20), await screen(page, 60, 60))

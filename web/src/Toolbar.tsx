@@ -11,8 +11,8 @@ const SHAPES: (Entry & { tool: Shape })[] = [
   { tool: 'rect', label: 'Rectangle', key: 'R', icon: 'rect' },
   { tool: 'line', label: 'Line', key: 'L', icon: 'line' },
   { tool: 'ellipse', label: 'Ellipse', key: 'O', icon: 'ellipse' },
-  { tool: 'polygon', label: 'Polygon', key: '', icon: 'polygon' },
-  { tool: 'star', label: 'Star', key: '', icon: 'star' },
+  { tool: 'polygon', label: 'Polygon', key: 'Y', icon: 'polygon' },
+  { tool: 'star', label: 'Star', key: 'S', icon: 'star' },
 ]
 const POINTS = [
   { mode: 'move', label: 'Move point', key: 'V', icon: 'move' },
@@ -82,8 +82,9 @@ export function Toolbar({ editor, onPlaceImage }: { editor: Editor; onPlaceImage
             <Icon name={icon} />
           </button>
         ))}
-        <button type="button" className="button" title="Done (Enter)" onClick={() => editor.set({ vector: null })}>
+        <button type="button" className="primary" onClick={() => editor.set({ vector: null })}>
           Done
+          <Keys keys="Enter" />
         </button>
       </div>
     )
@@ -118,7 +119,7 @@ export function Toolbar({ editor, onPlaceImage }: { editor: Editor; onPlaceImage
           <Icon name="chevron" />
         </button>
         {open && (
-          <Popover anchor={() => group.current!.getBoundingClientRect()} side="top" className="menu" role="menu" aria-label="Shape tools">
+          <Popover anchor={() => group.current!.getBoundingClientRect()} side="top" className="menu shapes" role="menu" aria-label="Shape tools">
             {SHAPES.map(({ tool, label, key, icon }) => (
               <button
                 key={tool}
@@ -131,6 +132,7 @@ export function Toolbar({ editor, onPlaceImage }: { editor: Editor; onPlaceImage
                   setOpen(false)
                 }}
               >
+                <span>{active === tool && <Icon name="check" />}</span>
                 <Icon name={icon} />
                 <span>{label}</span>
                 <Keys keys={key} />

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { bounds, MM, type Editor } from './editor'
 import { Icon, type IconName } from './icons'
 import type { Node } from './model'
@@ -35,13 +36,13 @@ export const ALIGNS: [Align, string, IconName, string][] = [
 ]
 
 /**
- * Aligns `layers` to their bounds, or a single layer to its parent frame or page;
+ * Aligns `layers` to their bounds, or a single layer or with `toParent` all to the parent frame or page;
  * distributes and tidies three and two layers or more.
  */
-export function align(editor: Editor, how: Align, layers = editor.selected()) {
+export function align(editor: Editor, how: Align, layers = editor.selected(), toParent = false) {
   const nodes = layers.filter((n) => !n.locked)
-  const parent = nodes.length === 1 && editor.nodes.get(nodes[0].id)?.parent
-  const to = nodes.length > 1 ? bounds(nodes) : parent && parent.kind === 'frame' ? parent : { x: 0, y: 0, w: editor.page.width, h: editor.page.height }
+  const parent = nodes.length > 0 && editor.nodes.get(nodes[0].id)?.parent
+  const to = nodes.length > 1 && !toParent ? bounds(nodes) : parent && parent.kind === 'frame' ? parent : { x: 0, y: 0, w: editor.page.width, h: editor.page.height }
   const moves = new Map<Node, [number, number]>()
   const sorted = (x: 'x' | 'y', w: 'w' | 'h') => [...nodes].sort((a, b) => a[x] + a[w] / 2 - b[x] - b[w] / 2)
   const spread = (x: 'x' | 'y', w: 'w' | 'h') => {
@@ -112,21 +113,32 @@ export function setGap(editor: Editor, { axis, nodes }: Row, gap: number) {
   })
 }
 
-/** A button for each alignment of the selection, or of the layers `inside` a group, those it cannot do disabled. */
+/** A button for each alignment of the selection, to itself or its parent, or of the layers `inside` a group; those it cannot do are left out. */
 export function AlignBar({ editor, inside }: { editor: Editor; inside?: Node[] }) {
+  const [toParent, setToParent] = useState(false)
   const n = inside?.length ?? editor.selection.length
+  const parent = !inside && n > 1 && toParent
   return (
     <div role="toolbar" aria-label={inside ? 'Align inside' : 'Align'} className="align">
-      {inside && <span className="align-inside">Inside</span>}
-      {ALIGNS.map(([how, title, icon, key]) => (
+      {inside ? (
+        <span className="align-inside" title="Aligns the layers inside the group">
+          <Icon name="group" />
+        </span>
+      ) : (
+        n > 1 && (
+          <button type="button" className="icon-button" aria-label="Align to the parent frame or page" title="Align to the parent frame or page" aria-pressed={toParent} onClick={() => setToParent(!toParent)}>
+            <Icon name="frame" />
+          </button>
+        )
+      )}
+      {ALIGNS.filter(([how]) => n >= (how === 'tidy' ? 2 : how.startsWith('distribute') ? 3 : 1) && !(parent && how === 'tidy')).map(([how, title, icon, key]) => (
         <button
           key={how}
           type="button"
           className="icon-button"
           aria-label={title}
           title={inside ? `${title} inside the group` : `${title} (${key})`}
-          disabled={n < (how === 'tidy' ? 2 : how.startsWith('distribute') ? 3 : 1)}
-          onClick={() => align(editor, how, inside)}
+          onClick={() => align(editor, how, inside, parent)}
         >
           <Icon name={icon} />
         </button>

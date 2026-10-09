@@ -553,7 +553,7 @@ impl Default for TextFrame {
             inset_bottom: 0.0,
             inset_left: 0.0,
             columns: 1,
-            gutter: 12.0,
+            gutter: 4.0 * 72.0 / 25.4,
             vertical_align: VerticalAlign::Top,
             baseline_grid: 0.0,
             baseline_start: 0.0,

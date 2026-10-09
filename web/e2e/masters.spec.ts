@@ -79,7 +79,7 @@ test('a page draws the layers of its master under its own, which a click does no
   const shown = await colors(page, [await inside(page), await outside(page)])
   expect(shown.map(gray)).toEqual([true, false])
   await page.mouse.click(...(await inside(page)))
-  await expect(title(page)).toHaveText('Page')
+  await expect(title(page)).toHaveText('Document')
 })
 
 test('ctrl+shift+click overrides a master layer with a copy on the page', async ({ page }) => {
@@ -92,7 +92,7 @@ test('reset to master removes the override, undo brings it back and the page res
   await overridden(page)
   await page.getByRole('complementary', { name: 'Properties' }).getByRole('button', { name: 'Reset to master' }).click()
   await expect(rects(page)).toHaveCount(2)
-  await expect(title(page)).toHaveText('Page')
+  await expect(title(page)).toHaveText('Document')
   await page.keyboard.press('Control+z')
   await expect(rects(page)).toHaveCount(3)
 

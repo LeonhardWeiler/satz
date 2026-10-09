@@ -190,7 +190,7 @@ test('marquee, group, enter the group and undo', async ({ page }) => {
   await expect(title).toHaveText('Group')
   await expect(groups).toHaveCount(1)
   await page.mouse.dblclick(...at(0.5, 0.5))
-  await expect(title).toHaveText(/^Satz sets type/)
+  await expect(title).toHaveText('Text frame')
   await page.keyboard.press('Escape')
   await expect(title).toHaveText('Group')
   await page.keyboard.press('Control+z')
@@ -285,7 +285,7 @@ test('a cmyk document exports cmyk and spot colours and matches the canvas', asy
   await page.keyboard.press('Escape')
   await page.keyboard.press('Escape')
   await page.keyboard.press('Escape')
-  await expect(panel.getByRole('heading', { level: 2 })).toHaveText('Page')
+  await expect(panel.getByRole('heading', { level: 2 })).toHaveText('Document')
   await page.mouse.move(1, 1)
 
   const pdf = await expectCanvasMatchesPdf(page, 1, [1], undefined, MAX_SHARE_DARK)
@@ -368,7 +368,7 @@ test('an auto layout frame with a colour variable in a second mode matches the c
   await page.keyboard.press('Escape')
   await page.keyboard.press('Escape')
   await page.keyboard.press('Escape')
-  await expect(panel.getByRole('heading', { level: 2 })).toHaveText('Page')
+  await expect(panel.getByRole('heading', { level: 2 })).toHaveText('Document')
   await page.mouse.move(1, 1)
   await expectCanvasMatchesPdf(page)
 })
@@ -383,6 +383,7 @@ test('formatted text matches the canvas', async ({ page }) => {
   }
   await panel.getByRole('radio', { name: 'Align right' }).click()
   await choose(panel.getByRole('combobox', { name: 'Hyphenation language' }), 'German')
+  await panel.getByRole('button', { name: 'Inset of each side' }).click()
   for (const [name, value] of [['Top inset in mm', '3'], ['Columns', '2'], ['Gutter in mm', '4'], ['Baseline grid in pt', '21']]) {
     await panel.getByRole('textbox', { name }).fill(value)
     await panel.getByRole('textbox', { name }).press('Enter')

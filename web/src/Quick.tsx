@@ -1,16 +1,17 @@
 import { useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { AlignBar } from './align'
+import { AlignBar, BooleanBar, combinable } from './align'
 import { Sizing } from './AutoLayout'
-import { Chip, NO_SCOPE } from './ColorPicker'
+import { Chip, NO_SCOPE, Picker } from './ColorPicker'
 import { neutral, solid, type Color } from './color'
 import { ContextMenu } from './ContextMenu'
 import { gradient } from './Paints'
-import { Field, Segmented } from './controls'
+import { Field, Segmented, Select } from './controls'
 import { scopeOf, useEditor, type Editor } from './editor'
 import { Icon } from './icons'
 import { isOpen, type Fill, type Node, type Props, type TextProps } from './model'
 import { Popover } from './Popover'
+import { ARROWS } from './Properties'
 import { ALIGNS, Font, sameOf, Specimen, TypeOptions } from './Text'
 
 type Paint = 'fills' | 'strokes'
@@ -20,7 +21,7 @@ export function Quick({ editor }: { editor: Editor }) {
   useEditor(editor, (e) => e.selection)
   const cropping = useEditor(editor, (e) => e.cropping)
   const snapshot = useEditor(editor, (e) => e.snapshot)
-  const [menu, setMenu] = useState<{ at: DOMRect; paint: Paint } | null>(null)
+  const [menu, setMenu] = useState<{ at: DOMRect; paint: Paint; custom?: boolean } | null>(null)
   const [fitAt, setFitAt] = useState<DOMRect | null>(null)
   const nodes = editor.selected()
   if (nodes.length === 0) return null
@@ -56,7 +57,7 @@ export function Quick({ editor }: { editor: Editor }) {
         ) : p?.type === 'linear' || p?.type === 'radial' ? (
           <span className="chip" style={{ background: gradient(p, scope) }} />
         ) : (
-          <Icon name={p ? 'image' : 'minus'} />
+          p ? <Icon name="image" /> : <span className="chip none" />
         )}
       </button>
     )
@@ -66,6 +67,7 @@ export function Quick({ editor }: { editor: Editor }) {
   return (
     <>
       {nodes.length > 1 && <AlignBar editor={editor} />}
+      {combinable(editor) && <BooleanBar editor={editor} />}
       {one?.kind === 'group' && one.children.length > 1 && <AlignBar editor={editor} inside={one.children} />}
       {one && <Sizing editor={editor} node={one} set={set} />}
       {one?.kind === 'text' && (
@@ -81,6 +83,12 @@ export function Quick({ editor }: { editor: Editor }) {
       {stroked && button('strokes', 'Stroke color')}
       {stroked && one && one.strokes.length > 0 && (
         <Field label={<Icon name="strokeWeight" />} title="Stroke weight" unit="pt" value={one.strokeWeight} onCommit={(strokeWeight) => set({ strokeWeight })} />
+      )}
+      {one && isOpen(one) && one.strokes.length > 0 && (
+        <>
+          <Select label="Start point" prefix="Start" value={one.arrowStart ? 'arrow' : 'none'} options={ARROWS} onChange={(v) => set({ arrowStart: v === 'arrow' })} />
+          <Select label="End point" prefix="End" value={one.arrowEnd ? 'arrow' : 'none'} options={ARROWS} onChange={(v) => set({ arrowEnd: v === 'arrow' })} />
+        </>
       )}
       {one && one.ppi !== undefined && (
         <>
@@ -111,24 +119,43 @@ export function Quick({ editor }: { editor: Editor }) {
         </>
       )}
       {one?.kind === 'shape' && (one.shape === 'polygon' || one.shape === 'star') && (
-        <Field label="N" title="Count" unit="" int min={3} max={60} value={one.count} onCommit={(count) => set({ count })} />
+        <Field label="Points" title="Points" unit="" int min={3} max={60} value={one.count} onCommit={(count) => set({ count })} />
       )}
-      {menu &&
+      {menu?.custom &&
+        createPortal(
+          <Picker
+            anchor={() => menu.at}
+            side="right"
+            label={menu.paint === 'fills' ? 'Fill color' : 'Stroke color'}
+            color={nodes[0][menu.paint].findLast((f) => f.visible && f.type === 'solid')?.color ?? neutral('black', snapshot.colorMode)}
+            mode={snapshot.colorMode}
+            scope={scopeOf(snapshot, nodes[0].activeModes)}
+            tabs
+            onChange={(c) => set({ [menu.paint]: [solid(c)] })}
+            onClose={() => setMenu(null)}
+          />,
+          document.body,
+        )}
+      {menu && !menu.custom &&
         createPortal(
           <ContextMenu
             anchor={() => menu.at}
             side="bottom"
             label={menu.paint === 'fills' ? 'Fill color' : 'Stroke color'}
             onClose={() => setMenu(null)}
-            items={colors.map(([name, color, chip]) => [
-              <>
-                {chip ?? (color ? <Chip color={color} scope={NO_SCOPE} /> : <span className="chip none" />)}
-                {name}
-              </>,
-              () => set({ [menu.paint]: color ? [solid(color)] : [] }),
-              true,
-              JSON.stringify(current(menu.paint) ?? null) === JSON.stringify(color),
-            ])}
+            items={[
+              ...colors.map(([name, color, chip]): [ReactNode, () => void, boolean, boolean] => [
+                <>
+                  {chip ?? (color ? <Chip color={color} scope={NO_SCOPE} /> : <span className="chip none" />)}
+                  {name}
+                </>,
+                () => set({ [menu.paint]: color ? [solid(color)] : [] }),
+                true,
+                JSON.stringify(current(menu.paint) ?? null) === JSON.stringify(color),
+              ]),
+              null,
+              ['Custom…', () => setMenu({ ...menu, custom: true }), true],
+            ]}
           />,
           document.body,
         )}
@@ -181,10 +208,13 @@ function Adjust({ node, set }: { node: Node; set: (props: Props) => void }) {
                 setAt(null)
               }}
             >
-              <div className="grid">
+              <div className="adjust">
                 {ADJUST.map((name, i) => (
                   <Field key={name} label={name} unit="%" int min={-100} max={100} reset={0} value={Math.round(adjust[i] * 100)} onCommit={(v) => change(i, v)} />
                 ))}
+                <button type="button" className="button" disabled={adjust.every((v) => !v)} onClick={() => set({ fills: node.fills.map((f) => (f.type === 'image' ? { ...f, adjust: [0, 0, 0] } : f)) })}>
+                  Reset
+                </button>
               </div>
             </Popover>
           </div>,

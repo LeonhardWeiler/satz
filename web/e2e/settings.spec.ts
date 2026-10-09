@@ -54,7 +54,7 @@ test('the layers of the spread are listed under a heading for each page', async 
   await expect(tree.getByRole('button', { name: 'Page 2' })).toHaveCount(0)
 
   await page.keyboard.press('Control+Comma')
-  await choose(page.getByRole('dialog', { name: 'Settings' }).getByRole('combobox', { name: 'Layers' }), 'Of the spread')
+  await choose(page.getByRole('dialog', { name: 'Settings' }).getByRole('combobox', { name: 'Layers panel shows' }), 'Current spread')
   await page.keyboard.press('Escape')
   await expect(tree.getByRole('button', { name: /^Page \d$/ })).toHaveText(['Page 2', 'Page 3'])
   await tree.getByRole('button', { name: 'Page 2' }).click()
