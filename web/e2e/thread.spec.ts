@@ -41,10 +41,11 @@ async function acrossPages(page: Page) {
   return { second, third: (await title(page).textContent())! }
 }
 
-test('a frame with more text than fits shows a red out-port', async ({ page }) => {
+test('a frame with more text than fits shows a red out-port and the words left', async ({ page }) => {
   await story(page)
   await page.mouse.move(1, 1)
   expect(await overset(page, await port(page, A, true))).toBe(true)
+  await expect(page.locator('.marks')).toContainText(/\+\d+ words/)
 })
 
 test('a click on the out-port and then on a frame threads the story on into it', async ({ page }) => {

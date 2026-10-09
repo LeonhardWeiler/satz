@@ -393,6 +393,12 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         if (!n || n.hidden) continue
         const b = covered(n)
         if (n.overrideOf) tags += `<rect class="label override" x="${X(b.x)}" y="${Y(b.y + b.h) + 8}" width="62" height="18" rx="4"/><text x="${X(b.x) + 31}" y="${Y(b.y + b.h) + 17}">Override</text>`
+        const words = n.kind === 'text' ? editor.oversetWords(n) : 0
+        if (words) {
+          const t = `+${words} word${words === 1 ? '' : 's'}`
+          const w = t.length * 6.2 + 10
+          tags += `<rect class="label overset" x="${X(b.x + b.w) - w}" y="${Y(b.y + b.h) + 8}" width="${w}" height="18" rx="4"/><text x="${X(b.x + b.w) - w / 2}" y="${Y(b.y + b.h) + 17}">${t}</text>`
+        }
         if (n.wrap === 'none') continue
         svg += `<rect class="wrap" x="${X(b.x - n.wrapOffsetX)}" y="${Y(b.y - n.wrapOffsetY)}" width="${(b.w + 2 * n.wrapOffsetX) * view.zoom}" height="${(b.h + 2 * n.wrapOffsetY) * view.zoom}"/>`
       }

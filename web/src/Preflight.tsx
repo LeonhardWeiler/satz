@@ -10,9 +10,9 @@ import type { Issue, Preset } from './model'
 const PPI = 48
 const PLATES = [['Cyan', 'c'], ['Magenta', 'm'], ['Yellow', 'y'], ['Black', 'k']]
 
-const problem = (i: Issue) =>
+const problem = (i: Issue, editor: Editor) =>
   i.problem === 'missingFont' ? `Missing font ${i.font}`
-  : i.problem === 'overset' ? 'Overset text'
+  : i.problem === 'overset' ? `Overset text · ${count(words(editor, i.layer), 'word')} left`
   : i.problem === 'shortOfBleed' ? 'Short of the bleed'
   : i.problem === 'lowPpi' ? `Image at ${Math.round(i.ppi)} ppi`
   : i.problem === 'gamut' ? 'Colour outside the gamut'
@@ -24,6 +24,10 @@ export const isError = (i: Issue) => ['overset', 'missingFont', 'shortOfBleed', 
 const options = (values: number[], unit: string, zero: string, v: number) =>
   Object.fromEntries([...new Set([0, ...values, v])].map((n) => [String(n), n ? `${n} ${unit}` : zero]))
 const count = (n: number, what: string) => `${n} ${what}${n === 1 ? '' : 's'}`
+const words = (editor: Editor, id: string) => {
+  const n = editor.nodes.get(id)?.node
+  return n?.kind === 'text' ? editor.oversetWords(n) : 0
+}
 
 /** Keeps the inks of the shown pages from the worker in `editor.previewed` while mounted, between drags. */
 function usePreview(editor: Editor, on: boolean) {
@@ -138,8 +142,8 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
                   onClick={() => show(i)}
                 >
                   <Icon name={isError(i) ? 'error' : 'warn'} />
-                  <span className="iss-m" title={`${i.name} · ${problem(i)}`}>
-                    <strong>{i.name}</strong> · {problem(i)}
+                  <span className="iss-m" title={`${i.name} · ${problem(i, editor)}`}>
+                    <strong>{i.name}</strong> · {problem(i, editor)}
                   </span>
                   <span className="iss-w">{where(i.page)}</span>
                 </button>

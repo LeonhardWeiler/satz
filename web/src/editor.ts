@@ -329,6 +329,10 @@ export class Editor {
     return this.snapshot.stories[n.story]
   }
 
+  oversetWords(n: TextNode) {
+    return n.overset ? (this.storyOf(n)?.text.slice(n.end).match(/\S+/g)?.length ?? 0) : 0
+  }
+
   /** Resizes the text layers of `nodes` by `mode` where their thread allows; auto fit makes a text of one line auto width and else auto height. */
   resize(nodes: Node[], mode: Resizing | 'autoFit') {
     this.batch(() => {
