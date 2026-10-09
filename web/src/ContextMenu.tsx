@@ -23,6 +23,7 @@ export function ContextMenu({
   const [query, setQuery] = useState('')
   const q = query.trim().toLowerCase()
   const radio = items.some((it) => it?.[3] !== undefined)
+  const first = items.every((it) => !it || it[3] !== undefined) ? Math.max(0, items.findIndex((it) => it?.[3])) : 0
   const shown = q ? items.filter((it) => it && String(it[0]).toLowerCase().includes(q)) : items
   const [back] = useState(() => document.activeElement as HTMLElement | null)
   useEffect(() => {
@@ -85,7 +86,7 @@ export function ContextMenu({
             aria-checked={checked}
             className={String(label).startsWith('Delete') ? 'menu-item danger' : 'menu-item'}
             disabled={!enabled}
-            autoFocus={!search && i === Math.max(0, items.findIndex((it) => it?.[3]))}
+            autoFocus={!search && i === first}
             onClick={() => {
               onClose()
               run()

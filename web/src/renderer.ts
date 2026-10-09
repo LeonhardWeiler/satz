@@ -561,6 +561,7 @@ export class Renderer {
         const r = screen(handles)
         canvas.drawRect(r, paint)
         for (const x of [r[0], r[2]]) for (const y of [r[1], r[3]]) square(x, y, HANDLE)
+        if (r[3] - r[1] > 4 * HANDLE) for (const x of [r[0], r[2]]) square(x, (r[1] + r[3]) / 2, HANDLE)
         for (const p of radii ?? []) {
           paint.setStyle(ck.PaintStyle.Fill)
           paint.setColor(ck.WHITE)

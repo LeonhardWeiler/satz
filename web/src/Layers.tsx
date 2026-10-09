@@ -17,6 +17,7 @@ export function Layers({ editor }: { editor: Editor }) {
   const renaming = useEditor(editor, (e) => e.renaming)
   const all = useEditor(editor, (e) => e.snapshot.pages)
   const pages = useSettings().layers === 'spread' ? editor.spread : [page]
+  const master = all.includes(page) ? editor.masterOf(page) : undefined
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
   const [drop, setDrop] = useState<Drop | null>(null)
   const [dragging, setDragging] = useState<string[]>([])
@@ -234,6 +235,26 @@ export function Layers({ editor }: { editor: Editor }) {
             ))
           : rows(page.children, 1)}
       </ul>
+      {master && (
+        <div className="layers-master">
+          <button type="button" className="layer layer-master" aria-expanded={collapsed.has('master')} onClick={() => toggle('master')}>
+            <span className="chevron" data-open={collapsed.has('master') || undefined}>
+              <Icon name="chevron" />
+            </span>
+            <Icon name="master" />
+            Master {master.name}
+          </button>
+          {collapsed.has('master') && (
+            <ul>
+              {[...new Set(master.children.toReversed().map((n) => n.name))].map((name) => (
+                <li key={name} className="layer layer-master">
+                  {name}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </nav>
   )
 }

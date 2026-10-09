@@ -422,6 +422,34 @@ button {
   cursor: pointer;
 }
 
+.layers-master {
+  padding: 0 8px 8px;
+}
+
+.layers-master ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.layer-master {
+  width: 100%;
+  padding-left: 22px;
+  border: 0;
+  background: none;
+  color: var(--text-3);
+  font: inherit;
+}
+
+button.layer-master {
+  padding-left: 4px;
+  cursor: pointer;
+}
+
+.layer-master svg {
+  color: var(--master);
+}
+
 .layer-name {
   flex: 1;
   min-width: 0;
