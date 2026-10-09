@@ -128,9 +128,9 @@ test('a placed image exports as the canvas shows it', async ({ page }) => {
 
   const go = await exportButton(page)
   const region = page.getByRole('region', { name: 'Preflight' })
-  for (const [name, value] of [['Image resolution in ppi', '72'], ['JPEG quality in %', '80']]) {
-    await region.getByRole('textbox', { name }).fill(value)
-    await region.getByRole('textbox', { name }).press('Enter')
+  for (const [name, value] of [['Image resolution', '72 ppi'], ['JPEG quality', '75 %']]) {
+    await region.getByRole('combobox', { name }).click()
+    await page.getByRole('menuitemradio', { name: value }).click()
   }
   const download = page.waitForEvent('download')
   await go.click()

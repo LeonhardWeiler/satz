@@ -120,7 +120,7 @@ test('preflight in the booklet separates the plates, reports ink over the limit 
   await expect(limit).toHaveValue('400')
   await limit.fill('200')
   await limit.press('Enter')
-  await expect(region.getByRole('button', { name: /above the limit/ }).first()).toBeVisible()
+  await expect(region.getByRole('button', { name: /% ink/ }).first()).toBeVisible()
   await expect(region.locator('.kv strong.bad')).toHaveText(/^\d+ %/)
 
   const zoom = await page.getByLabel('Zoom').textContent()

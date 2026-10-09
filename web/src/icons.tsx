@@ -148,18 +148,6 @@ const ICONS = {
   capSquare: <path d="M13 5H3v6h10M6 7v2" />,
   chevron: <path d="m6.5 4 4 4-4 4" />,
   left: <path d="m9.5 4-4 4 4 4" />,
-  spot: (
-    <>
-      <circle cx="8" cy="8" r="5.5" />
-      <circle cx="8" cy="8" r="1" fill="currentColor" />
-    </>
-  ),
-  process: (
-    <>
-      <circle cx="8" cy="8" r="5.5" />
-      <path d="M8 2.5v11M2.5 8h11" />
-    </>
-  ),
   close: <path d="m4 4 8 8M12 4l-8 8" />,
   check: <path d="m3.5 8.5 3 3 6-7" />,
   plus: <path d="M8 4.5v7M4.5 8h7" />,

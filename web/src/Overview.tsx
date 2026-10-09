@@ -497,9 +497,18 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
                     ['Delete master', () => editor.apply({ type: 'deleteMaster', id: menu.id }), true],
                   ]
                 : [
+                    ['Insert page', () => show(editor.apply({ type: 'addPage', after: menu.id })[0]), true],
                     ['Duplicate page', () => show(editor.apply({ type: 'duplicatePage', id: menu.id })[0]), true],
-                    ['Delete page', () => editor.deletePages(selected), selected.length < pages.length],
                     ['Master like page', () => addMaster(menu.id), true],
+                    null,
+                    ...[null, ...masters].map((m): [string, () => void, boolean, boolean] => [
+                      m ? `Master ${m.name}` : 'No master',
+                      () => editor.batch(() => selected.forEach((page) => editor.apply({ type: 'useMaster', page, master: m?.id ?? null }))),
+                      true,
+                      pages.find((p) => p.id === menu.id)?.master === (m?.id ?? null),
+                    ]),
+                    null,
+                    ['Delete page', () => editor.deletePages(selected), selected.length < pages.length],
                   ]
             }
           />,

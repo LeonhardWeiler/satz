@@ -1,5 +1,6 @@
 import { align, ALIGNS, BOOLEANS, combinable, combine } from './align'
 import type { Editor } from './editor'
+import type { Props } from './model'
 import { settings } from './settings'
 
 /** A command by its title, shortcut and group; one without `run` runs by pressing its shortcut, one whose `can` fails is greyed out in the context menu. */
@@ -7,6 +8,14 @@ export type Action = { title: string; keys: string; group: string; run?: (editor
 
 const pageOrLast = (editor: Editor) =>
   editor.snapshot.pages.some((p) => p.id === editor.pageId) ? editor.pageId : editor.snapshot.pages.at(-1)!.id
+
+export function addPage(editor: Editor) {
+  const [id] = editor.apply({ type: 'addPage', after: pageOrLast(editor) })
+  if (id) editor.showPage(id)
+}
+
+const STYLE = ['fills', 'strokes', 'strokeWeight', 'strokeAlign', 'join', 'cap', 'lineStyle', 'opacity', 'blend', 'effects'] as const
+let copied: Props = {}
 
 export const ACTIONS: Action[] = [
   { title: 'New document', keys: 'Ctrl Alt N', group: 'File' },
@@ -31,15 +40,7 @@ export const ACTIONS: Action[] = [
   { title: 'Previous spread', keys: 'PgUp', group: 'Pages' },
   { title: 'First spread', keys: 'Home', group: 'Pages' },
   { title: 'Last spread', keys: 'End', group: 'Pages' },
-  {
-    title: 'Add page',
-    keys: '',
-    group: 'Pages',
-    run: (editor) => {
-      const [id] = editor.apply({ type: 'addPage', after: pageOrLast(editor) })
-      if (id) editor.showPage(id)
-    },
-  },
+  { title: 'Add page', keys: 'Ctrl Shift P', group: 'Pages', run: addPage },
   {
     title: 'Delete selected pages',
     keys: '',
@@ -94,8 +95,24 @@ export const ACTIONS: Action[] = [
   { title: 'Bring to front', keys: 'Ctrl Shift ]', group: 'Arrange' },
   { title: 'Send backward', keys: 'Ctrl [', group: 'Arrange' },
   { title: 'Send to back', keys: 'Ctrl Shift [', group: 'Arrange' },
-  { title: 'Hide selection', keys: 'Ctrl Shift H', group: 'Arrange' },
-  { title: 'Lock selection', keys: 'Ctrl Shift L', group: 'Arrange' },
+  { title: 'Hide', keys: 'Ctrl Shift H', group: 'Arrange' },
+  { title: 'Lock', keys: 'Ctrl Shift L', group: 'Arrange' },
+  {
+    title: 'Copy style',
+    keys: '',
+    group: 'Edit',
+    run: (editor) => {
+      const n = editor.selected()[0] as Props
+      copied = Object.fromEntries(STYLE.filter((k) => k in n).map((k) => [k, n[k]]))
+    },
+  },
+  {
+    title: 'Paste style',
+    keys: '',
+    group: 'Edit',
+    can: () => Object.keys(copied).length > 0,
+    run: (editor) => editor.batch(() => editor.selected().forEach((n) => editor.apply({ type: 'set', id: n.id, ...copied }))),
+  },
   { title: 'Rename', keys: 'F2', group: 'Edit' },
   ...BOOLEANS.map(([op, title, , keys]): Action => ({ title, keys: keys.replaceAll('+', ' '), group: 'Arrange', run: (editor) => combine(editor, op), can: combinable })),
   ...ALIGNS.map(([how, title, , keys]): Action => ({ title, keys: keys.replaceAll('+', ' '), group: 'Align', run: (editor) => align(editor, how) })),
@@ -124,7 +141,8 @@ export const ACTIONS: Action[] = [
 
 /** The titles of the actions the context menu offers with and without a selection, `null` between groups. */
 export const MENU = {
-  selected: ['Cut', 'Copy', 'Paste', 'Duplicate', 'Delete', null, 'Group', 'Frame selection', 'Ungroup', 'Use as mask', 'Flatten', 'Flip horizontal', 'Flip vertical', 'Add auto layout', null, 'Bring to front', 'Send to back', null, 'Hide selection', 'Lock selection', 'Rename'],
+  selected: ['Cut', 'Copy', 'Paste', 'Duplicate', null, 'Copy style', 'Paste style', null, 'Group', 'Frame selection', 'Ungroup', 'Add auto layout', 'Transform', null, 'Bring forward', 'Send backward', 'Bring to front', 'Send to back', null, 'Hide', 'Lock', 'Rename', null, 'Delete'],
+  transform: ['Use as mask', 'Flatten', 'Flip horizontal', 'Flip vertical'],
   none: ['Paste', 'Select all', null, 'Undo', 'Redo', null, 'Zoom to fit', 'Show or hide rulers', 'Add page', 'Page overview', null, 'Command palette', 'Keyboard shortcuts', 'Settings'],
 }
 

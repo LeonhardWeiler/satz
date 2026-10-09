@@ -58,7 +58,7 @@ export function SwatchOption({ swatch, selected, onPick }: { swatch: Swatch; sel
           <Icon name="warn" />
         </span>
       ) : (
-        <Icon name={swatch.spot ? 'spot' : 'process'} />
+        swatch.spot ? <span className="badge">Spot</span> : <span />
       )}
     </button>
   )
@@ -302,7 +302,7 @@ export function Picker({
                   label={'CMYK'[i]}
                   title={ink}
                   unit=""
-                  value={cmyk.cmyk[i] * 100}
+                  value={Math.round(cmyk.cmyk[i] * 100)}
                   onCommit={(p) => onChange({ ...cmyk, cmyk: cmyk.cmyk.map((c, j) => (j === i ? clamp(p / 100) : c)) })}
                 />
               ))}

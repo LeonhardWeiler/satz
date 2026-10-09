@@ -16,11 +16,13 @@ const problem = (i: Issue) =>
   : i.problem === 'shortOfBleed' ? 'Short of the bleed'
   : i.problem === 'lowPpi' ? `Image at ${Math.round(i.ppi)} ppi`
   : i.problem === 'gamut' ? 'Colour outside the gamut'
-  : i.problem === 'ink' ? `Ink at ${Math.round(i.ink)} %, above the limit`
+  : i.problem === 'ink' ? `${Math.round(i.ink)} % ink`
   : i.problem === 'nearTrim' ? `${length(i.distance)} from the trim`
   : 'RGB color'
 
 export const isError = (i: Issue) => ['overset', 'missingFont', 'shortOfBleed', 'ink'].includes(i.problem)
+const options = (values: number[], unit: string, zero: string, v: number) =>
+  Object.fromEntries([...new Set([0, ...values, v])].map((n) => [String(n), n ? `${n} ${unit}` : zero]))
 const count = (n: number, what: string) => `${n} ${what}${n === 1 ? '' : 's'}`
 
 /** Keeps the inks of the shown pages from the worker in `editor.previewed` while mounted, between drags. */
@@ -86,7 +88,7 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
   useSettings()
   const inks = useEditor(editor, (e) => e.inks)
   const limit = useEditor(editor, (e) => e.snapshot.inkLimit)
-  const { preset, cropMarks, includeBleed, colorMode, imagePpi, jpegQuality } = useEditor(editor, (e) => e.snapshot)
+  const { preset, cropMarks, includeBleed, colorMode, imagePpi, jpegQuality, rasterPpi } = useEditor(editor, (e) => e.snapshot)
   const previewed = useEditor(editor, (e) => e.previewed)
   const pointerInk = useEditor(editor, (e) => e.pointerInk)
   usePreview(editor, colorMode === 'cmyk')
@@ -109,7 +111,7 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
       <input type="checkbox" checked={(inks.on & (1 << bit)) !== 0} onChange={() => set({ on: inks.on ^ (1 << bit) })} />
       <i className="ink" />
       <span>{name}</span>
-      <span className="plate-max">{previewed ? `max ${Math.round(previewed.max[bit] ?? 0)} %` : ''}</span>
+      <span className="plate-max">{previewed ? `max ${Math.round(previewed.max[bit] ?? 0)} %` : '…'}</span>
     </label>
   )
   const highest = previewed?.highest ?? 0
@@ -136,8 +138,8 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
                   onClick={() => show(i)}
                 >
                   <Icon name={isError(i) ? 'error' : 'warn'} />
-                  <span className="iss-m">
-                    <strong>{i.name}</strong> {problem(i)}
+                  <span className="iss-m" title={`${i.name} · ${problem(i)}`}>
+                    <strong>{i.name}</strong> · {problem(i)}
                   </span>
                   <span className="iss-w">{where(i.page)}</span>
                 </button>
@@ -176,12 +178,12 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
             <div className="kv">
               <span>Highest</span>
               <strong className={highest > limit + 0.5 ? 'bad' : ''}>
-                {Math.round(highest)} %
+                {previewed ? `${Math.round(highest)} %` : '…'}
               </strong>
             </div>
             <div className="kv">
               <span>Under pointer</span>
-              <strong>{pointerInk === null ? 'Point at a colour' : `${pointerInk} %`}</strong>
+              <strong title={pointerInk === null ? 'Point at a colour' : undefined}>{pointerInk === null ? '—' : `${pointerInk} %`}</strong>
             </div>
           </Section>
           </>
@@ -205,8 +207,8 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
                 <input type="checkbox" checked={includeBleed} disabled={preset === 'screen'} onChange={(e) => editor.apply({ type: 'setDocument', includeBleed: e.currentTarget.checked })} />
                 Include {length(pages[0]?.bleed ?? 0)} bleed
               </label>
-              <Field label="Images" title="Image resolution" unit="ppi" zero="Keep" min={72} max={2400} reset={0} value={imagePpi} onCommit={(imagePpi) => editor.apply({ type: 'setDocument', imagePpi })} />
-              <Field label="JPEG" title="JPEG quality" unit="%" int zero="Lossless" min={1} max={100} reset={0} value={jpegQuality} onCommit={(jpegQuality) => editor.apply({ type: 'setDocument', jpegQuality })} />
+              <Select label="Image resolution" prefix="Images" value={String(imagePpi)} options={options([72, 150, 300], 'ppi', 'Keep', imagePpi)} onChange={(v) => editor.apply({ type: 'setDocument', imagePpi: Number(v) })} />
+              <Select label="JPEG quality" prefix="JPEG quality" value={String(jpegQuality)} options={options([90, 75], '%', 'Lossless', jpegQuality)} onChange={(v) => editor.apply({ type: 'setDocument', jpegQuality: Number(v) })} />
             </>
           )}
           <label className="field">
@@ -221,6 +223,10 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
               onChange={(e) => setRange(e.currentTarget.value)}
             />
           </label>
+          {chosen === null && <p className="pf-error">Pages 1 to {pages.length}, like 1-3, 5</p>}
+          {(format === 'png' || format === 'jpeg') && (
+            <Field label="Resolution" title="Resolution" unit="ppi" min={72} max={1200} reset={300} value={rasterPpi} onCommit={(rasterPpi) => editor.apply({ type: 'setDocument', rasterPpi })} />
+          )}
           <button type="button" className="primary pf-go" disabled={exporting || chosen === null} onClick={() => chosen && onExport(format, chosen)}>
             {exporting ? 'Exporting…' : errors ? `Export with ${count(errors, 'error')}` : `Export ${FORMATS[format]}`}
           </button>

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { CanvasKit } from 'canvaskit-wasm'
 import { Canvas, isTyping } from './Canvas'
 import { Edge, NameInput } from './controls'
-import { ACTIONS, comboOf, keysOf, MENU, press } from './commands'
+import { ACTIONS, addPage, comboOf, keysOf, MENU, press } from './commands'
 import { ContextMenu } from './ContextMenu'
 import { useEditor, type Editor } from './editor'
 import { Help } from './Help'
@@ -38,7 +38,7 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
   const [starting, setStarting] = useState(first)
   const [dialog, setDialog] = useState<'palette' | 'help' | 'settings' | null>(null)
   const [finding, setFinding] = useState(false)
-  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
+  const [menu, setMenu] = useState<{ x: number; y: number; transform?: boolean } | null>(null)
   const [renaming, setRenaming] = useState(false)
   const selected = useEditor(editor, (e) => e.selection.length > 0)
   const [hidden, setHidden] = useState({ left: false, right: false, ui: false, rulers: false })
@@ -118,6 +118,7 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
       else if (mod && !e.altKey && !e.shiftKey && e.code === 'KeyO') open(editor, say)
       else if (mod && e.altKey && !e.shiftKey && e.code === 'KeyN') setStarting(true)
       else if (mod && e.shiftKey && !e.altKey && e.code === 'KeyK') placeImages(editor, say)
+      else if (mod && e.shiftKey && !e.altKey && e.code === 'KeyP') addPage(editor)
       else if (mod && !e.shiftKey && !e.altKey && e.code === 'KeyK') setDialog('palette')
       else if (mod && e.code === 'Comma') setDialog('settings')
       else if (mod && !e.shiftKey && !e.altKey && e.code === 'KeyF') setFinding(true)
@@ -251,9 +252,11 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
             onClick={() => editor.togglePreflight()}
           >
             <Icon name="preflight" />
-            <span className="pf-count" data-sev={errors ? 'error' : issues.length ? 'warn' : 'ok'}>
-              {issues.length}
-            </span>
+            {issues.length > 0 && (
+              <span className="pf-count" data-sev={errors ? 'error' : 'warn'}>
+                {issues.length}
+              </span>
+            )}
           </button>
           <button type="button" className="primary" title="Export (Ctrl+Shift+E)" onClick={openExport}>
             Export
@@ -283,7 +286,8 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
           anchor={() => new DOMRect(menu.x, menu.y)}
           label="Actions"
           onClose={() => setMenu(null)}
-          items={MENU[selected ? 'selected' : 'none'].map((title) => {
+          items={MENU[menu.transform ? 'transform' : selected ? 'selected' : 'none'].map((title) => {
+            if (title === 'Transform') return [title, () => setTimeout(() => setMenu({ ...menu, transform: true })), true, undefined, '›']
             const a = title && ACTIONS.find((a) => a.title === title)!
             return a ? [a.title, () => (a.run ? a.run(editor) : press(a.keys)), a.can?.(editor) ?? true, undefined, keysOf(a)] : null
           })}

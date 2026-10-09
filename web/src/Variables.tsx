@@ -209,7 +209,7 @@ function VariableEditor({ editor, id, fonts, onClose }: { editor: Editor; id: st
         </button>
         <button
           type="button"
-          className="button"
+          className="button danger"
           onClick={() => {
             onClose()
             editor.apply({ type: 'deleteVariable', id })
@@ -230,7 +230,7 @@ export function ModeSelects({ editor, id, own, inherited }: { editor: Editor; id
     .map((c) => {
       const auto = c.modes.find((m) => m.id === inherited[c.id]) ?? c.modes[0]
       const prefix = collections.length > 1 ? `${c.name}: ` : ''
-      const options = Object.fromEntries([['', `${prefix}auto (${auto.name})`], ...c.modes.map((m) => [m.id, `${prefix}${m.name}`])])
+      const options = Object.fromEntries([['', `${prefix}Auto (${auto.name})`], ...c.modes.map((m) => [m.id, `${prefix}${m.name}`])])
       return (
         <Select
           key={c.id}

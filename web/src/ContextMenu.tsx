@@ -83,7 +83,7 @@ export function ContextMenu({
             type="button"
             role={checked === undefined ? 'menuitem' : 'menuitemradio'}
             aria-checked={checked}
-            className="menu-item"
+            className={String(label).startsWith('Delete') ? 'menu-item danger' : 'menu-item'}
             disabled={!enabled}
             autoFocus={!search && i === Math.max(0, items.findIndex((it) => it?.[3]))}
             onClick={() => {
