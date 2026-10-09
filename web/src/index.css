@@ -1105,8 +1105,9 @@ textarea {
 
 .picker-inks {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 4px;
+  grid-template-columns: 1fr 72px;
+  align-items: center;
+  gap: 4px 8px;
 }
 
 .picker-inks .field-label {

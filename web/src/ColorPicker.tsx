@@ -1,4 +1,5 @@
 import {
+  Fragment,
   useEffect,
   useRef,
   useState,
@@ -24,7 +25,8 @@ import {
   type ColorMode,
   type Hsv,
 } from './color'
-import { Field } from './controls'
+import { Field, nextName } from './controls'
+import type { Editor } from './editor'
 import { Icon } from './icons'
 import type { Scope, Swatch } from './model'
 import { Popover, type Anchor } from './Popover'
@@ -64,8 +66,8 @@ export function SwatchOption({ swatch, selected, onPick }: { swatch: Swatch; sel
   )
 }
 
-/** A swatch button that opens the picker; `bindable` adds the swatches tab. */
-export function ColorPicker({ bindable, ...props }: Props & { bindable?: boolean }) {
+/** A swatch button that opens the picker; `editor` adds the swatches tab. */
+export function ColorPicker(props: Props & { editor?: Editor }) {
   const [open, setOpen] = useState<Element | null>(null)
   const button = useRef<HTMLButtonElement>(null)
   return (
@@ -96,7 +98,6 @@ export function ColorPicker({ bindable, ...props }: Props & { bindable?: boolean
             }}
             side="left"
             owner={button}
-            tabs={bindable}
             onClose={(refocus) => {
               setOpen(null)
               if (refocus) button.current?.focus()
@@ -112,11 +113,11 @@ export function Picker({
   anchor,
   side,
   owner,
+  editor,
   label,
   color,
   mode,
   scope,
-  tabs,
   title = 'Custom',
   children,
   onChange,
@@ -125,7 +126,7 @@ export function Picker({
   anchor: Anchor
   side: 'left' | 'right'
   owner?: RefObject<HTMLElement | null>
-  tabs?: boolean
+  editor?: Editor
   title?: string
   children?: ReactNode
   onClose: (refocus: boolean) => void
@@ -208,7 +209,7 @@ export function Picker({
       }}
     >
       <header className="picker-header">
-        {tabs ? (
+        {editor ? (
           <div role="tablist" className="tabs">
             {(['custom', 'swatches'] as const).map((t) => (
               <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
@@ -227,7 +228,7 @@ export function Picker({
       {tab === 'swatches' ? (
         <div role="listbox" aria-label="Swatches" className="swatch-list">
           {scope.swatches.length + colors.length === 0 && (
-            <p className="empty">No swatches or colour variables yet. Add them under Swatches or Variables.</p>
+            <p className="empty">No swatches or colour variables yet.</p>
           )}
           {colors.length > 0 && <h3>Variables</h3>}
           {colors.map((v) => (
@@ -253,6 +254,17 @@ export function Picker({
               onPick={() => onChange({ swatch: sw.id, tint: 1, alpha: 1 })}
             />
           ))}
+          <button
+            type="button"
+            className="button"
+            onClick={() => {
+              const name = nextName('Swatch', scope.swatches.map((s) => s.name))
+              const [swatch] = editor!.apply({ type: 'addSwatch', name, color: withAlpha(process, 100), spot: false })
+              onChange({ swatch, tint: 1, alpha: alpha(process) / 100 })
+            }}
+          >
+            <Icon name="plus" /> Save as swatch
+          </button>
         </div>
       ) : (
         <>
@@ -294,20 +306,19 @@ export function Picker({
               onChange={(e) => onChange(withAlpha(process, Number(e.currentTarget.value)))}
             />
           </div>
-          {mode === 'cmyk' && typeof cmyk !== 'number' && 'cmyk' in cmyk ? (
+          {mode === 'cmyk' && typeof cmyk !== 'number' && 'cmyk' in cmyk && (
             <div className="picker-inks">
-              {INKS.map((ink, i) => (
-                <Field
-                  key={ink}
-                  label={'CMYK'[i]}
-                  title={ink}
-                  unit=""
-                  value={Math.round(cmyk.cmyk[i] * 100)}
-                  onCommit={(p) => onChange({ ...cmyk, cmyk: cmyk.cmyk.map((c, j) => (j === i ? clamp(p / 100) : c)) })}
-                />
-              ))}
+              {INKS.map((ink, i) => {
+                const put = (p: number) => onChange({ ...cmyk, cmyk: cmyk.cmyk.map((c, j) => (j === i ? clamp(p / 100) : c)) })
+                return (
+                  <Fragment key={ink}>
+                    <input type="range" aria-label={ink} min={0} max={100} value={Math.round(cmyk.cmyk[i] * 100)} onChange={(e) => put(Number(e.currentTarget.value))} />
+                    <Field label={'CMYK'[i]} title={ink} unit="" value={Math.round(cmyk.cmyk[i] * 100)} onCommit={put} />
+                  </Fragment>
+                )
+              })}
             </div>
-          ) : (
+          )}
             <div className="row">
               <label className="field">
                 <span className="field-label">Hex</span>
@@ -333,7 +344,6 @@ export function Picker({
                 onCommit={(p) => onChange(withAlpha(process, p))}
               />
             </div>
-          )}
         </>
       )}
     </Popover>

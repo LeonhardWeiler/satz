@@ -3,6 +3,7 @@ import { ColorPicker } from './ColorPicker'
 import { alpha, css, neutral, withAlpha, type ColorMode } from './color'
 import { Field, RowActions, Section, Select } from './controls'
 import { Icon } from './icons'
+import type { Editor } from './editor'
 import type { Effect, Fill, Scope, Snapshot } from './model'
 
 const TYPES = { solid: 'Solid', linear: 'Linear', radial: 'Radial' } as const
@@ -43,6 +44,7 @@ export function gradient(p: Fill, scope: Scope) {
 }
 
 export function PaintList({
+  editor,
   title,
   paints,
   added,
@@ -53,6 +55,7 @@ export function PaintList({
   onChange,
   children,
 }: {
+  editor: Editor
   title: 'Fill' | 'Stroke'
   /** Null when the selected layers differ. */
   paints: Fill[] | null
@@ -106,7 +109,7 @@ export function PaintList({
                         color={p.color}
                         mode={mode}
                         scope={scope}
-                        bindable
+                        editor={editor}
                         onChange={(color) => set({ ...p, color })}
                       />
                     ) : (

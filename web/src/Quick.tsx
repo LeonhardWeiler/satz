@@ -138,7 +138,7 @@ export function Quick({ editor }: { editor: Editor }) {
             color={nodes[0][menu.paint].findLast((f) => f.visible && f.type === 'solid')?.color ?? neutral('black', snapshot.colorMode)}
             mode={snapshot.colorMode}
             scope={scopeOf(snapshot, nodes[0].activeModes)}
-            tabs
+            editor={editor}
             onChange={(c) => set({ [menu.paint]: [solid(c)] })}
             onClose={() => setMenu(null)}
           />,

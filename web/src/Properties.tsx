@@ -441,6 +441,7 @@ export function Properties({
       )}
       {nodes.length > 0 && nodes.every((n) => n.kind !== 'group') && (
         <PaintList
+          editor={editor}
           title="Fill"
           paints={sameList((n) => n.fills)}
           ppi={one?.ppi}
@@ -455,7 +456,7 @@ export function Properties({
         </PaintList>
       )}
       {stroked && (
-        <PaintList title="Stroke" paints={strokes} added={solid(neutral('black', mode))} mode={mode} scope={scope} onChange={(strokes) => set({ strokes })}>
+        <PaintList editor={editor} title="Stroke" paints={strokes} added={solid(neutral('black', mode))} mode={mode} scope={scope} onChange={(strokes) => set({ strokes })}>
           {!!strokes?.length && (
             <div className="grid">
               {bindable(

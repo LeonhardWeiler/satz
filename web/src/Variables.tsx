@@ -178,7 +178,7 @@ function VariableEditor({ editor, id, fonts, onClose }: { editor: Editor; id: st
           <div key={m.id} className="var-mode">
             <NameInput label="Mode name" value={m.name} onCommit={(name) => editor.apply({ type: 'setMode', collection: c.id, id: m.id, name })} />
             {'color' in value ? (
-              <ColorPicker label={label} color={value.color} mode={snapshot.colorMode} scope={scope} bindable onChange={(color) => set({ color })} />
+              <ColorPicker label={label} color={value.color} mode={snapshot.colorMode} scope={scope} editor={editor} onChange={(color) => set({ color })} />
             ) : 'number' in value ? (
               <Field label="" title={label} unit="" min={-Infinity} value={value.number} onCommit={(number) => set({ number })} />
             ) : (

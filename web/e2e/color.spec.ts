@@ -113,7 +113,7 @@ test('a cmyk document shows and takes cmyk values in the picker', async ({ page 
   await rects.last().click()
   await panel.getByRole('button', { name: 'Fill color' }).click()
   const picker = page.getByRole('dialog', { name: 'Fill color' })
-  await expect(picker.getByRole('textbox', { name: 'Hex' })).toHaveCount(0)
+  await expect(picker.getByRole('textbox', { name: 'Hex' })).toBeVisible()
   const field = (name: string) => picker.getByRole('textbox', { name })
   for (const [name, v] of [['Cyan', '100'], ['Magenta', '0'], ['Yellow', '0'], ['Black', '0']]) {
     await field(name).fill(v)
@@ -127,6 +127,8 @@ test('a cmyk document shows and takes cmyk values in the picker', async ({ page 
   await hue.press('Home')
   expect(Number(await field('Cyan').inputValue())).toBeLessThan(5)
   expect(Number(await field('Magenta').inputValue())).toBeGreaterThan(80)
+  await picker.getByRole('slider', { name: 'Black' }).fill('50')
+  await expect(field('Black')).toHaveValue('50')
 
   await page.keyboard.press('Escape')
   await expect(picker).toBeHidden()
@@ -291,4 +293,18 @@ test('a cmyk document takes an uploaded icc profile and goes back to fogra51', a
   await expect(profile).toHaveText(/FOGRA51 \(Satz\)$/)
   await choose(profile, 'FOGRA51')
   await expect(profile).toHaveText(/FOGRA51$/)
+})
+
+test('save as swatch in the swatches tab adds the colour as a swatch and binds it', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).last().click()
+  await panel.getByRole('button', { name: 'Fill color' }).click()
+  const picker = page.getByRole('dialog', { name: 'Fill color' })
+  await picker.getByRole('tab', { name: 'Swatches' }).click()
+  const options = picker.getByRole('option')
+  const before = await options.count()
+  await picker.getByRole('button', { name: 'Save as swatch' }).click()
+  await expect(options).toHaveCount(before + 1)
+  await expect(options.last()).toHaveAttribute('aria-selected', 'true')
 })
