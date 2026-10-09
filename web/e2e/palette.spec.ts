@@ -49,9 +49,9 @@ test('ctrl k finds and runs commands, layers, pages and text styles', async ({ p
   await expect(style).toContainText('Text style 1')
   await panel.getByRole('textbox', { name: 'Line height in pt' }).fill('30')
   await panel.getByRole('textbox', { name: 'Line height in pt' }).press('Enter')
-  await expect(style).toContainText('No style')
+  await expect(style).toContainText('Text style 1*')
   await run(page, 'style text', /Style Text style 1/)
-  await expect(style).toContainText('Text style 1')
+  await expect(style).not.toContainText('*')
   await expect(panel.getByRole('textbox', { name: 'Line height in pt' })).toHaveAttribute('placeholder', 'Auto')
 })
 

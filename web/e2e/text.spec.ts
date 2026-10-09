@@ -31,7 +31,7 @@ test('type attributes and a text style are set in the text section and edited on
   await expect(field('Font size in pt')).toHaveValue('9')
   await commit('Line height in pt', 'auto')
   await expect(field('Line height in pt')).toHaveAttribute('placeholder', 'Auto')
-  await expect(panel.getByTitle('Text style', { exact: true })).toContainText('No style')
+  await expect(panel.getByTitle('Text style', { exact: true })).toContainText('Text style 1*')
   await expect(field('Font size in pt')).toHaveValue('9')
 })
 

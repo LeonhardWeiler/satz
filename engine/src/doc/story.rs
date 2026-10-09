@@ -655,11 +655,12 @@ impl Doc {
             .into_iter()
             .filter(|(k, v)| !v.is_null() || k == "shading")
             .collect();
-        if props.text_style.is_none() && set.iter().any(|(k, _)| STYLED.contains(&k.as_str())) {
-            self.detach(n, range.clone(), |_| true)?;
-        }
         let text = t.to_string();
         let m = self.meta(n);
+        let styled = value(&m, "textStyle").is_some_and(|v| v.as_string().is_some_and(|s| !s.is_empty()))
+            || t.to_delta().iter().any(|d| {
+                matches!(d, TextDelta::Insert { attributes: Some(a), .. } if a.get("textStyle").is_some_and(|v| v.as_string().is_some_and(|s| !s.is_empty())))
+            });
         for (k, v) in &set {
             let cleared: &[&str] = if k == "textStyle" { &STYLED } else { &[] };
             let r = match &range {
@@ -698,6 +699,10 @@ impl Doc {
                             .map_err(err)?;
                     } else {
                         m.insert(k, loro(v)?).map_err(err)?;
+                    }
+                    if len > 0 && styled && STYLED.contains(&k.as_str()) {
+                        t.mark_utf16(0..len, k, loro(v)?).map_err(err)?;
+                        continue;
                     }
                     for c in [k.as_str()].iter().chain(cleared) {
                         if len > 0 {
@@ -1034,7 +1039,7 @@ mod tests {
         assert_eq!(
             got,
             [
-                (2, 30.0, 14.0, String::new()),
+                (2, 30.0, 14.0, body.clone()),
                 (3, 16.0, 14.0, body.clone()),
                 (6, 12.0, 0.0, String::new())
             ]
@@ -1058,7 +1063,7 @@ mod tests {
     }
 
     #[test]
-    fn a_style_applied_to_the_whole_text_also_holds_for_text_typed_into_it() {
+    fn a_whole_text_style_holds_for_typed_text_and_keeps_overrides_until_reapplied() {
         let (mut d, _) = empty();
         let t = text(&mut d, "Hi");
         let head = style(&mut d, "Head", 24.0);
@@ -1086,7 +1091,18 @@ mod tests {
         format(&mut d, &t, None, sized(9.0)).unwrap();
         let s = spans(&d);
         assert_eq!((s[0].attrs.size, s[0].attrs.line_height), (9.0, 14.0));
-        assert_eq!(s[0].attrs.text_style, "");
+        assert_eq!(s[0].attrs.text_style, head);
+        format(
+            &mut d,
+            &t,
+            None,
+            TextProps {
+                text_style: Some(head.clone()),
+                ..TextProps::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(lens_and(&d, |a| a.size), [(3, 24.0)]);
     }
 
     #[test]

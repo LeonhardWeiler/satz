@@ -79,12 +79,21 @@ export function Specimen({ editor, spans, compact, format }: { editor: Editor; s
   const style = sameOf(spans, (a) => a.textStyle)
   const current = styles.find((s) => s.id === style)
   const [menu, setMenu] = useState<DOMRect | null>(null)
+  const own = (a: Attrs, bound = {}) => Object.fromEntries(STYLED.filter((k) => !(k in bound)).map((k) => [k, a[k]]))
+  const changed = current && spans.some((a) => STYLED.some((k) => !(k in current.bindings) && current[k] !== null && JSON.stringify(a[k]) !== JSON.stringify(current[k])))
+  const overrides: Parameters<typeof ContextMenu>[0]['items'] = changed
+    ? [
+        null,
+        ['Reset to style', () => format({ textStyle: current.id }), true],
+        ['Update style', () => void editor.apply({ type: 'setTextStyle', id: current.id, ...own(spans[0], current.bindings) }), true],
+      ]
+    : []
   const create = () => {
     const a = spans[0]
     const [id] = editor.apply({
       type: 'addTextStyle',
       name: nextName('Text style', styles.map((s) => s.name)),
-      ...Object.fromEntries(STYLED.map((k) => [k, a[k]])),
+      ...own(a),
     })
     format({ textStyle: id })
   }
@@ -97,7 +106,7 @@ export function Specimen({ editor, spans, compact, format }: { editor: Editor; s
         aria-haspopup="menu"
         onClick={(e) => setMenu(e.currentTarget.getBoundingClientRect())}
       >
-        <span style={specimen(current)}>{style === null ? 'Mixed' : (current?.name ?? 'No style')}</span>
+        <span style={specimen(current)}>{style === null ? 'Mixed' : current ? `${current.name}${changed ? '*' : ''}` : 'No style'}</span>
         {current && !compact && <span className="specimen-size">{`${current.size}/${current.lineHeight || 'Auto'} pt`}</span>}
         <Icon name="chevron" />
       </button>
@@ -121,6 +130,7 @@ export function Specimen({ editor, spans, compact, format }: { editor: Editor; s
                 true,
                 style === s.id,
               ]),
+              ...overrides,
             ]}
           />,
           document.body,
