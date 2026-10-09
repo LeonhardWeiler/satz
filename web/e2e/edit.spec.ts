@@ -1,7 +1,7 @@
 import { expect, test, MM, drag, open, pixels, screen } from './util'
 
 /** Height in mm of `n` lines of 12 pt text as the H field shows it. */
-const lines = (n: number) => String(Math.round(((n * 16.452) / MM) * 100) / 100)
+const lines = (n: number) => String(Math.round(((n * 16.452) / MM + 2) * 10) / 10)
 
 test('a new text is edited in its frame: typing, arrows, backspace, enter, escape and undo', async ({ page }) => {
   await open(page)

@@ -15,6 +15,7 @@ export type Tool = 'move' | 'frame' | 'text' | 'pen' | 'eyedropper' | Shape
 export type Pen = { id: string; anchors: Anchor[] }
 
 export const MM = 72 / 25.4
+export const INSETS = { insetTop: MM, insetRight: MM, insetBottom: MM, insetLeft: MM }
 const FRAMED = ['create', 'placeImage', 'setFrame']
 const GRID: Record<string, number> = { x: 10, y: 10, w: 100, h: 100 }
 
@@ -392,6 +393,7 @@ export class Editor {
     const page = this.page
     const id = this.batch(() => {
       const [id] = this.apply({ type: 'create', parent: page.id, kind: 'text', x: 0, y: 0, w: 0, h: 0 })
+      this.apply({ type: 'set', id, ...INSETS })
       this.apply({ type: 'setText', id, text })
       const n = () => this.nodes.get(id)!.node
       if (n().w > page.width * 0.8) this.apply({ type: 'setFrame', id, x: 0, y: 0, w: page.width * 0.8, h: n().h })

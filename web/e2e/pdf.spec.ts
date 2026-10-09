@@ -432,7 +432,7 @@ test('a master drawn under a page matches the canvas', async ({ page }) => {
 
 test('text threaded across two pages matches the canvas and reads as one story', async ({ page }) => {
   await open(page, 2000)
-  const a = [20, 20, 70, 50]
+  const a = [20, 20, 70, 60]
   await frameOnNewPage(page, a)
   await page.keyboard.type(STORY)
   await page.keyboard.press('Escape')

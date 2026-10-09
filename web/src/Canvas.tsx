@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CanvasKit, Surface } from 'canvaskit-wasm'
-import { MM, bounds, ends, insertion, useEditor, type Editor, type Point, type Tool } from './editor'
+import { INSETS, MM, bounds, ends, insertion, useEditor, type Editor, type Point, type Tool } from './editor'
 import type { Container, NewKind, Node, Page, TextNode } from './model'
 import { radii } from './model'
 import { penPath } from './pen'
@@ -722,6 +722,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     const create = (kind: NewKind, p: Point) => {
       const { parent, dx } = parentAt(p)
       const [id] = editor.apply({ type: 'create', parent, kind, x: p.x - dx, y: p.y, w: 0, h: 0 })
+      if (kind === 'text') editor.apply({ type: 'set', id, ...INSETS })
       return { id, dx }
     }
     /** Starts to draw with `drag.tool`, which a click beside the pages leaves undone. */

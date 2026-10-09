@@ -184,8 +184,8 @@ test('a clicked text is auto width, a dragged one a fixed empty box shown while 
   await page.keyboard.press('t')
   await page.mouse.click(...(await screen(page, 20, 80)))
   await expect(mode('Auto width')).toBeChecked()
-  await expect(field('W in mm')).toHaveValue('0')
-  await expect(field('H in mm')).toHaveValue('5.8')
+  await expect(field('W in mm')).toHaveValue('2')
+  await expect(field('H in mm')).toHaveValue('7.8')
   await expect(panel.getByRole('combobox', { name: 'Width sizing' })).toHaveCount(0)
 
   await page.keyboard.press('Escape')
@@ -207,7 +207,7 @@ test('a clicked text is auto width, a dragged one a fixed empty box shown while 
   await type('H in mm', '30')
   await expect(mode('Fixed size')).toBeChecked()
   await mode('Auto height').click()
-  await expect(field('H in mm')).toHaveValue('5.8')
+  await expect(field('H in mm')).toHaveValue('7.8')
   await mode('Auto width').click()
   await expect(mode('Auto width')).toBeChecked()
   await expect(field('W in mm')).not.toHaveValue('40')
@@ -273,11 +273,11 @@ test('a space typed at the end of an auto width text stays on its line', async (
   await page.keyboard.press('t')
   await page.mouse.click(...(await screen(page, 20, 80)))
   await page.keyboard.type('Hello')
-  await expect(field('H in mm')).toHaveValue('5.8')
+  await expect(field('H in mm')).toHaveValue('7.8')
   const w = await field('W in mm').inputValue()
   await page.keyboard.type(' ')
   await expect(field('W in mm')).not.toHaveValue(w)
-  await expect(field('H in mm')).toHaveValue('5.8')
+  await expect(field('H in mm')).toHaveValue('7.8')
 })
 
 test('ctrl while resizing a text scales its type, and a new format scales the layers and text, a new width does not', async ({ page }) => {
