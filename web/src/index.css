@@ -35,6 +35,7 @@
   --edge: color-mix(in srgb, var(--fg) 18%, var(--bg));
   --scrim: color-mix(in srgb, var(--bg) 70%, transparent);
   --magenta: #cc2f83;
+  --master: #8b6cf0;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --doc-font: 'Source Serif 4', Georgia, serif;
   --checker: repeating-conic-gradient(#ffffff 0 25%, #cccccc 0 50%) 0 0 / 8px 8px;
@@ -366,7 +367,7 @@ button {
 }
 
 [aria-selected='true'] > .layer {
-  background: var(--selected);
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
   color: var(--text);
 }
 
@@ -1452,7 +1453,7 @@ textarea {
 }
 
 .fonts .missing {
-  color: var(--magenta);
+  color: var(--bad);
 }
 
 .status {
@@ -1788,13 +1789,13 @@ textarea {
   left: 50%;
   gap: 10px;
   padding-left: 12px;
-  border-color: var(--magenta);
+  border-color: var(--master);
   transform: translateX(-50%);
   white-space: nowrap;
 }
 
 .banner > svg {
-  color: var(--magenta);
+  color: var(--master);
 }
 
 .banner button {
@@ -2699,19 +2700,19 @@ kbd {
 }
 
 .ov-page[data-drop='before'] {
-  box-shadow: -3px 0 0 var(--magenta);
+  box-shadow: -3px 0 0 var(--accent);
 }
 
 .ov-page[data-drop='after'] {
-  box-shadow: 3px 0 0 var(--magenta);
+  box-shadow: 3px 0 0 var(--accent);
 }
 
 .ov-master[data-drop='before'] {
-  box-shadow: 0 -3px 0 var(--magenta);
+  box-shadow: 0 -3px 0 var(--accent);
 }
 
 .ov-master[data-drop='after'] {
-  box-shadow: 0 3px 0 var(--magenta);
+  box-shadow: 0 3px 0 var(--accent);
 }
 
 .ov-item[data-current] .ov-pages,
@@ -2730,8 +2731,14 @@ kbd {
 
 .ov-cap b {
   margin-left: 2px;
-  color: var(--magenta);
+  color: var(--master);
   font-weight: 600;
+}
+
+.ov-item .rename {
+  flex: none;
+  width: 100%;
+  text-align: center;
 }
 
 .ov-item[data-current] .ov-cap {

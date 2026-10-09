@@ -14,7 +14,7 @@ function aligned(edge: string, ...bars: [number, number, number, number][]) {
 const ICONS = {
   move: <path d="M3.6 3.3c-.2-.6.3-1 .8-.7l8.1 4.9c.5.3.4 1-.2 1.1L8.8 9.2l-1.7 3.7c-.3.6-1 .5-1.1-.1z" />,
   frame: <path d="M5 2v12M11 2v12M2 5h12M2 11h12" />,
-  rect: <rect x="3" y="3" width="10" height="10" rx="2" />,
+  rect: <rect x="3" y="3" width="10" height="10" rx="2" fill="currentColor" fillOpacity=".3" />,
   ellipse: <circle cx="8" cy="8" r="5.5" />,
   polygon: <path d="M7.1 3.6a1 1 0 0 1 1.8 0l4.6 8.4a1 1 0 0 1-.9 1.5H3.4a1 1 0 0 1-.9-1.5z" />,
   star: <path d="m8 2.5 1.7 3.6 3.8.5-2.8 2.6.7 3.8L8 11.2 4.6 13l.7-3.8L2.5 6.6l3.8-.5z" />,

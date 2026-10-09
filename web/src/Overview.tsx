@@ -404,8 +404,8 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
                   }}
                 />
               ) : (
-                <span className="ov-cap" onDoubleClick={() => setRenaming(m.id)}>
-                  {m.name}
+                <span className="ov-cap" title={m.name} onDoubleClick={() => setRenaming(m.id)}>
+                  <b>{prefix(m.name)}</b> · {m.name}
                 </span>
               )}
             </div>

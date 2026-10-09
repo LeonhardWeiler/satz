@@ -229,12 +229,13 @@ export function ModeSelects({ editor, id, own, inherited }: { editor: Editor; id
     .filter((c) => c.modes.length > 1)
     .map((c) => {
       const auto = c.modes.find((m) => m.id === inherited[c.id]) ?? c.modes[0]
-      const prefix = collections.length > 1 ? `${c.name}: ` : ''
-      const options = Object.fromEntries([['', `${prefix}Auto (${auto.name})`], ...c.modes.map((m) => [m.id, `${prefix}${m.name}`])])
+      const many = collections.length > 1
+      const options = Object.fromEntries([['', `Auto (${auto.name})`], ...c.modes.map((m) => [m.id, m.name])])
       return (
         <Select
           key={c.id}
-          label={prefix ? `${c.name} mode` : 'Mode'}
+          label={many ? `${c.name} mode` : 'Mode'}
+          prefix={many ? c.name : 'Mode'}
           value={c.modes.some((m) => m.id === own[c.id]) ? own[c.id] : ''}
           options={options}
           onChange={(mode) => editor.apply({ type: 'useMode', id, collection: c.id, mode: mode || null })}
