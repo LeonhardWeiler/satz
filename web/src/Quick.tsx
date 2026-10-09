@@ -108,6 +108,11 @@ export function Quick({ editor }: { editor: Editor }) {
             <Icon name="fit" />
           </button>
           <Adjust node={one} set={set} />
+          {snapshot.colorMode === 'cmyk' && one.fills.some((f) => f.image && snapshot.images[f.image] === 'RGB') && (
+            <span className="badge" title="An RGB image, converted to CMYK on export">
+              RGB → CMYK
+            </span>
+          )}
           {fitAt &&
             createPortal(
               <ContextMenu
@@ -115,7 +120,7 @@ export function Quick({ editor }: { editor: Editor }) {
                 side="bottom"
                 label="Fit image"
                 onClose={() => setFitAt(null)}
-                items={FITS.map(([fit, name]) => [name, () => editor.apply({ type: 'fitImage', id: one.id, fit }), true])}
+                items={FITS.map(([fit, name]) => [name, () => editor.apply({ type: 'fitImage', id: one.id, fit }), true, fitted(one.fills, fit)])}
               />,
               document.body,
             )}
@@ -172,6 +177,16 @@ const FITS = [
   ['frame', 'Frame to image'],
 ] as const
 const ADJUST = ['Brightness', 'Contrast', 'Saturation']
+
+const near = (a: number, b: number) => Math.abs(a - b) < 1e-4
+
+/** Whether the image fill of `fills` sits as `fitImage` with `fit` puts it. */
+function fitted(fills: Fill[], fit: (typeof FITS)[number][0]) {
+  const t = fills.find((f) => f.type === 'image')?.transform
+  if (!t || !near(t[1], 0) || !near(t[2], 0) || !near(t[4], (1 - t[0]) / 2) || !near(t[5], (1 - t[3]) / 2)) return false
+  const [lo, hi] = [Math.min(t[0], t[3]), Math.max(t[0], t[3])]
+  return fit === 'frame' ? near(lo, 1) && near(hi, 1) : fit === 'cover' ? near(lo, 1) : near(hi, 1)
+}
 
 /** The brightness, contrast and saturation of the image fills of `node`, in a popover. */
 function Adjust({ node, set }: { node: Node; set: (props: Props) => void }) {

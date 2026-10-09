@@ -1,4 +1,4 @@
-import { expect, test, autosaved, colors, drag, open, place, png, preflight, screen } from './util'
+import { expect, test, autosaved, choose, colors, drag, open, place, png, preflight, screen } from './util'
 
 const red = (width: number, height: number) => png('red.png', width, height, () => [255, 0, 0])
 
@@ -108,13 +108,17 @@ test('ctrl and the crop button crop an image, a drag moves it in its frame, its 
 
 test('the fit menu sizes the frame to its image', async ({ page }) => {
   await open(page)
+  await choose(page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Color mode' }), 'CMYK')
   await place(page, red(600, 300))
   const height = page.getByRole('complementary', { name: 'Properties' }).getByRole('textbox', { name: 'H in mm' })
   await height.fill('50.8')
   await height.press('Enter')
   await page.getByRole('toolbar', { name: 'Quick edit' }).getByTitle('Fit image').click()
-  await page.getByRole('menuitem', { name: 'Frame to image' }).click()
+  await page.getByRole('menuitemradio', { name: 'Frame to image' }).click()
   await expect(height).toHaveValue('25.4')
+  await page.getByRole('toolbar', { name: 'Quick edit' }).getByTitle('Fit image').click()
+  await expect(page.getByRole('menuitemradio', { name: 'Frame to image' })).toHaveAttribute('aria-checked', 'true')
+  await expect(page.getByRole('toolbar', { name: 'Quick edit' }).getByText('RGB → CMYK')).toBeVisible()
 })
 
 test('a layer that keeps its aspect ratio changes its height with its width', async ({ page }) => {
