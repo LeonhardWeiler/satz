@@ -1720,6 +1720,10 @@ textarea {
   background: linear-gradient(to top right, transparent 45%, var(--text-3) 45% 55%, transparent 55%);
 }
 
+.chip.mixed {
+  background: conic-gradient(var(--text) 0 25%, var(--text-3) 0 50%, var(--text) 0 75%, var(--text-3) 0);
+}
+
 .menu-item .chip {
   display: inline-block;
   width: 12px;
@@ -3148,6 +3152,17 @@ kbd {
 
   .dashed {
     stroke-dasharray: 3 3;
+  }
+
+  .guide {
+    stroke: var(--accent);
+    stroke-width: 2;
+  }
+
+  .wrap {
+    fill: none;
+    stroke: var(--accent);
+    stroke-dasharray: 4 3;
   }
 
   .target {

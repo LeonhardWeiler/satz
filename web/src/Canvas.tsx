@@ -382,6 +382,17 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const line = (x1: number, y1: number, x2: number, y2: number, cls = '') =>
         `<line class="${cls}" x1="${X(x1)}" y1="${Y(y1)}" x2="${X(x2)}" y2="${Y(y2)}"/>`
       let svg = snapped.map((g) => (g.axis === 'x' ? line(g.at, g.from, g.at, g.to) : line(g.from, g.at, g.to, g.at))).join('')
+      const hover = !drag && pointer && editor.tool === 'move' ? guideAt(toDoc(pointer)) : undefined
+      if (hover) {
+        const at = editor.sheets.find((s) => s.id === hover.id)!.guides[hover.axis][hover.index]
+        svg += hover.axis === 'x' ? `<line class="guide" x1="${X(hover.dx + at)}" y1="0" x2="${X(hover.dx + at)}" y2="9999"/>` : `<line class="guide" x1="0" y1="${Y(at)}" x2="9999" y2="${Y(at)}"/>`
+      }
+      for (const id of editor.selection) {
+        const n = editor.nodes.get(id)?.node
+        if (!n || n.wrap === 'none' || n.hidden) continue
+        const b = covered(n)
+        svg += `<rect class="wrap" x="${X(b.x - n.wrapOffsetX)}" y="${Y(b.y - n.wrapOffsetY)}" width="${(b.w + 2 * n.wrapOffsetX) * view.zoom}" height="${(b.h + 2 * n.wrapOffsetY) * view.zoom}"/>`
+      }
       if (target) svg += `<rect class="target" x="${X(target.x)}" y="${Y(target.y)}" width="${target.w * view.zoom}" height="${target.h * view.zoom}"/>`
       const labels: Box[] = []
       let tags = ''
@@ -432,7 +443,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           ...(p.in ? [{ ...p.in, state: 'threaded' as const }] : []),
           { ...p.out, state: n.overset ? 'overset' : n.next ? 'threaded' : 'open' },
         ] as const,
-        threads: port ? lines : [],
+        threads: lines,
         ...(link && { hover: placed(link) }),
       }
     }

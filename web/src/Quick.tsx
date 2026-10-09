@@ -44,6 +44,7 @@ export function Quick({ editor }: { editor: Editor }) {
   const button = (paint: Paint, title: string) => {
     const p = nodes[0][paint].findLast((f) => f.visible)
     const scope = scopeOf(snapshot, nodes[0].activeModes)
+    const mixed = nodes.some((n) => JSON.stringify(n[paint]) !== JSON.stringify(nodes[0][paint]))
     return (
       <button
         type="button"
@@ -52,7 +53,9 @@ export function Quick({ editor }: { editor: Editor }) {
         aria-haspopup="menu"
         onClick={(e) => setMenu({ at: e.currentTarget.getBoundingClientRect(), paint })}
       >
-        {p?.type === 'solid' ? (
+        {mixed ? (
+          <span className="chip mixed" title="Mixed" />
+        ) : p?.type === 'solid' ? (
           <Chip color={p.color} scope={scope} />
         ) : p?.type === 'linear' || p?.type === 'radial' ? (
           <span className="chip" style={{ background: gradient(p, scope) }} />
