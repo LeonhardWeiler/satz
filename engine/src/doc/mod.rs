@@ -268,9 +268,11 @@ pub enum Command {
         index: usize,
     },
     /// Adds a master of the size of the page `like` or the first page, named with
-    /// the next free letter; returns its id.
+    /// the next free letter; with `layers` it copies what `like` shows. Returns its id.
     AddMaster {
         like: Option<String>,
+        #[serde(default)]
+        layers: bool,
     },
     SetMaster {
         id: String,
@@ -1481,7 +1483,7 @@ impl Doc {
             Command::SetGuides { id, guides } => self.set_guides(id, guides),
             Command::DeletePage { id } => self.delete_page(id),
             Command::MovePages { ids, index } => self.move_pages(ids, index),
-            Command::AddMaster { like } => self.add_master(like),
+            Command::AddMaster { like, layers } => self.add_master(like, layers),
             Command::SetMaster { id, name } => self.set_master(id, name),
             Command::DeleteMaster { id } => self.delete_master(id),
             Command::UseMaster { page, master } => self.use_master(page, master),
@@ -3091,9 +3093,12 @@ mod tests {
     }
 
     pub(super) fn add_master(d: &mut Doc) -> String {
-        d.apply(Command::AddMaster { like: None })
-            .unwrap()
-            .remove(0)
+        d.apply(Command::AddMaster {
+            like: None,
+            layers: false,
+        })
+        .unwrap()
+        .remove(0)
     }
 
     pub(super) fn use_master(d: &mut Doc, page: &str, master: Option<&str>) -> Res<Vec<String>> {

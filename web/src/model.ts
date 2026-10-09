@@ -115,7 +115,7 @@ export type Command =
   | { type: 'fillArea'; id: string; x: number; y: number }
   | { type: 'scaleText'; id: string; by: number }
   | { type: 'movePages'; ids: string[]; index: number }
-  | { type: 'addMaster'; like: string | null }
+  | { type: 'addMaster'; like: string | null; layers?: boolean }
   | { type: 'setMaster'; id: string; name: string }
   | { type: 'deleteMaster'; id: string }
   | { type: 'useMaster'; page: string; master: string | null }

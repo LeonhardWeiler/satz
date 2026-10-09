@@ -60,6 +60,15 @@ test('rename master in the context menu of the page overview renames it', async 
   await expect(pages.getByRole('option', { name: 'Body', exact: true })).toBeVisible()
 })
 
+test('duplicate master in the context menu adds the next master', async ({ page }) => {
+  await open(page)
+  await addMaster(page)
+  const pages = await overview(page)
+  await pages.getByRole('option', { name: 'A-Master', exact: true }).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Duplicate master' }).click()
+  await expect(page.getByText(/Editing master/)).toContainText('B-Master')
+})
+
 test('a name another master has is rejected in the status bar', async ({ page }) => {
   await open(page)
   await addMaster(page)

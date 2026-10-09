@@ -449,7 +449,10 @@ fn booklet() -> Doc {
     };
 
     let mut master = |name: &str| {
-        let m = b.one(Command::AddMaster { like: None });
+        let m = b.one(Command::AddMaster {
+            like: None,
+            layers: false,
+        });
         b.run(Command::SetMaster {
             id: m.clone(),
             name: name.into(),

@@ -97,7 +97,7 @@ test('new master and master like page open a new master, and escape leaves it', 
 
   await overview(page)
   await option(page, 1).click({ button: 'right' })
-  await page.getByRole('menuitem', { name: 'Master like page' }).click()
+  await page.getByRole('menuitem', { name: 'Create master from page' }).click()
   await expect(banner).toContainText('B-Master')
 })
 

@@ -257,8 +257,8 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     select([id])
   }
   const addPage = () => show(editor.apply({ type: 'addPage', after: ids.at(-1) ?? null })[0])
-  const addMaster = (like: string) => {
-    const [id] = editor.apply({ type: 'addMaster', like })
+  const addMaster = (like: string, layers = false) => {
+    const [id] = editor.apply({ type: 'addMaster', like, layers })
     if (id) openPage(id)
   }
   const rename = (id: string, name: string | null) => {
@@ -494,12 +494,13 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
               menu.master
                 ? [
                     ['Rename master', () => setRenaming(menu.id), true],
+                    ['Duplicate master', () => addMaster(menu.id, true), true],
                     ['Delete master', () => editor.apply({ type: 'deleteMaster', id: menu.id }), true],
                   ]
                 : [
                     ['Insert page', () => show(editor.apply({ type: 'addPage', after: menu.id })[0]), true],
                     ['Duplicate page', () => show(editor.apply({ type: 'duplicatePage', id: menu.id })[0]), true],
-                    ['Master like page', () => addMaster(menu.id), true],
+                    ['Create master from page', () => addMaster(menu.id, true), true],
                     null,
                     ...[null, ...masters].map((m): [string, () => void, boolean, boolean] => [
                       m ? `Master ${m.name}` : 'No master',

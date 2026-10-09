@@ -528,7 +528,7 @@ impl Doc {
         Ok(vec![])
     }
 
-    pub(super) fn add_master(&self, like: Option<String>) -> Res<Vec<String>> {
+    pub(super) fn add_master(&self, like: Option<String>, layers: bool) -> Res<Vec<String>> {
         let like = match like {
             Some(l) => self.sheet(&l)?,
             None => *self.pages().first().ok_or("no page")?,
@@ -546,6 +546,35 @@ impl Doc {
             if let Some(v) = value(&from, k) {
                 m.insert(k, v).map_err(err)?;
             }
+        }
+        if layers {
+            let detached = self.detached(like);
+            let under = self
+                .master_of(like)
+                .map(|o| self.children(o))
+                .unwrap_or_default();
+            let left = self
+                .places()
+                .iter()
+                .any(|q| q.id == like && q.side == Some(Side::Left));
+            let dx = if left { -num(&from, "width") } else { 0.0 };
+            let mut clips = Vec::new();
+            for (c, dx) in under
+                .into_iter()
+                .filter(|c| !detached.contains(&c.to_string()))
+                .map(|c| (c, 0.0))
+                .chain(self.children(like).into_iter().map(|c| (c, dx)))
+            {
+                let clip = self.clip(c);
+                let copy = self.paste(&clip, p.into(), clips.len())?;
+                self.meta(copy).delete(OVERRIDE_OF).map_err(err)?;
+                if dx != 0.0 {
+                    let [x, y, w, h] = self.bounds(copy);
+                    self.set_frame(copy, [x + dx, y, w, h])?;
+                }
+                clips.push((clip, copy));
+            }
+            self.rethread(&clips)?;
         }
         Ok(vec![p.to_string()])
     }
@@ -1086,6 +1115,40 @@ mod tests {
     }
 
     #[test]
+    fn a_master_made_with_layers_copies_what_its_page_shows() {
+        let (mut d, p) = empty();
+        let m = add_master(&mut d);
+        let kept = create(&mut d, &m, NewKind::Rect, [0.0, 0.0, 20.0, 20.0]);
+        let gone = create(&mut d, &m, NewKind::Rect, [30.0, 0.0, 20.0, 20.0]);
+        create(&mut d, &p, NewKind::Ellipse, [5.0, 5.0, 5.0, 5.0]);
+        use_master(&mut d, &p, Some(&m)).unwrap();
+        d.apply(Command::Override {
+            page: p.clone(),
+            id: gone,
+        })
+        .unwrap();
+        let layers = |d: &mut Doc, like: &str| {
+            let id = d
+                .apply(Command::AddMaster {
+                    like: Some(like.into()),
+                    layers: true,
+                })
+                .unwrap()
+                .remove(0);
+            let s = d.snapshot();
+            let m = s.masters.iter().find(|o| o.id == id).unwrap();
+            m.children
+                .iter()
+                .map(|n| (n.id.clone(), n.override_of.clone()))
+                .collect::<Vec<_>>()
+        };
+        let copy = layers(&mut d, &p);
+        assert_eq!(copy.len(), 3);
+        assert!(copy.iter().all(|(id, o)| *id != kept && o.is_none()));
+        assert_eq!(layers(&mut d, &m).len(), 2);
+    }
+
+    #[test]
     fn a_master_draws_under_the_layers_of_the_pages_that_use_it_and_is_not_hit_there() {
         let (mut d, p1) = empty();
         let p2 = add_page(&mut d, None);
@@ -1108,7 +1171,15 @@ mod tests {
         assert_eq!(d.master_hit(&p1, 15.0, 15.0, 0.0), Some(under.clone()));
         assert_eq!(d.master_hit(&p2, 15.0, 15.0, 0.0), None);
         assert!(use_master(&mut d, &p1, Some(&p2)).is_err());
-        assert_eq!(d.apply(Command::AddMaster { like: None }).unwrap().len(), 1);
+        assert_eq!(
+            d.apply(Command::AddMaster {
+                like: None,
+                layers: false
+            })
+            .unwrap()
+            .len(),
+            1
+        );
         assert_eq!(d.snapshot().masters[1].name, "B-Master");
         d.apply(Command::SetMaster {
             id: m.clone(),
