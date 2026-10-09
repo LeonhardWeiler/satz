@@ -651,7 +651,8 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const guide = editor.tool === 'move' && guideAt(toDoc(pointer))
       canvas.style.cursor = guide ? (guide.axis === 'x' ? 'col-resize' : 'row-resize')
         : side ? 'pointer'
-        : to ? (editor.engine.canThread(editor.threading!, to) ? '' : 'not-allowed')
+        : to ? (editor.engine.canThread(editor.threading!, to) ? 'alias' : 'not-allowed')
+        : editor.threading ? 'alias'
         : editor.vector?.mode === 'add' || editor.vector?.mode === 'fill' ? 'crosshair' : cursorOf(handleUnder(pointer) ?? '', handles().box?.rotation ?? 0)
       const mode = pointer.ctrlKey ? 'deep' : 'click'
       const id = editor.tool === 'move' ? pickAt(toDoc(pointer), mode) : undefined
