@@ -387,15 +387,17 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         const at = editor.sheets.find((s) => s.id === hover.id)!.guides[hover.axis][hover.index]
         svg += hover.axis === 'x' ? `<line class="guide" x1="${X(hover.dx + at)}" y1="0" x2="${X(hover.dx + at)}" y2="9999"/>` : `<line class="guide" x1="0" y1="${Y(at)}" x2="9999" y2="${Y(at)}"/>`
       }
+      let tags = ''
       for (const id of editor.selection) {
         const n = editor.nodes.get(id)?.node
-        if (!n || n.wrap === 'none' || n.hidden) continue
+        if (!n || n.hidden) continue
         const b = covered(n)
+        if (n.overrideOf) tags += `<rect class="label override" x="${X(b.x)}" y="${Y(b.y + b.h) + 8}" width="62" height="18" rx="4"/><text x="${X(b.x) + 31}" y="${Y(b.y + b.h) + 17}">Override</text>`
+        if (n.wrap === 'none') continue
         svg += `<rect class="wrap" x="${X(b.x - n.wrapOffsetX)}" y="${Y(b.y - n.wrapOffsetY)}" width="${(b.w + 2 * n.wrapOffsetX) * view.zoom}" height="${(b.h + 2 * n.wrapOffsetY) * view.zoom}"/>`
       }
       if (target) svg += `<rect class="target" x="${X(target.x)}" y="${Y(target.y)}" width="${target.w * view.zoom}" height="${target.h * view.zoom}"/>`
       const labels: Box[] = []
-      let tags = ''
       for (const m of measures) {
         svg += line(m.x1, m.y1, m.x2, m.y2, m.dashed ? 'dashed' : '')
         if (m.dashed) continue

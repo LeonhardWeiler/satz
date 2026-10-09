@@ -1249,6 +1249,10 @@ textarea {
   color: var(--text-3);
 }
 
+.kind.override {
+  color: var(--master);
+}
+
 .icon-button {
   display: grid;
   place-items: center;
@@ -3201,6 +3205,10 @@ kbd {
 
   .label {
     fill: var(--magenta);
+  }
+
+  .override {
+    fill: var(--master);
   }
 
   .swap {

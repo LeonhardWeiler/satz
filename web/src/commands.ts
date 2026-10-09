@@ -114,6 +114,13 @@ export const ACTIONS: Action[] = [
     run: (editor) => editor.batch(() => editor.selected().forEach((n) => editor.apply({ type: 'set', id: n.id, ...copied }))),
   },
   { title: 'Rename', keys: 'F2', group: 'Edit' },
+  {
+    title: 'Reset to master',
+    keys: '',
+    group: 'Pages',
+    can: (editor) => editor.selected().some((n) => n.overrideOf),
+    run: (editor) => editor.apply({ type: 'resetToMaster', ids: editor.selected().flatMap((n) => (n.overrideOf ? [n.id] : [])) }),
+  },
   ...BOOLEANS.map(([op, title, , keys]): Action => ({ title, keys: keys.replaceAll('+', ' '), group: 'Arrange', run: (editor) => combine(editor, op), can: combinable })),
   ...ALIGNS.map(([how, title, , keys]): Action => ({ title, keys: keys.replaceAll('+', ' '), group: 'Align', run: (editor) => align(editor, how) })),
   {
@@ -141,7 +148,7 @@ export const ACTIONS: Action[] = [
 
 /** The titles of the actions the context menu offers with and without a selection, `null` between groups. */
 export const MENU = {
-  selected: ['Cut', 'Copy', 'Paste', 'Duplicate', null, 'Copy style', 'Paste style', null, 'Group', 'Frame selection', 'Ungroup', 'Add auto layout', 'Transform', null, 'Bring forward', 'Send backward', 'Bring to front', 'Send to back', null, 'Hide', 'Lock', 'Rename', null, 'Delete'],
+  selected: ['Cut', 'Copy', 'Paste', 'Duplicate', null, 'Copy style', 'Paste style', null, 'Group', 'Frame selection', 'Ungroup', 'Add auto layout', 'Transform', null, 'Bring forward', 'Send backward', 'Bring to front', 'Send to back', null, 'Hide', 'Lock', 'Rename', 'Reset to master', null, 'Delete'],
   transform: ['Use as mask', 'Flatten', 'Flip horizontal', 'Flip vertical'],
   none: ['Paste', 'Select all', null, 'Undo', 'Redo', null, 'Zoom to fit', 'Show or hide rulers', 'Add page', 'Page overview', null, 'Command palette', 'Keyboard shortcuts', 'Settings'],
 }

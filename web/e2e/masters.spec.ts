@@ -95,6 +95,10 @@ test('ctrl+shift+click overrides a master layer with a copy on the page', async 
   await overridden(page)
   await expect(rects(page)).toHaveCount(3)
   await expect(page.getByRole('complementary', { name: 'Properties' }).getByRole('button', { name: 'Reset to master' })).toBeVisible()
+  await expect(page.getByTitle('Overrides a master layer')).toBeVisible()
+  await page.getByRole('treeitem', { selected: true }).locator('.layer-name').click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Reset to master' }).click()
+  await expect(rects(page)).toHaveCount(2)
 })
 
 test('reset to master removes the override, undo brings it back and the page resets all its overrides', async ({ page }) => {

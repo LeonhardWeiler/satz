@@ -155,6 +155,11 @@ export function Layers({ editor }: { editor: Editor }) {
               </span>
             )}
             <KindIcon node={node} />
+            {node.overrideOf && (
+              <span className="kind override" title="Overrides a master layer">
+                <Icon name="master" />
+              </span>
+            )}
             {renaming === node.id ? (
               <input
                 className="rename"

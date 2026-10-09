@@ -286,7 +286,9 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
           anchor={() => new DOMRect(menu.x, menu.y)}
           label="Actions"
           onClose={() => setMenu(null)}
-          items={MENU[menu.transform ? 'transform' : selected ? 'selected' : 'none'].map((title) => {
+          items={MENU[menu.transform ? 'transform' : selected ? 'selected' : 'none']
+            .filter((t) => t !== 'Reset to master' || ACTIONS.find((a) => a.title === t)!.can!(editor))
+            .map((title) => {
             if (title === 'Transform') return [title, () => setTimeout(() => setMenu({ ...menu, transform: true })), true, undefined, '›']
             const a = title && ACTIONS.find((a) => a.title === title)!
             return a ? [a.title, () => (a.run ? a.run(editor) : press(a.keys)), a.can?.(editor) ?? true, undefined, keysOf(a)] : null
