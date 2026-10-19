@@ -15,48 +15,48 @@ const ICONS = {
   move: <path d="M3.6 3.3c-.2-.6.3-1 .8-.7l8.1 4.9c.5.3.4 1-.2 1.1L8.8 9.2l-1.7 3.7c-.3.6-1 .5-1.1-.1z" />,
   frame: <path d="M5 2v12M11 2v12M2 5h12M2 11h12" />,
   rect: <rect x="3" y="3" width="10" height="10" rx="2" fill="currentColor" fillOpacity=".3" />,
-  ellipse: <circle cx="8" cy="8" r="5.5" />,
-  polygon: <path d="M7.1 3.6a1 1 0 0 1 1.8 0l4.6 8.4a1 1 0 0 1-.9 1.5H3.4a1 1 0 0 1-.9-1.5z" />,
-  star: <path d="m8 2.5 1.7 3.6 3.8.5-2.8 2.6.7 3.8L8 11.2 4.6 13l.7-3.8L2.5 6.6l3.8-.5z" />,
+  ellipse: <circle cx="8" cy="8" r="5.5" fill="currentColor" fillOpacity=".3" />,
+  polygon: <path d="M7.1 3.6a1 1 0 0 1 1.8 0l4.6 8.4a1 1 0 0 1-.9 1.5H3.4a1 1 0 0 1-.9-1.5z" fill="currentColor" fillOpacity=".3" />,
+  star: <path d="m8 2.5 1.7 3.6 3.8.5-2.8 2.6.7 3.8L8 11.2 4.6 13l.7-3.8L2.5 6.6l3.8-.5z" fill="currentColor" fillOpacity=".3" />,
   line: <path d="m3 13 10-10" />,
   arrow: <path d="m3 13 10-10M7.5 3H13v5.5" />,
   path: (
     <>
-      <path d="M4.5 11.5C5.5 7 8 4.8 11.5 4.5" />
-      <circle cx="3.5" cy="12.5" r="1.2" />
-      <circle cx="12.5" cy="3.5" r="1.2" />
+      <path d="M3.5 11.3C3.5 7 7 3.5 11.3 3.5" />
+      <circle cx="3.5" cy="12.5" r="1.2" fill="currentColor" />
+      <circle cx="12.5" cy="3.5" r="1.2" fill="currentColor" />
     </>
   ),
   addPoint: (
     <>
       <path d="M2.5 13.5C4 9.5 6 8 9 7.5" />
-      <rect x="1.5" y="12" width="2.5" height="2.5" />
+      <rect x="1.5" y="12" width="2.5" height="2.5" fill="currentColor" />
       <path d="M12 2.5v6M9 5.5h6" />
     </>
   ),
   smooth: (
     <>
       <path d="M2.5 12.5C4 6 12 6 13.5 12.5M3 6h10" />
-      <circle cx="8" cy="6" r="1.5" />
+      <circle cx="8" cy="6" r="1.5" fill="currentColor" />
     </>
   ),
   corner: (
     <>
-      <path d="m2.5 13.5 4.6-7.4M8.9 6.1l4.6 7.4" />
-      <rect x="6.75" y="3" width="2.5" height="2.5" />
+      <path d="m2.5 13.5 5.5-9.25 5.5 9.25" />
+      <rect x="6.75" y="3" width="2.5" height="2.5" fill="currentColor" />
     </>
   ),
   deletePoint: (
     <>
       <path d="M2.5 13.5C4 9.5 6 8 9 7.5" />
-      <rect x="1.5" y="12" width="2.5" height="2.5" />
+      <rect x="1.5" y="12" width="2.5" height="2.5" fill="currentColor" />
       <path d="M9 5.5h6" />
     </>
   ),
   pen: (
     <>
       <path d="M7.2 2.9a1 1 0 0 1 1.6 0L12 8l-2 5.5H6L4 8z" />
-      <path d="M8 2v5" />
+      <path d="M8 2.5v4.8" />
       <circle cx="8" cy="8.3" r="1" />
     </>
   ),
@@ -64,17 +64,17 @@ const ICONS = {
   image: (
     <>
       <rect x="2.5" y="3.5" width="11" height="9" rx="2" />
-      <path d="m2.5 11 3.5-3.5 3 3 1.5-1.5 3 3" />
-      <circle cx="10.5" cy="6.5" r="1" />
+      <path d="M6.5 12.5 10.3 8.7a1 1 0 0 1 1.4 0l1.8 1.8" />
+      <circle cx="6" cy="6.5" r="1.25" />
     </>
   ),
   bucket: (
     <>
-      <path d="M7 1.5l6 6-5 5-6-6zM2 6.5h11" />
+      <path d="M13 8 7.5 2.5 1.9 8.1a1.4 1.4 0 0 0 0 2l3.5 3.5a1.4 1.4 0 0 0 2 0zM1.5 9.5h10" />
       <path d="M14 10.5c.8 1.2 1 1.8 1 2.2a1 1 0 0 1-2 0c0-.4.2-1 1-2.2z" />
     </>
   ),
-  eyedropper: <path d="M2 14l.7-.7h2l6-6M2.7 13.3v-2l6-6M10 4l2.3-2.3a1.4 1.4 0 0 1 2 2L12 6l.3.3a1.4 1.4 0 0 1-2 2L7.7 5.7a1.4 1.4 0 0 1 2-2z" />,
+  eyedropper: <path d="M2 14l.7-.7h2L10 8M2.7 13.3v-2L8 6M10 4l2.3-2.3a1.4 1.4 0 0 1 2 2L12 6l.3.3a1.4 1.4 0 0 1-2 2L7.7 5.7a1.4 1.4 0 0 1 2-2z" />,
   fit: <path d="M1.5 5.5v-4h4M10.5 1.5h4v4M14.5 10.5v4h-4M5.5 14.5h-4v-4" />,
   crop: <path d="M4.5 1.5v10h10M1.5 4.5h10v10" />,
   adjust: (
@@ -109,7 +109,7 @@ const ICONS = {
   flipHorizontal: <path d="M8 2v12M6 4.5v8H2.5zM10 4.5v8h3.5z" />,
   flipVertical: <path d="M2 8h12M11.5 6h-8V2.5zM11.5 10h-8v3.5z" />,
   reset: <path d="M3 3v3h3M3.4 6A5 5 0 1 1 3 8.5" />,
-  ratio: <path d="M7 9l2-2M6.5 5.5l1-1a2.5 2.5 0 0 1 3.5 3.5l-1 1M9.5 10.5l-1 1a2.5 2.5 0 0 1-3.5-3.5l1-1" />,
+  ratio: <path d="M7 9l2-2M6.75 5.75l1-1a2.5 2.5 0 0 1 3.5 3.5l-1 1M9.25 10.25l-1 1a2.5 2.5 0 0 1-3.5-3.5l1-1" />,
   arrowDown: <path d="M8 3v10M4.5 9.5 8 13l3.5-3.5" />,
   arrowUp: <path d="M8 13V3M4.5 6.5 8 3l3.5 3.5" />,
   arrowRight: <path d="M3 8h10M9.5 4.5 13 8l-3.5 3.5" />,
@@ -242,7 +242,7 @@ const ICONS = {
     </>
   ),
   folder: <path d="M2.5 4.5a1 1 0 0 1 1-1h3l1.5 1.5h4.5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1z" />,
-  doc: <path d="M5.5 2.5h4L12 5v7.5a1.5 1.5 0 0 1-1.5 1.5h-5A1.5 1.5 0 0 1 4 12.5V4a1.5 1.5 0 0 1 1.5-1.5zM9.5 2.5V5H12" />,
+  doc: <path d="M9 2.5H5A1.5 1.5 0 0 0 3.5 4v8.5A1.5 1.5 0 0 0 5 14h6a1.5 1.5 0 0 0 1.5-1.5V6zM9 2.5V5a1 1 0 0 0 1 1h2.5" />,
   portrait: <rect x="4.5" y="2.5" width="7" height="11" rx="1.5" />,
   landscape: <rect x="2.5" y="4.5" width="11" height="7" rx="1.5" />,
   opacity: (
@@ -270,7 +270,12 @@ const ICONS = {
       <rect x="9" y="9.5" width="4.5" height="4" rx="1" />
     </>
   ),
-  master: <path d="M2.5 4.5h8v9h-8zM5.5 4.5v-2h8v9h-3" />,
+  master: (
+    <>
+      <rect x="2.5" y="4.5" width="8" height="9" rx="1.5" />
+      <path d="M5.5 4.5V4A1.5 1.5 0 0 1 7 2.5h5A1.5 1.5 0 0 1 13.5 4v6a1.5 1.5 0 0 1-1.5 1.5h-1.5" />
+    </>
+  ),
   search: (
     <>
       <circle cx="7" cy="7" r="4" />
