@@ -46,6 +46,7 @@ pub fn break_lines(items: &[Item], widths: &[f32]) -> Vec<(usize, f32)> {
         let line = |s: usize, width: f64| {
             let [w, y, z] = [0, 1, 2].map(|c| sum[j][c] - sum[s][c]);
             let slack = width - w - extra;
+            let slack = if slack.abs() < 1e-3 { 0.0 } else { slack };
             let r = match slack {
                 0.0 => 0.0,
                 _ if slack > 0.0 && y > 0.0 => slack / y,
@@ -151,6 +152,20 @@ mod tests {
     fn shrinks_a_line_instead_of_leaving_an_unjustifiable_one() {
         let items = words(&[2.0, 2.0, 2.0, 5.0, 5.0, 2.0]);
         assert_eq!(ends(&items, 10.0), vec![5, 9, 12]);
+    }
+
+    #[test]
+    fn a_line_as_wide_as_its_width_but_for_rounding_is_one_line() {
+        let mut items = vec![
+            Box(67.0),
+            Penalty {
+                width: 0.0,
+                cost: 0.0,
+            },
+            Box(0.770_001),
+        ];
+        items.extend(END);
+        assert_eq!(ends(&items, 67.77), vec![items.len() - 1]);
     }
 
     #[test]
