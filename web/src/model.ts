@@ -314,6 +314,8 @@ export type TextFrame = {
   maxLines: number
   /** Trims the frame to the cap height of the first line and the last baseline. */
   trim: boolean
+  /** Rounds each baseline to whole points below the top inset. */
+  roundBaselines: boolean
   /** The line down the middle of each gutter, off at weight 0. */
   columnRule: { weight: number; color: Color } | null
   /** The least height of an auto height frame in pt. */

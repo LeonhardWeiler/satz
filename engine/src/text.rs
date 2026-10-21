@@ -532,6 +532,8 @@ pub struct TextFrame {
     pub max_lines: u32,
     /// Trims the frame to the cap height of the first line and the last baseline.
     pub trim: bool,
+    /// Rounds each baseline to whole points below the top inset.
+    pub round_baselines: bool,
     /// The line down the middle of each gutter.
     pub column_rule: Option<Rule>,
     /// The least height of an auto height frame in pt.
@@ -559,6 +561,7 @@ impl Default for TextFrame {
             baseline_start: 0.0,
             max_lines: 0,
             trim: false,
+            round_baselines: false,
             column_rule: None,
             min_height: 0.0,
             number: String::new(),
@@ -1673,7 +1676,11 @@ fn place(rows: Vec<Row>, [ix, iy, _, ih]: [f32; 4], cw: f32, tf: &TextFrame) -> 
                 .iter()
                 .map(|g| Glyph {
                     x: cx + g.x,
-                    y: baseline + g.y,
+                    y: if tf.round_baselines {
+                        iy + (baseline - iy).round()
+                    } else {
+                        baseline
+                    } + g.y,
                     ..g.clone()
                 })
                 .collect(),
@@ -2202,6 +2209,16 @@ mod tests {
         let b = baselines("Hi\nHi", [0.0, 0.0, 100.0, 50.0], tf.clone());
         let [_, h] = measure("Hi\nHi", &one("Hi\nHi", attrs(10.0)), &tf, Some(100.0), 0);
         assert_close(&[b[0][1], h], &[6.7, b[1][1]]);
+    }
+
+    #[test]
+    fn round_baselines_puts_each_baseline_on_a_whole_point_below_the_top() {
+        let tf = TextFrame {
+            round_baselines: true,
+            ..TextFrame::default()
+        };
+        let b = baselines("Hi\nHi", [0.0, 0.3, 100.0, 50.0], tf);
+        assert_close(&[b[0][1] - 0.3, b[1][1] - 0.3], &[10.0, 24.0]);
     }
 
     #[test]

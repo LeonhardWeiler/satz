@@ -451,6 +451,7 @@ pub struct Props {
     pub baseline_start: Option<f64>,
     pub max_lines: Option<u32>,
     pub trim: Option<bool>,
+    pub round_baselines: Option<bool>,
     pub column_rule: Option<text::Rule>,
     pub min_height: Option<f64>,
     pub wrap: Option<Wrap>,

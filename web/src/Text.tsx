@@ -541,6 +541,7 @@ export function TextFrameSection({ editor, node, set }: { editor: Editor; node: 
         <Field label="Lines" title="Max lines" unit="" int max={1000} zero="–" reset={0} value={node.maxLines} onCommit={(maxLines) => set({ maxLines })} />
         <Segmented label="Vertical align" prefix="Align" value={node.verticalAlign} options={VERTICAL} onChange={(verticalAlign) => set({ verticalAlign })} />
         <Check label="Trim to cap height" value={node.trim} set={(trim) => set({ trim })} />
+        <Check label="Whole point baselines" value={node.roundBaselines} set={(roundBaselines) => set({ roundBaselines })} />
       </div>
       {node.columns > 1 && (
         <ColorCheck
