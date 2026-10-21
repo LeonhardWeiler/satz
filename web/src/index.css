@@ -1804,7 +1804,8 @@ input[type='checkbox']:disabled {
 }
 
 .quick > .select {
-  width: 170px;
+  flex: none;
+  max-width: 170px;
 }
 
 .quick .segmented {

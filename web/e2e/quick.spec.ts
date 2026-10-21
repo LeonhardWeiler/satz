@@ -117,6 +117,7 @@ test('quick edit aligns several layers, sizes a layer in an auto layout and sets
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle' }).first().click()
   await choose(quick.getByRole('combobox', { name: 'Width sizing' }), 'Fill')
   await expect(panel.getByRole('combobox', { name: 'Width sizing' })).toHaveText(/Fill/)
+  expect((await quick.boundingBox())!.height).toBeLessThan(40)
 
   await page.keyboard.press('t')
   await page.mouse.click(...(await screen(page, 20, 150)))

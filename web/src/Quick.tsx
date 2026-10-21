@@ -73,7 +73,7 @@ export function Quick({ editor }: { editor: Editor }) {
       {nodes.length > 1 && <AlignBar editor={editor} />}
       {combinable(editor) && <BooleanBar editor={editor} />}
       {one?.kind === 'group' && one.children.length > 1 && <AlignBar editor={editor} inside={one.children} />}
-      {one && <Sizing editor={editor} node={one} set={set} />}
+      {one && <Sizing editor={editor} node={one} compact set={set} />}
       {one?.kind === 'text' && (
         <>
           <Specimen editor={editor} spans={spans} compact format={format} />

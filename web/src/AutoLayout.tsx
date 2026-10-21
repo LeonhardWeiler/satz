@@ -24,25 +24,22 @@ export function flows(editor: Editor, node: Node) {
 }
 
 /** Width and height sizing of `node`: hug for auto layout frames and text in one, fill in one. */
-export function Sizing({ editor, node, set }: { editor: Editor; node: Node; set: (p: Props) => void }) {
+export function Sizing({ editor, node, compact, set }: { editor: Editor; node: Node; compact?: boolean; set: (p: Props) => void }) {
   const fills = flows(editor, node)
   const hugs = (node.kind === 'frame' && node.direction !== 'none') || (node.kind === 'text' && fills)
   if (!hugs && !fills) return null
   const sizes = Object.fromEntries(Object.entries(SIZES).filter(([s]) => s === 'fixed' || (s === 'hug' ? hugs : fills))) as Record<Size, string>
-  return (
-    <Group title="Resizing">
-      {(['horizontal', 'vertical'] as const).map((axis) => (
-        <Select
-          key={axis}
-          label={`${axis === 'horizontal' ? 'Width' : 'Height'} sizing`}
-          prefix={axis === 'horizontal' ? 'W' : 'H'}
-          value={node.sizing[axis]}
-          options={sizes}
-          onChange={(s) => set({ sizing: { ...node.sizing, [axis]: s } })}
-        />
-      ))}
-    </Group>
-  )
+  const selects = (['horizontal', 'vertical'] as const).map((axis) => (
+    <Select
+      key={axis}
+      label={`${axis === 'horizontal' ? 'Width' : 'Height'} sizing`}
+      prefix={axis === 'horizontal' ? 'W' : 'H'}
+      value={node.sizing[axis]}
+      options={sizes}
+      onChange={(s) => set({ sizing: { ...node.sizing, [axis]: s } })}
+    />
+  ))
+  return compact ? selects : <Group title="Resizing">{selects}</Group>
 }
 
 /** Direction, alignment, gap and padding of an auto layout frame, or a button that adds one. */
