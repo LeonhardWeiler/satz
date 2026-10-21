@@ -1679,7 +1679,7 @@ fn place(rows: Vec<Row>, [ix, iy, _, ih]: [f32; 4], cw: f32, tf: &TextFrame) -> 
                 .collect(),
         );
         columns[col as usize].1 = baseline + below;
-        top = baseline + row.below + row.after;
+        top = baseline + rows.get(i + 1).map_or(row.below, |r| r.below) + row.after;
         i += 1;
     }
     let k = match tf.vertical_align {
@@ -2225,6 +2225,23 @@ mod tests {
         };
         let r = plain("Hi\nHi", a, [0.0, 0.0, 100.0, 50.0]);
         assert_close(&[r[0].1[1], r[1].1[1]], &[13.5, 33.5]);
+    }
+
+    #[test]
+    fn a_line_sits_its_own_line_height_below_the_baseline_before() {
+        let lh = |len, line_height| Span {
+            len,
+            attrs: Attrs {
+                line_height,
+                ..attrs(10.0)
+            },
+        };
+        let r = runs(
+            "Hi\nHi",
+            &[lh(3, 30.0), lh(2, 12.0)],
+            [0.0, 0.0, 100.0, 50.0],
+        );
+        assert_close(&[r[1].2[1] - r[0].2[1]], &[12.0]);
     }
 
     #[test]
