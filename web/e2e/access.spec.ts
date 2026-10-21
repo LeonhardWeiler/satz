@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { type Page } from '@playwright/test'
-import { expect, test, addPage, choose, open, pageCount } from './util'
+import { expect, test, addPage, autosaved, choose, open, pageCount } from './util'
 
 /** Pickers that hand out files of the origin private file system and count how often they asked. */
 async function pickers(page: Page) {
@@ -65,6 +65,30 @@ test('missing fonts are found among the fonts of this computer', async ({ page }
   await fonts.getByRole('button', { name: 'Remove DM Mono Regular' }).click()
   await expect(fonts.locator('.missing')).toHaveText(['DM Mono Regular'])
   await fonts.getByRole('button', { name: 'Find missing fonts on this computer' }).click()
+  await expect(page.getByText('Found 1 of 1 missing fonts on this computer.')).toBeVisible()
+  await expect(fonts.locator('.missing')).toHaveCount(0)
+})
+
+test('missing fonts are found by themselves once Satz may read the fonts of this computer', async ({ page, context }) => {
+  const font = readFileSync(new URL('../../engine/fonts/DMMono-Regular.ttf', import.meta.url)).toString('base64')
+  await page.addInitScript((font) => {
+    const bytes = Uint8Array.from(atob(font), (c) => c.charCodeAt(0))
+    Object.assign(window, { queryLocalFonts: async () => [{ fullName: 'DM Mono Regular', family: 'DM Mono', style: 'Regular', postscriptName: 'DMMono-Regular', blob: async () => new Blob([bytes]) }] })
+  }, font)
+  await context.grantPermissions(['local-fonts'])
+  await open(page)
+  const fonts = page.getByRole('region', { name: 'Fonts' })
+  const chooser = page.waitForEvent('filechooser')
+  await fonts.getByRole('button', { name: 'Add font' }).click()
+  await (await chooser).setFiles(new URL('../../engine/fonts/DMMono-Regular.ttf', import.meta.url).pathname)
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
+  await choose(page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Font', exact: true }), 'DM Mono')
+  await page.keyboard.press('Escape')
+  await fonts.getByRole('listitem').last().hover()
+  await fonts.getByRole('button', { name: 'Remove DM Mono Regular' }).click()
+  await expect(fonts.locator('.missing')).toHaveText(['DM Mono Regular'])
+  await autosaved(page)
+  await page.reload()
   await expect(page.getByText('Found 1 of 1 missing fonts on this computer.')).toBeVisible()
   await expect(fonts.locator('.missing')).toHaveCount(0)
 })

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Engine } from './engine/engine'
 import { MM, type Editor } from './editor'
-import { discard, open } from './file'
+import { discard, findGrantedFonts, open } from './file'
 import { Field, Keys, Segmented } from './controls'
 import { length } from './settings'
 import { Icon } from './icons'
@@ -55,6 +55,7 @@ export function Start({ editor, onClose }: { editor: Editor; onClose: () => void
         const r = await fetch(url)
         if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
         editor.load(new Uint8Array(await r.arrayBuffer()), { name, handle: null })
+        findGrantedFonts(editor)
       } else load(Engine.sample())
     } catch (e) {
       return editor.fail(`Could not open ${name}: ${(e as Error).message}. Create a new document instead.`)

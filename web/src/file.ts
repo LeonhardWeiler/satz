@@ -176,8 +176,9 @@ async function load(editor: Editor, file: File, handle: Handle | null) {
   try {
     editor.load(new Uint8Array(await file.arrayBuffer()), { name: file.name, handle })
   } catch (e) {
-    editor.fail(`Could not open ${file.name}: ${(e as Error).message}. Choose a .satz file saved by Satz.`)
+    return editor.fail(`Could not open ${file.name}: ${(e as Error).message}. Choose a .satz file saved by Satz.`)
   }
+  await findGrantedFonts(editor)
 }
 
 /** Asks for a file and opens it in place of the document. */
@@ -312,4 +313,11 @@ export async function findFonts(editor: Editor) {
     found++
   }
   editor.say(`Found ${found} of ${missing.length} missing fonts on this computer.${found < missing.length ? ' Add the others with Add font.' : ''}`)
+}
+
+/** Adds the missing fonts that this computer has, if Satz may already read them. */
+export async function findGrantedFonts(editor: Editor) {
+  if (!canFindFonts || !editor.snapshot.missingFonts.length) return
+  const p = await navigator.permissions.query({ name: 'local-fonts' as PermissionName }).catch(() => null)
+  if (p?.state === 'granted') await findFonts(editor)
 }
