@@ -725,3 +725,142 @@ fn the_saved_examples_load_as_they_were_built() {
         assert_eq!(issues(&d), [], "{name}");
     }
 }
+
+/// A booklet of `n` A4 pages on a master, each with 100 layers: shapes, labels, a
+/// group, an auto layout frame, the photograph and a frame of one story threaded
+/// through all pages.
+pub(crate) fn heavy(n: usize) -> Doc {
+    let (w, h) = (210.0, 297.0);
+    let (mut b, first) = Build::new(w, h, true);
+    let master = b.one(Command::AddMaster {
+        like: None,
+        layers: false,
+    });
+    for (x, align) in [(-w + 15.0, TextAlign::Left), (15.0, TextAlign::Right)] {
+        let small = || TextProps {
+            size: Some(8.0),
+            text_align: Some(align),
+            ..TextProps::default()
+        };
+        b.text(&master, [x, 10.0, 180.0, 0.0], "HEAVY", small());
+        let number = PAGE_NUMBER.to_string();
+        b.text(&master, [x, 285.0, 180.0, 0.0], &number, small());
+    }
+    b.run(Command::UseMaster {
+        page: first.clone(),
+        master: Some(master),
+    });
+    let p = &first;
+    let color = |i: usize| {
+        let f = |k: usize| ((i * k) % 10) as f32 / 10.0;
+        cmyk(f(3), f(7), f(9), 0.0, 1.0)
+    };
+    for i in 0..60 {
+        let (x, y) = ((i % 10) as f64 * 19.0 + 10.0, (i / 10) as f64 * 19.0 + 20.0);
+        let kind = [NewKind::Rect, NewKind::Ellipse, NewKind::Star][i % 3];
+        let strokes = (i % 4 == 0).then(|| vec![Fill::solid(cmyk(0.0, 0.0, 0.0, 1.0, 1.0))]);
+        b.add(
+            p,
+            kind,
+            [x, y, 16.0, 16.0],
+            Props {
+                fills: solid(color(i)),
+                strokes,
+                ..named(&format!("Shape {i}"))
+            },
+        );
+    }
+    for i in 0..20 {
+        let (x, y) = ((i % 5) as f64 * 38.0 + 10.0, (i / 5) as f64 * 8.0 + 140.0);
+        b.text(
+            p,
+            [x, y, 36.0, 0.0],
+            &format!("Label {i}"),
+            TextProps::default(),
+        );
+    }
+    let parts: Vec<String> = (0..5)
+        .map(|i| {
+            let x = i as f64 * 12.0 + 10.0;
+            b.add(
+                p,
+                NewKind::Rect,
+                [x, 175.0, 10.0, 10.0],
+                Props {
+                    fills: solid(color(i + 60)),
+                    ..Props::default()
+                },
+            )
+        })
+        .collect();
+    b.run(Command::Group {
+        ids: parts,
+        frame: false,
+    });
+    let row = b.add(
+        p,
+        NewKind::Frame,
+        [80.0, 175.0, 120.0, 12.0],
+        auto(Direction::Horizontal, MainAlign::Start, 2.0, "Row"),
+    );
+    for i in 0..6 {
+        b.add(
+            &row,
+            NewKind::Rect,
+            [80.0, 175.0, 15.0, 10.0],
+            Props {
+                fills: solid(color(i + 70)),
+                ..Props::default()
+            },
+        );
+    }
+    b.photo(p, [10.0, 195.0, 60.0, 40.0], [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
+    let story = b.text(p, [80.0, 195.0, 120.0, 80.0], "", TextProps::default());
+    let mut frames = vec![story];
+    for _ in 1..n {
+        let page = b.one(Command::DuplicatePage {
+            id: b.0.snapshot().pages.last().unwrap().id.clone(),
+        });
+        let s = b.0.snapshot();
+        let page = s.pages.iter().find(|q| q.id == page).unwrap();
+        frames.push(page.children.last().unwrap().id.clone());
+    }
+    let text = vec![SAMPLE_STORY; 3 * n].join("\n");
+    b.run(Command::SetText {
+        id: frames[0].clone(),
+        text,
+    });
+    b.run(Command::Format {
+        id: frames[0].clone(),
+        range: None,
+        props: TextProps {
+            text_align: Some(TextAlign::Justify),
+            hyphenate: Some(true),
+            ..TextProps::default()
+        },
+    });
+    for f in frames.windows(2) {
+        b.run(Command::Thread {
+            from: f[0].clone(),
+            to: f[1].clone(),
+        });
+    }
+    b.0
+}
+
+const SAMPLE_STORY: &str = "Apollo 8 left Cape Kennedy on the morning of 21 December 1968. \
+It was the first time a Saturn V rocket carried a crew, and the first time people travelled \
+beyond the orbit of the Earth. Frank Borman, James Lovell and William Anders were on their \
+way to the Moon, a journey of almost three days.";
+
+/// `cargo test --release -p engine heavy_documents -- --ignored` writes
+/// `target/perf/heavy-{1,20,50}.satz` for the browser benchmark `web/e2e/perf.spec.ts`.
+#[test]
+#[ignore]
+fn heavy_documents() {
+    let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../target/perf");
+    std::fs::create_dir_all(dir).unwrap();
+    for n in [1, 20, 50] {
+        std::fs::write(format!("{dir}/heavy-{n}.satz"), heavy(n).save()).unwrap();
+    }
+}
