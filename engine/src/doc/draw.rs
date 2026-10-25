@@ -207,23 +207,17 @@ pub struct Node {
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Kind {
     Shape(Shape),
-    /// `content` is the story of the thread, whose first frame is `story`; the layer
-    /// sets it from `start` up to `end` in UTF-16, and `overset` when it is the last
-    /// frame and text is left.
+    /// `content` is the part of the story of the thread, whose first frame is `story`,
+    /// that the layer sets, `overset` when it is the last frame and text is left.
     Text {
         #[serde(skip)]
         content: Rc<Story>,
         #[serde(flatten)]
         frame: TextFrame,
         story: String,
-        start: usize,
-        end: usize,
         prev: Option<String>,
         next: Option<String>,
         overset: bool,
-        /// `start` as a byte offset.
-        #[serde(skip)]
-        from: usize,
         #[serde(skip)]
         placed: Rc<text::Placed>,
     },
@@ -249,23 +243,28 @@ fn untitled(kind: &Kind, style: &Style) -> String {
         Kind::Shape(Shape::Path { .. }) if style.arrow_start || style.arrow_end => "Arrow".into(),
         Kind::Shape(Shape::Path { path, .. }) if path.len() == 6 => "Line".into(),
         Kind::Shape(Shape::Path { .. }) => "Vector".into(),
-        Kind::Text { content, from, .. } if content.text[*from..].is_empty() => "Text".into(),
-        Kind::Text { content, from, .. } => {
-            let t: String = content.text[*from..]
-                .chars()
-                .take(41)
-                .map(|c| if c == text::PAGE_NUMBER { '#' } else { c })
-                .collect();
-            match t.char_indices().nth(40) {
-                Some((end, _)) => {
-                    let cut = t[..end].rfind(' ').unwrap_or(end);
-                    format!("{}…", t[..cut].trim_end_matches([',', '.', ';', ':']))
-                }
-                None => t,
-            }
-        }
+        Kind::Text { content, .. } => text_name(&content.text),
         Kind::Group { .. } => "Group".into(),
         Kind::Frame { .. } => "Frame".into(),
+    }
+}
+
+/// The name of a text layer that has none and whose text starts with `lead`.
+fn text_name(lead: &str) -> String {
+    if lead.is_empty() {
+        return "Text".into();
+    }
+    let t: String = lead
+        .chars()
+        .take(41)
+        .map(|c| if c == text::PAGE_NUMBER { '#' } else { c })
+        .collect();
+    match t.char_indices().nth(40) {
+        Some((end, _)) => {
+            let cut = t[..end].rfind(' ').unwrap_or(end);
+            format!("{}…", t[..cut].trim_end_matches([',', '.', ';', ':']))
+        }
+        None => t,
     }
 }
 
@@ -426,7 +425,6 @@ pub(super) fn visit(
     let mut children: &[Rc<Node>] = &[];
     match &n.kind {
         Kind::Text {
-            content,
             story,
             overset,
             frame,
@@ -436,7 +434,7 @@ pub(super) fn visit(
             if *overset {
                 problems.push(Problem::Overset);
             }
-            if *story == n.id {
+            if let Some(content) = snap.stories.get(story).filter(|_| *story == n.id) {
                 colors.extend(
                     content
                         .spans
@@ -519,7 +517,7 @@ pub(super) fn visit(
 
 /// Sets the page number of the text layers among `nodes` to `number` and fits the
 /// hugging sides of each to it, as `Doc::fit` does.
-pub(super) fn renumber(nodes: &mut [Rc<Node>], number: &str) {
+pub(super) fn renumber(nodes: &mut [Rc<Node>], number: &str, flows: &HashMap<TreeID, Flow>) {
     for n in nodes {
         let n = Rc::make_mut(n);
         let Sizing {
@@ -531,24 +529,32 @@ pub(super) fn renumber(nodes: &mut [Rc<Node>], number: &str) {
                 content,
                 frame,
                 next,
-                from,
                 placed,
                 ..
             } => {
+                let (story, from) = match TreeID::try_from(n.id.as_str())
+                    .ok()
+                    .and_then(|id| flows.get(&id))
+                {
+                    Some(f) => (&*f.story, f.start),
+                    None => (&**content, 0),
+                };
                 frame.number = number.into();
                 if vertical == Size::Hug && next.is_none() {
                     let auto_width = horizontal == Size::Hug;
                     let w = (!auto_width).then_some(n.w as f32);
-                    let [w, h] = text::measure(&content.text, &content.spans, frame, w, *from);
+                    let [w, h] = text::measure(&story.text, &story.spans, frame, w, from);
                     if auto_width {
                         n.w = w.into();
                     }
                     n.h = h.into();
                 }
                 let bounds = [n.x, n.y, n.w, n.h].map(|v| v as f32);
-                *placed = Rc::new(text::set(&content.text, &content.spans, bounds, frame, *from).0);
+                *placed = Rc::new(set_from(&story.text, &story.spans, bounds, frame, from).0);
             }
-            Kind::Group { children } | Kind::Frame { children, .. } => renumber(children, number),
+            Kind::Group { children } | Kind::Frame { children, .. } => {
+                renumber(children, number, flows)
+            }
             Kind::Shape(_) => {}
         }
     }
@@ -640,28 +646,20 @@ pub(super) fn draw(n: &Node, ops: &mut Vec<Op>, pal: &Palette) {
         Kind::Text {
             content,
             frame: tf,
-            from,
             placed,
             ..
-        } => {
-            debug_assert_eq!(
-                **placed,
-                text::set(&content.text, &content.spans, frame, tf, *from).0,
-                "text drawn where it was not set"
-            );
-            item(
-                ops,
-                text::draw(
-                    &content.text,
-                    &content.spans,
-                    &n.style,
-                    frame,
-                    tf,
-                    s,
-                    placed,
-                ),
-            )
-        }
+        } => item(
+            ops,
+            text::draw(
+                &content.text,
+                &content.spans,
+                &n.style,
+                frame,
+                tf,
+                s,
+                placed,
+            ),
+        ),
         Kind::Group { children } => draw_all(children, ops, pal),
         Kind::Frame {
             clip,
@@ -790,10 +788,10 @@ impl Doc {
         let nodes = self.changed.lock().unwrap().replace(HashSet::new())?;
         let (old, sheets) = self.sheets.take();
         let same = |a: &Flow, b: &Flow| {
-            Rc::ptr_eq(&a.story, &b.story)
+            Rc::ptr_eq(&a.content, &b.content)
                 && Rc::ptr_eq(&a.placed, &b.placed)
-                && (a.head, a.start, a.end, a.rest, a.prev, a.next, a.overset)
-                    == (b.head, b.start, b.end, b.rest, b.prev, b.next, b.overset)
+                && a.lead() == b.lead()
+                && (a.head, a.prev, a.next, a.overset) == (b.head, b.prev, b.next, b.overset)
         };
         let reflowed = flows
             .iter()
@@ -1165,7 +1163,7 @@ impl Doc {
             .map(|c| Rc::new(self.snap(c, &modes, &palette, &flows)))
             .collect();
         if let Ok(page) = self.page(&p.id) {
-            renumber(&mut layers, &self.number(page));
+            renumber(&mut layers, &self.number(page), &flows);
         }
         layers
     }
@@ -1355,33 +1353,28 @@ impl Doc {
 
     /// Sets the text layers in `n` as `flows` place them, or None if one is not in a thread.
     fn reflow(&self, n: &mut Node, flows: &HashMap<TreeID, Flow>) -> Option<()> {
-        let mut untitled_text = false;
+        let mut untitled_text = None;
         match &mut n.kind {
             Kind::Text {
                 content,
                 frame,
                 story,
-                start,
-                end,
                 prev,
                 next,
                 overset,
-                from,
                 placed,
             } => {
                 let id = TreeID::try_from(n.id.as_str()).ok()?;
                 let f = flows.get(&id)?;
-                *content = f.story.clone();
+                *content = f.content.clone();
                 *frame = self.text_frame_of(id);
                 *story = f.head.to_string();
-                [*start, *end] = f.units;
                 *prev = f.prev.map(|p| p.to_string());
                 *next = f.next.map(|n| n.to_string());
                 *overset = f.overset;
-                *from = f.start;
                 *placed = f.placed.clone();
                 if self.meta(id).get("name").is_none() {
-                    untitled_text = true;
+                    untitled_text = Some(text_name(f.lead()));
                 }
             }
             Kind::Group { children } | Kind::Frame { children, .. } => {
@@ -1391,8 +1384,8 @@ impl Doc {
             }
             Kind::Shape(_) => {}
         }
-        if untitled_text {
-            n.name = untitled(&n.kind, &n.style);
+        if let Some(name) = untitled_text {
+            n.name = name;
         }
         Some(())
     }
@@ -1418,15 +1411,12 @@ impl Doc {
         let kind = match self.kind(id) {
             Some(NodeKind::Text) => match flows.get(&id) {
                 Some(f) => Kind::Text {
-                    content: f.story.clone(),
+                    content: f.content.clone(),
                     frame: self.text_frame_of(id),
                     story: f.head.to_string(),
-                    start: f.units[0],
-                    end: f.units[1],
                     prev: f.prev.map(|p| p.to_string()),
                     next: f.next.map(|n| n.to_string()),
                     overset: f.overset,
-                    from: f.start,
                     placed: f.placed.clone(),
                 },
                 None => {
@@ -1448,12 +1438,9 @@ impl Doc {
                         content: Rc::new(content),
                         frame,
                         story: id.to_string(),
-                        start: 0,
-                        end: 0,
                         prev: None,
                         next: None,
                         overset: false,
-                        from: 0,
                         placed: Rc::new(placed),
                     }
                 }
@@ -1476,7 +1463,10 @@ impl Doc {
         let name = v["name"]
             .as_str()
             .map(String::from)
-            .unwrap_or_else(|| untitled(&kind, &style));
+            .unwrap_or_else(|| match flows.get(&id) {
+                Some(f) => text_name(f.lead()),
+                None => untitled(&kind, &style),
+            });
         let [x, y, w, h] = self.bounds(id);
         let turn = self.turn(id);
         let own = union(

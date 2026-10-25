@@ -3267,20 +3267,18 @@ mod tests {
         let n = all.into_iter().find(|n| n.id == id).unwrap();
         match &n.kind {
             Kind::Text {
-                content,
                 story,
-                start,
-                end,
                 prev,
                 next,
                 overset,
                 ..
             } => {
                 assert!(story == id || prev.is_some(), "{story} heads {id}");
+                let [start, end] = d.frame_range(id).unwrap();
                 (
-                    content.text.clone(),
-                    *start,
-                    *end,
+                    s.stories[story].text.clone(),
+                    start,
+                    end,
                     prev.clone(),
                     next.clone(),
                     *overset,

@@ -96,8 +96,9 @@ export function handleTextKey(editor: Editor, e: KeyboardEvent): boolean {
       // Past the first or last line of a frame the caret goes on in the frame before or after.
       const n = editor.nodes.get(ed.id)?.node
       const frame = n?.kind === 'text' ? n : undefined
-      if (up) to = frame?.prev ? Math.max(0, frame.start - 1) : 0
-      else to = frame?.next && frame.end < text.length ? frame.end : text.length
+      const [start, end] = frame ? engine.frameRange(frame.id) : [0, 0]
+      if (up) to = frame?.prev ? Math.max(0, start - 1) : 0
+      else to = frame?.next && end < text.length ? end : text.length
     }
     move(editor, to, extend)
   } else if (e.key === 'Home' || e.key === 'End') {

@@ -183,15 +183,9 @@ export type TextNode = Extract<Node, { kind: 'text' }>
 /** The text of a thread and its runs of equal attributes. */
 export type Story = { text: string; spans: Span[] }
 
-/**
- * A text layer in its thread, whose story is held by its first frame `story`; the
- * layer sets it from `start` to `end` in UTF-16, and is `overset` when it is the last
- * frame and text is left.
- */
+/** A text layer in its thread, whose story is held by its first frame `story`, `overset` when it is the last frame and text is left. */
 export type Threaded = {
   story: string
-  start: number
-  end: number
   prev: string | null
   next: string | null
   overset: boolean

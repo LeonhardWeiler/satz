@@ -1,12 +1,13 @@
 use super::*;
 
 /// Where the story of a thread, from the frame `head`, flows through a frame: the
-/// bytes `start..end` as `placed` there, its neighbours, and text left over at the
-/// end of the thread.
+/// bytes `start..end`, which are `content`, as `placed` there relative to them, its
+/// neighbours, and text left over at the end of the thread.
 #[derive(Clone, Debug, PartialEq)]
 pub(super) struct Flow {
     pub(super) head: TreeID,
     pub(super) story: Rc<Story>,
+    pub(super) content: Rc<Story>,
     pub(super) start: usize,
     pub(super) end: usize,
     /// `start` and `end` in UTF-16.
@@ -17,6 +18,14 @@ pub(super) struct Flow {
     pub(super) next: Option<TreeID>,
     pub(super) overset: bool,
     pub(super) placed: Rc<text::Placed>,
+}
+
+impl Flow {
+    /// The start of the text from this frame on, as much as its name shows.
+    pub(super) fn lead(&self) -> &str {
+        let t = &self.story.text[self.start..];
+        &t[..t.char_indices().nth(41).map_or(t.len(), |(i, _)| i)]
+    }
 }
 
 /// What a change reaches.
@@ -48,8 +57,7 @@ pub(super) struct Measured {
 
 /// What of the last setting `old` of a story still holds after its text changed
 /// between the bytes `p` and `old.len() - q`, which moved the text after it by
-/// `bytes` and its spans by `spans`; frames from `frames` on are as they were, and
-/// the first `same`. `head` holds the byte of the newline before `p` and where the
+/// `bytes`; frames from `frames` on are as they were, and the first `same`. `head` holds the byte of the newline before `p` and where the
 /// last `keep_next` before it ends, if the spans up to it are as they were.
 struct Tail<'a> {
     old: &'a Set,
@@ -57,7 +65,6 @@ struct Tail<'a> {
     same: usize,
     q: usize,
     bytes: isize,
-    spans: isize,
     frames: usize,
 }
 
@@ -115,7 +122,6 @@ impl<'a> Tail<'a> {
                 .count(),
             q,
             bytes: b.len() as isize - a.len() as isize,
-            spans: spans.len() as isize - o.spans.len() as isize,
             frames: frames.len() - same.take_while(|(x, y)| x == y).count(),
         })
     }
@@ -158,19 +164,61 @@ impl<'a> Tail<'a> {
         self.old.out[j..]
             .iter()
             .map(move |(f, start, next, placed)| {
-                let placed = if self.bytes == 0 && self.spans == 0 {
-                    placed.clone()
-                } else {
-                    Rc::new(placed.shifted(self.bytes, self.spans))
-                };
-                (*f, moved(*start), next.map(moved), placed)
+                (*f, moved(*start), next.map(moved), placed.clone())
             })
     }
 }
 
 /// A frame of a thread, the byte where its text starts, where the text left over for
-/// the next begins, and how its text is placed.
+/// the next begins, and how its text is placed relative to its start.
 pub(super) type Placing = (TreeID, usize, Option<usize>, Rc<text::Placed>);
+
+/// The index of the span that holds the UTF-16 index `at`.
+fn span_at(spans: &[Span], at: usize) -> usize {
+    let mut end = 0;
+    spans
+        .iter()
+        .take_while(|s| {
+            end += s.len;
+            end <= at
+        })
+        .count()
+}
+
+/// `text::set` from the byte `start`, placed relative to it and its span.
+pub(super) fn set_from(
+    text: &str,
+    spans: &[Span],
+    frame: [f32; 4],
+    tf: &TextFrame,
+    start: usize,
+) -> (text::Placed, Option<usize>) {
+    let (placed, rest) = text::set(text, spans, frame, tf, start);
+    let k = span_at(spans, utf16_of(text, start));
+    (placed.shifted(-(start as isize), -(k as isize)), rest)
+}
+
+/// The bytes `b` of `story`, which are the UTF-16 units `u`.
+fn part(story: &Story, b: Range<usize>, u: [usize; 2]) -> Story {
+    let k = span_at(&story.spans, u[0]);
+    let mut start: usize = story.spans[..k].iter().map(|s| s.len).sum();
+    let mut spans = Vec::new();
+    for (i, s) in story.spans.iter().enumerate().skip(k) {
+        if i > k && start >= u[1] {
+            break;
+        }
+        let len = (start + s.len).min(u[1]).saturating_sub(start.max(u[0]));
+        spans.push(Span {
+            len,
+            attrs: s.attrs.clone(),
+        });
+        start += s.len;
+    }
+    Story {
+        text: story.text[b].into(),
+        spans,
+    }
+}
 
 /// The UTF-16 range of the paragraphs that `r` touches in `text`.
 pub(super) fn paragraphs(text: &str, r: &Range<usize>) -> Range<usize> {
@@ -241,7 +289,10 @@ impl Doc {
     pub(super) fn frame_lines(&self, n: TreeID) -> Res<(Rc<Story>, Vec<text::Line>)> {
         let flows = self.flows();
         let f = flows.get(&n).ok_or("not a text node")?;
-        Ok((f.story.clone(), f.placed.geometry.clone()))
+        Ok((
+            f.story.clone(),
+            f.placed.shifted(f.start as isize, 0).geometry,
+        ))
     }
 
     /// The story of the thread starting at `head` set through its frames. A story set
@@ -279,7 +330,7 @@ impl Doc {
                     break;
                 }
                 let start = from.unwrap_or(t.len());
-                let (placed, rest) = text::set(t, spans, *frame, tf, start);
+                let (placed, rest) = set_from(t, spans, *frame, tf, start);
                 let next = from.and(rest);
                 out.push((*f, start, next, Rc::new(placed)));
                 from = next;
@@ -310,6 +361,12 @@ impl Doc {
         };
         self.sets.borrow_mut().insert(head, s);
         Ok((story, out))
+    }
+
+    /// The UTF-16 range of its story that the text layer `id` sets.
+    pub fn frame_range(&self, id: &str) -> Res<[usize; 2]> {
+        let flows = self.flows();
+        Ok(flows.get(&self.node(id)?).ok_or("not a text node")?.units)
     }
 
     /// The frame of the thread of `n` that holds the byte `at`: the last one that
@@ -816,6 +873,7 @@ impl Doc {
                 heads
             }
         };
+        let sheets = self.sheets.borrow();
         for head in heads {
             let Ok((story, frames)) = self.flow(head) else {
                 continue;
@@ -828,11 +886,17 @@ impl Doc {
             for (i, (f, start, next, placed)) in frames.iter().enumerate() {
                 let end = next.unwrap_or(story.text.len());
                 let units = [units(*start), units(end)];
+                let content = match sheets.0.get(f) {
+                    Some(o) if Rc::ptr_eq(&o.placed, placed) => o.content.clone(),
+                    _ => Rc::new(part(&story, *start..end, units)),
+                };
+                debug_assert_eq!(*content, part(&story, *start..end, units));
                 out.insert(
                     *f,
                     Flow {
                         head,
                         story: story.clone(),
+                        content,
                         start: *start,
                         end,
                         units,
@@ -1757,6 +1821,15 @@ mod tests {
         let a = fixed_text(&mut d, &p1, [0.0, 0.0, 100.0, 2.0 * LEADING + 1.0]);
         set_text(&mut d, &a, "Hi\nHi\nHi\nHi");
         assert!(flow(&d, &a).5);
+    }
+
+    #[test]
+    fn a_frame_that_sets_none_of_its_text_is_named_after_it() {
+        let (mut d, p1) = empty();
+        let a = fixed_text(&mut d, &p1, [0.0, 0.0, 100.0, 1.0]);
+        set_text(&mut d, &a, "Hi");
+        assert_eq!(d.frame_range(&a).unwrap(), [0, 0]);
+        assert_eq!(page(&d).children[0].name, "Hi");
     }
 
     #[test]

@@ -368,7 +368,7 @@ export class Editor {
   }
 
   oversetWords(n: TextNode) {
-    return n.overset ? (this.storyOf(n)?.text.slice(n.end).match(/\S+/g)?.length ?? 0) : 0
+    return n.overset ? (this.storyOf(n)?.text.slice(this.engine.frameRange(n.id)[1]).match(/\S+/g)?.length ?? 0) : 0
   }
 
   /** Resizes the text layers of `nodes` by `mode` where their thread allows; auto fit makes a text of one line auto width and else auto height. */

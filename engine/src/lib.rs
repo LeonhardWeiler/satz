@@ -184,6 +184,16 @@ impl Engine {
         Ok(out.to_string())
     }
 
+    /// The UTF-16 range of its story that the text layer `id` sets.
+    #[wasm_bindgen(js_name = frameRange)]
+    pub fn frame_range(&self, id: &str) -> Result<Vec<usize>, JsError> {
+        Ok(self
+            .doc
+            .frame_range(id)
+            .map_err(|e| JsError::new(&e))?
+            .to_vec())
+    }
+
     /// Path from the topmost page child down to the deepest node at (x, y) in pt.
     /// `tolerance` in pt widens the hit area of outlines, e.g. for thin lines.
     pub fn hit(&self, page: &str, x: f64, y: f64, tolerance: f64) -> Vec<String> {
