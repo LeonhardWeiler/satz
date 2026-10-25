@@ -258,13 +258,65 @@ pub(super) fn reach(n: &Node) -> [f64; 4] {
     [n.x - m, n.y - m, n.w + 2.0 * m, n.h + 2.0 * m]
 }
 
-/// The issues of every layer, page by page and then master by master.
-pub(super) fn preflight(snap: &Snapshot) -> Vec<Issue> {
+/// The issues of every layer, page by page and then master by master; a sheet that
+/// `old` shares with `snap` keeps its issues there.
+pub(super) fn preflight(snap: &Snapshot, old: Option<&Snapshot>) -> Vec<Issue> {
+    let old = old.filter(|o| {
+        (&o.palette, &o.missing_fonts, o.color_mode, o.ink_limit)
+            == (
+                &snap.palette,
+                &snap.missing_fonts,
+                snap.color_mode,
+                snap.ink_limit,
+            )
+    });
+    let was: HashMap<&str, (&Rc<Page>, [f64; 2])> = old
+        .map(|o| {
+            trims(o)
+                .into_iter()
+                .map(|(p, t)| (p.id.as_str(), (p, t)))
+                .collect()
+        })
+        .unwrap_or_default();
+    let mut issues: HashMap<&str, Vec<&Issue>> = HashMap::new();
+    for i in old.iter().flat_map(|o| &o.preflight) {
+        issues.entry(i.page.as_str()).or_default().push(i);
+    }
     let mut out = Vec::new();
-    let page = |id: &String| snap.pages.iter().find(|q| q.id == *id).unwrap();
-    for p in &snap.pages {
-        let spread = snap.spreads.iter().find(|s| s.contains(&p.id)).unwrap();
-        let (l, r) = (page(&spread[0]), page(spread.last().unwrap()));
+    for (p, trim) in trims(snap) {
+        if was
+            .get(p.id.as_str())
+            .is_some_and(|&(q, t)| Rc::ptr_eq(p, q) && t == trim)
+        {
+            out.extend(
+                issues
+                    .get(p.id.as_str())
+                    .into_iter()
+                    .flatten()
+                    .copied()
+                    .cloned(),
+            );
+        } else {
+            for n in &p.children {
+                visit(n, p, Some(trim), snap, &mut out);
+            }
+        }
+    }
+    out
+}
+
+/// The pages and then the masters of `snap` with the trim their top layers are
+/// checked against.
+fn trims(snap: &Snapshot) -> Vec<(&Rc<Page>, [f64; 2])> {
+    let spread: HashMap<&str, &Vec<String>> = snap
+        .spreads
+        .iter()
+        .flat_map(|s| s.iter().map(move |id| (id.as_str(), s)))
+        .collect();
+    let page: HashMap<&str, &Rc<Page>> = snap.pages.iter().map(|p| (p.id.as_str(), p)).collect();
+    let pages = snap.pages.iter().map(|p| {
+        let s = spread[p.id.as_str()];
+        let (l, r) = (page[s[0].as_str()], page[s.last().unwrap().as_str()]);
         let x0 = match l.side {
             Some(Side::Right) => f64::NEG_INFINITY,
             _ => l.x - p.x,
@@ -273,17 +325,13 @@ pub(super) fn preflight(snap: &Snapshot) -> Vec<Issue> {
             Some(Side::Left) => f64::INFINITY,
             _ => r.x + r.width - p.x,
         };
-        for n in &p.children {
-            visit(n, p, Some([x0, x1]), snap, &mut out);
-        }
-    }
-    for m in &snap.masters {
+        (p, [x0, x1])
+    });
+    let masters = snap.masters.iter().map(|m| {
         let x0 = if snap.facing_pages { -m.width } else { 0.0 };
-        for n in &m.children {
-            visit(n, m, Some([x0, m.width]), snap, &mut out);
-        }
-    }
-    out
+        (m, [x0, m.width])
+    });
+    pages.chain(masters).collect()
 }
 
 /// Adds the issues of the layer `n` on `p` and its children to `out`; a top layer
@@ -676,15 +724,8 @@ impl Doc {
         if self.doc.get_pending_txn_len() > 0 {
             return None;
         }
-        let Some(nodes) = self.changed.lock().unwrap().replace(HashSet::new()) else {
-            self.shown.take();
-            return None;
-        };
-        let mut shown = self.shown.borrow_mut();
-        nodes
-            .iter()
-            .for_each(|&n| drop(shown.remove(&self.root(n))));
-        drop(shown);
+        self.purge();
+        let nodes = self.changed.lock().unwrap().replace(HashSet::new())?;
         let (old, sheets) = self.sheets.take();
         let same = |a: &Flow, b: &Flow| {
             Rc::ptr_eq(&a.story, &b.story)
@@ -816,7 +857,12 @@ impl Doc {
             can_undo: self.undo.can_undo(),
             can_redo: self.undo.can_redo(),
         };
-        snap.preflight = preflight(&snap);
+        let old = self.checked.borrow().clone().filter(|_| kept.is_some());
+        snap.preflight = preflight(&snap, old.as_deref());
+        debug_assert!(
+            snap.preflight == preflight(&snap, None),
+            "kept issues differ from those checked again"
+        );
         snap
     }
 
@@ -1048,12 +1094,50 @@ impl Doc {
     /// How the text layer `n` sets its text, with the number of the page it is on and
     /// the layers above it on the page it wraps around.
     pub(super) fn text_frame_of(&self, n: TreeID) -> TextFrame {
-        let v = serde_json::to_value(self.meta(n).get_deep_value()).unwrap_or_default();
+        let root = self.root(n);
+        let kept = self.doc.get_pending_txn_len() == 0;
+        let kept_one = self
+            .frames
+            .borrow()
+            .get(&n)
+            .filter(|_| kept)
+            .map(|f| f.1.clone());
+        let frame = match kept_one {
+            Some(f) if !cfg!(debug_assertions) => f,
+            kept_one => {
+                let v = serde_json::to_value(self.meta(n).get_deep_value()).unwrap_or_default();
+                let f = TextFrame {
+                    wrap: self.wrap_of(n),
+                    ..serde_json::from_value(v).unwrap_or_default()
+                };
+                if let Some(k) = kept_one {
+                    assert_eq!(k, f, "a kept text frame differs from the one read again");
+                }
+                if kept {
+                    self.frames.borrow_mut().insert(n, (root, f.clone()));
+                }
+                f
+            }
+        };
         TextFrame {
-            number: self.number(self.root(n)),
-            wrap: self.wrap_of(n),
-            ..serde_json::from_value(v).unwrap_or_default()
+            number: self.number(root),
+            ..frame
         }
+    }
+
+    /// Drops the kept shown layers and text frames of the pages and masters that the
+    /// changes since the last snapshot reach.
+    pub(super) fn purge(&self) {
+        let Some(nodes) = self.changed.lock().unwrap().clone() else {
+            self.shown.take();
+            self.frames.take();
+            return;
+        };
+        let roots: HashSet<TreeID> = nodes.iter().map(|&n| self.root(n)).collect();
+        self.shown.borrow_mut().retain(|r, _| !roots.contains(r));
+        self.frames
+            .borrow_mut()
+            .retain(|_, (r, _)| !roots.contains(r));
     }
 
     /// The areas of the shown layers above the text layer `n` that its text wraps
@@ -1110,13 +1194,7 @@ impl Doc {
                 d.children(id).into_iter().for_each(|c| walk(d, c, out));
             }
         }
-        let kept = self.doc.get_pending_txn_len() == 0
-            && self
-                .changed
-                .lock()
-                .unwrap()
-                .as_ref()
-                .is_some_and(|c| c.iter().all(|&x| self.root(x) != root));
+        let kept = self.doc.get_pending_txn_len() == 0;
         let kept_one = self.shown.borrow().get(&root).filter(|_| kept).cloned();
         if let Some(s) = &kept_one
             && !cfg!(debug_assertions)

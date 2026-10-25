@@ -734,15 +734,22 @@ pub struct Doc {
     /// command on.
     flows: RefCell<Option<Rc<HashMap<TreeID, Flow>>>>,
     snapshot: RefCell<Option<Rc<Snapshot>>>,
+    /// The last snapshot a command built, whose issues the pages it shares with the
+    /// next one keep.
+    checked: RefCell<Option<Rc<Snapshot>>>,
     /// The number of each page.
     numbers: RefCell<Option<HashMap<TreeID, String>>>,
     /// The text layer each text layer follows in its thread.
     prevs: RefCell<Option<Rc<HashMap<TreeID, TreeID>>>>,
     /// Each story as last set, by its first frame.
     sets: RefCell<HashMap<TreeID, Set>>,
+    /// The size each hugging text layer last measured.
+    fits: RefCell<HashMap<TreeID, Measured>>,
     /// The shown layers of each page and master in order and whether text wraps
-    /// around them, as of the last snapshot.
+    /// around them, until `purge` drops those a change reaches.
     shown: RefCell<HashMap<TreeID, Shown>>,
+    /// The text frame of each text layer without its number, and its page.
+    frames: RefCell<HashMap<TreeID, (TreeID, TextFrame)>>,
     /// The nodes changed since the last snapshot, `None` for everything.
     changed: Arc<Mutex<Option<HashSet<TreeID>>>>,
     _changes: Subscription,
@@ -983,10 +990,13 @@ impl Doc {
             clipboard: Vec::new(),
             flows: RefCell::new(None),
             snapshot: RefCell::new(None),
+            checked: RefCell::new(None),
             prevs: RefCell::new(None),
             numbers: RefCell::new(None),
             sets: RefCell::new(HashMap::new()),
+            fits: RefCell::new(HashMap::new()),
             shown: RefCell::default(),
+            frames: RefCell::default(),
         }
     }
 
@@ -1610,6 +1620,7 @@ impl Doc {
         if self.doc.get_pending_txn_len() > 0 {
             self.doc.commit();
         }
+        self.purge();
         self.numbers.take();
         self.check_links();
         debug_assert!(
@@ -1628,6 +1639,7 @@ impl Doc {
             }
         }
         self.doc.commit();
+        self.purge();
         #[cfg(debug_assertions)]
         if !history && reach.is_some() {
             for p in self.tree.roots().into_iter().filter(|&p| self.is_sheet(p)) {
@@ -1646,7 +1658,9 @@ impl Doc {
             "a kept flow differs from one set again"
         );
         self.flows.replace(Some(Rc::new(flows)));
-        self.snapshot.replace(Some(Rc::new(self.build_snapshot())));
+        let snap = Rc::new(self.build_snapshot());
+        self.checked.replace(Some(snap.clone()));
+        self.snapshot.replace(Some(snap));
         Ok(out)
     }
 

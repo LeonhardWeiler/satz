@@ -35,6 +35,15 @@ pub(super) struct Set {
     out: Vec<Placing>,
 }
 
+/// The size a hugging text layer measured for its story, frame, width and start.
+pub(super) struct Measured {
+    story: Rc<Story>,
+    frame: TextFrame,
+    w: Option<f32>,
+    from: usize,
+    size: [f32; 2],
+}
+
 /// A frame of a thread, the byte where its text starts, where the text left over for
 /// the next begins, and how its text is placed.
 pub(super) type Placing = (TreeID, usize, Option<usize>, Rc<text::Placed>);
@@ -525,13 +534,39 @@ impl Doc {
             return Ok(());
         }
         let (story, flows) = self.flow(self.story(id))?;
-        let (t, spans) = (&story.text, &story.spans);
         let from = flows.iter().find(|f| f.0 == id).map_or(0, |f| f.1);
         let tf = self.text_frame_of(id);
         let old = self.bounds(id);
         let [x, y, w, _] = old;
         let auto_width = horizontal == Size::Hug;
-        let [nw, nh] = text::measure(t, spans, &tf, (!auto_width).then_some(w as f32), from);
+        let fw = (!auto_width).then_some(w as f32);
+        let kept = self.fits.borrow().get(&id).and_then(|f| {
+            (Rc::ptr_eq(&f.story, &story) && f.frame == tf && f.w == fw && f.from == from)
+                .then_some(f.size)
+        });
+        let measure = || text::measure(&story.text, &story.spans, &tf, fw, from);
+        let [nw, nh] = match kept {
+            Some(size) => {
+                debug_assert_eq!(
+                    size,
+                    measure(),
+                    "a kept fit differs from one measured again"
+                );
+                size
+            }
+            None => {
+                let size = measure();
+                let fit = Measured {
+                    story: story.clone(),
+                    frame: tf.clone(),
+                    w: fw,
+                    from,
+                    size,
+                };
+                self.fits.borrow_mut().insert(id, fit);
+                size
+            }
+        };
         let h = f64::from(nh).max(tf.min_height);
         let new = [x, y, if auto_width { nw.into() } else { w }, h];
         if new != old {
