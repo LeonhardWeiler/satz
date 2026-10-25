@@ -98,26 +98,31 @@ export function isTyping(e: Event) {
 
 const RULER = 20
 
+const rulers = new WeakMap<HTMLCanvasElement, { w: number; h: number; color: string; magenta: string; key?: string }>()
+
 /**
  * Draws a ruler whose 0 is at `origin` px, at `scale` px per unit, with the span
  * `extent` in px shaded and a mark at each of `guides` in px.
  */
-const rulers = new WeakMap<HTMLCanvasElement, string>()
-
 function drawRuler(c: HTMLCanvasElement, horizontal: boolean, origin: number, scale: number, extent?: [number, number], guides: number[] = []) {
-  const { clientWidth: w, clientHeight: h } = c
-  if (!w || !h) return
+  let r = rulers.get(c)
+  if (!r) {
+    const style = getComputedStyle(c)
+    r = { w: c.clientWidth, h: c.clientHeight, color: style.color, magenta: style.getPropertyValue('--magenta') }
+    if (!r.w || !r.h) return
+    rulers.set(c, r)
+  }
+  const { w, h } = r
   const dpr = devicePixelRatio
-  const key = JSON.stringify([w, h, dpr, origin, scale, extent, guides])
-  if (rulers.get(c) === key) return
-  rulers.set(c, key)
+  const key = JSON.stringify([dpr, origin, scale, extent, guides])
+  if (r.key === key) return
+  r.key = key
   if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) [c.width, c.height] = [Math.round(w * dpr), Math.round(h * dpr)]
   const g = c.getContext('2d')!
   g.setTransform(dpr, 0, 0, dpr, 0, 0)
   g.clearRect(0, 0, w, h)
   const at = (p: number, from: number, to: number) => (horizontal ? g.rect(p, from, 1, to - from) : g.rect(from, p, to - from, 1))
-  const style = getComputedStyle(c)
-  g.fillStyle = style.color
+  g.fillStyle = r.color
   if (extent) {
     g.globalAlpha = 0.14
     g.beginPath()
@@ -151,7 +156,7 @@ function drawRuler(c: HTMLCanvasElement, horizontal: boolean, origin: number, sc
       g.restore()
     }
   }
-  g.fillStyle = style.getPropertyValue('--magenta')
+  g.fillStyle = r.magenta
   g.beginPath()
   for (const p of guides) at(Math.round(p) - 0.5, 0, RULER)
   g.fill()
@@ -726,6 +731,8 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         fitted = true
         fit()
       }
+      rulers.delete(rulerX.current!)
+      rulers.delete(rulerY.current!)
       paint()
     })
     try {
