@@ -11,7 +11,7 @@ use serde_json::Map;
 use skrifa::MetadataProvider;
 use skrifa::string::StringId;
 use std::cell::RefCell;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
 pub const FONT: &[u8] = include_bytes!("../fonts/SourceSerif4-Regular.ttf");
@@ -33,6 +33,18 @@ thread_local! {
     /// The fonts text can be set in by id, the bundled one first.
     static FONTS: RefCell<Vec<(Typeface, Rc<[u8]>)>> =
         RefCell::new(vec![(typeface(FONT).unwrap(), FONT.into())]);
+}
+
+/// A paragraph, the page number it shows, and where each span in it starts with its
+/// font, features and case.
+type Shaping = (String, String, Vec<(usize, u32, Vec<String>, TextCase)>);
+
+/// The glyphs of a paragraph: cluster, glyph id, and advance and offsets in em.
+type Shaped = Rc<[(usize, u16, f32, f32, f32)]>;
+
+thread_local! {
+    /// The paragraphs shaped last, up to 4096.
+    static SHAPED: RefCell<HashMap<Shaping, Shaped>> = RefCell::default();
 }
 
 pub fn typeface(bytes: &[u8]) -> Result<Typeface, String> {
@@ -289,7 +301,7 @@ pub enum Lang {
     Nl,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum TextCase {
     #[default]
@@ -1320,19 +1332,7 @@ fn rows(
         }
     };
 
-    let mut rows: Vec<Row> = Vec::new();
-    let (mut widest, mut used) = (0.0f32, 0.0f32);
-    let mut paras = Vec::new();
-    let mut start = 0;
-    let mut count = 0;
-    for para in text.split('\n') {
-        let list = spans[span_at(start)].attrs.list;
-        count = if list == List::Number { count + 1 } else { 0 };
-        if start + para.len() < from {
-            start += para.len() + 1;
-            continue;
-        }
-        let first = &spans[span_at(start)].attrs;
+    let shape_para = |para: &str, start: usize| -> Shaped {
         let mut shaped = Vec::new();
         let mut chars = para.char_indices().peekable();
         let mut prev = None;
@@ -1369,6 +1369,50 @@ fn rows(
                 },
             ));
         }
+        shaped.into()
+    };
+
+    let mut rows: Vec<Row> = Vec::new();
+    let (mut widest, mut used) = (0.0f32, 0.0f32);
+    let mut paras = Vec::new();
+    let mut start = 0;
+    let mut count = 0;
+    for para in text.split('\n') {
+        let list = spans[span_at(start)].attrs.list;
+        count = if list == List::Number { count + 1 } else { 0 };
+        if start + para.len() < from {
+            start += para.len() + 1;
+            continue;
+        }
+        let first = &spans[span_at(start)].attrs;
+        let mut runs = Vec::new();
+        let mut s = span_at(start);
+        loop {
+            let a = &spans[s].attrs;
+            let at = if s == 0 { 0 } else { ends[s - 1] }.max(start) - start;
+            runs.push((at, ids[s], a.features.clone(), a.text_case));
+            if s + 1 == spans.len() || ends[s] >= start + para.len() {
+                break;
+            }
+            s += 1;
+        }
+        let shown = if para.contains(PAGE_NUMBER) {
+            number.clone()
+        } else {
+            String::new()
+        };
+        let key = (para.to_string(), shown, runs);
+        let kept = SHAPED.with_borrow(|c| c.get(&key).cloned());
+        let shaped = kept.unwrap_or_else(|| {
+            let shaped = shape_para(para, start);
+            SHAPED.with_borrow_mut(|c| {
+                if c.len() >= 4096 {
+                    c.clear();
+                }
+                c.insert(key, shaped.clone());
+            });
+            shaped
+        });
         let breaks = if first.hyphenate {
             syllables(para, first.lang)
         } else {
@@ -1390,7 +1434,7 @@ fn rows(
         let mut items = Vec::new();
         let mut glyphs = Vec::new();
         let mut clusters = Vec::new();
-        for &(at, id, adv, dx, dy) in &shaped {
+        for &(at, id, adv, dx, dy) in shaped.iter() {
             let cluster = start + at;
             let span = span_at(cluster);
             let (a, m) = (&spans[span].attrs, &metrics[slot[span]]);
