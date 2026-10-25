@@ -781,22 +781,19 @@ impl Doc {
     /// The pages and masters of the last snapshot and what of them the changes since
     /// reach, `None` for all.
     fn kept_sheets(&self, flows: &HashMap<TreeID, Flow>) -> Option<Kept> {
+        let reflowed = self.reflowed.take();
         if self.doc.get_pending_txn_len() > 0 {
             return None;
         }
         self.purge();
         let nodes = self.changed.lock().unwrap().replace(HashSet::new())?;
         let (old, sheets) = self.sheets.take();
-        let same = |a: &Flow, b: &Flow| {
-            Rc::ptr_eq(&a.content, &b.content)
-                && Rc::ptr_eq(&a.placed, &b.placed)
-                && a.lead() == b.lead()
-                && (a.head, a.prev, a.next, a.overset) == (b.head, b.prev, b.next, b.overset)
-        };
-        let reflowed = flows
-            .iter()
-            .filter(|(f, a)| !old.get(f).is_some_and(|b| same(a, b)))
-            .map(|(f, _)| f);
+        let reflowed = reflowed.unwrap_or_else(|| {
+            (flows.iter())
+                .filter(|(f, a)| !old.get(f).is_some_and(|b| b.shows(a)))
+                .map(|(f, _)| *f)
+                .collect()
+        });
         let up = |nodes: &mut dyn Iterator<Item = &TreeID>| {
             let mut out = HashSet::new();
             for &n in nodes {
@@ -811,7 +808,7 @@ impl Doc {
         };
         Some(Kept {
             sheets,
-            dirty: up(&mut nodes.iter().chain(reflowed)),
+            dirty: up(&mut nodes.iter().chain(&reflowed)),
             touched: up(&mut nodes.iter()),
             changed: nodes,
         })

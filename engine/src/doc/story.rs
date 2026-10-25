@@ -21,6 +21,15 @@ pub(super) struct Flow {
 }
 
 impl Flow {
+    /// Whether the layer shows the same as with `b`.
+    pub(super) fn shows(&self, b: &Flow) -> bool {
+        Rc::ptr_eq(&self.content, &b.content)
+            && Rc::ptr_eq(&self.placed, &b.placed)
+            && self.lead() == b.lead()
+            && (self.head, self.prev, self.next, self.overset)
+                == (b.head, b.prev, b.next, b.overset)
+    }
+
     /// The start of the text from this frame on, as much as its name shows.
     pub(super) fn lead(&self) -> &str {
         let t = &self.story.text[self.start..];
@@ -847,17 +856,18 @@ impl Doc {
     }
 
     /// The flows through all text layers; with `reach`, those of the last snapshot
-    /// that it does not reach as they were.
+    /// that it does not reach as they were, and `reflowed` the layers it changed.
     pub(super) fn flow_all(&self, reach: Option<&Reach>) -> HashMap<TreeID, Flow> {
         let mut out = HashMap::new();
+        let mut gone = HashMap::new();
         let heads = match reach {
             Some(r) => {
-                let (old, _) = &*self.sheets.borrow();
-                out.extend(
-                    old.iter()
-                        .filter(|(f, _)| !r.texts.contains(f))
-                        .map(|(f, flow)| (*f, flow.clone())),
-                );
+                self.flows.take();
+                let old = std::mem::take(&mut self.sheets.borrow_mut().0);
+                out = Rc::try_unwrap(old).unwrap_or_else(|o| (*o).clone());
+                gone = (r.texts.iter())
+                    .filter_map(|t| Some((*t, out.remove(t)?)))
+                    .collect();
                 self.sets
                     .borrow_mut()
                     .retain(|h, _| r.heads.contains(h) || !r.texts.contains(h));
@@ -874,6 +884,7 @@ impl Doc {
             }
         };
         let sheets = self.sheets.borrow();
+        let mut reflowed = HashSet::new();
         for head in heads {
             let Ok((story, frames)) = self.flow(head) else {
                 continue;
@@ -886,28 +897,33 @@ impl Doc {
             for (i, (f, start, next, placed)) in frames.iter().enumerate() {
                 let end = next.unwrap_or(story.text.len());
                 let units = [units(*start), units(end)];
-                let content = match sheets.0.get(f) {
+                let was = gone.get(f).or_else(|| sheets.0.get(f));
+                let content = match was {
                     Some(o) if Rc::ptr_eq(&o.placed, placed) => o.content.clone(),
                     _ => Rc::new(part(&story, *start..end, units)),
                 };
                 debug_assert_eq!(*content, part(&story, *start..end, units));
-                out.insert(
-                    *f,
-                    Flow {
-                        head,
-                        story: story.clone(),
-                        content,
-                        start: *start,
-                        end,
-                        units,
-                        rest: *next,
-                        prev: i.checked_sub(1).map(|j| frames[j].0),
-                        next: frames.get(i + 1).map(|n| n.0),
-                        overset: i + 1 == frames.len() && next.is_some(),
-                        placed: placed.clone(),
-                    },
-                );
+                let flow = Flow {
+                    head,
+                    story: story.clone(),
+                    content,
+                    start: *start,
+                    end,
+                    units,
+                    rest: *next,
+                    prev: i.checked_sub(1).map(|j| frames[j].0),
+                    next: frames.get(i + 1).map(|n| n.0),
+                    overset: i + 1 == frames.len() && next.is_some(),
+                    placed: placed.clone(),
+                };
+                if !was.is_some_and(|w| w.shows(&flow)) {
+                    reflowed.insert(*f);
+                }
+                out.insert(*f, flow);
             }
+        }
+        if reach.is_some() {
+            self.reflowed.replace(Some(reflowed));
         }
         out
     }

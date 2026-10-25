@@ -754,6 +754,8 @@ pub struct Doc {
     changed: Arc<Mutex<Option<HashSet<TreeID>>>>,
     _changes: Subscription,
     sheets: RefCell<Sheets>,
+    /// The text layers whose flow the last setting with a reach changed.
+    reflowed: RefCell<Option<HashSet<TreeID>>>,
     /// The version of the last change other than text set again for a new font.
     version: String,
     /// What the last command changed beyond what it was asked to.
@@ -981,6 +983,7 @@ impl Doc {
             changed,
             _changes,
             sheets: RefCell::default(),
+            reflowed: RefCell::default(),
             notes: RefCell::default(),
             undo: undo_manager(&doc),
             grouped: false,
