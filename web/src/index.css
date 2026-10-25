@@ -633,7 +633,7 @@ textarea {
   color: var(--text);
 }
 
-:root:has(.field.scrub) * {
+:root.scrubbing * {
   cursor: ew-resize !important;
 }
 

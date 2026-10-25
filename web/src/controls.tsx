@@ -98,6 +98,7 @@ export function Field({
             target.setPointerCapture(e.pointerId)
             setScrub(true)
             setBad(false)
+            document.documentElement.classList.add('scrubbing')
             const move = (m: PointerEvent) => put(cur + Math.round((m.clientX - x0) / 2) * step(m, int))
             target.addEventListener('pointermove', move)
             target.addEventListener(
@@ -105,6 +106,7 @@ export function Field({
               () => {
                 target.removeEventListener('pointermove', move)
                 setScrub(false)
+                document.documentElement.classList.remove('scrubbing')
               },
               { once: true },
             )
