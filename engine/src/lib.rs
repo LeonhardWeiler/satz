@@ -80,22 +80,38 @@ impl Engine {
         Ok(serde_json::to_string(&*self.doc.snapshot())?)
     }
 
-    /// The snapshot with each page, master and story that the last call returned
-    /// unchanged left out: a page or master as its id, a story as `null`.
+    /// The snapshot with each page, master, top layer and story that the last call
+    /// returned unchanged left out: a page, master or layer as its id, a story as
+    /// `null`.
     pub fn changes(&mut self) -> Result<String, JsError> {
         let snap = self.doc.snapshot();
         let old = self.sent.replace(snap.clone());
         let old = old.as_deref();
-        let sent: HashSet<*const doc::Page> = old
+        let sent: HashMap<&str, &Rc<doc::Page>> = old
             .iter()
             .flat_map(|s| s.pages.iter().chain(&s.masters))
-            .map(Rc::as_ptr)
+            .map(|p| (p.id.as_str(), p))
             .collect();
         let sheets = |list: &[Rc<doc::Page>]| -> Result<Vec<serde_json::Value>, JsError> {
             list.iter()
-                .map(|p| match sent.contains(&Rc::as_ptr(p)) {
-                    true => Ok(p.id.clone().into()),
-                    false => Ok(serde_json::to_value(&**p)?),
+                .map(|p| {
+                    let old = sent.get(p.id.as_str());
+                    if old.is_some_and(|o| Rc::ptr_eq(o, p)) {
+                        return Ok(p.id.clone().into());
+                    }
+                    let mut v = serde_json::to_value(p.head())?;
+                    v["children"] = p
+                        .children
+                        .iter()
+                        .map(
+                            |n| match old.and_then(|o| o.children.iter().find(|o| o.id == n.id)) {
+                                Some(o) if o == n => Ok(n.id.clone().into()),
+                                _ => serde_json::to_value(n),
+                            },
+                        )
+                        .collect::<Result<Vec<_>, _>>()?
+                        .into();
+                    Ok(v)
                 })
                 .collect()
         };

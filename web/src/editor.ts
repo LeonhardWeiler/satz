@@ -293,12 +293,17 @@ export class Editor {
     this.set({ placing: [...this.placing, { hash, name, w: w * fit, h: h * fit, url: URL.createObjectURL(new Blob([bytes])) }] })
   }
 
-  /** The engine's snapshot, with the pages, masters and stories it left out as they were. */
+  /** The engine's snapshot, with the pages, masters, layers and stories it left out as they were. */
   private read(): Snapshot {
     const s = JSON.parse(this.engine.changes())
     const old = this.snapshot as Snapshot | undefined
     const sheets = new Map([...(old?.pages ?? []), ...(old?.masters ?? [])].map((p) => [p.id, p]))
-    const keep = (p: Page | string) => (typeof p === 'string' ? sheets.get(p)! : p)
+    const keep = (p: Page | string) => {
+      if (typeof p === 'string') return sheets.get(p)!
+      const layers = new Map(sheets.get(p.id)?.children.map((n) => [n.id, n]))
+      p.children = p.children.map((n: Node | string) => (typeof n === 'string' ? layers.get(n)! : n))
+      return p
+    }
     s.pages = s.pages.map(keep)
     s.masters = s.masters.map(keep)
     for (const k in s.stories) s.stories[k] ??= old!.stories[k]

@@ -1,5 +1,13 @@
 use super::*;
 
+/// The pages and masters of a snapshot, the layers that changes since reach with
+/// those above them, and the layers changed.
+pub(super) struct Kept {
+    sheets: HashMap<TreeID, Rc<Page>>,
+    dirty: HashSet<TreeID>,
+    changed: HashSet<TreeID>,
+}
+
 /// Layers in order and whether text wraps around them.
 pub(super) type Shown = Rc<Vec<(TreeID, bool)>>;
 
@@ -111,6 +119,28 @@ pub struct Page {
     pub children: Vec<Node>,
 }
 
+impl Page {
+    /// The page without its layers.
+    pub fn head(&self) -> Page {
+        Page {
+            id: self.id.clone(),
+            name: self.name.clone(),
+            width: self.width,
+            height: self.height,
+            bleed: self.bleed,
+            side: self.side,
+            x: self.x,
+            master: self.master.clone(),
+            detached: self.detached.clone(),
+            grids: self.grids.clone(),
+            guides: self.guides.clone(),
+            section: self.section.clone(),
+            modes: self.modes.clone(),
+            children: Vec::new(),
+        }
+    }
+}
+
 /// The text of a thread and its runs of equal attributes.
 #[derive(Debug, PartialEq, Serialize)]
 pub struct Story {
@@ -125,7 +155,7 @@ pub enum Side {
     Right,
 }
 
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Node {
     pub id: String,
@@ -171,7 +201,7 @@ pub struct Node {
 }
 
 #[allow(clippy::large_enum_variant)]
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Kind {
     Shape(Shape),
@@ -629,9 +659,9 @@ impl Doc {
     pub(crate) fn build_snapshot(&self) -> Snapshot {
         let flows = self.flows();
         let kept = self.kept_sheets(&flows);
-        let snap = self.snapshot_of(&flows, &kept);
+        let snap = self.snapshot_of(&flows, kept.as_ref());
         debug_assert!(
-            kept.is_empty() || snap == self.snapshot_of(&flows, &HashMap::new()),
+            kept.is_none() || snap == self.snapshot_of(&flows, None),
             "a kept page differs from one built again"
         );
         let sheets = snap.pages.iter().chain(&snap.masters);
@@ -640,21 +670,22 @@ impl Doc {
         snap
     }
 
-    /// The pages and masters of the last snapshot that no change since reaches.
-    fn kept_sheets(&self, flows: &HashMap<TreeID, Flow>) -> HashMap<TreeID, Rc<Page>> {
+    /// The pages and masters of the last snapshot and what of them the changes since
+    /// reach, `None` for all.
+    fn kept_sheets(&self, flows: &HashMap<TreeID, Flow>) -> Option<Kept> {
         if self.doc.get_pending_txn_len() > 0 {
-            return HashMap::new();
+            return None;
         }
         let Some(nodes) = self.changed.lock().unwrap().replace(HashSet::new()) else {
             self.shown.take();
-            return HashMap::new();
+            return None;
         };
         let mut shown = self.shown.borrow_mut();
         nodes
             .iter()
             .for_each(|&n| drop(shown.remove(&self.root(n))));
         drop(shown);
-        let (old, mut sheets) = self.sheets.take();
+        let (old, sheets) = self.sheets.take();
         let same = |a: &Flow, b: &Flow| {
             Rc::ptr_eq(&a.story, &b.story)
                 && Rc::ptr_eq(&a.placed, &b.placed)
@@ -665,27 +696,39 @@ impl Doc {
             .iter()
             .filter(|(f, a)| !old.get(f).is_some_and(|b| same(a, b)))
             .map(|(f, _)| f);
-        let roots: HashSet<TreeID> = nodes
-            .iter()
-            .chain(reflowed)
-            .map(|&n| self.root(n))
-            .collect();
-        sheets.retain(|r, _| !roots.contains(r));
-        sheets
+        let mut dirty = HashSet::new();
+        for &n in nodes.iter().chain(reflowed) {
+            let mut id = n;
+            dirty.insert(id);
+            while let Some(TreeParentId::Node(p)) = self.tree.parent(id) {
+                id = p;
+                dirty.insert(id);
+            }
+        }
+        Some(Kept {
+            sheets,
+            dirty,
+            changed: nodes,
+        })
     }
 
-    /// The snapshot with the pages and masters in `kept` as they are.
-    fn snapshot_of(
-        &self,
-        flows: &HashMap<TreeID, Flow>,
-        kept: &HashMap<TreeID, Rc<Page>>,
-    ) -> Snapshot {
+    /// The snapshot with the pages, masters and their top layers in `kept` that no
+    /// change reaches as they are.
+    fn snapshot_of(&self, flows: &HashMap<TreeID, Flow>, kept: Option<&Kept>) -> Snapshot {
         let palette = self.palette();
         let places = self.places();
         let sheet = |p: TreeID, place: Option<&Place>| {
-            if let Some(page) = kept.get(&p) {
+            let old = kept.and_then(|k| k.sheets.get(&p));
+            if let Some(page) = old
+                && !kept.unwrap().dirty.contains(&p)
+            {
                 return page.clone();
             }
+            let old: HashMap<&str, &Node> = old
+                .filter(|_| !kept.unwrap().changed.contains(&p))
+                .iter()
+                .flat_map(|page| page.children.iter().map(|n| (n.id.as_str(), n)))
+                .collect();
             let m = self.meta(p);
             let v = serde_json::to_value(m.get_value()).unwrap_or_default();
             let modes = self.modes(p);
@@ -705,7 +748,10 @@ impl Doc {
                 children: self
                     .children(p)
                     .into_iter()
-                    .map(|c| self.snap(c, &modes, &palette, flows))
+                    .map(|c| match old.get(c.to_string().as_str()) {
+                        Some(&n) if !kept.unwrap().dirty.contains(&c) => n.clone(),
+                        _ => self.snap(c, &modes, &palette, flows),
+                    })
                     .collect(),
                 modes,
             })
