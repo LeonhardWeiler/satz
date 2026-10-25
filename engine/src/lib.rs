@@ -29,13 +29,19 @@ use wasm_bindgen::prelude::*;
 /// `s` as a splice into `o`: `text` in place of the `cut` UTF-16 units at `at`, and
 /// `spans` in place of the `spansCut` spans at `spansAt`.
 fn splice(o: &doc::Story, s: &doc::Story) -> serde_json::Result<serde_json::Value> {
-    let same = |a: &mut dyn Iterator<Item = (char, char)>| {
-        a.take_while(|(a, b)| a == b)
-            .map(|(a, _)| a.len_utf8())
-            .sum::<usize>()
-    };
-    let p = same(&mut o.text.chars().zip(s.text.chars()));
-    let q = same(&mut o.text[p..].chars().rev().zip(s.text[p..].chars().rev()));
+    let (a, b) = (o.text.as_bytes(), s.text.as_bytes());
+    let mut p = a.iter().zip(b).take_while(|(x, y)| x == y).count();
+    while !o.text.is_char_boundary(p) {
+        p -= 1;
+    }
+    let most = a.len().min(b.len()) - p;
+    let mut q = (a.iter().rev().zip(b.iter().rev()))
+        .take(most)
+        .take_while(|(x, y)| x == y)
+        .count();
+    while !o.text.is_char_boundary(a.len() - q) {
+        q -= 1;
+    }
     let ps = o
         .spans
         .iter()
@@ -56,6 +62,10 @@ fn splice(o: &doc::Story, s: &doc::Story) -> serde_json::Result<serde_json::Valu
     }))
 }
 
+/// The display list of a page or master, its version, and the page and master it was
+/// drawn from.
+type Drawn = (u32, Vec<u32>, [Option<Rc<doc::Page>>; 2]);
+
 #[wasm_bindgen]
 #[derive(Default)]
 pub struct Engine {
@@ -63,8 +73,7 @@ pub struct Engine {
     /// The plates of each page and the version of the display list they were made of.
     plates: HashMap<(String, bool), (u32, Vec<u32>)>,
     overlay: Vec<u32>,
-    /// The display list of each page and master, and its version.
-    lists: HashMap<String, (u32, Vec<u32>)>,
+    lists: HashMap<String, Drawn>,
     /// The snapshot that `lists` were checked against, and the ids checked.
     seen: Option<Rc<Snapshot>>,
     fresh: HashSet<String>,
@@ -434,7 +443,7 @@ impl Engine {
 }
 
 impl Engine {
-    fn drawn(&mut self, page: &str) -> &(u32, Vec<u32>) {
+    fn drawn(&mut self, page: &str) -> &Drawn {
         let snap = self.doc.snapshot();
         if !self.seen.as_ref().is_some_and(|s| Rc::ptr_eq(s, &snap)) {
             let ids: HashSet<&str> = snap
@@ -446,14 +455,26 @@ impl Engine {
             self.lists.retain(|id, _| ids.contains(id.as_str()));
             self.plates.retain(|(id, _), _| ids.contains(id.as_str()));
             self.fresh.clear();
-            self.seen = Some(snap);
+            self.seen = Some(snap.clone());
         }
         if self.fresh.insert(page.to_string()) {
-            let list = encode(&self.doc.render(page));
+            let of = |id: &str| snap.pages.iter().chain(&snap.masters).find(|p| p.id == id);
+            let p = of(page);
+            let from = [p, p.and_then(|p| of(p.master.as_deref()?))].map(|p| p.cloned());
             let entry = self.lists.entry(page.to_string()).or_default();
-            if entry.1 != list {
-                self.versions += 1;
-                *entry = (self.versions, list);
+            let same = |(a, b): (&Option<Rc<doc::Page>>, &Option<Rc<doc::Page>>)| match (a, b) {
+                (Some(a), Some(b)) => Rc::ptr_eq(a, b),
+                (a, b) => a.is_none() && b.is_none(),
+            };
+            if p.is_some() && entry.2.iter().zip(&from).all(same) {
+                debug_assert_eq!(entry.1, encode(&self.doc.render(page)));
+            } else {
+                let list = encode(&self.doc.render(page));
+                if entry.1 != list {
+                    self.versions += 1;
+                    (entry.0, entry.1) = (self.versions, list);
+                }
+                entry.2 = from;
             }
         }
         &self.lists[page]
