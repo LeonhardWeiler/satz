@@ -1630,16 +1630,25 @@ impl Doc {
                 .is_none_or(|p| **p == self.links()),
             "a kept link back differs from the thread"
         );
-        let reach = self.reach();
         let palette = self.palette();
-        for p in self.tree.roots() {
-            if !history && reach.as_ref().is_none_or(|r| r.roots.contains(&p)) && self.is_sheet(p) {
+        let mut done = HashSet::new();
+        let reach = loop {
+            let reach = self.reach();
+            let todo: Vec<_> = (self.tree.roots().into_iter())
+                .filter(|p| !history && !done.contains(p) && self.is_sheet(*p))
+                .filter(|p| reach.as_ref().is_none_or(|r| r.roots.contains(p)))
+                .collect();
+            if todo.is_empty() {
+                break reach;
+            }
+            for p in todo {
                 self.settle(p, &Modes::new(), &palette)?;
                 self.lay_out(p)?;
+                done.insert(p);
             }
-        }
-        self.doc.commit();
-        self.purge();
+            self.doc.commit();
+            self.purge();
+        };
         #[cfg(debug_assertions)]
         if !history && reach.is_some() {
             for p in self.tree.roots().into_iter().filter(|&p| self.is_sheet(p)) {

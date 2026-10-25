@@ -729,6 +729,7 @@ impl Doc {
         let (old, _) = &*self.sheets.borrow();
         let mut roots: HashSet<TreeID> = nodes.iter().map(|&n| self.root(n)).collect();
         let mut todo = self.texts(&roots.iter().copied().collect::<Vec<_>>());
+        todo.retain(|&t| self.reflows(t, &nodes, old));
         todo.extend(nodes.iter().filter(|n| old.contains_key(n)));
         let mut texts = HashSet::new();
         let mut heads = HashSet::new();
@@ -753,6 +754,25 @@ impl Doc {
             texts,
             heads,
         })
+    }
+
+    /// Whether the text layer `n` or a layer it is in changed, or its bounds or text
+    /// frame differ from those its story was set through last.
+    fn reflows(&self, n: TreeID, nodes: &HashSet<TreeID>, old: &HashMap<TreeID, Flow>) -> bool {
+        let mut a = n;
+        while !nodes.contains(&a) {
+            let Some(TreeParentId::Node(p)) = self.tree.parent(a) else {
+                let sets = self.sets.borrow();
+                let was = old.get(&n).and_then(|f| sets.get(&f.head));
+                return was
+                    .and_then(|s| s.frames.iter().find(|f| f.0 == n))
+                    .is_none_or(|(_, b, f)| {
+                        *b != self.bounds(n).map(|v| v as f32) || *f != self.text_frame_of(n)
+                    });
+            };
+            a = p;
+        }
+        true
     }
 
     pub(super) fn is_sheet(&self, r: TreeID) -> bool {
@@ -1816,6 +1836,28 @@ mod tests {
         assert_eq!(at(&d), (5, 10));
         edit(&mut d, &b, [9, 9], "Z").unwrap();
         assert_eq!((at(&d), flow(&d, &a).2), ((5, 11), 5));
+    }
+
+    #[test]
+    fn a_layer_that_starts_to_wrap_a_frame_grows_the_auto_height_frame_its_story_ends_in() {
+        let (mut d, p1, _, _, b) = two_pages();
+        let auto = Props {
+            sizing: sizing(Size::Fixed, Size::Hug),
+            ..Props::default()
+        };
+        set(&mut d, &b, auto);
+        let r = create(&mut d, &p1, NewKind::Rect, [0.0, 0.0, 100.0, LEADING]);
+        let height = |d: &Doc| frame(&d.snapshot().pages[1].children[0])[3];
+        let h = height(&d);
+        set_frame(&mut d, &r, [0.0, 1.0, 100.0, LEADING]);
+        assert_eq!((flow(&d, &b).1, height(&d)), (6, h));
+        let jump = Props {
+            wrap: Some(Wrap::Jump),
+            ..Props::default()
+        };
+        set(&mut d, &r, jump);
+        assert_eq!(flow(&d, &b).1, 3);
+        assert!(height(&d) > h);
     }
 
     #[test]
