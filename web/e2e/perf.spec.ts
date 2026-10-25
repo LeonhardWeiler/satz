@@ -6,6 +6,7 @@ import type { Page } from '@playwright/test'
 // PERF=1 pnpm e2e perf after `cargo test --release -p engine heavy_documents -- --ignored`.
 test.skip(!process.env.PERF, 'a benchmark, run with PERF=1')
 test.setTimeout(600_000)
+test.describe.configure({ mode: 'serial' })
 test.use({ trace: 'off' })
 
 const DIR = join(import.meta.dirname, '../../target/perf')
