@@ -13,6 +13,10 @@ pub(super) struct Kept {
 /// Layers in order and whether text wraps around them.
 pub(super) type Shown = Rc<Vec<(TreeID, bool)>>;
 
+fn by_id<S: serde::Serializer>(m: &BTreeMap<TreeID, Rc<Story>>, s: S) -> Result<S::Ok, S::Error> {
+    s.collect_map(m.iter().map(|(k, v)| (k.to_string(), v)))
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
@@ -23,7 +27,8 @@ pub struct Snapshot {
     /// first page alone on the right, then pairs; else each page alone.
     pub spreads: Vec<Vec<String>>,
     /// The story of each thread by its first frame.
-    pub stories: BTreeMap<String, Rc<Story>>,
+    #[serde(serialize_with = "by_id")]
+    pub stories: BTreeMap<TreeID, Rc<Story>>,
     /// Resolution at which the PDF rasterizes shadows and blurs.
     pub raster_ppi: f64,
     pub color_mode: ColorMode,
@@ -434,7 +439,10 @@ pub(super) fn visit(
             if *overset {
                 problems.push(Problem::Overset);
             }
-            if let Some(content) = snap.stories.get(story).filter(|_| *story == n.id) {
+            let head = TreeID::try_from(story.as_str())
+                .ok()
+                .filter(|_| *story == n.id);
+            if let Some(content) = head.and_then(|h| snap.stories.get(&h)) {
                 colors.extend(
                     content
                         .spans
@@ -874,10 +882,7 @@ impl Doc {
         let facing_pages = self.facing_pages();
         let pages: Vec<_> = places.iter().map(|p| sheet(p.id, Some(p))).collect();
         let spreads = spreads(pages.len(), facing_pages);
-        let stories: BTreeMap<_, _> = flows
-            .values()
-            .map(|f| (f.head.to_string(), f.story.clone()))
-            .collect();
+        let stories: BTreeMap<_, _> = flows.values().map(|f| (f.head, f.story.clone())).collect();
         let mut missing_fonts: Vec<MissingFont> = Vec::new();
         for (id, story) in &stories {
             for font in story.spans.iter().filter_map(|s| s.attrs.font.as_ref()) {
@@ -885,11 +890,11 @@ impl Doc {
                     continue;
                 }
                 match missing_fonts.iter_mut().find(|m| m.font.hash == font.hash) {
-                    Some(m) if m.stories.last() == Some(id) => {}
-                    Some(m) => m.stories.push(id.clone()),
+                    Some(m) if m.stories.last() == Some(&id.to_string()) => {}
+                    Some(m) => m.stories.push(id.to_string()),
                     None => missing_fonts.push(MissingFont {
                         font: font.clone(),
-                        stories: vec![id.clone()],
+                        stories: vec![id.to_string()],
                     }),
                 }
             }

@@ -799,11 +799,12 @@ impl Doc {
         todo.extend(nodes.iter().filter(|n| old.contains_key(n)));
         let mut texts = HashSet::new();
         let mut heads = HashSet::new();
+        let mut walked = HashSet::new();
         while let Some(n) = todo.pop() {
             if !texts.insert(n) {
                 continue;
             }
-            let mut f = old.get(&n).map(|f| f.head);
+            let mut f = old.get(&n).map(|f| f.head).filter(|&h| walked.insert(h));
             while let Some(x) = f {
                 todo.push(x);
                 f = old.get(&x).and_then(|f| f.next);
@@ -963,7 +964,7 @@ impl Doc {
             return Err("the scale must be positive".into());
         }
         let snap = self.snapshot();
-        let story = snap.stories.get(&head.to_string()).ok_or("no story")?;
+        let story = snap.stories.get(&head).ok_or("no story")?;
         let mut at = 0;
         let spans = story.spans.iter().map(|s| {
             at += s.len;

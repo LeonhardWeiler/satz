@@ -172,13 +172,13 @@ impl Engine {
         for (id, s) in &snap.stories {
             match old.and_then(|o| o.stories.get(id)) {
                 Some(o) if Rc::ptr_eq(o, s) => {}
-                Some(o) => _ = stories.insert(id.clone(), splice(o, s)?),
-                None => _ = stories.insert(id.clone(), serde_json::to_value(&**s)?),
+                Some(o) => _ = stories.insert(id.to_string(), splice(o, s)?),
+                None => _ = stories.insert(id.to_string(), serde_json::to_value(&**s)?),
             }
         }
         for id in old.iter().flat_map(|o| o.stories.keys()) {
             if !snap.stories.contains_key(id) {
-                stories.insert(id.clone(), serde_json::Value::Null);
+                stories.insert(id.to_string(), serde_json::Value::Null);
             }
         }
         let mut out = serde_json::to_value(Snapshot {

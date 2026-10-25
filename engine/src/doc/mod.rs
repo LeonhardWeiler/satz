@@ -3279,7 +3279,9 @@ mod tests {
                 assert!(story == id || prev.is_some(), "{story} heads {id}");
                 let [start, end] = d.frame_range(id).unwrap();
                 (
-                    s.stories[story].text.clone(),
+                    s.stories[&TreeID::try_from(story.as_str()).unwrap()]
+                        .text
+                        .clone(),
                     start,
                     end,
                     prev.clone(),
@@ -4898,7 +4900,10 @@ mod tests {
             })
             .unwrap();
         loaded.apply(Command::Undo).unwrap();
-        assert_eq!(loaded.snapshot().stories[&b.frames[0]].text, b.story);
+        assert_eq!(
+            loaded.snapshot().stories[&TreeID::try_from(b.frames[0].as_str()).unwrap()].text,
+            b.story
+        );
     }
 
     #[test]
