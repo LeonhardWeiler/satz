@@ -1,5 +1,8 @@
 use super::*;
 
+/// Layers in order and whether text wraps around them.
+pub(super) type Shown = Rc<Vec<(TreeID, bool)>>;
+
 #[derive(Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
@@ -643,8 +646,14 @@ impl Doc {
             return HashMap::new();
         }
         let Some(nodes) = self.changed.lock().unwrap().replace(HashSet::new()) else {
+            self.shown.take();
             return HashMap::new();
         };
+        let mut shown = self.shown.borrow_mut();
+        nodes
+            .iter()
+            .for_each(|&n| drop(shown.remove(&self.root(n))));
+        drop(shown);
         let (old, mut sheets) = self.sheets.take();
         let same = |a: &Flow, b: &Flow| {
             Rc::ptr_eq(&a.story, &b.story)
@@ -1007,25 +1016,19 @@ impl Doc {
     /// The areas of the shown layers above the text layer `n` that its text wraps
     /// around, in its frame from its top left; auto width text wraps around none.
     fn wrap_of(&self, n: TreeID) -> Vec<([f32; 4], bool)> {
-        fn shown(d: &Doc, id: TreeID, out: &mut Vec<TreeID>) {
-            if value(&d.meta(id), "hidden") != Some(true.into()) {
-                out.push(id);
-                d.children(id).into_iter().for_each(|c| shown(d, c, out));
-            }
-        }
         if self.layout(n).sizing.horizontal == Size::Hug {
             return Vec::new();
         }
-        let mut all = Vec::new();
-        shown(self, self.root(n), &mut all);
-        let Some(i) = all.iter().position(|&id| id == n) else {
+        let all = self.shown(self.root(n));
+        let Some(i) = all.iter().position(|&(id, _)| id == n) else {
             return Vec::new();
         };
         let back = geom::invert(self.turn(n));
         let [fx, fy, ..] = self.bounds(n);
         all[i + 1..]
             .iter()
-            .filter_map(|&id| {
+            .filter(|(_, wraps)| *wraps)
+            .filter_map(|&(id, _)| {
                 let m = self.meta(id);
                 let jump = match value(&m, "wrap")?.into_string().ok()?.as_str() {
                     "around" => false,
@@ -1052,6 +1055,41 @@ impl Doc {
                 ))
             })
             .collect()
+    }
+
+    /// The shown layers of the page or master `root` in order and whether text wraps
+    /// around them, kept until a change reaches `root`.
+    fn shown(&self, root: TreeID) -> Shown {
+        fn walk(d: &Doc, id: TreeID, out: &mut Vec<(TreeID, bool)>) {
+            let m = d.meta(id);
+            if value(&m, "hidden") != Some(true.into()) {
+                out.push((id, value(&m, "wrap").is_some()));
+                d.children(id).into_iter().for_each(|c| walk(d, c, out));
+            }
+        }
+        let kept = self.doc.get_pending_txn_len() == 0
+            && self
+                .changed
+                .lock()
+                .unwrap()
+                .as_ref()
+                .is_some_and(|c| c.iter().all(|&x| self.root(x) != root));
+        let kept_one = self.shown.borrow().get(&root).filter(|_| kept).cloned();
+        if let Some(s) = &kept_one
+            && !cfg!(debug_assertions)
+        {
+            return s.clone();
+        }
+        let mut out = Vec::new();
+        walk(self, root, &mut out);
+        let out = Rc::new(out);
+        if let Some(s) = kept_one {
+            assert_eq!(s, out, "kept shown layers differ from those walked again");
+        }
+        if kept {
+            self.shown.borrow_mut().insert(root, out.clone());
+        }
+        out
     }
 
     /// What a page number on the page or master `root` shows: the page's number, or

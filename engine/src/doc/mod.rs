@@ -740,6 +740,9 @@ pub struct Doc {
     prevs: RefCell<Option<Rc<HashMap<TreeID, TreeID>>>>,
     /// Each story as last set, by its first frame.
     sets: RefCell<HashMap<TreeID, Set>>,
+    /// The shown layers of each page and master in order and whether text wraps
+    /// around them, as of the last snapshot.
+    shown: RefCell<HashMap<TreeID, Shown>>,
     /// The nodes changed since the last snapshot, `None` for everything.
     changed: Arc<Mutex<Option<HashSet<TreeID>>>>,
     _changes: Subscription,
@@ -983,6 +986,7 @@ impl Doc {
             prevs: RefCell::new(None),
             numbers: RefCell::new(None),
             sets: RefCell::new(HashMap::new()),
+            shown: RefCell::default(),
         }
     }
 
