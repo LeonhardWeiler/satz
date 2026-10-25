@@ -1409,7 +1409,7 @@ mod tests {
             d.snapshot().masters[0]
                 .children
                 .iter()
-                .map(frame)
+                .map(|n| frame(n))
                 .collect::<Vec<_>>()
         };
         let detached = |d: &Doc| {
@@ -1451,7 +1451,11 @@ mod tests {
         facing(&mut d, true);
         create(&mut d, &m, NewKind::Rect, [-50.0, 0.0, 10.0, 10.0]);
         facing(&mut d, false);
-        let frames: Vec<_> = d.snapshot().masters[0].children.iter().map(frame).collect();
+        let frames: Vec<_> = d.snapshot().masters[0]
+            .children
+            .iter()
+            .map(|n| frame(n))
+            .collect();
         assert_eq!(frames, [[90.0, 0.0, 20.0, 10.0]]);
     }
 

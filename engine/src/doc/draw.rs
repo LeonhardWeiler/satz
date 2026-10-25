@@ -1,10 +1,12 @@
 use super::*;
 
 /// The pages and masters of a snapshot, the layers that changes since reach with
-/// those above them, and the layers changed.
+/// those above them, those of them that changed or hold a changed one, and the layers
+/// changed.
 pub(super) struct Kept {
     sheets: HashMap<TreeID, Rc<Page>>,
     dirty: HashSet<TreeID>,
+    touched: HashSet<TreeID>,
     changed: HashSet<TreeID>,
 }
 
@@ -116,7 +118,7 @@ pub struct Page {
     pub guides: Guides,
     pub section: Option<Section>,
     pub modes: Modes,
-    pub children: Vec<Node>,
+    pub children: Vec<Rc<Node>>,
 }
 
 impl Page {
@@ -226,15 +228,45 @@ pub enum Kind {
         placed: Rc<text::Placed>,
     },
     Group {
-        children: Vec<Node>,
+        children: Vec<Rc<Node>>,
     },
     Frame {
         clip: bool,
         radius: f32,
         #[serde(skip_serializing_if = "Vec::is_empty")]
         corners: Vec<f32>,
-        children: Vec<Node>,
+        children: Vec<Rc<Node>>,
     },
+}
+
+/// The name of a layer that has none.
+fn untitled(kind: &Kind, style: &Style) -> String {
+    match kind {
+        Kind::Shape(Shape::Rect { .. }) => "Rectangle".into(),
+        Kind::Shape(Shape::Ellipse { .. }) => "Ellipse".into(),
+        Kind::Shape(Shape::Polygon { .. }) => "Polygon".into(),
+        Kind::Shape(Shape::Star { .. }) => "Star".into(),
+        Kind::Shape(Shape::Path { .. }) if style.arrow_start || style.arrow_end => "Arrow".into(),
+        Kind::Shape(Shape::Path { path, .. }) if path.len() == 6 => "Line".into(),
+        Kind::Shape(Shape::Path { .. }) => "Vector".into(),
+        Kind::Text { content, from, .. } if content.text[*from..].is_empty() => "Text".into(),
+        Kind::Text { content, from, .. } => {
+            let t: String = content.text[*from..]
+                .chars()
+                .take(41)
+                .map(|c| if c == text::PAGE_NUMBER { '#' } else { c })
+                .collect();
+            match t.char_indices().nth(40) {
+                Some((end, _)) => {
+                    let cut = t[..end].rfind(' ').unwrap_or(end);
+                    format!("{}…", t[..cut].trim_end_matches([',', '.', ';', ':']))
+                }
+                None => t,
+            }
+        }
+        Kind::Group { .. } => "Group".into(),
+        Kind::Frame { .. } => "Frame".into(),
+    }
 }
 
 pub(super) fn master_dx(m: &Page, p: &Page) -> f64 {
@@ -259,7 +291,8 @@ pub(super) fn reach(n: &Node) -> [f64; 4] {
 }
 
 /// The issues of every layer, page by page and then master by master; a sheet that
-/// `old` shares with `snap` keeps its issues there.
+/// `old` shares with `snap` keeps its issues there, and so does a top layer as it was
+/// on a sheet with the same trim, height and bleed.
 pub(super) fn preflight(snap: &Snapshot, old: Option<&Snapshot>) -> Vec<Issue> {
     let old = old.filter(|o| {
         (&o.palette, &o.missing_fonts, o.color_mode, o.ink_limit)
@@ -297,12 +330,40 @@ pub(super) fn preflight(snap: &Snapshot, old: Option<&Snapshot>) -> Vec<Issue> {
                     .cloned(),
             );
         } else {
-            for n in &p.children {
-                visit(n, p, Some(trim), snap, &mut out);
+            let was = (was.get(p.id.as_str()))
+                .filter(|&&(q, t)| t == trim && (q.height, q.bleed) == (p.height, p.bleed));
+            for (i, n) in p.children.iter().enumerate() {
+                match was.and_then(|(q, _)| same_layer(&q.children, i, &n.id)) {
+                    Some(o) if Rc::ptr_eq(o, n) || o == n => {
+                        let mut ids = HashSet::new();
+                        layers(o, &mut ids);
+                        let old = issues.get(p.id.as_str()).into_iter().flatten();
+                        out.extend(
+                            old.filter(|i| ids.contains(i.layer.as_str()))
+                                .copied()
+                                .cloned(),
+                        );
+                    }
+                    _ => visit(n, p, Some(trim), snap, &mut out),
+                }
             }
         }
     }
     out
+}
+
+/// The layer `id` in `nodes`, looked for at `i` first.
+pub fn same_layer<'a>(nodes: &'a [Rc<Node>], i: usize, id: &str) -> Option<&'a Rc<Node>> {
+    (nodes.get(i).filter(|n| n.id == id)).or_else(|| nodes.iter().find(|n| n.id == id))
+}
+
+fn layers<'a>(n: &'a Node, out: &mut HashSet<&'a str>) {
+    out.insert(&n.id);
+    if let Kind::Group { children } | Kind::Frame { children, .. } = &n.kind {
+        for c in children {
+            layers(c, out);
+        }
+    }
 }
 
 /// The pages and then the masters of `snap` with the trim their top layers are
@@ -362,7 +423,7 @@ pub(super) fn visit(
                 .map(|e| &e.color),
         )
         .collect();
-    let mut children: &[Node] = &[];
+    let mut children: &[Rc<Node>] = &[];
     match &n.kind {
         Kind::Text {
             content,
@@ -458,8 +519,9 @@ pub(super) fn visit(
 
 /// Sets the page number of the text layers among `nodes` to `number` and fits the
 /// hugging sides of each to it, as `Doc::fit` does.
-pub(super) fn renumber(nodes: &mut [Node], number: &str) {
+pub(super) fn renumber(nodes: &mut [Rc<Node>], number: &str) {
     for n in nodes {
+        let n = Rc::make_mut(n);
         let Sizing {
             horizontal,
             vertical,
@@ -516,7 +578,7 @@ pub(super) fn page_op(p: &Page) -> Op {
     }
 }
 
-pub(super) fn draw_all(nodes: &[Node], ops: &mut Vec<Op>, pal: &Palette) {
+pub(super) fn draw_all(nodes: &[Rc<Node>], ops: &mut Vec<Op>, pal: &Palette) {
     let Some(i) = nodes.iter().rposition(|n| n.style.mask && !n.hidden) else {
         for n in nodes {
             draw(n, ops, pal);
@@ -639,7 +701,7 @@ pub(super) fn draw(n: &Node, ops: &mut Vec<Op>, pal: &Palette) {
 /// are hit last.
 /// Locked layers are skipped unless `locks` is false, as for masks.
 pub(super) fn hit(
-    nodes: &[Node],
+    nodes: &[Rc<Node>],
     x: f64,
     y: f64,
     tolerance: f64,
@@ -737,18 +799,22 @@ impl Doc {
             .iter()
             .filter(|(f, a)| !old.get(f).is_some_and(|b| same(a, b)))
             .map(|(f, _)| f);
-        let mut dirty = HashSet::new();
-        for &n in nodes.iter().chain(reflowed) {
-            let mut id = n;
-            dirty.insert(id);
-            while let Some(TreeParentId::Node(p)) = self.tree.parent(id) {
-                id = p;
-                dirty.insert(id);
+        let up = |nodes: &mut dyn Iterator<Item = &TreeID>| {
+            let mut out = HashSet::new();
+            for &n in nodes {
+                let mut id = n;
+                out.insert(id);
+                while let Some(TreeParentId::Node(p)) = self.tree.parent(id) {
+                    id = p;
+                    out.insert(id);
+                }
             }
-        }
+            out
+        };
         Some(Kept {
             sheets,
-            dirty,
+            dirty: up(&mut nodes.iter().chain(reflowed)),
+            touched: up(&mut nodes.iter()),
             changed: nodes,
         })
     }
@@ -765,7 +831,7 @@ impl Doc {
             {
                 return page.clone();
             }
-            let old: HashMap<&str, &Node> = old
+            let old: HashMap<&str, &Rc<Node>> = old
                 .filter(|_| !kept.unwrap().changed.contains(&p))
                 .iter()
                 .flat_map(|page| page.children.iter().map(|n| (n.id.as_str(), n)))
@@ -789,9 +855,22 @@ impl Doc {
                 children: self
                     .children(p)
                     .into_iter()
-                    .map(|c| match old.get(c.to_string().as_str()) {
-                        Some(&n) if !kept.unwrap().dirty.contains(&c) => n.clone(),
-                        _ => self.snap(c, &modes, &palette, flows),
+                    .map(|c| {
+                        let k = || kept.unwrap();
+                        match old.get(c.to_string().as_str()) {
+                            Some(&n) if !k().dirty.contains(&c) => n.clone(),
+                            Some(&n) if !k().touched.contains(&c) => {
+                                let mut n = n.clone();
+                                match self.reflow(Rc::make_mut(&mut n), flows) {
+                                    Some(()) => {
+                                        debug_assert_eq!(*n, self.snap(c, &modes, &palette, flows));
+                                        n
+                                    }
+                                    None => Rc::new(self.snap(c, &modes, &palette, flows)),
+                                }
+                            }
+                            _ => Rc::new(self.snap(c, &modes, &palette, flows)),
+                        }
                     })
                     .collect(),
                 modes,
@@ -1071,7 +1150,7 @@ impl Doc {
     }
 
     /// The layers of the master `m` that the page `p` shows, in its modes.
-    pub(super) fn master_layers(&self, m: &Page, p: &Page) -> Vec<Node> {
+    pub(super) fn master_layers(&self, m: &Page, p: &Page) -> Vec<Rc<Node>> {
         let palette = self.palette();
         let mut modes = m.modes.clone();
         modes.extend(p.modes.clone());
@@ -1079,11 +1158,11 @@ impl Doc {
             return Vec::new();
         };
         let flows = self.flows();
-        let mut layers: Vec<Node> = self
+        let mut layers: Vec<_> = self
             .children(id)
             .into_iter()
             .filter(|c| !p.detached.contains(&c.to_string()))
-            .map(|c| self.snap(c, &modes, &palette, &flows))
+            .map(|c| Rc::new(self.snap(c, &modes, &palette, &flows)))
             .collect();
         if let Ok(page) = self.page(&p.id) {
             renumber(&mut layers, &self.number(page));
@@ -1274,6 +1353,50 @@ impl Doc {
         path
     }
 
+    /// Sets the text layers in `n` as `flows` place them, or None if one is not in a thread.
+    fn reflow(&self, n: &mut Node, flows: &HashMap<TreeID, Flow>) -> Option<()> {
+        let mut untitled_text = false;
+        match &mut n.kind {
+            Kind::Text {
+                content,
+                frame,
+                story,
+                start,
+                end,
+                prev,
+                next,
+                overset,
+                from,
+                placed,
+            } => {
+                let id = TreeID::try_from(n.id.as_str()).ok()?;
+                let f = flows.get(&id)?;
+                *content = f.story.clone();
+                *frame = self.text_frame_of(id);
+                *story = f.head.to_string();
+                [*start, *end] = f.units;
+                *prev = f.prev.map(|p| p.to_string());
+                *next = f.next.map(|n| n.to_string());
+                *overset = f.overset;
+                *from = f.start;
+                *placed = f.placed.clone();
+                if self.meta(id).get("name").is_none() {
+                    untitled_text = true;
+                }
+            }
+            Kind::Group { children } | Kind::Frame { children, .. } => {
+                for c in children {
+                    self.reflow(Rc::make_mut(c), flows)?;
+                }
+            }
+            Kind::Shape(_) => {}
+        }
+        if untitled_text {
+            n.name = untitled(&n.kind, &n.style);
+        }
+        Some(())
+    }
+
     pub(super) fn snap(
         &self,
         id: TreeID,
@@ -1289,26 +1412,23 @@ impl Doc {
         let children = || {
             self.children(id)
                 .into_iter()
-                .map(|c| self.snap(c, &active_modes, palette, flows))
+                .map(|c| Rc::new(self.snap(c, &active_modes, palette, flows)))
                 .collect()
         };
         let kind = match self.kind(id) {
             Some(NodeKind::Text) => match flows.get(&id) {
-                Some(f) => {
-                    let text = &f.story.text;
-                    Kind::Text {
-                        content: f.story.clone(),
-                        frame: self.text_frame_of(id),
-                        story: f.head.to_string(),
-                        start: utf16_of(text, f.start),
-                        end: utf16_of(text, f.end),
-                        prev: f.prev.map(|p| p.to_string()),
-                        next: f.next.map(|n| n.to_string()),
-                        overset: f.overset,
-                        from: f.start,
-                        placed: f.placed.clone(),
-                    }
-                }
+                Some(f) => Kind::Text {
+                    content: f.story.clone(),
+                    frame: self.text_frame_of(id),
+                    story: f.head.to_string(),
+                    start: f.units[0],
+                    end: f.units[1],
+                    prev: f.prev.map(|p| p.to_string()),
+                    next: f.next.map(|n| n.to_string()),
+                    overset: f.overset,
+                    from: f.start,
+                    placed: f.placed.clone(),
+                },
                 None => {
                     let content = Story {
                         text: v["text"].as_str().unwrap_or_default().into(),
@@ -1356,36 +1476,7 @@ impl Doc {
         let name = v["name"]
             .as_str()
             .map(String::from)
-            .unwrap_or_else(|| match &kind {
-                Kind::Shape(Shape::Rect { .. }) => "Rectangle".into(),
-                Kind::Shape(Shape::Ellipse { .. }) => "Ellipse".into(),
-                Kind::Shape(Shape::Polygon { .. }) => "Polygon".into(),
-                Kind::Shape(Shape::Star { .. }) => "Star".into(),
-                Kind::Shape(Shape::Path { .. }) if style.arrow_start || style.arrow_end => {
-                    "Arrow".into()
-                }
-                Kind::Shape(Shape::Path { path, .. }) if path.len() == 6 => "Line".into(),
-                Kind::Shape(Shape::Path { .. }) => "Vector".into(),
-                Kind::Text { content, from, .. } if content.text[*from..].is_empty() => {
-                    "Text".into()
-                }
-                Kind::Text { content, from, .. } => {
-                    let t: String = content.text[*from..]
-                        .chars()
-                        .take(41)
-                        .map(|c| if c == text::PAGE_NUMBER { '#' } else { c })
-                        .collect();
-                    match t.char_indices().nth(40) {
-                        Some((end, _)) => {
-                            let cut = t[..end].rfind(' ').unwrap_or(end);
-                            format!("{}…", t[..cut].trim_end_matches([',', '.', ';', ':']))
-                        }
-                        None => t,
-                    }
-                }
-                Kind::Group { .. } => "Group".into(),
-                Kind::Frame { .. } => "Frame".into(),
-            });
+            .unwrap_or_else(|| untitled(&kind, &style));
         let [x, y, w, h] = self.bounds(id);
         let turn = self.turn(id);
         let own = union(

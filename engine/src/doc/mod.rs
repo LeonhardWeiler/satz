@@ -2564,9 +2564,9 @@ impl Doc {
 
     /// The outlines of the glyphs that the unthreaded text layer `id` sets in `frame`.
     fn glyphs(&self, id: &str, frame: [f32; 4]) -> Res<Vec<f32>> {
-        fn find<'a>(nodes: &'a [Node], id: &str) -> Option<&'a Node> {
+        fn find<'a>(nodes: &'a [Rc<Node>], id: &str) -> Option<&'a Node> {
             nodes.iter().find_map(|n| match &n.kind {
-                _ if n.id == id => Some(n),
+                _ if n.id == id => Some(&**n),
                 Kind::Group { children } | Kind::Frame { children, .. } => find(children, id),
                 _ => None,
             })
@@ -2823,11 +2823,11 @@ mod tests {
         [n.x, n.y, n.w, n.h]
     }
 
-    pub(super) fn ids(nodes: &[Node]) -> Vec<String> {
+    pub(super) fn ids(nodes: &[Rc<Node>]) -> Vec<String> {
         nodes.iter().map(|n| n.id.clone()).collect()
     }
 
-    pub(super) fn children(n: &Node) -> &[Node] {
+    pub(super) fn children(n: &Node) -> &[Rc<Node>] {
         match &n.kind {
             Kind::Group { children } | Kind::Frame { children, .. } => children,
             _ => &[],
@@ -2971,16 +2971,18 @@ mod tests {
     }
 
     pub(super) fn frames(d: &Doc, id: &str) -> Vec<[f64; 4]> {
-        fn find<'a>(nodes: &'a [Node], id: &str) -> Option<&'a Node> {
-            nodes
-                .iter()
-                .find_map(|n| (n.id == id).then_some(n).or_else(|| find(children(n), id)))
+        fn find<'a>(nodes: &'a [Rc<Node>], id: &str) -> Option<&'a Node> {
+            nodes.iter().find_map(|n| {
+                (n.id == id)
+                    .then_some(&**n)
+                    .or_else(|| find(children(n), id))
+            })
         }
         let pg = page(d);
         let f = find(&pg.children, id).unwrap();
         [frame(f)]
             .into_iter()
-            .chain(children(f).iter().map(frame))
+            .chain(children(f).iter().map(|n| frame(n)))
             .collect()
     }
 
@@ -3086,7 +3088,7 @@ mod tests {
     }
 
     pub(super) fn node_sizing(d: &Doc, id: &str) -> Sizing {
-        fn find(nodes: &[Node], id: &str) -> Option<Sizing> {
+        fn find(nodes: &[Rc<Node>], id: &str) -> Option<Sizing> {
             nodes.iter().find_map(|n| {
                 (n.id == id)
                     .then_some(n.layout.sizing)
@@ -3247,7 +3249,7 @@ mod tests {
         id: &str,
     ) -> (String, usize, usize, Option<String>, Option<String>, bool) {
         let s = d.snapshot();
-        let all: Vec<&Node> = s
+        let all: Vec<&Rc<Node>> = s
             .pages
             .iter()
             .chain(&s.masters)
@@ -3421,7 +3423,7 @@ mod tests {
 
     /// The text layers of the pages and masters with the UTF-16 length of their story.
     fn texts(d: &Doc) -> Vec<(String, usize)> {
-        fn walk(nodes: &[Node], out: &mut Vec<(String, usize)>) {
+        fn walk(nodes: &[Rc<Node>], out: &mut Vec<(String, usize)>) {
             for n in nodes {
                 match &n.kind {
                     Kind::Text { content, .. } => {

@@ -306,7 +306,17 @@ export class Editor {
     }
     s.pages = s.pages.map(keep)
     s.masters = s.masters.map(keep)
-    for (const k in s.stories) s.stories[k] ??= old!.stories[k]
+    for (const k in s.stories) {
+      const v = s.stories[k]
+      const o = old?.stories[k]
+      if (v === null) s.stories[k] = o
+      else if ('at' in v) {
+        s.stories[k] = {
+          text: o!.text.slice(0, v.at) + v.text + o!.text.slice(v.at + v.cut),
+          spans: [...o!.spans.slice(0, v.spansAt), ...v.spans, ...o!.spans.slice(v.spansAt + v.spansCut)],
+        }
+      }
+    }
     return s
   }
 

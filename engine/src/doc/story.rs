@@ -9,6 +9,8 @@ pub(super) struct Flow {
     pub(super) story: Rc<Story>,
     pub(super) start: usize,
     pub(super) end: usize,
+    /// `start` and `end` in UTF-16.
+    pub(super) units: [usize; 2],
     /// Where the text left over for the next frame starts.
     pub(super) rest: Option<usize>,
     pub(super) prev: Option<TreeID>,
@@ -42,6 +44,128 @@ pub(super) struct Measured {
     w: Option<f32>,
     from: usize,
     size: [f32; 2],
+}
+
+/// What of the last setting `old` of a story still holds after its text changed
+/// between the bytes `p` and `old.len() - q`, which moved the text after it by
+/// `bytes` and its spans by `spans`; frames from `frames` on are as they were, and
+/// the first `same`. `head` holds the byte of the newline before `p` and where the
+/// last `keep_next` before it ends, if the spans up to it are as they were.
+struct Tail<'a> {
+    old: &'a Set,
+    head: Option<(usize, usize)>,
+    same: usize,
+    q: usize,
+    bytes: isize,
+    spans: isize,
+    frames: usize,
+}
+
+impl<'a> Tail<'a> {
+    fn of(
+        old: &'a Set,
+        text: &str,
+        spans: &[Span],
+        frames: &[(TreeID, [f32; 4], TextFrame)],
+        fonts: usize,
+    ) -> Option<Tail<'a>> {
+        let o = &old.story;
+        if old.fonts != fonts
+            || old.frames.len() != frames.len()
+            || spans
+                .iter()
+                .chain(&o.spans)
+                .any(|s| s.attrs.list == text::List::Number)
+        {
+            return None;
+        }
+        let (a, b) = (o.text.as_bytes(), text.as_bytes());
+        let p = a.iter().zip(b).take_while(|(x, y)| x == y).count();
+        let most = a.len().min(b.len()) - p;
+        let q = (a.iter().rev().zip(b.iter().rev()))
+            .take(most)
+            .take_while(|(x, y)| x == y)
+            .count();
+        let head = o.text[..p].rfind('\n').and_then(|h| {
+            let h16 = utf16_of(text, h);
+            let (mut end, mut kept) = (0, 0);
+            for (x, y) in o.spans.iter().zip(spans) {
+                if end >= h16 {
+                    break;
+                }
+                if x.attrs != y.attrs || (x.len != y.len && end + x.len.min(y.len) < h16) {
+                    return None;
+                }
+                if x.attrs.keep_next {
+                    kept = (end + x.len).min(h16);
+                }
+                end += x.len;
+            }
+            (end >= h16).then_some(())?;
+            Some((h, byte_of(&o.text, kept).ok()?))
+        });
+        let same = frames.iter().rev().zip(old.frames.iter().rev());
+        Some(Tail {
+            old,
+            head,
+            same: frames
+                .iter()
+                .zip(&old.frames)
+                .take_while(|(x, y)| x == y)
+                .count(),
+            q,
+            bytes: b.len() as isize - a.len() as isize,
+            spans: spans.len() as isize - o.spans.len() as isize,
+            frames: frames.len() - same.take_while(|(x, y)| x == y).count(),
+        })
+    }
+
+    /// The frame `j` as it was if it starts where it did and its paragraphs, with
+    /// those a `keep_next` holds to them, end before the change.
+    fn head(&self, j: usize, start: usize) -> Option<&Placing> {
+        let (h, kept) = self.head?;
+        let p = &self.old.out[j];
+        let n = p.2?;
+        let t = &self.old.story.text;
+        (j < self.same && p.1 == start && n <= h && t[..n].rfind('\n').map_or(0, |b| b + 1) >= kept)
+            .then_some(p)
+    }
+
+    /// Whether the frame `j`, which now starts at the byte `start`, sets what it set
+    /// before: its paragraph and all after it are as they were.
+    fn keeps(&self, j: usize, start: usize, text: &str, spans: &[Span]) -> bool {
+        let (o, at) = (&self.old.story, self.old.out[j].1);
+        let Some(nl) = o.text[..at].rfind('\n') else {
+            return false;
+        };
+        let moved = |v: usize| v.wrapping_add_signed(self.bytes);
+        fn tail(s: &[Span], from: usize) -> impl Iterator<Item = (usize, &Attrs)> {
+            let mut end = 0;
+            s.iter().filter_map(move |s| {
+                end += s.len;
+                (end > from).then(|| (end - from, &s.attrs))
+            })
+        }
+        j >= self.frames
+            && start == moved(at)
+            && nl >= o.text.len() - self.q
+            && tail(&o.spans, utf16_of(&o.text, nl)).eq(tail(spans, utf16_of(text, moved(nl))))
+    }
+
+    /// The frames from `j` on as they were, moved on with the text.
+    fn from(&self, j: usize) -> impl Iterator<Item = Placing> {
+        let moved = |v: usize| v.wrapping_add_signed(self.bytes);
+        self.old.out[j..]
+            .iter()
+            .map(move |(f, start, next, placed)| {
+                let placed = if self.bytes == 0 && self.spans == 0 {
+                    placed.clone()
+                } else {
+                    Rc::new(placed.shifted(self.bytes, self.spans))
+                };
+                (*f, moved(*start), next.map(moved), placed)
+            })
+    }
 }
 
 /// A frame of a thread, the byte where its text starts, where the text left over for
@@ -138,10 +262,22 @@ impl Doc {
             .map(|f| (f, self.bounds(f).map(|v| v as f32), self.text_frame_of(f)))
             .collect();
         let fonts = text::fonts_added();
-        let set = |t: &str, spans: &[Span]| {
+        let set = |t: &str, spans: &[Span], old: Option<&Set>| {
+            let tail = old.and_then(|o| Tail::of(o, t, spans, &frames, fonts));
             let mut out = Vec::new();
             let mut from = Some(0);
-            for (f, frame, tf) in &frames {
+            for (j, (f, frame, tf)) in frames.iter().enumerate() {
+                if let Some(p) = tail.as_ref().zip(from).and_then(|(t, s)| t.head(j, s)) {
+                    out.push(p.clone());
+                    from = p.2;
+                    continue;
+                }
+                if let (Some(tail), Some(start)) = (&tail, from)
+                    && tail.keeps(j, start, t, spans)
+                {
+                    out.extend(tail.from(j));
+                    break;
+                }
                 let start = from.unwrap_or(t.len());
                 let (placed, rest) = text::set(t, spans, *frame, tf, start);
                 let next = from.and(rest);
@@ -155,12 +291,16 @@ impl Doc {
         }) {
             debug_assert_eq!(
                 s.out,
-                set(&text, &spans),
+                set(&text, &spans, None),
                 "a story set from the same inputs changed"
             );
             return Ok((s.story.clone(), s.out.clone()));
         }
-        let out = set(&text, &spans);
+        let out = set(&text, &spans, self.sets.borrow().get(&head));
+        debug_assert!(
+            out == set(&text, &spans, None),
+            "a story set on from its last setting differs from one set anew"
+        );
         let story = Rc::new(Story { text, spans });
         let s = Set {
             story: story.clone(),
@@ -660,14 +800,22 @@ impl Doc {
             let Ok((story, frames)) = self.flow(head) else {
                 continue;
             };
+            let mut at = (0, 0);
+            let mut units = |b: usize| {
+                at = (b, at.1 + story.text[at.0..b].encode_utf16().count());
+                at.1
+            };
             for (i, (f, start, next, placed)) in frames.iter().enumerate() {
+                let end = next.unwrap_or(story.text.len());
+                let units = [units(*start), units(end)];
                 out.insert(
                     *f,
                     Flow {
                         head,
                         story: story.clone(),
                         start: *start,
-                        end: next.unwrap_or(story.text.len()),
+                        end,
+                        units,
                         rest: *next,
                         prev: i.checked_sub(1).map(|j| frames[j].0),
                         next: frames.get(i + 1).map(|n| n.0),
@@ -1652,6 +1800,22 @@ mod tests {
         assert!(close(top, 10.0), "{top}");
         assert_eq!(d.text_index(&b, 11.0, 11.0).unwrap(), 6);
         assert_eq!(d.text_line(&a, 7).unwrap(), [6, 9]);
+    }
+
+    #[test]
+    fn a_change_in_one_frame_moves_the_text_of_the_frames_after_it_on() {
+        let (mut d, _, _, a, b) = two_pages();
+        let at = |d: &Doc| (flow(d, &b).1, flow(d, &b).2);
+        edit(&mut d, &a, [1, 1], "XY").unwrap();
+        assert_eq!(at(&d), (8, 13));
+        edit(&mut d, &a, [0, 1], "").unwrap();
+        assert_eq!(at(&d), (7, 12));
+        edit(&mut d, &a, [2, 4], "").unwrap();
+        assert_eq!((at(&d), flow(&d, &a).0), ((8, 10), "XYHi\nHi\nHi".into()));
+        format(&mut d, &a, Some([0, 1]), sized(20.0)).unwrap();
+        assert_eq!(at(&d), (5, 10));
+        edit(&mut d, &b, [9, 9], "Z").unwrap();
+        assert_eq!((at(&d), flow(&d, &a).2), ((5, 11), 5));
     }
 
     #[test]

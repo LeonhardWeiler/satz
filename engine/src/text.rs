@@ -1772,6 +1772,35 @@ pub struct Placed {
     bottom: f32,
 }
 
+impl Placed {
+    /// The same lines for the text moved on by `bytes` and its spans by `spans`.
+    pub fn shifted(&self, bytes: isize, spans: isize) -> Placed {
+        let at = |v: usize| v.wrapping_add_signed(bytes);
+        let lines = self.lines.iter().map(|l| {
+            l.iter()
+                .map(|g| Glyph {
+                    cluster: at(g.cluster),
+                    span: g.span.wrapping_add_signed(spans),
+                    ..g.clone()
+                })
+                .collect()
+        });
+        let geometry = self.geometry.iter().map(|l| Line {
+            start: at(l.start),
+            end: at(l.end),
+            stops: l.stops.iter().map(|&(s, x)| (at(s), x)).collect(),
+            ..l.clone()
+        });
+        Placed {
+            lines: lines.collect(),
+            geometry: geometry.collect(),
+            insets: self.insets.clone(),
+            placed: self.placed,
+            bottom: self.bottom,
+        }
+    }
+}
+
 /// A line with glyphs relative to its column's left edge and baseline, the space
 /// it needs above and below the baseline, and the paragraph spacing after it.
 #[derive(Clone)]

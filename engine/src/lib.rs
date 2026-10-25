@@ -26,6 +26,36 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
+/// `s` as a splice into `o`: `text` in place of the `cut` UTF-16 units at `at`, and
+/// `spans` in place of the `spansCut` spans at `spansAt`.
+fn splice(o: &doc::Story, s: &doc::Story) -> serde_json::Result<serde_json::Value> {
+    let same = |a: &mut dyn Iterator<Item = (char, char)>| {
+        a.take_while(|(a, b)| a == b)
+            .map(|(a, _)| a.len_utf8())
+            .sum::<usize>()
+    };
+    let p = same(&mut o.text.chars().zip(s.text.chars()));
+    let q = same(&mut o.text[p..].chars().rev().zip(s.text[p..].chars().rev()));
+    let ps = o
+        .spans
+        .iter()
+        .zip(&s.spans)
+        .take_while(|(a, b)| a == b)
+        .count();
+    let qs = (o.spans[ps..].iter().rev().zip(s.spans[ps..].iter().rev()))
+        .take_while(|(a, b)| a == b)
+        .count();
+    let units = |t: &str| t.encode_utf16().count();
+    Ok(serde_json::json!({
+        "at": units(&o.text[..p]),
+        "cut": units(&o.text[p..o.text.len() - q]),
+        "text": &s.text[p..s.text.len() - q],
+        "spansAt": ps,
+        "spansCut": o.spans.len() - ps - qs,
+        "spans": &s.spans[ps..s.spans.len() - qs],
+    }))
+}
+
 #[wasm_bindgen]
 #[derive(Default)]
 pub struct Engine {
@@ -82,7 +112,7 @@ impl Engine {
 
     /// The snapshot with each page, master, top layer and story that the last call
     /// returned unchanged left out: a page, master or layer as its id, a story as
-    /// `null`.
+    /// `null`, and a changed story as a splice of its last text and spans.
     pub fn changes(&mut self) -> Result<String, JsError> {
         let snap = self.doc.snapshot();
         let old = self.sent.replace(snap.clone());
@@ -100,17 +130,29 @@ impl Engine {
                         return Ok(p.id.clone().into());
                     }
                     let mut v = serde_json::to_value(p.head())?;
-                    v["children"] = p
-                        .children
-                        .iter()
-                        .map(
-                            |n| match old.and_then(|o| o.children.iter().find(|o| o.id == n.id)) {
-                                Some(o) if o == n => Ok(n.id.clone().into()),
-                                _ => serde_json::to_value(n),
-                            },
-                        )
-                        .collect::<Result<Vec<_>, _>>()?
-                        .into();
+                    let mut same = old.is_some_and(|o| {
+                        o.head() == p.head()
+                            && (o.children.iter().map(|n| &n.id))
+                                .eq(p.children.iter().map(|n| &n.id))
+                    });
+                    let children = (p.children.iter().enumerate())
+                        .map(|(i, n)| {
+                            let o = old.and_then(|o| doc::same_layer(&o.children, i, &n.id));
+                            if o.is_some_and(|o| Rc::ptr_eq(o, n) || o == n) {
+                                return Ok(n.id.clone().into());
+                            }
+                            let v = serde_json::to_value(n)?;
+                            if o.map(serde_json::to_value).transpose()? == Some(v.clone()) {
+                                return Ok(n.id.clone().into());
+                            }
+                            same = false;
+                            Ok(v)
+                        })
+                        .collect::<Result<Vec<_>, serde_json::Error>>()?;
+                    if same {
+                        return Ok(p.id.clone().into());
+                    }
+                    v["children"] = children.into();
                     Ok(v)
                 })
                 .collect()
@@ -119,13 +161,10 @@ impl Engine {
             .stories
             .iter()
             .map(|(id, s)| {
-                let same = old
-                    .and_then(|o| o.stories.get(id))
-                    .is_some_and(|o| Rc::ptr_eq(o, s));
-                let v = if same {
-                    serde_json::Value::Null
-                } else {
-                    serde_json::to_value(&**s)?
+                let v = match old.and_then(|o| o.stories.get(id)) {
+                    Some(o) if Rc::ptr_eq(o, s) => serde_json::Value::Null,
+                    Some(o) => splice(o, s)?,
+                    None => serde_json::to_value(&**s)?,
                 };
                 Ok((id.clone(), v))
             })
@@ -472,6 +511,53 @@ pub fn resolve(color: JsValue, scope: JsValue) -> Result<JsValue, JsError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_story_splices_into_the_one_sent_before() {
+        let story = |text: &str, sizes: &[(usize, f64)]| doc::Story {
+            text: text.into(),
+            spans: sizes
+                .iter()
+                .map(|&(len, size)| text::Span {
+                    len,
+                    attrs: text::Attrs {
+                        size,
+                        ..Default::default()
+                    },
+                })
+                .collect(),
+        };
+        let cases = [
+            (story("aaaa", &[(4, 1.0)]), story("aaaaa", &[(5, 1.0)])),
+            (
+                story("ab€cd", &[(2, 1.0), (3, 2.0)]),
+                story("abcd", &[(2, 1.0), (2, 2.0)]),
+            ),
+            (
+                story("x😀y", &[(4, 1.0)]),
+                story("x😀😀y", &[(1, 1.0), (4, 3.0), (1, 1.0)]),
+            ),
+            (story("", &[]), story("new", &[(3, 1.0)])),
+        ];
+        for (o, s) in cases {
+            let v = splice(&o, &s).unwrap();
+            let n = |k: &str| v[k].as_u64().unwrap() as usize;
+            let mut text: Vec<u16> = o.text.encode_utf16().collect();
+            text.splice(
+                n("at")..n("at") + n("cut"),
+                v["text"].as_str().unwrap().encode_utf16(),
+            );
+            let spans = serde_json::to_value(&o.spans).unwrap();
+            let mut spans = spans.as_array().unwrap().clone();
+            let new = v["spans"].as_array().unwrap().clone();
+            spans.splice(n("spansAt")..n("spansAt") + n("spansCut"), new);
+            assert_eq!(String::from_utf16(&text).unwrap(), s.text);
+            assert_eq!(
+                spans,
+                *serde_json::to_value(&s.spans).unwrap().as_array().unwrap()
+            );
+        }
+    }
 
     #[test]
     fn a_display_list_keeps_its_version_until_its_page_changes() {
