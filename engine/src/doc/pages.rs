@@ -453,6 +453,7 @@ impl Doc {
 
     pub(super) fn set_section(&self, id: String, section: Option<Section>) -> Res<Vec<String>> {
         let m = self.meta(self.page(&id)?);
+        self.changed.lock().unwrap().take();
         match section {
             Some(s) if s.start == 0 => return Err("a section starts at page 1 or later".into()),
             Some(s) => m.insert(SECTION, loro(s)?).map_err(err)?,

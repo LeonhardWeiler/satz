@@ -3,7 +3,7 @@ use super::*;
 /// Where the story of a thread, from the frame `head`, flows through a frame: the
 /// bytes `start..end` as `placed` there, its neighbours, and text left over at the
 /// end of the thread.
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub(super) struct Flow {
     pub(super) head: TreeID,
     pub(super) story: Rc<Story>,
@@ -15,6 +15,15 @@ pub(super) struct Flow {
     pub(super) next: Option<TreeID>,
     pub(super) overset: bool,
     pub(super) placed: Rc<text::Placed>,
+}
+
+/// What a change reaches.
+pub(super) struct Reach {
+    /// The pages and masters to lay out again.
+    pub(super) roots: HashSet<TreeID>,
+    /// The text layers whose flows go, and the stories to set again.
+    texts: HashSet<TreeID>,
+    heads: HashSet<TreeID>,
 }
 
 /// A story set through the frames of its thread, with the bounds and settings of
@@ -312,22 +321,44 @@ impl Doc {
         if let Some(prevs) = &*self.prevs.borrow() {
             return prevs.get(&id).copied();
         }
-        let mut all = Vec::new();
-        for r in self.pages().into_iter().chain(self.masters()) {
-            self.walk(r, &mut all);
-        }
+        let prevs = self.links();
+        let prev = prevs.get(&id).copied();
+        *self.prevs.borrow_mut() = Some(Rc::new(prevs));
+        prev
+    }
+
+    /// The text layer each text layer follows in its thread.
+    pub(super) fn links(&self) -> HashMap<TreeID, TreeID> {
         let mut prevs = HashMap::new();
-        for n in all
-            .into_iter()
-            .filter(|&n| self.kind(n) == Some(NodeKind::Text))
-        {
+        for n in self.texts(&self.tree.roots()) {
             if let Some(x) = self.next_of(n).filter(|&x| x != n) {
                 prevs.entry(x).or_insert(n);
             }
         }
-        let prev = prevs.get(&id).copied();
-        *self.prevs.borrow_mut() = Some(Rc::new(prevs));
-        prev
+        prevs
+    }
+
+    /// Forgets the links back of the threads unless the changes since the last
+    /// snapshot leave every link that they touch as it was.
+    pub(super) fn check_links(&self) {
+        let Some(prevs) = self.prevs.borrow().clone() else {
+            return;
+        };
+        let nodes = self.changed.lock().unwrap().clone();
+        let kept = nodes.is_some_and(|nodes| {
+            nodes.iter().all(|&n| {
+                let shown = self.is_sheet(self.root(n));
+                let next = self.next_of(n).filter(|&x| shown && x != n);
+                let was: Vec<_> = prevs.iter().filter(|e| *e.1 == n).map(|e| *e.0).collect();
+                was == next.into_iter().collect::<Vec<_>>()
+                    && prevs
+                        .get(&n)
+                        .is_none_or(|&p| shown && self.next_of(p) == Some(n))
+            })
+        });
+        if !kept {
+            self.prevs.take();
+        }
     }
 
     /// Makes the text layer `to` follow `id` in its thread, or ends the thread at `id`.
@@ -513,31 +544,83 @@ impl Doc {
     pub(super) fn flows(&self) -> Rc<HashMap<TreeID, Flow>> {
         match &*self.flows.borrow() {
             Some(f) => f.clone(),
-            None => Rc::new(self.flow_all()),
+            None => Rc::new(self.flow_all(None)),
         }
     }
 
-    pub(super) fn flow_all(&self) -> HashMap<TreeID, Flow> {
-        let mut all = Vec::new();
-        for r in self.pages().into_iter().chain(self.masters()) {
-            self.walk(r, &mut all);
-        }
-        let texts: Vec<TreeID> = all
-            .into_iter()
-            .filter(|&n| self.kind(n) == Some(NodeKind::Text))
-            .collect();
-        let mut prev = HashMap::new();
-        for &n in &texts {
-            if let Some(x) = self.next_of(n) {
-                prev.insert(x, n);
+    /// What the changes since the last snapshot reach, `None` for everything.
+    pub(super) fn reach(&self) -> Option<Reach> {
+        let nodes = self.changed.lock().unwrap().clone()?;
+        let (old, _) = &*self.sheets.borrow();
+        let mut roots: HashSet<TreeID> = nodes.iter().map(|&n| self.root(n)).collect();
+        let mut todo = self.texts(&roots.iter().copied().collect::<Vec<_>>());
+        todo.extend(nodes.iter().filter(|n| old.contains_key(n)));
+        let mut texts = HashSet::new();
+        let mut heads = HashSet::new();
+        while let Some(n) = todo.pop() {
+            if !texts.insert(n) {
+                continue;
+            }
+            let mut f = old.get(&n).map(|f| f.head);
+            while let Some(x) = f {
+                todo.push(x);
+                f = old.get(&x).and_then(|f| f.next);
+            }
+            let head = self.story(n);
+            if self.tree.contains(head) && self.is_sheet(self.root(head)) && heads.insert(head) {
+                let thread = self.thread(head);
+                roots.insert(self.root(*thread.last().unwrap()));
+                todo.extend(thread);
             }
         }
-        let heads: Vec<TreeID> = texts
-            .into_iter()
-            .filter(|n| !prev.contains_key(n))
-            .collect();
-        self.sets.borrow_mut().retain(|h, _| heads.contains(h));
+        Some(Reach {
+            roots,
+            texts,
+            heads,
+        })
+    }
+
+    pub(super) fn is_sheet(&self, r: TreeID) -> bool {
+        matches!(self.kind(r), Some(NodeKind::Page | NodeKind::Master))
+    }
+
+    /// The text layers on the pages and masters `roots`.
+    fn texts(&self, roots: &[TreeID]) -> Vec<TreeID> {
+        let mut all = Vec::new();
+        for &r in roots.iter().filter(|&&r| self.is_sheet(r)) {
+            self.walk(r, &mut all);
+        }
+        all.retain(|&n| self.kind(n) == Some(NodeKind::Text));
+        all
+    }
+
+    /// The flows through all text layers; with `reach`, those of the last snapshot
+    /// that it does not reach as they were.
+    pub(super) fn flow_all(&self, reach: Option<&Reach>) -> HashMap<TreeID, Flow> {
         let mut out = HashMap::new();
+        let heads = match reach {
+            Some(r) => {
+                let (old, _) = &*self.sheets.borrow();
+                out.extend(
+                    old.iter()
+                        .filter(|(f, _)| !r.texts.contains(f))
+                        .map(|(f, flow)| (*f, flow.clone())),
+                );
+                self.sets
+                    .borrow_mut()
+                    .retain(|h, _| r.heads.contains(h) || !r.texts.contains(h));
+                r.heads.clone()
+            }
+            None => {
+                let heads: HashSet<_> = self
+                    .texts(&self.tree.roots())
+                    .into_iter()
+                    .filter(|&n| self.prev_of(n).is_none())
+                    .collect();
+                self.sets.borrow_mut().retain(|h, _| heads.contains(h));
+                heads
+            }
+        };
         for head in heads {
             let Ok((story, frames)) = self.flow(head) else {
                 continue;
@@ -851,7 +934,7 @@ mod tests {
     fn the_kept_flows_are_those_set_afresh() {
         random_commands(2, 300, |d| {
             let kept = d.sets.take();
-            let fresh = d.flow_all();
+            let fresh = d.flow_all(None);
             d.sets.replace(kept);
             assert_eq!(*d.flows(), fresh);
         });

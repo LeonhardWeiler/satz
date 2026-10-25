@@ -1057,21 +1057,25 @@ impl Doc {
     /// What a page number on the page or master `root` shows: the page's number, or
     /// the master's prefix.
     pub(super) fn number(&self, root: TreeID) -> String {
-        let pages = self.pages();
-        match pages.iter().position(|&p| p == root) {
-            Some(i) => {
-                let (j, s) = (0..=i)
-                    .rev()
-                    .find_map(|j| Some((j, self.section(pages[j])?)))
-                    .unwrap_or((
-                        0,
-                        Section {
-                            start: 1,
-                            ..Section::default()
-                        },
-                    ));
-                s.label(s.start + (i - j) as u32)
+        if self.numbers.borrow().is_none() {
+            let mut out = HashMap::new();
+            let mut s = Section {
+                start: 1,
+                ..Section::default()
+            };
+            let mut n = 1;
+            for p in self.pages() {
+                if let Some(x) = self.section(p) {
+                    n = x.start;
+                    s = x;
+                }
+                out.insert(p, s.label(n));
+                n += 1;
             }
+            self.numbers.replace(Some(out));
+        }
+        match self.numbers.borrow().as_ref().unwrap().get(&root) {
+            Some(n) => n.clone(),
             None => prefix(&self.name(root)),
         }
     }

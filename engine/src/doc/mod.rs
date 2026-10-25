@@ -727,11 +727,15 @@ pub struct Doc {
     doc: LoroDoc,
     tree: LoroTree,
     undo: UndoManager,
+    /// Whether an undo group that `BeginUndoGroup` began is open.
+    grouped: bool,
     clipboard: Vec<(Clip, Option<TreeID>)>,
     /// The flows through all text layers and the snapshot, from the end of the last
     /// command on.
     flows: RefCell<Option<Rc<HashMap<TreeID, Flow>>>>,
     snapshot: RefCell<Option<Rc<Snapshot>>>,
+    /// The number of each page.
+    numbers: RefCell<Option<HashMap<TreeID, String>>>,
     /// The text layer each text layer follows in its thread.
     prevs: RefCell<Option<Rc<HashMap<TreeID, TreeID>>>>,
     /// Each story as last set, by its first frame.
@@ -969,6 +973,7 @@ impl Doc {
             sheets: RefCell::default(),
             notes: RefCell::default(),
             undo: undo_manager(&doc),
+            grouped: false,
             version: format!("{:?}", doc.oplog_frontiers()),
             doc,
             tree,
@@ -976,6 +981,7 @@ impl Doc {
             flows: RefCell::new(None),
             snapshot: RefCell::new(None),
             prevs: RefCell::new(None),
+            numbers: RefCell::new(None),
             sets: RefCell::new(HashMap::new()),
         }
     }
@@ -1338,12 +1344,20 @@ impl Doc {
         self.invalidate();
         self.notes.take();
         let history = matches!(cmd, Command::Undo | Command::Redo);
+        let alone = !history && !self.grouped;
+        if alone {
+            self.undo.group_start().map_err(err)?;
+        }
         let out = self.run(cmd);
         debug_assert!(
             out.is_ok() || self.doc.get_pending_txn_len() == 0,
             "a command wrote before it failed"
         );
-        let out = self.finish(out?, history)?;
+        let out = out.and_then(|out| self.finish(out, history));
+        if alone {
+            self.undo.group_end();
+        }
+        let out = out?;
         self.version = format!("{:?}", self.doc.oplog_frontiers());
         Ok(out)
     }
@@ -1410,21 +1424,25 @@ impl Doc {
             Command::Order { ids, to } => self.order(ids, to),
             Command::Undo => {
                 self.undo.group_end();
+                self.grouped = false;
                 self.undo.undo().map_err(err)?;
                 Ok(vec![])
             }
             Command::Redo => {
                 self.undo.group_end();
+                self.grouped = false;
                 self.undo.redo().map_err(err)?;
                 Ok(vec![])
             }
             Command::BeginUndoGroup => {
                 self.undo.group_end();
                 self.undo.group_start().map_err(err)?;
+                self.grouped = true;
                 Ok(vec![])
             }
             Command::EndUndoGroup => {
                 self.undo.group_end();
+                self.grouped = false;
                 Ok(vec![])
             }
             Command::Duplicate { ids } => self.duplicate(ids),
@@ -1585,23 +1603,53 @@ impl Doc {
         }) {
             image::forget(&[]);
         }
+        if self.doc.get_pending_txn_len() > 0 {
+            self.doc.commit();
+        }
+        self.numbers.take();
+        self.check_links();
+        debug_assert!(
+            self.prevs
+                .borrow()
+                .as_ref()
+                .is_none_or(|p| **p == self.links()),
+            "a kept link back differs from the thread"
+        );
+        let reach = self.reach();
         let palette = self.palette();
         for p in self.tree.roots() {
-            if !history && matches!(self.kind(p), Some(NodeKind::Page | NodeKind::Master)) {
+            if !history && reach.as_ref().is_none_or(|r| r.roots.contains(&p)) && self.is_sheet(p) {
                 self.settle(p, &Modes::new(), &palette)?;
                 self.lay_out(p)?;
             }
         }
         self.doc.commit();
-        self.flows.replace(Some(Rc::new(self.flow_all())));
+        #[cfg(debug_assertions)]
+        if !history && reach.is_some() {
+            for p in self.tree.roots().into_iter().filter(|&p| self.is_sheet(p)) {
+                self.settle(p, &Modes::new(), &palette)?;
+                self.lay_out(p)?;
+            }
+            assert_eq!(
+                self.doc.get_pending_txn_len(),
+                0,
+                "a page left out lays out otherwise"
+            );
+        }
+        let flows = self.flow_all(reach.as_ref());
+        debug_assert!(
+            reach.is_none() || flows == self.flow_all(None),
+            "a kept flow differs from one set again"
+        );
+        self.flows.replace(Some(Rc::new(flows)));
         self.snapshot.replace(Some(Rc::new(self.build_snapshot())));
         Ok(out)
     }
 
     fn invalidate(&self) {
+        self.numbers.take();
         self.flows.take();
         self.snapshot.take();
-        self.prevs.take();
     }
 
     fn layout(&self, id: TreeID) -> Layout {
