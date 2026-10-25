@@ -3,7 +3,7 @@ use super::*;
 /// Layers in order and whether text wraps around them.
 pub(super) type Shown = Rc<Vec<(TreeID, bool)>>;
 
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
     pub pages: Vec<Rc<Page>>,
@@ -43,14 +43,14 @@ pub struct Snapshot {
 
 /// A font that text is set in but that is not there, and the stories by their first
 /// frame that use it.
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct MissingFont {
     pub font: Typeface,
     pub stories: Vec<String>,
 }
 
 /// Something about the layer `layer` on the page or master `page` that may print wrong.
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Issue {
     pub page: String,
     pub layer: String,
@@ -59,7 +59,7 @@ pub struct Issue {
     pub problem: Problem,
 }
 
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "problem", rename_all = "camelCase")]
 pub enum Problem {
     Overset,

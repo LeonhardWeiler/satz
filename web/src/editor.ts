@@ -112,7 +112,7 @@ export class Editor {
   private pointed = new Set<() => void>()
 
   constructor(readonly engine: Engine) {
-    this.snapshot = JSON.parse(engine.snapshot())
+    this.snapshot = this.read()
     this.pageId = this.snapshot.pages[0].id
     this.nodes = this.index()
     this.savedAt = engine.version()
@@ -124,7 +124,7 @@ export class Editor {
     Object.assign(this, { selection: [], tool: 'move', renaming: null, hover: null, guide: null, pen: null, editing: null, threading: null, placing: [], overview: null, cropping: null })
     this.typing = false
     this.groups = 0
-    this.snapshot = JSON.parse(this.engine.snapshot())
+    this.snapshot = this.read()
     this.pageId = this.snapshot.pages[0].id
     this.nodes = this.index()
     this.saved(file, dirty ? '' : this.engine.version())
@@ -293,12 +293,24 @@ export class Editor {
     this.set({ placing: [...this.placing, { hash, name, w: w * fit, h: h * fit, url: URL.createObjectURL(new Blob([bytes])) }] })
   }
 
+  /** The engine's snapshot, with the pages, masters and stories it left out as they were. */
+  private read(): Snapshot {
+    const s = JSON.parse(this.engine.changes())
+    const old = this.snapshot as Snapshot | undefined
+    const sheets = new Map([...(old?.pages ?? []), ...(old?.masters ?? [])].map((p) => [p.id, p]))
+    const keep = (p: Page | string) => (typeof p === 'string' ? sheets.get(p)! : p)
+    s.pages = s.pages.map(keep)
+    s.masters = s.masters.map(keep)
+    for (const k in s.stories) s.stories[k] ??= old!.stories[k]
+    return s
+  }
+
   private change<T>(f: () => T): T {
     const at = this.snapshot.pages.findIndex((p) => p.id === this.pageId)
     try {
       return f()
     } finally {
-      this.snapshot = JSON.parse(this.engine.snapshot())
+      this.snapshot = this.read()
       const { pages, masters } = this.snapshot
       if (!pages.some((p) => p.id === this.pageId) && !masters.some((p) => p.id === this.pageId)) {
         this.pageId = pages[Math.max(0, Math.min(at, pages.length - 1))].id

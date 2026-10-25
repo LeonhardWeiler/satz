@@ -38,6 +38,8 @@ pub struct Engine {
     seen: Option<Rc<Snapshot>>,
     fresh: HashSet<String>,
     versions: u32,
+    /// The snapshot that `changes` returned last.
+    sent: Option<Rc<Snapshot>>,
 }
 
 #[wasm_bindgen]
@@ -76,6 +78,52 @@ impl Engine {
 
     pub fn snapshot(&self) -> Result<String, JsError> {
         Ok(serde_json::to_string(&*self.doc.snapshot())?)
+    }
+
+    /// The snapshot with each page, master and story that the last call returned
+    /// unchanged left out: a page or master as its id, a story as `null`.
+    pub fn changes(&mut self) -> Result<String, JsError> {
+        let snap = self.doc.snapshot();
+        let old = self.sent.replace(snap.clone());
+        let old = old.as_deref();
+        let sent: HashSet<*const doc::Page> = old
+            .iter()
+            .flat_map(|s| s.pages.iter().chain(&s.masters))
+            .map(Rc::as_ptr)
+            .collect();
+        let sheets = |list: &[Rc<doc::Page>]| -> Result<Vec<serde_json::Value>, JsError> {
+            list.iter()
+                .map(|p| match sent.contains(&Rc::as_ptr(p)) {
+                    true => Ok(p.id.clone().into()),
+                    false => Ok(serde_json::to_value(&**p)?),
+                })
+                .collect()
+        };
+        let stories: serde_json::Map<_, _> = snap
+            .stories
+            .iter()
+            .map(|(id, s)| {
+                let same = old
+                    .and_then(|o| o.stories.get(id))
+                    .is_some_and(|o| Rc::ptr_eq(o, s));
+                let v = if same {
+                    serde_json::Value::Null
+                } else {
+                    serde_json::to_value(&**s)?
+                };
+                Ok((id.clone(), v))
+            })
+            .collect::<Result<_, JsError>>()?;
+        let mut out = serde_json::to_value(Snapshot {
+            pages: Vec::new(),
+            masters: Vec::new(),
+            stories: Default::default(),
+            ..(*snap).clone()
+        })?;
+        out["pages"] = sheets(&snap.pages)?.into();
+        out["masters"] = sheets(&snap.masters)?.into();
+        out["stories"] = stories.into();
+        Ok(out.to_string())
     }
 
     /// Path from the topmost page child down to the deepest node at (x, y) in pt.
