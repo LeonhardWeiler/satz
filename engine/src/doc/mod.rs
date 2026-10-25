@@ -4064,7 +4064,16 @@ mod tests {
         assert!(!Rc::ptr_eq(&before.pages[0], &after.pages[0]));
         assert!(Rc::ptr_eq(&before.pages[1], &after.pages[1]));
         set_width(&mut d, &first.id, 300.0);
-        assert!(!Rc::ptr_eq(&after.pages[1], &d.snapshot().pages[1]));
+        let wide = d.snapshot();
+        assert!(!Rc::ptr_eq(&after.pages[0], &wide.pages[0]));
+        assert!(Rc::ptr_eq(&after.pages[1], &wide.pages[1]));
+        let r = create(&mut d, &first.id, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
+        assert!(Rc::ptr_eq(&wide.pages[1], &d.snapshot().pages[1]));
+        d.apply(Command::Delete { ids: vec![r] }).unwrap();
+        let kept = d.snapshot();
+        let r = create(&mut d, &first.id, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
+        d.apply(Command::Delete { ids: vec![r] }).unwrap();
+        assert!(Rc::ptr_eq(&kept.pages[1], &d.snapshot().pages[1]));
     }
 
     #[test]

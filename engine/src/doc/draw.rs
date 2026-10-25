@@ -670,9 +670,6 @@ impl Doc {
             .chain(reflowed)
             .map(|&n| self.root(n))
             .collect();
-        if nodes.iter().any(|n| roots.contains(n)) {
-            return HashMap::new();
-        }
         sheets.retain(|r, _| !roots.contains(r));
         sheets
     }

@@ -52,6 +52,12 @@ for (const n of (process.env.PAGES ?? '1,20,50').split(',').map(Number)) {
     out.nudge = await ms(page, 'nudge', 11, async (k) => {
       await page.keyboard.press(k % 2 ? 'ArrowLeft' : 'ArrowRight')
     })
+    out.duplicate = await ms(page, 'duplicate', 7, async () => {
+      await page.keyboard.press('Control+d')
+    })
+    out.undo = await ms(page, 'undo', 7, async () => {
+      await page.keyboard.press('Control+z')
+    })
     await page.mouse.move(...shape)
     await page.mouse.down()
     out.dragStep = await ms(page, 'dragStep', 21, async (k) => {
