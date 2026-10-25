@@ -112,8 +112,9 @@ impl Engine {
     }
 
     /// The snapshot with each page, master, top layer and story that the last call
-    /// returned unchanged left out: a page, master or layer as its id, a story as
-    /// `null`, and a changed story as a splice of its last text and spans.
+    /// returned unchanged left out: a page, master or layer as its id, a story not at
+    /// all, a removed story as `null`, and a changed story as a splice of its last
+    /// text and spans.
     pub fn changes(&mut self) -> Result<String, JsError> {
         let snap = self.doc.snapshot();
         let old = self.sent.replace(snap.clone());
@@ -158,18 +159,19 @@ impl Engine {
                 })
                 .collect()
         };
-        let stories: serde_json::Map<_, _> = snap
-            .stories
-            .iter()
-            .map(|(id, s)| {
-                let v = match old.and_then(|o| o.stories.get(id)) {
-                    Some(o) if Rc::ptr_eq(o, s) => serde_json::Value::Null,
-                    Some(o) => splice(o, s)?,
-                    None => serde_json::to_value(&**s)?,
-                };
-                Ok((id.clone(), v))
-            })
-            .collect::<Result<_, JsError>>()?;
+        let mut stories = serde_json::Map::new();
+        for (id, s) in &snap.stories {
+            match old.and_then(|o| o.stories.get(id)) {
+                Some(o) if Rc::ptr_eq(o, s) => {}
+                Some(o) => _ = stories.insert(id.clone(), splice(o, s)?),
+                None => _ = stories.insert(id.clone(), serde_json::to_value(&**s)?),
+            }
+        }
+        for id in old.iter().flat_map(|o| o.stories.keys()) {
+            if !snap.stories.contains_key(id) {
+                stories.insert(id.clone(), serde_json::Value::Null);
+            }
+        }
         let mut out = serde_json::to_value(Snapshot {
             pages: Vec::new(),
             masters: Vec::new(),
