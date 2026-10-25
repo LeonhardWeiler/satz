@@ -60,7 +60,8 @@ fn splice(o: &doc::Story, s: &doc::Story) -> serde_json::Result<serde_json::Valu
 #[derive(Default)]
 pub struct Engine {
     doc: Doc,
-    list: Vec<u32>,
+    /// The plates of each page and the version of the display list they were made of.
+    plates: HashMap<(String, bool), (u32, Vec<u32>)>,
     overlay: Vec<u32>,
     /// The display list of each page and master, and its version.
     lists: HashMap<String, (u32, Vec<u32>)>,
@@ -208,8 +209,13 @@ impl Engine {
     /// The display list of the page `id` as its inverted C, M and Y plate, or its K
     /// plate; the view is invalid after the next call into the engine.
     pub fn plate(&mut self, page: &str, k: bool) -> Uint32Array {
-        self.list = encode(&self.doc.plate(page, k));
-        unsafe { Uint32Array::view(&self.list) }
+        let version = self.drawn(page).0;
+        let key = (page.to_string(), k);
+        if self.plates.get(&key).is_none_or(|p| p.0 != version) {
+            let list = encode(&self.doc.plate(page, k));
+            self.plates.insert(key.clone(), (version, list));
+        }
+        unsafe { Uint32Array::view(&self.plates[&key].1) }
     }
 
     /// The image to decode for the image `id` of display lists and [k, m, o] that
@@ -426,6 +432,7 @@ impl Engine {
                 .map(|p| p.id.as_str())
                 .collect();
             self.lists.retain(|id, _| ids.contains(id.as_str()));
+            self.plates.retain(|(id, _), _| ids.contains(id.as_str()));
             self.fresh.clear();
             self.seen = Some(snap);
         }
