@@ -1,6 +1,7 @@
 --- NOW
 - [] A word over 45 bytes in a hyphenated paragraph panics in hypher (`syllables` in `engine/src/text.rs`, hypher is built without `alloc`).
 - [] update the screenshot in the readme
+- [] make it possible to scale the viewport to the real dimensions of the things, e.g. 4cm x 5cm as the real size on the display
 
 --- LATER
 - [] Figma import with file and or account
