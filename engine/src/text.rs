@@ -2562,6 +2562,13 @@ mod tests {
         }
     }
 
+    #[test]
+    fn a_word_longer_than_45_bytes_hyphenates() {
+        let word = "Donaudampfschifffahrtsgesellschaftskapitänswitwenrentenkasse";
+        assert!(word.len() > 45);
+        assert!(syllables(word, Lang::De).len() > 10);
+    }
+
     fn baselines(text: &str, frame: [f32; 4], tf: TextFrame) -> Vec<[f32; 2]> {
         framed(text, &one(text, attrs(10.0)), frame, &tf)
             .iter()
