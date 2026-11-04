@@ -7,9 +7,14 @@ const sheet = { x: 0, width: 100, height: 200, bleed: 3 }
 
 test('pages and layers give their edges and centres', () => {
   const { x, y } = targets([sheet], [box(10, 20, 30, 40)])
-  expect(x.map((l) => l.at)).toEqual([0, 50, 100, 10, 25, 40])
-  expect(y.map((l) => l.at)).toEqual([0, 100, 200, 20, 40, 60])
-  expect(x[3]).toEqual({ at: 10, from: 20, to: 60 })
+  expect(x.map((l) => l.at)).toEqual([0, 50, 100, -3, 103, 10, 25, 40])
+  expect(y.map((l) => l.at)).toEqual([0, 100, 200, -3, 203, 20, 40, 60])
+  expect(x[5]).toEqual({ at: 10, from: 20, to: 60 })
+})
+
+test('a spread snaps to its outer bleed edges only', () => {
+  const { x } = targets([sheet, { ...sheet, x: 100 }], [])
+  expect(x.map((l) => l.at)).toEqual([0, 50, 100, -3, 100, 150, 200, 203])
 })
 
 test('text frames also give their insets, columns and baseline grid', () => {

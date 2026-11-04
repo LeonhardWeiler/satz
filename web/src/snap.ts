@@ -32,7 +32,7 @@ export function gridSpans(s: Sheet) {
 }
 
 /**
- * What layers snap to on a spread: edges and centres of the pages and of `nodes`, of text
+ * What layers snap to on a spread: edges and centres of the pages and of `nodes`, the outer bleed edges, of text
  * frames also their insets, column edges and baseline grid unless turned, and with `grids` the layout grids.
  * Everything is in the space of the spread.
  */
@@ -45,6 +45,13 @@ export function targets(sheets: Sheet[], nodes: Node[], grids = false): Lines {
   }
   for (const s of sheets) {
     box({ x: s.x, y: 0, w: s.width, h: s.height })
+    const b = s.bleed
+    if (b > 0) {
+      const [l, r] = [s.x - b, s.x + s.width + b]
+      if (!sheets.some((q) => Math.abs(q.x + q.width - s.x) < EPSILON)) x.push({ at: l, from: -b, to: s.height + b })
+      if (!sheets.some((q) => Math.abs(q.x - s.x - s.width) < EPSILON)) x.push({ at: r, from: -b, to: s.height + b })
+      y.push({ at: -b, from: l, to: r }, { at: s.height + b, from: l, to: r })
+    }
     if (!grids) continue
     for (const at of s.guides?.x ?? []) x.push({ at: s.x + at, from: 0, to: s.height })
     for (const at of s.guides?.y ?? []) y.push({ at, from: s.x, to: s.x + s.width })
