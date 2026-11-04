@@ -68,6 +68,7 @@ export function autosave(editor: Editor) {
     try {
       const files = await store('files')
       files.put({ bytes: editor.engine.save(), name, handle, dirty: editor.dirty } satisfies Saved, 'doc')
+      files.transaction.commit()
       await finished(files.transaction)
       last = now
       failed = false
