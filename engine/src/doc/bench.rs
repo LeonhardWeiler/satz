@@ -36,7 +36,7 @@ fn heavy_page(n: usize) -> (Doc, String, String, String) {
 #[ignore]
 fn bench() {
     println!("pages  set_frame  keystroke  json   render  hit    save   (median, ms)");
-    for n in [1, 20, 50] {
+    for n in [1, 8, 32] {
         let (mut d, page, shape, frame) = heavy_page(n);
         let mut x = 0.0;
         let set_frame = median(21, || {
@@ -109,25 +109,44 @@ fn bench() {
     );
 }
 
-/// `PHASE=set_frame|keystroke PAGES=50 cargo test --release -p engine prof -- --ignored`
-/// repeats one phase for a profiler such as `perf record -g`.
+/// `PHASE=set_frame|keystroke|json|render|save|load|pdf PAGES=32 cargo test --release -p engine prof -- --ignored --nocapture`
+/// repeats one phase for 5 s. For a profile, build with
+/// `RUSTFLAGS=-Cforce-frame-pointers=yes CARGO_PROFILE_RELEASE_DEBUG=1` and run the test binary
+/// under `perf record --call-graph fp`.
 #[test]
 #[ignore]
 fn prof() {
-    let n = std::env::var("PAGES").map_or(50, |p| p.parse().unwrap());
-    let (mut d, _, shape, frame) = heavy_page(n);
+    let n = std::env::var("PAGES").map_or(32, |p| p.parse().unwrap());
+    let (mut d, page, shape, frame) = heavy_page(n);
     let at = flow(&d, &frame).1 + 10;
+    let saved = d.save();
     let phase = std::env::var("PHASE").unwrap_or_default();
     let start = Instant::now();
-    for i in 0..100 {
+    let mut runs = 0;
+    while start.elapsed() < Duration::from_secs(5) {
         match phase.as_str() {
             "keystroke" => {
                 edit(&mut d, &frame, [at, at], "X").unwrap();
             }
+            "json" => {
+                serde_json::to_string(&*d.snapshot()).unwrap();
+            }
+            "render" => {
+                d.render(&page);
+            }
+            "save" => {
+                d.save();
+            }
+            "load" => {
+                Doc::load(&saved).unwrap();
+            }
+            "pdf" => {
+                pdf(&d);
+            }
             _ => {
                 let cmd = Command::SetFrame {
                     id: shape.clone(),
-                    x: (i % 2) as f64 * 10.0,
+                    x: (runs % 2) as f64 * 10.0,
                     y: 0.0,
                     w: 40.0,
                     h: 40.0,
@@ -136,8 +155,12 @@ fn prof() {
                 d.apply(cmd).unwrap();
             }
         }
+        runs += 1;
     }
-    println!("{:.2} ms each", start.elapsed().as_secs_f64() * 10.0);
+    println!(
+        "{:.2} ms each",
+        start.elapsed().as_secs_f64() * 1e3 / runs as f64
+    );
 }
 
 /// `SEED=1 STEPS=2000 cargo test -p engine fuzz -- --ignored --nocapture` applies random
