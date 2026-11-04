@@ -23,6 +23,7 @@ pub struct ImageInfo {
     pub space: Space,
 }
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 pub enum Space {
     Gray,

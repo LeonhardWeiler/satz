@@ -562,6 +562,19 @@ pub fn resolve(color: JsValue, scope: JsValue) -> Result<JsValue, JsError> {
     Ok(color.resolve(&scope).serialize(&ser)?)
 }
 
+/// Writes `data` to `path` under `web/src` with `SATZ_WRITE_FIXTURES` set and fails when it differs.
+#[cfg(test)]
+fn fixture(path: &str, data: &[u8]) {
+    let path = format!("{}/../web/src/{path}", env!("CARGO_MANIFEST_DIR"));
+    if std::env::var_os("SATZ_WRITE_FIXTURES").is_some() {
+        std::fs::write(&path, data).unwrap();
+    }
+    assert!(
+        std::fs::read(&path).is_ok_and(|f| f == data),
+        "{path} is stale; SATZ_WRITE_FIXTURES=1 cargo test fixture writes it"
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

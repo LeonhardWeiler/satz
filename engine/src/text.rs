@@ -19,6 +19,7 @@ pub const FONT: &[u8] = include_bytes!("../fonts/SourceSerif4-Regular.ttf");
 pub const MISSING: u32 = 1 << 31;
 
 /// A font by its full name, family and style, and a hash of its bytes.
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Typeface {
     pub name: String,
@@ -240,6 +241,7 @@ const FORCE: Item = Item::Penalty {
     cost: f32::NEG_INFINITY,
 };
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum TextAlign {
@@ -252,6 +254,7 @@ pub enum TextAlign {
 
 /// A tab stop `at` pt from the column's left edge: the text after a tab starts there,
 /// centres or ends on it, or puts its last `.` or `,` there; `leader` repeats over the gap.
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Tab {
     pub at: f64,
@@ -259,6 +262,7 @@ pub struct Tab {
     pub leader: String,
 }
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum TabAlign {
@@ -304,6 +308,7 @@ fn tabs<'a>(
 
 /// A paragraph in a list: a bullet, or a number that counts on from the paragraph
 /// before, hung in front of its lines.
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum List {
@@ -314,6 +319,7 @@ pub enum List {
 }
 
 /// A language that hyphenation knows.
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Lang {
@@ -326,6 +332,7 @@ pub enum Lang {
     Nl,
 }
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum TextCase {
@@ -337,6 +344,7 @@ pub enum TextCase {
     Title,
 }
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum TextDecoration {
@@ -347,6 +355,7 @@ pub enum TextDecoration {
 }
 
 /// Superscript and subscript set a character smaller and off its baseline.
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Position {
@@ -361,6 +370,7 @@ pub enum Position {
 /// the layer's fills; `text_style` "" means none. `features` are OpenType features as
 /// harfrust parses them, e.g. "smcp" or "liga=0". `baseline_shift` raises the
 /// characters off the baseline in pt.
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Attrs {
@@ -454,6 +464,7 @@ impl Default for Attrs {
 }
 
 /// `len` characters in UTF-16 code units that share `attrs`.
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Span {
     pub len: usize,
@@ -462,6 +473,7 @@ pub struct Span {
 }
 
 /// Named values for the `STYLED` attributes of `attrs`; `bindings` holds variables by key.
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TextStyle {
@@ -530,6 +542,7 @@ fn hyphen_width(it: &Item) -> f32 {
     }
 }
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum VerticalAlign {
@@ -541,6 +554,7 @@ pub enum VerticalAlign {
 
 /// How the text of the text layers under a layer flows around it: beside it, or on
 /// above and below it.
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Wrap {
@@ -553,6 +567,7 @@ pub enum Wrap {
 /// How a text layer sets its text: insets and gutter in pt, columns of equal width,
 /// and baselines on a grid of `baseline_grid` pt from `baseline_start` below the top
 /// inset; a grid of 0 is off.
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct TextFrame {
@@ -607,6 +622,7 @@ impl Default for TextFrame {
     }
 }
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Rule {
     pub weight: f32,
@@ -1921,14 +1937,7 @@ mod tests {
                 (!name.ends_with(&format!("-{hex}"))).then(|| format!("{hex} {name}\n"))
             })
             .collect();
-        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../web/src/unicode-names.txt");
-        if std::env::var_os("SATZ_WRITE_FIXTURES").is_some() {
-            std::fs::write(path, &names).unwrap();
-        }
-        assert!(
-            std::fs::read_to_string(path).is_ok_and(|f| f == names),
-            "{path} is stale; SATZ_WRITE_FIXTURES=1 cargo test fixture writes it"
-        );
+        crate::fixture("unicode-names.txt", names.as_bytes());
     }
 
     fn drawn(

@@ -11,6 +11,7 @@ use std::sync::Arc;
 /// The print condition of CMYK documents; see `icc/build`.
 const FOGRA51: &[u8] = include_bytes!("../icc/FOGRA51.icc");
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ColorMode {
@@ -23,11 +24,13 @@ pub enum ColorMode {
 /// RGB is 0xRRGGBBAA; CMYK components, tint and alpha are 0..=1.
 /// The tint of a swatch only applies to spot colors; alpha multiplies what a
 /// swatch or variable holds.
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Color {
     Rgb(u32),
     Cmyk {
+        #[cfg_attr(test, ts(as = "Vec<f32>"))]
         cmyk: [f32; 4],
         alpha: f32,
     },
@@ -67,6 +70,7 @@ impl Ink {
 }
 
 /// A spot color's `color` is its CMYK alternate.
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Swatch {
     pub id: String,

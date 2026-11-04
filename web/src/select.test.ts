@@ -3,7 +3,7 @@ import { pick, span } from './select'
 import type { Layout, Node, Style } from './model'
 
 const style: Style = {
-  fills: [], strokes: [], strokeWeight: 1, strokeAlign: 'inside', join: 'miter', cap: 'none', lineStyle: 'solid',
+  fills: [], strokes: [], strokeWeight: 1, strokeAlign: 'inside', strokeSides: [], join: 'miter', cap: 'none', lineStyle: 'solid',
   arrowStart: false, arrowEnd: false, opacity: 1, blend: 'normal', effects: [], mask: false, overprintFill: false, overprintStroke: false,
   constraints: { horizontal: 'min', vertical: 'min' },
 }
@@ -12,9 +12,9 @@ const layout: Layout = {
   alignMain: 'start', alignCross: 'start', sizing: { horizontal: 'fixed', vertical: 'fixed' }, absolute: false,
 }
 const base = (id: string) => ({ id, name: id, x: 0, y: 0, w: 1, h: 1, modes: {}, activeModes: {}, bindings: {}, hidden: false, locked: false, keepRatio: false, rotation: 0, wrap: 'none' as const, wrapOffsetX: 0, wrapOffsetY: 0, bounds: [0, 0, 1, 1] as [number, number, number, number], ...style, ...layout })
-const rect = (id: string): Node => ({ ...base(id), kind: 'shape', shape: 'rect', radius: 0 })
+const rect = (id: string): Node => ({ ...base(id), kind: 'shape', shape: 'rect', radius: 0, corners: [] })
 const group = (id: string, children: Node[]): Node => ({ ...base(id), kind: 'group', children })
-const frame = (id: string, children: Node[]): Node => ({ ...base(id), kind: 'frame', clip: true, radius: 0, children })
+const frame = (id: string, children: Node[]): Node => ({ ...base(id), kind: 'frame', clip: true, radius: 0, corners: [], children })
 
 // page: frame f [ group g [ a, b ] ], group h [ group i [ c ] ]
 const tree = [frame('f', [group('g', [rect('a'), rect('b')])]), group('h', [group('i', [rect('c')])])]

@@ -17,6 +17,7 @@ fn by_id<S: serde::Serializer>(m: &BTreeMap<TreeID, Rc<Story>>, s: S) -> Result<
     s.collect_map(m.iter().map(|(k, v)| (k.to_string(), v)))
 }
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
@@ -30,6 +31,7 @@ pub struct Snapshot {
     pub labels: Vec<String>,
     /// The story of each thread by its first frame.
     #[serde(serialize_with = "by_id")]
+    #[cfg_attr(test, ts(type = "Record<string, Story>"))]
     pub stories: BTreeMap<TreeID, Rc<Story>>,
     /// Resolution at which the PDF rasterizes shadows and blurs.
     pub raster_ppi: f64,
@@ -60,6 +62,7 @@ pub struct Snapshot {
 
 /// A font that text is set in but that is not there, and the stories by their first
 /// frame that use it.
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct MissingFont {
     pub font: Typeface,
@@ -67,6 +70,7 @@ pub struct MissingFont {
 }
 
 /// Something about the layer `layer` on the page or master `page` that may print wrong.
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Issue {
     pub page: String,
@@ -76,6 +80,7 @@ pub struct Issue {
     pub problem: Problem,
 }
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "problem", rename_all = "camelCase")]
 pub enum Problem {
@@ -112,6 +117,7 @@ const SAFE: f64 = 3.0 * 72.0 / 25.4;
 
 /// A page or a master; `name` is a master's, `master` the one a page uses and
 /// `detached` its master layers it overrides.
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, PartialEq, Serialize)]
 pub struct Page {
     pub id: String,
@@ -155,12 +161,14 @@ impl Page {
 }
 
 /// The text of a thread and its runs of equal attributes.
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, PartialEq, Serialize)]
 pub struct Story {
     pub text: String,
     pub spans: Vec<Span>,
 }
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Side {
@@ -168,6 +176,7 @@ pub enum Side {
     Right,
 }
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Node {
@@ -188,9 +197,11 @@ pub struct Node {
     pub bindings: BTreeMap<String, String>,
     /// The master layer this page layer overrides.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional))]
     pub override_of: Option<String>,
     /// Effective pixels per inch of the coarsest visible image fill.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional))]
     pub ppi: Option<f64>,
     /// Not drawn, exported, hit or preflighted, with its children.
     pub hidden: bool,
@@ -214,6 +225,7 @@ pub struct Node {
 }
 
 #[allow(clippy::large_enum_variant)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Kind {

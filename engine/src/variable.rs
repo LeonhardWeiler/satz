@@ -6,12 +6,14 @@ use std::collections::BTreeMap;
 /// Chosen mode per collection; collections not listed use their first mode.
 pub type Modes = BTreeMap<String, String>;
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Mode {
     pub id: String,
     pub name: String,
 }
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Collection {
     pub id: String,
@@ -19,6 +21,7 @@ pub struct Collection {
     pub modes: Vec<Mode>,
 }
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Value {
@@ -29,6 +32,7 @@ pub enum Value {
 }
 
 /// `values` holds one value per mode of its collection, all of one kind.
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Variable {
     pub id: String,
@@ -38,6 +42,7 @@ pub struct Variable {
 }
 
 /// What colors, bound numbers and styled text refer to.
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Palette {

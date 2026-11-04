@@ -1,16 +1,7 @@
 import { neutral as engineNeutral, preview, resolve as engineResolve, toCmyk } from './engine/engine'
-import type { Fill, Scope } from './model'
+import type { Color, ColorMode, Fill, Scope } from './model'
+export type { Color, ColorMode } from './types'
 
-export type ColorMode = 'rgb' | 'cmyk'
-/**
- * RGB is 0xRRGGBBAA; CMYK components, tint and alpha are 0..1. A swatch's tint only applies to spot colors;
- * alpha multiplies what a swatch or variable holds.
- */
-export type Color =
-  | number
-  | { cmyk: number[]; alpha: number }
-  | { swatch: string; tint: number; alpha: number }
-  | { variable: string; alpha: number }
 export type Process = number | { cmyk: number[]; alpha: number }
 export type Hsv = [h: number, s: number, v: number]
 

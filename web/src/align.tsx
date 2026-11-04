@@ -1,9 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { bounds, MM, type Editor } from './editor'
 import { Icon, type IconName } from './icons'
-import type { Node } from './model'
-
-export type BooleanOp = 'union' | 'subtract' | 'intersect' | 'exclude'
+import type { BooleanOp, Node } from './model'
 
 export const BOOLEANS: [BooleanOp, string, IconName, string][] = [
   ['union', 'Union', 'union', 'Ctrl+Alt+U'],

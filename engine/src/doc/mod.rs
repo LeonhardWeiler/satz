@@ -46,8 +46,10 @@ use pages::*;
 use story::*;
 
 /// The settings of the document that `Command::SetDocument` changes; `None` keeps one.
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(test, ts(optional_fields))]
 pub struct Settings {
     pub raster_ppi: Option<f64>,
     pub color_mode: Option<ColorMode>,
@@ -64,12 +66,14 @@ pub struct Settings {
 }
 
 #[allow(clippy::large_enum_variant)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Deserialize)]
 #[serde(
     tag = "type",
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
+#[cfg_attr(test, ts(optional_fields = nullable))]
 pub enum Command {
     Create {
         parent: String,
@@ -99,6 +103,7 @@ pub enum Command {
         w: f64,
         h: f64,
         #[serde(default)]
+        #[cfg_attr(test, ts(as = "Option<bool>", optional))]
         crop: bool,
     },
     SetText {
@@ -245,6 +250,7 @@ pub enum Command {
         height: Option<f64>,
         bleed: Option<f64>,
         #[serde(default)]
+        #[cfg_attr(test, ts(as = "Option<bool>", optional))]
         scale: bool,
     },
     /// Sets the layout grids of a page or master.
@@ -272,6 +278,7 @@ pub enum Command {
     AddMaster {
         like: Option<String>,
         #[serde(default)]
+        #[cfg_attr(test, ts(as = "Option<bool>", optional))]
         layers: bool,
     },
     SetMaster {
@@ -388,6 +395,7 @@ pub enum Command {
     EndUndoGroup,
 }
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Fit {
@@ -396,8 +404,10 @@ pub enum Fit {
     Frame,
 }
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, ts(optional_fields))]
 pub struct Props {
     pub name: Option<String>,
     pub hidden: Option<bool>,
@@ -568,8 +578,10 @@ impl Props {
 }
 
 /// See `text::Attrs`.
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, ts(optional_fields = nullable))]
 pub struct TextProps {
     pub size: Option<f64>,
     pub line_height: Option<f64>,
@@ -679,6 +691,7 @@ fn check_text(
     within(paragraph_spacing, 0.0, MAX_LENGTH, "paragraph spacing")
 }
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum NewKind {
@@ -692,6 +705,7 @@ pub enum NewKind {
     Frame,
 }
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Order {
@@ -5377,5 +5391,38 @@ mod tests {
             h: 1.0,
         };
         assert!(d.apply(unknown).is_err());
+    }
+
+    #[test]
+    fn fixture_types() {
+        use ts_rs::{Config, TS, TypeVisitor};
+        struct Decls(Config, BTreeMap<String, String>);
+        impl TypeVisitor for Decls {
+            fn visit<T: TS + 'static + ?Sized>(&mut self) {
+                if T::output_path().is_none() {
+                    return;
+                }
+                let name = T::ident(&self.0);
+                if !self.1.contains_key(&name) {
+                    self.1.insert(name, T::decl(&self.0));
+                    T::visit_dependencies(self);
+                }
+            }
+        }
+        let mut d = Decls(Config::new(), BTreeMap::new());
+        d.visit::<Command>();
+        d.visit::<Snapshot>();
+        d.visit::<Story>();
+        d.visit::<crate::style::Style>();
+        d.visit::<Layout>();
+        d.visit::<crate::text::TextFrame>();
+        d.visit::<Props>();
+        d.visit::<Palette>();
+        let ts: String = d.1.values().map(|v| format!("export {v}\n")).collect();
+        crate::fixture(
+            "types.ts",
+            format!("// SATZ_WRITE_FIXTURES=1 cargo test fixture writes this file.\n{ts}")
+                .as_bytes(),
+        );
     }
 }

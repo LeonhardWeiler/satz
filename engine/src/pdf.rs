@@ -25,6 +25,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use tiny_skia::Pixmap;
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Preset {

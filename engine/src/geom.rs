@@ -2,6 +2,7 @@ use crate::display_list::{CLOSE, CUBIC, LINE, MOVE, rect};
 use serde::{Deserialize, Serialize};
 use std::f32::consts::{FRAC_PI_2, TAU};
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "shape", rename_all = "camelCase")]
 pub enum Shape {
@@ -336,6 +337,7 @@ pub fn arrow(path: &[f32], end: bool, weight: f32) -> Vec<f32> {
 }
 
 /// How a stroke runs along its path.
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum LineStyle {

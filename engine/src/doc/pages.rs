@@ -12,12 +12,14 @@ pub(super) struct Place {
 /// and gutters of `gutter`, or square cells of `size`, in pt. The canvas shows it;
 /// the PDF leaves it out.
 /// Ruler guides of a page: vertical ones at `x` from its left edge, horizontal ones at `y` from its top.
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Guides {
     pub x: Vec<f64>,
     pub y: Vec<f64>,
 }
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Grid {
@@ -29,6 +31,7 @@ pub struct Grid {
 }
 
 /// Page numbers from a page on: `start` on it, counted in `style` after `prefix`.
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Section {
@@ -37,6 +40,7 @@ pub struct Section {
     pub prefix: String,
 }
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Numbering {
@@ -133,6 +137,7 @@ impl Section {
     }
 }
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum GridKind {

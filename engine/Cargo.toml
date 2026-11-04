@@ -34,4 +34,5 @@ zune-core = "0.5.3"
 zune-jpeg = "0.5.15"
 
 [dev-dependencies]
+ts-rs = { version = "12.0.1", features = ["no-serde-warnings"] }
 unicode_names2 = "4.0.0"

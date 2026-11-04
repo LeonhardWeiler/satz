@@ -5,6 +5,7 @@ use linesweeper::topology::{Contour, Contours, Topology, WindingNumber};
 use linesweeper::{BinaryOp, FillRule, binary_op};
 use std::collections::HashMap;
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum BooleanOp {

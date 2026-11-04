@@ -5,6 +5,7 @@ use crate::image;
 use crate::variable::Scope;
 use serde::{Deserialize, Serialize};
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Style {
@@ -54,6 +55,7 @@ impl Default for Style {
 
 /// How a frame's child follows the frame on resize: pinned to the start (left,
 /// top), the end, both, the centre, or scaled.
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Constraint {
@@ -65,6 +67,7 @@ pub enum Constraint {
     Scale,
 }
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Constraints {
@@ -76,6 +79,7 @@ pub struct Constraints {
 /// square they fill, into the node's unit box with `transform` [a b c d e f]; see
 /// `display_list::Paint`. `image` is the hash of an image fill's file, and
 /// `adjust` its brightness, contrast and saturation in -1..=1.
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Fill {
@@ -83,10 +87,13 @@ pub struct Fill {
     pub kind: FillKind,
     pub color: Color,
     pub stops: Vec<FillStop>,
+    #[cfg_attr(test, ts(as = "Vec<f32>"))]
     pub transform: [f32; 6],
     pub visible: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional))]
     pub image: Option<String>,
+    #[cfg_attr(test, ts(as = "Option<[f32; 3]>", optional))]
     pub adjust: [f32; 3],
 }
 
@@ -138,12 +145,14 @@ impl Fill {
     }
 }
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FillStop {
     pub at: f32,
     pub color: Color,
 }
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum FillKind {
@@ -155,6 +164,7 @@ pub enum FillKind {
 }
 
 /// `radius` is the Figma blur radius, twice the Gaussian sigma.
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Effect {
@@ -180,6 +190,7 @@ impl Default for Effect {
     }
 }
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum EffectKind {
@@ -188,6 +199,7 @@ pub enum EffectKind {
     Blur,
 }
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Align {
@@ -196,6 +208,7 @@ pub enum Align {
     Outside,
 }
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Join {
@@ -204,6 +217,7 @@ pub enum Join {
     Bevel,
 }
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Cap {
@@ -213,6 +227,7 @@ pub enum Cap {
 }
 
 /// In the order of the display list's blend numbers.
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Blend {

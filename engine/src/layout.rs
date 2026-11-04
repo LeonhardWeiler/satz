@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Direction {
@@ -9,6 +10,7 @@ pub enum Direction {
     Vertical,
 }
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum MainAlign {
@@ -19,6 +21,7 @@ pub enum MainAlign {
     SpaceBetween,
 }
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Align3 {
@@ -31,6 +34,7 @@ pub enum Align3 {
 /// Hug only applies to auto layout frames and text, fill only inside auto layout
 /// frames. On text, hugging both sides is Figma's auto width, hugging the height
 /// auto height.
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Size {
@@ -40,6 +44,7 @@ pub enum Size {
     Fill,
 }
 
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Sizing {
@@ -48,6 +53,7 @@ pub struct Sizing {
 }
 
 /// Figma auto layout of a frame and how a layer sits in one.
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Layout {
