@@ -12,6 +12,8 @@ const DEFAULTS = {
   unit: 'mm' as Unit,
   theme: 'system' as 'system' | 'light' | 'dark',
   quickEdit: true,
+  /** CSS px in 1 mm of this screen, for Zoom to 100%. */
+  screenMm: 96 / 25.4,
   layers: 'page' as 'page' | 'spread',
   keys: {} as Record<string, string>,
   /** The width of the masters in the page overview, its page height and columns of spreads, 0 to fill the width, all in px. */

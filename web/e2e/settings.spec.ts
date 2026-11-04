@@ -77,3 +77,14 @@ test('the layers of the spread are listed under a heading for each page', async 
   await tree.getByRole('button', { name: 'Page 2' }).click()
   await expect(tree.getByRole('treeitem', { name: 'Page 2' })).toHaveAttribute('aria-expanded', 'false')
 })
+
+test('zoom to 100% shows the page at the size calibrated in the settings', async ({ page }) => {
+  await open(page)
+  await page.keyboard.press('Control+Comma')
+  const dialog = page.getByRole('dialog', { name: 'Settings' })
+  await dialog.getByRole('slider', { name: 'Screen size' }).fill('5')
+  expect((await dialog.locator('.card-bar').boundingBox())!.width).toBeCloseTo(428, 0)
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Control+0')
+  await expect(page.getByRole('status', { name: 'Zoom' })).toHaveText('100%')
+})

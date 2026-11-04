@@ -3218,6 +3218,12 @@ input[type='checkbox']:active {
   color: var(--text-2);
 }
 
+.card-bar {
+  height: 24px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+
 .settings-row input {
   justify-self: start;
 }

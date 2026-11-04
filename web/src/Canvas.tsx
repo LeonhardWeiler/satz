@@ -17,7 +17,6 @@ import { Quick } from './Quick'
 import { MasterBanner } from './Switcher'
 import { Keys } from './controls'
 
-const PX_PER_PT = 96 / 72
 const DRAG = 3
 const HIT = 6
 /** Distance in px within which layers snap. */
@@ -1378,7 +1377,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       else if (e.shiftKey && e.code === 'Digit2' && sel) {
         const zoom = Math.min(256, (canvas.clientWidth - 240) / Math.max(sel.w, 1), (canvas.clientHeight - 240) / Math.max(sel.h, 1))
         glide({ x: cx - (sel.x + sel.w / 2) * zoom, y: cy - (sel.y + sel.h / 2) * zoom, zoom })
-      } else if ((e.shiftKey || mod) && e.code === 'Digit0') glide(around(cx, cy, PX_PER_PT))
+      } else if ((e.shiftKey || mod) && e.code === 'Digit0') glide(around(cx, cy, settings.screenMm / MM))
       else if (mod && (e.key === '=' || e.key === '+')) zoomAt(cx, cy, view.zoom * 1.25)
       else if (mod && e.key === '-') zoomAt(cx, cy, view.zoom / 1.25)
       else return
@@ -1509,7 +1508,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           />
         )}
         <output className="sr-only" aria-label="Zoom">
-          {Math.round((zoom / PX_PER_PT) * 100)}%
+          {Math.round(((zoom * MM) / settings.screenMm) * 100)}%
         </output>
         <div ref={quick} className="quick" role="toolbar" aria-label="Quick edit">
           <Quick editor={editor} />

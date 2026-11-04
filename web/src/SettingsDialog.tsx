@@ -8,7 +8,7 @@ const NAMES: Record<Unit, string> = { mm: 'Millimetres', cm: 'Centimetres', in: 
 /** Ctrl+,: the settings of this browser. */
 export function Settings({ onClose }: { onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null)
-  const { unit, theme, quickEdit, layers } = useSettings()
+  const { unit, theme, quickEdit, layers, screenMm } = useSettings()
   useEffect(() => {
     ref.current!.showModal()
     ref.current!.focus()
@@ -35,6 +35,11 @@ export function Settings({ onClose }: { onClose: () => void }) {
           Layers panel shows
           <Select label="Layers panel shows" value={layers} options={{ page: 'Current page', spread: 'Current spread' }} onChange={(l) => setSettings({ layers: l })} />
         </div>
+        <label className="settings-row">
+          Hold a bank card to the bar and match its width for Zoom to 100%
+          <input type="range" aria-label="Screen size" min={2} max={6} step={0.01} value={screenMm} onChange={(e) => setSettings({ screenMm: +e.currentTarget.value })} />
+        </label>
+        <div className="card-bar" style={{ width: 85.6 * screenMm }} />
         <label className="settings-row">
           Quick edit bar above the selection
           <input type="checkbox" checked={quickEdit} onChange={(e) => setSettings({ quickEdit: e.currentTarget.checked })} />
