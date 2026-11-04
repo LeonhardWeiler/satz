@@ -28,6 +28,12 @@ async function store(name: 'files' | 'fonts') {
   return (await db).transaction(name, 'readwrite').objectStore(name)
 }
 
+const finished = (t: IDBTransaction) =>
+  new Promise<void>((done, fail) => {
+    t.oncomplete = () => done()
+    t.onerror = t.onabort = () => fail(t.error ?? new Error('the write was aborted'))
+  })
+
 const result = <T,>(r: IDBRequest<T>) =>
   new Promise<T>((done, fail) => {
     r.onsuccess = () => done(r.result)
@@ -37,8 +43,13 @@ const result = <T,>(r: IDBRequest<T>) =>
 /** The document autosaved last. */
 export const stored = async () => result<Saved | undefined>((await store('files')).get('doc'))
 
-/** Keeps an autosave that could not be restored under 'doc-unreadable', which no autosave overwrites. */
-export const keepUnreadable = async (saved: Saved) => result((await store('files')).put(saved, 'doc-unreadable'))
+/** Moves an autosave that could not be restored to 'doc-unreadable', which no autosave overwrites. */
+export const keepUnreadable = async (saved: Saved) => {
+  const files = await store('files')
+  files.put(saved, 'doc-unreadable')
+  files.delete('doc')
+  await finished(files.transaction)
+}
 
 /** The fonts added in this browser. */
 export const storedFonts = async () => result<Uint8Array[]>((await store('fonts')).getAll())
@@ -48,14 +59,23 @@ export function autosave(editor: Editor) {
   const state = () => editor.engine.version() + editor.dirty + editor.file.name
   let last = state()
   let timer = 0
+  let failed = false
   const put = async () => {
     clearTimeout(timer)
-    if (editor.broken || state() === last) return
-    last = state()
+    const now = state()
+    if (!editor.autosaves || now === last) return
     const { name, handle } = editor.file
-    const files = await store('files')
-    files.put({ bytes: editor.engine.save(), name, handle, dirty: editor.dirty } satisfies Saved, 'doc')
-    files.transaction.commit()
+    try {
+      const files = await store('files')
+      files.put({ bytes: editor.engine.save(), name, handle, dirty: editor.dirty } satisfies Saved, 'doc')
+      await finished(files.transaction)
+      last = now
+      failed = false
+    } catch (e) {
+      if (!failed) editor.fail(`Autosave failed: ${(e as Error).message}. Save the file with Ctrl+S.`)
+      failed = true
+      timer = window.setTimeout(put, 10000)
+    }
   }
   const later = () => {
     if (state() === last) return

@@ -72,6 +72,15 @@ test('an autosave that does not load is downloaded and kept apart from the next 
   expect(kept).toEqual([1, 2, 3])
 })
 
+test('a second tab says that Satz is open in another tab and does not autosave', async ({ page, context }) => {
+  await addPage(page)
+  await autosaved(page)
+  const other = await context.newPage()
+  await other.goto('')
+  await expect(other.locator('.status')).toHaveText(/Satz is open in another tab/)
+  await other.close()
+})
+
 test('a reloaded document has nothing to undo', async ({ page }) => {
   await addPage(page)
   await autosaved(page)

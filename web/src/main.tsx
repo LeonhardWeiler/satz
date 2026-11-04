@@ -30,16 +30,25 @@ if (!document.createElement('canvas').getContext('webgl2')) {
   )
 } else {
   try {
-    const [ck, , saved, fonts] = await Promise.all([
+    const [ck, , saved, fonts, alone] = await Promise.all([
       CanvasKitInit({ locateFile: () => canvaskitWasm }),
       init(),
       stored().catch(() => undefined),
       storedFonts().catch(() => []),
+      new Promise<boolean>((got) =>
+        navigator.locks
+          ? navigator.locks.request('satz', { ifAvailable: true }, (lock) => {
+              got(!!lock)
+              return lock && new Promise(() => {})
+            })
+          : got(true),
+      ),
     ])
     const engine = saved ? new Engine() : Engine.sample()
     for (const bytes of fonts) engine.addFont(bytes)
     const editor = new Editor(engine)
     let first = !saved
+    let trap = false
     try {
       if (saved) editor.load(saved.bytes, { name: saved.name, handle: saved.handle }, saved.dirty)
     } catch (e) {
@@ -47,17 +56,24 @@ if (!document.createElement('canvas').getContext('webgl2')) {
       download(saved!.bytes, saved!.name, 'application/x-satz')
       editor.status = `Could not restore ${saved!.name}: ${(e as Error).message}. Satz downloaded it and started a new document.`
       first = true
+      trap = e instanceof WebAssembly.RuntimeError
     }
-    root.render(
-      <StrictMode>
-        <App ck={ck} editor={editor} first={first} />
-      </StrictMode>,
-    )
-    const trapped = (e: unknown) => {
-      if (!(e instanceof WebAssembly.RuntimeError)) return
-      editor.broken = true
+    const stop = () => {
+      editor.autosaves = false
       notice('Satz stopped', 'The engine failed. Reload the page to go on from the last autosave.', true)
     }
+    if (trap) notice('Satz stopped', `Restoring ${saved!.name} failed. Satz downloaded it; reload the page to start a new document.`, true)
+    else
+      root.render(
+        <StrictMode>
+          <App ck={ck} editor={editor} first={first} />
+        </StrictMode>,
+      )
+    if (!alone) {
+      editor.autosaves = false
+      editor.fail('Satz is open in another tab. This tab does not autosave; save the file with Ctrl+S.')
+    }
+    const trapped = (e: unknown) => e instanceof WebAssembly.RuntimeError && stop()
     window.addEventListener('error', (e) => trapped(e.error))
     window.addEventListener('unhandledrejection', (e) => trapped(e.reason))
     findGrantedFonts(editor)

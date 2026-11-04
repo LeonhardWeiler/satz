@@ -97,8 +97,8 @@ export class Editor {
   statusError = false
   /** A button after the status, like Undo after a deletion. */
   statusAction: { label: string; run: () => void } | null = null
-  /** The engine trapped; nothing is saved any more. */
-  broken = false
+  /** Off when the engine trapped or Satz is open in another tab. */
+  autosaves = true
   /** Typing into the edited text is one undo step until the caret moves. */
   private typing = false
   /** The plain text the last copy of layers put on the clipboard; other text there came from outside. */
