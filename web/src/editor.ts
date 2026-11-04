@@ -464,7 +464,7 @@ export class Editor {
     } catch {
       return
     }
-    if (frame === e.id) return
+    if (frame === e.id && this.nodes.has(frame)) return
     const found = this.lookup(frame)
     if (!found) return
     this.pageId = found.page.id

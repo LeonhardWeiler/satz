@@ -1,4 +1,4 @@
-import { expect, test, open } from './util'
+import { expect, test, current, frameOnNewPage, open, showPage } from './util'
 
 test('find steps through the matches in every story and replaces them in 1 undo step', async ({ page }) => {
   await open(page)
@@ -23,4 +23,22 @@ test('find steps through the matches in every story and replaces them in 1 undo 
   await page.keyboard.press('Escape')
   await page.keyboard.press('Control+z')
   await expect(layers.getByRole('button', { name: /^Satz sets type in the browser\. The/ })).toBeVisible()
+})
+
+test('find turns to the page of a match and replaces it there', async ({ page }) => {
+  await open(page)
+  await frameOnNewPage(page, [20, 20, 150, 60])
+  await page.keyboard.type('Zebra')
+  await page.keyboard.press('Escape')
+  await showPage(page, 1)
+  await page.keyboard.press('Control+f')
+  const find = page.getByRole('dialog', { name: 'Find and replace' })
+  await find.getByRole('textbox', { name: 'Find' }).fill('Zebra')
+  await find.getByRole('textbox', { name: 'Find' }).press('Enter')
+  await expect(find.getByText('1 of 1')).toBeVisible()
+  await expect(current(page, 2)).toHaveAttribute('aria-pressed', 'true')
+  await find.getByRole('textbox', { name: 'Replace with' }).fill('Horse')
+  await find.getByRole('button', { name: 'Replace', exact: true }).click()
+  await expect(find.getByText('0 found')).toBeVisible()
+  await expect(page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Horse/ })).toBeVisible()
 })

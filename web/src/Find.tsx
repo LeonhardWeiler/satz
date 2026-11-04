@@ -60,7 +60,7 @@ export function Find({ editor, onClose }: { editor: Editor; onClose: () => void 
     const m = all[current]
     editor.apply({ type: 'editText', id: m.story, range: [m.at, m.end], text: replace })
     const rest = matches(editor.snapshot, find, matchCase, words, style)
-    const following = rest.find((r) => r.story === m.story && r.at >= m.at + replace.length) ?? rest.find((r) => r.story !== m.story) ?? rest[0]
+    const following = rest.slice(current).find((r) => r.story !== m.story || r.at >= m.at + replace.length) ?? rest[0]
     if (following) show(following)
   }
   const replaceAll = () => {
