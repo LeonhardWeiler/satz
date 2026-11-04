@@ -4,3 +4,19 @@ updates:
     directory: /
     schedule:
       interval: monthly
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      cargo:
+        patterns: ["*"]
+    ignore:
+      - dependency-name: wasm-bindgen
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: monthly
+    groups:
+      npm:
+        patterns: ["*"]
