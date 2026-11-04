@@ -11,8 +11,9 @@ tsc, eslint, vitest, vite build and Playwright. `./check build` stops before
 Playwright, `./check e2e [args]` runs only Playwright against `web/dist`.
 Before a commit run `./check build` and the affected specs (`./check e2e e2e/<name>.spec.ts`);
 the full `./check` runs once before the push.
-`web/src/testdata` holds the display-list fixture that vitest reads; `cargo test` fails when it
-is stale, and `SATZ_WRITE_FIXTURES=1 cargo test fixture` writes it again.
+`web/src/testdata` holds the display-list fixture that vitest reads and `web/src/unicode-names.txt`
+the names the characters panel fetches; `cargo test` fails when one
+is stale, and `SATZ_WRITE_FIXTURES=1 cargo test fixture` writes them again.
 `cargo test --release -p engine bench -- --ignored --nocapture` measures the engine
 (`engine/src/doc/bench.rs`); it is not in CI.
 
