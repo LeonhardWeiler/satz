@@ -387,7 +387,7 @@ export class Renderer {
       }
       this.loaded()
     }
-    createImageBitmap(new Blob([this.engine.image(id) as Uint8Array<ArrayBuffer>]))
+    createImageBitmap(new Blob([this.engine.image(id) as Uint8Array<ArrayBuffer>]), { imageOrientation: 'none' })
       .then((full) => {
         const f = this.maxImage / Math.max(full.width, full.height)
         if (f >= 1) return full

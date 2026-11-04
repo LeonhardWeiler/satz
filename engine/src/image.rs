@@ -169,6 +169,73 @@ pub fn register(bytes: LoroBinaryValue) -> Result<ImageInfo, String> {
     Ok(info)
 }
 
+/// The JPEG file `bytes` turned upright when its EXIF orientation is 2 to 8, so
+/// that every output shows it as the camera did; `None` for any other file.
+pub fn upright(bytes: &[u8]) -> Option<Vec<u8>> {
+    let mut decoder = JpegDecoder::new(Cursor::new(bytes));
+    decoder.decode_headers().ok()?;
+    let o = orientation(decoder.exif()?)?;
+    if !(2..=8).contains(&o) || space(Format::Jpeg, bytes) == Space::Cmyk {
+        return None;
+    }
+    let (rgba, w, h) = decode(Format::Jpeg, bytes)?;
+    let (ow, oh) = if o >= 5 { (h, w) } else { (w, h) };
+    let mut out = Vec::with_capacity(rgba.len());
+    for y in 0..oh {
+        for x in 0..ow {
+            let (a, b) = if o >= 5 { (y, x) } else { (x, y) };
+            let a = if matches!(o, 2 | 3 | 7 | 8) {
+                w - 1 - a
+            } else {
+                a
+            };
+            let b = if matches!(o, 3 | 4 | 6 | 7) {
+                h - 1 - b
+            } else {
+                b
+            };
+            let i = 4 * (b * w + a) as usize;
+            out.extend_from_slice(&rgba[i..i + 4]);
+        }
+    }
+    let mut file = Vec::new();
+    jpeg_encoder::Encoder::new(&mut file, 95)
+        .encode(
+            &out,
+            ow.try_into().ok()?,
+            oh.try_into().ok()?,
+            jpeg_encoder::ColorType::Rgba,
+        )
+        .ok()?;
+    Some(file)
+}
+
+/// The orientation tag in the first IFD of the EXIF data `tiff`.
+fn orientation(tiff: &[u8]) -> Option<u16> {
+    let le = tiff.starts_with(b"II");
+    let u16_at = |i: usize| {
+        let b = [*tiff.get(i)?, *tiff.get(i + 1)?];
+        Some(if le {
+            u16::from_le_bytes(b)
+        } else {
+            u16::from_be_bytes(b)
+        })
+    };
+    let u32_at = |i: usize| {
+        let b: [u8; 4] = tiff.get(i..i + 4)?.try_into().ok()?;
+        Some(if le {
+            u32::from_le_bytes(b)
+        } else {
+            u32::from_be_bytes(b)
+        })
+    };
+    let ifd = u32_at(4)? as usize;
+    (0..u16_at(ifd)? as usize)
+        .map(|n| ifd + 2 + 12 * n)
+        .find(|&e| u16_at(e) == Some(0x0112))
+        .and_then(|e| u16_at(e + 8))
+}
+
 /// The width and height in the header of the PNG or JPEG file `bytes`.
 fn size(bytes: &[u8]) -> Result<(u32, u32), String> {
     let bad = || "not a PNG or JPEG image".to_string();
@@ -689,5 +756,34 @@ pub mod tests {
         let mut cut = png(40, 40);
         cut.truncate(cut.len() - 30);
         assert!(register(cut.into()).is_err());
+    }
+
+    #[test]
+    fn a_turned_photo_is_stored_upright() {
+        let rgba: Vec<u8> = (0..16 * 32)
+            .flat_map(|i| {
+                if i % 32 < 16 {
+                    [255, 0, 0, 255]
+                } else {
+                    [0, 0, 255, 255]
+                }
+            })
+            .collect();
+        let mut jpeg = Vec::new();
+        jpeg_encoder::Encoder::new(&mut jpeg, 95)
+            .encode(&rgba, 32, 16, jpeg_encoder::ColorType::Rgba)
+            .unwrap();
+        assert_eq!(upright(&jpeg), None);
+        let tiff = b"II*\0\x08\0\0\0\x01\0\x12\x01\x03\0\x01\0\0\0\x06\0\0\0\0\0\0\0";
+        let mut app1 = vec![0xff, 0xe1, 0, (2 + 6 + tiff.len()) as u8];
+        app1.extend_from_slice(b"Exif\0\0");
+        app1.extend_from_slice(tiff);
+        jpeg.splice(2..2, app1);
+        let up = upright(&jpeg).unwrap();
+        let (px, w, h) = decode(Format::Jpeg, &up).unwrap();
+        assert_eq!((w, h), (16, 32));
+        assert!(px[0] > 200 && px[2] < 50, "{:?}", &px[..4]);
+        let last = px.len() - 4;
+        assert!(px[last] < 50 && px[last + 2] > 200, "{:?}", &px[last..]);
     }
 }

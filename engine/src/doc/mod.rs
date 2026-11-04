@@ -1297,7 +1297,7 @@ impl Doc {
     /// Adds a PNG or JPEG file that `image::register` takes to the images of the document,
     /// for `PlaceImage`; undo does not take it out again.
     pub fn add_image(&mut self, bytes: &[u8]) -> Res<ImageInfo> {
-        let bytes = LoroBinaryValue::from(bytes.to_vec());
+        let bytes = LoroBinaryValue::from(image::upright(bytes).unwrap_or_else(|| bytes.to_vec()));
         let info = image::register(bytes.clone())?;
         let images = self.doc.get_map("images");
         if images.get(&info.hash).is_none() {
