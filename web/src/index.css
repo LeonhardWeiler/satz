@@ -30,7 +30,7 @@
   --selected: color-mix(in srgb, var(--fg) 12%, transparent);
   --text: var(--fg);
   --text-2: color-mix(in srgb, var(--fg) 72%, var(--bg));
-  --text-3: color-mix(in srgb, var(--fg) 50%, var(--bg));
+  --text-3: color-mix(in srgb, var(--fg) 62%, var(--bg));
   --border: color-mix(in srgb, var(--fg) 10%, var(--bg));
   --edge: color-mix(in srgb, var(--fg) 18%, var(--bg));
   --scrim: color-mix(in srgb, var(--bg) 70%, transparent);
@@ -52,12 +52,13 @@
   --canvas: #cbced5;
   --raised: color-mix(in srgb, #fff 55%, var(--bg));
   --input: color-mix(in srgb, #fff 30%, var(--bg));
-  --accent: #0b87bd;
-  --bad: #d63a2c;
-  --warn: #a86b00;
+  --accent: #08658e;
+  --bad: #af3024;
+  --warn: #855500;
   --shadow: rgb(30 30 33 / 0.18);
   --border: color-mix(in srgb, var(--fg) 13%, var(--bg));
   --edge: color-mix(in srgb, var(--fg) 22%, var(--bg));
+  --text-3: color-mix(in srgb, var(--fg) 66%, var(--bg));
 }
 
 *,
