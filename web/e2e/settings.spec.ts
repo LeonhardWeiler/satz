@@ -61,6 +61,23 @@ test('a shortcut changed in the shortcut list runs its command and frees the old
   await expect(keys).toHaveText('R')
 })
 
+test('a shortcut that another command has swaps the keys of both and says so', async ({ page }) => {
+  await open(page)
+  await page.keyboard.press('?')
+  const help = page.getByRole('dialog', { name: 'Keyboard shortcuts' })
+  await help.getByRole('button', { name: 'Shortcut for Rectangle tool' }).click()
+  await page.keyboard.press('v')
+  await expect(help.getByRole('status')).toHaveText('Move tool takes R')
+  await expect(help.getByRole('button', { name: 'Shortcut for Move tool' })).toHaveText('R')
+  await page.keyboard.press('Escape')
+
+  const tool = page.getByRole('toolbar', { name: 'Tools' })
+  await page.keyboard.press('v')
+  await expect(tool.getByRole('button', { name: 'Rectangle', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await page.keyboard.press('r')
+  await expect(tool.getByRole('button', { name: 'Move', exact: true })).toHaveAttribute('aria-pressed', 'true')
+})
+
 test('the layers of the spread are listed under a heading for each page', async ({ page }) => {
   await open(page)
   await page.getByRole('button', { name: 'Add page' }).click()

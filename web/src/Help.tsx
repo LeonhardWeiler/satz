@@ -57,9 +57,16 @@ const mark = (text: string, q: string) => {
   return at < 0 ? text : [text.slice(0, at), <mark key="m">{text.slice(at, at + q.length)}</mark>, text.slice(at + q.length)]
 }
 
+/** Gives `a` the shortcut `keys`, or its default for null; a command that had them takes the old keys of `a`. */
 const assign = (a: Action, keys: string | null) => {
-  const rest = Object.fromEntries(Object.entries(settings.keys).filter(([t]) => t !== a.title))
-  setSettings({ keys: keys && keys !== a.keys ? { ...rest, [a.title]: keys } : rest })
+  const old = keysOf(a)
+  const other = ACTIONS.find((b) => b !== a && b.group && keysOf(b) === (keys ?? a.keys))
+  const next = { ...settings.keys }
+  const put = (x: Action, k: string) => (k === x.keys ? delete next[x.title] : (next[x.title] = k))
+  put(a, keys ?? a.keys)
+  if (other) put(other, old)
+  setSettings({ keys: next })
+  return other ? `${other.title} takes ${old}` : null
 }
 
 /** "?": every shortcut by where it works; a click on the keys of a command records new ones. */
@@ -67,6 +74,7 @@ export function Help({ onClose }: { onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null)
   const [query, setQuery] = useState('')
   const [recording, setRecording] = useState<string | null>(null)
+  const [note, setNote] = useState<string | null>(null)
   const remapped = useSettings().keys
   useEffect(() => {
     ref.current!.showModal()
@@ -95,7 +103,7 @@ export function Help({ onClose }: { onClose: () => void }) {
                 <div key={r.title} className="help-r" data-remapped={r.title in remapped || undefined}>
                   <span>{mark(r.title, q)}</span>
                   {r.title in remapped && (
-                    <button type="button" className="icon-button" aria-label={`Reset ${r.title}`} title="Reset to the default" onClick={() => assign(r as Action, null)}>
+                    <button type="button" className="icon-button" aria-label={`Reset ${r.title}`} title="Reset to the default" onClick={() => setNote(assign(r as Action, null))}>
                       <Icon name="reset" />
                     </button>
                   )}
@@ -114,7 +122,7 @@ export function Help({ onClose }: { onClose: () => void }) {
                         e.stopPropagation()
                         const combo = comboOf(e.nativeEvent)
                         if (!combo) return
-                        if (combo !== 'Escape') assign(r, combo === 'Backspace' ? null : combo)
+                        if (combo !== 'Escape') setNote(assign(r, combo === 'Backspace' ? null : combo))
                         setRecording(null)
                       }}
                     >
@@ -129,6 +137,7 @@ export function Help({ onClose }: { onClose: () => void }) {
           ))}
         </div>
         {!groups.length && <p className="help-empty">No shortcut matches.</p>}
+        {note && <p className="help-empty" role="status">{note}</p>}
       </div>
     </dialog>
   )
