@@ -12,7 +12,7 @@ import { Icon } from './icons'
 import { isOpen, type Fill, type Node, type Props, type TextProps } from './model'
 import { Popover } from './Popover'
 import { ARROWS } from './Properties'
-import { ALIGNS, Font, sameOf, Specimen, TypeOptions } from './Text'
+import { ALIGNS, featuresOf, Font, sameOf, Specimen, TypeOptions } from './Text'
 
 type Paint = 'fills' | 'strokes'
 
@@ -80,7 +80,7 @@ export function Quick({ editor }: { editor: Editor }) {
           <Font editor={editor} fonts={spans.map((a) => a.font)} compact set={(font) => format({ font })} />
           <Field label={<Icon name="fontSize" />} title="Font size" unit="pt" min={0.1} max={5000} value={size} onCommit={(v) => format({ size: v })} />
           <Segmented label="Text align" value={align} options={ALIGNS} onChange={(textAlign) => format({ textAlign })} />
-          <TypeOptions spans={spans} set={format} />
+          <TypeOptions spans={spans} set={format} features={featuresOf(editor, one!.id, spans, null)} />
         </>
       )}
       {!nodes.some((n) => n.kind === 'group' || n.ppi !== undefined || isOpen(n)) && button('fills', 'Fill color')}

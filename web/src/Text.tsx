@@ -10,7 +10,7 @@ import { Icon, type IconName } from './icons'
 import { Popover } from './Popover'
 import { MAX_LENGTH } from './settings'
 import { PAGE_NUMBER, insert, range } from './textEdit'
-import { STYLED, type Attrs, type Props, type Styled, type Tab, type TextNode, type TextProps, type TextStyle, type Typeface, textSizing } from './model'
+import { STYLED, type Attrs, type Props, type Span, type Styled, type Tab, type TextNode, type TextProps, type TextStyle, type Typeface, textSizing } from './model'
 import { Bindable } from './Variables'
 
 
@@ -139,13 +139,28 @@ export function Specimen({ editor, spans, compact, format }: { editor: Editor; s
   )
 }
 
+/** Changes the OpenType features of each run of `spans` in `r`, or in all of them, by `f`. */
+export const featuresOf = (editor: Editor, id: string, spans: Span[], r: [number, number] | null) => (f: (old: string[]) => string[]) => {
+  const [a, b] = r ?? [0, Infinity]
+  let at = 0
+  const runs = spans.flatMap((s) => {
+    const from = Math.max(at, a)
+    at += s.len
+    return from < Math.min(at, b) ? [{ range: [from, Math.min(at, b)] as [number, number], features: f(s.features) }] : []
+  })
+  const all = runs[0]?.features ?? f(spans[0]?.features ?? [])
+  editor.batch(() => {
+    editor.apply({ type: 'format', id, range: r, features: all })
+    runs.filter((x) => x.features.join() !== all.join()).forEach((x) => editor.apply({ type: 'format', id, ...x }))
+  })
+}
+
 /** A button that opens the case, decoration, indent and OpenType features of `spans`. */
-export function TypeOptions({ spans, set }: { spans: Pick<Attrs, Styled>[]; set: (p: TextProps) => void }) {
+export function TypeOptions({ spans, set, features }: { spans: Pick<Attrs, Styled>[]; set: (p: TextProps) => void; features: (f: (old: string[]) => string[]) => void }) {
   const [at, setAt] = useState<DOMRect | null>(null)
   const same = <T,>(get: (a: Pick<Attrs, Styled>) => T) => sameOf(spans, get)
   const on = (tag: string, dflt?: boolean) => (a: Pick<Attrs, Styled>) => (dflt ? !a.features.includes(`${tag}=0`) : a.features.includes(tag))
-  const put = (drop: string[], add: string[]) =>
-    set({ features: [...(spans[0]?.features ?? []).filter((f) => !drop.some((t) => f === t || f === `${t}=0`)), ...add].sort() })
+  const put = (drop: string[], add: string[]) => features((old) => [...old.filter((f) => !drop.some((t) => f === t || f === `${t}=0`)), ...add].sort())
   return (
     <>
       <button
@@ -444,7 +459,7 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
       </div>
       <div className="row">
         <Segmented label="Text align" value={align} options={ALIGNS} onChange={(textAlign) => format({ textAlign })} />
-        <TypeOptions spans={spans} set={format} />
+        <TypeOptions spans={spans} set={format} features={featuresOf(editor, node.id, spans, edited && range(edited))} />
       </div>
       <ColorCheck
         editor={editor}
@@ -484,7 +499,7 @@ function StyleRow({ editor, style }: { editor: Editor; style: TextStyle }) {
     <div role="group" aria-label={style.name} className="text-style">
       <div className="row">
         <NameInput label="Text style name" value={style.name} onCommit={(name) => editor.apply({ type: 'setTextStyle', id: style.id, name })} />
-        <TypeOptions spans={[style]} set={(p) => editor.apply({ type: 'setTextStyle', id: style.id, ...p })} />
+        <TypeOptions spans={[style]} set={(p) => editor.apply({ type: 'setTextStyle', id: style.id, ...p })} features={(f) => editor.apply({ type: 'setTextStyle', id: style.id, features: f(style.features) })} />
         <button
           type="button"
           className="icon-button"
