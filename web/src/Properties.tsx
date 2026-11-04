@@ -13,7 +13,7 @@ import { AlignBar, BooleanBar, combinable, rowOf, setGap } from './align'
 import { ACTIONS, keysOf, press } from './commands'
 import { AutoLayout, flows, Sizing } from './AutoLayout'
 import { EffectList, PaintList } from './Paints'
-import { TextFrameSection, TextSection, TextStyles } from './Text'
+import { sameOf, TextFrameSection, TextSection, TextStyles } from './Text'
 import { Bindable, ModeSelects, Variables } from './Variables'
 
 const ARRANGE: [string, IconName][] = [
@@ -551,11 +551,6 @@ export function Properties({ editor }: { editor: Editor }) {
       )}
     </aside>
   )
-}
-
-const sameOf = <T, U>(items: T[], get: (t: T) => U): U | null => {
-  const values = items.map(get)
-  return values.every((v) => v === values[0]) ? values[0] : null
 }
 
 function textBelow(editor: Editor, n: Node) {
