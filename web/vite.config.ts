@@ -38,8 +38,12 @@ export default defineConfig({
       name: 'service-worker',
       apply: 'build',
       generateBundle(_, bundle) {
-        const files = ['', ...readdirSync(new URL('public', import.meta.url)), ...Object.keys(bundle)].map((f) => base + f)
-        const cache = createHash('sha256').update(files.join()).digest('hex').slice(0, 16)
+        const pub = readdirSync(new URL('public', import.meta.url))
+        const files = ['', ...pub, ...Object.keys(bundle)].map((f) => base + f)
+        const hash = createHash('sha256').update(files.join())
+        for (const f of ['index.html', ...pub.map((f) => `public/${f}`)]) hash.update(readFileSync(new URL(f, import.meta.url)))
+        for (const f of Object.values(bundle)) hash.update(f.type === 'chunk' ? f.code : f.source)
+        const cache = hash.digest('hex').slice(0, 16)
         const source = `const CACHE = 'satz-${cache}'\nconst FILES = ${JSON.stringify(files)}\n${readFileSync(new URL('sw.js', import.meta.url), 'utf8')}`
         this.emitFile({ type: 'asset', fileName: 'sw.js', source })
       },
