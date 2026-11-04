@@ -296,39 +296,74 @@ fn render(px: &mut Pixmap, ops: &[Op], t: Transform, clip: Option<&Mask>, images
             } => {
                 let end = close(ops, i);
                 let scale = t.sx.hypot(t.ky);
-                let mut content = layer(px);
-                render(&mut content, &ops[i + 1..end], t, None, images);
-                let mut out = layer(px);
-                for s in shadows {
-                    let mut shadow = content.clone();
-                    tint(&mut shadow, s.color);
-                    blur(&mut shadow, s.blur * scale);
-                    let [ox, oy] = s.offset;
-                    let (dx, dy) = (t.sx * ox + t.kx * oy, t.ky * ox + t.sy * oy);
+                let pad = 3.0 * shadows.iter().map(|s| s.blur).fold(*sigma, f32::max) * scale + 1.0;
+                let moves: Vec<[f32; 2]> = shadows
+                    .iter()
+                    .map(|s| {
+                        let [ox, oy] = s.offset;
+                        [t.sx * ox + t.kx * oy, t.ky * ox + t.sy * oy]
+                    })
+                    .collect();
+                let (lo, hi) = moves
+                    .iter()
+                    .fold(([0.0f32; 2], [0.0f32; 2]), |(lo, hi), m| {
+                        (
+                            [lo[0].min(m[0]), lo[1].min(m[1])],
+                            [hi[0].max(m[0]), hi[1].max(m[1])],
+                        )
+                    });
+                let area = extent(&ops[i + 1..end])
+                    .and_then(|[x, y, w, h]| tiny_skia::Rect::from_xywh(x, y, w, h)?.transform(t))
+                    .and_then(|r| {
+                        tiny_skia::Rect::from_ltrb(
+                            (r.left() + lo[0] - pad).max(0.0),
+                            (r.top() + lo[1] - pad).max(0.0),
+                            (r.right() + hi[0] + pad).min(px.width() as f32),
+                            (r.bottom() + hi[1] + pad).min(px.height() as f32),
+                        )?
+                        .round_out()
+                    });
+                if let Some(area) = area {
+                    let t = t.post_translate(-area.x() as f32, -area.y() as f32);
+                    let mut content = Pixmap::new(area.width(), area.height()).unwrap();
+                    render(&mut content, &ops[i + 1..end], t, None, images);
+                    let mut out = Pixmap::new(area.width(), area.height()).unwrap();
+                    for (s, [dx, dy]) in shadows.iter().zip(moves) {
+                        let mut shadow = content.clone();
+                        tint(&mut shadow, s.color);
+                        blur(&mut shadow, s.blur * scale);
+                        out.draw_pixmap(
+                            0,
+                            0,
+                            shadow.as_ref(),
+                            &PixmapPaint::default(),
+                            Transform::from_translate(dx, dy),
+                            None,
+                        );
+                    }
+                    blur(&mut content, sigma * scale);
                     out.draw_pixmap(
                         0,
                         0,
-                        shadow.as_ref(),
+                        content.as_ref(),
                         &PixmapPaint::default(),
-                        Transform::from_translate(dx, dy),
+                        Transform::identity(),
                         None,
                     );
+                    let paint = PixmapPaint {
+                        opacity: *opacity,
+                        blend_mode: blend.skia(),
+                        ..PixmapPaint::default()
+                    };
+                    px.draw_pixmap(
+                        area.x(),
+                        area.y(),
+                        out.as_ref(),
+                        &paint,
+                        Transform::identity(),
+                        clip,
+                    );
                 }
-                blur(&mut content, sigma * scale);
-                out.draw_pixmap(
-                    0,
-                    0,
-                    content.as_ref(),
-                    &PixmapPaint::default(),
-                    Transform::identity(),
-                    None,
-                );
-                let paint = PixmapPaint {
-                    opacity: *opacity,
-                    blend_mode: blend.skia(),
-                    ..PixmapPaint::default()
-                };
-                px.draw_pixmap(0, 0, out.as_ref(), &paint, Transform::identity(), clip);
                 i = end;
             }
             Op::PushTransform {
