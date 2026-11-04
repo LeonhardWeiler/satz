@@ -28,6 +28,107 @@ font helper, i18n.
 - Browsers: Chromium + Firefox; Safari best effort.
 - License: ISC.
 
+## Now
+
+IDs name finding cards in `AGENT/project-health-report.html`; read the card for cause and fix.
+
+- [ ] Snap to the bleed edge: `targets` in `web/src/snap.ts` adds only the trim box of each
+  sheet; add the box grown by `bleed` on every side (outer edges only on a spread, as the bleed
+  is drawn).
+- [ ] BUG-9 redo of a creating command gives new ids.
+- [ ] BUG-1 lengths without an upper bound; with it BUG-19 (grid count and size), BUG-7 (page
+  size 0), BUG-18 (section start), BUG-22 (negative gap on hug frames). One bound per quantity in
+  the engine checks, the same as `min`/`max` on the fields.
+- [ ] BUG-6 grouping a group with its own child leaves a stray group.
+- [ ] BUG-10 opened files skip the checks; with it BUG-12 (broken image or font), BUG-20 (gradient
+  without stops), BUG-21 (stops out of order).
+- [ ] BUG-2 failed autosave is silent; with it BUG-17 (two tabs) and BUG-3 (trap while restoring).
+- [ ] BUG-16 find and replace across pages.
+- [ ] BUG-13 EXIF orientation.
+- [ ] BUG-14 missing glyphs and pasted line breaks.
+- [ ] UX-4 Alt shortcuts on macOS and AltGr.
+- [ ] A11Y-1 contrast of `--text-3`, light accent, bad and warn.
+- [ ] Real size zoom: a zoom level at which 1 mm on the document is 1 mm on the display
+  (calibrated once in the settings, since the browser does not know the screen's ppi).
+- [ ] Update the screenshot in the README.
+- [ ] Low findings, in report order: BUG-4, BUG-5, BUG-11, BUG-15, BUG-23, UX-1, UX-2, UX-3,
+  UX-6, UX-7, UX-9, UX-10, PERF-4, PERF-6, PERF-8, PERF-9, TEST-1, TEST-3, TEST-4, CI-1, ARCH-1,
+  DOC-2, DOC-1, ARCH-3, ARCH-4, PERF-11, SEC-1, BUG-8.
+
+## Performance
+
+Profile and numbers in `AGENT/performance.md`. Measure before and after each item.
+
+- [ ] Browser benchmark: Playwright with `performance.now()` around `apply`, `snapshot` +
+  `JSON.parse`, `index()` and `paint` on 1, 8 and 32 pages.
+- [ ] Keep the `perf` setup as an ignored bench (`PHASE=… cargo test prof`) with frame pointers.
+- [ ] `opt-level = 3` (or per package for harfrust, tiny-skia, linesweeper, moxcms, loro); compare
+  WASM size.
+- [ ] WASM with `+simd128,+bulk-memory`; tiny-skia's `simd` is scalar without `simd128`.
+- [ ] Cache decoded display lists in `renderer.ts` by `(id, listVersion)` instead of `.slice()` +
+  `decode()` per paint.
+- [ ] Cache the bleed path union in `Renderer.draw` by the sheets instead of `Path.MakeFromOp` per
+  frame.
+- [ ] Build `palette()` once per `finish` for `flow_all` and `build_snapshot`.
+- [ ] `use_profile` compares the 240 KB ICC bytes on every commit; compare a hash.
+- [ ] Cache `to_rgb` per CMYK value in the thread's `Cms`.
+- [ ] `Doc::save` reads image hashes through serde_json (26 % of save); read the `LoroValue`.
+- [ ] `hit`: reject by rotated bounds first, collect sibling masks once per level.
+- [ ] Palette and variable changes still lay out every root in `Doc::finish`.
+- [ ] Cache `kind` per `TreeID`, invalidated on structural changes.
+- [ ] Deserialize node meta straight from `LoroValue` in `snap`, `layout`, `flow`, `snapshot_of`.
+- [ ] Shapers and metrics per font id in a `thread_local` instead of per `text::rows` call.
+- [ ] Cache hyphenation points per word and language.
+- [ ] Cache Knuth-Plass breaks per paragraph by (shaped paragraph, column width, wrap insets).
+- [ ] `text::draw`: `run_text` and ranges only for the PDF, paint and font class ids per span,
+  `Vec::with_capacity`, no `str::replace` per run.
+- [ ] Cache `Style::shape` outlines per (shape, size).
+- [ ] Snapshot JSON: short number formatter (`ryu`, 2 decimals) and ids without escaping, or binary.
+- [ ] Coalesce drag `SetFrame` to 1 per animation frame.
+- [ ] Export worker: send Loro updates since its version vector instead of `save()` + `load()`.
+- [ ] Autosave appends Loro updates to IndexedDB and compacts now and then.
+- [ ] Optimistic typing and drag without the engine (transform the cached `SkPicture`, not when
+  text wraps around the item).
+- [ ] Split `watch()` so hovers notify only the overlay; virtualize the layers tree.
+- [ ] Snapping: sort the lines once per drag, binary search in `snap`, `nearest`, `spacings`.
+- [ ] Canvas: pan and zoom on the last bitmap, keep overlay SVG elements, group end index in the
+  display list, cache blur and shadow layers per item and zoom, share the picture cache with the
+  overview, render neighbours and thumbnails in idle time, tiles per zoom level.
+- [ ] Raster: layer pixmaps and clip masks bounded to the item, no `out` layer without shadow,
+  blur only alpha, integer offsets for lowp, downsample large sigmas, cache rasterized items by
+  hash, faster deflate.
+- [ ] Inks per dirty rect, 1 pass with an N-channel blitter, separation per distinct colour.
+- [ ] PDF: cache encoded image streams by hash, subset fonts and encode images in workers.
+- [ ] Startup: `wasm-opt -O3`, `talc` or `lol_alloc`, move photo, FOGRA51 and fonts out of the
+  WASM, cache the compiled module, store the snapshot next to the Loro bytes, a smaller CanvasKit.
+- [ ] Large rebuilds: `u32` node handles, memoized queries replacing `sets`/`sheets`/`flows`/
+  `kept_sheets`/`drawn`, a typed arena from Loro events, WASM threads, a render worker, inks on
+  WebGPU.
+
 ## Later
 
-- Threading: click an in-port to thread a frame in before another, as InDesign does. (versteh ich nicht ganz bitte erklären bevor es umgesetzt wird)
+- [ ] Threading through the in-port (explain to the user before building it): in InDesign each
+  text frame has an in-port at its top left and an out-port at its bottom right. Clicking the
+  in-port of a frame that is already in a thread and then another frame puts that frame *before*
+  it, so the story flows through the new frame first. Satz can only append through `next`.
+- [ ] Figma import from a file or an account.
+- [ ] Start page listing all projects, as in Figma.
+- [ ] Table of contents.
+- [ ] Date variable, like the page number.
+- [ ] Conditional text with variables.
+- [ ] Tables.
+- [ ] Anchored objects.
+- [ ] Linked images: per document, chosen at creation, embed or link. Linking uses File System
+  Access (Chromium) with handles in IndexedDB, so links need a click per session and are missing
+  on other computers; Firefox shows the option disabled with a hint. Preflight reports missing
+  links with relink.
+- [ ] Variable font axes as in Figma. krilla 0.8.2 exports them (`Font::new_variable` instances
+  the subset) and harfrust shapes them; CanvasKit 0.42 has no variation binding, so the canvas
+  draws such glyphs as paths from skrifa at the font's location, cached per font, location and
+  glyph.
+- [ ] Place SVG and PDF as vectors, kept as vectors in the exported PDF.
+- [ ] Version history from the Loro history: browse and restore earlier states.
+- [ ] GREP styles.
+- [ ] Colour wheel in the picker for harmonies (analogous, complementary, …).
+- [ ] AI connection for the common providers, as in Figma.
+- [ ] With a server: work together on one project through a link or code.
