@@ -259,7 +259,7 @@ export const addFonts = (editor: Editor) =>
     for (const file of files) await addFont(editor, file)
   })
 
-/** Asks for PNG and JPEG files and places each on the current page. */
+/** Asks for an ICC profile and makes it the document's CMYK profile. */
 export const pickProfile = (editor: Editor) =>
   pick('.icc,.icm', false, async ([file]) => {
     if (!file) return
@@ -270,6 +270,7 @@ export const pickProfile = (editor: Editor) =>
     }
   })
 
+/** Asks for PNG and JPEG files and places each on the current page. */
 export const placeImages = (editor: Editor) =>
   pick('.png,.jpg,.jpeg', true, async (files) => {
     for (const file of files) await placeImage(editor, file)
