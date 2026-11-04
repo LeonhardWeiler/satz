@@ -20,14 +20,17 @@ const ARROWS: Record<string, [number, number]> = {
   ArrowDown: [0, 1],
 }
 
+/** The key of `e` in lower case, a letter read from its place while Alt is held, as macOS Option and AltGr change the character. */
+export const keyOf = (e: KeyboardEvent) => (e.altKey && /^Key[A-Z]$/.test(e.code) ? e.code.slice(3) : e.key).toLowerCase()
+
 /** The alignment or boolean whose Alt shortcut `e` is. */
 const altKey = <T>(list: [T, string, string, string][], e: KeyboardEvent) =>
-  list.find(([, , , k]) => k === `${e.ctrlKey || e.metaKey ? 'Ctrl+' : ''}Alt+${e.shiftKey ? 'Shift+' : ''}${e.key.toUpperCase()}`)?.[0]
+  list.find(([, , , k]) => k === `${e.ctrlKey || e.metaKey ? 'Ctrl+' : ''}Alt+${e.shiftKey ? 'Shift+' : ''}${keyOf(e).toUpperCase()}`)?.[0]
 
 /** Figma UI3 shortcuts with Ctrl for Cmd. Returns true when the key was handled. */
 export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
   const mod = e.ctrlKey || e.metaKey
-  const key = e.key.toLowerCase()
+  const key = keyOf(e)
   const ids = editor.selection
   const one = editor.nodes.get(ids[0])
   const siblings = (one?.parent?.children ?? editor.page.children).map((n) => n.id)

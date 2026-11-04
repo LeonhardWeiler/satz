@@ -24,7 +24,7 @@ test('layers align to each other, a single layer to its frame, and three distrib
   await page.keyboard.press('Control+z')
   await layers.getByRole('button', { name: 'Sun', exact: true }).click()
 
-  await page.keyboard.press('Alt+A')
+  await page.evaluate(() => document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'å', code: 'KeyA', altKey: true, bubbles: true, cancelable: true })))
   expect(await x('Sun')).toBe(0)
 
   await layers.getByRole('button', { name: 'Star', exact: true }).click({ modifiers: ['Control'] })

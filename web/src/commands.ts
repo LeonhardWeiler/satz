@@ -2,6 +2,7 @@ import { align, ALIGNS, BOOLEANS, combinable, combine } from './align'
 import type { Editor } from './editor'
 import type { Props } from './model'
 import { settings } from './settings'
+import { keyOf } from './keys'
 
 /** A command by its title, shortcut and group; one without `run` runs by pressing its shortcut, one whose `can` fails is greyed out in the context menu. */
 export type Action = { title: string; keys: string; group: string; run?: (editor: Editor) => void; can?: (editor: Editor) => boolean }
@@ -182,7 +183,7 @@ export const keysOf = (a: Action) => settings.keys[a.title] ?? a.keys
 export function comboOf(e: KeyboardEvent) {
   if (['Control', 'Meta', 'Alt', 'Shift'].includes(e.key)) return null
   const named = Object.entries(KEYS).find(([, [key]]) => key === e.key)?.[0]
-  const key = /^[a-z]$/i.test(e.key) ? e.key.toUpperCase() : /^Digit\d$/.test(e.code) ? e.code.at(-1)! : e.key === ' ' ? 'Space' : (named ?? e.key)
+  const key = /^[a-z]$/.test(keyOf(e)) ? keyOf(e).toUpperCase() : /^Digit\d$/.test(e.code) ? e.code.at(-1)! : e.key === ' ' ? 'Space' : (named ?? e.key)
   const shift = e.shiftKey && (key.length > 1 || /^[A-Z\d]$/.test(key))
   return [e.ctrlKey || e.metaKey ? 'Ctrl' : '', e.altKey ? 'Alt' : '', shift ? 'Shift' : '', key].filter(Boolean).join(' ')
 }
