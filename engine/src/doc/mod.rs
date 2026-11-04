@@ -1825,6 +1825,7 @@ impl Doc {
             [horizontal, !horizontal].map(|a| cl.size(a) == Size::Fill)
         };
         let hug = [horizontal, !horizontal].map(|a| l.size(a) == Size::Hug);
+        let apart = |a: [f64; 4], b: [f64; 4]| a.iter().zip(b).any(|(a, b)| (a - b).abs() > 1e-9);
         // A child whose size follows the one it gets, like text that fills the width
         // and hugs its height, sends the frame round again.
         for _ in 0..4 {
@@ -1839,14 +1840,14 @@ impl Doc {
                 .collect();
             let (size, boxes) = arrange(&l, pad, [ms, cs], hug, &children);
             let frame = unaxes([[m0, size[0]], [c0, size[1]]]);
-            if frame != old {
+            if apart(frame, old) {
                 self.set_frame(id, frame)?;
             }
             let mut again = false;
             for (&c, [[a0, a], [b0, b]]) in flow.iter().zip(boxes) {
                 let old = self.bounds(c);
                 let new = unaxes([[m0 + a0, a], [c0 + b0, b]]);
-                if new != old {
+                if apart(new, old) {
                     self.set_frame(c, new)?;
                     if new[2..] != old[2..] {
                         self.lay_out(c)?;
@@ -4282,6 +4283,46 @@ mod tests {
         text.insert(0, "a").unwrap();
         text.mark(0..1, "size", 1e40).unwrap();
         assert!(Doc::load(&d.save()).is_err());
+    }
+
+    #[test]
+    fn a_group_in_an_auto_layout_lays_out_the_same_again() {
+        let (mut d, p) = empty();
+        let mm = |v: f64| (v + 1.0 / 7.0) * 72.0 / 25.4;
+        let a = create(
+            &mut d,
+            &p,
+            NewKind::Rect,
+            [mm(10.0), mm(58.0), mm(16.0), mm(16.0)],
+        );
+        let b = create(
+            &mut d,
+            &p,
+            NewKind::Rect,
+            [mm(147.0), mm(175.0), mm(15.0), mm(10.0)],
+        );
+        let c = create(
+            &mut d,
+            &p,
+            NewKind::Rect,
+            [mm(165.0), mm(175.0), mm(15.0), mm(10.0)],
+        );
+        let f = d
+            .apply(Command::AutoLayout { ids: vec![c] })
+            .unwrap()
+            .remove(0);
+        let g = d
+            .apply(Command::Group {
+                ids: vec![a, b],
+                frame: false,
+            })
+            .unwrap();
+        d.apply(Command::Move {
+            ids: g,
+            parent: f,
+            index: 0,
+        })
+        .unwrap();
     }
 
     #[test]
