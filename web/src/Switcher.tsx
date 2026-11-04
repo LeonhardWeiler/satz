@@ -40,7 +40,7 @@ export function Switcher({ editor }: { editor: Editor }) {
           <Icon name="chevron" />
         </button>
       </div>
-      <button type="button" className="switcher-add" aria-label="Add page" title="Add page (Ctrl Shift P)" onClick={() => editor.showPage(editor.apply({ type: 'addPage', after: pages.at(-1)!.id })[0])}>
+      <button type="button" className="switcher-add" aria-label="Add page" title="Add page (Ctrl Alt P)" onClick={() => editor.showPage(editor.apply({ type: 'addPage', after: pages.at(-1)!.id })[0])}>
         <Icon name="plus" />
         <span>Page</span>
       </button>

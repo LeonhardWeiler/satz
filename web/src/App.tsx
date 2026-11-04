@@ -120,7 +120,7 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
       else if (mod && !e.altKey && !e.shiftKey && e.code === 'KeyO') open(editor)
       else if (mod && e.altKey && !e.shiftKey && e.code === 'KeyN') setStarting(true)
       else if (mod && e.shiftKey && !e.altKey && e.code === 'KeyK') placeImages(editor)
-      else if (mod && e.shiftKey && !e.altKey && e.code === 'KeyP') addPage(editor)
+      else if (mod && e.altKey && !e.shiftKey && e.code === 'KeyP') addPage(editor)
       else if (mod && !e.shiftKey && !e.altKey && e.code === 'KeyK') setDialog('palette')
       else if (mod && e.code === 'Comma') setDialog('settings')
       else if (mod && !e.shiftKey && !e.altKey && e.code === 'KeyF') setFinding(true)

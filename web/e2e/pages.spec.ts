@@ -122,3 +122,9 @@ test('layout grids show on the page, hide with shift g, apply to all pages and c
   await expect(count).toHaveValue('3')
   await expect(panel.getByRole('textbox', { name: 'Rows' })).toHaveValue('3')
 })
+
+test('Ctrl Alt P adds a page, since Firefox keeps Ctrl Shift P', async ({ page }) => {
+  await open(page)
+  await page.keyboard.press('Control+Alt+p')
+  await expect(current(page, 2)).toHaveAttribute('aria-pressed', 'true')
+})

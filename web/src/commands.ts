@@ -41,7 +41,7 @@ export const ACTIONS: Action[] = [
   { title: 'Previous spread', keys: 'PgUp', group: 'Pages' },
   { title: 'First spread', keys: 'Home', group: 'Pages' },
   { title: 'Last spread', keys: 'End', group: 'Pages' },
-  { title: 'Add page', keys: 'Ctrl Shift P', group: 'Pages', run: addPage },
+  { title: 'Add page', keys: 'Ctrl Alt P', group: 'Pages', run: addPage },
   {
     title: 'Delete selected pages',
     keys: '',
