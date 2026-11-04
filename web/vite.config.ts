@@ -21,6 +21,20 @@ export default defineConfig({
           })),
     },
     {
+      name: 'content-security-policy',
+      apply: 'build',
+      transformIndexHtml: () => [
+        {
+          tag: 'meta',
+          attrs: {
+            'http-equiv': 'Content-Security-Policy',
+            content: "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; img-src 'self' blob: data:; style-src 'self' 'unsafe-inline'",
+          },
+          injectTo: 'head-prepend',
+        },
+      ],
+    },
+    {
       name: 'service-worker',
       apply: 'build',
       generateBundle(_, bundle) {
