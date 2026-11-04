@@ -5076,7 +5076,8 @@ mod tests {
         let mut b = booklet();
         let (_, hash) = place(&mut b.d, &b.pages[0], 2, 2);
         b.d.add_image(&image::tests::png(3, 3)).unwrap();
-        let files = crate::zip::unzip(&b.d.package("Satz", "2026-09-28T12:00:00Z", &[0]).unwrap());
+        let zip = b.d.package("Satz", "2026-09-28T12:00:00Z", &[0]).unwrap();
+        let files = crate::zip::unzip(&zip);
         let names: Vec<&str> = files.iter().map(|f| f.0.as_str()).collect();
         assert_eq!(
             names,
@@ -5089,6 +5090,11 @@ mod tests {
         );
         assert!(Doc::load(&files[0].1).is_ok());
         assert!(files[1].1.starts_with(b"%PDF"));
+        let at = zip
+            .windows(names[3].len())
+            .position(|w| w == names[3].as_bytes())
+            .unwrap();
+        assert_eq!(zip[at - 30 + 8], 0, "the image is stored");
     }
 
     #[test]

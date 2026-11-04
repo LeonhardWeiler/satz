@@ -1,4 +1,4 @@
-/// A ZIP archive of `files`, each deflated, dated `date` in ISO 8601 as
+/// A ZIP archive of `files`, PNG and JPEG images stored and the rest deflated, dated `date` in ISO 8601 as
 /// `2026-09-28T12:00:00Z`.
 pub fn zip(files: &[(String, Vec<u8>)], date: &str) -> Vec<u8> {
     let n = |a: usize, b: usize| date.get(a..b).and_then(|s| s.parse().ok()).unwrap_or(0u16);
@@ -6,9 +6,14 @@ pub fn zip(files: &[(String, Vec<u8>)], date: &str) -> Vec<u8> {
     let time = (n(11, 13) << 11) | (n(14, 16) << 5) | (n(17, 19) / 2);
     let (mut out, mut central) = (Vec::new(), Vec::new());
     for (name, data) in files {
-        let packed = miniz_oxide::deflate::compress_to_vec(data, 6);
+        let store = name.ends_with(".png") || name.ends_with(".jpg");
+        let packed = if store {
+            data
+        } else {
+            &miniz_oxide::deflate::compress_to_vec(data, 6)
+        };
         let head = [
-            &[20, 0, 0, 8, 8, 0][..],
+            &[20, 0, 0, 8, if store { 0 } else { 8 }, 0][..],
             &time.to_le_bytes(),
             &day.to_le_bytes(),
             &crc32fast::hash(data).to_le_bytes(),
@@ -26,7 +31,7 @@ pub fn zip(files: &[(String, Vec<u8>)], date: &str) -> Vec<u8> {
         out.extend_from_slice(&[0x50, 0x4b, 3, 4]);
         out.extend_from_slice(&head);
         out.extend_from_slice(name.as_bytes());
-        out.extend_from_slice(&packed);
+        out.extend_from_slice(packed);
     }
     let (at, size, count) = (out.len() as u32, central.len() as u32, files.len() as u16);
     out.extend_from_slice(&central);
@@ -48,7 +53,11 @@ pub fn unzip(zip: &[u8]) -> Vec<(String, Vec<u8>)> {
     while zip[i..].starts_with(&[0x50, 0x4b, 3, 4]) {
         let (size, name) = (u32_at(i + 18) as usize, u16_at(i + 26));
         let start = i + 30 + name;
-        let data = miniz_oxide::inflate::decompress_to_vec(&zip[start..start + size]).unwrap();
+        let packed = &zip[start..start + size];
+        let data = match zip[i + 8] {
+            0 => packed.to_vec(),
+            _ => miniz_oxide::inflate::decompress_to_vec(packed).unwrap(),
+        };
         assert_eq!(crc32fast::hash(&data), u32_at(i + 14));
         assert_eq!(data.len(), u32_at(i + 22) as usize);
         files.push((
