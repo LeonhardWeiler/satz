@@ -347,7 +347,7 @@ impl Doc {
             Some(a) => self.page(&a)?,
             None => *pages.last().ok_or("no page")?,
         };
-        let p = self.tree.create(None).map_err(err)?;
+        let p = self.new_node(TreeParentId::Root, None)?;
         self.tree.mov_after(p, like).map_err(err)?;
         let (m, from) = (self.meta(p), self.meta(like));
         m.insert(KIND, NodeKind::Page.as_str()).map_err(err)?;
@@ -364,7 +364,7 @@ impl Doc {
 
     pub(super) fn duplicate_page(&self, id: String) -> Res<Vec<String>> {
         let from = self.page(&id)?;
-        let p = self.tree.create(None).map_err(err)?;
+        let p = self.new_node(TreeParentId::Root, None)?;
         self.tree.mov_after(p, from).map_err(err)?;
         let m = self.meta(p);
         for (k, v) in self.meta(from).get_value().into_map().unwrap().iter() {
@@ -539,7 +539,7 @@ impl Doc {
             .map(|c| format!("{c}-Master"))
             .find(|n| !names.contains(n))
             .ok_or("no free master name")?;
-        let p = self.tree.create(None).map_err(err)?;
+        let p = self.new_node(TreeParentId::Root, None)?;
         let (m, from) = (self.meta(p), self.meta(like));
         m.insert(KIND, NodeKind::Master.as_str()).map_err(err)?;
         m.insert("name", name).map_err(err)?;

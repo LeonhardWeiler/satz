@@ -36,7 +36,7 @@ impl Doc {
     }
 
     pub(super) fn paste(&self, clip: &Clip, parent: TreeParentId, index: usize) -> Res<TreeID> {
-        let new = self.tree.create_at(parent, index).map_err(err)?;
+        let new = self.new_node(parent, Some(index))?;
         let to = self.meta(new);
         for (k, v) in clip.meta.clone().into_map().unwrap().iter() {
             match (k.as_str(), v) {

@@ -729,6 +729,8 @@ pub struct Doc {
     undo: UndoManager,
     /// Whether an undo group that `BeginUndoGroup` began is open.
     grouped: bool,
+    /// Empty nodes in the trash that `new_node` takes, `None` until counted again.
+    spares: RefCell<Option<Vec<TreeID>>>,
     clipboard: Vec<(Clip, Option<TreeID>)>,
     /// The flows through all text layers and the snapshot, from the end of the last
     /// command on.
@@ -778,6 +780,9 @@ const IMAGE_ORIGIN: &str = "image";
 
 /// The origin of commits that set text again for a font added, which undo leaves alone.
 const LAYOUT_ORIGIN: &str = "layout";
+
+/// How many spare nodes `refill` keeps for new layers.
+const SPARES: usize = 64;
 
 /// Properties a variable can bind to: a font variable to `font`, a number variable
 /// to the others; lengths count in mm, opacity in %, text size in pt.
@@ -987,6 +992,7 @@ impl Doc {
             notes: RefCell::default(),
             undo: undo_manager(&doc),
             grouped: false,
+            spares: RefCell::default(),
             version: format!("{:?}", doc.oplog_frontiers()),
             doc,
             tree,
@@ -1362,6 +1368,11 @@ impl Doc {
         self.notes.take();
         let history = matches!(cmd, Command::Undo | Command::Redo);
         let alone = !history && !self.grouped;
+        if history {
+            self.spares.take();
+        } else if alone {
+            self.refill()?;
+        }
         if alone {
             self.undo.group_start().map_err(err)?;
         }
@@ -1534,7 +1545,7 @@ impl Doc {
     fn create(&self, parent: &str, kind: NewKind, frame: [f64; 4]) -> Res<TreeID> {
         let p = self.container(parent)?;
         check_frame(frame)?;
-        let id = self.tree.create(p).map_err(err)?;
+        let id = self.new_node(p, None)?;
         let m = self.meta(id);
         let mode = self.color_mode();
         let closed = Props {
@@ -2055,7 +2066,7 @@ impl Doc {
         let top = *ids.last().ok_or("nothing to group")?;
         let parent = self.tree.parent(top).ok_or("no parent")?;
         let index = self.index(top) + 1;
-        let g = self.tree.create_at(parent, index).map_err(err)?;
+        let g = self.new_node(parent, Some(index))?;
         let m = self.meta(g);
         let kind = if frame {
             NodeKind::Frame
@@ -2099,23 +2110,66 @@ impl Doc {
     /// restores them with their id.
     fn remove(&self, id: TreeID) -> Res<()> {
         self.unlink_all(id)?;
-        let trash = match self
-            .tree
+        let trash = self.trash()?;
+        self.prevs.take();
+        self.tree.mov(id, trash).map_err(err)
+    }
+
+    fn trash(&self) -> Res<TreeID> {
+        if let Some(t) = self.trash_root() {
+            return Ok(t);
+        }
+        let t = self.tree.create(None).map_err(err)?;
+        self.meta(t)
+            .insert(KIND, NodeKind::Trash.as_str())
+            .map_err(err)?;
+        Ok(t)
+    }
+
+    /// Keeps empty nodes in the trash, created outside the undo history, for `new_node`.
+    fn refill(&self) -> Res<()> {
+        let mut spares = self.spares.borrow_mut();
+        if spares.is_none() {
+            let trash = self.trash_root();
+            *spares = Some(
+                trash
+                    .and_then(|t| self.tree.children(t))
+                    .unwrap_or_default()
+                    .into_iter()
+                    .filter(|&c| self.meta(c).is_empty() && self.tree.children_num(c) == Some(0))
+                    .collect(),
+            );
+        }
+        let spares = spares.as_mut().unwrap();
+        if spares.len() >= SPARES / 2 {
+            return Ok(());
+        }
+        self.doc.set_next_commit_origin(LAYOUT_ORIGIN);
+        let trash = self.trash()?;
+        while spares.len() < SPARES {
+            spares.push(self.tree.create(trash).map_err(err)?);
+        }
+        self.doc.commit();
+        Ok(())
+    }
+
+    fn trash_root(&self) -> Option<TreeID> {
+        self.tree
             .roots()
             .into_iter()
             .find(|&r| self.kind(r) == Some(NodeKind::Trash))
-        {
-            Some(t) => t,
-            None => {
-                let t = self.tree.create(None).map_err(err)?;
-                self.meta(t)
-                    .insert(KIND, NodeKind::Trash.as_str())
-                    .map_err(err)?;
-                t
-            }
-        };
-        self.prevs.take();
-        self.tree.mov(id, trash).map_err(err)
+    }
+
+    /// A new node under `parent` at `index` or last: a spare from the trash, so that
+    /// undo moves it back there and redo brings it out again with its id.
+    fn new_node(&self, parent: impl Into<TreeParentId>, index: Option<usize>) -> Res<TreeID> {
+        let parent = parent.into();
+        let i = index.unwrap_or_else(|| self.tree.children_num(parent).unwrap_or(0));
+        match self.spares.borrow_mut().as_mut().and_then(Vec::pop) {
+            Some(id) => self.tree.mov_to(id, parent, i).map(|()| id),
+            None => self.tree.create_at(parent, i),
+        }
+        .map_err(err)
     }
 
     /// The transform that turns `id` and its content by its rotation and its ancestors'.
@@ -3968,6 +4022,33 @@ mod tests {
         d.apply(Command::Undo).unwrap();
         d.apply(Command::Undo).unwrap();
         assert_eq!(d.snapshot().pages, grouped);
+    }
+
+    #[test]
+    fn redo_brings_created_nodes_back_with_their_ids() {
+        let (mut d, p) = empty();
+        let m = add_master(&mut d);
+        use_master(&mut d, &p, Some(&m)).unwrap();
+        let a = fixed_text(&mut d, &p, [0.0, 0.0, 50.0, 50.0]);
+        let b = fixed_text(&mut d, &p, [60.0, 0.0, 50.0, 50.0]);
+        thread(&mut d, &a, &b).unwrap();
+        d.apply(Command::Group {
+            ids: vec![a, b],
+            frame: false,
+        })
+        .unwrap();
+        add_page(&mut d, None);
+        let before = d.snapshot();
+        let steps = 9;
+        for _ in 0..steps {
+            d.apply(Command::Undo).unwrap();
+        }
+        for _ in 0..steps {
+            d.apply(Command::Redo).unwrap();
+        }
+        let after = d.snapshot();
+        assert_eq!(after.pages, before.pages);
+        assert_eq!(after.masters, before.masters);
     }
 
     #[test]
