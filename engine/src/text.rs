@@ -139,6 +139,33 @@ pub fn characters(hash: Option<&str>) -> (u32, Vec<(u32, String)>) {
     (id, chars)
 }
 
+/// The first character of `text`, other than white space, that the font of its
+/// span lacks; fonts that are missing themselves do not count.
+pub fn missing_glyph(text: &str, spans: &[Span]) -> Option<char> {
+    let mut chars = text.chars();
+    spans.iter().find_map(|s| {
+        let id = font_id(&s.attrs.font);
+        let bytes = font_bytes(id);
+        let font = skrifa::FontRef::new(&bytes).ok();
+        let map = font.as_ref().map(|f| f.charmap());
+        let mut found = None;
+        let mut n = 0;
+        while n < s.len {
+            let Some(c) = chars.next() else { break };
+            n += c.len_utf16();
+            if found.is_none()
+                && id & MISSING == 0
+                && !c.is_whitespace()
+                && c != PAGE_NUMBER
+                && map.as_ref().is_some_and(|m| m.map(c).is_none())
+            {
+                found = Some(c);
+            }
+        }
+        found
+    })
+}
+
 /// Removes the added font `hash`; its id stays, with no bytes.
 pub fn remove_font(hash: &str) {
     FONTS.with_borrow_mut(|f| {

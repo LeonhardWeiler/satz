@@ -326,6 +326,7 @@ export type TextStyle = { id: string; name: string; bindings: Partial<Record<Bin
 export type Issue = { page: string; layer: string; name: string } & (
   | { problem: 'overset' | 'shortOfBleed' | 'rgb' | 'gamut' }
   | { problem: 'missingFont'; font: string }
+  | { problem: 'missingGlyph'; character: string }
   | { problem: 'lowPpi'; ppi: number }
   | { problem: 'ink'; ink: number }
   | { problem: 'nearTrim'; distance: number }

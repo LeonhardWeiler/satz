@@ -1,4 +1,5 @@
 import type { Editor } from './editor'
+import type { TextNode } from './model'
 
 /** Stands for the number of the page a text is on, as InDesign's Current Page Number. */
 export const PAGE_NUMBER = '\u0018'
@@ -51,8 +52,11 @@ export function insert(editor: Editor, text: string) {
   const [a, b] = range(e)
   if (!text && a === b) return
   editor.beginTyping()
+  const length = () => editor.storyOf(editor.nodes.get(e.id)!.node as TextNode).text.length
+  const before = length()
   editor.apply({ type: 'editText', id: e.id, range: [a, b], text })
-  editor.set({ editing: { id: e.id, anchor: a + text.length, focus: a + text.length } })
+  const at = b + length() - before
+  editor.set({ editing: { id: e.id, anchor: at, focus: at } })
 }
 
 export function select(editor: Editor, anchor: number, focus: number) {

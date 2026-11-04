@@ -1478,8 +1478,8 @@ impl Doc {
                 h,
                 crop,
             } => self.reframe(id, x, y, w, h, crop),
-            Command::SetText { id, text } => self.set_text(id, text),
-            Command::EditText { id, range, text } => self.edit_text(id, range, text),
+            Command::SetText { id, text } => self.set_text(id, story::clean(&text)),
+            Command::EditText { id, range, text } => self.edit_text(id, range, story::clean(&text)),
             Command::Format { id, range, props } => self.format(id, range, props),
             Command::ScaleText { id, by } => {
                 self.scale_text(self.node(&id)?, by)?;

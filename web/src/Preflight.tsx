@@ -18,9 +18,10 @@ const problem = (i: Issue, editor: Editor) =>
   : i.problem === 'gamut' ? 'Color outside the gamut'
   : i.problem === 'ink' ? `${Math.round(i.ink)} % ink`
   : i.problem === 'nearTrim' ? `${length(i.distance)} from the trim`
+  : i.problem === 'missingGlyph' ? `The font lacks ${JSON.stringify(i.character)}`
   : 'RGB color'
 
-export const isError = (i: Issue) => ['overset', 'missingFont', 'shortOfBleed', 'ink'].includes(i.problem)
+export const isError = (i: Issue) => ['overset', 'missingFont', 'missingGlyph', 'shortOfBleed', 'ink'].includes(i.problem)
 const options = (values: number[], unit: string, zero: string, v: number) =>
   Object.fromEntries([...new Set([0, ...values, v])].map((n) => [String(n), n ? `${n} ${unit}` : zero]))
 const count = (n: number, what: string) => `${n} ${what}${n === 1 ? '' : 's'}`

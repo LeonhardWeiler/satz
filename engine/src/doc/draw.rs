@@ -96,6 +96,10 @@ pub enum Problem {
         ink: f64,
     },
     /// Ends `distance` pt inside the trim, closer than `SAFE`.
+    /// Has `character`, which its font lacks.
+    MissingGlyph {
+        character: String,
+    },
     NearTrim {
         distance: f64,
     },
@@ -449,6 +453,11 @@ pub(super) fn visit(
                         .iter()
                         .flat_map(|s| s.attrs.fill.iter().chain(&s.attrs.shading)),
                 );
+                if let Some(c) = text::missing_glyph(&content.text, &content.spans) {
+                    problems.push(Problem::MissingGlyph {
+                        character: c.to_string(),
+                    });
+                }
                 problems.extend(
                     snap.missing_fonts
                         .iter()
@@ -2139,6 +2148,29 @@ mod tests {
             .map(|i| i.0)
             .collect();
         assert!([bleeds, short, inside, t].iter().all(|id| rgb.contains(id)));
+    }
+
+    #[test]
+    fn pasted_line_breaks_break_lines_and_glyphs_the_font_lacks_are_a_problem() {
+        let (mut d, p) = empty();
+        let t = fixed_text(&mut d, &p, [0.0, 0.0, 400.0, 400.0]);
+        set_text(&mut d, &t, "a\r\nb\u{2028}c\u{b}d\u{0}\te\u{18}");
+        let content = |d: &Doc| match &page(d).children[0].kind {
+            Kind::Text { content, .. } => content.text.clone(),
+            _ => unreachable!(),
+        };
+        assert_eq!(content(&d), "a\nb\nc\nd\te\u{18}");
+        assert_eq!(problems(&d), []);
+        set_text(&mut d, &t, "a 漢");
+        assert_eq!(
+            problems(&d),
+            [(
+                t,
+                Problem::MissingGlyph {
+                    character: "漢".into()
+                }
+            )]
+        );
     }
 
     #[test]

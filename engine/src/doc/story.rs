@@ -273,6 +273,20 @@ pub(super) fn utf16_of(s: &str, byte: usize) -> usize {
     s[..byte.min(s.len())].encode_utf16().count()
 }
 
+/// `text` with Word's and InDesign's line breaks and CR LF as `\n` and without
+/// other control characters but tabs and page numbers.
+pub(super) fn clean(text: &str) -> String {
+    text.replace("\r\n", "\n")
+        .chars()
+        .filter_map(|c| match c {
+            '\r' | '\u{b}' | '\u{c}' | '\u{2028}' | '\u{2029}' => Some('\n'),
+            '\n' | '\t' | text::PAGE_NUMBER => Some(c),
+            c if c.is_control() => None,
+            c => Some(c),
+        })
+        .collect()
+}
+
 impl Doc {
     /// Adds a font to those text can be set in and sets the text again.
     pub fn add_font(&mut self, bytes: &[u8]) -> Res<Typeface> {
