@@ -339,6 +339,8 @@ export type Snapshot = Palette & {
   facingPages: boolean
   /** The ids of the pages of each spread from left to right. */
   spreads: string[][]
+  /** The number each page shows, as its section counts it. */
+  labels: string[]
   /** The story of each thread by its first frame. */
   stories: Record<string, Story>
   rasterPpi: number

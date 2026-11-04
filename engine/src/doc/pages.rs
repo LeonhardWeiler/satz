@@ -1585,6 +1585,7 @@ mod tests {
         })
         .unwrap();
         assert_eq!(numbers(&d), ["A-ix", "A-x", "A-xii"]);
+        assert_eq!(d.snapshot().labels, ["A-ix", "A-x", "A-xi", "A-xii"]);
     }
 
     #[test]

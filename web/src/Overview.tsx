@@ -347,7 +347,7 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     return thumb(
       p.id,
       `Page ${n}`,
-      `Page ${n}${master ? `, master ${master.name}` : ''}`,
+      `Page ${snapshot.labels[n - 1]}${master ? `, master ${master.name}` : ''}`,
       false,
       <Thumb paint={paint} snapshot={snapshot} lists={[{ id: p.id, x: 0 }]} sheets={[sheet(p)]} height={PAGE} />,
     )
@@ -453,7 +453,7 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
                     const m = masters.find((m) => m.id === pages[ids.indexOf(id)].master)
                     return (
                       <span key={id}>
-                        {ids.indexOf(id) + 1}
+                        {snapshot.labels[ids.indexOf(id)]}
                         {m && (
                           <>
                             {' · '}

@@ -16,6 +16,7 @@ export function Layers({ editor }: { editor: Editor }) {
   const selection = useEditor(editor, (e) => e.selection)
   const renaming = useEditor(editor, (e) => e.renaming)
   const all = useEditor(editor, (e) => e.snapshot.pages)
+  const labels = useEditor(editor, (e) => e.snapshot.labels)
   const pages = useSettings().layers === 'spread' ? editor.spread : [page]
   const master = all.includes(page) ? editor.masterOf(page) : undefined
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
@@ -217,7 +218,7 @@ export function Layers({ editor }: { editor: Editor }) {
     <nav className="panel layers" aria-label="Layers">
       <header className="panel-header">
         <Icon name="layers" />
-        <h2>{`Layers · ${!all.includes(page) ? page.name : pages.length > 1 ? `Pages ${all.indexOf(pages[0]) + 1}–${all.indexOf(pages.at(-1)!) + 1}` : `Page ${all.indexOf(page) + 1}`}`}</h2>
+        <h2>{`Layers · ${!all.includes(page) ? page.name : pages.length > 1 ? `Pages ${labels[all.indexOf(pages[0])]}–${labels[all.indexOf(pages.at(-1)!)]}` : `Page ${labels[all.indexOf(page)]}`}`}</h2>
       </header>
       {pages.every((p) => !p.children.length) && <p className="empty layers-empty">No layers yet</p>}
       <ul

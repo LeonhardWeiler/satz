@@ -26,6 +26,8 @@ pub struct Snapshot {
     /// The ids of the pages of each spread from left to right: with facing pages the
     /// first page alone on the right, then pairs; else each page alone.
     pub spreads: Vec<Vec<String>>,
+    /// The number each page shows, as its section counts it.
+    pub labels: Vec<String>,
     /// The story of each thread by its first frame.
     #[serde(serialize_with = "by_id")]
     pub stories: BTreeMap<TreeID, Rc<Story>>,
@@ -890,6 +892,7 @@ impl Doc {
         };
         let facing_pages = self.facing_pages();
         let pages: Vec<_> = places.iter().map(|p| sheet(p.id, Some(p))).collect();
+        let labels = places.iter().map(|p| self.number(p.id)).collect();
         let spreads = spreads(pages.len(), facing_pages);
         let stories: BTreeMap<_, _> = flows.values().map(|f| (f.head, f.story.clone())).collect();
         let mut missing_fonts: Vec<MissingFont> = Vec::new();
@@ -925,6 +928,7 @@ impl Doc {
                 .map(|s| s.iter().map(|&i| pages[i].id.clone()).collect())
                 .collect(),
             pages,
+            labels,
             masters: self.masters().into_iter().map(|m| sheet(m, None)).collect(),
             facing_pages,
             raster_ppi: num(&document, "rasterPpi"),

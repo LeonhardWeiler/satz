@@ -66,15 +66,26 @@ function usePreview(editor: Editor, on: boolean) {
 
 const PRESETS: Record<Preset, string> = { x4: 'PDF/X-4, print', x1a: 'PDF/X-1a, print', screen: 'PDF, screen' }
 
-/** The indices of the pages `text` names, as `1-3, 5`, all when it is empty; null when it names a page that is not there. */
-function pagesOf(text: string, n: number) {
-  if (!text.trim()) return [...Array(n).keys()]
+/** The indices of the pages that `text` names by the numbers they show or their place, all for an empty text, null when one is not there. */
+function pagesOf(text: string, labels: string[]) {
+  if (!text.trim()) return [...labels.keys()]
+  const at = (s: string) => {
+    const i = labels.findIndex((l) => l.toLowerCase() === s.trim().toLowerCase())
+    return i >= 0 ? i : /^\s*\d+\s*$/.test(s) && +s >= 1 && +s <= labels.length ? +s - 1 : -1
+  }
+  const span = (part: string): [number, number] | null => {
+    if (at(part) >= 0) return [at(part), at(part)]
+    for (const m of part.matchAll(/[-–]/g)) {
+      const [a, b] = [at(part.slice(0, m.index)), at(part.slice(m.index + 1))]
+      if (a >= 0 && b >= a) return [a, b]
+    }
+    return null
+  }
   const out = new Set<number>()
   for (const part of text.split(',')) {
-    const m = /^\s*(\d+)\s*(?:[-–]\s*(\d+)\s*)?$/.exec(part)
-    const [a, b] = m ? [+m[1], +(m[2] ?? m[1])] : [0, 0]
-    if (a < 1 || b > n || a > b) return null
-    for (let i = a; i <= b; i++) out.add(i - 1)
+    const r = span(part)
+    if (!r) return null
+    for (let i = r[0]; i <= r[1]; i++) out.add(i)
   }
   return [...out].sort((x, y) => x - y)
 }
@@ -99,12 +110,13 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
   const pointerInk = useEditor(editor, (e) => e.pointerInk)
   usePreview(editor, colorMode === 'cmyk')
 
-  const chosen = pagesOf(range, pages.length)
+  const labels = useEditor(editor, (e) => e.snapshot.labels)
+  const chosen = pagesOf(range, labels)
   const sorted = [...issues].sort((a, b) => Number(isError(b)) - Number(isError(a)))
   const errors = issues.filter(isError).length
   const where = (id: string) => {
     const n = pages.findIndex((p) => p.id === id)
-    return n < 0 ? masters.find((m) => m.id === id)?.name : `Page ${n + 1}`
+    return n < 0 ? masters.find((m) => m.id === id)?.name : `Page ${labels[n]}`
   }
   const show = (i: Issue) => {
     editor.showPage(i.page)
@@ -229,7 +241,7 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
               onChange={(e) => setRange(e.currentTarget.value)}
             />
           </label>
-          {chosen === null && <p className="pf-error">{pages.length > 1 ? `Pages 1–${pages.length}, e.g. 1-3, 5` : 'Only page 1'}</p>}
+          {chosen === null && <p className="pf-error">{labels.length > 1 ? `Pages ${labels[0]}–${labels.at(-1)}, e.g. 1-3, 5` : `Only page ${labels[0]}`}</p>}
           {(format === 'png' || format === 'jpeg') && (
             <Field label="Resolution" title="Resolution" unit="ppi" min={72} max={1200} reset={300} value={rasterPpi} onCommit={(rasterPpi) => editor.apply({ type: 'setDocument', rasterPpi })} />
           )}

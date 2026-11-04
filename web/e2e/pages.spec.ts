@@ -1,4 +1,4 @@
-import { expect, test, addPage, colors, current, drag, open, option, overview, screen, showPage, choose } from './util'
+import { expect, test, addPage, colors, current, drag, exportButton, open, option, overview, screen, showPage, choose } from './util'
 
 test('pages are added, shown, reordered, duplicated and deleted with undo', async ({ page }) => {
   await open(page)
@@ -127,4 +127,23 @@ test('Ctrl Alt P adds a page, since Firefox keeps Ctrl Shift P', async ({ page }
   await open(page)
   await page.keyboard.press('Control+Alt+p')
   await expect(current(page, 2)).toHaveAttribute('aria-pressed', 'true')
+})
+
+test('the layers panel, the overview and the export range use the numbers a section gives its pages', async ({ page }) => {
+  await open(page)
+  await addPage(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  await panel.getByRole('checkbox', { name: 'Start section' }).check()
+  await choose(panel.getByRole('combobox', { name: 'Numbering' }), 'i, ii, iii')
+  await expect(page.getByRole('heading', { name: 'Layers · Page ii', exact: true })).toBeVisible()
+  await overview(page)
+  await expect(option(page, 2)).toHaveAttribute('title', /^Page ii\b/)
+  await page.keyboard.press('Escape')
+  const go = await exportButton(page)
+  const range = page.getByRole('region', { name: 'Preflight' }).getByRole('textbox', { name: 'Pages to export' })
+  await range.fill('iii')
+  await expect(go).toBeDisabled()
+  await expect(page.getByText('Pages 1–ii, e.g. 1-3, 5')).toBeVisible()
+  await range.fill('1-ii')
+  await expect(go).toBeEnabled()
 })
