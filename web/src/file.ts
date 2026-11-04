@@ -152,7 +152,7 @@ function run<T>(job: Job, editor: Editor, preview?: Preview, out?: Out) {
 }
 
 /** The files of `out`, made in a worker. */
-export const exportFiles = (editor: Editor, out: Out) => run<{ files: Uint8Array[] }>(exporter, editor, undefined, out).then((r) => r.files)
+export const exportFile = (editor: Editor, out: Out) => run<{ file: Uint8Array }>(exporter, editor, undefined, out).then((r) => r.file)
 
 /** The inks of pages as the preflight shows them, rasterized in a worker. */
 export const preview = (editor: Editor, p: Preview) => run<Previewed>(previewer, editor, p)

@@ -500,6 +500,16 @@ pub fn typeface(bytes: &[u8]) -> Result<JsValue, JsError> {
     Ok(serde_wasm_bindgen::to_value(&face)?)
 }
 
+/// A ZIP of the files `data` named `names`, dated `date` in ISO 8601 UTC.
+#[wasm_bindgen]
+pub fn zip(names: Vec<String>, data: Vec<Uint8Array>, date: &str) -> Vec<u8> {
+    let files: Vec<_> = names
+        .into_iter()
+        .zip(data.iter().map(Uint8Array::to_vec))
+        .collect();
+    zip::zip(&files, date)
+}
+
 /// The letters that the page numbers of the master `name` show.
 #[wasm_bindgen]
 pub fn prefix(name: &str) -> String {

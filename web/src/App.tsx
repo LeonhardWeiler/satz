@@ -9,7 +9,7 @@ import { Help } from './Help'
 import { Settings } from './SettingsDialog'
 import { Find } from './Find'
 import { settings } from './settings'
-import { autosave, download, drop, exportFiles, open, placeImages, save } from './file'
+import { autosave, download, drop, exportFile, open, placeImages, save } from './file'
 import { Icon } from './icons'
 import { handleKey } from './keys'
 import { Layers } from './Layers'
@@ -49,19 +49,18 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
   const exportAs = (format: Format, pages: number[]) => {
     if (exporting) return
     const kind = format === 'zip' ? 'package' : format.toUpperCase()
-    const ext = format === 'jpeg' ? 'jpg' : format
-    const type = format === 'pdf' || format === 'zip' ? `application/${format}` : `image/${format}`
+    const image = format === 'png' || format === 'jpeg'
+    const zipped = image && pages.length > 1
+    const ext = zipped ? 'zip' : format === 'jpeg' ? 'jpg' : format
+    const type = image && !zipped ? `image/${format}` : `application/${ext}`
     setExporting(true)
     say(`Exporting ${kind}…`)
-    exportFiles(editor, format === 'pdf' || format === 'zip' ? { type: `application/${format}`, title, pages } : { type: `image/${format}`, ppi: editor.snapshot.rasterPpi, pages })
+    exportFile(editor, image ? { type: `image/${format}`, ppi: editor.snapshot.rasterPpi, title, pages } : { type: `application/${format}`, title, pages })
       .then(
-        (files) => {
-          const names = files.map((bytes, i) => {
-            const file = type.startsWith('image/') && editor.snapshot.pages.length > 1 ? `${title}-${pages[i] + 1}.${ext}` : `${title}.${ext}`
-            download(bytes, file, type)
-            return file
-          })
-          say(`Exported ${names.length > 1 ? `${names.length} pages` : names[0]}`)
+        (bytes) => {
+          const file = image && !zipped && editor.snapshot.pages.length > 1 ? `${title}-${pages[0] + 1}.${ext}` : `${title}.${ext}`
+          download(bytes, file, type)
+          say(`Exported ${zipped ? `${pages.length} pages as ${file}` : file}`)
         },
         (e: Error) => editor.fail(`Could not export the ${kind}: ${e.message}. Reload the page and try again.`),
       )
