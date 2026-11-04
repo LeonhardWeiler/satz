@@ -854,13 +854,13 @@ beyond the orbit of the Earth. Frank Borman, James Lovell and William Anders wer
 way to the Moon, a journey of almost three days.";
 
 /// `cargo test --release -p engine heavy_documents -- --ignored` writes
-/// `target/perf/heavy-{1,20,50}.satz` for the browser benchmark `web/e2e/perf.spec.ts`.
+/// `target/perf/heavy-{1,8,32}.satz` for the browser benchmark `web/e2e/perf.spec.ts`.
 #[test]
 #[ignore]
 fn heavy_documents() {
     let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../target/perf");
     std::fs::create_dir_all(dir).unwrap();
-    for n in [1, 20, 50] {
+    for n in [1, 8, 32] {
         std::fs::write(format!("{dir}/heavy-{n}.satz"), heavy(n).save()).unwrap();
     }
 }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CanvasKit, Surface } from 'canvaskit-wasm'
-import { INSETS, MM, bounds, ends, insertion, useEditor, type Editor, type Point, type Tool } from './editor'
+import { INSETS, MM, bounds, ends, insertion, timed, useEditor, type Editor, type Point, type Tool } from './editor'
 import type { Container, NewKind, Node, Page, TextNode } from './model'
 import { radii, rounded } from './model'
 import { penPath } from './pen'
@@ -470,6 +470,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       cancelAnimationFrame(frame)
       frame = 0
       if (!surface || editor.overview) return
+      const start = performance.now()
       const [cw, ch] = [canvas.clientWidth / 2, canvas.clientHeight / 2]
       view.x = Math.min(Math.max(view.x, cw - EDGE * view.zoom), cw + EDGE * view.zoom)
       view.y = Math.min(Math.max(view.y, ch - EDGE * view.zoom), ch + EDGE * view.zoom)
@@ -570,6 +571,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const at = (axis: 'x' | 'y', o: number) => snapped.filter((g) => g.axis === axis).map((g) => o + g.at * view.zoom)
       drawRuler(rulerX.current!, true, x0, view.zoom * UNITS[settings.unit], sel && [view.x + sel.x * view.zoom, view.x + (sel.x + sel.w) * view.zoom], at('x', view.x))
       drawRuler(rulerY.current!, false, view.y, view.zoom * UNITS[settings.unit], sel && [view.y + sel.y * view.zoom, view.y + (sel.y + sel.h) * view.zoom], at('y', view.y))
+      timed('paint', start)
     }
     const show = (to: View) => {
       Object.assign(view, to)

@@ -20,6 +20,9 @@ const FRAMED = ['create', 'placeImage', 'setFrame']
 const GRID: Record<string, number> = { x: 10, y: 10, w: 100, h: 100 }
 const FRACTIONS = ['opacity', 'sweep', 'inner', 'ratio']
 
+/** With `satzPerf` set on the window, the time since `start` as `name` in the performance timeline. */
+export const timed = 'satzPerf' in globalThis ? (name: string, start: number) => void performance.measure(name, { start }) : () => {}
+
 /**
  * Puts x and y on a 0.1 mm grid and w and h on 0.01 mm unless they stay as in `was`, and the
  * fractions of 1 on 4 decimals and the other numbers of `cmd` on 2, except the factor `by`.
@@ -326,15 +329,21 @@ export class Editor {
 
   private change<T>(f: () => T): T {
     const at = this.snapshot.pages.findIndex((p) => p.id === this.pageId)
+    let start = performance.now()
     try {
       return f()
     } finally {
+      timed('apply', start)
+      start = performance.now()
       this.snapshot = this.read()
+      timed('snapshot', start)
       const { pages, masters } = this.snapshot
       if (!pages.some((p) => p.id === this.pageId) && !masters.some((p) => p.id === this.pageId)) {
         this.pageId = pages[Math.max(0, Math.min(at, pages.length - 1))].id
       }
+      start = performance.now()
       this.nodes = this.index()
+      timed('index', start)
       this.selection = this.selection.filter((id) => this.nodes.has(id))
       const v = this.vector && this.nodes.get(this.vector.id)?.node
       if (v && !(v.kind === 'shape' && v.shape === 'path')) this.vector = null
