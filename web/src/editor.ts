@@ -122,7 +122,7 @@ export class Editor {
   /** Replaces the document by the one saved in `bytes`; on an error it stays as it was. */
   load(bytes: Uint8Array, file = UNTITLED, dirty = false) {
     this.engine.load(bytes)
-    Object.assign(this, { selection: [], tool: 'move', renaming: null, hover: null, guide: null, pen: null, editing: null, threading: null, placing: [], overview: null, cropping: null })
+    Object.assign(this, { selection: [], tool: 'move', renaming: null, hover: null, guide: null, pen: null, editing: null, threading: null, placing: [], overview: null, cropping: null, vector: null, copied: null, copies: null })
     this.typing = false
     this.groups = 0
     this.snapshot = this.read()
