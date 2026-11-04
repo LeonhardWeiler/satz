@@ -32,28 +32,7 @@ font helper, i18n.
 
 IDs name finding cards in `AGENT/project-health-report.html`; read the card for cause and fix.
 
-- [ ] Snap to the bleed edge: `targets` in `web/src/snap.ts` adds only the trim box of each
-  sheet; add the box grown by `bleed` on every side (outer edges only on a spread, as the bleed
-  is drawn).
-- [ ] BUG-9 redo of a creating command gives new ids.
-- [ ] BUG-1 lengths without an upper bound; with it BUG-19 (grid count and size), BUG-7 (page
-  size 0), BUG-18 (section start), BUG-22 (negative gap on hug frames). One bound per quantity in
-  the engine checks, the same as `min`/`max` on the fields.
-- [ ] BUG-6 grouping a group with its own child leaves a stray group.
-- [ ] BUG-10 opened files skip the checks; with it BUG-12 (broken image or font), BUG-20 (gradient
-  without stops), BUG-21 (stops out of order).
-- [ ] BUG-2 failed autosave is silent; with it BUG-17 (two tabs) and BUG-3 (trap while restoring).
-- [ ] BUG-16 find and replace across pages.
-- [ ] BUG-13 EXIF orientation.
-- [ ] BUG-14 missing glyphs and pasted line breaks.
-- [ ] UX-4 Alt shortcuts on macOS and AltGr.
-- [ ] A11Y-1 contrast of `--text-3`, light accent, bad and warn.
-- [ ] Real size zoom: a zoom level at which 1 mm on the document is 1 mm on the display
-  (calibrated once in the settings, since the browser does not know the screen's ppi).
-- [ ] Update the screenshot in the README.
-- [ ] Low findings, in report order: BUG-4, BUG-5, BUG-11, BUG-15, BUG-23, UX-1, UX-2, UX-3,
-  UX-6, UX-7, UX-9, UX-10, PERF-4, PERF-6, PERF-8, PERF-9, TEST-1, TEST-3, TEST-4, CI-1, ARCH-1,
-  DOC-2, DOC-1, ARCH-3, ARCH-4, PERF-11, SEC-1, BUG-8.
+- [ ] TEST-1, blocked: Playwright's Firefox gets no WebGL 2 context headless or under Xvfb.
 
 ## Performance
 
