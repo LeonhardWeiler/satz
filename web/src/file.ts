@@ -104,14 +104,14 @@ export function download(bytes: Uint8Array, name: string, type: string) {
   URL.revokeObjectURL(url)
 }
 
-/** A worker with the fonts it was sent, the bundled one from the start, and the version of the document it has. */
-type Job = { worker?: Worker; fonts: number; version: string }
-const exporter: Job = { fonts: 1, version: '' }
-const previewer: Job = { fonts: 1, version: '' }
+/** A worker with the fonts it was sent, the bundled one from the start, the version of the document it has and its last job, which the next waits for. */
+type Job = { worker?: Worker; fonts: number; version: string; queue: Promise<unknown> }
+const exporter: Job = { fonts: 1, version: '', queue: Promise.resolve() }
+const previewer: Job = { fonts: 1, version: '', queue: Promise.resolve() }
 
 function reset(job: Job) {
   job.worker?.terminate()
-  Object.assign(job, { worker: undefined, fonts: 1, version: '' })
+  Object.assign(job, { worker: undefined, fonts: 1, version: '', queue: Promise.resolve() })
 }
 
 /** Removes the added font `hash` from the document's fonts, this browser and the workers. */
@@ -122,29 +122,33 @@ export async function removeFont(editor: Editor, hash: string) {
   await result((await store('fonts')).delete(hash))
 }
 
-/** Sends the document to the worker of `job`, as far as it does not have it, to run `preview` or make `out`. */
+/** Sends the document to the worker of `job`, as far as it does not have it, to run `preview` or make `out` once its last job is done. */
 function run<T>(job: Job, editor: Editor, preview?: Preview, out?: Out) {
-  const w = (job.worker ??= new Worker(new URL('./exportWorker.ts', import.meta.url), { type: 'module' }))
-  const n = editor.engine.fontsAdded()
-  const fonts = Array.from({ length: n - job.fonts }, (_, i) => editor.engine.font(job.fonts + i))
-  const version = editor.engine.version()
-  const doc = version === job.version ? null : editor.engine.save()
-  return new Promise<T>((done, fail) => {
-    w.onmessage = ({ data }: MessageEvent<T & { error?: string }>) => {
-      if (data.error !== undefined) {
-        reset(job)
-        return fail(new Error(data.error))
+  const next = job.queue.then(() => {
+    const w = (job.worker ??= new Worker(new URL('./exportWorker.ts', import.meta.url), { type: 'module' }))
+    const n = editor.engine.fontsAdded()
+    const fonts = Array.from({ length: n - job.fonts }, (_, i) => editor.engine.font(job.fonts + i))
+    const version = editor.engine.version()
+    const doc = version === job.version ? null : editor.engine.save()
+    return new Promise<T>((done, fail) => {
+      w.onmessage = ({ data }: MessageEvent<T & { error?: string }>) => {
+        if (data.error !== undefined) {
+          reset(job)
+          return fail(new Error(data.error))
+        }
+        job.fonts = n
+        job.version = version
+        done(data)
       }
-      job.fonts = n
-      job.version = version
-      done(data)
-    }
-    w.onerror = (e) => {
-      reset(job)
-      fail(new Error(e.message))
-    }
-    w.postMessage({ doc, fonts, preview, out }, [...(doc ? [doc.buffer] : []), ...fonts.map((f) => f.buffer)])
+      w.onerror = (e) => {
+        reset(job)
+        fail(new Error(e.message))
+      }
+      w.postMessage({ doc, fonts, preview, out }, [...(doc ? [doc.buffer] : []), ...fonts.map((f) => f.buffer)])
+    })
   })
+  job.queue = next.catch(() => {})
+  return next
 }
 
 /** The files of `out`, made in a worker. */
