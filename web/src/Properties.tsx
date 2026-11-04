@@ -421,13 +421,13 @@ export function Properties({ editor }: { editor: Editor }) {
               <Field label="Points" title="Points" unit="" int min={3} max={60} value={one.count} onCommit={(count) => set({ count })} />
             )}
             {one.shape === 'star' && (
-              <Field label="Inner radius" title="Inner radius" unit="%" min={1} max={100} value={one.ratio * 100} onCommit={(v) => set({ ratio: v / 100 })} />
+              <Field label="Inner radius" title="Inner radius" unit="%" digits={1} min={1} max={100} value={one.ratio * 100} onCommit={(v) => set({ ratio: v / 100 })} />
             )}
             {one.shape === 'ellipse' && (
               <>
                 <Field label="Start" title="Arc start" unit="°" min={-Infinity} reset={0} value={one.start} onCommit={(v) => set({ start: ((v % 360) + 360) % 360 })} />
                 <Field label="Sweep" title="Arc sweep" unit="°" max={360} reset={360} value={one.sweep * 360} onCommit={(v) => set({ sweep: v / 360 })} />
-                <Field label="Inner radius" title="Inner radius" unit="%" max={100} reset={0} value={one.inner * 100} onCommit={(v) => set({ inner: v / 100 })} />
+                <Field label="Inner radius" title="Inner radius" unit="%" digits={1} max={100} reset={0} value={one.inner * 100} onCommit={(v) => set({ inner: v / 100 })} />
               </>
             )}
           </div>
@@ -443,7 +443,7 @@ export function Properties({ editor }: { editor: Editor }) {
               'opacity',
               'Opacity',
               'Opacity',
-              <Field label="Opacity" title="Opacity" unit="%" max={100} value={same((n) => n.opacity * 100)} onCommit={(v) => set({ opacity: v / 100 })} />,
+              <Field label="Opacity" title="Opacity" unit="%" digits={1} max={100} value={same((n) => n.opacity * 100)} onCommit={(v) => set({ opacity: v / 100 })} />,
             )}
             <Select label="Blend mode" value={same((n) => n.blend)} options={BLENDS} breaks={BLEND_GROUPS} onChange={(blend) => set({ blend })} />
             {one?.kind === 'frame' && (

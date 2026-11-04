@@ -89,7 +89,7 @@ test('properties the selected layers share are edited together', async ({ page }
   const layers = page.getByRole('tree', { name: 'Layers' })
   await layers.getByRole('button', { name: 'Sun', exact: true }).click()
   await layers.getByRole('button', { name: 'Triangle', exact: true }).click({ modifiers: ['Control'] })
-  await panel.getByRole('textbox', { name: 'Opacity in %', exact: true }).fill('50')
+  await panel.getByRole('textbox', { name: 'Opacity in %', exact: true }).fill('12.5')
   await panel.getByRole('textbox', { name: 'Opacity in %', exact: true }).press('Enter')
   const fill = panel.getByRole('region', { name: 'Fill' })
   await expect(fill).toContainText('Mixed · + replaces all')
@@ -97,7 +97,7 @@ test('properties the selected layers share are edited together', async ({ page }
   await expect(fill.getByRole('button', { name: 'Fill color' })).toHaveCount(1)
   for (const name of ['Sun', 'Triangle']) {
     await layers.getByRole('button', { name, exact: true }).click()
-    await expect(panel.getByRole('textbox', { name: 'Opacity in %', exact: true })).toHaveValue('50')
+    await expect(panel.getByRole('textbox', { name: 'Opacity in %', exact: true })).toHaveValue('12.5')
     await expect(fill.getByRole('button', { name: 'Fill color' })).toHaveCount(1)
   }
 })

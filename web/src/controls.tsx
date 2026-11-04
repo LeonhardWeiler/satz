@@ -17,7 +17,7 @@ export function roam(e: KeyboardEvent, items: Element[], back = ['ArrowUp'], for
   return true
 }
 
-const round = (v: number, unit: string) => (unit === '%' ? Math.round(v) : Math.round(v * 100) / 100)
+const round = (v: number, digits: number) => Math.round(v * 10 ** digits) / 10 ** digits
 
 /**
  * A number input that takes expressions with units. ↑/↓ step it, Shift by 10 and Alt by 0.1;
@@ -32,6 +32,7 @@ export function Field({
   readOnly,
   zero,
   int,
+  digits = given === '%' ? 0 : 2,
   min = 0,
   max = given === 'length' || given === 'pt' ? MAX_LENGTH : Infinity,
   reset,
@@ -49,6 +50,8 @@ export function Field({
   zero?: string
   /** Whole numbers with − and + buttons. */
   int?: boolean
+  /** The decimals shown and taken. */
+  digits?: number
   /** In pt for lengths. */
   min?: number
   max?: number
@@ -65,10 +68,10 @@ export function Field({
   const unit = given === 'length' ? lengths : given
   const per = given === 'length' ? UNITS[lengths] : 1
   const title = name && unit ? `${name} in ${unit}` : (name ?? unit)
-  const shown = value === null ? null : round(value / per, unit)
+  const shown = value === null ? null : round(value / per, digits)
   const put = (v: number) => {
     const c = zero && v === 0 ? 0 : Math.min(max / per, Math.max(min / per, v))
-    onCommit?.((int ? Math.round(c) : round(c, unit)) * per)
+    onCommit?.((int ? Math.round(c) : round(c, digits)) * per)
   }
   const edit = !readOnly && !disabled && onCommit && shown !== null
   const cur = shown ?? 0

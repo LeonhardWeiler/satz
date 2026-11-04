@@ -18,10 +18,11 @@ export const MM = 72 / 25.4
 export const INSETS = { insetTop: MM, insetRight: MM, insetBottom: MM, insetLeft: MM }
 const FRAMED = ['create', 'placeImage', 'setFrame']
 const GRID: Record<string, number> = { x: 10, y: 10, w: 100, h: 100 }
+const FRACTIONS = ['opacity', 'sweep', 'inner', 'ratio']
 
 /**
  * Puts x and y on a 0.1 mm grid and w and h on 0.01 mm unless they stay as in `was`, and the
- * other numbers of `cmd` on 2 decimals, except the factor `by`.
+ * fractions of 1 on 4 decimals and the other numbers of `cmd` on 2, except the factor `by`.
  */
 function rounded(cmd: Command, was?: Node): Command {
   const cents = (v: number) => Math.round(v * 100) / 100
@@ -29,7 +30,7 @@ function rounded(cmd: Command, was?: Node): Command {
   for (const [k, v] of Object.entries(cmd)) {
     const per = FRAMED.includes(cmd.type) ? GRID[k] : undefined
     if (per && was?.[k as keyof Node] === v) continue
-    if (typeof v === 'number' && k !== 'by') out[k] = per ? (Math.round((v / MM) * per) / per) * MM : cents(v)
+    if (typeof v === 'number' && k !== 'by') out[k] = per ? (Math.round((v / MM) * per) / per) * MM : FRACTIONS.includes(k) ? Math.round(v * 1e4) / 1e4 : cents(v)
     else if (Array.isArray(v) && v.every((n) => typeof n === 'number')) out[k] = v.map(cents)
   }
   return out as Command
