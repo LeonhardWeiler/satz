@@ -77,7 +77,7 @@ test('a name another master has is rejected in the status bar', async ({ page })
   await pages.getByTitle('B-Master', { exact: true }).dblclick()
   await pages.getByRole('textbox', { name: 'Master name' }).fill('A-Master')
   await pages.getByRole('textbox', { name: 'Master name' }).press('Enter')
-  await expect(page.getByText('a master named A-Master exists')).toBeVisible()
+  await expect(page.getByText('Could not set master: a master named A-Master exists')).toBeVisible()
   await expect(pages.getByRole('option', { name: 'B-Master', exact: true })).toBeVisible()
 })
 

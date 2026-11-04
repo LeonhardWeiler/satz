@@ -237,7 +237,7 @@ export class Editor {
       return out
     } catch (e) {
       if (e instanceof WebAssembly.RuntimeError) throw e
-      this.fail((e as Error).message)
+      this.fail(`Could not ${cmd.type.replace(/[A-Z]/g, (c) => ` ${c.toLowerCase()}`)}: ${(e as Error).message}`)
       return []
     }
   }

@@ -231,7 +231,7 @@ function pick(accept: string, multiple: boolean, picked: (files: File[]) => void
 
 async function keep(editor: Editor, bytes: Uint8Array) {
   const face: Typeface = editor.addFont(bytes)
-  await result((await store('fonts')).put(bytes, face.hash))
+  await store('fonts').then((s) => result(s.put(bytes, face.hash))).catch((e: Error) => editor.fail(`${face.name} is used now but not kept for the next visit: ${e.message}.`))
   return face
 }
 
