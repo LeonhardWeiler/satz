@@ -225,7 +225,7 @@ impl Build {
     }
 }
 
-fn poster() -> Doc {
+pub(crate) fn poster() -> Doc {
     let (mut b, page) = Build::new(420.0, 594.0, false);
     let p = &page;
     let orange = b.swatch("Satz Orange", cmyk(0.0, 0.55, 1.0, 0.0, 1.0), true);
@@ -376,7 +376,7 @@ This poster was set with Satz, which lays out pages in the browser and writes pr
     b.0
 }
 
-fn booklet() -> Doc {
+pub(crate) fn booklet() -> Doc {
     let (w, h) = (148.0, 210.0);
     let (mut b, first) = Build::new(w, h, true);
     let mut pages = vec![first];

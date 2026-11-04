@@ -5142,6 +5142,15 @@ mod tests {
     }
 
     #[test]
+    fn loading_a_document_writes_nothing() {
+        use crate::examples::{booklet, heavy, poster};
+        for d in [poster(), booklet(), heavy(2)] {
+            let loaded = Doc::load(&d.save()).unwrap();
+            assert_eq!(loaded.doc.oplog_vv(), d.doc.oplog_vv());
+        }
+    }
+
+    #[test]
     fn a_saved_booklet_loads_as_it_was_without_undo_history() {
         let mut b = booklet();
         b.d.apply(Command::Delete {
