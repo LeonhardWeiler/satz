@@ -8,6 +8,8 @@ export const PAGE_NUMBER = '\u0018'
 export type Editing = { id: string; anchor: number; focus: number }
 
 const words = new Intl.Segmenter(undefined, { granularity: 'word' })
+const graphemes = new Intl.Segmenter()
+export const MAC = /Mac|iP/.test(navigator.platform)
 
 export function textOf(editor: Editor) {
   const n = editor.editing && editor.nodes.get(editor.editing.id)?.node
@@ -18,25 +20,24 @@ export function range(e: Editing): [number, number] {
   return [Math.min(e.anchor, e.focus), Math.max(e.anchor, e.focus)]
 }
 
-/** The code point boundary before `i`, or the start of the word before it. */
+/** The grapheme boundary before `i`, or the start of the word before it. */
 function before(text: string, i: number, word: boolean) {
   if (word) {
     let at = 0
     for (const s of words.segment(text)) if (s.isWordLike && s.index < i) at = s.index
     return at
   }
-  const low = text.charCodeAt(i - 1)
-  return i - (low >= 0xdc00 && low <= 0xdfff && i > 1 ? 2 : 1)
+  return i > 0 ? graphemes.segment(text).containing(i - 1)!.index : 0
 }
 
-/** The code point boundary after `i`, or the end of the word after it. */
+/** The grapheme boundary after `i`, or the end of the word after it. */
 function after(text: string, i: number, word: boolean) {
   if (word) {
     for (const s of words.segment(text)) if (s.isWordLike && s.index + s.segment.length > i) return s.index + s.segment.length
     return text.length
   }
-  const high = text.charCodeAt(i)
-  return i + (high >= 0xd800 && high <= 0xdbff ? 2 : 1)
+  const s = graphemes.segment(text).containing(i)
+  return s ? s.index + s.segment.length : text.length
 }
 
 /** The word around `i`, for a double-click. */
@@ -89,9 +90,13 @@ export function handleTextKey(editor: Editor, e: KeyboardEvent): boolean {
   const { focus } = ed
   const extend = e.shiftKey
   const engine = editor.engine
+  const word = MAC ? e.altKey : mod
   if (e.key === 'Escape') editor.stopEditing()
-  else if (e.key === 'ArrowLeft') move(editor, a !== b && !extend && !mod ? a : Math.max(0, before(text, focus, mod)), extend)
-  else if (e.key === 'ArrowRight') move(editor, a !== b && !extend && !mod ? b : Math.min(text.length, after(text, focus, mod)), extend)
+  else if (MAC && e.metaKey && e.key.startsWith('Arrow')) {
+    const [start, end] = e.key === 'ArrowUp' || e.key === 'ArrowDown' ? [0, text.length] : engine.textLine(ed.id, focus)
+    move(editor, e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? start : end, extend)
+  } else if (e.key === 'ArrowLeft') move(editor, a !== b && !extend && !word ? a : before(text, focus, word), extend)
+  else if (e.key === 'ArrowRight') move(editor, a !== b && !extend && !word ? b : after(text, focus, word), extend)
   else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
     const up = e.key === 'ArrowUp'
     const [x, top, bottom] = engine.caret(ed.id, focus)
@@ -111,7 +116,7 @@ export function handleTextKey(editor: Editor, e: KeyboardEvent): boolean {
   } else if (e.key === 'Backspace' || e.key === 'Delete') {
     const forward = e.key === 'Delete'
     if (a === b) {
-      const to = forward ? Math.min(text.length, after(text, a, mod)) : Math.max(0, before(text, a, mod))
+      const to = forward ? after(text, a, word) : before(text, a, word)
       if (to === a) return true
       editor.set({ editing: { ...ed, anchor: a, focus: to } })
     }

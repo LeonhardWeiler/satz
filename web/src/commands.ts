@@ -3,6 +3,7 @@ import type { Editor } from './editor'
 import type { Props } from './model'
 import { settings } from './settings'
 import { keyOf } from './keys'
+import { MAC } from './textEdit'
 
 /** A command by its title, shortcut and group; one without `run` runs by pressing its shortcut, one whose `can` fails is greyed out in the context menu. */
 export type Action = { title: string; keys: string; group: string; run?: (editor: Editor) => void; can?: (editor: Editor) => boolean }
@@ -154,7 +155,6 @@ export const MENU = {
   none: ['Paste', 'Select all', null, 'Undo', 'Redo', null, 'Zoom to fit', 'Show or hide rulers', 'Add page', 'Page overview', null, 'Command palette', 'Keyboard shortcuts', 'Settings'],
 }
 
-const MAC = /Mac|iP/.test(navigator.platform)
 const SYMBOLS: Record<string, string> = { Ctrl: '⌘', Alt: '⌥', Shift: '⇧' }
 /** The key `k` as the platform names it: ⌘ ⌥ ⇧ on a Mac. */
 export const keyName = (k: string) => (MAC ? (SYMBOLS[k] ?? k) : k)
