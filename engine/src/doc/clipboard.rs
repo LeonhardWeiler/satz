@@ -197,7 +197,7 @@ mod tests {
         let a = create(&mut d, &p, NewKind::Rect, [0.0; 4]);
         let b = create(&mut d, &p, NewKind::Rect, [0.0; 4]);
         d.apply(Command::Copy {
-            ids: vec![t.clone(), f.clone()],
+            ids: vec![t.clone(), a.clone()],
         })
         .unwrap();
         d.apply(Command::Delete {
@@ -216,8 +216,11 @@ mod tests {
             ids(&pg.children),
             [&f, &a, &pasted[0], &pasted[1], &b].map(String::clone)
         );
-        assert_eq!(children(&pg.children[2]).len(), 1);
-        assert!(matches!(pg.children[3].kind, Kind::Text { .. }));
+        assert!(matches!(pg.children[2].kind, Kind::Text { .. }));
+        assert!(matches!(
+            pg.children[3].kind,
+            Kind::Shape(Shape::Rect { .. })
+        ));
         let again = d
             .apply(Command::Paste {
                 above: vec![],
@@ -225,7 +228,7 @@ mod tests {
             })
             .unwrap();
         let pg = page(&d);
-        assert_eq!(pg.children.last().unwrap().id, again[0]);
-        assert_eq!(ids(children(&pg.children[0])), [again[1].clone()]);
+        assert_eq!(pg.children.last().unwrap().id, again[1]);
+        assert_eq!(ids(children(&pg.children[0])), [again[0].clone()]);
     }
 }

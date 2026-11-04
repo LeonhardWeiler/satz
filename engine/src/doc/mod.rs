@@ -2245,13 +2245,19 @@ impl Doc {
         ids.iter().map(|id| self.layer(id)).collect()
     }
 
+    /// `ids` in tree order, without those inside another of them.
     fn sorted(&self, ids: &[String]) -> Res<Vec<TreeID>> {
         let ids = self.nodes(ids)?;
-        let mut all = Vec::new();
-        for p in self.tree.roots() {
-            self.walk(p, &mut all);
+        let mut out = Vec::new();
+        let mut stack: Vec<_> = self.tree.roots().into_iter().rev().collect();
+        while let Some(n) = stack.pop() {
+            if ids.contains(&n) {
+                out.push(n);
+            } else {
+                stack.extend(self.children(n).into_iter().rev());
+            }
         }
-        Ok(all.into_iter().filter(|n| ids.contains(n)).collect())
+        Ok(out)
     }
 
     fn walk(&self, id: TreeID, out: &mut Vec<TreeID>) {
@@ -3733,6 +3739,22 @@ mod tests {
         })
         .unwrap();
         assert!(d.apply(Command::Delete { ids: vec![a] }).is_err());
+    }
+
+    #[test]
+    fn grouping_a_group_with_its_child_groups_the_group() {
+        let (mut d, p) = empty();
+        let a = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
+        let group = |d: &mut Doc, ids: Vec<String>| {
+            d.apply(Command::Group { ids, frame: false })
+                .unwrap()
+                .remove(0)
+        };
+        let g = group(&mut d, vec![a.clone()]);
+        let outer = group(&mut d, vec![g.clone(), a]);
+        let pg = page(&d);
+        assert_eq!(ids(&pg.children), [outer]);
+        assert_eq!(ids(children(&pg.children[0])), [g]);
     }
 
     #[test]
