@@ -108,6 +108,20 @@ test('an OpenType feature set on all of a mixed text keeps the other features of
   await expect(ligatures).toBeChecked({ indeterminate: true })
 })
 
+test('the text panel shows the formatting of the selected text, not of the whole story', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
+  await page.mouse.dblclick(...(await screen(page, 60, 100)))
+  await page.keyboard.press('Control+Home')
+  await page.keyboard.press('Shift+ArrowRight')
+  await page.keyboard.press('Shift+ArrowRight')
+  const size = panel.getByRole('textbox', { name: 'Font size in pt' })
+  await size.fill('30')
+  await size.press('Enter')
+  await expect(size).toHaveValue('30')
+})
+
 test('the insert character menu and the search of all characters put dashes, quotes and signs into the edited text', async ({ page }) => {
   await open(page)
   await page.keyboard.press('t')

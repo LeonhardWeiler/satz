@@ -414,11 +414,14 @@ export function Font({ editor, id, fonts, compact, set }: { editor: Editor; id?:
 
 /** Text style, type and alignment of a text layer. */
 export function TextSection({ editor, node }: { editor: Editor; node: TextNode }) {
-  const spans = useEditor(editor, (e) => e.snapshot.stories[node.story])?.spans ?? []
-  const same = <T,>(get: (a: Attrs) => T) => sameOf(spans, get)
+  const all = useEditor(editor, (e) => e.snapshot.stories[node.story])?.spans ?? []
   const edited = useEditor(editor, (e) => (e.editing?.id === node.id && e.editing.anchor !== e.editing.focus ? e.editing : null))
+  const r = edited && range(edited)
+  let at = 0
+  const spans = r ? all.filter((s) => (at += s.len) > r[0] && at - s.len < r[1]) : all
+  const same = <T,>(get: (a: Attrs) => T) => sameOf(spans, get)
   /** Formats the selection of the text being edited, or else all of it. */
-  const format = (props: TextProps) => editor.apply({ type: 'format', id: node.id, range: edited && range(edited), ...props })
+  const format = (props: TextProps) => editor.apply({ type: 'format', id: node.id, range: r, ...props })
   const align = same((a) => a.textAlign)
   const hyphenate = same((a) => a.hyphenate)
   const lang = same((a) => a.lang)
@@ -459,7 +462,7 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
       </div>
       <div className="row">
         <Segmented label="Text align" value={align} options={ALIGNS} onChange={(textAlign) => format({ textAlign })} />
-        <TypeOptions spans={spans} set={format} features={featuresOf(editor, node.id, spans, edited && range(edited))} />
+        <TypeOptions spans={spans} set={format} features={featuresOf(editor, node.id, all, r)} />
       </div>
       <ColorCheck
         editor={editor}
