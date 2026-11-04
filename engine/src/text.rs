@@ -112,9 +112,8 @@ pub fn font_bytes(id: u32) -> Rc<[u8]> {
     FONTS.with_borrow(|f| f.get((id & !MISSING) as usize).unwrap_or(&f[0]).1.clone())
 }
 
-/// The id of the font `hash`, the bundled one for `None`, and its characters with
-/// their Unicode names.
-pub fn characters(hash: Option<&str>) -> (u32, Vec<(u32, String)>) {
+/// The id of the font `hash`, the bundled one for `None`, and its characters.
+pub fn characters(hash: Option<&str>) -> (u32, Vec<u32>) {
     let id = hash
         .and_then(|h| {
             FONTS.with_borrow(|f| f.iter().position(|(t, b)| t.hash == h && !b.is_empty()))
@@ -129,12 +128,7 @@ pub fn characters(hash: Option<&str>) -> (u32, Vec<(u32, String)>) {
         .mappings()
         .filter_map(|(c, _)| char::from_u32(c))
         .filter(|c| !c.is_control() && !c.is_whitespace())
-        .map(|c| {
-            (
-                c as u32,
-                unicode_names2::name(c).map_or(String::new(), |n| n.to_string()),
-            )
-        })
+        .map(|c| c as u32)
         .collect();
     (id, chars)
 }
@@ -1917,6 +1911,26 @@ pub fn index_at(lines: &[Line], x: f32, y: f32) -> usize {
 mod tests {
     use super::*;
 
+    #[test]
+    fn fixture_unicode_names() {
+        let names: String = (0..=0x10FFFF)
+            .filter_map(char::from_u32)
+            .filter_map(|c| {
+                let name = unicode_names2::name(c)?.to_string();
+                let hex = format!("{:X}", c as u32);
+                (!name.ends_with(&format!("-{hex}"))).then(|| format!("{hex} {name}\n"))
+            })
+            .collect();
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../web/src/unicode-names.txt");
+        if std::env::var_os("SATZ_WRITE_FIXTURES").is_some() {
+            std::fs::write(path, &names).unwrap();
+        }
+        assert!(
+            std::fs::read_to_string(path).is_ok_and(|f| f == names),
+            "{path} is stale; SATZ_WRITE_FIXTURES=1 cargo test fixture writes it"
+        );
+    }
+
     fn drawn(
         text: &str,
         spans: &[Span],
@@ -2326,10 +2340,10 @@ mod tests {
     }
 
     #[test]
-    fn the_bundled_font_lists_its_characters_with_their_names() {
+    fn the_bundled_font_lists_its_characters() {
         let (id, chars) = characters(None);
         assert_eq!(id, 0);
-        assert!(chars.contains(&(0xe9, "LATIN SMALL LETTER E WITH ACUTE".into())));
+        assert!(chars.contains(&0xe9));
     }
 
     #[test]

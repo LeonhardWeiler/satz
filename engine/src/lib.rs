@@ -406,7 +406,7 @@ impl Engine {
     }
 
     /// The id of the font `hash`, the bundled one for none, and its characters as
-    /// [code point, Unicode name].
+    /// code points.
     pub fn characters(&self, hash: Option<String>) -> Result<JsValue, JsError> {
         Ok(serde_wasm_bindgen::to_value(&text::characters(
             hash.as_deref(),

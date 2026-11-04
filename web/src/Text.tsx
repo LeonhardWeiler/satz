@@ -1,4 +1,4 @@
-import { Fragment, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
 import { Check, Field, FontSelect, Group, NameInput, nextName, Section, Segmented, Select, Sides, useSides } from './controls'
@@ -12,6 +12,7 @@ import { MAX_LENGTH } from './settings'
 import { PAGE_NUMBER, insert, range } from './textEdit'
 import { STYLED, type Attrs, type Props, type Span, type Styled, type Tab, type TextNode, type TextProps, type TextStyle, type Typeface, textSizing } from './model'
 import { Bindable } from './Variables'
+import namesUrl from './unicode-names.txt?url'
 
 
 export const ALIGNS = [
@@ -339,11 +340,22 @@ function Characters({ editor, node, font }: { editor: Editor; node: TextNode; fo
 
 const faces = new Set<number>()
 
+let names: Promise<Map<number, string>> | undefined
+/** The Unicode names by code point, fetched once. */
+const loadNames = () =>
+  (names ??= fetch(namesUrl)
+    .then((r) => r.text())
+    .then((t) => new Map(t.split('\n').filter(Boolean).map((l) => [parseInt(l, 16), l.slice(l.indexOf(' ') + 1)])))
+    .catch(() => new Map()))
+
 /** All characters of the font `font`, found by name, code point or themselves, and inserted on click. */
 function Glyphs({ editor, font, at, put, onClose }: { editor: Editor; font?: string; at: DOMRect; put: (c: string) => void; onClose: () => void }) {
   const [query, setQuery] = useState('')
   const [hover, setHover] = useState('')
-  const [[id, chars]] = useState(() => editor.engine.characters(font) as [number, [number, string][]])
+  const [[id, codes]] = useState(() => editor.engine.characters(font) as [number, number[]])
+  const [named, setNamed] = useState(new Map<number, string>())
+  useEffect(() => void loadNames().then(setNamed), [])
+  const chars = codes.map((c) => [c, named.get(c) ?? ''] as const)
   const family = `satz-font-${id}`
   if (!faces.has(id)) {
     faces.add(id)
