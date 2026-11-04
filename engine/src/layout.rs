@@ -103,7 +103,7 @@ pub fn arrange(
         .sum();
     let gaps = l.gap * (n - 1.0).max(0.0);
     if hug[0] {
-        size[0] = pad[0][0] + pad[0][1] + fixed + gaps;
+        size[0] = (pad[0][0] + pad[0][1] + fixed + gaps).max(0.0);
     }
     if hug[1] {
         let widest = children

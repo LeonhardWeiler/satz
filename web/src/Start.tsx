@@ -145,8 +145,8 @@ export function Start({ editor, onClose }: { editor: Editor; onClose: () => void
           <Segmented label="Orientation" value={land ? 'landscape' : 'portrait'} options={ORIENTATIONS} onChange={(o) => setLand(o === 'landscape')} />
           {format === 'Custom' && (
             <>
-              <Field label="W" title="Width" value={w} unit="length" onCommit={(v) => v > 0 && setCustom(land ? [custom[0], v] : [v, custom[1]])} />
-              <Field label="H" title="Height" value={h} unit="length" onCommit={(v) => v > 0 && setCustom(land ? [v, custom[1]] : [custom[0], v])} />
+              <Field label="W" title="Width" value={w} unit="length" min={1} max={14400} onCommit={(v) => setCustom(land ? [custom[0], v] : [v, custom[1]])} />
+              <Field label="H" title="Height" value={h} unit="length" min={1} max={14400} onCommit={(v) => setCustom(land ? [v, custom[1]] : [custom[0], v])} />
             </>
           )}
           <Field label="Pages" title="Pages" value={pages} unit="" int min={1} max={999} onCommit={(v) => setPages(Math.round(v))} />

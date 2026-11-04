@@ -46,6 +46,17 @@ pub enum Numbering {
     LowerRoman,
 }
 
+impl Numbering {
+    /// The highest page a section in this numbering starts at.
+    fn max(self) -> u32 {
+        if self == Numbering::Arabic {
+            9999
+        } else {
+            3999
+        }
+    }
+}
+
 impl Section {
     /// The page number `n` of the section.
     pub(super) fn label(&self, mut n: u32) -> String {
@@ -393,13 +404,10 @@ impl Doc {
     ) -> Res<Vec<String>> {
         let page = self.sheet(&id)?;
         let m = self.meta(page);
+        within(width, 1.0, MAX_PAGE, "page width")?;
+        within(height, 1.0, MAX_PAGE, "page height")?;
+        within(bleed, 0.0, MAX_BLEED, "bleed")?;
         let sizes = [("width", width), ("height", height), ("bleed", bleed)];
-        if let Some((k, _)) = sizes
-            .iter()
-            .find(|(_, v)| v.is_some_and(|v| !(v >= 0.0 && v.is_finite())))
-        {
-            return Err(format!("{k} must not be negative"));
-        }
         let by = |k, v: Option<f64>| {
             let old = num(&m, k);
             v.filter(|_| scale && old > 0.0).map_or(1.0, |v| v / old)
@@ -455,7 +463,9 @@ impl Doc {
         let m = self.meta(self.page(&id)?);
         self.changed.lock().unwrap().take();
         match section {
-            Some(s) if s.start == 0 => return Err("a section starts at page 1 or later".into()),
+            Some(s) if !(1..=s.style.max()).contains(&s.start) => {
+                return Err(format!("a section starts at 1 to {}", s.style.max()));
+            }
             Some(s) => m.insert(SECTION, loro(s)?).map_err(err)?,
             None => m.delete(SECTION).map_err(err)?,
         }
@@ -470,12 +480,11 @@ impl Doc {
     pub(super) fn set_grids(&self, id: String, grids: Vec<Grid>) -> Res<Vec<String>> {
         let page = self.sheet(&id)?;
         for g in &grids {
-            let sizes = [g.gutter, g.margin, g.size];
-            if !sizes.iter().all(|v| *v >= 0.0 && v.is_finite()) || g.count == 0 {
-                return Err("grids need a column and sizes that are not negative".into());
-            }
-            if g.kind == GridKind::Grid && g.size == 0.0 {
-                return Err("a grid needs a cell size".into());
+            within(Some(g.count.into()), 1.0, 100.0, "grid count")?;
+            within(Some(g.gutter), 0.0, MAX_LENGTH, "gutter")?;
+            within(Some(g.margin), 0.0, MAX_LENGTH, "margin")?;
+            if g.kind == GridKind::Grid {
+                within(Some(g.size), 1.0, MAX_LENGTH, "cell size")?;
             }
         }
         self.meta(page).insert(GRIDS, loro(grids)?).map_err(err)?;

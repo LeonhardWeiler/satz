@@ -11,10 +11,18 @@ use tiny_skia::{
 /// The pixels of an image by id, for drawing it the given width and height in pixels.
 pub type Images<'a> = &'a dyn Fn(u32, [f32; 2]) -> Option<Rc<Pixmap>>;
 
-/// Renders `ops` into a pixmap that covers `rect` in pt at `ppi`.
+/// The most pixels a raster has, 256 MB.
+const MAX_PIXELS: f32 = (1 << 26) as f32;
+
+/// `ppi`, lowered so that `w` × `h` pt fit in `MAX_PIXELS`.
+pub fn fit(w: f32, h: f32, ppi: f32) -> f32 {
+    ppi.min((MAX_PIXELS / (w * h)).sqrt() * 72.0)
+}
+
+/// Renders `ops` into a pixmap that covers `rect` in pt at `ppi`, lowered by `fit`.
 /// `images` gives the pixels of an image by its id.
 pub fn rasterize(ops: &[Op], [x, y, w, h]: [f32; 4], ppi: f32, images: Images) -> Option<Pixmap> {
-    let scale = ppi / 72.0;
+    let scale = fit(w, h, ppi) / 72.0;
     let mut px = Pixmap::new(
         (w * scale).ceil().max(1.0) as u32,
         (h * scale).ceil().max(1.0) as u32,
@@ -655,5 +663,11 @@ mod tests {
         ];
         assert_eq!(extent(&ops), Some([1.0, 2.0, 29.0, 28.0]));
         assert_eq!(extent(&[]), None);
+    }
+
+    #[test]
+    fn a_huge_raster_lowers_its_ppi() {
+        let px = rasterize(&[], [0.0, 0.0, 14400.0, 14400.0], 300.0, &|_, _| None).unwrap();
+        assert!(px.width() <= 8193 && px.width() == px.height());
     }
 }

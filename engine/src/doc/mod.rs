@@ -459,29 +459,44 @@ pub struct Props {
     pub wrap_offset_y: Option<f64>,
 }
 
+/// The largest length in pt: 20 m.
+const MAX_LENGTH: f64 = 20000.0 * MM;
+/// The largest page side in pt, the limit of PDF: 200 in.
+const MAX_PAGE: f64 = 14400.0;
+/// The largest bleed in pt: 100 mm.
+const MAX_BLEED: f64 = 100.0 * MM;
+/// The largest text size in pt.
+const MAX_TEXT: f64 = 5000.0;
+
+fn within(v: Option<f64>, lo: f64, hi: f64, what: &str) -> Res<()> {
+    match v {
+        Some(v) if !(lo..=hi).contains(&v) => {
+            let r = |v: f64| (v * 100.0).round() / 100.0;
+            Err(format!("{what} must be from {} to {}", r(lo), r(hi)))
+        }
+        _ => Ok(()),
+    }
+}
+
 impl Props {
     fn check(&self) -> Res<()> {
-        let within = |v: Option<f64>, lo: f64, hi: f64, what: &str| match v {
-            Some(v) if !(lo..=hi).contains(&v) => Err(format!("{what} must be in {lo}..={hi}")),
-            _ => Ok(()),
-        };
         let f = |v: Option<f32>| v.map(f64::from);
-        within(f(self.stroke_weight), 0.0, f64::MAX, "stroke weight")?;
+        within(f(self.stroke_weight), 0.0, MAX_LENGTH, "stroke weight")?;
         if let Some(c) = &self.stroke_sides {
             if !matches!(c.len(), 0 | 4) {
                 return Err("stroke sides take 4 weights or none".into());
             }
             for &w in c {
-                within(Some(w.into()), 0.0, f64::MAX, "stroke weight")?;
+                within(Some(w.into()), 0.0, MAX_LENGTH, "stroke weight")?;
             }
         }
-        within(f(self.radius), 0.0, f64::MAX, "radius")?;
+        within(f(self.radius), 0.0, MAX_LENGTH, "radius")?;
         if let Some(c) = &self.corners {
             if !matches!(c.len(), 0 | 4) {
                 return Err("corners take 4 radii or none".into());
             }
             for &r in c {
-                within(Some(r.into()), 0.0, f64::MAX, "radius")?;
+                within(Some(r.into()), 0.0, MAX_LENGTH, "radius")?;
             }
         }
         within(self.count.map(f64::from), 3.0, 60.0, "count")?;
@@ -497,7 +512,7 @@ impl Props {
             self.padding_bottom,
             self.padding_left,
         ] {
-            within(p, 0.0, f64::MAX, "padding")?;
+            within(p, 0.0, MAX_LENGTH, "padding")?;
         }
         for p in [
             self.inset_top,
@@ -505,25 +520,27 @@ impl Props {
             self.inset_bottom,
             self.inset_left,
         ] {
-            within(p, 0.0, f64::MAX, "inset")?;
+            within(p, 0.0, MAX_LENGTH, "inset")?;
         }
         within(self.columns.map(f64::from), 1.0, 20.0, "columns")?;
-        within(self.gutter, 0.0, f64::MAX, "gutter")?;
-        within(self.min_height, 0.0, f64::MAX, "min height")?;
+        within(self.gutter, 0.0, MAX_LENGTH, "gutter")?;
+        within(self.min_height, 0.0, MAX_LENGTH, "min height")?;
         if let Some(r) = &self.column_rule {
-            within(f(Some(r.weight)), 0.0, f64::MAX, "rule weight")?;
+            within(f(Some(r.weight)), 0.0, MAX_LENGTH, "rule weight")?;
             r.color.check()?;
         }
-        within(self.wrap_offset_x, 0.0, f64::MAX, "wrap offset")?;
-        within(self.wrap_offset_y, 0.0, f64::MAX, "wrap offset")?;
-        within(self.baseline_grid, 0.0, f64::MAX, "baseline grid")?;
-        within(self.baseline_start, 0.0, f64::MAX, "baseline start")?;
+        within(self.wrap_offset_x, 0.0, MAX_LENGTH, "wrap offset")?;
+        within(self.wrap_offset_y, 0.0, MAX_LENGTH, "wrap offset")?;
+        if self.baseline_grid != Some(0.0) {
+            within(self.baseline_grid, 1.0, MAX_LENGTH, "baseline grid")?;
+        }
+        within(self.baseline_start, 0.0, MAX_LENGTH, "baseline start")?;
         within(self.max_lines.map(f64::from), 0.0, 1000.0, "max lines")?;
-        within(self.gap, f64::MIN, f64::MAX, "gap")?;
+        within(self.gap, -MAX_LENGTH, MAX_LENGTH, "gap")?;
         for e in self.effects.iter().flatten() {
-            within(Some(e.radius.into()), 0.0, f64::MAX, "blur")?;
+            within(Some(e.radius.into()), 0.0, MAX_LENGTH, "blur")?;
             for v in [e.x, e.y] {
-                within(f(Some(v)), f64::MIN, f64::MAX, "effect offset")?;
+                within(f(Some(v)), -MAX_LENGTH, MAX_LENGTH, "effect offset")?;
             }
             e.color.check()?;
         }
@@ -600,21 +617,20 @@ impl TextProps {
             self.letter_spacing,
             self.paragraph_spacing,
         )?;
-        if [
+        for v in [
             self.paragraph_indent,
             self.indent_left,
             self.indent_right,
             self.space_before,
-        ]
-        .iter()
-        .flatten()
-        .any(|v| !(*v >= 0.0 && v.is_finite()))
-        {
-            return Err("indents and spacing must be at least 0".into());
+        ] {
+            within(v, 0.0, MAX_LENGTH, "indents and spacing")?;
         }
-        if self.baseline_shift.is_some_and(|v| !v.is_finite()) {
-            return Err("baseline shift must be a number".into());
-        }
+        within(
+            self.baseline_shift,
+            -MAX_LENGTH,
+            MAX_LENGTH,
+            "baseline shift",
+        )?;
         if self.drop_lines.is_some_and(|v| v > 20)
             || self.drop_chars.is_some_and(|v| !(1..=20).contains(&v))
         {
@@ -627,7 +643,7 @@ impl TextProps {
             .tabs
             .iter()
             .flatten()
-            .any(|t| !(t.at >= 0.0 && t.at.is_finite()) || t.leader.chars().count() > 8)
+            .any(|t| !(0.0..=MAX_LENGTH).contains(&t.at) || t.leader.chars().count() > 8)
         {
             return Err(
                 "a tab stop sits at 0 pt or more with a leader of up to 8 characters".into(),
@@ -654,14 +670,10 @@ fn check_text(
     letter_spacing: Option<f64>,
     paragraph_spacing: Option<f64>,
 ) -> Res<()> {
-    let within = |v: Option<f64>, lo: f64, what: &str| match v {
-        Some(v) if !(v >= lo && v.is_finite()) => Err(format!("{what} must be at least {lo}")),
-        _ => Ok(()),
-    };
-    within(size, 0.1, "text size")?;
-    within(line_height, 0.0, "line height")?;
-    within(letter_spacing, -100.0, "letter spacing")?;
-    within(paragraph_spacing, 0.0, "paragraph spacing")
+    within(size, 0.1, MAX_TEXT, "text size")?;
+    within(line_height, 0.0, MAX_LENGTH, "line height")?;
+    within(letter_spacing, -100.0, 10000.0, "letter spacing")?;
+    within(paragraph_spacing, 0.0, MAX_LENGTH, "paragraph spacing")
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
@@ -939,13 +951,10 @@ fn loro(v: impl Serialize) -> Res<LoroValue> {
 }
 
 fn check_frame([x, y, w, h]: [f64; 4]) -> Res<()> {
-    if ![x, y, w, h].iter().all(|v| v.is_finite()) {
-        return Err("frames must be finite".into());
-    }
-    if !(w >= 0.0 && h >= 0.0) {
-        return Err("width and height must not be negative".into());
-    }
-    Ok(())
+    within(Some(x), -MAX_LENGTH, MAX_LENGTH, "x")?;
+    within(Some(y), -MAX_LENGTH, MAX_LENGTH, "y")?;
+    within(Some(w), 0.0, MAX_LENGTH, "width")?;
+    within(Some(h), 0.0, MAX_LENGTH, "height")
 }
 
 fn err(e: impl Display) -> String {
@@ -4307,6 +4316,33 @@ mod tests {
                 height: Some(-1.0),
                 bleed: None,
                 scale: false,
+            },
+            Command::SetPage {
+                id: p.clone(),
+                width: Some(1e6),
+                height: None,
+                bleed: Some(1e5),
+                scale: false,
+            },
+            frame(&r, [0.0, 0.0, 1e9, 10.0]),
+            new(&p, [-1e9, 0.0, 1.0, 1.0]),
+            Command::SetSection {
+                id: p.clone(),
+                section: Some(Section {
+                    start: 10000,
+                    style: Numbering::Arabic,
+                    prefix: String::new(),
+                }),
+            },
+            Command::SetGrids {
+                id: p.clone(),
+                grids: vec![Grid {
+                    kind: GridKind::Columns,
+                    count: 1000,
+                    gutter: 0.0,
+                    margin: 0.0,
+                    size: 0.0,
+                }],
             },
             Command::ScaleText {
                 id: t.clone(),

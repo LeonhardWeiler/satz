@@ -8,6 +8,7 @@ import { scopeOf, useEditor, type Editor } from './editor'
 import { addLocalFont, useLocalFonts } from './file'
 import { Icon, type IconName } from './icons'
 import { Popover } from './Popover'
+import { MAX_LENGTH } from './settings'
 import { PAGE_NUMBER, insert, range } from './textEdit'
 import { STYLED, type Attrs, type Props, type Styled, type Tab, type TextNode, type TextProps, type TextStyle, type Typeface, textSizing } from './model'
 import { Bindable } from './Variables'
@@ -32,11 +33,11 @@ const RESIZING = [
 ] as const
 const LANGS = { en: 'English', de: 'German', fr: 'French', it: 'Italian', es: 'Spanish', nl: 'Dutch' } as const
 /** Styled numbers: title, label, unit, least value and the text shown for 0. */
-const METRICS: [Exclude<Styled, 'font' | 'textCase' | 'textDecoration' | 'features' | 'paragraphIndent' | 'indentLeft' | 'indentRight' | 'spaceBefore' | 'position' | 'baselineShift' | 'dropLines' | 'dropChars' | 'keepLines' | 'keepTogether' | 'keepNext' | 'tabs' | 'list'>, string, IconName, string, number, string?][] = [
-  ['size', 'Font size', 'fontSize', 'pt', 0.1],
-  ['lineHeight', 'Line height', 'lineHeight', 'pt', 0, 'Auto'],
-  ['letterSpacing', 'Letter spacing', 'letterSpacing', '%', -100],
-  ['paragraphSpacing', 'Paragraph spacing', 'paragraphSpacing', 'pt', 0],
+const METRICS: [Exclude<Styled, 'font' | 'textCase' | 'textDecoration' | 'features' | 'paragraphIndent' | 'indentLeft' | 'indentRight' | 'spaceBefore' | 'position' | 'baselineShift' | 'dropLines' | 'dropChars' | 'keepLines' | 'keepTogether' | 'keepNext' | 'tabs' | 'list'>, string, IconName, string, number, number, string?][] = [
+  ['size', 'Font size', 'fontSize', 'pt', 0.1, 5000],
+  ['lineHeight', 'Line height', 'lineHeight', 'pt', 0, MAX_LENGTH, 'Auto'],
+  ['letterSpacing', 'Letter spacing', 'letterSpacing', '%', -100, 10000],
+  ['paragraphSpacing', 'Paragraph spacing', 'paragraphSpacing', 'pt', 0, MAX_LENGTH],
 ]
 
 const CASES = { original: 'As typed', upper: 'Upper case', lower: 'Lower case', title: 'Title case' } as const
@@ -418,13 +419,14 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
       </div>
       <Font editor={editor} id={node.id} fonts={spans.map((a) => a.font)} set={(font) => format({ font })} />
       <div className="grid">
-        {METRICS.map(([prop, title, label, unit, min, zero]) => {
+        {METRICS.map(([prop, title, label, unit, min, max, zero]) => {
           const field = (
             <Field
               label={<Icon name={label} />}
               title={title}
               unit={unit}
               min={min}
+              max={max}
               zero={zero}
               reset={prop === 'size' ? undefined : 0}
               value={same((a) => a[prop])}
@@ -495,13 +497,14 @@ function StyleRow({ editor, style }: { editor: Editor; style: TextStyle }) {
       </div>
       <Font editor={editor} id={style.id} fonts={[style.font]} set={(font) => editor.apply({ type: 'setTextStyle', id: style.id, font })} />
       <div className="grid">
-        {METRICS.map(([prop, title, label, unit, min, zero]) => (
+        {METRICS.map(([prop, title, label, unit, min, max, zero]) => (
           <Bindable key={prop} editor={editor} id={style.id} prop={prop} title={title} label={<Icon name={label} />}>
             <Field
               label={<Icon name={label} />}
               title={title}
               unit={unit}
               min={min}
+              max={max}
               zero={zero}
               reset={prop === 'size' ? undefined : 0}
               value={style[prop]}
@@ -535,7 +538,7 @@ export function TextFrameSection({ editor, node, set }: { editor: Editor; node: 
       <div className="grid">
         <Field label="Columns" title="Columns" unit="" int min={1} max={20} reset={1} value={node.columns} onCommit={(columns) => set({ columns })} />
         <Field label="Gutter" title="Gutter" unit="length" value={node.gutter} onCommit={(gutter) => set({ gutter })} />
-        <Field label="Baseline" title="Baseline grid" unit="pt" zero="–" reset={0} value={node.baselineGrid} onCommit={(baselineGrid) => set({ baselineGrid })} />
+        <Field label="Baseline" title="Baseline grid" unit="pt" min={1} zero="–" reset={0} value={node.baselineGrid} onCommit={(baselineGrid) => set({ baselineGrid })} />
         <Field label="Start" title="Baseline grid start" unit="pt" reset={0} value={node.baselineStart} onCommit={(baselineStart) => set({ baselineStart })} />
         <Field label="Min" title="Min height" unit="length" zero="–" reset={0} disabled={resizing !== 'autoHeight'} value={node.minHeight} onCommit={(minHeight) => set({ minHeight })} />
         <Field label="Lines" title="Max lines" unit="" int max={1000} zero="–" reset={0} value={node.maxLines} onCommit={(maxLines) => set({ maxLines })} />

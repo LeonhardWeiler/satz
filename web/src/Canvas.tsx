@@ -294,7 +294,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     const inkedOf = (p: Page) => {
       const v = editor.previewed
       const s = v?.sheets.find((s) => s.page === p.id)
-      return s && { ...s, rect: { x: -p.bleed, y: -p.bleed, w: (s.width * 72) / v!.ppi, h: (s.height * 72) / v!.ppi } }
+      return s && { ...s, rect: { x: -p.bleed, y: -p.bleed, w: p.width + 2 * p.bleed, h: p.height + 2 * p.bleed } }
     }
     /** The ink coverage in % of the preflight at `p`. */
     const inkAt = (p: Point) => {

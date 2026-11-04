@@ -244,6 +244,8 @@ export function Properties({ editor }: { editor: Editor }) {
                 key={k}
                 label={k === 'bleed' ? 'Bleed' : k === 'width' ? 'W' : 'H'}
                 value={sameOf(sheets, (p) => p[k])}
+                min={k === 'bleed' ? 0 : 1}
+                max={k === 'bleed' ? 100 * MM : 14400}
                 unit="length"
                 onCommit={(v) => setSheets(() => ({ [k]: v }))}
               />
@@ -271,7 +273,7 @@ export function Properties({ editor }: { editor: Editor }) {
           )}
           {isPage && targets.length === 1 && page.section && (
             <div className="grid">
-              <Field label="Start" title="Section starts at" unit="" int min={1} value={page.section.start} onCommit={(start) => setSection({ start })} />
+              <Field label="Start" title="Section starts at" unit="" int min={1} max={page.section.style === 'arabic' ? 9999 : 3999} value={page.section.start} onCommit={(start) => setSection({ start })} />
               <Select label="Numbering" value={page.section.style} options={NUMBERINGS} onChange={(style) => setSection({ style })} />
               <label className="field">
                 <span className="field-label">Prefix</span>
@@ -644,10 +646,10 @@ function GridSection({ editor, sheets, all }: { editor: Editor; sheets: Page[]; 
                 </div>
                 <div className="grid">
                   {g.kind === 'grid' ? (
-                    <Field label="Size" title="Cell size" unit="length" value={g.size} onCommit={(size) => size > 0 && set({ size })} />
+                    <Field label="Size" title="Cell size" unit="length" min={1} value={g.size} onCommit={(size) => set({ size })} />
                   ) : (
                     <>
-                      <Field label={GRIDS[g.kind]} title={GRIDS[g.kind]} unit="" int min={1} value={g.count} onCommit={(count) => set({ count })} />
+                      <Field label={GRIDS[g.kind]} title={GRIDS[g.kind]} unit="" int min={1} max={100} value={g.count} onCommit={(count) => set({ count })} />
                       <Field label="Gutter" title="Gutter" unit="length" value={g.gutter} onCommit={(gutter) => set({ gutter })} />
                       <Field label="Margin" title="Margin" unit="length" value={g.margin} onCommit={(margin) => set({ margin: Math.max(0, margin) })} />
                     </>

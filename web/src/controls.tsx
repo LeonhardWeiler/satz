@@ -5,7 +5,7 @@ import { ContextMenu } from './ContextMenu'
 import { evalExpr, step } from './field'
 import { Icon, type IconName } from './icons'
 import type { Typeface } from './model'
-import { UNITS, useSettings } from './settings'
+import { MAX_LENGTH, UNITS, useSettings } from './settings'
 
 /** Moves the focus from the event's target to the item before or after it for the keys `back` and `forth`. */
 export function roam(e: KeyboardEvent, items: Element[], back = ['ArrowUp'], forth = ['ArrowDown']) {
@@ -33,7 +33,7 @@ export function Field({
   zero,
   int,
   min = 0,
-  max = Infinity,
+  max = given === 'length' || given === 'pt' ? MAX_LENGTH : Infinity,
   reset,
   disabled,
   title: name = typeof label === 'string' ? label : undefined,
@@ -49,6 +49,7 @@ export function Field({
   zero?: string
   /** Whole numbers with − and + buttons. */
   int?: boolean
+  /** In pt for lengths. */
   min?: number
   max?: number
   /** The default value, in pt for lengths. */
@@ -66,7 +67,7 @@ export function Field({
   const title = name && unit ? `${name} in ${unit}` : (name ?? unit)
   const shown = value === null ? null : round(value / per, unit)
   const put = (v: number) => {
-    const c = zero && v === 0 ? 0 : Math.min(max, Math.max(min, v))
+    const c = zero && v === 0 ? 0 : Math.min(max / per, Math.max(min / per, v))
     onCommit?.((int ? Math.round(c) : round(c, unit)) * per)
   }
   const edit = !readOnly && !disabled && onCommit && shown !== null
@@ -116,7 +117,7 @@ export function Field({
         </span>
       )}
       {int && edit && (
-        <button type="button" className="field-step" tabIndex={-1} aria-label={`Decrease ${title}`} disabled={shown !== null && shown <= min} onClick={(e) => bump(-step(e, true))}>
+        <button type="button" className="field-step" tabIndex={-1} aria-label={`Decrease ${title}`} disabled={shown !== null && shown <= min / per} onClick={(e) => bump(-step(e, true))}>
           <Icon name="minus" />
         </button>
       )}

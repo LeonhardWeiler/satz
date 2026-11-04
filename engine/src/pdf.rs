@@ -3,7 +3,7 @@ use crate::display_list::{CUBIC, LINE, MOVE, Op, Paint, Shadow, Stop as ListStop
 use crate::geom::segments;
 use crate::image::{self, plate};
 use crate::pdfx;
-use crate::raster::{blur, extent, rasterize, tint};
+use crate::raster::{blur, extent, fit, rasterize, tint};
 use crate::style::Blend;
 use crate::text::{MISSING, font_bytes, fonts};
 use krilla::color::separation::{SeparationColorant, SeparationSpace};
@@ -94,9 +94,10 @@ pub fn pdf(pages: &[Vec<Op>], x: &Export) -> Vec<u8> {
             0.0
         };
         let o = bleed + slug;
-        let mut settings = PageSettings::from_wh(width + 2.0 * o, height + 2.0 * o)
-            .unwrap()
-            .with_trim_box(Rect::from_xywh(o, o, width, height));
+        let Some(settings) = PageSettings::from_wh(width + 2.0 * o, height + 2.0 * o) else {
+            continue;
+        };
+        let mut settings = settings.with_trim_box(Rect::from_xywh(o, o, width, height));
         if print {
             settings = settings.with_bleed_box(Rect::from_xywh(
                 slug,
@@ -416,15 +417,16 @@ fn raster(
         return;
     };
     let rect = [l - offset[0], t - offset[1], w, h];
+    let ppi = fit(w, h, env.ppi);
     let image = cached(env, ops, (rect, sigma, shadow), || {
         if env.cmyk {
-            separate(ops, rect, env.ppi, shadow, sigma, false)
+            separate(ops, rect, ppi, shadow, sigma, false)
                 .map(|c| Image::from_custom(c, true).unwrap())
         } else {
             plane(
                 ops,
                 rect,
-                env.ppi,
+                ppi,
                 &|id, _| image::pixmap(id),
                 shadow.map(|s| s.color),
                 sigma,
@@ -436,7 +438,7 @@ fn raster(
         }
     });
     if let Some(image) = image {
-        place(s, image, l, t, env.ppi);
+        place(s, image, l, t, ppi);
     }
 }
 
@@ -445,6 +447,7 @@ fn paper(s: &mut Surface, env: &Env, ops: &[Op], area: [f32; 4]) {
     let Some([x, y, w, h]) = within(env.page, area) else {
         return;
     };
+    let ppi = fit(w, h, env.ppi);
     let mut all = vec![Op::FillPath {
         paint: Paint::Solid {
             color: [1.0; 4],
@@ -454,8 +457,8 @@ fn paper(s: &mut Surface, env: &Env, ops: &[Op], area: [f32; 4]) {
         path: crate::display_list::rect(x, y, w, h),
     }];
     all.extend_from_slice(ops);
-    if let Some(c) = separate(&all, [x, y, w, h], env.ppi, None, 0.0, true) {
-        place(s, Image::from_custom(c, true).unwrap(), x, y, env.ppi);
+    if let Some(c) = separate(&all, [x, y, w, h], ppi, None, 0.0, true) {
+        place(s, Image::from_custom(c, true).unwrap(), x, y, ppi);
     }
 }
 

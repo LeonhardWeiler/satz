@@ -76,8 +76,8 @@ impl Doc {
             };
             let v = match prop.as_str() {
                 "opacity" => (v / 100.0).clamp(0.0, 1.0),
-                "size" => v.max(0.1),
-                _ => v.max(0.0) * MM,
+                "size" => v.clamp(0.1, MAX_TEXT),
+                _ => (v * MM).clamp(0.0, MAX_LENGTH),
             };
             match prop.as_str() {
                 "w" => frame[2] = v,

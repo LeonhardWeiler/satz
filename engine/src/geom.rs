@@ -347,8 +347,10 @@ pub enum LineStyle {
     Zigzag,
 }
 
+const MAX_REPEATS: f32 = 10000.0;
+
 /// `path` as the dashes, dots, wave or zigzag of `style`, sized by the stroke
-/// weight; each subpath fits a whole number of repeats.
+/// weight; each subpath fits a whole number of repeats, at most `MAX_REPEATS`.
 pub fn pattern(path: &[f32], style: LineStyle, weight: f32) -> Vec<f32> {
     let w = weight.max(0.5);
     let (period, on) = match style {
@@ -382,7 +384,7 @@ pub fn pattern(path: &[f32], style: LineStyle, weight: f32) -> Vec<f32> {
         };
         if matches!(style, LineStyle::Dashed | LineStyle::Dotted) {
             let room = if ring { len } else { len - on };
-            let n = (room / period).round().max(1.0);
+            let n = (room / period).round().clamp(1.0, MAX_REPEATS);
             let step = room / n;
             let on = if style == LineStyle::Dotted {
                 0.01
@@ -402,7 +404,7 @@ pub fn pattern(path: &[f32], style: LineStyle, weight: f32) -> Vec<f32> {
             }
             continue;
         }
-        let n = (len / period).round().max(1.0);
+        let n = (len / period).round().clamp(1.0, MAX_REPEATS);
         let step = len / n / 16.0;
         let amp = 1.5 * w;
         for k in 0..=(n as usize * 16) {
@@ -631,5 +633,7 @@ mod tests {
             assert!(closed(&pattern(&square, style, 1.0)));
         }
         assert_eq!(pattern(&line, LineStyle::Solid, 1.0), line);
+        let far = [MOVE, 0.0, 0.0, LINE, 1e9, 0.0];
+        assert_eq!(flatten(&pattern(&far, LineStyle::Dashed, 1.0)).len(), 10001);
     }
 }

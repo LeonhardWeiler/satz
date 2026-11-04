@@ -4,6 +4,8 @@ import { MM } from './editor'
 /** Points per length unit. */
 export const UNITS = { mm: MM, cm: 10 * MM, in: 72, pt: 1 } as const
 export type Unit = keyof typeof UNITS
+/** The largest length in pt, as in the engine. */
+export const MAX_LENGTH = 20000 * MM
 
 const KEY = 'satz.settings'
 const DEFAULTS = {
