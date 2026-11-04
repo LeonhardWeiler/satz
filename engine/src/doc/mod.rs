@@ -1367,9 +1367,9 @@ impl Doc {
                 hashes.push(image::register(bytes.clone())?.hash);
             }
         }
-        image::forget(&hashes);
         d.doc.set_next_commit_origin(LAYOUT_ORIGIN);
         d.finish(vec![], false)?;
+        image::retain(&hashes);
         Ok(d)
     }
 

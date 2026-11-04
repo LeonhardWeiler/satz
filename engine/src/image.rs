@@ -5,6 +5,7 @@ use krilla::image::{BitsPerComponent, CustomImage, ImageColorspace};
 use loro::LoroBinaryValue;
 use serde::Serialize;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::io::Cursor;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -95,9 +96,21 @@ pub const CMY: u32 = 1 << 30;
 pub const K: u32 = 1 << 29;
 
 thread_local! {
-    /// The images of every document loaded so far by id, so that ids stay valid
-    /// across documents for the renderer's cache.
-    static IMAGES: RefCell<Vec<Rc<Entry>>> = const { RefCell::new(Vec::new()) };
+    /// The images by id; a dropped image leaves an empty slot, so that ids stay
+    /// valid across documents for the renderer's cache.
+    static IMAGES: RefCell<Vec<Option<Rc<Entry>>>> = const { RefCell::new(Vec::new()) };
+    static IDS: RefCell<HashMap<String, u32>> = RefCell::new(HashMap::new());
+}
+
+/// Adds `e` and returns its id.
+fn push(e: Entry) -> u32 {
+    let hash = e.info.hash.clone();
+    let id = IMAGES.with_borrow_mut(|images| {
+        images.push(Some(Rc::new(e)));
+        images.len() as u32 - 1
+    });
+    IDS.with_borrow_mut(|ids| ids.insert(hash, id));
+    id
 }
 
 fn format(bytes: &[u8]) -> Result<Format, String> {
@@ -155,16 +168,14 @@ pub fn register(bytes: LoroBinaryValue) -> Result<ImageInfo, String> {
         height,
         space: space(format, &bytes),
     };
-    IMAGES.with_borrow_mut(|images| {
-        images.push(Rc::new(Entry {
-            info: info.clone(),
-            format,
-            bytes,
-            source: None,
-            pixels: RefCell::new(None),
-            cmyk: RefCell::new(None),
-            small: RefCell::new(None),
-        }))
+    push(Entry {
+        info: info.clone(),
+        format,
+        bytes,
+        source: None,
+        pixels: RefCell::new(None),
+        cmyk: RefCell::new(None),
+        small: RefCell::new(None),
     });
     Ok(info)
 }
@@ -267,8 +278,8 @@ pub fn adjusted(hash: &str, adjust: [f32; 3]) -> Option<u32> {
         return Some(i);
     }
     let source = entry_by_hash(hash)?;
-    IMAGES.with_borrow_mut(|images| {
-        for e in images.iter().filter(|e| {
+    IMAGES.with_borrow(|images| {
+        for e in images.iter().flatten().filter(|e| {
             e.source
                 .as_ref()
                 .is_some_and(|(s, _)| Rc::ptr_eq(s, &source))
@@ -277,30 +288,48 @@ pub fn adjusted(hash: &str, adjust: [f32; 3]) -> Option<u32> {
             e.cmyk.take();
             e.small.take();
         }
-        images.push(Rc::new(Entry {
-            info: ImageInfo {
-                hash: key,
-                space: Space::Rgb,
-                ..source.info.clone()
-            },
-            format: Format::Png,
-            bytes: Vec::new().into(),
-            source: Some((source, adjust)),
-            pixels: RefCell::new(None),
-            cmyk: RefCell::new(None),
-            small: RefCell::new(None),
-        }));
-        Some(images.len() as u32 - 1)
-    })
+    });
+    Some(push(Entry {
+        info: ImageInfo {
+            hash: key,
+            space: Space::Rgb,
+            ..source.info.clone()
+        },
+        format: Format::Png,
+        bytes: Vec::new().into(),
+        source: Some((source, adjust)),
+        pixels: RefCell::new(None),
+        cmyk: RefCell::new(None),
+        small: RefCell::new(None),
+    }))
 }
 
 /// Drops the decoded pixels of every image but `keep`.
 pub fn forget(keep: &[String]) {
     IMAGES.with_borrow(|images| {
-        for e in images.iter().filter(|e| !keep.contains(&e.info.hash)) {
+        for e in images
+            .iter()
+            .flatten()
+            .filter(|e| !keep.contains(&e.info.hash))
+        {
             e.pixels.take();
             e.cmyk.take();
             e.small.take();
+        }
+    })
+}
+
+/// Drops every image, with its adjustments, but `keep`.
+pub fn retain(keep: &[String]) {
+    IMAGES.with_borrow_mut(|images| {
+        for slot in images.iter_mut() {
+            let root = slot
+                .as_ref()
+                .map(|e| e.source.as_ref().map_or(e, |(s, _)| s));
+            if root.is_some_and(|r| !keep.contains(&r.info.hash)) {
+                let e = slot.take().unwrap();
+                IDS.with_borrow_mut(|ids| ids.remove(&e.info.hash));
+            }
         }
     })
 }
@@ -334,21 +363,16 @@ fn space(format: Format, bytes: &[u8]) -> Space {
 }
 
 fn entry_by_hash(hash: &str) -> Option<Rc<Entry>> {
-    IMAGES.with_borrow(|images| images.iter().find(|e| e.info.hash == hash).cloned())
+    entry(id(hash)?)
 }
 
 fn entry(id: u32) -> Option<Rc<Entry>> {
-    IMAGES.with_borrow(|images| images.get((id & !(PROOF | CMY | K)) as usize).cloned())
+    IMAGES.with_borrow(|images| images.get((id & !(PROOF | CMY | K)) as usize)?.clone())
 }
 
 /// The id of the registered image `hash` in display lists.
 pub fn id(hash: &str) -> Option<u32> {
-    IMAGES.with_borrow(|images| {
-        images
-            .iter()
-            .position(|e| e.info.hash == hash)
-            .map(|i| i as u32)
-    })
+    IDS.with_borrow(|ids| ids.get(hash).copied())
 }
 
 /// The size of the registered image `hash` in pixels.
@@ -723,6 +747,21 @@ pub mod tests {
         }
     }
 
+    #[test]
+    fn retained_images_keep_their_ids_and_the_others_go_with_their_adjustments() {
+        let a = register(png(2, 1).into()).unwrap().hash;
+        let b = register(png(3, 1).into()).unwrap().hash;
+        let (ia, ib) = (id(&a).unwrap(), id(&b).unwrap());
+        let dark = adjusted(&a, [-0.5, 0.0, 0.0]).unwrap();
+        retain(std::slice::from_ref(&b));
+        assert_eq!(
+            (id(&a), entry(ia).is_none(), entry(dark).is_none()),
+            (None, true, true)
+        );
+        assert_eq!(id(&b), Some(ib));
+        register(png(2, 1).into()).unwrap();
+        assert!(id(&a).unwrap() > dark);
+    }
     #[test]
     fn forgotten_images_drop_their_pixels() {
         let info = register(png(3, 1).into()).unwrap();
