@@ -46,14 +46,55 @@ pub enum Numbering {
     LowerRoman,
 }
 
-impl Numbering {
-    /// The highest page a section in this numbering starts at.
-    fn max(self) -> u32 {
-        if self == Numbering::Arabic {
+impl Section {
+    fn check(&self) -> Res<()> {
+        let max = if self.style == Numbering::Arabic {
             9999
         } else {
             3999
+        };
+        if (1..=max).contains(&self.start) {
+            Ok(())
+        } else {
+            Err(format!("a section starts at 1 to {max}"))
         }
+    }
+}
+
+impl Grid {
+    fn check(&self) -> Res<()> {
+        within(Some(self.count.into()), 1.0, 100.0, "grid count")?;
+        within(Some(self.gutter), 0.0, MAX_LENGTH, "gutter")?;
+        within(Some(self.margin), 0.0, MAX_LENGTH, "margin")?;
+        if self.kind == GridKind::Grid {
+            within(Some(self.size), 1.0, MAX_LENGTH, "cell size")?;
+        }
+        Ok(())
+    }
+}
+
+fn check_page(width: Option<f64>, height: Option<f64>, bleed: Option<f64>) -> Res<()> {
+    within(width, 1.0, MAX_PAGE, "page width")?;
+    within(height, 1.0, MAX_PAGE, "page height")?;
+    within(bleed, 0.0, MAX_BLEED, "bleed")
+}
+
+/// What a page or master holds besides its layers, as it is checked in a file.
+#[derive(Deserialize)]
+pub(super) struct Sheet {
+    width: Option<f64>,
+    height: Option<f64>,
+    bleed: Option<f64>,
+    section: Option<Section>,
+    #[serde(default)]
+    grids: Vec<Grid>,
+}
+
+impl Sheet {
+    pub(super) fn check(&self) -> Res<()> {
+        check_page(self.width, self.height, self.bleed)?;
+        self.section.iter().try_for_each(Section::check)?;
+        self.grids.iter().try_for_each(Grid::check)
     }
 }
 
@@ -404,9 +445,7 @@ impl Doc {
     ) -> Res<Vec<String>> {
         let page = self.sheet(&id)?;
         let m = self.meta(page);
-        within(width, 1.0, MAX_PAGE, "page width")?;
-        within(height, 1.0, MAX_PAGE, "page height")?;
-        within(bleed, 0.0, MAX_BLEED, "bleed")?;
+        check_page(width, height, bleed)?;
         let sizes = [("width", width), ("height", height), ("bleed", bleed)];
         let by = |k, v: Option<f64>| {
             let old = num(&m, k);
@@ -463,10 +502,10 @@ impl Doc {
         let m = self.meta(self.page(&id)?);
         self.changed.lock().unwrap().take();
         match section {
-            Some(s) if !(1..=s.style.max()).contains(&s.start) => {
-                return Err(format!("a section starts at 1 to {}", s.style.max()));
+            Some(s) => {
+                s.check()?;
+                m.insert(SECTION, loro(s)?).map_err(err)?
             }
-            Some(s) => m.insert(SECTION, loro(s)?).map_err(err)?,
             None => m.delete(SECTION).map_err(err)?,
         }
         Ok(vec![])
@@ -479,14 +518,7 @@ impl Doc {
 
     pub(super) fn set_grids(&self, id: String, grids: Vec<Grid>) -> Res<Vec<String>> {
         let page = self.sheet(&id)?;
-        for g in &grids {
-            within(Some(g.count.into()), 1.0, 100.0, "grid count")?;
-            within(Some(g.gutter), 0.0, MAX_LENGTH, "gutter")?;
-            within(Some(g.margin), 0.0, MAX_LENGTH, "margin")?;
-            if g.kind == GridKind::Grid {
-                within(Some(g.size), 1.0, MAX_LENGTH, "cell size")?;
-            }
-        }
+        grids.iter().try_for_each(Grid::check)?;
         self.meta(page).insert(GRIDS, loro(grids)?).map_err(err)?;
         Ok(vec![])
     }

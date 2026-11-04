@@ -58,7 +58,7 @@ pub struct Export<'a> {
     pub date: &'a str,
 }
 
-pub fn pdf(pages: &[Vec<Op>], x: &Export) -> Vec<u8> {
+pub fn pdf(pages: &[Vec<Op>], x: &Export) -> Result<Vec<u8>, String> {
     let fonts: Vec<Font> = (0..fonts().len() as u32)
         .map(|i| Font::new(font_bytes(i).to_vec().into(), 0).unwrap())
         .collect();
@@ -146,11 +146,11 @@ pub fn pdf(pages: &[Vec<Op>], x: &Export) -> Vec<u8> {
         s.finish();
         page.finish();
     }
-    let pdf = doc.finish().unwrap();
-    match print {
+    let pdf = doc.finish().map_err(|e| e.to_string())?;
+    Ok(match print {
         true => pdfx::pdfx(pdf, x.preset, x.mode == ColorMode::Rgb, x.title, x.date),
         false => pdf,
-    }
+    })
 }
 
 /// `ops` without what is transparent, and the areas that it covers.
@@ -756,7 +756,7 @@ mod tests {
             title: "Test <1>",
             date: "2026-09-28T12:00:00Z",
         };
-        super::pdf(pages, &x)
+        super::pdf(pages, &x).unwrap()
     }
 
     fn write(pages: &[Vec<Op>], preset: Preset, ppi: f32, mode: ColorMode) -> String {
@@ -771,7 +771,7 @@ mod tests {
             title: "Test <1>",
             date: "2026-09-28T12:00:00Z",
         };
-        String::from_utf8_lossy(&super::pdf(pages, &x)).into_owned()
+        String::from_utf8_lossy(&super::pdf(pages, &x).unwrap()).into_owned()
     }
 
     fn default_pdf() -> String {
@@ -1047,7 +1047,7 @@ mod tests {
                 title: "Test",
                 date: "2026-09-28T12:00:00Z",
             };
-            super::pdf(&[red_image()], &x)
+            super::pdf(&[red_image()], &x).unwrap()
         };
         let has = |pdf: &[u8], s: &str| pdf.windows(s.len()).any(|w| w == s.as_bytes());
         let kept = pdf(0.0, 0, ColorMode::Rgb);

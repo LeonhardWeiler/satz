@@ -1006,7 +1006,7 @@ impl Doc {
 
     /// The pages at `indices` as a PDF titled `title`, made at `date` in ISO 8601 UTC,
     /// every page from one snapshot.
-    pub fn pdf(&self, title: &str, date: &str, indices: &[u32]) -> Vec<u8> {
+    pub fn pdf(&self, title: &str, date: &str, indices: &[u32]) -> Res<Vec<u8>> {
         let snap = self.snapshot();
         let pages: Vec<_> = indices
             .iter()
@@ -1031,7 +1031,7 @@ impl Doc {
 
     /// A ZIP for the printer of a folder `title` with the document, the PDF of the
     /// pages at `indices`, the fonts its text is set in and its images.
-    pub fn package(&self, title: &str, date: &str, indices: &[u32]) -> Vec<u8> {
+    pub fn package(&self, title: &str, date: &str, indices: &[u32]) -> Res<Vec<u8>> {
         let saved = self.save();
         let doc = LoroDoc::new();
         doc.import(&saved).expect("a saved document imports");
@@ -1040,7 +1040,7 @@ impl Doc {
             (format!("{title}/{title}.satz"), saved),
             (
                 format!("{title}/{title}.pdf"),
-                self.pdf(title, date, indices),
+                self.pdf(title, date, indices)?,
             ),
         ];
         let fonts: std::collections::BTreeSet<u32> = self
@@ -1072,7 +1072,7 @@ impl Doc {
                 files.push((format!("{title}/Images/{hash}.{ext}"), bytes.to_vec()));
             }
         }
-        crate::zip::zip(&files, date)
+        Ok(crate::zip::zip(&files, date))
     }
 
     /// The display list of the page `p` as it prints: with the layers of the other
@@ -2035,7 +2035,7 @@ mod tests {
     }
 
     #[test]
-    fn gradients_map_the_unit_box_into_the_frame() {
+    fn gradients_map_the_unit_box_into_the_frame_with_their_stops_in_order() {
         let (mut d, p) = empty();
         let r = create(&mut d, &p, NewKind::Rect, [10.0, 20.0, 100.0, 50.0]);
         set(
@@ -2045,10 +2045,16 @@ mod tests {
                 fills: Some(vec![Fill {
                     kind: FillKind::Linear,
                     transform: [0.0, 1.0, -1.0, 0.0, 0.5, 0.0],
-                    stops: vec![FillStop {
-                        at: 0.0,
-                        color: WHITE.into(),
-                    }],
+                    stops: vec![
+                        FillStop {
+                            at: 0.8,
+                            color: WHITE.into(),
+                        },
+                        FillStop {
+                            at: 0.2,
+                            color: BLACK.into(),
+                        },
+                    ],
                     ..Fill::default()
                 }]),
                 ..Props::default()
@@ -2064,7 +2070,8 @@ mod tests {
             panic!("no gradient");
         };
         assert_eq!(*transform, [0.0, 50.0, -100.0, 0.0, 60.0, 20.0]);
-        assert_eq!(stops[0].color, [1.0; 4]);
+        assert_eq!(stops.iter().map(|s| s.at).collect::<Vec<_>>(), [0.2, 0.8]);
+        assert_eq!(stops[1].color, [1.0; 4]);
     }
 
     #[test]
@@ -2104,10 +2111,13 @@ mod tests {
         let inks = |kind| Props {
             fills: Some(vec![Fill {
                 kind,
-                stops: vec![FillStop {
-                    at: 0.0,
-                    color: process(0.0, 0.0, 0.0, 1.0),
-                }],
+                stops: vec![
+                    FillStop {
+                        at: 0.0,
+                        color: process(0.0, 0.0, 0.0, 1.0),
+                    };
+                    2
+                ],
                 ..Fill::default()
             }]),
             effects: Some(vec![Effect {

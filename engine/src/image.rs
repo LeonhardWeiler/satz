@@ -145,6 +145,7 @@ pub fn register(bytes: LoroBinaryValue) -> Result<ImageInfo, String> {
             MAX_PIXELS / 1_000_000
         ));
     }
+    decode(format, &bytes).ok_or("the image is damaged")?;
     let (width, height) = pdf_image(format, &bytes)
         .map_err(|_| "not a PNG or JPEG image")?
         .size();
@@ -685,5 +686,8 @@ pub mod tests {
     fn other_files_are_not_images() {
         assert!(register(b"GIF89a".to_vec().into()).is_err());
         assert!(register(b"\x89PNG broken".to_vec().into()).is_err());
+        let mut cut = png(40, 40);
+        cut.truncate(cut.len() - 30);
+        assert!(register(cut.into()).is_err());
     }
 }

@@ -85,6 +85,10 @@ pub fn add_font(bytes: &[u8]) -> Result<Typeface, String> {
     }
     .map_err(|e| e.to_string())?;
     let face = typeface(&sfnt)?;
+    let glyphs: Vec<u16> =
+        (0..FontRef::new(&sfnt).map_or(0, |f| f.maxp().map_or(0, |m| m.num_glyphs()))).collect();
+    let all = subsetter::GlyphRemapper::new_from_glyphs_sorted(&glyphs);
+    subsetter::subset(&sfnt, 0, &all).map_err(|_| "the font is damaged")?;
     FONTS.with_borrow_mut(|f| {
         if !f.iter().any(|(t, b)| t.hash == face.hash && !b.is_empty()) {
             f.push((face.clone(), sfnt.into()));

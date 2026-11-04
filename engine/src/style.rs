@@ -283,7 +283,7 @@ impl Blend {
 /// The paint of a color or gradient fill.
 fn paint(f: &Fill, frame: [f32; 4], s: &Scope, overprint: bool) -> Option<Paint> {
     let transform = f.place(frame);
-    let stops = f
+    let mut stops: Vec<_> = f
         .stops
         .iter()
         .map(|stop| Stop {
@@ -292,6 +292,7 @@ fn paint(f: &Fill, frame: [f32; 4], s: &Scope, overprint: bool) -> Option<Paint>
             ink: stop.color.ink(s),
         })
         .collect();
+    stops.sort_by(|a, b| a.at.total_cmp(&b.at));
     Some(match f.kind {
         FillKind::Solid => Paint::Solid {
             color: f.color.rgba(s),

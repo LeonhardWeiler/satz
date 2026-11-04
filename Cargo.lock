@@ -309,6 +309,7 @@ dependencies = [
  "serde-wasm-bindgen",
  "serde_json",
  "skrifa",
+ "subsetter",
  "tiny-skia",
  "unicode_names2",
  "wasm-bindgen",

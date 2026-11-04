@@ -367,14 +367,18 @@ impl Engine {
     }
 
     /// The pages at `indices` as a PDF titled `title`, made at `date` in ISO 8601 UTC.
-    pub fn pdf(&self, title: &str, date: &str, indices: &[u32]) -> Vec<u8> {
-        self.doc.pdf(title, date, indices)
+    pub fn pdf(&self, title: &str, date: &str, indices: &[u32]) -> Result<Vec<u8>, JsError> {
+        self.doc
+            .pdf(title, date, indices)
+            .map_err(|e| JsError::new(&e))
     }
 
     /// A ZIP for the printer: the document, the PDF of the pages at `indices`, its
     /// fonts and its images.
-    pub fn package(&self, title: &str, date: &str, indices: &[u32]) -> Vec<u8> {
-        self.doc.package(title, date, indices)
+    pub fn package(&self, title: &str, date: &str, indices: &[u32]) -> Result<Vec<u8>, JsError> {
+        self.doc
+            .package(title, date, indices)
+            .map_err(|e| JsError::new(&e))
     }
 
     #[wasm_bindgen(js_name = setProfile)]

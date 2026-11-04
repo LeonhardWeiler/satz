@@ -552,6 +552,9 @@ impl Props {
             for v in f.adjust {
                 within(Some(v.into()), -1.0, 1.0, "image adjustment")?;
             }
+            if matches!(f.kind, FillKind::Linear | FillKind::Radial) && f.stops.len() < 2 {
+                return Err("a gradient needs 2 stops or more".into());
+            }
             for s in &f.stops {
                 within(Some(s.at.into()), 0.0, 1.0, "stop")?;
                 s.color.check()?;
@@ -1350,6 +1353,7 @@ impl Doc {
         {
             return Err("not a Satz document".into());
         }
+        d.check_file()?;
         let mut hashes = vec![];
         for v in d
             .doc
@@ -1367,6 +1371,47 @@ impl Doc {
         d.doc.set_next_commit_origin(LAYOUT_ORIGIN);
         d.finish(vec![], false)?;
         Ok(d)
+    }
+
+    /// Runs the checks of the commands over every node and text style of an opened file.
+    fn check_file(&self) -> Res<()> {
+        let json = |v: LoroValue| serde_json::to_value(v).map_err(err);
+        let text =
+            |v: serde_json::Value| serde_json::from_value::<TextProps>(v).map_err(err)?.check();
+        let mut all = Vec::new();
+        for r in self.tree.roots() {
+            self.walk(r, &mut all);
+        }
+        for n in all {
+            let v = json(self.meta(n).get_deep_value())?;
+            serde_json::from_value::<Props>(v.clone())
+                .map_err(err)?
+                .check()?;
+            text(v.clone())?;
+            match self.kind(n) {
+                Some(NodeKind::Page | NodeKind::Master) => {
+                    serde_json::from_value::<pages::Sheet>(v)
+                        .map_err(err)?
+                        .check()?
+                }
+                Some(NodeKind::Group | NodeKind::Trash) => {}
+                _ => check_frame(self.bounds(n))?,
+            }
+            for d in self.own_text(n).map(|t| t.to_delta()).unwrap_or_default() {
+                if let TextDelta::Insert {
+                    attributes: Some(a),
+                    ..
+                } = d
+                {
+                    text(json(a.into())?)?;
+                }
+            }
+        }
+        json(self.doc.get_list("textStyles").get_deep_value())?
+            .as_array()
+            .into_iter()
+            .flatten()
+            .try_for_each(|s| text(s.clone()))
     }
 
     pub fn apply(&mut self, cmd: Command) -> Res<Vec<String>> {
@@ -2889,7 +2934,7 @@ mod tests {
     /// Every page of `d` as a PDF.
     pub(super) fn pdf(d: &Doc) -> Vec<u8> {
         let all: Vec<u32> = (0..d.snapshot().pages.len() as u32).collect();
-        d.pdf("Satz", "2026-09-28T12:00:00Z", &all)
+        d.pdf("Satz", "2026-09-28T12:00:00Z", &all).unwrap()
     }
 
     pub(super) fn empty() -> (Doc, String) {
@@ -4217,6 +4262,29 @@ mod tests {
     }
 
     #[test]
+    fn a_file_with_a_value_no_command_takes_is_not_opened() {
+        let (mut d, p) = empty();
+        let r = create(&mut d, &p, NewKind::Rect, [0.0; 4]);
+        let t = create(&mut d, &p, NewKind::Text, [0.0; 4]);
+        assert!(Doc::load(&d.save()).is_ok());
+        for (id, k, v) in [
+            (&r, "strokeWeight", -1.0),
+            (&r, "w", 1e300),
+            (&p, "height", 1e308),
+        ] {
+            let d = Doc::load(&d.save()).unwrap();
+            let n = TreeID::try_from(id.as_str()).unwrap();
+            d.meta(n).insert(k, v).unwrap();
+            assert!(Doc::load(&d.save()).is_err(), "{k}");
+        }
+        let n = TreeID::try_from(t.as_str()).unwrap();
+        let text = d.own_text(n).unwrap();
+        text.insert(0, "a").unwrap();
+        text.mark(0..1, "size", 1e40).unwrap();
+        assert!(Doc::load(&d.save()).is_err());
+    }
+
+    #[test]
     fn a_command_that_fails_leaves_the_document_as_it_was() {
         let (mut d, p) = empty();
         let r = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
@@ -4907,7 +4975,11 @@ mod tests {
     fn a_pdf_holds_the_pages_asked_for_in_their_order() {
         let b = booklet();
         let path = std::env::temp_dir().join(format!("satz-range-{}.pdf", std::process::id()));
-        std::fs::write(&path, b.d.pdf("Satz", "2026-09-28T12:00:00Z", &[5, 2])).unwrap();
+        std::fs::write(
+            &path,
+            b.d.pdf("Satz", "2026-09-28T12:00:00Z", &[5, 2]).unwrap(),
+        )
+        .unwrap();
         let out = std::process::Command::new("mutool")
             .args(["draw", "-q", "-F", "text", "-o", "-"])
             .arg(&path)
@@ -4932,13 +5004,15 @@ mod tests {
         d.set_profile(Some(icc)).unwrap();
         let name = d.snapshot().profile.clone().unwrap();
         assert!(!name.is_empty());
-        let pdf = String::from_utf8_lossy(&d.pdf("T", "2026-09-28T12:00:00Z", &[0])).into_owned();
+        let pdf = String::from_utf8_lossy(&d.pdf("T", "2026-09-28T12:00:00Z", &[0]).unwrap())
+            .into_owned();
         assert_eq!(name, "FOGRA51 (Satz)");
         assert!(pdf.contains("/OutputConditionIdentifier(Custom)/Info(FOGRA51 \\(Satz\\))"));
         assert_eq!(Doc::load(&d.save()).unwrap().snapshot().profile, Some(name));
         d.apply(Command::Undo).unwrap();
         assert_eq!(d.snapshot().profile, None);
-        let pdf = String::from_utf8_lossy(&d.pdf("T", "2026-09-28T12:00:00Z", &[0])).into_owned();
+        let pdf = String::from_utf8_lossy(&d.pdf("T", "2026-09-28T12:00:00Z", &[0]).unwrap())
+            .into_owned();
         assert!(pdf.contains("/OutputConditionIdentifier(FOGRA51)"));
     }
 
@@ -4947,7 +5021,7 @@ mod tests {
         let mut b = booklet();
         let (_, hash) = place(&mut b.d, &b.pages[0], 2, 2);
         b.d.add_image(&image::tests::png(3, 3)).unwrap();
-        let files = crate::zip::unzip(&b.d.package("Satz", "2026-09-28T12:00:00Z", &[0]));
+        let files = crate::zip::unzip(&b.d.package("Satz", "2026-09-28T12:00:00Z", &[0]).unwrap());
         let names: Vec<&str> = files.iter().map(|f| f.0.as_str()).collect();
         assert_eq!(
             names,
