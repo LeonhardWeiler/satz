@@ -8,9 +8,6 @@ pub(super) struct Place {
     pub(super) x: f64,
 }
 
-/// A layout grid of a page: `count` columns or rows between margins of `margin`
-/// and gutters of `gutter`, or square cells of `size`, in pt. The canvas shows it;
-/// the PDF leaves it out.
 /// Ruler guides of a page: vertical ones at `x` from its left edge, horizontal ones at `y` from its top.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -19,6 +16,9 @@ pub struct Guides {
     pub y: Vec<f64>,
 }
 
+/// A layout grid of a page: `count` columns or rows between margins of `margin`
+/// and gutters of `gutter`, or square cells of `size`, in pt. The canvas shows it;
+/// the PDF leaves it out.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -79,7 +79,6 @@ type Drag =
   | { kind: 'image'; start: Point; node: Node; turn: number }
   | { kind: 'guide'; axis: 'x' | 'y'; id: string; dx: number; index: number; grouped: boolean }
 
-/** Snaps a vector to the nearest multiple of 45°. */
 /** Degrees counterclockwise of `p` around `c`. */
 function angle(c: Point, p: Point) {
   return (Math.atan2(c.y - p.y, p.x - c.x) * 180) / Math.PI
@@ -240,7 +239,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const q = editor.local(id, p)
       return editor.engine.textIndex(id, q.x, q.y)
     }
-    /** The page of `pages` under `p`, or the nearest. */
     const flowing = (c?: Node): c is Container => c?.kind === 'frame' && c.direction !== 'none'
     /** The deepest auto layout frame under `p` that is not one of the layers `ids` or inside them. */
     const flowAt = (p: Point, ids: string[]) => {
@@ -255,6 +253,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       }
       return found
     }
+    /** The page of `pages` under `p`, or the nearest. */
     const pageAt = (p: Point, pages = editor.spread) => {
       const away = (q: Page) => Math.max(q.x - p.x, p.x - q.x - q.width, 0)
       return pages.reduce((a, b) => (away(b) < away(a) ? b : a))
@@ -279,9 +278,9 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     }
     const downX = fromRuler('y')
     const downY = fromRuler('x')
-    /** The path of layers at `p` on the topmost page of the spread that has one there. */
     /** The text frame under `p`, innermost first. */
     const textUnder = (p: Point) => hit(p).path.findLast((id) => editor.nodes.get(id)?.node.kind === 'text')
+    /** The path of layers at `p` on the topmost page of the spread that has one there. */
     const hit = (p: Point) => {
       for (const page of [...editor.spread].reverse()) {
         const path = editor.engine.hit(page.id, p.x - page.x, p.y, HIT / view.zoom)
@@ -435,13 +434,13 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       return svg + tags
     }
 
-    /** Ports of the selected text frame; over a port, the lines of its thread on this spread and the frame the port links to. */
     const guideOf = () => {
       const g = editor.guide
       const s = editor.sheets.find((s) => s.id === g?.id)
       const at = g ? s?.guides[g.axis][g.index] : undefined
       return g && s && at !== undefined ? (g.axis === 'x' ? { x: s.x + at } : { y: at }) : undefined
     }
+    /** Ports of the selected text frame; over a port, the lines of its thread on this spread and the frame the port links to. */
     const threadOverlay = () => {
       const p = drag ? undefined : ports()
       if (!p) return {}

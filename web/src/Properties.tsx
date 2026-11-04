@@ -558,7 +558,6 @@ const sameOf = <T, U>(items: T[], get: (t: T) => U): U | null => {
   return values.every((v) => v === values[0]) ? values[0] : null
 }
 
-/** Format, orientation, size, bleed and number of all pages, facing pages, color mode and raster resolution. */
 function textBelow(editor: Editor, n: Node) {
   const page = editor.nodes.get(n.id)?.page
   for (const [id, e] of editor.nodes) {
@@ -568,6 +567,7 @@ function textBelow(editor: Editor, n: Node) {
   return false
 }
 
+/** Format, orientation, size, bleed and number of all pages, facing pages, color mode and raster resolution. */
 function DocumentSection({ editor }: { editor: Editor }) {
   const { pages, facingPages, colorMode, rasterPpi, profile } = useEditor(editor, (e) => e.snapshot)
   const count = (n: number) =>
