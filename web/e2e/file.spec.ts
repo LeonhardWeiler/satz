@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { type FileChooser, type Page } from '@playwright/test'
-import { expect, test, addPage, autosaved, drawn, open, pageCount, screen } from './util'
+import { expect, test, addPage, autosaved, drawn, exportButton, open, pageCount, screen } from './util'
 
 
 /** Saves the document as Firefox does, by a download, and returns the file. */
@@ -167,4 +167,20 @@ test('new asks before it discards changes and then starts over', async ({ page }
   await page.locator('.ask').getByRole('button', { name: 'Discard' }).click()
   await pageCount(page, 1)
   await expect(page).toHaveTitle('Untitled.satz - Satz')
+})
+
+test('an autosave the browser refuses says so', async ({ page }) => {
+  await page.evaluate(() => {
+    IDBObjectStore.prototype.put = () => {
+      throw new DOMException('the disk is full', 'QuotaExceededError')
+    }
+  })
+  await addPage(page)
+  await expect(page.getByText('Autosave failed: the disk is full. Save the file with Ctrl+S.')).toBeVisible()
+})
+
+test('an export worker that breaks says the export failed', async ({ page }) => {
+  await page.route(/exportWorker[^/]*\.js$/, (r) => r.fulfill({ contentType: 'text/javascript', body: "onmessage = () => { throw new Error('trap') }" }))
+  await (await exportButton(page)).click()
+  await expect(page.getByText(/^Could not export the PDF: .*trap/)).toBeVisible()
 })
