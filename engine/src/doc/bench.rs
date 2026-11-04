@@ -88,6 +88,25 @@ fn bench() {
         let [a, b] = [inks, image].map(|t| t.as_secs_f64() * 1e3);
         println!("inks at {ppi} ppi {a:.1} ms, image {b:.1} ms");
     }
+    let (mut d, _) = empty();
+    let t = text(&mut d, &"ab".repeat(1500));
+    for i in 0..1500 {
+        format(
+            &mut d,
+            &t,
+            Some([2 * i, 2 * i + 1]),
+            sized(10.0 + i as f64 % 7.0),
+        )
+        .unwrap();
+    }
+    let at = 1500;
+    let keystroke = median(21, || {
+        edit(&mut d, &t, [at, at], "X").unwrap();
+    });
+    println!(
+        "keystroke in 1500 runs {:.2} ms",
+        keystroke.as_secs_f64() * 1e3
+    );
 }
 
 /// `PHASE=set_frame|keystroke PAGES=50 cargo test --release -p engine prof -- --ignored`

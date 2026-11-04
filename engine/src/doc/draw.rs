@@ -1543,6 +1543,7 @@ impl Doc {
             m.extend(marks);
             serde_json::from_value(serde_json::Value::Object(m)).unwrap_or_default()
         };
+        let mut known: HashMap<String, Attrs> = HashMap::new();
         let mut out: Vec<Span> = Vec::new();
         let mut para: Option<Attrs> = None;
         for d in self.text(id).map(|t| t.to_delta()).unwrap_or_default() {
@@ -1553,7 +1554,8 @@ impl Doc {
                 .ok()
                 .and_then(|v| v.as_object().cloned())
                 .unwrap_or_default();
-            let attrs = resolve(marks);
+            let key = serde_json::Value::Object(marks.clone()).to_string();
+            let attrs = known.entry(key).or_insert_with(|| resolve(marks)).clone();
             for piece in insert.split_inclusive('\n') {
                 let p = para.get_or_insert_with(|| attrs.clone());
                 let a = Attrs {
