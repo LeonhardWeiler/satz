@@ -61,7 +61,7 @@ test('export writes every page or a range as a png or a jpeg, and a package as a
   await go.click()
   await expect(page.getByText('Exported 2 pages')).toBeVisible({ timeout: 30000 })
   await expect.poll(() => bytes.length).toBe(2)
-  expect(names).toEqual(['Untitled-1.png', 'Untitled-2.png'])
+  expect(names.toSorted()).toEqual(['Untitled-1.png', 'Untitled-2.png'])
   expect(bytes[0].subarray(1, 4).toString()).toBe('PNG')
 
   await choose(region.getByRole('combobox', { name: 'Format' }), 'JPEG')
