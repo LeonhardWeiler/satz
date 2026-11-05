@@ -12,22 +12,22 @@ console_error_panic_hook = "0.1.7"
 crc32fast = "1.5.2"
 # Only switches the deflate of krilla to zlib-rs.
 flate2 = { version = "1.1.10", features = ["zlib-rs"] }
-harfrust = "0.13.3"
+harfrust = "0.15.0"
 hypher = { version = "0.1.8", default-features = false, features = ["alloc", "english", "german", "french", "italian", "spanish", "dutch"] }
 jpeg-encoder = "0.7.1"
 js-sys = "=0.3.104"
 krilla = { version = "0.8.2", default-features = false, features = ["raster-images"] }
 kurbo = "0.13.1"
-linesweeper = "0.4.0"
+linesweeper = "0.5.0"
 loro = "1.16.2"
 miniz_oxide = "0.9.1"
 moxcms = { version = "0.9.1", default-features = false, features = ["lut"] }
 png = "0.18.1"
-read-fonts = "0.43.3"
+read-fonts = "0.46.0"
 serde = { version = "1.0.229", features = ["derive", "rc"] }
 serde-wasm-bindgen = "0.6.5"
 serde_json = "1.0.151"
-skrifa = "0.42.1"
+skrifa = "0.49.0"
 subsetter = "0.2.6"
 tiny-skia = { version = "0.12.0", default-features = false, features = ["std", "simd"] }
 wasm-bindgen = "=0.2.127"
