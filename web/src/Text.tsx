@@ -204,7 +204,7 @@ export function TypeOptions({ spans, set, features }: { spans: Pick<Attrs, Style
               </header>
               {tab === 'Character' && (
                 <>
-                  <Group title="Character">
+                  <Group title="Case & position">
                     <Select label="Case" prefix="Case" value={same((a) => a.textCase)} options={CASES} onChange={(textCase) => set({ textCase })} />
                     <Select label="Decoration" prefix="Decoration" value={same((a) => a.textDecoration)} options={DECORATIONS} onChange={(textDecoration) => set({ textDecoration })} />
                     <Select label="Position" prefix="Position" value={same((a) => a.position)} options={POSITIONS} onChange={(position) => set({ position })} />
