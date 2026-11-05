@@ -1,11 +1,12 @@
 import { useSyncExternalStore } from 'react'
 import { typeface } from './engine/engine'
-import type { Editor } from './editor'
+import { UNTITLED, type Editor } from './editor'
 import type { Typeface } from './model'
 import type { Out, Preview, Previewed } from './exportWorker'
 
 export type Handle = FileSystemFileHandle & { requestPermission(o: { mode: 'readwrite' }): Promise<PermissionState>; move?(name: string): Promise<void> }
 export type Saved = { bytes: Uint8Array; name: string; handle: Handle | null; dirty: boolean }
+export type Project = { id: string; name: string; at: number; thumb?: Uint8Array }
 
 const TYPES = [{ description: 'Satz document', accept: { 'application/x-satz': ['.satz'] } }]
 const pickers = window as {
@@ -15,12 +16,12 @@ const pickers = window as {
 
 let db: Promise<IDBDatabase> | undefined
 
-/** The autosaved document under 'doc', or the added fonts by hash. */
-async function store(name: 'files' | 'fonts') {
+/** The autosaved documents by project id with their updates under [id, n], the projects by id, or the added fonts by hash. */
+async function store(name: 'files' | 'fonts' | 'projects') {
   db ??= new Promise((done, fail) => {
-    const r = indexedDB.open('satz', 2)
+    const r = indexedDB.open('satz', 3)
     r.onupgradeneeded = () => {
-      for (const s of ['files', 'fonts']) if (!r.result.objectStoreNames.contains(s)) r.result.createObjectStore(s)
+      for (const s of ['files', 'fonts', 'projects']) if (!r.result.objectStoreNames.contains(s)) r.result.createObjectStore(s)
     }
     r.onsuccess = () => done(r.result)
     r.onerror = () => fail(r.error)
@@ -40,31 +41,83 @@ const result = <T,>(r: IDBRequest<T>) =>
     r.onerror = () => fail(r.error)
   })
 
-/** The keys of the updates autosaved after the document under 'doc'. */
-const updates = () => IDBKeyRange.bound(['doc', 0], ['doc', Infinity])
+/** The keys of the updates autosaved after the document of project `id`. */
+const updates = (id: string) => IDBKeyRange.bound([id, 0], [id, Infinity])
 
-/** The document autosaved last and the updates autosaved after it. */
-export const stored = async () => {
+/** The document of project `id` autosaved last and the updates autosaved after it. */
+const stored = async (id: string) => {
   const files = await store('files')
-  const [saved, after] = await Promise.all([result<Saved | undefined>(files.get('doc')), result<Uint8Array[]>(files.getAll(updates()))])
+  const [saved, after] = await Promise.all([result<Saved | undefined>(files.get(id)), result<Uint8Array[]>(files.getAll(updates(id)))])
   return saved && { ...saved, updates: after }
 }
 
-/** Moves an autosave that could not be restored to 'doc-unreadable', which no autosave overwrites. */
-export const keepUnreadable = async (saved: Saved) => {
-  const files = await store('files')
-  files.put(saved, 'doc-unreadable')
-  files.delete('doc')
-  await finished(files.transaction)
+/** The projects of this browser, the last edited first; the autosave from before projects is the one under 'doc'. */
+export async function projects() {
+  const all = await result<Project[]>((await store('projects')).getAll())
+  const old = !all.some((p) => p.id === 'doc') && (await stored('doc'))
+  if (old) {
+    const p = { id: 'doc', name: old.name, at: Date.now() }
+    await result((await store('projects')).put(p, p.id))
+    all.push(p)
+  }
+  return all.sort((a, b) => b.at - a.at)
 }
 
-/** The fonts added in this browser. */
+/** Deletes the project `id` and its autosaves. */
+export async function removeProject(editor: Editor, id: string) {
+  const files = await store('files')
+  files.delete(id)
+  files.delete(updates(id))
+  await finished(files.transaction)
+  await result((await store('projects')).delete(id))
+  if (editor.project === id) editor.project = null
+}
+
+/** The added fonts of this browser. */
 export const storedFonts = async () => result<Uint8Array[]>((await store('fonts')).getAll())
 
-/** Autosaves the document a second after it last changed and when the page is hidden: the
- * whole document when its file or `dirty` changed and after 100 updates, else the update since. */
+/** Writes what the autosave has not written yet. */
+export let flush = () => Promise.resolve()
+
+/** Shows the project `id`, or the projects for `null`. */
+export function show(editor: Editor, id: string | null) {
+  if (id) editor.project = id
+  history.replaceState(null, '', id ? `#${id}` : location.pathname + location.search)
+  editor.set({ home: !id })
+}
+
+/** Opens the project `id` in place of the document. */
+export async function openProject(editor: Editor, id: string) {
+  await flush()
+  const saved = await stored(id).catch(() => undefined)
+  if (!saved) return editor.fail('Could not open the project: it is not in this browser.')
+  try {
+    editor.load(saved.bytes, { name: saved.name, handle: saved.handle }, saved.dirty, saved.updates)
+  } catch (e) {
+    if (e instanceof WebAssembly.RuntimeError) throw e
+    return editor.fail(`Could not open ${saved.name}: ${(e as Error).message}.`)
+  }
+  show(editor, id)
+  await findGrantedFonts(editor)
+}
+
+/** Opens the document `bytes` as a new project; throws when it is not one. */
+export async function begin(editor: Editor, bytes: Uint8Array, file = UNTITLED) {
+  await flush()
+  editor.load(bytes, file)
+  show(editor, crypto.randomUUID())
+}
+
+/** The first page as a PNG about 240 px on its long side. */
+function thumb(editor: Editor) {
+  const p = editor.snapshot.pages[0]
+  return editor.engine.png(p.id, (240 * 72) / Math.max(p.width, p.height))
+}
+
+/** Autosaves the document into its project a second after it last changed and when the page is hidden:
+ * the whole document when its project, file or `dirty` changed and after 100 updates, else the update since. */
 export function autosave(editor: Editor) {
-  const file = () => `${editor.dirty} ${editor.file.name}`
+  const file = () => `${editor.project} ${editor.dirty} ${editor.file.name}`
   const state = () => editor.engine.version() + file()
   let last = state()
   let timer = 0
@@ -75,18 +128,20 @@ export function autosave(editor: Editor) {
   const put = async () => {
     clearTimeout(timer)
     const now = state()
-    if (!editor.autosaves || now === last) return
+    const id = editor.project
+    if (!editor.autosaves || !id || now === last) return
     const { name, handle } = editor.file
     try {
       const files = await store('files')
       const vv = editor.engine.versionVector()
       const whole = !seen || base !== file() || appended >= 100
       if (whole) {
-        files.put({ bytes: editor.engine.updates(new Uint8Array()), name, handle, dirty: editor.dirty } satisfies Saved, 'doc')
-        files.delete(updates())
-      } else files.put(editor.engine.updates(seen!), ['doc', appended + 1])
+        files.put({ bytes: editor.engine.updates(new Uint8Array()), name, handle, dirty: editor.dirty } satisfies Saved, id)
+        files.delete(updates(id))
+      } else files.put(editor.engine.updates(seen!), [id, appended + 1])
       files.transaction.commit()
       await finished(files.transaction)
+      await result((await store('projects')).put({ id, name, at: Date.now(), thumb: thumb(editor) } satisfies Project, id))
       appended = whole ? 0 : appended + 1
       base = file()
       seen = vv
@@ -107,9 +162,11 @@ export function autosave(editor: Editor) {
   const off = editor.subscribe(later)
   window.addEventListener('pagehide', put)
   document.addEventListener('visibilitychange', hidden)
+  flush = put
   return () => {
     off()
     put()
+    flush = () => Promise.resolve()
     window.removeEventListener('pagehide', put)
     document.removeEventListener('visibilitychange', hidden)
   }
@@ -216,19 +273,21 @@ export function ask(question: string, yes: string): Promise<boolean> {
   )
 }
 
-export const discard = async (editor: Editor) => !editor.dirty || ask(`Discard unsaved changes to ${editor.file.name}?`, 'Discard')
+/** Whether the document may go: it is autosaved into its project or saved, or the user says so. */
+export const discard = async (editor: Editor) =>
+  !editor.dirty || (editor.autosaves && !!editor.project) || ask(`Discard unsaved changes to ${editor.file.name}?`, 'Discard')
 
 async function load(editor: Editor, file: File, handle: Handle | null) {
   if (!(await discard(editor))) return
   try {
-    editor.load(new Uint8Array(await file.arrayBuffer()), { name: file.name, handle })
+    await begin(editor, new Uint8Array(await file.arrayBuffer()), { name: file.name, handle })
   } catch (e) {
     return editor.fail(`Could not open ${file.name}: ${(e as Error).message}. Choose a .satz file saved by Satz.`)
   }
   await findGrantedFonts(editor)
 }
 
-/** Asks for a file and opens it in place of the document. */
+/** Asks for a file and opens it as a new project. */
 export async function open(editor: Editor) {
   if (!pickers.showOpenFilePicker) return pick('.satz', false, ([file]) => file && load(editor, file, null))
   try {
@@ -304,7 +363,7 @@ export async function drop(editor: Editor, files: File[]) {
     const ext = file.name.split('.').pop()!.toLowerCase()
     if (ext === 'satz') await load(editor, file, null)
     else if (['ttf', 'otf', 'woff', 'woff2'].includes(ext)) await addFont(editor, file)
-    else if (ext === 'png' || ext === 'jpg' || ext === 'jpeg') await placeImage(editor, file)
+    else if (!editor.home && (ext === 'png' || ext === 'jpg' || ext === 'jpeg')) await placeImage(editor, file)
     else editor.fail(`Could not use ${file.name}. Drop a .satz document, a PNG or JPEG image or a .ttf, .otf, .woff or .woff2 font.`)
   }
 }

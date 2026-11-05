@@ -39,7 +39,7 @@ function rounded(cmd: Command, was?: Node): Command {
   return out as Command
 }
 
-const UNTITLED: { name: string; handle: Handle | null } = { name: 'Untitled.satz', handle: null }
+export const UNTITLED: { name: string; handle: Handle | null } = { name: 'Untitled.satz', handle: null }
 
 export const scopeOf = ({ swatches, collections, variables }: Palette, modes: Modes = {}): Scope => ({
   swatches,
@@ -93,6 +93,10 @@ export class Editor {
   /** The ink coverage in % under the pointer while the preflight is open. */
   pointerInk: number | null = null
   file = UNTITLED
+  /** The id of the project the document autosaves into, `null` for none. */
+  project: string | null = null
+  /** The projects show in place of the document. */
+  home = false
   /** The document has changed since it was last saved to or opened from its file. */
   dirty = false
   /** The message in the status bar. */
@@ -363,7 +367,7 @@ export class Editor {
     }
   }
 
-  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'pen' | 'editing' | 'threading' | 'placing' | 'overview' | 'preflight' | 'grids' | 'guide' | 'vector' | 'cropping' | 'inks' | 'previewed' | 'found'>>) {
+  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'pen' | 'editing' | 'threading' | 'placing' | 'overview' | 'preflight' | 'grids' | 'guide' | 'vector' | 'cropping' | 'inks' | 'previewed' | 'found' | 'home'>>) {
     const leaves = this.editing && patch.selection && !patch.selection.includes(this.editing.id)
     if (this.vector && ((patch.selection && !patch.selection.includes(this.vector.id)) || (patch.tool && patch.tool !== 'move'))) patch = { vector: null, ...patch }
     if (this.cropping && ((patch.selection && !patch.selection.includes(this.cropping)) || (patch.tool && patch.tool !== 'move'))) patch = { cropping: null, ...patch }

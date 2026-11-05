@@ -9,7 +9,7 @@ import { Help } from './Help'
 import { Settings } from './SettingsDialog'
 import { Find } from './Find'
 import { settings } from './settings'
-import { autosave, download, drop, exportFile, open, placeImages, save } from './file'
+import { autosave, download, drop, exportFile, flush, open, placeImages, save, show } from './file'
 import { Icon } from './icons'
 import { handleKey } from './keys'
 import { Layers } from './Layers'
@@ -18,6 +18,7 @@ import { Palette } from './Palette'
 import { type Format, isError, Preflight } from './Preflight'
 import { Properties } from './Properties'
 import { Start } from './Start'
+import { Home } from './Home'
 import { Swatches } from './Swatches'
 import { Switcher } from './Switcher'
 import { Toolbar } from './Toolbar'
@@ -25,7 +26,7 @@ import { Tooltip } from './Tooltip'
 
 const CLIP = 'application/x-satz-layers'
 
-export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; first: boolean }) {
+export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   const status = useEditor(editor, (e) => e.status)
   const statusError = useEditor(editor, (e) => e.statusError)
   const statusAction = useEditor(editor, (e) => e.statusAction)
@@ -37,9 +38,10 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
   const preflight = useEditor(editor, (e) => e.preflight)
   const issues = useEditor(editor, (e) => e.snapshot.preflight)
   const errors = issues.filter(isError).length
+  const home = useEditor(editor, (e) => e.home)
 
   const [exporting, setExporting] = useState(false)
-  const [starting, setStarting] = useState(first)
+  const [starting, setStarting] = useState(false)
   const [dialog, setDialog] = useState<'palette' | 'help' | 'settings' | null>(null)
   const [finding, setFinding] = useState(false)
   const [menu, setMenu] = useState<{ x: number; y: number; transform?: boolean } | null>(null)
@@ -203,12 +205,34 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
     </button>
   )
 
+  const bar = (
+    <p
+      className={statusError ? 'status error' : 'status'}
+      role="status"
+    >
+      {statusError && <Icon name="error" />}
+      {status}
+      {statusAction && (
+        <button
+          type="button"
+          className="button"
+          onClick={() => {
+            say('')
+            statusAction.run()
+          }}
+        >
+          {statusAction.label}
+        </button>
+      )}
+    </p>
+  )
+
   return (
     <main className={`app${off('left') ? ' no-left' : ''}${off('right') ? ' no-right' : ''}${hidden.ui ? ' no-ui' : ''}${hidden.rulers ? ' no-rulers' : ''}`}>
       <div className="left" inert={off('left')}>
         <Edge side="left" />
         <div className="brand" title="Double-click to rename" onDoubleClick={() => setRenaming(true)} onBlur={() => setRenaming(false)}>
-          <span className="mark" aria-hidden="true" />
+          <button type="button" className="mark" aria-label="Projects" title="Projects" onClick={() => flush().then(() => show(editor, null))} />
           {renaming ? (
             <>
               <NameInput label="Document name" value={title} autoFocus onCommit={(v) => editor.saved({ ...editor.file, name: `${v}.satz` }, '')} />
@@ -306,25 +330,13 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
           })}
         />
       )}
-      <p
-        className={statusError ? 'status error' : 'status'}
-        role="status"
-      >
-        {statusError && <Icon name="error" />}
-        {status}
-        {statusAction && (
-          <button
-            type="button"
-            className="button"
-            onClick={() => {
-              say('')
-              statusAction.run()
-            }}
-          >
-            {statusAction.label}
-          </button>
-        )}
-      </p>
+      {home ? (
+        <Home editor={editor} onNew={() => setStarting(true)}>
+          {bar}
+        </Home>
+      ) : (
+        bar
+      )}
     </main>
   )
 }

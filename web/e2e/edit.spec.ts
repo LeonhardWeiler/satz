@@ -103,7 +103,6 @@ test('copied layers paste into another document', async ({ page, context }) => {
   await page.keyboard.press('Control+c')
   await page.keyboard.press('Control+Alt+n')
   await page.getByRole('dialog', { name: 'New document' }).getByRole('button', { name: 'Create' }).click()
-  await page.getByRole('button', { name: 'Discard' }).click()
   await expect(layers.getByRole('button', { name: 'Sun', exact: true })).toHaveCount(0)
   await page.mouse.move(0, 0)
   await page.keyboard.press('Control+v')

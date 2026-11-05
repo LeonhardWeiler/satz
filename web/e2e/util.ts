@@ -26,7 +26,7 @@ export async function open(page: Page, width = 1400) {
   page.on('filechooser', () => {})
   await page.setViewportSize({ width: width + 48, height: 1160 })
   await page.goto('')
-  await page.getByRole('dialog', { name: 'New document' }).getByRole('button', { name: 'Sample' }).click()
+  await page.getByRole('dialog', { name: 'Projects' }).getByRole('button', { name: 'Sample' }).click()
   await page.mouse.move(0, 0)
   await expect(page.getByLabel('Zoom')).not.toHaveText('0%')
 }
@@ -65,7 +65,7 @@ export async function autosaved(page: Page, dirty = true) {
         new Promise<boolean>((done) => {
           const r = indexedDB.open('satz')
           r.onsuccess = () => {
-            const get = r.result.transaction('files').objectStore('files').get('doc')
+            const get = r.result.transaction('files').objectStore('files').get(location.hash.slice(1))
             get.onsuccess = () => {
               done(!!get.result && (!dirty || get.result.dirty))
               r.result.close()

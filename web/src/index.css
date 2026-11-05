@@ -2535,8 +2535,8 @@ input[type='checkbox']:active {
 
 .start[open] {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 250px;
-  width: min(960px, 94vw);
+  grid-template-columns: minmax(0, 1fr);
+  width: min(720px, 94vw);
   padding: 0;
   overflow: hidden;
   border: 1px solid var(--edge);
@@ -2657,22 +2657,6 @@ input[type='checkbox']:active {
   gap: 6px;
   height: 34px;
   padding: 0 14px;
-}
-
-.start-side {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 26px 16px;
-  border-left: 1px solid var(--border);
-  background: var(--input);
-}
-
-.start-side h3 {
-  margin: 0 0 6px;
-  font-size: 20px;
-  line-height: 24px;
-  font-weight: 600;
 }
 
 .example {
@@ -3149,7 +3133,7 @@ input[type='checkbox']:active {
 }
 
 .help {
-  width: min(960px, 94vw);
+  width: min(720px, 94vw);
   height: 76vh;
   overflow: hidden;
 }
@@ -3551,4 +3535,135 @@ input[type='checkbox']:active {
 
 .menu.plain .menu-item {
   grid-template-columns: 1fr auto;
+}
+
+.home[open] {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  width: 100vw;
+  max-width: none;
+  height: 100vh;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: var(--canvas);
+  color: var(--text);
+}
+
+.home-side {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 12px 16px;
+  border-right: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.home-side .brand {
+  margin: 0 -12px 10px;
+}
+
+.home-side > :is(.primary, .button) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 12px;
+}
+
+.home-side h3 {
+  margin: 16px 0 4px;
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.home-main {
+  overflow: auto;
+  padding: 28px 32px;
+}
+
+.home-main h2 {
+  margin: 0 0 20px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.home-empty {
+  color: var(--text-3);
+}
+
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.home-card {
+  position: relative;
+}
+
+.home-card > button:first-child {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--edge);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  text-align: left;
+}
+
+.home-card > button:first-child:hover {
+  border-color: var(--accent);
+}
+
+.home-card strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-card small {
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.home-thumb {
+  display: grid;
+  place-items: center;
+  height: 150px;
+  margin-bottom: 4px;
+  border-radius: 6px;
+  background: var(--input);
+  color: var(--text-3);
+}
+
+.home-thumb img {
+  max-width: 100%;
+  max-height: 100%;
+  box-shadow: 0 0 0 1px var(--edge);
+}
+
+.home-card .icon-button {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: var(--raised);
+  opacity: 0;
+}
+
+.home-card:is(:hover, :focus-within) .icon-button {
+  opacity: 1;
+}
+
+button.mark {
+  padding: 0;
+  border: 0;
+  cursor: pointer;
 }

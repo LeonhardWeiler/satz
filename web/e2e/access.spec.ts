@@ -42,7 +42,6 @@ test('a file picked to open replaces the document with it', async ({ page }) => 
   await expect(page).toHaveTitle('Untitled.satz - Satz')
   await addPage(page)
   await page.keyboard.press('Control+o')
-  await page.locator('.ask').getByRole('button', { name: 'Discard' }).click()
   await pageCount(page, 2)
   await expect(page).toHaveTitle('Untitled.satz - Satz')
 })

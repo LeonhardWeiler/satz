@@ -1,28 +1,49 @@
 import { type Page } from '@playwright/test'
-import { expect, test, open, pageCount } from './util'
+import { expect, test, autosaved, open, pageCount } from './util'
 
 const start = (page: Page) => page.getByRole('dialog', { name: 'New document' })
+const home = (page: Page) => page.getByRole('dialog', { name: 'Projects' })
 const spreads = (page: Page) => page.getByRole('navigation', { name: 'Spreads' })
 
-test('the start screen shows without an autosave, escape closes it and an example opens', async ({ page }) => {
+test('the projects show at the start, list what was opened and open it again', async ({ page }) => {
   await page.goto('')
-  await expect(start(page)).toBeVisible()
-  await page.keyboard.press('Escape')
-  await expect(start(page)).toHaveCount(0)
-  await expect(page).toHaveTitle('Untitled.satz - Satz')
-  await page.keyboard.press('Control+Alt+n')
-  await start(page).getByRole('button', { name: /Satz booklet/ }).click()
+  await expect(home(page).getByText('Documents you create or open appear here.')).toBeVisible()
+  await home(page).getByRole('button', { name: /Satz booklet/ }).click()
   await expect(page).toHaveTitle('booklet.satz - Satz')
   await pageCount(page, 8)
+  await autosaved(page, false)
+  await page.getByRole('button', { name: 'Projects' }).click()
+  await home(page).getByRole('button', { name: /Poster/ }).click()
+  await expect(page).toHaveTitle('poster.satz - Satz')
+  await autosaved(page, false)
+  await page.getByRole('button', { name: 'Projects' }).click()
+  const cards = home(page).getByRole('listitem')
+  await expect(cards).toHaveCount(2)
+  await expect(cards.first()).toContainText('poster')
+  await expect(cards.first().locator('img')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page).toHaveTitle('poster.satz - Satz')
+  await page.getByRole('button', { name: 'Projects' }).click()
+  await cards.getByRole('button', { name: /^booklet/ }).click()
+  await expect(page).toHaveTitle('booklet.satz - Satz')
+  await pageCount(page, 8)
+  await page.reload()
+  await expect(page).toHaveTitle('booklet.satz - Satz')
+  await page.getByRole('button', { name: 'Projects' }).click()
+  await home(page).getByRole('button', { name: 'Delete booklet.satz' }).click()
+  await page.locator('.ask').getByRole('button', { name: 'Delete' }).click()
+  await expect(cards).toHaveCount(1)
+  await page.reload()
+  await expect(home(page)).toBeVisible()
 })
 
-test('an example that does not load says so and keeps the start screen', async ({ page }) => {
+test('an example that does not load says so and keeps the projects', async ({ page }) => {
   test.info().annotations.push({ type: 'errors' })
   await page.route('**/booklet-*.satz', (r) => r.fulfill({ status: 404 }))
   await page.goto('')
-  await start(page).getByRole('button', { name: /Satz booklet/ }).click()
+  await home(page).getByRole('button', { name: /Satz booklet/ }).click()
   await expect(page.locator('.status')).toHaveText(/Could not open booklet.satz: 404/)
-  await expect(start(page)).toBeVisible()
+  await expect(home(page)).toBeVisible()
 })
 
 test('enter creates a document of the chosen format, orientation and pages', async ({ page }) => {
@@ -60,7 +81,7 @@ test('a custom format takes its width and height', async ({ page }) => {
   await expect(page.getByRole('complementary', { name: 'Properties' }).getByRole('textbox', { name: 'W in mm' })).toHaveValue('100')
 })
 
-test('escape returns to the document and an example asks before it discards changes', async ({ page }) => {
+test('escape returns to the document and new keeps the changes in their project', async ({ page }) => {
   await open(page)
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Sun' }).click()
   await page.keyboard.press('Delete')
@@ -68,14 +89,11 @@ test('escape returns to the document and an example asks before it discards chan
   await page.keyboard.press('Escape')
   await expect(start(page)).toHaveCount(0)
   await expect(page).toHaveTitle('* Untitled.satz - Satz')
-
   await page.keyboard.press('Control+Alt+n')
-  await start(page).getByRole('button', { name: 'Poster' }).click()
-  await page.locator('.ask').getByRole('button', { name: 'Cancel' }).click()
-  await expect(start(page)).toBeVisible()
-  await start(page).getByRole('button', { name: 'Poster' }).click()
-  await page.locator('.ask').getByRole('button', { name: 'Discard' }).click()
-  await expect(page).toHaveTitle('poster.satz - Satz')
+  await start(page).getByRole('button', { name: /Create/ }).click()
+  await expect(page).toHaveTitle('Untitled.satz - Satz')
+  await page.getByRole('button', { name: 'Projects' }).click()
+  await expect(home(page).getByRole('listitem')).toHaveCount(2)
 })
 
 test('open file on the start screen asks for a file as ctrl+o does', async ({ page }) => {

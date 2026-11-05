@@ -1,12 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Engine } from './engine/engine'
 import { MM, type Editor } from './editor'
-import { discard, findGrantedFonts, open } from './file'
+import { begin, discard, open } from './file'
 import { Field, Keys, Segmented } from './controls'
 import { length } from './settings'
 import { Icon } from './icons'
-import booklet from '../../examples/booklet.satz?url'
-import poster from '../../examples/poster.satz?url'
 
 export const ORIENTATIONS = [
   ['portrait', 'Portrait', 'portrait'],
@@ -25,11 +23,6 @@ const near = (a: number, b: number) => Math.abs(a - b) < 0.5
 /** The name of the format of a `w` by `h` pt page in either orientation, or Custom. */
 export const formatOf = (w: number, h: number) =>
   FORMATS.find(([, a, b]) => near(Math.min(w, h), a * MM) && near(Math.max(w, h), b * MM))?.[0] ?? 'Custom'
-const EXAMPLES = [
-  ['Satz booklet', 'A5, 8 pages, master pages', booklet, 'booklet.satz'],
-  ['Poster', 'A2, 1 page, CMYK with a spot color', poster, 'poster.satz'],
-  ['Sample', 'A5, 1 page with shapes and text', null, 'Untitled.satz'],
-] as const
 
 export function Start({ editor, onClose }: { editor: Editor; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null)
@@ -48,27 +41,11 @@ export function Start({ editor, onClose }: { editor: Editor; onClose: () => void
   const [w, h] = size(all.find((f) => f[0] === format)!)
   const plural = (n: number) => `${n} ${n === 1 ? 'page' : 'pages'}`
 
-  const example = async (url: string | null, name: string) => {
-    if (!(await discard(editor))) return
-    try {
-      if (url) {
-        const r = await fetch(url)
-        if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
-        editor.load(new Uint8Array(await r.arrayBuffer()), { name, handle: null })
-        findGrantedFonts(editor)
-      } else load(Engine.sample())
-    } catch (e) {
-      return editor.fail(`Could not open ${name}: ${(e as Error).message}. Create a new document instead.`)
-    }
-    onClose()
-  }
-  const load = (e: Engine) => {
-    editor.load(e.save())
-    e.free()
-  }
   const create = async () => {
     if (!(await discard(editor))) return
-    load(Engine.blank(w, h, pages, pages > 1 && facing))
+    const e = Engine.blank(w, h, pages, pages > 1 && facing)
+    await begin(editor, e.save())
+    e.free()
     editor.say(`Created ${formatOf(w, h)}, ${plural(pages)}`)
     onClose()
   }
@@ -167,18 +144,6 @@ export function Start({ editor, onClose }: { editor: Editor; onClose: () => void
           </button>
         </footer>
       </div>
-      <aside className="start-side">
-        <h3>Examples</h3>
-        {EXAMPLES.map(([title, text, url, name]) => (
-          <button key={title} type="button" className="example" onClick={() => example(url, name)}>
-            <span>
-              <Icon name="doc" />
-              {title}
-            </span>
-            <small>{text}</small>
-          </button>
-        ))}
-      </aside>
     </dialog>
   )
 }

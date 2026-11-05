@@ -2,9 +2,11 @@ import { type Page } from '@playwright/test'
 import { expect, test, addMaster, autosaved, current, open, option, overview, choose } from './util'
 
 const start = (page: Page) => page.getByRole('dialog', { name: 'New document' })
+const home = (page: Page) => page.getByRole('dialog', { name: 'Projects' })
 
 async function a5Booklet(page: Page) {
   await page.goto('')
+  await home(page).getByRole('button', { name: 'New document' }).click()
   const dialog = start(page)
   await dialog.getByRole('radio', { name: /A5/ }).click()
   await dialog.getByRole('textbox', { name: 'Pages' }).fill('8')

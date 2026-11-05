@@ -5,7 +5,7 @@ import canvaskitWasm from 'canvaskit-wasm/bin/canvaskit.wasm?url'
 import init, { Engine } from './engine/engine'
 import { App } from './App'
 import { Editor } from './editor'
-import { download, findGrantedFonts, keepUnreadable, stored, storedFonts } from './file'
+import { findGrantedFonts, openProject, show, storedFonts } from './file'
 import './index.css'
 
 if (import.meta.env.PROD) navigator.serviceWorker?.register(`${import.meta.env.BASE_URL}sw.js`)
@@ -30,10 +30,9 @@ if (!document.createElement('canvas').getContext('webgl2')) {
   )
 } else {
   try {
-    const [ck, , saved, fonts, alone] = await Promise.all([
+    const [ck, , fonts, alone] = await Promise.all([
       CanvasKitInit({ locateFile: () => canvaskitWasm }),
       init(),
-      stored().catch(() => undefined),
       storedFonts().catch(() => []),
       new Promise<boolean>((got) =>
         navigator.locks
@@ -44,36 +43,25 @@ if (!document.createElement('canvas').getContext('webgl2')) {
           : got(true),
       ),
     ])
-    const engine = saved ? new Engine() : Engine.sample()
+    const engine = new Engine()
     for (const bytes of fonts) engine.addFont(bytes)
     const editor = new Editor(engine)
-    let first = !saved
-    let trap = false
-    try {
-      if (saved) editor.load(saved.bytes, { name: saved.name, handle: saved.handle }, saved.dirty, saved.updates)
-    } catch (e) {
-      if (!(e instanceof WebAssembly.RuntimeError)) editor.load(new Engine().save())
-      await keepUnreadable(saved!)
-      download(saved!.bytes, saved!.name, 'application/x-satz')
-      editor.status = `Could not restore ${saved!.name}: ${(e as Error).message}. Satz downloaded it and started a new document.`
-      first = true
-      trap = e instanceof WebAssembly.RuntimeError
-    }
     const stop = () => {
       editor.autosaves = false
       notice('Satz stopped', 'The engine failed. Reload the page to go on from the last autosave.', true)
     }
-    if (trap) notice('Satz stopped', `Restoring ${saved!.name} failed. Satz downloaded it; reload the page to start a new document.`, true)
-    else
-      root.render(
-        <StrictMode>
-          <App ck={ck} editor={editor} first={first} />
-        </StrictMode>,
-      )
     if (!alone) {
       editor.autosaves = false
       editor.fail('Satz is open in another tab. This tab does not autosave; save the file with Ctrl+S.')
     }
+    const id = location.hash.slice(1)
+    if (id) await openProject(editor, id)
+    if (!editor.project) show(editor, null)
+    root.render(
+      <StrictMode>
+        <App ck={ck} editor={editor} />
+      </StrictMode>,
+    )
     const trapped = (e: unknown) => e instanceof WebAssembly.RuntimeError && stop()
     window.addEventListener('error', (e) => trapped(e.error))
     window.addEventListener('unhandledrejection', (e) => trapped(e.reason))

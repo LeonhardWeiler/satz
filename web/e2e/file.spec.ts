@@ -13,11 +13,9 @@ async function save(page: Page, name = 'Untitled.satz') {
 }
 
 async function choose(page: Page, files: Parameters<FileChooser['setFiles']>[0]) {
-  const dirty = (await page.title()).startsWith('*')
   const chooser = page.waitForEvent('filechooser')
   await page.keyboard.press('Control+o')
   await (await chooser).setFiles(files)
-  if (dirty) await page.locator('.ask').getByRole('button', { name: 'Discard' }).click()
 }
 
 test.beforeEach(async ({ page }) => {
@@ -49,7 +47,7 @@ test('an autosave after the first adds only the change and a reload takes it in'
         new Promise<number>((done) => {
           const r = indexedDB.open('satz')
           r.onsuccess = () => {
-            const count = r.result.transaction('files').objectStore('files').count(IDBKeyRange.bound(['doc', 0], ['doc', Infinity]))
+            const count = r.result.transaction('files').objectStore('files').count(IDBKeyRange.bound([location.hash.slice(1), 0], [location.hash.slice(1), Infinity]))
             count.onsuccess = () => {
               done(count.result)
               r.result.close()
@@ -62,7 +60,8 @@ test('an autosave after the first adds only the change and a reload takes it in'
   await pageCount(page, 3)
 })
 
-test('an autosave that does not load is downloaded and kept apart from the next one', async ({ page }) => {
+test('a project that does not load says so and shows the projects', async ({ page }) => {
+  test.info().annotations.push({ type: 'errors' })
   await addPage(page)
   await autosaved(page)
   await page.evaluate(
@@ -71,28 +70,17 @@ test('an autosave that does not load is downloaded and kept apart from the next 
         const r = indexedDB.open('satz')
         r.onsuccess = () => {
           const files = r.result.transaction('files', 'readwrite').objectStore('files')
-          files.get('doc').onsuccess = (e) => {
-            const put = files.put({ ...(e.target as IDBRequest).result, bytes: new Uint8Array([1, 2, 3]) }, 'doc')
+          const id = location.hash.slice(1)
+          files.get(id).onsuccess = (e) => {
+            const put = files.put({ ...(e.target as IDBRequest).result, bytes: new Uint8Array([1, 2, 3]) }, id)
             put.onsuccess = () => done(r.result.close())
           }
         }
       }),
   )
-  const download = page.waitForEvent('download')
   await page.reload()
-  expect((await download).suggestedFilename()).toBe('Untitled.satz')
-  await expect(page.locator('.status')).toHaveText(/Could not restore Untitled.satz: .*Satz downloaded it/)
-  const kept = await page.evaluate(
-    () =>
-      new Promise<number[]>((done) => {
-        const r = indexedDB.open('satz')
-        r.onsuccess = () => {
-          const get = r.result.transaction('files').objectStore('files').get('doc-unreadable')
-          get.onsuccess = () => done([...get.result.bytes])
-        }
-      }),
-  )
-  expect(kept).toEqual([1, 2, 3])
+  await expect(page.locator('.status')).toHaveText(/Could not open Untitled.satz/)
+  await expect(page.getByRole('dialog', { name: 'Projects' })).toBeVisible()
 })
 
 test('a second tab says that Satz is open in another tab and does not autosave', async ({ page, context }) => {
@@ -167,29 +155,12 @@ test('a dropped document opens and a dropped image is placed with a click', asyn
     )
   }
   await dropFile(file.name, file.buffer)
-  await page.locator('.ask').getByRole('button', { name: 'Discard' }).click()
   await expect(page).toHaveTitle('Untitled.satz - Satz')
   await pageCount(page, 2)
   await dropFile('earthrise.jpg', image)
   const [x, y] = await screen(page, 74, 105)
   await page.mouse.click(x, y)
   await expect(page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'earthrise.jpg' })).toBeVisible()
-})
-
-test('new asks before it discards changes and then starts over', async ({ page }) => {
-  await addPage(page)
-  const sample = page.getByRole('dialog', { name: 'New document' }).getByRole('button', { name: 'Sample' })
-  await page.keyboard.press('Control+Alt+n')
-  await sample.click()
-  await page.locator('.ask').getByRole('button', { name: 'Cancel' }).click()
-  await page.keyboard.press('Escape')
-  await drawn(page)
-  await pageCount(page, 2)
-  await page.keyboard.press('Control+Alt+n')
-  await sample.click()
-  await page.locator('.ask').getByRole('button', { name: 'Discard' }).click()
-  await pageCount(page, 1)
-  await expect(page).toHaveTitle('Untitled.satz - Satz')
 })
 
 test('an autosave the browser refuses says so', async ({ page }) => {
