@@ -4,7 +4,7 @@ export type Paint =
   | { type: 'linear' | 'radial'; transform: Float32Array; stops: Stop[] }
 export type Shadow = { offset: Float32Array; blur: number; color: Float32Array }
 
-export type Op =
+export type Op = (
   | { op: 'page'; width: number; height: number; bleed: number }
   | { op: 'beginItem'; item: number; hash: number }
   | { op: 'endItem' }
@@ -25,6 +25,7 @@ export type Op =
   | { op: 'pushLayer'; hash: number; opacity: number; blend: number; blur: number; shadows: Shadow[] }
   | { op: 'pushTransform'; transform: Float32Array }
   | { op: 'popLayer' | 'beginMask' | 'endMask' | 'popMask' | 'popTransform' }
+) & { end?: number }
 
 const SIMPLE = { 2: 'endItem', 7: 'popClip', 10: 'popLayer', 11: 'beginMask', 12: 'endMask', 13: 'popMask', 15: 'popTransform' } as const
 
@@ -123,19 +124,22 @@ export function decode(words: Uint32Array): Op[] {
         ops.push({ op: SIMPLE[code as keyof typeof SIMPLE] })
     }
   }
+  return link(ops)
+}
+
+const OPEN = new Set(['pushClip', 'pushLayer', 'pushTransform', 'beginMask', 'beginItem', 'endMask'])
+const CLOSE = new Set(['popClip', 'popLayer', 'popMask', 'popTransform', 'endItem', 'endMask'])
+
+/** Sets on each op that opens a group the index of the op that closes it; `endMask` closes `beginMask` and opens up to `popMask`. */
+export function link(ops: Op[]) {
+  const open: Op[] = []
+  ops.forEach((op, i) => {
+    if (CLOSE.has(op.op)) open.pop()!.end = i
+    if (OPEN.has(op.op)) open.push(op)
+  })
+  for (const op of open) op.end = ops.length
   return ops
 }
 
-const OPEN = new Set(['pushClip', 'pushLayer', 'pushTransform', 'beginMask', 'beginItem'])
-const CLOSE = new Set(['popClip', 'popLayer', 'popMask', 'popTransform', 'endItem', 'endMask'])
-
-/** Index of the op that closes the one opened at `at`; `endMask` closes `beginMask` and opens up to `popMask`. */
-export function close(ops: Op[], at: number) {
-  let depth = 1
-  for (let i = at + 1; i < ops.length; i++) {
-    const op = ops[i].op
-    if (CLOSE.has(op) && --depth === 0) return i
-    if (OPEN.has(op) || op === 'endMask') depth++
-  }
-  return ops.length
-}
+/** Index of the op that closes the one opened at `at`. */
+export const close = (ops: Op[], at: number) => ops[at].end!
