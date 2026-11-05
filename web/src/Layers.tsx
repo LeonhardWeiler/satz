@@ -147,13 +147,12 @@ export function Layers({ editor }: { editor: Editor }) {
               >
                 <Icon name="chevron" />
               </button>
-            ) : (
-              <span className="chevron" />
-            )}
-            {mask && (
-              <span className="kind masked" title={`Masked by ${mask.name}`}>
+            ) : mask ? (
+              <span className="chevron masked" title={`Masked by ${mask.name}`}>
                 <Icon name="masked" />
               </span>
+            ) : (
+              <span className="chevron" />
             )}
             <KindIcon node={node} />
             {node.overrideOf && (

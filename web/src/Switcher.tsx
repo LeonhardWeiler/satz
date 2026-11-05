@@ -26,6 +26,7 @@ export function Switcher({ editor }: { editor: Editor }) {
           <Icon name="left" />
         </button>
         <span className="spread">
+          <span className="spread-pages">
           {spreads[k]?.map((id) => {
             const n = pages.findIndex((p) => p.id === id) + 1
             return (
@@ -34,6 +35,7 @@ export function Switcher({ editor }: { editor: Editor }) {
               </button>
             )
           })}
+          </span>
           <span className="switcher-total">/ {pages.length}</span>
         </span>
         <button type="button" aria-label="Next spread" title="Next spread (PgDn)" disabled={k >= spreads.length - 1} onClick={() => go(k + 1)}>

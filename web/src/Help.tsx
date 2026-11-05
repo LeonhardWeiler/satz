@@ -19,7 +19,7 @@ const GESTURES: Record<string, [string, string][]> = {
     ['Ctrl V', 'Paste text from outside as a new text layer'],
     ['Alt', 'Show the distances to the layer under the pointer'],
     ['← → ↑ ↓', 'Nudge by 0.1 mm, with Shift by 1 mm'],
-    ['Drag from a ruler', 'Add a guide; drag it back or press Del to remove it'],
+    ['Drag from a ruler', 'Add a guide; Del or dragging it back removes it'],
   ],
   Text: [
     ['Enter', 'Edit the selected text'],
@@ -30,7 +30,7 @@ const GESTURES: Record<string, [string, string][]> = {
   ],
   Layers: [
     ['↑ ↓', 'Select the previous or next layer'],
-    ['→ ←', 'Open or close a group'],
+    ['← →', 'Close or open a group'],
     ['Enter', 'Select the children'],
     ['Shift Enter', 'Select the parent'],
     ['Tab', 'Select the next sibling'],

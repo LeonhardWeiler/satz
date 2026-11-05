@@ -448,7 +448,7 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
                   {spread.map((id) => pageThumb(pages[ids.indexOf(id)]))}
                   {k === rows.length - 1 && joins && add}
                 </div>
-                <span className="ov-cap">
+                <span className="ov-cap" style={{ display: 'grid', gridTemplateColumns: spread.map((id) => `${width(pages[ids.indexOf(id)])}px`).join(' '), paddingLeft: facing && k === 0 && spread.length === 1 ? width(pages[0]) : 0 }}>
                   {spread.map((id) => {
                     const m = masters.find((m) => m.id === pages[ids.indexOf(id)].master)
                     return (

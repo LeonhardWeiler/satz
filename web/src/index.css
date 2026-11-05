@@ -389,7 +389,7 @@ button {
   margin-bottom: 2px;
   padding-right: 8px;
   border-radius: 5px;
-  color: var(--text-2);
+  color: color-mix(in srgb, var(--text) 85%, var(--text-2));
   user-select: none;
 }
 
@@ -779,7 +779,7 @@ input[type='checkbox'] {
 }
 
 input[type='checkbox']:is(:checked, :indeterminate) {
-  background: var(--text);
+  background: var(--accent);
   box-shadow: none;
 }
 
@@ -1844,13 +1844,13 @@ input[type='checkbox']:disabled {
 }
 
 .quick .chip {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
 }
 
 .quick .strokes .chip:not(.none) {
-  padding: 4px;
-  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  mask: radial-gradient(closest-side, transparent 56%, #000 60%);
 }
 
 .chip.none {
@@ -1932,6 +1932,16 @@ input[type='checkbox']:disabled {
   font-weight: 600;
 }
 
+.spread-pages {
+  display: flex;
+  border-radius: 5px;
+  background: var(--selected);
+}
+
+.switcher .spread-pages button[aria-pressed='true'] {
+  background: none;
+}
+
 .switcher .switcher-add {
   padding: 0 8px 0 6px;
 }
@@ -2005,7 +2015,7 @@ kbd {
   font-style: normal;
 }
 
-:is(.menu-item, .tooltip, .palette) .keys kbd {
+.menu-item .keys kbd {
   min-width: 0;
   padding: 0;
   background: none;
@@ -2124,7 +2134,7 @@ input[type='checkbox']:active {
 .iss {
   display: grid;
   grid-template-columns: 16px minmax(0, 1fr) auto;
-  align-items: start;
+  align-items: center;
   overflow-wrap: anywhere;
   gap: 8px;
   padding: 7px 8px;
@@ -2161,7 +2171,7 @@ input[type='checkbox']:active {
   display: grid;
 }
 
-.iss-m > * {
+.iss-m strong {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2668,9 +2678,8 @@ input[type='checkbox']:active {
 
 .format small {
   max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  text-align: center;
+  text-wrap: balance;
 }
 
 .start-options {
@@ -2845,6 +2854,18 @@ input[type='checkbox']:active {
   display: flex;
 }
 
+.ov-spreads .ov-item {
+  justify-items: start;
+}
+
+.ov-spreads .ov-cap {
+  gap: 0;
+}
+
+.ov-cap > span {
+  text-align: center;
+}
+
 .ov-page,
 .ov-master {
   position: relative;
@@ -2992,6 +3013,17 @@ input[type='checkbox']:active {
 .text-style {
   display: grid;
   gap: 8px;
+}
+
+.text-style + .text-style {
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.text-style .name-input {
+  margin-left: -9px;
+  font-weight: 500;
 }
 
 .specimen {
@@ -3227,11 +3259,6 @@ input[type='checkbox']:active {
   flex: 1;
   padding: 0 20px 24px;
   overflow: auto;
-  mask-image: linear-gradient(to bottom, #000 calc(100% - 32px), transparent);
-}
-
-.settings-body {
-  mask-image: none;
 }
 
 .help.settings {
@@ -3266,8 +3293,8 @@ input[type='checkbox']:active {
   padding: 12px;
   border: 1.5px dashed color-mix(in srgb, var(--accent) 70%, transparent);
   background: color-mix(in srgb, var(--accent) 8%, transparent);
-  color: var(--text-3);
-  font-size: 11px;
+  color: var(--text-2);
+  font-size: 13px;
   text-align: center;
   text-wrap: balance;
 }
@@ -3275,6 +3302,7 @@ input[type='checkbox']:active {
 .settings-row input[type='range'] {
   width: 100%;
   margin: 0;
+  accent-color: var(--accent);
 }
 
 .settings-row input[type='checkbox'] {
@@ -3663,11 +3691,12 @@ input[type='checkbox']:active {
 
 .home-main {
   overflow: auto;
-  padding: 28px 32px;
+  padding: 0 32px 28px;
 }
 
 .home-main h2 {
-  margin: 0 0 20px;
+  margin: 0 0 16px;
+  line-height: 40px;
   font-size: 20px;
   font-weight: 600;
 }
@@ -3680,8 +3709,9 @@ input[type='checkbox']:active {
   display: grid;
   justify-items: center;
   gap: 6px;
-  margin-top: 18vh;
+  margin-top: 30vh;
   color: var(--text-3);
+  font-size: 13px;
   text-align: center;
 }
 
@@ -3693,7 +3723,7 @@ input[type='checkbox']:active {
 
 .home-empty p {
   margin: 0;
-  color: var(--text-2);
+  color: var(--text);
   font-size: 14px;
   font-weight: 500;
 }
@@ -3715,16 +3745,15 @@ input[type='checkbox']:active {
   display: grid;
   gap: 4px;
   width: 100%;
-  padding: 8px;
-  border: 1px solid var(--edge);
-  border-radius: 10px;
-  background: var(--panel);
+  padding: 0;
+  border: 0;
+  background: none;
   color: var(--text);
   text-align: left;
 }
 
-.home-card > button:first-child:hover {
-  border-color: var(--accent);
+.home-card > button:first-child:is(:hover, :focus-visible) .home-thumb {
+  box-shadow: inset 0 0 0 2px var(--accent);
 }
 
 .home-card strong {
@@ -3742,11 +3771,12 @@ input[type='checkbox']:active {
   display: grid;
   place-items: center;
   height: 150px;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   padding: 10px;
   overflow: hidden;
-  border-radius: 6px;
-  background: var(--input);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--border);
   color: var(--text-3);
 }
 
