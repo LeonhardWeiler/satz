@@ -1063,6 +1063,54 @@ fn columns([x, y, w, h]: [f32; 4], tf: &TextFrame) -> ([f32; 4], f32) {
     ([x + left, y + top, iw, ih], cw)
 }
 
+/// A font with its shaping tables and metrics.
+struct Face {
+    bytes: Rc<[u8]>,
+    data: ShaperData,
+    metrics: Metrics,
+}
+
+thread_local! {
+    /// The faces by the address of their bytes.
+    static FACES: RefCell<HashMap<*const u8, Rc<Face>>> = RefCell::default();
+}
+
+fn face(id: u32) -> Rc<Face> {
+    let bytes = font_bytes(id);
+    FACES.with_borrow_mut(|faces| {
+        let face = faces.entry(bytes.as_ptr()).or_insert_with(|| {
+            let font = FontRef::new(&bytes).unwrap();
+            let data = ShaperData::new(&font);
+            let shaper = data.shaper(&font).build();
+            let upem = font.head().unwrap().units_per_em() as f32;
+            let hhea = font.hhea().unwrap();
+            let mut buf = UnicodeBuffer::new();
+            buf.push_str("-");
+            buf.guess_segment_properties();
+            let dash = shaper.shape(buf, ShapeOptions::new());
+            let metrics = Metrics {
+                upem,
+                cap: font
+                    .os2()
+                    .ok()
+                    .and_then(|o| o.s_cap_height())
+                    .map_or(0.7, |c| c as f32 / upem),
+                ascent: hhea.ascender().to_i16() as f32 / upem,
+                descent: -hhea.descender().to_i16() as f32 / upem,
+                gap: hhea.line_gap().to_i16() as f32 / upem,
+                hyphen: dash.glyph_infos()[0].glyph_id as u16,
+                hyphen_adv: dash.glyph_positions()[0].x_advance as f32 / upem,
+            };
+            Rc::new(Face {
+                bytes: bytes.clone(),
+                data,
+                metrics,
+            })
+        });
+        face.clone()
+    })
+}
+
 /// Metrics of a font in em, and its hyphen.
 struct Metrics {
     upem: f32,
@@ -1113,39 +1161,17 @@ fn rows(
     used.sort_unstable();
     used.dedup();
     let slot: Vec<usize> = ids.iter().map(|i| used.binary_search(i).unwrap()).collect();
-    let bytes: Vec<_> = used.iter().map(|&i| font_bytes(i)).collect();
-    let fonts: Vec<_> = bytes.iter().map(|b| FontRef::new(b).unwrap()).collect();
-    let data: Vec<_> = fonts.iter().map(ShaperData::new).collect();
+    let faces: Vec<Rc<Face>> = used.iter().map(|&i| face(i)).collect();
+    let fonts: Vec<_> = faces
+        .iter()
+        .map(|f| FontRef::new(&f.bytes).unwrap())
+        .collect();
     let shapers: Vec<_> = fonts
         .iter()
-        .zip(&data)
-        .map(|(f, d)| d.shaper(f).build())
+        .zip(&faces)
+        .map(|(f, c)| c.data.shaper(f).build())
         .collect();
-    let metrics: Vec<Metrics> = fonts
-        .iter()
-        .zip(&shapers)
-        .map(|(font, shaper)| {
-            let upem = font.head().unwrap().units_per_em() as f32;
-            let hhea = font.hhea().unwrap();
-            let mut buf = UnicodeBuffer::new();
-            buf.push_str("-");
-            buf.guess_segment_properties();
-            let dash = shaper.shape(buf, ShapeOptions::new());
-            Metrics {
-                upem,
-                cap: font
-                    .os2()
-                    .ok()
-                    .and_then(|o| o.s_cap_height())
-                    .map_or(0.7, |c| c as f32 / upem),
-                ascent: hhea.ascender().to_i16() as f32 / upem,
-                descent: -hhea.descender().to_i16() as f32 / upem,
-                gap: hhea.line_gap().to_i16() as f32 / upem,
-                hyphen: dash.glyph_infos()[0].glyph_id as u16,
-                hyphen_adv: dash.glyph_positions()[0].x_advance as f32 / upem,
-            }
-        })
-        .collect();
+    let metrics: Vec<&Metrics> = faces.iter().map(|f| &f.metrics).collect();
 
     let mut ends = Vec::with_capacity(spans.len());
     let mut chars = text.chars();
