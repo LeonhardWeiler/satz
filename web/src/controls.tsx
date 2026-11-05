@@ -136,6 +136,7 @@ export function Field({
         readOnly={readOnly}
         disabled={disabled}
         placeholder={zero}
+        data-mixed={(draft === null && shown === null) || undefined}
         value={draft ?? (shown === null ? 'Mixed' : shown === 0 && zero ? '' : String(shown))}
         onChange={(e) => {
           setDraft(e.currentTarget.value)
@@ -252,7 +253,7 @@ export function Select<T extends string>({
         }}
       >
         {prefix && <span className="select-prefix">{prefix}</span>}
-        <span>{value === null ? 'Mixed' : options[value]}</span>
+        <span data-mixed={value === null || undefined}>{value === null ? 'Mixed' : options[value]}</span>
         <Icon name="chevron" />
       </button>
       {host &&

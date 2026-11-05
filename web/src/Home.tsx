@@ -89,20 +89,20 @@ export function Home({ editor, onNew, children }: { editor: Editor; onNew: () =>
         if (editor.project) show(editor, editor.project)
       }}
     >
-      <aside className="home-side">
+      <header className="home-bar">
         <div className="brand">
           <span className="mark" aria-hidden="true" />
           <h1>Satz</h1>
         </div>
-        <button type="button" className="primary" onClick={onNew}>
-          <Icon name="plus" />
-          New document
-        </button>
         <button type="button" className="button" onClick={() => open(editor)}>
           <Icon name="folder" />
           Open or import…
         </button>
-      </aside>
+        <button type="button" className="primary" onClick={onNew}>
+          <Icon name="plus" />
+          New document
+        </button>
+      </header>
       <section className="home-main">
         <h2>Projects</h2>
         {list.length > 0 && <h3>Recent</h3>}
@@ -122,7 +122,7 @@ export function Home({ editor, onNew, children }: { editor: Editor; onNew: () =>
             ))}
           </ul>
         )}
-        <h3>{list.length ? 'Examples' : 'Start from an example'}</h3>
+        <h3>Examples</h3>
         <ul className="home-grid" aria-label="Examples">
           {EXAMPLES.map(([title, text, url, name], i) => (
             <li key={title} className="home-card">

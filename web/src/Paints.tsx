@@ -206,7 +206,7 @@ export function PaintList({
                                 onCommit={(v) => stop({ at: v / 100 })}
                               />
                               <Field
-                                label="Opacity"
+                                label={<Icon name="opacity" />}
                                 title={`Stop ${k + 1} opacity`}
                                 unit="%"
                                 value={alpha(s.color)}

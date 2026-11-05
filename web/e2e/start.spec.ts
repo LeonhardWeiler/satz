@@ -7,7 +7,7 @@ const spreads = (page: Page) => page.getByRole('navigation', { name: 'Spreads' }
 
 test('the projects show at the start, list what was opened and open it again', async ({ page }) => {
   await page.goto('')
-  await expect(home(page).getByRole('heading', { name: 'Start from an example' })).toBeVisible()
+  await expect(home(page).getByRole('heading', { name: 'Examples' })).toBeVisible()
   await home(page).getByRole('button', { name: /Satz booklet/ }).click()
   await expect(page).toHaveTitle('booklet.satz - Satz')
   await pageCount(page, 8)
