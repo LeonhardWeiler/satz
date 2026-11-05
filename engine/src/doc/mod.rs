@@ -1284,13 +1284,18 @@ impl Doc {
                 self.walk(r, &mut ids);
             }
         }
-        let used: HashSet<String> = ids
-            .into_iter()
-            .filter_map(|id| value(&self.meta(id), "fills"))
-            .filter_map(|v| serde_json::from_value::<Vec<Fill>>(serde_json::to_value(v).ok()?).ok())
-            .flatten()
-            .filter_map(|f| f.image)
-            .collect();
+        let mut used = HashSet::new();
+        for id in ids {
+            if let Some(LoroValue::List(fills)) = value(&self.meta(id), "fills") {
+                for f in fills.iter() {
+                    if let LoroValue::Map(f) = f
+                        && let Some(LoroValue::String(h)) = f.get("image")
+                    {
+                        used.insert(h.to_string());
+                    }
+                }
+            }
+        }
         let images = self.doc.get_map("images");
         let unused: Vec<_> = images
             .keys()
