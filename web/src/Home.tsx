@@ -104,7 +104,8 @@ export function Home({ editor, onNew, children }: { editor: Editor; onNew: () =>
         </button>
       </aside>
       <section className="home-main">
-        <h2>{list.length ? 'Recent' : 'Start from an example'}</h2>
+        <h2>Projects</h2>
+        {list.length > 0 && <h3>Recent</h3>}
         {list.length > 0 && (
           <ul className="home-grid" aria-label="Recent">
             {list.map((p) => (
@@ -121,7 +122,7 @@ export function Home({ editor, onNew, children }: { editor: Editor; onNew: () =>
             ))}
           </ul>
         )}
-        {list.length > 0 && <h3>Examples</h3>}
+        <h3>{list.length ? 'Examples' : 'Start from an example'}</h3>
         <ul className="home-grid" aria-label="Examples">
           {EXAMPLES.map(([title, text, url, name], i) => (
             <li key={title} className="home-card">

@@ -132,6 +132,8 @@ export function Specimen({ editor, spans, compact, format }: { editor: Editor; s
                 style === s.id,
               ]),
               ...overrides,
+              null,
+              ['New text style', create, spans.length > 0],
             ]}
           />,
           document.body,
@@ -236,7 +238,7 @@ export function TypeOptions({ spans, set, features }: { spans: Pick<Attrs, Style
                     <Field label="Before" title="Space before" unit="pt" reset={0} value={same((a) => a.spaceBefore)} onCommit={(spaceBefore) => set({ spaceBefore })} />
                     <Field label="After" title="Space after" unit="pt" reset={0} value={same((a) => a.paragraphSpacing)} onCommit={(paragraphSpacing) => set({ paragraphSpacing })} />
                   </Group>
-                  <Group title="Paragraph">
+                  <Group title="Lists & breaks">
                     <Select label="List" prefix="List" value={same((a) => a.list)} options={LISTS} onChange={(list) => set({ list })} />
                     <Field label="Min lines" title="Lines kept together at start and end" unit="" int min={1} max={20} reset={1} value={same((a) => a.keepLines)} onCommit={(keepLines) => set({ keepLines })} />
                     <Check label="Keep together" value={same((a) => a.keepTogether)} set={(keepTogether) => set({ keepTogether })} />

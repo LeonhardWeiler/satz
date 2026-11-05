@@ -56,7 +56,7 @@ export function Swatches({ editor }: { editor: Editor }) {
       </header>
       {open && !swatches.length && (
         <p className="empty swatches-empty">
-          Keep reused colours as swatches.{' '}
+          Keep reused colors as swatches.{' '}
           <button type="button" className="link" onClick={add}>
             Add a swatch
           </button>

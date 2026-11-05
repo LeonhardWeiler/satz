@@ -84,7 +84,7 @@ const ICONS = {
       <circle cx="10" cy="11" r="1.5" />
     </>
   ),
-  group: <path d="M5.5 2.5h8v8M2.5 5.5h8v8h-8z" />,
+  group: <path d="M2.5 5V2.5H5M11 2.5h2.5V5M13.5 11v2.5H11M5 13.5H2.5V11M6 6h4v4H6z" />,
   mask: (
     <>
       <rect x="2.5" y="2.5" width="11" height="11" rx="2" />
