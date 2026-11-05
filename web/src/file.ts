@@ -104,14 +104,14 @@ export function download(bytes: Uint8Array, name: string, type: string) {
   URL.revokeObjectURL(url)
 }
 
-/** A worker with the fonts it was sent, the bundled one from the start, the version of the document it has and its last job, which the next waits for. */
-type Job = { worker?: Worker; fonts: number; version: string; queue: Promise<unknown> }
-const exporter: Job = { fonts: 1, version: '', queue: Promise.resolve() }
-const previewer: Job = { fonts: 1, version: '', queue: Promise.resolve() }
+/** A worker with the fonts it was sent, the bundled one from the start, the version and version vector of the document it has and its last job, which the next waits for. */
+type Job = { worker?: Worker; fonts: number; version: string; seen: Uint8Array; queue: Promise<unknown> }
+const exporter: Job = { fonts: 1, version: '', seen: new Uint8Array(), queue: Promise.resolve() }
+const previewer: Job = { fonts: 1, version: '', seen: new Uint8Array(), queue: Promise.resolve() }
 
 function reset(job: Job) {
   job.worker?.terminate()
-  Object.assign(job, { worker: undefined, fonts: 1, version: '', queue: Promise.resolve() })
+  Object.assign(job, { worker: undefined, fonts: 1, version: '', seen: new Uint8Array(), queue: Promise.resolve() })
 }
 
 /** Removes the added font `hash` from the document's fonts, this browser and the workers. */
@@ -129,7 +129,8 @@ function run<T>(job: Job, editor: Editor, preview?: Preview, out?: Out) {
     const n = editor.engine.fontsAdded()
     const fonts = Array.from({ length: n - job.fonts }, (_, i) => editor.engine.font(job.fonts + i))
     const version = editor.engine.version()
-    const doc = version === job.version ? null : editor.engine.save()
+    const seen = editor.engine.versionVector()
+    const doc = version === job.version ? null : editor.engine.updates(job.seen)
     return new Promise<T>((done, fail) => {
       w.onmessage = ({ data }: MessageEvent<T & { error?: string }>) => {
         if (data.error !== undefined) {
@@ -138,6 +139,7 @@ function run<T>(job: Job, editor: Editor, preview?: Preview, out?: Out) {
         }
         job.fonts = n
         job.version = version
+        job.seen = seen
         done(data)
       }
       w.onerror = (e) => {

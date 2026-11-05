@@ -21,7 +21,7 @@ use loro::event::{ContainerDiff, Diff};
 use loro::{
     Container, ContainerID, ExpandType, ExportMode, Index, LoroBinaryValue, LoroDoc, LoroMap,
     LoroText, LoroTree, LoroValue, StyleConfig, Subscription, TextDelta, TreeExternalDiff, TreeID,
-    TreeParentId, UndoManager, UpdateOptions, ValueOrContainer,
+    TreeParentId, UndoManager, UpdateOptions, ValueOrContainer, VersionVector,
 };
 use serde::de::value::{Error as DeError, MapAccessDeserializer, MapDeserializer, SeqDeserializer};
 use serde::de::{DeserializeOwned, Deserializer, IntoDeserializer, Visitor};
@@ -1463,23 +1463,60 @@ impl Doc {
             return Err("not a Satz document".into());
         }
         d.check_file()?;
-        let mut hashes = vec![];
-        for v in d
-            .doc
-            .get_map("images")
-            .get_value()
-            .into_map()
-            .unwrap_or_default()
-            .values()
-        {
-            if let LoroValue::Binary(bytes) = v {
-                hashes.push(image::register(bytes.clone())?.hash);
-            }
-        }
+        d.register_images()?;
         d.doc.set_next_commit_origin(LAYOUT_ORIGIN);
         d.finish(vec![], false)?;
-        image::retain(&hashes);
         Ok(d)
+    }
+
+    /// Registers the images of the document that `image` does not know and forgets the others.
+    fn register_images(&self) -> Res<()> {
+        let mut hashes = vec![];
+        let images = self.doc.get_map("images").get_value().into_map();
+        for (h, v) in images.unwrap_or_default().iter() {
+            if let LoroValue::Binary(bytes) = v {
+                hashes.push(match image::info(h) {
+                    Some(i) => i.hash,
+                    None => image::register(bytes.clone())?.hash,
+                });
+            }
+        }
+        image::retain(&hashes);
+        Ok(())
+    }
+
+    /// The version vector of the document, for `updates`.
+    pub fn version_vector(&self) -> Vec<u8> {
+        self.doc.oplog_vv().encode()
+    }
+
+    /// The changes since the version vector `since` for `sync`, or the document when it
+    /// has not got that far.
+    pub fn updates(&self, since: &[u8]) -> Vec<u8> {
+        let since = VersionVector::decode(since).ok();
+        since
+            .filter(|v| self.doc.oplog_vv().includes_vv(v))
+            .and_then(|v| self.doc.export(ExportMode::updates_owned(v)).ok())
+            .unwrap_or_else(|| {
+                (self.doc)
+                    .export(ExportMode::shallow_snapshot(&self.doc.state_frontiers()))
+                    .expect("export")
+            })
+    }
+
+    /// Takes in what `updates` gave: loads a document, imports changes.
+    pub fn sync(&mut self, bytes: &[u8]) -> Res<()> {
+        let meta = LoroDoc::decode_import_blob_meta(bytes, false).map_err(err)?;
+        if meta.mode.is_snapshot() {
+            *self = Doc::load(bytes)?;
+            return Ok(());
+        }
+        self.doc.import(bytes).map_err(err)?;
+        self.register_images()?;
+        self.doc.set_next_commit_origin(LAYOUT_ORIGIN);
+        self.finish(vec![], false)?;
+        self.version = format!("{:?}", self.doc.oplog_frontiers());
+        Ok(())
     }
 
     /// Runs the checks of the commands over every node and text style of an opened file.
@@ -5246,6 +5283,28 @@ mod tests {
             let loaded = Doc::load(&d.save()).unwrap();
             assert_eq!(loaded.doc.oplog_vv(), d.doc.oplog_vv());
         }
+    }
+
+    #[test]
+    fn a_synced_document_follows_with_the_changes_alone() {
+        use crate::examples::heavy;
+        let mut b = booklet();
+        let mut other = heavy(1);
+        other.sync(&b.d.updates(&[])).unwrap();
+        let vv = b.d.version_vector();
+        b.d.apply(Command::Delete {
+            ids: vec![b.frames[7].clone()],
+        })
+        .unwrap();
+        let changes = b.d.updates(&vv);
+        assert!(changes.len() < b.d.updates(&[]).len() / 10);
+        other.sync(&changes).unwrap();
+        assert_eq!(other.doc.oplog_vv(), b.d.doc.oplog_vv());
+        let page = &b.d.snapshot().pages[1].id;
+        assert_eq!(other.render(page), b.d.render(page));
+        let fresh = heavy(1);
+        other.sync(&fresh.updates(&other.version_vector())).unwrap();
+        assert_eq!(other.doc.oplog_vv(), fresh.doc.oplog_vv());
     }
 
     #[test]

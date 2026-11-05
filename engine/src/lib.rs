@@ -396,6 +396,21 @@ impl Engine {
         Ok(())
     }
 
+    #[wasm_bindgen(js_name = versionVector)]
+    pub fn version_vector(&self) -> Vec<u8> {
+        self.doc.version_vector()
+    }
+
+    /// What another engine needs to `sync` from the version vector `since` on.
+    pub fn updates(&self, since: &[u8]) -> Vec<u8> {
+        self.doc.updates(since)
+    }
+
+    /// Takes in what `updates` of another engine gave.
+    pub fn sync(&mut self, bytes: &[u8]) -> Result<(), JsError> {
+        self.doc.sync(bytes).map_err(|e| JsError::new(&e))
+    }
+
     /// Changes whenever the document does.
     pub fn version(&self) -> String {
         self.doc.version()
