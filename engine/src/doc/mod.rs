@@ -23,7 +23,9 @@ use loro::{
     LoroText, LoroTree, LoroValue, StyleConfig, Subscription, TextDelta, TreeExternalDiff, TreeID,
     TreeParentId, UndoManager, UpdateOptions, ValueOrContainer,
 };
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::de::value::{Error as DeError, MapAccessDeserializer, MapDeserializer, SeqDeserializer};
+use serde::de::{DeserializeOwned, Deserializer, IntoDeserializer, Visitor};
+use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Display;
@@ -1003,6 +1005,82 @@ fn num(m: &LoroMap, key: &str) -> f64 {
         .unwrap_or(0.0)
 }
 
+fn field<T: DeserializeOwned>(v: &LoroValue, key: &str) -> Option<T> {
+    match v {
+        LoroValue::Map(m) => from_loro(m.get(key)?.clone()),
+        _ => None,
+    }
+}
+
+fn from_loro<T: DeserializeOwned>(v: LoroValue) -> Option<T> {
+    T::deserialize(De(v)).ok()
+}
+
+/// A `LoroValue` read as serde reads the JSON it stands for.
+struct De(LoroValue);
+
+impl IntoDeserializer<'_, DeError> for De {
+    type Deserializer = Self;
+    fn into_deserializer(self) -> Self {
+        self
+    }
+}
+
+impl<'de> Deserializer<'de> for De {
+    type Error = DeError;
+
+    fn deserialize_any<V: Visitor<'de>>(self, v: V) -> Result<V::Value, DeError> {
+        match self.0 {
+            LoroValue::Null | LoroValue::Container(_) => v.visit_unit(),
+            LoroValue::Bool(b) => v.visit_bool(b),
+            LoroValue::Double(d) => v.visit_f64(d),
+            LoroValue::I64(i) => v.visit_i64(i),
+            LoroValue::Binary(b) => v.visit_bytes(&b),
+            LoroValue::String(s) => v.visit_str(&s),
+            LoroValue::List(l) => v.visit_seq(SeqDeserializer::new(l.iter().cloned().map(De))),
+            LoroValue::Map(m) => v.visit_map(MapDeserializer::new(
+                m.iter().map(|(k, x)| (k.as_str(), De(x.clone()))),
+            )),
+        }
+    }
+
+    fn deserialize_option<V: Visitor<'de>>(self, v: V) -> Result<V::Value, DeError> {
+        match self.0 {
+            LoroValue::Null => v.visit_none(),
+            _ => v.visit_some(self),
+        }
+    }
+
+    fn deserialize_newtype_struct<V: Visitor<'de>>(
+        self,
+        _: &'static str,
+        v: V,
+    ) -> Result<V::Value, DeError> {
+        v.visit_newtype_struct(self)
+    }
+
+    fn deserialize_enum<V: Visitor<'de>>(
+        self,
+        name: &'static str,
+        variants: &'static [&'static str],
+        v: V,
+    ) -> Result<V::Value, DeError> {
+        match self.0 {
+            LoroValue::String(s) => v.visit_enum(s.as_str().into_deserializer()),
+            LoroValue::Map(m) => MapAccessDeserializer::new(MapDeserializer::new(
+                m.iter().map(|(k, x)| (k.as_str(), De(x.clone()))),
+            ))
+            .deserialize_enum(name, variants, v),
+            _ => self.deserialize_any(v),
+        }
+    }
+
+    serde::forward_to_deserialize_any! {
+        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string bytes byte_buf
+        unit unit_struct seq tuple tuple_struct map struct identifier ignored_any
+    }
+}
+
 impl Doc {
     fn with(doc: LoroDoc) -> Doc {
         doc.config_default_text_style(Some(StyleConfig {
@@ -1782,10 +1860,7 @@ impl Doc {
     }
 
     fn layout(&self, id: TreeID) -> Layout {
-        serde_json::to_value(self.meta(id).get_deep_value())
-            .ok()
-            .and_then(|v| serde_json::from_value(v).ok())
-            .unwrap_or_default()
+        from_loro(self.meta(id).get_deep_value()).unwrap_or_default()
     }
 
     /// Fits hugging text and lays out the auto layout frames in `id`'s subtree,
@@ -1909,10 +1984,7 @@ impl Doc {
 
     /// The entries of the list `name`, each stored as a map.
     fn list<T: DeserializeOwned>(&self, name: &str) -> Vec<T> {
-        serde_json::to_value(self.doc.get_list(name).get_deep_value())
-            .ok()
-            .and_then(|v| serde_json::from_value(v).ok())
-            .unwrap_or_default()
+        from_loro(self.doc.get_list(name).get_deep_value()).unwrap_or_default()
     }
 
     fn find<T: DeserializeOwned>(&self, name: &str, id: &str) -> Res<(usize, T)> {

@@ -1206,10 +1206,9 @@ impl Doc {
         let frame = match kept_one {
             Some(f) if !cfg!(debug_assertions) => f,
             kept_one => {
-                let v = serde_json::to_value(self.meta(n).get_deep_value()).unwrap_or_default();
                 let f = TextFrame {
                     wrap: self.wrap_of(n),
-                    ..serde_json::from_value(v).unwrap_or_default()
+                    ..from_loro(self.meta(n).get_deep_value()).unwrap_or_default()
                 };
                 if let Some(k) = kept_one {
                     assert_eq!(k, f, "a kept text frame differs from the one read again");
@@ -1422,7 +1421,7 @@ impl Doc {
         flows: &HashMap<TreeID, Flow>,
     ) -> Node {
         let m = self.meta(id);
-        let v = serde_json::to_value(m.get_deep_value()).unwrap_or_default();
+        let v = m.get_deep_value();
         let modes = self.modes(id);
         let mut active_modes = inherited.clone();
         active_modes.extend(modes.clone());
@@ -1444,6 +1443,7 @@ impl Doc {
                     placed: f.placed.clone(),
                 },
                 None => {
+                    let v = serde_json::to_value(&v).unwrap_or_default();
                     let content = Story {
                         text: v["text"].as_str().unwrap_or_default().into(),
                         spans: self.spans(
@@ -1473,24 +1473,21 @@ impl Doc {
                 children: children(),
             },
             Some(NodeKind::Frame) => Kind::Frame {
-                clip: v["clip"] == true,
-                radius: v["radius"].as_f64().unwrap_or_default() as f32,
-                corners: serde_json::from_value(v["corners"].clone()).unwrap_or_default(),
+                clip: field(&v, "clip") == Some(true),
+                radius: field(&v, "radius").unwrap_or_default(),
+                corners: field(&v, "corners").unwrap_or_default(),
                 children: children(),
             },
-            _ => Kind::Shape(Shape::deserialize(&v).unwrap_or(Shape::Rect {
+            _ => Kind::Shape(from_loro(v.clone()).unwrap_or(Shape::Rect {
                 radius: 0.0,
                 corners: vec![],
             })),
         };
-        let style = Style::deserialize(&v).unwrap_or_default();
-        let name = v["name"]
-            .as_str()
-            .map(String::from)
-            .unwrap_or_else(|| match flows.get(&id) {
-                Some(f) => text_name(f.lead()),
-                None => untitled(&kind, &style),
-            });
+        let style: Style = from_loro(v.clone()).unwrap_or_default();
+        let name = field(&v, "name").unwrap_or_else(|| match flows.get(&id) {
+            Some(f) => text_name(f.lead()),
+            None => untitled(&kind, &style),
+        });
         let [x, y, w, h] = self.bounds(id);
         let turn = self.turn(id);
         let own = union(
@@ -1519,21 +1516,21 @@ impl Doc {
             modes,
             active_modes,
             bindings: self.bindings(id),
-            override_of: v[OVERRIDE_OF].as_str().map(String::from),
-            hidden: v["hidden"] == true,
-            locked: v["locked"] == true,
-            keep_ratio: v["keepRatio"] == true,
-            rotation: v["rotation"].as_f64().unwrap_or(0.0),
-            wrap: serde_json::from_value(v["wrap"].clone()).unwrap_or_default(),
-            wrap_offset_x: v["wrapOffsetX"].as_f64().unwrap_or(0.0),
-            wrap_offset_y: v["wrapOffsetY"].as_f64().unwrap_or(0.0),
+            override_of: field(&v, OVERRIDE_OF),
+            hidden: field(&v, "hidden") == Some(true),
+            locked: field(&v, "locked") == Some(true),
+            keep_ratio: field(&v, "keepRatio") == Some(true),
+            rotation: field(&v, "rotation").unwrap_or(0.0),
+            wrap: field(&v, "wrap").unwrap_or_default(),
+            wrap_offset_x: field(&v, "wrapOffsetX").unwrap_or(0.0),
+            wrap_offset_y: field(&v, "wrapOffsetY").unwrap_or(0.0),
             ppi: style
                 .fills
                 .iter()
                 .filter(|f| f.visible)
                 .filter_map(|f| f.ppi(w, h))
                 .reduce(f64::min),
-            layout: Layout::deserialize(&v).unwrap_or_default(),
+            layout: from_loro(v).unwrap_or_default(),
             style,
             kind,
         }
