@@ -1873,10 +1873,6 @@ input[type='checkbox']:disabled {
   display: none;
 }
 
-.quick .field {
-  min-width: 76px;
-}
-
 .quick .field:not(:hover, :focus-within, .scrub) {
   background: none;
   box-shadow: -4px 0 0 -3px var(--edge);
@@ -1884,6 +1880,10 @@ input[type='checkbox']:disabled {
 
 .quick .field {
   margin-left: 4px;
+}
+
+.quick .field input {
+  width: auto;
 }
 
 .quick .chip {
@@ -1986,6 +1986,12 @@ input[type='checkbox']:disabled {
 .switcher .spread-pages button {
   background: none;
   color: var(--text-2);
+}
+
+.switcher .spread-pages button + button::before {
+  content: '–';
+  margin-right: 6px;
+  color: var(--text-3);
 }
 
 .switcher .spread-pages button[aria-pressed='true'] {
@@ -3288,7 +3294,7 @@ input[type='checkbox']:active {
 }
 
 .help-search:focus {
-  border-color: var(--accent);
+  border-color: var(--text-3);
 }
 
 .help-body {
@@ -3326,7 +3332,7 @@ input[type='checkbox']:active {
 .card-bar {
   display: grid;
   place-items: center;
-  justify-self: start;
+  justify-self: center;
   margin: 4px 0 8px;
   padding: 12px;
   border: 1.5px dashed color-mix(in srgb, var(--accent) 70%, transparent);
@@ -3357,7 +3363,7 @@ input[type='checkbox']:active {
 }
 
 .settings-row input[type='checkbox'] {
-  justify-self: end;
+  justify-self: start;
   margin: 0;
 }
 
@@ -3839,4 +3845,12 @@ button.mark {
 
 [data-mixed] {
   color: var(--text-3);
+}
+
+.menu-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: -24px;
+  color: var(--accent);
 }

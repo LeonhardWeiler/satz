@@ -133,7 +133,14 @@ export function Specimen({ editor, spans, compact, format }: { editor: Editor; s
               ]),
               ...overrides,
               null,
-              ['New text style', create, spans.length > 0],
+              [
+                <span className="menu-action">
+                  <Icon name="plus" />
+                  New text style
+                </span>,
+                create,
+                spans.length > 0,
+              ],
             ]}
           />,
           document.body,
