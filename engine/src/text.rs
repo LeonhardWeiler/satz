@@ -703,32 +703,40 @@ pub fn draw(
         let mut at = 0;
         for run in line.chunk_by(|a, b| {
             a.size == b.size
-                && span_paints[a.span] == span_paints[b.span]
-                && fonts[a.span] == fonts[b.span]
+                && (a.span == b.span
+                    || fonts[a.span] == fonts[b.span] && span_paints[a.span] == span_paints[b.span])
         }) {
-            let (run_text, ranges) = source(text, line, at..at + run.len(), &tf.number);
+            let (text, ranges) = source(text, line, at..at + run.len(), &tf.number);
             at += run.len();
             let glyphs: Vec<u16> = run.iter().map(|g| g.id).collect();
             let positions: Vec<f32> = run.iter().flat_map(|g| [g.x, g.y]).collect();
+            let (font, size) = (fonts[run[0].span], run[0].size);
             if stroked {
-                outlines.extend(outline(
-                    fonts[run[0].span],
-                    run[0].size,
-                    &glyphs,
-                    &positions,
-                ));
+                outlines.extend(outline(font, size, &glyphs, &positions));
             }
-            for paint in &span_paints[run[0].span] {
+            let Some((last, rest)) = span_paints[run[0].span].split_last() else {
+                continue;
+            };
+            for paint in rest {
                 ops.push(Op::GlyphRun {
-                    font: fonts[run[0].span],
-                    size: run[0].size,
+                    font,
+                    size,
                     paint: paint.clone(),
                     glyphs: glyphs.clone(),
                     positions: positions.clone(),
-                    text: run_text.clone(),
+                    text: text.clone(),
                     ranges: ranges.clone(),
                 });
             }
+            ops.push(Op::GlyphRun {
+                font,
+                size,
+                paint: last.clone(),
+                glyphs,
+                positions,
+                text,
+                ranges,
+            });
         }
         for run in line.chunk_by(|a, b| {
             let (a, b) = (&spans[a.span].attrs, &spans[b.span].attrs);
@@ -928,7 +936,7 @@ fn source(
     number: &str,
 ) -> (String, Vec<std::ops::Range<usize>>) {
     let mut out = String::new();
-    let mut ranges = Vec::new();
+    let mut ranges = Vec::with_capacity(run.len());
     for k in run {
         let g = &line[k];
         let start = out.len();
@@ -943,7 +951,12 @@ fn source(
             let word = text[g.cluster..next]
                 .find(char::is_whitespace)
                 .map_or(next, |i| g.cluster + i);
-            out.push_str(&text[g.cluster..word].replace(PAGE_NUMBER, number));
+            for c in text[g.cluster..word].chars() {
+                match c {
+                    PAGE_NUMBER => out.push_str(number),
+                    c => out.push(c),
+                }
+            }
         }
         ranges.push(start..out.len());
     }
