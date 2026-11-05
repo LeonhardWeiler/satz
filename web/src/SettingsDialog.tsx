@@ -3,7 +3,7 @@ import { Select } from './controls'
 import { Icon } from './icons'
 import { setSettings, useSettings, type Unit } from './settings'
 
-const NAMES: Record<Unit, string> = { mm: 'Millimetres', cm: 'Centimetres', in: 'Inches', pt: 'Points' }
+const NAMES: Record<Unit, string> = { mm: 'Millimeters', cm: 'Centimeters', in: 'Inches', pt: 'Points' }
 
 /** Ctrl+,: the settings of this browser. */
 export function Settings({ onClose }: { onClose: () => void }) {

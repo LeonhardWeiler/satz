@@ -9,7 +9,7 @@ const GESTURES: Record<string, [string, string][]> = {
     ['Ctrl click', 'Select a layer inside a group'],
     ['Ctrl Shift click', 'Override a master layer on this page'],
     ['Double-click', 'Edit a text or enter a group'],
-    ['Alt drag', 'Resize from the centre'],
+    ['Alt drag', 'Resize from the center'],
     ['Space drag', 'Pan the view'],
     ['Ctrl wheel', 'Zoom the view'],
     ['Ctrl drag', 'Move without snapping'],
