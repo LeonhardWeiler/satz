@@ -327,29 +327,34 @@ fn render(px: &mut Pixmap, ops: &[Op], t: Transform, clip: Option<&Mask>, images
                     let t = t.post_translate(-area.x() as f32, -area.y() as f32);
                     let mut content = Pixmap::new(area.width(), area.height()).unwrap();
                     render(&mut content, &ops[i + 1..end], t, None, images);
-                    let mut out = Pixmap::new(area.width(), area.height()).unwrap();
-                    for (s, [dx, dy]) in shadows.iter().zip(moves) {
-                        let mut shadow = content.clone();
-                        tint(&mut shadow, s.color);
-                        blur(&mut shadow, s.blur * scale);
+                    let mut out = (!shadows.is_empty()).then(|| {
+                        let mut out = Pixmap::new(area.width(), area.height()).unwrap();
+                        for (s, [dx, dy]) in shadows.iter().zip(moves) {
+                            let mut shadow = content.clone();
+                            tint(&mut shadow, s.color);
+                            blur(&mut shadow, s.blur * scale);
+                            out.draw_pixmap(
+                                0,
+                                0,
+                                shadow.as_ref(),
+                                &PixmapPaint::default(),
+                                Transform::from_translate(dx, dy),
+                                None,
+                            );
+                        }
+                        out
+                    });
+                    blur(&mut content, sigma * scale);
+                    if let Some(out) = &mut out {
                         out.draw_pixmap(
                             0,
                             0,
-                            shadow.as_ref(),
+                            content.as_ref(),
                             &PixmapPaint::default(),
-                            Transform::from_translate(dx, dy),
+                            Transform::identity(),
                             None,
                         );
                     }
-                    blur(&mut content, sigma * scale);
-                    out.draw_pixmap(
-                        0,
-                        0,
-                        content.as_ref(),
-                        &PixmapPaint::default(),
-                        Transform::identity(),
-                        None,
-                    );
                     let paint = PixmapPaint {
                         opacity: *opacity,
                         blend_mode: blend.skia(),
@@ -358,7 +363,7 @@ fn render(px: &mut Pixmap, ops: &[Op], t: Transform, clip: Option<&Mask>, images
                     px.draw_pixmap(
                         area.x(),
                         area.y(),
-                        out.as_ref(),
+                        out.as_ref().unwrap_or(&content).as_ref(),
                         &paint,
                         Transform::identity(),
                         clip,
