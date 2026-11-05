@@ -79,6 +79,8 @@ test('with facing pages the page overview shows spreads from a first right page,
   await showPage(page, 1)
   await expect(facing).toHaveText('Facing pages')
   const pages = await overview(page)
+  await pages.getByRole('textbox', { name: 'Columns' }).fill('1')
+  await pages.getByRole('textbox', { name: 'Columns' }).press('Enter')
   const spread = (name: string) => pages.getByRole('group', { name, exact: true })
   const names = (name: string) => spread(name).getByRole('option').evaluateAll((es) => es.map((e) => e.getAttribute('aria-label')))
   expect(await names('Spread 1')).toEqual(['Page 1'])

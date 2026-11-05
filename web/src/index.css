@@ -1854,9 +1854,9 @@ input[type='checkbox']:disabled {
   min-width: 76px;
 }
 
-.quick > :is(.fills, .strokes) {
-  background: var(--input);
-  box-shadow: inset 0 0 0 1px var(--border);
+.quick .field:not(:hover, :focus-within, .scrub) {
+  background: none;
+  box-shadow: none;
 }
 
 .quick .chip {
@@ -1950,19 +1950,9 @@ input[type='checkbox']:disabled {
   font-weight: 600;
 }
 
-.switcher .spread-pages button:not([aria-pressed='true']) {
-  color: var(--text-2);
-  font-weight: 400;
-}
-
 .spread-pages {
   display: flex;
-  border-radius: 5px;
-  background: var(--selected);
-}
-
-.switcher .spread-pages button[aria-pressed='true'] {
-  background: none;
+  gap: 2px;
 }
 
 .switcher .switcher-add {
@@ -2230,7 +2220,7 @@ input[type='checkbox']:active {
 }
 
 .pf-empty svg {
-  color: var(--text);
+  color: var(--accent);
 }
 
 .plates {
@@ -3235,6 +3225,10 @@ input[type='checkbox']:active {
 
 .pal-it[aria-selected='true'] {
   background: var(--selected);
+}
+
+.pal-it[aria-selected='true'] kbd {
+  box-shadow: inset 0 0 0 1px var(--text-3);
 }
 
 .pal-it[aria-selected='true'] svg {

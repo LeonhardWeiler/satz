@@ -17,7 +17,7 @@ const DEFAULTS = {
   layers: 'page' as 'page' | 'spread',
   keys: {} as Record<string, string>,
   /** The width of the masters in the page overview, its page height and columns of spreads, 0 to fill the width, all in px. */
-  overview: { masters: 170, pages: 200, columns: 1 },
+  overview: { masters: 170, pages: 200, columns: 0 },
 }
 export type Settings = typeof DEFAULTS
 
