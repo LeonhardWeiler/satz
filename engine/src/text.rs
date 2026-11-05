@@ -320,7 +320,7 @@ pub enum List {
 
 /// A language that hyphenation knows.
 #[cfg_attr(test, derive(ts_rs::TS))]
-#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Lang {
     #[default]
@@ -502,6 +502,29 @@ impl TextStyle {
             })
             .collect()
     }
+}
+
+thread_local! {
+    /// The syllables of the paragraphs hyphenated last, up to 4096.
+    static SYLLABLES: RefCell<HashMap<(String, Lang), Syllables>> = RefCell::default();
+}
+
+type Syllables = Rc<[usize]>;
+
+/// `syllables`, kept per paragraph and language.
+fn hyphens(para: &str, lang: Lang) -> Syllables {
+    let key = (para.to_string(), lang);
+    if let Some(s) = SYLLABLES.with_borrow(|c| c.get(&key).cloned()) {
+        return s;
+    }
+    let s: Syllables = syllables(para, lang).into();
+    SYLLABLES.with_borrow_mut(|c| {
+        if c.len() >= 4096 {
+            c.clear();
+        }
+        c.insert(key, s.clone());
+    });
+    s
 }
 
 /// Byte offsets in `para` where `lang` allows a hyphen, ascending.
@@ -1481,9 +1504,9 @@ fn rows(
             shaped
         });
         let breaks = if first.hyphenate {
-            syllables(para, first.lang)
+            hyphens(para, first.lang)
         } else {
-            Vec::new()
+            Rc::default()
         };
         // The first characters drop over `drop_lines` lines, their cap height from the
         // first line's to the last line's baseline.
