@@ -336,7 +336,7 @@ export function KindIcon({ node }: { node: Node }) {
 }
 
 function iconOf(node: Node): IconName {
-  if (node.mask || (node.kind === 'group' && node.children.some((c) => c.mask))) return 'mask'
+  if (node.mask) return 'mask'
   if (node.kind === 'frame' && node.direction !== 'none') return 'autoLayout'
   if (node.kind !== 'shape') return node.kind
   if (node.fills.some((f) => f.type === 'image')) return 'image'

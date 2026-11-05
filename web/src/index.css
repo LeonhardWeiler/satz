@@ -35,7 +35,6 @@
   --edge: color-mix(in srgb, var(--fg) 18%, var(--bg));
   --scrim: color-mix(in srgb, var(--bg) 70%, transparent);
   --magenta: #cc2f83;
-  --master: #9d85f5;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --doc-font: 'Source Serif 4', Georgia, serif;
   --checker: repeating-conic-gradient(#ffffff 0 25%, #cccccc 0 50%) 0 0 / 8px 8px;
@@ -55,7 +54,6 @@
   --accent: #0b72a3;
   --bad: #af3024;
   --warn: #855500;
-  --master: #6447d6;
   --shadow: rgb(30 30 33 / 0.18);
   --border: color-mix(in srgb, var(--fg) 15%, var(--bg));
   --edge: color-mix(in srgb, var(--fg) 30%, var(--bg));
@@ -474,7 +472,7 @@ button.layer-master {
 }
 
 .layer-master svg {
-  color: var(--master);
+  color: var(--accent);
 }
 
 .layer-name {
@@ -587,6 +585,10 @@ textarea {
   gap: 8px;
 }
 
+.grid > :last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
 .field {
   display: flex;
   align-items: center;
@@ -619,7 +621,7 @@ textarea {
   align-self: stretch;
   min-width: 24px;
   padding: 0 6px 0 8px;
-  color: var(--text-3);
+  color: var(--text-2);
   user-select: none;
 }
 
@@ -667,7 +669,7 @@ textarea {
   border: 0;
   border-radius: 4px;
   background: none;
-  color: var(--text-3);
+  color: var(--text-2);
 }
 
 .field-step:disabled {
@@ -1324,7 +1326,7 @@ input[type='checkbox']:disabled {
 }
 
 .kind.override {
-  color: var(--master);
+  color: var(--accent);
 }
 
 .icon-button {
@@ -1940,7 +1942,8 @@ input[type='checkbox']:disabled {
 }
 
 .switcher .spread-pages button:not([aria-pressed='true']) {
-  color: var(--text);
+  color: var(--text-2);
+  font-weight: 400;
 }
 
 .spread-pages {
@@ -1971,13 +1974,13 @@ input[type='checkbox']:disabled {
   left: 50%;
   gap: 10px;
   padding-left: 12px;
-  border-color: var(--master);
+  border-color: var(--accent);
   transform: translateX(-50%);
   white-space: nowrap;
 }
 
 .banner > svg {
-  color: var(--master);
+  color: var(--accent);
 }
 
 .banner button {
@@ -2015,7 +2018,7 @@ kbd {
   margin: 0;
   padding: 0 4px;
   border-radius: 4px;
-  background: var(--selected);
+  box-shadow: inset 0 0 0 1px var(--edge);
   color: var(--text-2);
   line-height: 18px;
   text-align: center;
@@ -2026,21 +2029,13 @@ kbd {
   font-style: normal;
 }
 
-.menu-item .keys kbd {
-  min-width: 0;
-  padding: 0;
-  background: none;
-  color: var(--text-3);
-  font-size: 12px;
-}
-
 .primary .keys,
 .primary .keys kbd {
   color: inherit;
 }
 
 .primary .keys kbd {
-  background: color-mix(in srgb, currentColor 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 45%, transparent);
 }
 
 .tool,
@@ -2282,8 +2277,17 @@ input[type='checkbox']:active {
 }
 
 .pf-go {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   width: 100%;
   height: 32px;
+}
+
+.pf-go.bad {
+  border-color: color-mix(in srgb, var(--bad) 50%, transparent);
+  color: var(--bad);
 }
 
 .pf-bar {
@@ -2849,6 +2853,7 @@ input[type='checkbox']:active {
 .ov-spreads {
   display: flex;
   flex-wrap: wrap;
+  justify-content: safe center;
   align-items: end;
   gap: 18px;
   padding: 8px;
@@ -2968,7 +2973,7 @@ input[type='checkbox']:active {
 }
 
 .ov-cap b {
-  color: var(--master);
+  color: var(--accent);
   font-weight: 600;
 }
 
@@ -3475,7 +3480,7 @@ input[type='checkbox']:active {
   }
 
   .override {
-    fill: var(--master);
+    fill: var(--accent);
   }
 
   .overset {
@@ -3747,7 +3752,7 @@ input[type='checkbox']:active {
 
 .home-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, 168px);
   gap: 20px;
   margin: 0;
   padding: 0;
@@ -3787,7 +3792,7 @@ input[type='checkbox']:active {
 .home-thumb {
   display: grid;
   place-items: center;
-  height: 150px;
+  height: 210px;
   margin-bottom: 6px;
   padding: 10px;
   overflow: hidden;
@@ -3799,7 +3804,7 @@ input[type='checkbox']:active {
 
 .home-thumb img {
   max-width: 100%;
-  max-height: 130px;
+  max-height: 190px;
   box-shadow: 0 0 0 1px var(--edge);
 }
 

@@ -418,8 +418,8 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         svg += m.y1 === m.y2 ? line(m.x1, m.y1 - k, m.x1, m.y1 + k) + line(m.x2, m.y1 - k, m.x2, m.y1 + k) : line(m.x1 - k, m.y1, m.x1 + k, m.y1) + line(m.x1 - k, m.y2, m.x1 + k, m.y2)
         const t = `${m.arrow ? `${m.arrow} ` : ''}${length(m.length)}`
         const w = t.length * 6.2 + 10
-        const cx = m.y1 === m.y2 ? X((m.x1 + m.x2) / 2) : X(m.x1)
-        let cy = m.y1 === m.y2 ? Y(m.y1) : Y((m.y1 + m.y2) / 2)
+        const cx = m.y1 === m.y2 ? X((m.x1 + m.x2) / 2) : X(m.x1) + w / 2 + 8
+        let cy = m.y1 === m.y2 ? Y(m.y1) - 16 : Y((m.y1 + m.y2) / 2)
         while (labels.some((l) => Math.abs(l.x - cx) < (l.w + w) / 2 && Math.abs(l.y - cy) < 20)) cy += 20
         labels.push({ x: cx, y: cy, w, h: 18 })
         tags += `<rect class="label" x="${cx - w / 2}" y="${cy - 9}" width="${w}" height="18" rx="4"/><text x="${cx}" y="${cy}">${t}</text>`
