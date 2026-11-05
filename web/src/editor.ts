@@ -122,9 +122,10 @@ export class Editor {
     this.savedAt = engine.version()
   }
 
-  /** Replaces the document by the one saved in `bytes`; on an error it stays as it was. */
-  load(bytes: Uint8Array, file = UNTITLED, dirty = false) {
+  /** Replaces the document by the one saved in `bytes` and the `updates` after it; an error in `bytes` leaves it as it was. */
+  load(bytes: Uint8Array, file = UNTITLED, dirty = false, updates: Uint8Array[] = []) {
     this.engine.load(bytes)
+    for (const u of updates) this.engine.sync(u)
     Object.assign(this, { selection: [], tool: 'move', renaming: null, hover: null, guide: null, pen: null, editing: null, threading: null, placing: [], overview: null, cropping: null, vector: null, copied: null, copies: null })
     this.typing = false
     this.groups = 0

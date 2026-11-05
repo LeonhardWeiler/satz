@@ -39,6 +39,29 @@ test('a reload keeps the document and its unsaved mark', async ({ page }) => {
   await expect(page).toHaveTitle('* Untitled.satz - Satz')
 })
 
+test('an autosave after the first adds only the change and a reload takes it in', async ({ page }) => {
+  await addPage(page)
+  await autosaved(page)
+  await addPage(page)
+  const updates = () =>
+    page.evaluate(
+      () =>
+        new Promise<number>((done) => {
+          const r = indexedDB.open('satz')
+          r.onsuccess = () => {
+            const count = r.result.transaction('files').objectStore('files').count(IDBKeyRange.bound(['doc', 0], ['doc', Infinity]))
+            count.onsuccess = () => {
+              done(count.result)
+              r.result.close()
+            }
+          }
+        }),
+    )
+  await expect.poll(updates).toBe(1)
+  await page.reload()
+  await pageCount(page, 3)
+})
+
 test('an autosave that does not load is downloaded and kept apart from the next one', async ({ page }) => {
   await addPage(page)
   await autosaved(page)

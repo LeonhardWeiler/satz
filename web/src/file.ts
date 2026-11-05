@@ -40,8 +40,15 @@ const result = <T,>(r: IDBRequest<T>) =>
     r.onerror = () => fail(r.error)
   })
 
-/** The document autosaved last. */
-export const stored = async () => result<Saved | undefined>((await store('files')).get('doc'))
+/** The keys of the updates autosaved after the document under 'doc'. */
+const updates = () => IDBKeyRange.bound(['doc', 0], ['doc', Infinity])
+
+/** The document autosaved last and the updates autosaved after it. */
+export const stored = async () => {
+  const files = await store('files')
+  const [saved, after] = await Promise.all([result<Saved | undefined>(files.get('doc')), result<Uint8Array[]>(files.getAll(updates()))])
+  return saved && { ...saved, updates: after }
+}
 
 /** Moves an autosave that could not be restored to 'doc-unreadable', which no autosave overwrites. */
 export const keepUnreadable = async (saved: Saved) => {
@@ -54,12 +61,17 @@ export const keepUnreadable = async (saved: Saved) => {
 /** The fonts added in this browser. */
 export const storedFonts = async () => result<Uint8Array[]>((await store('fonts')).getAll())
 
-/** Autosaves the document a second after it last changed and when the page is hidden. */
+/** Autosaves the document a second after it last changed and when the page is hidden: the
+ * whole document when its file or `dirty` changed and after 100 updates, else the update since. */
 export function autosave(editor: Editor) {
-  const state = () => editor.engine.version() + editor.dirty + editor.file.name
+  const file = () => `${editor.dirty} ${editor.file.name}`
+  const state = () => editor.engine.version() + file()
   let last = state()
   let timer = 0
   let failed = false
+  let seen: Uint8Array | undefined
+  let base = ''
+  let appended = 0
   const put = async () => {
     clearTimeout(timer)
     const now = state()
@@ -67,9 +79,17 @@ export function autosave(editor: Editor) {
     const { name, handle } = editor.file
     try {
       const files = await store('files')
-      files.put({ bytes: editor.engine.save(), name, handle, dirty: editor.dirty } satisfies Saved, 'doc')
+      const vv = editor.engine.versionVector()
+      const whole = !seen || base !== file() || appended >= 100
+      if (whole) {
+        files.put({ bytes: editor.engine.updates(new Uint8Array()), name, handle, dirty: editor.dirty } satisfies Saved, 'doc')
+        files.delete(updates())
+      } else files.put(editor.engine.updates(seen!), ['doc', appended + 1])
       files.transaction.commit()
       await finished(files.transaction)
+      appended = whole ? 0 : appended + 1
+      base = file()
+      seen = vv
       last = now
       failed = false
     } catch (e) {

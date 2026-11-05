@@ -50,8 +50,9 @@ if (!document.createElement('canvas').getContext('webgl2')) {
     let first = !saved
     let trap = false
     try {
-      if (saved) editor.load(saved.bytes, { name: saved.name, handle: saved.handle }, saved.dirty)
+      if (saved) editor.load(saved.bytes, { name: saved.name, handle: saved.handle }, saved.dirty, saved.updates)
     } catch (e) {
+      if (!(e instanceof WebAssembly.RuntimeError)) editor.load(new Engine().save())
       await keepUnreadable(saved!)
       download(saved!.bytes, saved!.name, 'application/x-satz')
       editor.status = `Could not restore ${saved!.name}: ${(e as Error).message}. Satz downloaded it and started a new document.`
