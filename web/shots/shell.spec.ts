@@ -3,8 +3,18 @@ import { example, expect, rest, select, shot, start, test } from './lib'
 const A = '01 App shell'
 const D = '02 Dialogs'
 
+test('projects', async ({ page }) => {
+  await start(page, { doc: null })
+  await shot(page, D, '00 projects, first launch', 'Projects overview on first launch')
+  await page.getByRole('dialog', { name: 'Projects' }).getByRole('button', { name: 'Sample' }).click()
+  await page.getByRole('button', { name: 'Projects' }).click()
+  await rest(page)
+  await shot(page, D, '00b projects with a recent document', 'Projects overview with one recent document')
+})
+
 test('start dialog', async ({ page }) => {
   await start(page, { doc: null })
+  await page.getByRole('dialog', { name: 'Projects' }).getByRole('button', { name: 'New document' }).click()
   const d = page.getByRole('dialog', { name: 'New document' })
   await shot(page, D, '01 new document, first launch', 'New document dialog on first launch (Esc closes)')
   await shot(page, D, '02 new document, close-up', 'New document dialog, close-up', [d])
@@ -117,6 +127,7 @@ test('poster', async ({ page }) => {
 
 test('start dialog options', async ({ page }) => {
   await start(page, { doc: null })
+  await page.getByRole('dialog', { name: 'Projects' }).getByRole('button', { name: 'New document' }).click()
   const d = page.getByRole('dialog', { name: 'New document' })
   await d.getByRole('radio', { name: /Letter/ }).first().click()
   await d.getByRole('radio', { name: 'Landscape' }).click()
@@ -157,8 +168,7 @@ test('shell feedback', async ({ page }) => {
   await rest(page)
   await shot(page, A, '33 swatches collapsed', 'Left panel with the swatches collapsed', ['left'])
   await page.getByRole('region', { name: 'Swatches' }).getByRole('button', { name: 'Swatches' }).click()
-  await page.keyboard.press('Home')
-  await select(page, 'Star')
+  await select(page, 'Sun')
   await page.keyboard.press('Shift+2')
   await rest(page)
   await shot(page, A, '34 zoom to selection', 'Zoomed to the selection (Shift+2)')

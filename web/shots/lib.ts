@@ -16,8 +16,8 @@ export async function start(page: Page, { w = 1600, h = 1000, doc = 'Sample' as 
   await page.setViewportSize({ width: w, height: h })
   await page.goto('')
   if (doc) {
-    await page.getByRole('dialog', { name: 'New document' }).getByRole('button', { name: doc }).click()
-    await expect(page.getByRole('dialog', { name: 'New document' })).toHaveCount(0)
+    await page.getByRole('dialog', { name: 'Projects' }).getByRole('button', { name: doc }).click()
+    await expect(page.getByRole('dialog', { name: 'Projects' })).toHaveCount(0)
     await rest(page)
     await expect(page.getByLabel('Zoom')).not.toHaveText('0%')
   }
