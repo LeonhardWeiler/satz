@@ -768,6 +768,8 @@ pub struct Doc {
     /// The last snapshot a command built, whose issues the pages it shares with the
     /// next one keep.
     checked: RefCell<Option<Rc<Snapshot>>>,
+    /// The palette while `finish` builds the flows and the snapshot.
+    palette: RefCell<Option<Rc<Palette>>>,
     /// The number of each page.
     numbers: RefCell<Option<HashMap<TreeID, String>>>,
     /// The text layer each text layer follows in its thread.
@@ -1026,6 +1028,7 @@ impl Doc {
             flows: RefCell::new(None),
             snapshot: RefCell::new(None),
             checked: RefCell::new(None),
+            palette: RefCell::new(None),
             prevs: RefCell::new(None),
             numbers: RefCell::new(None),
             sets: RefCell::new(HashMap::new()),
@@ -1743,6 +1746,7 @@ impl Doc {
                 "a page left out lays out otherwise"
             );
         }
+        self.palette.replace(Some(palette));
         let flows = self.flow_all(reach.as_ref());
         debug_assert!(
             reach.is_none() || flows == self.flow_all(None),
@@ -1750,6 +1754,7 @@ impl Doc {
         );
         self.flows.replace(Some(Rc::new(flows)));
         let snap = Rc::new(self.build_snapshot());
+        self.palette.take();
         self.checked.replace(Some(snap.clone()));
         self.snapshot.replace(Some(snap));
         Ok(out)

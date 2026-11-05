@@ -234,13 +234,16 @@ impl Doc {
         self.list("swatches")
     }
 
-    pub(super) fn palette(&self) -> Palette {
-        Palette {
+    pub(super) fn palette(&self) -> Rc<Palette> {
+        if let Some(p) = self.palette.borrow().clone() {
+            return p;
+        }
+        Rc::new(Palette {
             swatches: self.swatches(),
             collections: self.list("collections"),
             variables: self.list("variables"),
             text_styles: self.list("textStyles"),
-        }
+        })
     }
 
     pub(super) fn variables(&self, collection: &str) -> impl Iterator<Item = (usize, Variable)> {

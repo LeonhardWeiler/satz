@@ -957,7 +957,7 @@ impl Doc {
             include_bleed: self.setting("includeBleed", true),
             image_ppi: self.setting("imagePpi", 0.0),
             jpeg_quality: self.setting("jpegQuality", 0),
-            palette,
+            palette: (*palette).clone(),
             can_undo: self.undo.can_undo(),
             can_redo: self.undo.can_redo(),
         };
