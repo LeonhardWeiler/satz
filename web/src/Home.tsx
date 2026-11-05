@@ -78,7 +78,7 @@ export function Home({ editor, onNew, children }: { editor: Editor; onNew: () =>
         </button>
         <button type="button" className="button" onClick={() => open(editor)}>
           <Icon name="folder" />
-          Open file…
+          Open or import…
         </button>
         <h3>Examples</h3>
         {EXAMPLES.map(([title, text, url, name]) => (

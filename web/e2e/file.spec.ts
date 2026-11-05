@@ -134,7 +134,7 @@ test('a file that is not a Satz document is not opened and says why', async ({ p
   await addPage(page)
   await choose(page, { name: 'notes.satz', mimeType: 'application/octet-stream', buffer: Buffer.from('notes') })
   await expect(
-    page.getByText('Could not open notes.satz: not a Satz document. Choose a .satz file saved by Satz.'),
+    page.getByText('Could not open notes.satz: not a Satz document. Choose a .satz file saved by Satz, an SVG or a PDF.'),
   ).toBeVisible()
   await pageCount(page, 2)
 })
@@ -177,4 +177,20 @@ test('an export worker that breaks says the export failed', async ({ page }) => 
   await page.route(/exportWorker[^/]*\.js$/, (r) => r.fulfill({ contentType: 'text/javascript', body: "onmessage = () => { throw new Error('trap') }" }))
   await (await exportButton(page)).click()
   await expect(page.getByText(/^Could not export the PDF: .*trap/)).toBeVisible()
+})
+
+test('an svg opens as a project of its layers and places into a document', async ({ page }) => {
+  const svg = {
+    name: 'logo.svg',
+    mimeType: 'image/svg+xml',
+    buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100"><rect x="10" y="10" width="80" height="80" fill="#f00"/><circle cx="150" cy="50" r="40" fill="#00f"/></svg>'),
+  }
+  await choose(page, svg)
+  await expect(page).toHaveTitle(/logo\.satz - Satz/)
+  const layers = page.getByRole('tree', { name: 'Layers' })
+  await expect(layers.getByRole('treeitem', { name: 'logo' })).toHaveCount(1)
+  const chooser = page.waitForEvent('filechooser')
+  await page.keyboard.press('Control+Shift+K')
+  await (await chooser).setFiles(svg)
+  await expect(layers.getByRole('treeitem', { name: 'logo' })).toHaveCount(2)
 })
