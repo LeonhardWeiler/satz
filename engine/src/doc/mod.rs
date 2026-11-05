@@ -19,8 +19,8 @@ pub use boolean::BooleanOp;
 use harfrust::Feature;
 use loro::event::{ContainerDiff, Diff};
 use loro::{
-    Container, ExpandType, ExportMode, Index, LoroBinaryValue, LoroDoc, LoroMap, LoroText,
-    LoroTree, LoroValue, StyleConfig, Subscription, TextDelta, TreeExternalDiff, TreeID,
+    Container, ContainerID, ExpandType, ExportMode, Index, LoroBinaryValue, LoroDoc, LoroMap,
+    LoroText, LoroTree, LoroValue, StyleConfig, Subscription, TextDelta, TreeExternalDiff, TreeID,
     TreeParentId, UndoManager, UpdateOptions, ValueOrContainer,
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -785,6 +785,8 @@ pub struct Doc {
     frames: RefCell<HashMap<TreeID, (TreeID, TextFrame)>>,
     /// The nodes changed since the last snapshot, `None` for everything.
     changed: Arc<Mutex<Option<HashSet<TreeID>>>>,
+    /// The palette of the last snapshot.
+    painted: RefCell<Option<Rc<Palette>>>,
     _changes: Subscription,
     sheets: RefCell<Sheets>,
     /// The text layers whose flow the last setting with a reach changed.
@@ -942,6 +944,12 @@ fn touched(d: &ContainerDiff, nodes: &mut HashSet<TreeID>) -> bool {
     node.map(|n| nodes.insert(n)).is_some()
 }
 
+fn in_palette(d: &ContainerDiff) -> bool {
+    let root = d.path.first().map_or(d.target, |(c, _)| c);
+    matches!(root, ContainerID::Root { name, .. }
+        if ["swatches", "collections", "variables", "textStyles"].contains(&name.as_str()))
+}
+
 fn parent_node(p: TreeParentId) -> Option<TreeID> {
     match p {
         TreeParentId::Node(p) => Some(p),
@@ -1007,13 +1015,14 @@ impl Doc {
         let _changes = doc.subscribe_root(Arc::new(move |e| {
             let mut c = c.lock().unwrap();
             if let Some(nodes) = c.as_mut()
-                && !e.events.iter().all(|d| touched(d, nodes))
+                && !e.events.iter().all(|d| in_palette(d) || touched(d, nodes))
             {
                 *c = None;
             }
         }));
         Doc {
             changed,
+            painted: RefCell::new(None),
             _changes,
             sheets: RefCell::default(),
             reflowed: RefCell::default(),
@@ -1721,6 +1730,7 @@ impl Doc {
             "a kept link back differs from the thread"
         );
         let palette = self.palette();
+        self.repaint(&palette);
         let mut done = HashSet::new();
         let reach = loop {
             let reach = self.reach();

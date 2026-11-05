@@ -812,7 +812,9 @@ impl Doc {
             return None;
         }
         self.purge();
-        let nodes = self.changed.lock().unwrap().replace(HashSet::new())?;
+        let nodes = self.changed.lock().unwrap().replace(HashSet::new());
+        self.painted.replace(Some(self.palette()));
+        let nodes = nodes?;
         let (old, sheets) = self.sheets.take();
         let reflowed = reflowed.unwrap_or_else(|| {
             (flows.iter())

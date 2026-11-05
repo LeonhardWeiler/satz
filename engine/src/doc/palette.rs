@@ -28,6 +28,10 @@ pub(super) fn check_value(v: &Value) -> Res<()> {
     }
 }
 
+fn json(v: &impl Serialize) -> String {
+    serde_json::to_string(v).unwrap_or_default()
+}
+
 impl Doc {
     /// The modes `id` resolves variables in, its own and inherited.
     pub(super) fn active_modes(&self, id: TreeID) -> Modes {
@@ -232,6 +236,54 @@ impl Doc {
 
     pub(super) fn swatches(&self) -> Vec<Swatch> {
         self.list("swatches")
+    }
+
+    /// Counts the layers that name a swatch, variable or text style that differs from
+    /// the last snapshot's as changed; other changes of the collections change everything.
+    pub(super) fn repaint(&self, new: &Palette) {
+        let Some(old) = self.painted.borrow().clone() else {
+            return;
+        };
+        let mut changed = self.changed.lock().unwrap();
+        let Some(nodes) = changed.as_mut().filter(|_| *old != *new) else {
+            return;
+        };
+        if old.collections != new.collections {
+            *changed = None;
+            return;
+        }
+        let entries = |p: &Palette| -> HashMap<String, String> {
+            (p.swatches.iter().map(|s| (s.id.clone(), json(s))))
+                .chain(p.variables.iter().map(|v| (v.id.clone(), json(v))))
+                .chain(p.text_styles.iter().map(|t| (t.id.clone(), json(t))))
+                .collect()
+        };
+        let (old, new) = (entries(&old), entries(new));
+        let quote = |i: &String| format!("\"{i}\"");
+        let mut ids: Vec<String> = (old.keys().chain(new.keys()))
+            .filter(|i| old.get(*i) != new.get(*i))
+            .map(quote)
+            .collect();
+        loop {
+            let more: Vec<String> = (new.iter())
+                .filter(|(i, e)| !ids.contains(&quote(i)) && ids.iter().any(|x| e.contains(x)))
+                .map(|(i, _)| quote(i))
+                .collect();
+            if more.is_empty() {
+                break;
+            }
+            ids.extend(more);
+        }
+        for n in self.tree.nodes() {
+            let m = self.meta(n);
+            let mut s = json(&m.get_deep_value());
+            if let Some(t) = container(&m, "text").and_then(|c| c.into_text().ok()) {
+                s += &json(&t.get_richtext_value());
+            }
+            if ids.iter().any(|i| s.contains(i)) {
+                nodes.insert(n);
+            }
+        }
     }
 
     pub(super) fn palette(&self) -> Rc<Palette> {
@@ -750,6 +802,8 @@ mod tests {
             },
         );
         assert_eq!(solid_colors(&d), [[1.0, 0.0, 0.0, 1.0]]);
+        d.apply(Command::AddPage { after: Some(p) }).unwrap();
+        let before = d.snapshot();
         d.apply(Command::SetSwatch {
             id,
             name: None,
@@ -758,6 +812,9 @@ mod tests {
         })
         .unwrap();
         assert_eq!(solid_colors(&d), [[0.0, 0.0, 1.0, 1.0]]);
+        let after = d.snapshot();
+        assert!(!Rc::ptr_eq(&before.pages[0], &after.pages[0]));
+        assert!(Rc::ptr_eq(&before.pages[1], &after.pages[1]));
     }
 
     #[test]
