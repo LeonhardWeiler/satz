@@ -54,6 +54,14 @@ export function Swatches({ editor }: { editor: Editor }) {
           <Icon name="plus" />
         </button>
       </header>
+      {open && !swatches.length && (
+        <p className="empty swatches-empty">
+          Keep reused colours as swatches.{' '}
+          <button type="button" className="link" onClick={add}>
+            Add a swatch
+          </button>
+        </p>
+      )}
       <div ref={list} role="listbox" aria-label="Swatches" className="swatch-list" hidden={!open}>
         {swatches.map((s) => (
           <div
