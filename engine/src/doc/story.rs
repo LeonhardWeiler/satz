@@ -811,6 +811,11 @@ impl Doc {
         let mut todo = self.texts(&roots.iter().copied().collect::<Vec<_>>());
         todo.retain(|&t| self.reflows(t, &nodes, old));
         todo.extend(nodes.iter().filter(|n| old.contains_key(n)));
+        for &n in nodes.iter().filter(|&&n| !self.is_sheet(self.root(n))) {
+            let mut under = Vec::new();
+            self.walk(n, &mut under);
+            todo.extend(under.into_iter().filter(|t| old.contains_key(t)));
+        }
         let mut texts = HashSet::new();
         let mut heads = HashSet::new();
         let mut walked = HashSet::new();
@@ -1236,6 +1241,22 @@ mod tests {
             d.sets.replace(kept);
             assert_eq!(*d.flows(), fresh);
         });
+    }
+
+    #[test]
+    fn deleting_a_frame_drops_the_flows_of_the_text_in_it() {
+        let (mut d, p) = empty();
+        let f = create(&mut d, &p, NewKind::Frame, [0.0, 0.0, 90.0, 90.0]);
+        let t = create(&mut d, &f, NewKind::Text, [1.0, 1.0, 50.0, 50.0]);
+        d.apply(Command::SetText {
+            id: t.clone(),
+            text: "Hi".into(),
+        })
+        .unwrap();
+        d.snapshot();
+        d.apply(Command::Delete { ids: vec![f] }).unwrap();
+        d.snapshot();
+        assert!(!d.flows().keys().any(|k| k.to_string() == t));
     }
 
     #[test]
