@@ -23,7 +23,8 @@ export function ContextMenu({
   const [query, setQuery] = useState('')
   const q = query.trim().toLowerCase()
   const radio = items.some((it) => it?.[3] !== undefined)
-  const first = Math.max(0, items.findIndex((it) => it?.[3]))
+  const group = items.indexOf(null)
+  const first = Math.max(0, items.slice(0, group < 0 ? undefined : group).findIndex((it) => it?.[3]))
   const shown = q ? items.filter((it) => it && String(it[0]).toLowerCase().includes(q)) : items
   const [back] = useState(() => document.activeElement as HTMLElement | null)
   useEffect(() => {
