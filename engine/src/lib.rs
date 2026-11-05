@@ -5,6 +5,7 @@ mod doc;
 mod examples;
 mod geom;
 mod image;
+mod import;
 mod inks;
 mod layout;
 mod linebreak;
@@ -399,6 +400,12 @@ impl Engine {
     #[wasm_bindgen(js_name = takeClip)]
     pub fn take_clip(&mut self, bytes: &[u8]) -> Result<(), JsError> {
         self.doc.take_clip(bytes).map_err(|e| JsError::new(&e))
+    }
+
+    /// The SVG or PDF file `name` as a document.
+    #[wasm_bindgen(js_name = importFile)]
+    pub fn import_file(bytes: &[u8], name: &str) -> Result<Vec<u8>, JsError> {
+        import::import(bytes, name).map_err(|e| JsError::new(&e))
     }
 
     /// Replaces the document; on an error it stays as it was.

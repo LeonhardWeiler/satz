@@ -51,7 +51,7 @@ fn bez(path: &[f32]) -> BezPath {
         .collect()
 }
 
-fn path(b: &BezPath) -> Vec<f32> {
+pub(crate) fn path(b: &BezPath) -> Vec<f32> {
     let xy = |p: Point| [p.x as f32, p.y as f32];
     let mut out = Vec::new();
     let mut last = Point::ZERO;

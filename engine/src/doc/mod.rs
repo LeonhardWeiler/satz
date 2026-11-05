@@ -16,6 +16,7 @@ use crate::text::{
 };
 use crate::variable::{Collection, Mode, Modes, Palette, Scope, Value, Variable};
 pub use boolean::BooleanOp;
+pub(crate) use boolean::path as path_of;
 use harfrust::Feature;
 use loro::event::{ContainerDiff, Diff};
 use loro::{
