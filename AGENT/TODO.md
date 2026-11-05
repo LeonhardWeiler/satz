@@ -36,53 +36,7 @@ IDs name finding cards in `AGENT/project-health-report.html`; read the card for 
 
 ## Performance
 
-Profile and numbers in `AGENT/performance.md`. Measure before and after each item.
-
-- [ ] Browser benchmark: Playwright with `performance.now()` around `apply`, `snapshot` +
-  `JSON.parse`, `index()` and `paint` on 1, 8 and 32 pages.
-- [ ] Keep the `perf` setup as an ignored bench (`PHASE=… cargo test prof`) with frame pointers.
-- [ ] `opt-level = 3` (or per package for harfrust, tiny-skia, linesweeper, moxcms, loro); compare
-  WASM size.
-- [ ] WASM with `+simd128,+bulk-memory`; tiny-skia's `simd` is scalar without `simd128`.
-- [ ] Cache decoded display lists in `renderer.ts` by `(id, listVersion)` instead of `.slice()` +
-  `decode()` per paint.
-- [ ] Cache the bleed path union in `Renderer.draw` by the sheets instead of `Path.MakeFromOp` per
-  frame.
-- [ ] Build `palette()` once per `finish` for `flow_all` and `build_snapshot`.
-- [ ] `use_profile` compares the 240 KB ICC bytes on every commit; compare a hash.
-- [ ] Cache `to_rgb` per CMYK value in the thread's `Cms`.
-- [ ] `Doc::save` reads image hashes through serde_json (26 % of save); read the `LoroValue`.
-- [ ] `hit`: reject by rotated bounds first, collect sibling masks once per level.
-- [ ] Palette and variable changes still lay out every root in `Doc::finish`.
-- [ ] Cache `kind` per `TreeID`, invalidated on structural changes.
-- [ ] Deserialize node meta straight from `LoroValue` in `snap`, `layout`, `flow`, `snapshot_of`.
-- [ ] Shapers and metrics per font id in a `thread_local` instead of per `text::rows` call.
-- [ ] Cache hyphenation points per word and language.
-- [ ] Cache Knuth-Plass breaks per paragraph by (shaped paragraph, column width, wrap insets).
-- [ ] `text::draw`: `run_text` and ranges only for the PDF, paint and font class ids per span,
-  `Vec::with_capacity`, no `str::replace` per run.
-- [ ] Cache `Style::shape` outlines per (shape, size).
-- [ ] Snapshot JSON: short number formatter (`ryu`, 2 decimals) and ids without escaping, or binary.
-- [ ] Coalesce drag `SetFrame` to 1 per animation frame.
-- [ ] Export worker: send Loro updates since its version vector instead of `save()` + `load()`.
-- [ ] Autosave appends Loro updates to IndexedDB and compacts now and then.
-- [ ] Optimistic typing and drag without the engine (transform the cached `SkPicture`, not when
-  text wraps around the item).
-- [ ] Split `watch()` so hovers notify only the overlay; virtualize the layers tree.
-- [ ] Snapping: sort the lines once per drag, binary search in `snap`, `nearest`, `spacings`.
-- [ ] Canvas: pan and zoom on the last bitmap, keep overlay SVG elements, group end index in the
-  display list, cache blur and shadow layers per item and zoom, share the picture cache with the
-  overview, render neighbours and thumbnails in idle time, tiles per zoom level.
-- [ ] Raster: layer pixmaps and clip masks bounded to the item, no `out` layer without shadow,
-  blur only alpha, integer offsets for lowp, downsample large sigmas, cache rasterized items by
-  hash, faster deflate.
-- [ ] Inks per dirty rect, 1 pass with an N-channel blitter, separation per distinct colour.
-- [ ] PDF: cache encoded image streams by hash, subset fonts and encode images in workers.
-- [ ] Startup: `wasm-opt -O3`, `talc` or `lol_alloc`, move photo, FOGRA51 and fonts out of the
-  WASM, cache the compiled module, store the snapshot next to the Loro bytes, a smaller CanvasKit.
-- [ ] Large rebuilds: `u32` node handles, memoized queries replacing `sets`/`sheets`/`flows`/
-  `kept_sheets`/`drawn`, a typed arena from Loro events, WASM threads, a render worker, inks on
-  WebGPU.
+Done; numbers and the items measured and not done in `AGENT/performance.md`.
 
 ## Later
 
