@@ -216,6 +216,11 @@ pub struct Node {
     pub wrap: Wrap,
     pub wrap_offset_x: f64,
     pub wrap_offset_y: f64,
+    /// The outline of a shape or frame and, when its fills cover less, what they cover.
+    #[serde(skip)]
+    pub outline: Vec<f32>,
+    #[serde(skip)]
+    pub area: Option<Vec<f32>>,
     #[serde(flatten)]
     pub style: Style,
     #[serde(flatten)]
@@ -662,17 +667,9 @@ pub(super) fn draw(n: &Node, ops: &mut Vec<Op>, pal: &Palette) {
         });
     }
     match &n.kind {
-        Kind::Shape(shape) => {
-            let path = outline(shape, frame);
-            let fill = match shape {
-                Shape::Path { areas, .. } if !areas.is_empty() => {
-                    let [x, y, w, h] = frame;
-                    let at = geom::map(areas, |[u, v]| [x + u * w, y + v * h]);
-                    boolean::areas(&path, &at).unwrap_or_default()
-                }
-                _ => path.clone(),
-            };
-            item(ops, n.style.shape(&fill, &path, frame, s))
+        Kind::Shape(_) => {
+            let fill = n.area.as_ref().unwrap_or(&n.outline);
+            item(ops, n.style.shape(fill, &n.outline, frame, s))
         }
         Kind::Text {
             content,
@@ -692,25 +689,14 @@ pub(super) fn draw(n: &Node, ops: &mut Vec<Op>, pal: &Palette) {
             ),
         ),
         Kind::Group { children } => draw_all(children, ops, pal),
-        Kind::Frame {
-            clip,
-            radius,
-            corners,
-            children,
-        } => {
-            let r = outline(
-                &Shape::Rect {
-                    radius: *radius,
-                    corners: corners.clone(),
-                },
-                frame,
-            );
-            item(ops, n.style.shape(&r, &r, frame, s));
+        Kind::Frame { clip, children, .. } => {
+            let r = &n.outline;
+            item(ops, n.style.shape(r, r, frame, s));
             if !*clip {
                 draw_all(children, ops, pal);
             } else if n.w > 0.0 && n.h > 0.0 {
                 ops.push(Op::PushClip {
-                    path: r,
+                    path: r.clone(),
                     invert: false,
                 });
                 draw_all(children, ops, pal);
@@ -759,16 +745,16 @@ pub(super) fn hit(
             Kind::Frame { children, clip, .. } => {
                 (inside || !clip) && hit(children, x, y, tolerance, locks, path) || inside
             }
-            Kind::Shape(s) => {
+            Kind::Shape(_) => {
                 let stroke = if n.style.strokes.iter().any(|f| f.visible) {
                     n.style.stroke_weight / 2.0
                 } else {
                     0.0
                 };
                 near_by(tolerance + stroke as f64 + 1.0) && {
-                    let p = outline(s, [n.x, n.y, n.w, n.h].map(|v| v as f32));
+                    let p = &n.outline;
                     let (x, y) = (x as f32, y as f32);
-                    closed(&p) && contains(&p, x, y) || near(&p, x, y, tolerance as f32 + stroke)
+                    closed(p) && contains(p, x, y) || near(p, x, y, tolerance as f32 + stroke)
                 }
             }
             _ => inside,
@@ -1505,7 +1491,35 @@ impl Doc {
             } => union([own].into_iter().chain(children.iter().map(|c| c.bounds))),
             _ => own,
         };
+        let frame = [x, y, w, h].map(|v| v as f32);
+        let (outline, area) = match &kind {
+            Kind::Shape(shape) => {
+                let path = outline(shape, frame);
+                let area = match shape {
+                    Shape::Path { areas, .. } if !areas.is_empty() => {
+                        let at = geom::map(areas, |[u, v]| {
+                            [frame[0] + u * frame[2], frame[1] + v * frame[3]]
+                        });
+                        Some(boolean::areas(&path, &at).unwrap_or_default())
+                    }
+                    _ => None,
+                };
+                (path, area)
+            }
+            Kind::Frame {
+                radius, corners, ..
+            } => {
+                let r = Shape::Rect {
+                    radius: *radius,
+                    corners: corners.clone(),
+                };
+                (outline(&r, frame), None)
+            }
+            _ => (Vec::new(), None),
+        };
         Node {
+            outline,
+            area,
             id: id.to_string(),
             name,
             x,
