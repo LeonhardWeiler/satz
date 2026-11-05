@@ -159,6 +159,7 @@ export const featuresOf = (editor: Editor, id: string, spans: Span[], r: [number
 /** A button that opens the case, decoration, indent and OpenType features of `spans`. */
 export function TypeOptions({ spans, set, features }: { spans: Pick<Attrs, Styled>[]; set: (p: TextProps) => void; features: (f: (old: string[]) => string[]) => void }) {
   const [at, setAt] = useState<DOMRect | null>(null)
+  const [tab, setTab] = useState<'Character' | 'Paragraph' | 'Tabs'>('Character')
   const same = <T,>(get: (a: Pick<Attrs, Styled>) => T) => sameOf(spans, get)
   const on = (tag: string, dflt?: boolean) => (a: Pick<Attrs, Styled>) => (dflt ? !a.features.includes(`${tag}=0`) : a.features.includes(tag))
   const put = (drop: string[], add: string[]) => features((old) => [...old.filter((f) => !drop.some((t) => f === t || f === `${t}=0`)), ...add].sort())
@@ -192,45 +193,62 @@ export function TypeOptions({ spans, set, features }: { spans: Pick<Attrs, Style
                 setAt(null)
               }}
             >
-              <Group title="Character">
-                <Select label="Case" prefix="Case" value={same((a) => a.textCase)} options={CASES} onChange={(textCase) => set({ textCase })} />
-                <Select label="Decoration" prefix="Decoration" value={same((a) => a.textDecoration)} options={DECORATIONS} onChange={(textDecoration) => set({ textDecoration })} />
-                <Select label="Position" prefix="Position" value={same((a) => a.position)} options={POSITIONS} onChange={(position) => set({ position })} />
-                <Field label="Shift" title="Baseline shift" unit="pt" min={-Infinity} reset={0} value={same((a) => a.baselineShift)} onCommit={(baselineShift) => set({ baselineShift })} />
-              </Group>
-              <Group title="Indents & spacing">
-                <Field label="First line" title="First line indent" unit="pt" reset={0} value={same((a) => a.paragraphIndent)} onCommit={(paragraphIndent) => set({ paragraphIndent })} />
-                <Field label="Left" title="Left indent" unit="pt" reset={0} value={same((a) => a.indentLeft)} onCommit={(indentLeft) => set({ indentLeft })} />
-                <Field label="Right" title="Right indent" unit="pt" reset={0} value={same((a) => a.indentRight)} onCommit={(indentRight) => set({ indentRight })} />
-                <Field label="Before" title="Space before" unit="pt" reset={0} value={same((a) => a.spaceBefore)} onCommit={(spaceBefore) => set({ spaceBefore })} />
-                <Field label="After" title="Space after" unit="pt" reset={0} value={same((a) => a.paragraphSpacing)} onCommit={(paragraphSpacing) => set({ paragraphSpacing })} />
-              </Group>
-              <Group title="Paragraph">
-                <Select label="List" prefix="List" value={same((a) => a.list)} options={LISTS} onChange={(list) => set({ list })} />
-                <Field label="Min lines" title="Lines kept together at start and end" unit="" int min={1} max={20} reset={1} value={same((a) => a.keepLines)} onCommit={(keepLines) => set({ keepLines })} />
-                <Check label="Keep together" value={same((a) => a.keepTogether)} set={(keepTogether) => set({ keepTogether })} />
-                <Check label="Keep with next" value={same((a) => a.keepNext)} set={(keepNext) => set({ keepNext })} />
-              </Group>
-              <Group title="Drop cap">
-                <Field label="Lines" title="Drop cap lines" unit="" int min={0} max={20} reset={0} value={same((a) => a.dropLines)} onCommit={(dropLines) => set({ dropLines })} />
-                <Field label="Characters" title="Drop cap characters" disabled={same((a) => a.dropLines) === 0} unit="" int min={1} max={20} reset={1} value={same((a) => a.dropChars)} onCommit={(dropChars) => set({ dropChars })} />
-              </Group>
-              <TabStops tabs={same((a) => JSON.stringify(a.tabs))} set={(tabs) => set({ tabs })} />
-              <Group title="OpenType">
-                {FIGURES.map(([title, prefix, tags]) => (
-                  <Select
-                    key={title}
-                    label={title}
-                    prefix={prefix}
-                    value={same((a) => tags.find(([t]) => a.features.includes(t))?.[0] ?? '')}
-                    options={Object.fromEntries([['', 'Default'], ...tags])}
-                    onChange={(tag) => put(tags.map(([t]) => t), tag ? [tag] : [])}
-                  />
-                ))}
-                {FEATURES.map(([tag, title, dflt]) => (
-                  <Check key={tag} label={title} value={same(on(tag, dflt))} set={(c) => put([tag], dflt ? (c ? [] : [`${tag}=0`]) : c ? [tag] : [])} />
-                ))}
-              </Group>
+              <header className="picker-header">
+                <div role="tablist" className="tabs">
+                  {(['Character', 'Paragraph', 'Tabs'] as const).map((t) => (
+                    <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </header>
+              {tab === 'Character' && (
+                <>
+                  <Group title="Character">
+                    <Select label="Case" prefix="Case" value={same((a) => a.textCase)} options={CASES} onChange={(textCase) => set({ textCase })} />
+                    <Select label="Decoration" prefix="Decoration" value={same((a) => a.textDecoration)} options={DECORATIONS} onChange={(textDecoration) => set({ textDecoration })} />
+                    <Select label="Position" prefix="Position" value={same((a) => a.position)} options={POSITIONS} onChange={(position) => set({ position })} />
+                    <Field label="Shift" title="Baseline shift" unit="pt" min={-Infinity} reset={0} value={same((a) => a.baselineShift)} onCommit={(baselineShift) => set({ baselineShift })} />
+                  </Group>
+                  <Group title="OpenType">
+                    {FIGURES.map(([title, prefix, tags]) => (
+                      <Select
+                        key={title}
+                        label={title}
+                        prefix={prefix}
+                        value={same((a) => tags.find(([t]) => a.features.includes(t))?.[0] ?? '')}
+                        options={Object.fromEntries([['', 'Default'], ...tags])}
+                        onChange={(tag) => put(tags.map(([t]) => t), tag ? [tag] : [])}
+                      />
+                    ))}
+                    {FEATURES.map(([tag, title, dflt]) => (
+                      <Check key={tag} label={title} value={same(on(tag, dflt))} set={(c) => put([tag], dflt ? (c ? [] : [`${tag}=0`]) : c ? [tag] : [])} />
+                    ))}
+                  </Group>
+                </>
+              )}
+              {tab === 'Paragraph' && (
+                <>
+                  <Group title="Indents & spacing">
+                    <Field label="First line" title="First line indent" unit="pt" reset={0} value={same((a) => a.paragraphIndent)} onCommit={(paragraphIndent) => set({ paragraphIndent })} />
+                    <Field label="Left" title="Left indent" unit="pt" reset={0} value={same((a) => a.indentLeft)} onCommit={(indentLeft) => set({ indentLeft })} />
+                    <Field label="Right" title="Right indent" unit="pt" reset={0} value={same((a) => a.indentRight)} onCommit={(indentRight) => set({ indentRight })} />
+                    <Field label="Before" title="Space before" unit="pt" reset={0} value={same((a) => a.spaceBefore)} onCommit={(spaceBefore) => set({ spaceBefore })} />
+                    <Field label="After" title="Space after" unit="pt" reset={0} value={same((a) => a.paragraphSpacing)} onCommit={(paragraphSpacing) => set({ paragraphSpacing })} />
+                  </Group>
+                  <Group title="Paragraph">
+                    <Select label="List" prefix="List" value={same((a) => a.list)} options={LISTS} onChange={(list) => set({ list })} />
+                    <Field label="Min lines" title="Lines kept together at start and end" unit="" int min={1} max={20} reset={1} value={same((a) => a.keepLines)} onCommit={(keepLines) => set({ keepLines })} />
+                    <Check label="Keep together" value={same((a) => a.keepTogether)} set={(keepTogether) => set({ keepTogether })} />
+                    <Check label="Keep with next" value={same((a) => a.keepNext)} set={(keepNext) => set({ keepNext })} />
+                  </Group>
+                  <Group title="Drop cap">
+                    <Field label="Lines" title="Drop cap lines" unit="" int min={0} max={20} reset={0} value={same((a) => a.dropLines)} onCommit={(dropLines) => set({ dropLines })} />
+                    <Field label="Characters" title="Drop cap characters" disabled={same((a) => a.dropLines) === 0} unit="" int min={1} max={20} reset={1} value={same((a) => a.dropChars)} onCommit={(dropChars) => set({ dropChars })} />
+                  </Group>
+                </>
+              )}
+              {tab === 'Tabs' && <TabStops tabs={same((a) => JSON.stringify(a.tabs))} set={(tabs) => set({ tabs })} />}
             </Popover>
           </div>,
           document.body,
@@ -248,7 +266,7 @@ function TabStops({ tabs, set }: { tabs: string | null; set: (tabs: Tab[]) => vo
   return (
     <div className="tab-stops">
       <Group
-        title="Tabs"
+        title="Tab stops"
         action={
           <button type="button" className="icon-button" aria-label="Add tab stop" title="Add tab stop" onClick={() => set([...list, { at: (list.at(-1)?.at ?? 0) + 36, align: 'left', leader: '' }])}>
             <Icon name="plus" />
