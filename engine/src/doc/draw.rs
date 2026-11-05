@@ -738,28 +738,21 @@ pub(super) fn hit(
     path: &mut Vec<String>,
 ) -> bool {
     let mask = |i: &usize| nodes[*i].style.mask;
+    let missed = (1..nodes.len()).rev().find(|&i| {
+        let m = &nodes[i];
+        m.style.mask && !m.hidden && !hit(&nodes[i..=i], x, y, tolerance, false, &mut Vec::new())
+    });
     let order = (0..nodes.len()).rev().filter(|i| !mask(i));
     for i in order.chain((0..nodes.len()).rev().filter(mask)) {
         let n = &nodes[i];
-        if n.hidden || locks && n.locked {
-            continue;
-        }
-        let masks = nodes[i + 1..].iter().filter(|m| m.style.mask && !m.hidden);
-        if masks.into_iter().any(|m| {
-            !hit(
-                std::slice::from_ref(m),
-                x,
-                y,
-                tolerance,
-                false,
-                &mut Vec::new(),
-            )
-        }) {
+        if n.hidden || locks && n.locked || missed.is_some_and(|m| m > i) {
             continue;
         }
         let [a, b, c, d, e, f] = geom::rotation(-n.rotation, [n.x, n.y, n.w, n.h]);
         let (x, y) = (a * x + c * y + e, b * x + d * y + f);
-        let inside = x >= n.x && x <= n.x + n.w && y >= n.y && y <= n.y + n.h;
+        let near_by =
+            |t: f64| x >= n.x - t && x <= n.x + n.w + t && y >= n.y - t && y <= n.y + n.h + t;
+        let inside = near_by(0.0);
         path.push(n.id.clone());
         let found = match &n.kind {
             Kind::Group { children } => hit(children, x, y, tolerance, locks, path),
@@ -767,14 +760,16 @@ pub(super) fn hit(
                 (inside || !clip) && hit(children, x, y, tolerance, locks, path) || inside
             }
             Kind::Shape(s) => {
-                let p = outline(s, [n.x, n.y, n.w, n.h].map(|v| v as f32));
-                let (x, y) = (x as f32, y as f32);
                 let stroke = if n.style.strokes.iter().any(|f| f.visible) {
                     n.style.stroke_weight / 2.0
                 } else {
                     0.0
                 };
-                closed(&p) && contains(&p, x, y) || near(&p, x, y, tolerance as f32 + stroke)
+                near_by(tolerance + stroke as f64 + 1.0) && {
+                    let p = outline(s, [n.x, n.y, n.w, n.h].map(|v| v as f32));
+                    let (x, y) = (x as f32, y as f32);
+                    closed(&p) && contains(&p, x, y) || near(&p, x, y, tolerance as f32 + stroke)
+                }
             }
             _ => inside,
         };
