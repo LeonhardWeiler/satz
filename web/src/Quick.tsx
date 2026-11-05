@@ -128,7 +128,7 @@ export function Quick({ editor }: { editor: Editor }) {
         </>
       )}
       {one?.kind === 'shape' && (one.shape === 'polygon' || one.shape === 'star') && (
-        <Field label="Points" title="Points" unit="" int min={3} max={60} value={one.count} onCommit={(count) => set({ count })} />
+        <Field label={<Icon name={one.shape} />} title="Points" unit="" int min={3} max={60} value={one.count} onCommit={(count) => set({ count })} />
       )}
       {menu?.custom &&
         createPortal(
