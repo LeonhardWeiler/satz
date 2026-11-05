@@ -44,8 +44,8 @@ Done; numbers and the items measured and not done in `AGENT/performance.md`.
   text frame has an in-port at its top left and an out-port at its bottom right. Clicking the
   in-port of a frame that is already in a thread and then another frame puts that frame *before*
   it, so the story flows through the new frame first. Satz can only append through `next`.
-- [ ] Figma import from a file or an account.
-- [ ] Start page listing all projects, as in Figma.
+- [ ] Figma import from an account; .fig files import already (`engine/src/fig.rs`, instance overrides, masks and clips ignored, text as outlines).
+- [ ] InDesign import (IDML) beside SVG, PDF and Figma in `import::import`.
 - [ ] Table of contents.
 - [ ] Date variable, like the page number.
 - [ ] Conditional text with variables.
@@ -59,7 +59,6 @@ Done; numbers and the items measured and not done in `AGENT/performance.md`.
   the subset) and harfrust shapes them; CanvasKit 0.42 has no variation binding, so the canvas
   draws such glyphs as paths from skrifa at the font's location, cached per font, location and
   glyph.
-- [ ] Place SVG and PDF as vectors, kept as vectors in the exported PDF.
 - [ ] Version history from the Loro history: browse and restore earlier states.
 - [ ] GREP styles.
 - [ ] Colour wheel in the picker for harmonies (analogous, complementary, …).
