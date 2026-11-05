@@ -1248,7 +1248,18 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         })
       }
     }
+    let pending: PointerEvent | undefined
+    const flush = () => {
+      const e = pending
+      pending = undefined
+      if (e) onPointerMove(e)
+    }
+    const onMove = (e: PointerEvent) => {
+      if (!pending) requestAnimationFrame(flush)
+      pending = e
+    }
     const onPointerUp = (e: PointerEvent) => {
+      flush()
       if (drag?.kind === 'draw' && drag.thread) {
         const from = editor.lookup(drag.thread)?.node
         if (!drag.moved && from) editor.apply({ type: 'setFrame', id: drag.id, x: drag.start.x - drag.dx, y: drag.start.y, w: from.w, h: from.h })
@@ -1404,7 +1415,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     const [top, left] = [rulerX.current!, rulerY.current!]
     top.addEventListener('pointerdown', downX)
     left.addEventListener('pointerdown', downY)
-    canvas.addEventListener('pointermove', onPointerMove)
+    canvas.addEventListener('pointermove', onMove)
     canvas.addEventListener('pointerup', onPointerUp)
     canvas.addEventListener('pointercancel', onPointerUp)
     canvas.addEventListener('pointerleave', onLeave)
@@ -1434,7 +1445,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       resize.disconnect()
       canvas.parentElement!.removeEventListener('wheel', onWheel)
       canvas.removeEventListener('pointerdown', onPointerDown)
-      canvas.removeEventListener('pointermove', onPointerMove)
+      canvas.removeEventListener('pointermove', onMove)
       top.removeEventListener('pointerdown', downX)
       left.removeEventListener('pointerdown', downY)
       canvas.removeEventListener('pointerup', onPointerUp)
