@@ -24,6 +24,7 @@ test('type attributes and a text style are set in the text section and edited on
 
   await page.keyboard.press('Escape')
   const style = panel.getByRole('group', { name: 'Text style 1' })
+  await style.getByRole('button', { name: 'Edit Text style 1' }).click()
   await expect(style.getByRole('textbox', { name: 'Font size in pt' })).toHaveValue('11')
   await style.getByRole('textbox', { name: 'Font size in pt' }).fill('9')
   await style.getByRole('textbox', { name: 'Font size in pt' }).press('Enter')

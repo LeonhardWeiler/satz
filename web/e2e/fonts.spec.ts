@@ -55,6 +55,7 @@ test('a text style sets the font of its text', async ({ page }) => {
   const panel = page.getByRole('complementary', { name: 'Properties' })
   await panel.getByRole('button', { name: 'Create text style' }).click()
   await page.keyboard.press('Escape')
+  await panel.getByRole('button', { name: 'Edit Text style 1' }).click()
   await choose(panel.getByRole('group', { name: 'Text style 1' }).getByRole('combobox', { name: 'Font', exact: true }), 'DM Mono')
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
   await expect(panel.getByRole('combobox', { name: 'Font', exact: true })).toHaveText('DM Mono')

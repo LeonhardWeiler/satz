@@ -170,6 +170,18 @@ export function Properties({ editor }: { editor: Editor }) {
             </button>
           </>
         )}
+        {box && !(one && cropping === one.id) && (
+          <div role="toolbar" aria-label="Arrange" className="arrange">
+            {ARRANGE.map(([title, icon]) => {
+              const a = ACTIONS.find((a) => a.title === title)!
+              return (a.can?.(editor) ?? true) && (
+                <button key={title} type="button" className="icon-button" aria-label={title} title={`${title} (${keysOf(a)})`} onClick={() => press(a.keys)}>
+                  <Icon name={icon} />
+                </button>
+              )
+            })}
+          </div>
+        )}
       </header>
       {box && (
         <AlignBar editor={editor}>
@@ -183,25 +195,6 @@ export function Properties({ editor }: { editor: Editor }) {
             />
           )}
         </AlignBar>
-      )}
-      {box && (
-        <div role="toolbar" aria-label="Arrange" className="align">
-          {ARRANGE.map(([title, icon]) => {
-            const a = ACTIONS.find((a) => a.title === title)!
-            return (a.can?.(editor) ?? true) && (
-              <button
-                key={title}
-                type="button"
-                className="icon-button"
-                aria-label={title}
-                title={`${title} (${keysOf(a)})`}
-                onClick={() => press(a.keys)}
-              >
-                <Icon name={icon} />
-              </button>
-            )
-          })}
-        </div>
       )}
       {combinable(editor) && <BooleanBar editor={editor} />}
       {!box && <DocumentSection editor={editor} />}

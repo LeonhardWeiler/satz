@@ -282,7 +282,13 @@ body,
   pointer-events: none;
 }
 
-.panel-header :is(.button, .icon-button) {
+.panel-header > :is(.button, .icon-button) {
+  margin-left: auto;
+}
+
+.arrange {
+  display: flex;
+  flex: none;
   margin-left: auto;
 }
 
@@ -3043,9 +3049,21 @@ input[type='checkbox']:active {
   border-top: 1px solid var(--border);
 }
 
+.text-style .chevron {
+  width: 20px;
+  height: 28px;
+  margin-left: -4px;
+}
+
 .text-style .name-input {
-  margin-left: -9px;
+  margin-left: -6px;
   font-weight: 500;
+}
+
+.text-style-sum {
+  margin: -8px 0 0 19px;
+  color: var(--text-3);
+  font-size: 11px;
 }
 
 .specimen {

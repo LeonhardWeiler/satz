@@ -510,9 +510,13 @@ export function TextStyles({ editor }: { editor: Editor }) {
 }
 
 function StyleRow({ editor, style }: { editor: Editor; style: TextStyle }) {
+  const [open, setOpen] = useState(false)
   return (
     <div role="group" aria-label={style.name} className="text-style">
       <div className="row">
+        <button type="button" className="icon-button chevron" data-open={open || undefined} aria-expanded={open} aria-label={`Edit ${style.name}`} title={open ? 'Close' : 'Edit'} onClick={() => setOpen(!open)}>
+          <Icon name="chevron" />
+        </button>
         <NameInput label="Text style name" value={style.name} onCommit={(name) => editor.apply({ type: 'setTextStyle', id: style.id, name })} />
         <TypeOptions spans={[style]} set={(p) => editor.apply({ type: 'setTextStyle', id: style.id, ...p })} features={(f) => editor.apply({ type: 'setTextStyle', id: style.id, features: f(style.features) })} />
         <button
@@ -525,6 +529,9 @@ function StyleRow({ editor, style }: { editor: Editor; style: TextStyle }) {
           <Icon name="minus" />
         </button>
       </div>
+      {!open && <small className="text-style-sum">{`${style.font?.family ?? 'Source Serif 4'} ${style.font?.style ?? 'Regular'} · ${style.size}/${style.lineHeight || 'auto'} pt`}</small>}
+      {open && (
+        <>
       <Font editor={editor} id={style.id} fonts={[style.font]} set={(font) => editor.apply({ type: 'setTextStyle', id: style.id, font })} />
       <div className="grid">
         {METRICS.map(([prop, title, label, unit, min, max, zero]) => (
@@ -543,6 +550,8 @@ function StyleRow({ editor, style }: { editor: Editor; style: TextStyle }) {
           </Bindable>
         ))}
       </div>
+        </>
+      )}
     </div>
   )
 }
