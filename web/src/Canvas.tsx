@@ -145,6 +145,8 @@ function drawRuler(c: HTMLCanvasElement, horizontal: boolean, origin: number, sc
   for (let n = Math.ceil(first / major) * major; n < end(len); n += major) {
     const v = Math.round(n * step * 10) / 10
     const p = Math.round(n * step * scale + origin)
+    const tw = g.measureText(String(v)).width
+    if (horizontal ? p + 3 + tw > len : p - 3 - tw < 0) continue
     if (horizontal) g.fillText(String(v), p + 3, 9)
     else {
       g.save()
@@ -412,6 +414,8 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       for (const m of measures) {
         svg += line(m.x1, m.y1, m.x2, m.y2, m.dashed ? 'dashed' : '')
         if (m.dashed) continue
+        const k = 4 / view.zoom
+        svg += m.y1 === m.y2 ? line(m.x1, m.y1 - k, m.x1, m.y1 + k) + line(m.x2, m.y1 - k, m.x2, m.y1 + k) : line(m.x1 - k, m.y1, m.x1 + k, m.y1) + line(m.x1 - k, m.y2, m.x1 + k, m.y2)
         const t = `${m.arrow ? `${m.arrow} ` : ''}${length(m.length)}`
         const w = t.length * 6.2 + 10
         const cx = m.y1 === m.y2 ? X((m.x1 + m.x2) / 2) : X(m.x1)

@@ -501,9 +501,8 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
 /** The document's text styles with their values, each bindable to a variable. */
 export function TextStyles({ editor }: { editor: Editor }) {
   const styles = useEditor(editor, (e) => e.snapshot.textStyles)
-  if (styles.length === 0) return null
   return (
-    <Section title="Text styles">
+    <Section title="Text styles" onAdd={() => editor.apply({ type: 'addTextStyle', name: nextName('Text style', styles.map((s) => s.name)) })}>
       {styles.map((s) => (
         <StyleRow key={s.id} editor={editor} style={s} />
       ))}

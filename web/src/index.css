@@ -2519,6 +2519,7 @@ input[type='checkbox']:active {
 
 .segmented button[aria-checked='true'] {
   background: var(--selected);
+  box-shadow: inset 0 0 0 1px var(--border);
   color: var(--text);
 }
 
@@ -3703,8 +3704,10 @@ input[type='checkbox']:active {
 }
 
 .home-main h2 {
-  margin: 0 0 16px;
-  line-height: 40px;
+  margin: 0 -32px 20px;
+  padding: 0 32px;
+  border-bottom: 1px solid var(--border);
+  line-height: 39px;
   font-size: 20px;
   font-weight: 600;
 }
