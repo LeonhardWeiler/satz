@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import { press } from './commands'
 import { Field, Section, Select } from './controls'
 import { useEditor, type Editor } from './editor'
@@ -107,7 +107,7 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
   const { preset, cropMarks, includeBleed, colorMode, imagePpi, jpegQuality, rasterPpi } = useEditor(editor, (e) => e.snapshot)
   const previewed = useEditor(editor, (e) => e.previewed)
   const swatches = useEditor(editor, (e) => e.snapshot.swatches)
-  const pointerInk = useEditor(editor, (e) => e.pointerInk)
+  const pointerInk = useSyncExternalStore(editor.subscribePointer, () => editor.pointerInk)
   usePreview(editor, colorMode === 'cmyk')
 
   const labels = useEditor(editor, (e) => e.snapshot.labels)

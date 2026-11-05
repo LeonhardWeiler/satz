@@ -613,7 +613,7 @@ export class Editor {
     return this.selection.flatMap((id) => this.nodes.get(id)?.node ?? [])
   }
 
-  /** Shows what the pointer is over; only the listeners of `subscribePointer` and `useEditor` hear of it. */
+  /** Shows what the pointer is over; only the listeners of `subscribePointer` hear of it. */
   point(patch: Partial<Pick<Editor, 'hover' | 'pointerInk'>>) {
     Object.assign(this, patch)
     for (const l of this.pointed) l()
@@ -629,21 +629,13 @@ export class Editor {
     return () => this.pointed.delete(listener)
   }
 
-  watch = (listener: () => void) => {
-    const [a, b] = [this.subscribe(listener), this.subscribePointer(listener)]
-    return () => {
-      a()
-      b()
-    }
-  }
-
   private emit() {
     for (const l of this.listeners) l()
   }
 }
 
 export function useEditor<T>(editor: Editor, read: (e: Editor) => T): T {
-  return useSyncExternalStore(editor.watch, () => read(editor))
+  return useSyncExternalStore(editor.subscribe, () => read(editor))
 }
 
 export type Point = { x: number; y: number }
