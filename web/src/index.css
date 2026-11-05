@@ -2859,7 +2859,6 @@ input[type='checkbox']:active {
 .ov-spreads {
   display: flex;
   flex-wrap: wrap;
-  justify-content: safe center;
   align-items: end;
   gap: 18px;
   padding: 8px;
