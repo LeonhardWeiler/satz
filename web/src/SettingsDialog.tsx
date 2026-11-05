@@ -37,7 +37,10 @@ export function Settings({ onClose }: { onClose: () => void }) {
         </div>
         <label className="settings-row">
           Screen size
-          <input type="range" aria-label="Screen size" min={2} max={6} step={0.01} value={screenMm} onChange={(e) => setSettings({ screenMm: +e.currentTarget.value })} />
+          <span className="range">
+            <input type="range" aria-label="Screen size" min={2} max={6} step={0.01} value={screenMm} onChange={(e) => setSettings({ screenMm: +e.currentTarget.value })} />
+            <output>{screenMm.toFixed(2)} px/mm</output>
+          </span>
         </label>
         <div className="card-bar" style={{ width: 85.6 * screenMm, height: 53.98 * screenMm, borderRadius: 3.18 * screenMm }}>
           Hold a bank card here and match its size for Zoom to 100%

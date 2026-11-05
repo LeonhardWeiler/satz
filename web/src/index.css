@@ -48,7 +48,7 @@
   color-scheme: light;
   --bg: #f4f5f7;
   --fg: #1e1e21;
-  --canvas: #e2e4e8;
+  --canvas: #d8dade;
   --raised: #fff;
   --input: #fff;
   --accent: #0b72a3;
@@ -657,6 +657,15 @@ textarea {
 
 .field.int input {
   text-align: center;
+}
+
+.field.int .field-label {
+  order: -2;
+}
+
+.field.int .field-unit {
+  order: -1;
+  margin: 0 4px 0 -2px;
 }
 
 .field-step {
@@ -2029,6 +2038,14 @@ kbd {
   font-style: normal;
 }
 
+.menu-item .keys kbd {
+  min-width: 0;
+  padding: 0;
+  box-shadow: none;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
 .primary .keys,
 .primary .keys kbd {
   color: inherit;
@@ -2693,9 +2710,8 @@ input[type='checkbox']:active {
 }
 
 .format small {
-  max-width: 100%;
-  text-align: center;
-  text-wrap: balance;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .start-options {
@@ -2973,7 +2989,7 @@ input[type='checkbox']:active {
 }
 
 .ov-cap b {
-  color: var(--accent);
+  color: var(--text);
   font-weight: 600;
 }
 
@@ -3318,7 +3334,20 @@ input[type='checkbox']:active {
   text-wrap: balance;
 }
 
+.range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.range output {
+  flex: none;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
 .settings-row input[type='range'] {
+  min-width: 0;
   width: 100%;
   margin: 0;
   accent-color: var(--accent);
