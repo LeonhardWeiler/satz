@@ -131,7 +131,6 @@ export function Specimen({ editor, spans, compact, format }: { editor: Editor; s
                 true,
                 style === s.id,
               ]),
-              ...(styles.length ? [] : ([null, ['Create one with + beside the menu', () => {}, false]] as typeof overrides)),
               ...overrides,
             ]}
           />,
