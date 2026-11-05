@@ -14,7 +14,8 @@ Every UI change follows these; a rater's taste that contradicts them is ignored.
 ## Components
 
 - Selected: `--selected` background, text in `--text`; accent only for the focus ring, the current page and checked controls.
-- Shortcuts: keycap chips in dialogs, the palette, tooltips and buttons; plain `--text-3` text in menus. Mouse actions in the help read as words after the chips ("Ctrl" chip + "click").
+- Shortcuts: filled keycap chips in dialogs, the palette, tooltips and buttons, mouse actions too ("Ctrl" + "click"); plain `--text-3` text in menus.
+- Default values (Auto, None, All, No style) in `--text`; only Mixed and search hints in `--text-3`.
 - Swatches: 16 px squares, radius 4, 1 px inset ring; stroke swatches are the same square as a ring.
 - Icons: 16 px outline, 1.5 stroke, no filled glyphs.
 - Fields: label inside on the left in `--text-2`, value in `--text`, unit in `--text-3` on the right; steppers show the unit after the value, before the plus.

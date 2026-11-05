@@ -23,6 +23,8 @@ export type Overlay = {
   pasteboard?: boolean
   /** Boxes, or the ends of lines. */
   selection: (Box | Line)[]
+  /** The selection is a text frame being edited, outlined 4 px outside. */
+  editing?: boolean
   hover?: Box | Line
   marquee?: Box
   handles?: Box
@@ -474,7 +476,7 @@ export class Renderer {
     canvas: Canvas,
     view: View,
     dpr: number,
-    { accent: color, selection, hover, marquee, handles, radii, gaps, ends, pen, insert, ports, threads, vector, crop }: Overlay,
+    { accent: color, selection, editing, hover, marquee, handles, radii, gaps, ends, pen, insert, ports, threads, vector, crop }: Overlay,
   ) {
     const { ck, chrome: paint } = this
     const screen = (b: Box) =>
@@ -509,7 +511,11 @@ export class Renderer {
     paint.setStrokeWidth(1)
     const outline = (b: Box | Line) =>
       Array.isArray(b) ? canvas.drawLine(...at(b[0].x, b[0].y), ...at(b[1].x, b[1].y), paint) : turned(b, () => canvas.drawRect(screen(b), paint))
-    selection.forEach(outline)
+    if (editing) {
+      paint.setStrokeWidth(2)
+      for (const b of selection) if (!Array.isArray(b)) turned(b, () => canvas.drawRect(screen({ ...b, x: b.x - 4 / view.zoom, y: b.y - 4 / view.zoom, w: b.w + 8 / view.zoom, h: b.h + 8 / view.zoom }), paint))
+      paint.setStrokeWidth(1)
+    } else selection.forEach(outline)
     if (hover) {
       paint.setStrokeWidth(2)
       outline(hover)

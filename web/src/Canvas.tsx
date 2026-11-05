@@ -524,6 +524,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         accent: (accent ||= getComputedStyle(canvas).getPropertyValue('--accent')),
         pasteboard: !editor.preflight,
         selection: editor.selection.length > 1 || ed || drag?.kind === 'marquee' ? editor.selected().map(outline) : [],
+        editing: !!ed,
         hover: image && cursor ? { x: cursor.x - image.w / 2, y: cursor.y - image.h / 2, w: image.w, h: image.h } : over && outline(over),
         marquee,
         handles: box,

@@ -739,7 +739,7 @@ textarea {
 }
 
 .field input::placeholder {
-  color: var(--text-3);
+  color: var(--text);
   opacity: 1;
 }
 
@@ -2054,27 +2054,23 @@ kbd {
   font-size: 11px;
 }
 
-.keys kbd {
+.keys :is(kbd, em) {
   min-width: 18px;
   height: 18px;
   margin: 0;
-  padding: 0 4px;
+  padding: 0 5px;
   border-radius: 4px;
-  box-shadow: inset 0 0 0 1px var(--edge);
+  background: color-mix(in srgb, currentColor 14%, transparent);
   color: var(--text-2);
+  font: 500 11px 'Hanken Grotesk', system-ui, sans-serif;
   line-height: 18px;
   text-align: center;
 }
 
-.keys em {
-  padding: 0 1px;
-  font-style: normal;
-}
-
-.menu-item .keys kbd {
+.menu-item .keys :is(kbd, em) {
   min-width: 0;
   padding: 0;
-  box-shadow: none;
+  background: none;
   color: var(--text-3);
   font-size: 12px;
 }
@@ -2082,10 +2078,6 @@ kbd {
 .primary .keys,
 .primary .keys kbd {
   color: inherit;
-}
-
-.primary .keys kbd {
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 45%, transparent);
 }
 
 .tool,
@@ -2982,8 +2974,8 @@ input[type='checkbox']:active {
 }
 
 .ov-cap b {
-  color: var(--text);
-  font-weight: 600;
+  color: var(--text-3);
+  font-weight: 400;
 }
 
 .ov-item .rename {
@@ -3075,10 +3067,6 @@ input[type='checkbox']:active {
   background: var(--input);
   box-shadow: inset 0 0 0 1px var(--border);
   text-align: left;
-}
-
-.specimen.none > span:first-child {
-  color: var(--text-3);
 }
 
 .button.add {
@@ -3240,10 +3228,6 @@ input[type='checkbox']:active {
 
 .pal-it[aria-selected='true'] {
   background: var(--selected);
-}
-
-.pal-it[aria-selected='true'] kbd {
-  box-shadow: inset 0 0 0 1px var(--text-3);
 }
 
 .pal-it[aria-selected='true'] svg {
@@ -3439,7 +3423,7 @@ input[type='checkbox']:active {
 }
 
 .help-keys:hover kbd {
-  box-shadow: inset 0 0 0 1px var(--accent);
+  color: var(--accent);
 }
 
 .help-empty {
@@ -3853,4 +3837,8 @@ button.mark {
   gap: 8px;
   margin-left: -24px;
   color: var(--accent);
+}
+
+.find .field input::placeholder {
+  color: var(--text-3);
 }
