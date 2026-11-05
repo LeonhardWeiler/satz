@@ -5,6 +5,7 @@ use moxcms::{
 };
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -265,6 +266,7 @@ struct Cms {
     /// profile prints shows as screen black.
     lut: [[u8; 256]; 3],
     black: [f32; 3],
+    rgb: RefCell<HashMap<[u32; 4], [f32; 3]>>,
 }
 
 impl Cms {
@@ -300,6 +302,7 @@ impl Cms {
                 .map_err(fail)?,
             lut: [[0; 256]; 3],
             black: [0.0; 3],
+            rgb: RefCell::default(),
         };
         c.black = c.srgb(c.cmyk([0.0; 3])).map(linear);
         c.lut = std::array::from_fn(|i| {
@@ -382,7 +385,8 @@ pub fn separate(rgb: u32) -> [f32; 4] {
 /// Screen color of `cmyk`, black point compensated.
 pub fn to_rgb(cmyk: [f32; 4]) -> [f32; 3] {
     let c = cms();
-    c.compensate(c.srgb(cmyk))
+    *(c.rgb.borrow_mut().entry(cmyk.map(f32::to_bits)))
+        .or_insert_with(|| c.compensate(c.srgb(cmyk)))
 }
 
 pub fn to_cmyk(rgb: [f32; 3]) -> [f32; 4] {
