@@ -1,4 +1,4 @@
-import { expect, test, choose, colors, drag, MM, near, open, pixels, screen } from './util'
+import { expect, test, choose, colors, drag, drawn, MM, near, open, pixels, screen } from './util'
 
 
 test('moving a gradient layer leaves the page and the handles alone', async ({ page }) => {
@@ -587,6 +587,7 @@ test('resizing shows the size under the box and turning the angle at the pointer
   await page.mouse.move(sx, sy)
   await page.mouse.down()
   await page.mouse.move(mx - (sy - my), my + (sx - mx), { steps: 8 })
+  await drawn(page)
   await expect(note).toHaveText(/^\d+°$/)
   const shown = parseInt((await note.textContent())!)
   await page.mouse.up()
