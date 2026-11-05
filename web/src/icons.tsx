@@ -141,8 +141,8 @@ const ICONS = {
     </>
   ),
   joinMiter: <path d="M3.5 13V3.5H13" />,
-  joinRound: <path d="M3.5 13V8a4.5 4.5 0 0 1 4.5-4.5h5" />,
-  joinBevel: <path d="M3.5 13V7L7 3.5h6" />,
+  joinRound: <path d="M3.5 13v-3a6.5 6.5 0 0 1 6.5-6.5h3" />,
+  joinBevel: <path d="M3.5 13V9.5l6-6H13" />,
   capNone: <path d="M13 5H6v6h7" />,
   capRound: <path d="M13 5H6a3 3 0 0 0 0 6h7" />,
   capSquare: <path d="M13 5H3v6h10M6 7v2" />,

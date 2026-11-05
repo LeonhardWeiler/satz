@@ -86,10 +86,12 @@ export function Help({ onClose }: { onClose: () => void }) {
     <dialog ref={ref} className="help" aria-label="Keyboard shortcuts" onClose={onClose} onClick={(e) => e.target === e.currentTarget && ref.current!.close()}>
       <header className="help-head">
         <h2>Keyboard shortcuts</h2>
-        <button type="button" className="button" disabled={!Object.keys(remapped).length} onClick={() => setSettings({ keys: {} })}>
-          Reset shortcuts
-        </button>
         <input className="help-search" aria-label="Search shortcuts" placeholder="Search" autoFocus value={query} onChange={(e) => setQuery(e.target.value)} />
+        {Object.keys(remapped).length > 0 && (
+          <button type="button" className="button" onClick={() => setSettings({ keys: {} })}>
+            Reset shortcuts
+          </button>
+        )}
         <button type="button" className="icon-button" aria-label="Close" onClick={() => ref.current!.close()}>
           <Icon name="close" />
         </button>

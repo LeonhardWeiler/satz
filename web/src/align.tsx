@@ -141,9 +141,12 @@ export function AlignBar({ editor, inside, children }: { editor: Editor; inside?
           </span>
         ) : (
           n > 1 && (
-            <button type="button" className="icon-button" aria-label="Align to the parent frame or page" title="Align to the parent frame or page" aria-pressed={toParent} onClick={() => setToParent(!toParent)}>
-              <Icon name="frame" />
-            </button>
+            <>
+              <button type="button" className="icon-button" aria-label="Align to the parent frame or page" title="Align to the parent frame or page" aria-pressed={toParent} onClick={() => setToParent(!toParent)}>
+                <Icon name="frame" />
+              </button>
+              <span className="sep" />
+            </>
           )
         )}
         {ALIGNS.slice(0, 6).map(button)}

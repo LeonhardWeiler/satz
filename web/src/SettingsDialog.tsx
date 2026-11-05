@@ -36,10 +36,12 @@ export function Settings({ onClose }: { onClose: () => void }) {
           <Select label="Layers panel shows" value={layers} options={{ page: 'Current page', spread: 'Current spread' }} onChange={(l) => setSettings({ layers: l })} />
         </div>
         <label className="settings-row">
-          Hold a bank card to the bar and match its width for Zoom to 100%
+          Screen size
           <input type="range" aria-label="Screen size" min={2} max={6} step={0.01} value={screenMm} onChange={(e) => setSettings({ screenMm: +e.currentTarget.value })} />
         </label>
-        <div className="card-bar" style={{ width: 85.6 * screenMm }} />
+        <div className="card-bar" style={{ width: 85.6 * screenMm, height: 53.98 * screenMm, borderRadius: 3.18 * screenMm }}>
+          Hold a bank card here and match its size for Zoom to 100%
+        </div>
         <label className="settings-row">
           Quick edit bar above the selection
           <input type="checkbox" checked={quickEdit} onChange={(e) => setSettings({ quickEdit: e.currentTarget.checked })} />

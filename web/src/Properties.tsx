@@ -437,7 +437,21 @@ export function Properties({ editor }: { editor: Editor }) {
       {one?.kind === 'text' && <TextFrameSection editor={editor} node={one} set={set} />}
       {one?.kind === 'frame' && <AutoLayout editor={editor} node={one} set={set} />}
       {box && (
-        <Section title="Layer">
+        <Section
+          title="Layer"
+          actions={
+            <button
+              type="button"
+              className="icon-button"
+              aria-label={one?.mask ? 'Release mask' : 'Use as mask'}
+              aria-pressed={!!one?.mask}
+              title={`${one?.mask ? 'Release mask' : 'Use as mask'} (Ctrl+Alt+M)`}
+              onClick={() => (one ? set({ mask: !one.mask }) : editor.set({ selection: editor.apply({ type: 'mask', ids: selection }) }))}
+            >
+              <Icon name="mask" />
+            </button>
+          }
+        >
           <div className="grid">
             {bindable(
               'opacity',
@@ -450,14 +464,6 @@ export function Properties({ editor }: { editor: Editor }) {
               <ModeSelects editor={editor} id={one.id} own={one.modes} inherited={editor.nodes.get(one.id)?.parent?.activeModes ?? page.modes} />
             )}
           </div>
-          <button
-            type="button"
-            className="button"
-            title={`${one?.mask ? 'Release mask' : 'Use as mask'} (Ctrl+Alt+M)`}
-            onClick={() => (one ? set({ mask: !one.mask }) : editor.set({ selection: editor.apply({ type: 'mask', ids: selection }) }))}
-          >
-            {one?.mask ? 'Release mask' : 'Use as mask'}
-          </button>
         </Section>
       )}
       {nodes.length > 0 && nodes.every((n) => n.kind !== 'group') && (

@@ -193,7 +193,7 @@ test('insets, columns, vertical alignment, baseline grid, max lines, trim and wh
   const frame = panel.getByRole('region', { name: 'Text frame' })
   const field = (name: string) => frame.getByRole('textbox', { name })
   await expect(field('Columns')).toHaveValue('1')
-  await expect(field('Baseline grid in pt')).toHaveAttribute('placeholder', '–')
+  await expect(field('Baseline grid in pt')).toHaveAttribute('placeholder', 'Off')
   await frame.getByRole('button', { name: 'Inset of each side' }).click()
   for (const [name, value] of [['Top inset in mm', '2'], ['Columns', '2'], ['Gutter in mm', '5'], ['Baseline grid in pt', '18'], ['Max lines', '3']]) {
     await field(name).fill(value)
@@ -201,7 +201,7 @@ test('insets, columns, vertical alignment, baseline grid, max lines, trim and wh
   }
   await frame.getByRole('radio', { name: 'Align bottom' }).click()
   await frame.getByRole('checkbox', { name: 'Trim to cap height' }).check()
-  await frame.getByRole('checkbox', { name: 'Whole point baselines' }).check()
+  await frame.getByRole('checkbox', { name: 'Whole-point baselines' }).check()
   await page.keyboard.press('Escape')
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
   await expect(field('Top inset in mm')).toHaveValue('2')
@@ -210,7 +210,7 @@ test('insets, columns, vertical alignment, baseline grid, max lines, trim and wh
   await expect(field('Baseline grid in pt')).toHaveValue('18')
   await expect(field('Max lines')).toHaveValue('3')
   await expect(frame.getByRole('checkbox', { name: 'Trim to cap height' })).toBeChecked()
-  await expect(frame.getByRole('checkbox', { name: 'Whole point baselines' })).toBeChecked()
+  await expect(frame.getByRole('checkbox', { name: 'Whole-point baselines' })).toBeChecked()
   await expect(frame.getByRole('radio', { name: 'Align bottom' })).toBeChecked()
 })
 

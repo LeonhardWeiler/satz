@@ -8,7 +8,7 @@ import poster from '../../examples/poster.satz?url'
 
 const EXAMPLES = [
   ['Satz booklet', 'A5, 8 pages, master pages', booklet, 'booklet.satz'],
-  ['Poster', 'A2, 1 page, CMYK with a spot color', poster, 'poster.satz'],
+  ['Poster', 'A2, CMYK with a spot color', poster, 'poster.satz'],
   ['Sample', 'A5, 1 page with shapes and text', null, 'Untitled.satz'],
 ] as const
 
@@ -32,6 +32,7 @@ export function Home({ editor, onNew, children }: { editor: Editor; onNew: () =>
   const reload = () => projects().then(setList, () => setList([]))
   useEffect(() => {
     ref.current!.showModal()
+    ref.current!.focus()
     reload()
   }, [])
 
@@ -62,6 +63,7 @@ export function Home({ editor, onNew, children }: { editor: Editor; onNew: () =>
       ref={ref}
       className="home"
       aria-label="Projects"
+      tabIndex={-1}
       onCancel={(e) => {
         e.preventDefault()
         if (editor.project) show(editor, editor.project)
@@ -93,7 +95,13 @@ export function Home({ editor, onNew, children }: { editor: Editor; onNew: () =>
       </aside>
       <section className="home-main">
         <h2>Recent</h2>
-        {list.length === 0 && <p className="home-empty">Documents you create or open appear here.</p>}
+        {list.length === 0 && (
+          <div className="home-empty">
+            <Icon name="doc" />
+            <p>Documents you create or open appear here.</p>
+            <small>Start with a new document or one of the examples.</small>
+          </div>
+        )}
         <ul className="home-grid">
           {list.map((p) => (
             <li key={p.id} className="home-card">

@@ -1,6 +1,7 @@
 import { Fragment, useId, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { keyName } from './commands'
+import { MAC } from './textEdit'
 import { ContextMenu } from './ContextMenu'
 import { evalExpr, step } from './field'
 import { Icon, type IconName } from './icons'
@@ -447,13 +448,19 @@ export function Check({ label, value, set }: { label: string; value: boolean | n
 
 const KEYCAP = /^(Ctrl|Alt|Shift|Space|Enter|Esc|Tab|Del|Backspace|Home|End|PgUp|PgDn|F\d+|[^a-z])$/
 
-/** The shortcut `keys` as keycaps, the words of a gesture in it as text. */
+/** The shortcut `keys` as one keycap per chord, the words of a gesture in it as text. */
 export function Keys({ keys }: { keys: string }) {
-  return (
-    <span className="keys">
-      {keys.replace(/(\w)\+/g, '$1 ').split(' ').map((k, i) => (KEYCAP.test(k) ? <kbd key={i}>{keyName(k)}</kbd> : <em key={i}>{k}</em>))}
-    </span>
-  )
+  const parts: [cap: boolean, text: string][] = []
+  let mod = false
+  for (const k of keys.replace(/(\w)\+/g, '$1 ').split(' ')) {
+    const cap = KEYCAP.test(k)
+    const last = parts.at(-1)
+    if (cap && last?.[0] && mod) last[1] += (MAC ? '' : '+') + keyName(k)
+    else if (!cap && last && !last[0]) last[1] += ' ' + k
+    else parts.push([cap, cap ? keyName(k) : k])
+    mod = /^(Ctrl|Alt|Shift)$/.test(k)
+  }
+  return <span className="keys">{parts.map(([cap, t], i) => (cap ? <kbd key={i}>{t}</kbd> : <em key={i}>{t}</em>))}</span>
 }
 
 export const SIDE_NAMES = ['Top', 'Right', 'Bottom', 'Left']

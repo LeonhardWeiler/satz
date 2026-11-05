@@ -111,9 +111,7 @@ export function Start({ editor, onClose }: { editor: Editor; onClose: () => void
                   )}
                 </span>
                 <strong>{f[0]}</strong>
-                <small title={`${length(a)} × ${length(b)}`}>
-                  {length(a).split(' ')[0]} × {length(b).split(' ')[0]}
-                </small>
+                <small>{f[0] === 'Custom' && format !== 'Custom' ? 'Any size' : `${length(a).split(' ')[0]} × ${length(b)}`}</small>
               </button>
             )
           })}
