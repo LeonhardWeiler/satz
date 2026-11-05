@@ -20,6 +20,12 @@ const ago = (at: number) => {
   return `Edited ${new Date(at).toLocaleDateString()}`
 }
 
+/** The first page of `e` as a PNG about 240 px on its long side. */
+const firstPage = (e: Engine) => {
+  const p = JSON.parse(e.snapshot()).pages[0]
+  return e.png(p.id, (240 * 72) / Math.max(p.width, p.height))
+}
+
 const Thumb = ({ bytes }: { bytes?: Uint8Array }) => (
   <span className="home-thumb">
     {bytes ? <img src={`data:image/png;base64,${btoa(Array.from(bytes, (b) => String.fromCharCode(b)).join(''))}`} alt="" /> : <Icon name="doc" />}
@@ -29,11 +35,25 @@ const Thumb = ({ bytes }: { bytes?: Uint8Array }) => (
 export function Home({ editor, onNew, children }: { editor: Editor; onNew: () => void; children: ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null)
   const [list, setList] = useState<Project[]>([])
+  const [thumbs, setThumbs] = useState<(Uint8Array | undefined)[]>([])
   const reload = () => projects().then(setList, () => setList([]))
   useEffect(() => {
     ref.current!.showModal()
     ref.current!.focus()
     reload()
+    Promise.all(
+      EXAMPLES.map(async ([, , url]) => {
+        const e = url ? new Engine() : Engine.sample()
+        try {
+          if (url) e.load(new Uint8Array(await (await fetch(url)).arrayBuffer()))
+          return firstPage(e)
+        } catch {
+          return undefined
+        } finally {
+          e.free()
+        }
+      }),
+    ).then(setThumbs)
   }, [])
 
   const example = async (url: string | null, name: string) => {
@@ -82,36 +102,33 @@ export function Home({ editor, onNew, children }: { editor: Editor; onNew: () =>
           <Icon name="folder" />
           Open or import…
         </button>
-        <h3>Examples</h3>
-        {EXAMPLES.map(([title, text, url, name]) => (
-          <button key={title} type="button" className="example" onClick={() => example(url, name)}>
-            <span>
-              <Icon name="doc" />
-              {title}
-            </span>
-            <small>{text}</small>
-          </button>
-        ))}
       </aside>
       <section className="home-main">
-        <h2>Recent</h2>
-        {list.length === 0 && (
-          <div className="home-empty">
-            <Icon name="doc" />
-            <p>Documents you create or open appear here.</p>
-            <small>Start with a new document or one of the examples.</small>
-          </div>
+        <h2>{list.length ? 'Recent' : 'Start from an example'}</h2>
+        {list.length > 0 && (
+          <ul className="home-grid" aria-label="Recent">
+            {list.map((p) => (
+              <li key={p.id} className="home-card">
+                <button type="button" onClick={() => openProject(editor, p.id)}>
+                  <Thumb bytes={p.thumb} />
+                  <strong>{p.name.replace(/\.satz$/, '')}</strong>
+                  <small>{ago(p.at)}</small>
+                </button>
+                <button type="button" className="icon-button" aria-label={`Delete ${p.name}`} title="Delete" onClick={() => remove(p)}>
+                  <Icon name="close" />
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
-        <ul className="home-grid">
-          {list.map((p) => (
-            <li key={p.id} className="home-card">
-              <button type="button" onClick={() => openProject(editor, p.id)}>
-                <Thumb bytes={p.thumb} />
-                <strong>{p.name.replace(/\.satz$/, '')}</strong>
-                <small>{ago(p.at)}</small>
-              </button>
-              <button type="button" className="icon-button" aria-label={`Delete ${p.name}`} title="Delete" onClick={() => remove(p)}>
-                <Icon name="close" />
+        {list.length > 0 && <h3>Examples</h3>}
+        <ul className="home-grid" aria-label="Examples">
+          {EXAMPLES.map(([title, text, url, name], i) => (
+            <li key={title} className="home-card">
+              <button type="button" onClick={() => example(url, name)}>
+                <Thumb bytes={thumbs[i]} />
+                <strong>{title}</strong>
+                <small>{text}</small>
               </button>
             </li>
           ))}

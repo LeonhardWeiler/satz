@@ -7,7 +7,7 @@ const spreads = (page: Page) => page.getByRole('navigation', { name: 'Spreads' }
 
 test('the projects show at the start, list what was opened and open it again', async ({ page }) => {
   await page.goto('')
-  await expect(home(page).getByText('Documents you create or open appear here.')).toBeVisible()
+  await expect(home(page).getByRole('heading', { name: 'Start from an example' })).toBeVisible()
   await home(page).getByRole('button', { name: /Satz booklet/ }).click()
   await expect(page).toHaveTitle('booklet.satz - Satz')
   await pageCount(page, 8)
@@ -17,7 +17,7 @@ test('the projects show at the start, list what was opened and open it again', a
   await expect(page).toHaveTitle('poster.satz - Satz')
   await autosaved(page, false)
   await page.getByRole('button', { name: 'Projects' }).click()
-  const cards = home(page).getByRole('listitem')
+  const cards = home(page).getByRole('list', { name: 'Recent' }).getByRole('listitem')
   await expect(cards).toHaveCount(2)
   await expect(cards.first()).toContainText('poster')
   await expect(cards.first().locator('img')).toBeVisible()
@@ -93,7 +93,7 @@ test('escape returns to the document and new keeps the changes in their project'
   await start(page).getByRole('button', { name: /Create/ }).click()
   await expect(page).toHaveTitle('Untitled.satz - Satz')
   await page.getByRole('button', { name: 'Projects' }).click()
-  await expect(home(page).getByRole('listitem')).toHaveCount(2)
+  await expect(home(page).getByRole('list', { name: 'Recent' }).getByRole('listitem')).toHaveCount(2)
 })
 
 test('open file on the start screen asks for a file as ctrl+o does', async ({ page }) => {
