@@ -1,4 +1,4 @@
-import type { Canvas, CanvasKit, Font, Image, Paint, Rect, RuntimeEffect, SkPicture, Surface, Typeface } from 'canvaskit-wasm'
+import type { Canvas, CanvasKit, Font, Image, Paint, Path, Rect, RuntimeEffect, SkPicture, Surface, Typeface } from 'canvaskit-wasm'
 import type { Engine } from './engine/engine'
 import { close, decode, type Op, type Paint as Fill } from './displayList'
 import type { Grid, Guides } from './model'
@@ -171,6 +171,8 @@ export class Renderer {
   private scene?: { surface: Surface; key: unknown[] }
   /** The decoded display list of each page and plate, with its version. */
   private lists = new Map<string, { version: number; ops: Op[] }>()
+  /** The union of the bleed boxes of the sheets `key` names. */
+  private bleed?: { key: string; path: Path }
   /** Paint for display-list content; `chrome` draws the page, guides and overlay. */
   private paint: Paint
   private chrome: Paint
@@ -204,18 +206,24 @@ export class Renderer {
       c.scale(view.zoom, view.zoom)
     }
     const trims = sheets.map((s) => ck.XYWHRect(s.x, 0, s.width, s.height))
-    const bleeds = sheets.map((s) => ck.LTRBRect(s.x - s.bleed, -s.bleed, s.x + s.width + s.bleed, s.height + s.bleed))
-    const box = ([l, t, r, b]: Float32Array) => ck.Path.MakeFromCmds([MOVE, l, t, LINE, r, t, LINE, r, b, LINE, l, b, CLOSE])!
-    let bleed = box(bleeds[0])
-    for (const r of bleeds.slice(1)) {
-      const b = box(r)
-      const u = ck.Path.MakeFromOp(bleed, b, ck.PathOp.Union)
-      b.delete()
-      if (u) {
-        bleed.delete()
-        bleed = u
+    const key = sheets.map((s) => [s.x, s.width, s.height, s.bleed]).join()
+    if (this.bleed?.key !== key) {
+      const bleeds = sheets.map((s) => ck.LTRBRect(s.x - s.bleed, -s.bleed, s.x + s.width + s.bleed, s.height + s.bleed))
+      const box = ([l, t, r, b]: Float32Array) => ck.Path.MakeFromCmds([MOVE, l, t, LINE, r, t, LINE, r, b, LINE, l, b, CLOSE])!
+      let path = box(bleeds[0])
+      for (const r of bleeds.slice(1)) {
+        const b = box(r)
+        const u = ck.Path.MakeFromOp(path, b, ck.PathOp.Union)
+        b.delete()
+        if (u) {
+          path.delete()
+          path = u
+        }
       }
+      this.bleed?.path.delete()
+      this.bleed = { key, path }
     }
+    const bleed = this.bleed.path
     const bounds = bleed.getBounds()
     const { live, shown } = this
     const pages = (c: Canvas, plate: number) => {
@@ -334,7 +342,6 @@ export class Renderer {
       canvas.drawLine(x + dx * off, y, x + dx * (off + len), y, paint)
       canvas.drawLine(x, y + dy * off, x, y + dy * (off + len), paint)
     }
-    bleed.delete()
     canvas.restore()
     if (overlay) this.drawOverlay(canvas, view, dpr, overlay)
   }
@@ -874,7 +881,7 @@ export class Renderer {
   delete() {
     this.clear()
     for (const s of this.plates) s.delete()
-    for (const x of [this.lut, this.inksEffect, this.separation, this.imageEffect]) x?.delete()
+    for (const x of [this.lut, this.inksEffect, this.separation, this.imageEffect, this.bleed?.path]) x?.delete()
     for (const image of this.inks.values()) image.delete()
     for (const font of this.fonts.values()) font.delete()
     for (const typeface of this.typefaces.values()) typeface.delete()
