@@ -169,6 +169,8 @@ export class Renderer {
   private recorded = false
   /** The pages as `drawScene` last drew them, and what of. */
   private scene?: { surface: Surface; key: unknown[] }
+  /** The decoded display list of each page and plate, with its version. */
+  private lists = new Map<string, { version: number; ops: Op[] }>()
   /** Paint for display-list content; `chrome` draws the page, guides and overlay. */
   private paint: Paint
   private chrome: Paint
@@ -225,7 +227,13 @@ export class Renderer {
       c.save()
       if (!overlay?.pasteboard) c.clipPath(bleed, ck.ClipOp.Intersect, true)
       for (const { id, x } of lists) {
-        const ops = decode((plate ? this.engine.plate(id, plate === 2) : this.engine.displayList(id)).slice())
+        const version = this.engine.listVersion(id)
+        let list = this.lists.get(`${id} ${plate}`)
+        if (list?.version !== version) {
+          list = { version, ops: decode((plate ? this.engine.plate(id, plate === 2) : this.engine.displayList(id)).slice()) }
+          this.lists.set(`${id} ${plate}`, list)
+        }
+        const { ops } = list
         for (const op of ops) {
           if (op.op === 'image') {
             const id = this.source(op.image)[0] ?? op.image

@@ -76,6 +76,10 @@ for (const n of (process.env.PAGES ?? '1,8,32').split(',').map(Number)) {
     })
     await page.keyboard.press('Escape')
     await page.keyboard.press('Escape')
+    await page.mouse.move(...shape)
+    out.pan = await ms(page, 'pan', 21, async (k) => {
+      await page.mouse.wheel(0, k % 2 ? 40 : -40)
+    })
     out.pageSwitch = await ms(page, 'pageSwitch', 5, async (k) => {
       await page.keyboard.press(k % 2 ? 'PageUp' : 'PageDown')
     })
