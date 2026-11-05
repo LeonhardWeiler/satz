@@ -19,7 +19,7 @@ test('a placed image draws at 300 ppi, preflight reports it enlarged, and it sta
 
   await width.fill('101.6')
   await width.press('Enter')
-  await expect((await preflight(page)).getByRole('button', { name: /Image at 150 ppi · red\.png/ })).toBeVisible()
+  await expect((await preflight(page)).getByRole('button', { name: /Image at 150 ppi.*red\.png/ })).toBeVisible()
 
   await autosaved(page)
   await page.reload()

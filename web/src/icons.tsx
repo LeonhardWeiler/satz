@@ -84,14 +84,14 @@ const ICONS = {
       <circle cx="10" cy="11" r="1.5" />
     </>
   ),
-  group: <rect x="2.5" y="2.5" width="11" height="11" rx="2" strokeDasharray="2 2" />,
+  group: <path d="M5.5 2.5h8v8M2.5 5.5h8v8h-8z" />,
   mask: (
     <>
       <rect x="2.5" y="2.5" width="11" height="11" rx="2" />
       <circle cx="8" cy="8" r="3" />
     </>
   ),
-  masked: <path d="M5.5 3v6.5h6" />,
+  masked: <path d="M5 3v5.5a1.5 1.5 0 0 0 1.5 1.5H12M10 8l2 2-2 2" />,
   autoLayout: (
     <>
       <rect x="2.5" y="2.5" width="11" height="4" rx="1.5" />

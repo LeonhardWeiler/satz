@@ -35,7 +35,7 @@
   --edge: color-mix(in srgb, var(--fg) 18%, var(--bg));
   --scrim: color-mix(in srgb, var(--bg) 70%, transparent);
   --magenta: #cc2f83;
-  --master: #8b6cf0;
+  --master: #9d85f5;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --doc-font: 'Source Serif 4', Georgia, serif;
   --checker: repeating-conic-gradient(#ffffff 0 25%, #cccccc 0 50%) 0 0 / 8px 8px;
@@ -55,6 +55,7 @@
   --accent: #08658e;
   --bad: #af3024;
   --warn: #855500;
+  --master: #6447d6;
   --shadow: rgb(30 30 33 / 0.18);
   --border: color-mix(in srgb, var(--fg) 11%, var(--bg));
   --edge: color-mix(in srgb, var(--fg) 20%, var(--bg));
@@ -490,6 +491,7 @@ button.layer-master {
   text-align: left;
   overflow: hidden;
   white-space: nowrap;
+  text-overflow: ellipsis;
   cursor: default;
 }
 
@@ -1798,6 +1800,7 @@ input[type='checkbox']:disabled {
   border: 1px solid var(--edge);
   border-radius: 10px;
   background: var(--raised);
+  box-shadow: 0 6px 20px var(--shadow);
 }
 
 .quick {
@@ -1846,8 +1849,8 @@ input[type='checkbox']:disabled {
 }
 
 .quick .strokes .chip:not(.none) {
-  border-radius: 50%;
-  mask: radial-gradient(closest-side, transparent 50%, #000 52%);
+  padding: 4px;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
 }
 
 .chip.none {
@@ -2155,9 +2158,18 @@ input[type='checkbox']:active {
 }
 
 .iss-m {
+  display: grid;
+}
+
+.iss-m > * {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.iss-m small {
+  color: var(--text-3);
+  font-size: 11px;
 }
 
 .iss-w {
@@ -2229,7 +2241,8 @@ input[type='checkbox']:active {
 }
 
 .plate-k .ink {
-  background: #5c5c5a;
+  background: #1a1a1a;
+  box-shadow: 0 0 0 1px var(--text-3);
 }
 
 .plate span:first-of-type {
@@ -2748,6 +2761,7 @@ input[type='checkbox']:active {
 
 .overview h2 {
   margin: 0;
+  line-height: 28px;
   color: var(--text-2);
   font-size: 12px;
   font-weight: 600;
@@ -2948,6 +2962,13 @@ input[type='checkbox']:active {
   color: var(--text-2);
   font: inherit;
   cursor: pointer;
+}
+
+.ov-row > .ov-add {
+  grid-auto-flow: column;
+  align-self: stretch;
+  width: auto;
+  height: 40px;
 }
 
 .ov-add:hover {
@@ -3338,6 +3359,19 @@ input[type='checkbox']:active {
 .help-empty {
   margin: 12px 0;
   color: var(--text-3);
+}
+
+.swatch-name {
+  flex: 0 1 auto;
+  text-overflow: ellipsis;
+}
+
+.swatch-ink {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .swatch-ink::after {

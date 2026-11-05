@@ -8,7 +8,7 @@ import { scopeOf, useEditor, type Editor } from './editor'
 import { addLocalFont, useLocalFonts } from './file'
 import { Icon, type IconName } from './icons'
 import { Popover } from './Popover'
-import { MAX_LENGTH } from './settings'
+import { MAX_LENGTH, length } from './settings'
 import { PAGE_NUMBER, insert, range } from './textEdit'
 import { STYLED, type Attrs, type Props, type Span, type Styled, type Tab, type TextNode, type TextProps, type TextStyle, type Typeface, textSizing } from './model'
 import { Bindable } from './Variables'
@@ -131,6 +131,7 @@ export function Specimen({ editor, spans, compact, format }: { editor: Editor; s
                 true,
                 style === s.id,
               ]),
+              ...(styles.length ? [] : ([null, ['Create one with + beside the menu', () => {}, false]] as typeof overrides)),
               ...overrides,
             ]}
           />,
@@ -255,6 +256,7 @@ function TabStops({ tabs, set }: { tabs: string | null; set: (tabs: Tab[]) => vo
           </button>
         }
       />
+      {!list.length && <p className="pf-note">No tab stops. Tabs go to every {length(36)}.</p>}
       {list.map((t, i) => (
         <div key={i} className="row">
           <Field label="Tab" title={`Tab stop ${i + 1}`} unit="length" value={t.at} onCommit={(at) => put(i, { at })} />

@@ -157,7 +157,8 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
                 >
                   <Icon name={isError(i) ? 'error' : 'warn'} />
                   <span className="iss-m" title={`${problem(i, editor)} · ${i.name}`}>
-                    <strong>{problem(i, editor)}</strong> · {i.name}
+                    <strong>{problem(i, editor)}</strong>
+                    <small>{i.name}</small>
                   </span>
                   <span className="iss-w">{where(i.page)}</span>
                 </button>
@@ -207,11 +208,12 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
           </>
         )}
         <Section title="Export">
-          <Select label="Format" value={format} options={FORMATS} onChange={setFormat} />
+          <Select label="Format" prefix="Format" value={format} options={FORMATS} onChange={setFormat} />
           {(format === 'pdf' || format === 'zip') && (
             <>
               <Select
                 label="Preset"
+                prefix="Preset"
                 value={preset}
                 options={colorMode === 'rgb' ? { ...PRESETS, x1a: 'PDF/X-1a, print, CMYK documents only' } : PRESETS}
                 disabled={colorMode === 'rgb' ? ['x1a'] : []}
