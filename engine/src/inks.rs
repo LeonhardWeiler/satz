@@ -87,11 +87,23 @@ impl Inks {
             &|id, _| image::pixmap(id),
         )?
         .take_demultiplied();
-        let printed = preview_pixels(&separate_pixels(&rgb));
-        let gamut = rgb
+        let mut index = std::collections::HashMap::new();
+        let mut distinct = Vec::new();
+        for p in rgb.chunks(4).filter(|p| p[3] > 127) {
+            index.entry([p[0], p[1], p[2]]).or_insert_with(|| {
+                distinct.extend([p[0], p[1], p[2], 255]);
+                distinct.len() / 4 - 1
+            });
+        }
+        let printed = preview_pixels(&separate_pixels(&distinct));
+        let far: Vec<bool> = distinct
             .chunks(4)
             .zip(printed.chunks(3))
-            .map(|(a, b)| a[3] > 127 && apart(rgb_of(a), rgb_of(b)))
+            .map(|(a, b)| apart(rgb_of(a), rgb_of(b)))
+            .collect();
+        let gamut = rgb
+            .chunks(4)
+            .map(|p| p[3] > 127 && far[index[&[p[0], p[1], p[2]]]])
             .collect();
         Some(Inks {
             width: w,
