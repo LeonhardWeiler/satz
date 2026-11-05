@@ -39,6 +39,8 @@ enum Format {
     Jpeg,
 }
 
+type PdfKey = (u32, bool, u32, u8);
+
 struct Entry {
     info: ImageInfo,
     format: Format,
@@ -50,6 +52,8 @@ struct Entry {
     cmyk: RefCell<Option<Option<Pixels>>>,
     /// `cmyk` shrunk by the factor `plate` last needed.
     small: RefCell<Option<(u32, Pixels)>>,
+    /// The image for the PDF by proof, CMYK, shrink factor and JPEG quality.
+    pdf: RefCell<HashMap<PdfKey, Option<krilla::image::Image>>>,
 }
 
 /// RGB or CMYK pixels and their alpha, 8 bits each, as the PDF takes them.
@@ -177,6 +181,7 @@ pub fn register(bytes: LoroBinaryValue) -> Result<ImageInfo, String> {
         pixels: RefCell::new(None),
         cmyk: RefCell::new(None),
         small: RefCell::new(None),
+        pdf: RefCell::default(),
     });
     Ok(info)
 }
@@ -288,6 +293,7 @@ pub fn adjusted(hash: &str, adjust: [f32; 3]) -> Option<u32> {
             e.pixels.take();
             e.cmyk.take();
             e.small.take();
+            e.pdf.take();
         }
     });
     Some(push(Entry {
@@ -302,6 +308,7 @@ pub fn adjusted(hash: &str, adjust: [f32; 3]) -> Option<u32> {
         pixels: RefCell::new(None),
         cmyk: RefCell::new(None),
         small: RefCell::new(None),
+        pdf: RefCell::default(),
     }))
 }
 
@@ -316,6 +323,7 @@ pub fn forget(keep: &[String]) {
             e.pixels.take();
             e.cmyk.take();
             e.small.take();
+            e.pdf.take();
         }
     })
 }
@@ -443,6 +451,16 @@ pub fn pdf(
     let e = entry(id)?;
     let (w, h) = (e.info.width as f32, e.info.height as f32);
     let f = need.map_or(1, |[nw, nh]| (w / nw).min(h / nh).max(1.0) as u32);
+    let key = (id & PROOF, cmyk, f, quality);
+    if let Some(image) = e.pdf.borrow().get(&key) {
+        return image.clone();
+    }
+    let image = build(&e, id, cmyk, f, quality);
+    e.pdf.borrow_mut().insert(key, image.clone());
+    image
+}
+
+fn build(e: &Entry, id: u32, cmyk: bool, f: u32, quality: u8) -> Option<krilla::image::Image> {
     let file = e.source.is_none() && id & PROOF == 0 && (!cmyk || e.info.space == Space::Cmyk);
     if file && f == 1 && (quality == 0 || e.format == Format::Jpeg) {
         return pdf_image(e.format, &e.bytes).ok();
@@ -451,7 +469,7 @@ pub fn pdf(
         self::cmyk(id)?
     } else {
         let (rgba, w, h) = match id & PROOF {
-            0 => rgba(&e)?,
+            0 => rgba(e)?,
             _ => decode(Format::Png, &bytes(id))?,
         };
         Pixels {
