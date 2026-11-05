@@ -12,7 +12,9 @@ use skrifa::MetadataProvider;
 use skrifa::string::StringId;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
+use std::hash::Hash;
 use std::rc::Rc;
+use std::thread::LocalKey;
 
 pub const FONT: &[u8] = include_bytes!("../fonts/SourceSerif4-Regular.ttf");
 /// Marks the font of a glyph run whose own font is missing, drawn in the bundled one.
@@ -43,9 +45,35 @@ type Shaping = (String, String, Vec<(usize, u32, Vec<String>, TextCase)>);
 /// The glyphs of a paragraph: cluster, glyph id, and advance and offsets in em.
 type Shaped = Rc<[(usize, u16, f32, f32, f32)]>;
 
+/// The breaks of a paragraph: the end and adjustment ratio of each line.
+type Breaks = Rc<[(usize, f32)]>;
+
+type Cache<K, V> = RefCell<HashMap<K, V>>;
+
 thread_local! {
-    /// The paragraphs shaped last, up to 4096.
-    static SHAPED: RefCell<HashMap<Shaping, Shaped>> = RefCell::default();
+    static SHAPED: Cache<Shaping, Shaped> = RefCell::default();
+    static SYLLABLES: Cache<(String, Lang), Rc<[usize]>> = RefCell::default();
+    /// Keyed by the bits of the line widths and the items.
+    static BREAKS: Cache<Vec<u32>, Breaks> = RefCell::default();
+}
+
+/// What `cache` keeps for `key`, else `make()`, kept with up to 4096 others.
+fn kept<K: Eq + Hash, V: Clone>(
+    cache: &'static LocalKey<Cache<K, V>>,
+    key: K,
+    make: impl FnOnce() -> V,
+) -> V {
+    if let Some(v) = cache.with_borrow(|c| c.get(&key).cloned()) {
+        return v;
+    }
+    let v = make();
+    cache.with_borrow_mut(|c| {
+        if c.len() >= 4096 {
+            c.clear();
+        }
+        c.insert(key, v.clone());
+    });
+    v
 }
 
 pub fn typeface(bytes: &[u8]) -> Result<Typeface, String> {
@@ -502,29 +530,6 @@ impl TextStyle {
             })
             .collect()
     }
-}
-
-thread_local! {
-    /// The syllables of the paragraphs hyphenated last, up to 4096.
-    static SYLLABLES: RefCell<HashMap<(String, Lang), Syllables>> = RefCell::default();
-}
-
-type Syllables = Rc<[usize]>;
-
-/// `syllables`, kept per paragraph and language.
-fn hyphens(para: &str, lang: Lang) -> Syllables {
-    let key = (para.to_string(), lang);
-    if let Some(s) = SYLLABLES.with_borrow(|c| c.get(&key).cloned()) {
-        return s;
-    }
-    let s: Syllables = syllables(para, lang).into();
-    SYLLABLES.with_borrow_mut(|c| {
-        if c.len() >= 4096 {
-            c.clear();
-        }
-        c.insert(key, s.clone());
-    });
-    s
 }
 
 /// Byte offsets in `para` where `lang` allows a hyphen, ascending.
@@ -1295,7 +1300,23 @@ fn rows(
             })
             .collect();
         let mut from = 0;
-        for (i, (end, r)) in break_lines(&items, &widths).into_iter().enumerate() {
+        let key = widths
+            .iter()
+            .chain(&[f32::NAN])
+            .copied()
+            .chain(items.iter().flat_map(|it| match *it {
+                Item::Box(w) => [0.0, w, 0.0, 0.0],
+                Item::Glue {
+                    width,
+                    stretch,
+                    shrink,
+                } => [1.0, width, stretch, shrink],
+                Item::Penalty { width, cost } => [2.0, width, cost, 0.0],
+            }))
+            .map(f32::to_bits)
+            .collect();
+        let breaks = kept(&BREAKS, key, || break_lines(&items, &widths).into());
+        for (i, &(end, r)) in breaks.iter().enumerate() {
             let (left, cw) = (left[i.min(left.len() - 1)] + inset(i)[0], widths[i.min(n)]);
             let line_start = if from == 0 { start } else { clusters[from] };
             while from < end && !matches!(items[from], Item::Box(_)) {
@@ -1491,20 +1512,13 @@ fn rows(
         } else {
             String::new()
         };
-        let key = (para.to_string(), shown, runs);
-        let kept = SHAPED.with_borrow(|c| c.get(&key).cloned());
-        let shaped = kept.unwrap_or_else(|| {
-            let shaped = shape_para(para, start);
-            SHAPED.with_borrow_mut(|c| {
-                if c.len() >= 4096 {
-                    c.clear();
-                }
-                c.insert(key, shaped.clone());
-            });
-            shaped
+        let shaped = kept(&SHAPED, (para.to_string(), shown, runs), || {
+            shape_para(para, start)
         });
         let breaks = if first.hyphenate {
-            hyphens(para, first.lang)
+            kept(&SYLLABLES, (para.to_string(), first.lang), || {
+                syllables(para, first.lang).into()
+            })
         } else {
             Rc::default()
         };
