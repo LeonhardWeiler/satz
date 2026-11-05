@@ -1365,24 +1365,7 @@ impl Doc {
     /// The document for `load`, without its history and so without the images
     /// that only the trash or undo still use.
     pub fn save(&self) -> Vec<u8> {
-        let mut ids = Vec::new();
-        for r in self.tree.roots() {
-            if self.kind(r) != Some(NodeKind::Trash) {
-                self.walk(r, &mut ids);
-            }
-        }
-        let mut used = HashSet::new();
-        for id in ids {
-            if let Some(LoroValue::List(fills)) = value(&self.meta(id), "fills") {
-                for f in fills.iter() {
-                    if let LoroValue::Map(f) = f
-                        && let Some(LoroValue::String(h)) = f.get("image")
-                    {
-                        used.insert(h.to_string());
-                    }
-                }
-            }
-        }
+        let used = self.used_images();
         let images = self.doc.get_map("images");
         let unused: Vec<_> = images
             .keys()
@@ -1401,6 +1384,29 @@ impl Doc {
         };
         doc.export(ExportMode::shallow_snapshot(&doc.state_frontiers()))
             .expect("export")
+    }
+
+    /// The images that the layers outside the trash fill with.
+    fn used_images(&self) -> HashSet<String> {
+        let mut ids = Vec::new();
+        for r in self.tree.roots() {
+            if self.kind(r) != Some(NodeKind::Trash) {
+                self.walk(r, &mut ids);
+            }
+        }
+        let mut used = HashSet::new();
+        for id in ids {
+            if let Some(LoroValue::List(fills)) = value(&self.meta(id), "fills") {
+                for f in fills.iter() {
+                    if let LoroValue::Map(f) = f
+                        && let Some(LoroValue::String(h)) = f.get("image")
+                    {
+                        used.insert(h.to_string());
+                    }
+                }
+            }
+        }
+        used
     }
 
     /// Adds a PNG or JPEG file that `image::register` takes to the images of the document,

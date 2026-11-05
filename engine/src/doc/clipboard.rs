@@ -94,6 +94,63 @@ impl Doc {
         }
     }
 
+    /// The copied layers as a document of one page with the images they use and their
+    /// swatches and variables resolved, for `take_clip` in another document.
+    pub fn clip_out(&self) -> Vec<u8> {
+        let d = Doc::with(LoroDoc::new());
+        let page = d.tree.create(None).unwrap();
+        d.meta(page).insert(KIND, NodeKind::Page.as_str()).unwrap();
+        for name in ["swatches", "collections", "variables"] {
+            for v in self.list::<serde_json::Value>(name) {
+                d.put(name, None, v).unwrap();
+            }
+        }
+        let mut pasted = Vec::new();
+        for (i, (clip, _)) in self.clipboard.iter().enumerate() {
+            pasted.push((clip, d.paste(clip, page.into(), i).unwrap()));
+        }
+        d.rethread(&pasted).unwrap();
+        d.recolor(|c, s| {
+            matches!(c, Color::Swatch { .. } | Color::Variable { .. }).then(|| c.resolve(s))
+        })
+        .unwrap();
+        let images = self.doc.get_map("images");
+        let to = d.doc.get_map("images");
+        for h in d.used_images() {
+            if let Some(ValueOrContainer::Value(v)) = images.get(&h) {
+                to.insert(&h, v).unwrap();
+            }
+        }
+        d.save()
+    }
+
+    /// Makes the layers of a `clip_out` of another document the clipboard, in this
+    /// document's colour mode and with their images added.
+    pub fn take_clip(&mut self, bytes: &[u8]) -> Res<()> {
+        let doc = LoroDoc::new();
+        doc.import(bytes).map_err(|_| "not copied layers")?;
+        let d = Doc::with(doc);
+        let page = *d.pages().first().ok_or("not copied layers")?;
+        d.convert(self.color_mode())?;
+        let images = d
+            .doc
+            .get_map("images")
+            .get_value()
+            .into_map()
+            .unwrap_or_default();
+        for v in images.values() {
+            if let LoroValue::Binary(b) = v {
+                self.add_image(b)?;
+            }
+        }
+        self.clipboard = d
+            .children(page)
+            .into_iter()
+            .map(|c| (d.clip(c), None))
+            .collect();
+        Ok(())
+    }
+
     pub(super) fn duplicate(&self, ids: Vec<String>) -> Res<Vec<String>> {
         let mut out = Vec::new();
         let mut clips = Vec::new();
@@ -187,6 +244,39 @@ mod tests {
         };
         assert_eq!(text(&children(dup)[0]), text(&children(orig)[0]));
         assert_eq!(frame(&children(dup)[0]), frame(&children(orig)[0]));
+    }
+
+    #[test]
+    fn layers_copied_out_paste_into_another_document_in_its_colour_mode() {
+        let (mut a, p) = empty();
+        let red = swatch(&mut a, "Red", process(0.0, 1.0, 1.0, 0.0), false).unwrap();
+        let r = create(&mut a, &p, NewKind::Rect, [0.0, 0.0, 9.0, 9.0]);
+        a.apply(Command::Set {
+            id: r.clone(),
+            props: Props {
+                fills: Some(vec![Fill::solid(bound(&red, 1.0))]),
+                ..Props::default()
+            },
+        })
+        .unwrap();
+        a.apply(Command::Copy { ids: vec![r] }).unwrap();
+        let mut b = Doc::blank(100.0, 100.0, 1, false, ColorMode::Cmyk);
+        b.take_clip(&a.clip_out()).unwrap();
+        let ids = b
+            .apply(Command::Paste {
+                above: vec![],
+                page: None,
+            })
+            .unwrap();
+        assert_eq!(ids.len(), 1);
+        let n = &page(&b).children[0];
+        assert!(matches!(n.kind, Kind::Shape(Shape::Rect { .. })));
+        assert!(
+            matches!(n.style.fills[0].color, Color::Cmyk { .. }),
+            "{:?}",
+            n.style.fills[0].color
+        );
+        assert!(b.take_clip(b"no").is_err());
     }
 
     #[test]

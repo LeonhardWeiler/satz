@@ -23,6 +23,8 @@ import { Switcher } from './Switcher'
 import { Toolbar } from './Toolbar'
 import { Tooltip } from './Tooltip'
 
+const CLIP = 'application/x-satz-layers'
+
 export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; first: boolean }) {
   const status = useEditor(editor, (e) => e.status)
   const statusError = useEditor(editor, (e) => e.statusError)
@@ -153,12 +155,15 @@ export function App({ ck, editor, first }: { ck: CanvasKit; editor: Editor; firs
       if (e.type === 'paste') {
         const images = [...e.clipboardData.files].filter((f) => f.type === 'image/png' || f.type === 'image/jpeg')
         const text = e.clipboardData.getData('text/plain').replace(/\r\n?/g, '\n')
-        if (images.length) drop(editor, images)
+        const clip = e.clipboardData.getData(CLIP)
+        if (clip) editor.paste(clip)
+        else if (images.length) drop(editor, images)
         else if (text.trim() && text !== editor.copied) editor.pasteText(text)
         else editor.paste()
       } else {
         if (!ids.length) return
         e.clipboardData.setData('text/plain', editor.copy(ids))
+        e.clipboardData.setData(CLIP, editor.clip!)
         if (e.type === 'cut') editor.apply({ type: 'delete', ids })
       }
       e.preventDefault()

@@ -390,6 +390,17 @@ impl Engine {
         self.doc.save()
     }
 
+    /// The copied layers for `takeClip` in another engine.
+    pub fn clip(&self) -> Vec<u8> {
+        self.doc.clip_out()
+    }
+
+    /// Makes the layers of another engine's `clip` the ones `paste` pastes.
+    #[wasm_bindgen(js_name = takeClip)]
+    pub fn take_clip(&mut self, bytes: &[u8]) -> Result<(), JsError> {
+        self.doc.take_clip(bytes).map_err(|e| JsError::new(&e))
+    }
+
     /// Replaces the document; on an error it stays as it was.
     pub fn load(&mut self, bytes: &[u8]) -> Result<(), JsError> {
         self.doc = Doc::load(bytes).map_err(|e| JsError::new(&e))?;

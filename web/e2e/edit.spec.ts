@@ -95,6 +95,21 @@ test('copied layers paste back, text from outside pastes as a text layer and a m
   await expect(suns).toHaveCount(4)
 })
 
+test('copied layers paste into another document', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  await open(page)
+  const layers = page.getByRole('tree', { name: 'Layers' })
+  await layers.getByRole('button', { name: 'Sun', exact: true }).click()
+  await page.keyboard.press('Control+c')
+  await page.keyboard.press('Control+Alt+n')
+  await page.getByRole('dialog', { name: 'New document' }).getByRole('button', { name: 'Create' }).click()
+  await page.getByRole('button', { name: 'Discard' }).click()
+  await expect(layers.getByRole('button', { name: 'Sun', exact: true })).toHaveCount(0)
+  await page.mouse.move(0, 0)
+  await page.keyboard.press('Control+v')
+  await expect(layers.getByRole('button', { name: 'Sun', exact: true })).toHaveCount(1)
+})
+
 test('a triple click in a text selects all of it', async ({ page }) => {
   await open(page)
   const layers = page.getByRole('tree', { name: 'Layers' })

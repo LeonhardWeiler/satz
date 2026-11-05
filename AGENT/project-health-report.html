@@ -46,16 +46,15 @@
   <div class="counter"><b>0</b><span>Critical</span></div>
   <div class="counter"><b>0</b><span>High</span></div>
   <div class="counter"><b>0</b><span>Medium</span></div>
-  <div class="counter"><b>4</b><span>Low</span></div>
+  <div class="counter"><b>3</b><span>Low</span></div>
   <div class="counter"><b>1</b><span>Info</span></div>
-  <div class="counter"><b>5</b><span>Total</span></div>
+  <div class="counter"><b>4</b><span>Total</span></div>
 </div>
 
 <nav aria-label="Contents">
 <ol>
   <li><a href="#open">Open findings</a>
     <ol>
-      <li><a href="#BUG-15">BUG-15 Copied layers do not reach another document</a></li>
       <li><a href="#TEST-1">TEST-1 E2E in Chromium only</a></li>
       <li><a href="#TEST-2">TEST-2 Red CI runs are real failures</a></li>
       <li><a href="#ARCH-2">ARCH-2 Derived sizes in the document</a></li>
@@ -69,7 +68,6 @@
 </nav>
 
 <h2 id="open">1. Open findings</h2>
-<article class="card low" id="BUG-15"><header><span class="id">BUG-15</span><span class="badge low">low</span><h3>Copied layers do not reach another document</h3></header><p class="file">web/src/editor.ts copy, paste; web/src/App.tsx clip</p><p>The engine keeps copied layers inside its <code>Doc</code>. Opening another document forgets them, so Ctrl V there pastes nothing, and in a second tab the layer names arrive as a new text frame.</p><p class="rec">Put the clips on the system clipboard as a custom format (or JSON in text/html) and paste from there.</p></article>
 <article class="card low" id="TEST-1">
   <header><span class="id">TEST-1</span><span class="badge low">low</span><h3>E2E runs in Chromium only</h3></header>
   <p class="file"><code>web/playwright.config.ts</code></p>

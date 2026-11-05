@@ -107,6 +107,8 @@ export class Editor {
   private typing = false
   /** The plain text the last copy of layers put on the clipboard; other text there came from outside. */
   copied: string | null = null
+  /** The copied layers in base64 as the last copy put them on the clipboard; others there came from another document. */
+  clip: string | null = null
   /** The last copies `duplicate` made and where their originals were. */
   private copies: { ids: string[]; from: { x: number; y: number } } | null = null
   /** How many undo groups are open; the engine holds one for all of them. */
@@ -126,7 +128,7 @@ export class Editor {
   load(bytes: Uint8Array, file = UNTITLED, dirty = false, updates: Uint8Array[] = []) {
     this.engine.load(bytes)
     for (const u of updates) this.engine.sync(u)
-    Object.assign(this, { selection: [], tool: 'move', renaming: null, hover: null, guide: null, pen: null, editing: null, threading: null, placing: [], overview: null, cropping: null, vector: null, copied: null, copies: null })
+    Object.assign(this, { selection: [], tool: 'move', renaming: null, hover: null, guide: null, pen: null, editing: null, threading: null, placing: [], overview: null, cropping: null, vector: null, copied: null, clip: null, copies: null })
     this.typing = false
     this.groups = 0
     this.snapshot = this.read()
@@ -400,6 +402,7 @@ export class Editor {
     this.apply({ type: 'copy', ids })
     const nodes = ids.map((id) => this.nodes.get(id)!.node)
     this.copied = [...new Set(nodes.map((n) => (n.kind === 'text' ? this.storyOf(n).text : n.name)))].join('\n')
+    this.clip = btoa(Array.from(this.engine.clip(), (b) => String.fromCharCode(b)).join(''))
     return this.copied
   }
 
@@ -424,8 +427,16 @@ export class Editor {
     this.set({ selection: copies })
   }
 
-  /** Pastes the copied layers above the selection, centred under the pointer when it is away from where they were. */
-  paste() {
+  /** Pastes the copied layers, or those of another document's `clip`, above the selection, centred under the pointer when it is away from where they were. */
+  paste(clip = this.clip) {
+    if (clip && clip !== this.clip) {
+      try {
+        this.engine.takeClip(Uint8Array.from(atob(clip), (c) => c.charCodeAt(0)))
+      } catch (e) {
+        return this.fail(`Could not paste the copied layers: ${(e as Error).message}.`)
+      }
+      this.clip = clip
+    }
     const ids = this.batch(() => {
       const ids = this.apply({ type: 'paste', above: this.selection, page: this.page.id })
       const nodes = ids.map((id) => this.nodes.get(id)!.node)
