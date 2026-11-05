@@ -52,13 +52,13 @@
   --canvas: #e2e4e8;
   --raised: #fff;
   --input: #fff;
-  --accent: #08658e;
+  --accent: #0b72a3;
   --bad: #af3024;
   --warn: #855500;
   --master: #6447d6;
   --shadow: rgb(30 30 33 / 0.18);
-  --border: color-mix(in srgb, var(--fg) 11%, var(--bg));
-  --edge: color-mix(in srgb, var(--fg) 20%, var(--bg));
+  --border: color-mix(in srgb, var(--fg) 15%, var(--bg));
+  --edge: color-mix(in srgb, var(--fg) 30%, var(--bg));
   --text-3: color-mix(in srgb, var(--fg) 64%, var(--bg));
 }
 
@@ -1849,13 +1849,15 @@ input[type='checkbox']:disabled {
 }
 
 .quick .chip {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
 }
 
 .quick .strokes .chip:not(.none) {
-  mask: radial-gradient(closest-side, transparent 56%, #000 60%);
+  box-sizing: border-box;
+  padding: 4px;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
 }
 
 .chip.none {
@@ -2723,7 +2725,8 @@ input[type='checkbox']:active {
 .example {
   display: grid;
   gap: 2px;
-  padding: 10px;
+  margin: 0 -10px;
+  padding: 8px 10px;
   border: 0;
   border-radius: 8px;
   background: none;
@@ -3268,6 +3271,7 @@ input[type='checkbox']:active {
   flex: 1;
   padding: 0 20px 24px;
   overflow: auto;
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 32px), transparent);
 }
 
 .help.settings {
@@ -3282,6 +3286,7 @@ input[type='checkbox']:active {
 .settings-body {
   display: grid;
   flex: none;
+  mask-image: none;
   gap: 8px;
   padding: 16px 20px 20px;
 }
@@ -3297,7 +3302,7 @@ input[type='checkbox']:active {
 .card-bar {
   display: grid;
   place-items: center;
-  justify-self: center;
+  justify-self: start;
   margin: 4px 0 8px;
   padding: 12px;
   border: 1.5px dashed color-mix(in srgb, var(--accent) 70%, transparent);
@@ -3316,6 +3321,7 @@ input[type='checkbox']:active {
 
 .settings-row input[type='checkbox'] {
   justify-self: end;
+  margin: 0;
 }
 
 .help-grid {
@@ -3708,7 +3714,7 @@ input[type='checkbox']:active {
   padding: 0 32px;
   border-bottom: 1px solid var(--border);
   line-height: 39px;
-  font-size: 20px;
+  font-size: 15px;
   font-weight: 600;
 }
 

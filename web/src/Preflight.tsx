@@ -248,6 +248,7 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
             <Field label="Resolution" title="Resolution" unit="ppi" min={72} max={1200} reset={300} value={rasterPpi} onCommit={(rasterPpi) => editor.apply({ type: 'setDocument', rasterPpi })} />
           )}
           <button type="button" className="primary pf-go" disabled={exporting || chosen === null} onClick={() => chosen && onExport(format, chosen)}>
+            {!exporting && errors > 0 && <Icon name="warn" />}
             {exporting ? 'Exporting…' : errors ? `Export with ${count(errors, 'error')}` : `Export ${FORMATS[format]}`}
           </button>
           <div className={`pf-bar${exporting ? ' run' : ''}`}>
