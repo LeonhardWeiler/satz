@@ -134,7 +134,7 @@ test('a file that is not a Satz document is not opened and says why', async ({ p
   await addPage(page)
   await choose(page, { name: 'notes.satz', mimeType: 'application/octet-stream', buffer: Buffer.from('notes') })
   await expect(
-    page.getByText('Could not open notes.satz: not a Satz document. Choose a .satz file saved by Satz, an SVG or a PDF.'),
+    page.getByText('Could not open notes.satz: not a Satz document. Choose a .satz file saved by Satz, an SVG, a PDF or a Figma file.'),
   ).toBeVisible()
   await pageCount(page, 2)
 })
@@ -193,4 +193,10 @@ test('an svg opens as a project of its layers and places into a document', async
   await page.keyboard.press('Control+Shift+K')
   await (await chooser).setFiles(svg)
   await expect(layers.getByRole('treeitem', { name: 'logo' })).toHaveCount(2)
+})
+
+test('a figma file opens with a page for each of its frames', async ({ page }) => {
+  await choose(page, `${import.meta.dirname}/../../engine/testdata/structure.fig`)
+  await expect(page).toHaveTitle(/structure\.satz - Satz/)
+  await pageCount(page, 2)
 })

@@ -1,4 +1,4 @@
-//! SVG and PDF files as Satz documents: a page per sheet with a frame of its layers.
+//! SVG, PDF and Figma files as Satz documents: a page per sheet with a frame of its layers.
 
 use crate::color::{Color, ColorMode};
 use crate::display_list::{CLOSE, CUBIC, LINE, MOVE};
@@ -35,6 +35,7 @@ pub enum Item {
 }
 
 pub struct Sheet {
+    pub name: Option<String>,
     pub width: f64,
     pub height: f64,
     pub items: Vec<Item>,
@@ -47,7 +48,8 @@ pub fn import(bytes: &[u8], name: &str) -> Res<Vec<u8>> {
     let sheets = match ext.as_str() {
         "svg" => vec![svg(bytes)?],
         "pdf" => pdf(bytes)?,
-        _ => return Err("only SVG and PDF files import".into()),
+        "fig" => crate::fig::sheets(bytes)?,
+        _ => return Err("only SVG, PDF and Figma files import".into()),
     };
     build(stem, sheets)
 }
@@ -92,7 +94,7 @@ fn build(name: &str, sheets: Vec<Sheet>) -> Res<Vec<u8>> {
             &mut d,
             &frame,
             Props {
-                name: Some(title),
+                name: Some(sheet.name.unwrap_or(title)),
                 fills: Some(vec![]),
                 clip: Some(true),
                 ..Props::default()
@@ -193,11 +195,11 @@ fn unit(mut f: Fill, [x, y, w, h]: [f32; 4]) -> Fill {
     f
 }
 
-fn rgba([r, g, b, a]: [u8; 4]) -> Color {
+pub(crate) fn rgba([r, g, b, a]: [u8; 4]) -> Color {
     Color::Rgb(u32::from_be_bytes([r, g, b, a]))
 }
 
-fn gradient(kind: FillKind, transform: [f32; 6], stops: Vec<FillStop>) -> Fill {
+pub(crate) fn gradient(kind: FillKind, transform: [f32; 6], stops: Vec<FillStop>) -> Fill {
     Fill {
         kind,
         transform,
@@ -206,7 +208,7 @@ fn gradient(kind: FillKind, transform: [f32; 6], stops: Vec<FillStop>) -> Fill {
     }
 }
 
-fn then([a, b, c, d, e, f]: [f32; 6], [p, q, r, s, t, u]: [f32; 6]) -> [f32; 6] {
+pub(crate) fn then([a, b, c, d, e, f]: [f32; 6], [p, q, r, s, t, u]: [f32; 6]) -> [f32; 6] {
     [
         a * p + c * q,
         b * p + d * q,
@@ -228,6 +230,7 @@ fn svg(bytes: &[u8]) -> Res<Sheet> {
     svg_group(tree.root(), 1.0, &mut items);
     let size = tree.size();
     Ok(Sheet {
+        name: None,
         width: size.width().into(),
         height: size.height().into(),
         items,
@@ -317,7 +320,7 @@ fn last(path: &[f32]) -> [f32; 2] {
     }
 }
 
-fn quad(path: &mut Vec<f32>, [qx, qy]: [f32; 2], [x, y]: [f32; 2]) {
+pub(crate) fn quad(path: &mut Vec<f32>, [qx, qy]: [f32; 2], [x, y]: [f32; 2]) {
     let [sx, sy] = last(path);
     let k = 2.0 / 3.0;
     path.extend([
@@ -394,6 +397,7 @@ fn pdf(bytes: &[u8]) -> Res<Vec<Sheet>> {
         };
         interpret_page(page, &mut ctx, &mut dev);
         sheets.push(Sheet {
+            name: None,
             width: w.into(),
             height: h.into(),
             items: dev.items,

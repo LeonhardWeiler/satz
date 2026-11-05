@@ -10,8 +10,8 @@ export type Project = { id: string; name: string; at: number; thumb?: Uint8Array
 
 type Types = { description: string; accept: Record<string, string[]> }[]
 const TYPES = [{ description: 'Satz document', accept: { 'application/x-satz': ['.satz'] } }]
-const OPENS = [{ description: 'Satz, SVG or PDF', accept: { 'application/x-satz': ['.satz'], 'image/svg+xml': ['.svg'], 'application/pdf': ['.pdf'] } }]
-const imports = (name: string) => /\.(svg|pdf)$/i.test(name)
+const OPENS = [{ description: 'Satz, SVG, PDF or Figma', accept: { 'application/x-satz': ['.satz'], 'image/svg+xml': ['.svg'], 'application/pdf': ['.pdf'], 'application/x-figma': ['.fig'] } }]
+const imports = (name: string) => /\.(svg|pdf|fig)$/i.test(name)
 const pickers = window as {
   showSaveFilePicker?: (o: { suggestedName: string; types: Types }) => Promise<Handle>
   showOpenFilePicker?: (o: { types: Types }) => Promise<Handle[]>
@@ -287,14 +287,14 @@ async function load(editor: Editor, file: File, handle: Handle | null) {
     if (imports(file.name)) await begin(editor, Engine.importFile(bytes, file.name), { name: file.name.replace(/\.\w+$/, '.satz'), handle: null })
     else await begin(editor, bytes, { name: file.name, handle })
   } catch (e) {
-    return editor.fail(`Could not open ${file.name}: ${(e as Error).message}. Choose a .satz file saved by Satz, an SVG or a PDF.`)
+    return editor.fail(`Could not open ${file.name}: ${(e as Error).message}. Choose a .satz file saved by Satz, an SVG, a PDF or a Figma file.`)
   }
   await findGrantedFonts(editor)
 }
 
-/** Asks for a document, SVG or PDF and opens it as a new project. */
+/** Asks for a document, SVG, PDF or Figma file and opens it as a new project. */
 export async function open(editor: Editor) {
-  if (!pickers.showOpenFilePicker) return pick('.satz,.svg,.pdf', false, ([file]) => file && load(editor, file, null))
+  if (!pickers.showOpenFilePicker) return pick('.satz,.svg,.pdf,.fig', false, ([file]) => file && load(editor, file, null))
   try {
     const [handle] = await pickers.showOpenFilePicker({ types: OPENS })
     await load(editor, await handle.getFile(), handle)
@@ -360,20 +360,20 @@ export const pickProfile = (editor: Editor) =>
     }
   })
 
-/** Asks for PNG, JPEG, SVG and PDF files and places each on the current page, an SVG or PDF with its first page's layers. */
+/** Asks for PNG, JPEG, SVG, PDF and Figma files and places each on the current page, an SVG, PDF or Figma file with its first page's layers. */
 export const placeImages = (editor: Editor) =>
-  pick('.png,.jpg,.jpeg,.svg,.pdf', true, async (files) => {
+  pick('.png,.jpg,.jpeg,.svg,.pdf,.fig', true, async (files) => {
     for (const file of files) await placeImage(editor, file)
   })
 
-/** Opens a dropped document, places dropped images, SVGs and PDFs (opens them on the projects) and adds dropped fonts. */
+/** Opens a dropped document, places dropped images, SVGs, PDFs and Figma files (opens them on the projects) and adds dropped fonts. */
 export async function drop(editor: Editor, files: File[]) {
   for (const file of files) {
     const ext = file.name.split('.').pop()!.toLowerCase()
     if (ext === 'satz' || (editor.home && imports(file.name))) await load(editor, file, null)
     else if (['ttf', 'otf', 'woff', 'woff2'].includes(ext)) await addFont(editor, file)
-    else if (!editor.home && ['png', 'jpg', 'jpeg', 'svg', 'pdf'].includes(ext)) await placeImage(editor, file)
-    else editor.fail(`Could not use ${file.name}. Drop a .satz document, a PNG, JPEG, SVG or PDF or a .ttf, .otf, .woff or .woff2 font.`)
+    else if (!editor.home && ['png', 'jpg', 'jpeg', 'svg', 'pdf', 'fig'].includes(ext)) await placeImage(editor, file)
+    else editor.fail(`Could not use ${file.name}. Drop a .satz document, a PNG, JPEG, SVG, PDF or Figma file or a .ttf, .otf, .woff or .woff2 font.`)
   }
 }
 

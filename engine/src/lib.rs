@@ -3,6 +3,7 @@ mod display_list;
 mod doc;
 #[cfg(test)]
 mod examples;
+mod fig;
 mod geom;
 mod image;
 mod import;
@@ -402,7 +403,7 @@ impl Engine {
         self.doc.take_clip(bytes).map_err(|e| JsError::new(&e))
     }
 
-    /// The SVG or PDF file `name` as a document.
+    /// The SVG, PDF or Figma file `name` as a document.
     #[wasm_bindgen(js_name = importFile)]
     pub fn import_file(bytes: &[u8], name: &str) -> Result<Vec<u8>, JsError> {
         import::import(bytes, name).map_err(|e| JsError::new(&e))
