@@ -38,7 +38,7 @@
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --fast: 120ms;
   --open: 160ms;
-  --shadow-pop: 0 8px 24px var(--shadow);
+  --shadow-pop: 0 4px 16px var(--shadow);
   --shadow-dialog: 0 24px 64px var(--shadow);
   --doc-font: 'Source Serif 4', Georgia, serif;
   --checker: repeating-conic-gradient(#ffffff 0 25%, #cccccc 0 50%) 0 0 / 8px 8px;
