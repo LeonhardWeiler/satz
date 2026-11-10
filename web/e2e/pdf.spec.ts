@@ -63,7 +63,7 @@ async function expectCanvasMatchesPdf(page: Page, n = 1, spread = [n], pdf?: str
   const shot = PNG.sync.read(await page.screenshot({ clip: { x, y, width: w, height: h }, style: '.status { display: none }' }))
 
   const raster = join(dir, 'satz.png')
-  execFileSync('mutool', ['draw', '-q', '-O', '0', '-b', 'BleedBox', '-r', `${view.zoom * 72}`, '-o', raster, pdf, String(n)])
+  execFileSync('mutool', ['draw', '-q', '-M', '0', '-b', 'BleedBox', '-r', `${view.zoom * 72}`, '-o', raster, pdf, String(n)])
   const ref = PNG.sync.read(readFileSync(raster))
   expect(Math.abs(ref.width - w)).toBeLessThanOrEqual(1)
   expect(Math.abs(ref.height - h)).toBeLessThanOrEqual(1)
