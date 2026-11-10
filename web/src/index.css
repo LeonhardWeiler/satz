@@ -36,6 +36,10 @@
   --scrim: color-mix(in srgb, var(--bg) 70%, transparent);
   --magenta: #cc2f83;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --fast: 120ms;
+  --open: 160ms;
+  --shadow-pop: 0 8px 24px var(--shadow);
+  --shadow-dialog: 0 24px 64px var(--shadow);
   --doc-font: 'Source Serif 4', Georgia, serif;
   --checker: repeating-conic-gradient(#ffffff 0 25%, #cccccc 0 50%) 0 0 / 8px 8px;
   font: 12px/16px 'Hanken Grotesk', system-ui, sans-serif;
@@ -129,7 +133,7 @@ body,
   flex: none;
   width: 1px;
   height: 18px;
-  margin: 0 6px;
+  margin: 0 4px;
   background: var(--border);
 }
 
@@ -261,7 +265,7 @@ body,
   align-items: center;
   gap: 8px;
   height: 34px;
-  padding: 0 6px 0 12px;
+  padding: 0 4px 0 12px;
   color: var(--text);
   flex: none;
 }
@@ -306,7 +310,7 @@ body,
 .panel-header h2 {
   min-width: 0;
   margin: 0;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   overflow: hidden;
   white-space: nowrap;
@@ -341,7 +345,7 @@ button {
   flex: none;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
   height: 28px;
   padding: 0 12px;
   border: 0;
@@ -350,7 +354,7 @@ button {
   color: var(--bg);
   font-weight: 600;
   cursor: pointer;
-  transition: opacity 0.1s;
+  transition: opacity var(--fast) var(--ease);
 }
 
 .primary:hover {
@@ -388,7 +392,7 @@ button {
   height: 30px;
   margin-bottom: 2px;
   padding-right: 8px;
-  border-radius: 5px;
+  border-radius: 6px;
   color: color-mix(in srgb, var(--text) 85%, var(--text-2));
   user-select: none;
 }
@@ -465,7 +469,7 @@ button {
 
 .layer-master {
   width: 100%;
-  padding-left: 22px;
+  padding-left: 24px;
   border: 0;
   background: none;
   color: var(--text-2);
@@ -600,7 +604,7 @@ textarea {
   border-radius: 6px;
   background: var(--input);
   box-shadow: inset 0 0 0 1px var(--border);
-  transition: box-shadow 0.12s;
+  transition: box-shadow var(--fast) var(--ease);
 }
 
 .field:not(:has(.field-label, .field-step)) {
@@ -622,7 +626,7 @@ textarea {
   align-items: center;
   align-self: stretch;
   min-width: 24px;
-  padding: 0 6px 0 8px;
+  padding: 0 4px 0 8px;
   color: var(--text-2);
   user-select: none;
 }
@@ -758,7 +762,7 @@ textarea {
 .dash {
   width: 24px;
   height: 8px;
-  margin-right: 6px;
+  margin-right: 4px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.5;
@@ -858,7 +862,7 @@ input[type='checkbox']:disabled {
 .stops {
   display: grid;
   gap: 8px;
-  padding-left: 28px;
+  padding-left: 24px;
 }
 
 .swatch {
@@ -921,7 +925,7 @@ input[type='checkbox']:disabled {
   height: 28px;
   padding: 0 8px;
   border: 0;
-  border-radius: 5px;
+  border-radius: 6px;
   background: none;
   color: var(--text-2);
   text-align: left;
@@ -937,11 +941,11 @@ input[type='checkbox']:disabled {
 
 .badge {
   flex: none;
-  padding: 0 5px;
+  padding: 0 4px;
   border-radius: 4px;
   background: var(--hover);
   color: var(--text-2);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 16px;
 }
 
@@ -1040,7 +1044,7 @@ input[type='checkbox']:disabled {
   height: 24px;
   padding: 0 8px;
   border: 0;
-  border-radius: 5px;
+  border-radius: 6px;
   background: none;
   color: var(--text-2);
   font-weight: 600;
@@ -1071,7 +1075,7 @@ input[type='checkbox']:disabled {
   border: 1px solid var(--edge);
   border-radius: 12px;
   background: var(--raised);
-  box-shadow: 0 8px 30px var(--shadow);
+  box-shadow: var(--shadow-pop);
 }
 
 .options {
@@ -1150,7 +1154,7 @@ input[type='checkbox']:disabled {
   content: attr(data-glyph) / "";
   display: inline-block;
   width: 16px;
-  margin-right: 10px;
+  margin-right: 8px;
   font: 15px/1 var(--doc-font);
   text-align: center;
 }
@@ -1182,7 +1186,7 @@ input[type='checkbox']:disabled {
 .picker-area {
   position: relative;
   height: 200px;
-  border-radius: 5px;
+  border-radius: 6px;
   background-image: linear-gradient(to top, #000000, transparent), linear-gradient(to right, #ffffff, transparent);
   cursor: crosshair;
   touch-action: none;
@@ -1324,6 +1328,10 @@ input[type='checkbox']:disabled {
 }
 
 .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   justify-self: start;
   height: 24px;
   padding: 0 8px;
@@ -1363,7 +1371,7 @@ input[type='checkbox']:disabled {
   height: 24px;
   padding: 0;
   border: 0;
-  border-radius: 5px;
+  border-radius: 6px;
   background: none;
   color: var(--text-2);
   cursor: pointer;
@@ -1405,7 +1413,7 @@ input[type='checkbox']:disabled {
 .align-inside {
   display: flex;
   align-self: center;
-  padding: 0 6px;
+  padding: 0 4px;
   color: var(--text-2);
 }
 
@@ -1433,8 +1441,8 @@ input[type='checkbox']:disabled {
 .toolbar .primary {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-left: 6px;
+  gap: 8px;
+  margin-left: 8px;
 }
 
 .menu.shapes .menu-item {
@@ -1446,7 +1454,7 @@ input[type='checkbox']:disabled {
   place-items: center;
   min-width: 30px;
   height: 28px;
-  padding: 0 7px;
+  padding: 0 8px;
   border: 0;
   border-radius: 6px;
   background: none;
@@ -1486,7 +1494,7 @@ input[type='checkbox']:disabled {
 
 .tool-group > .tool {
   min-width: 0;
-  padding: 0 3px 0 7px;
+  padding: 0 4px 0 8px;
   border-radius: 6px 0 0 6px;
 }
 
@@ -1520,10 +1528,10 @@ input[type='checkbox']:disabled {
   overflow-y: auto;
   padding: 4px;
   border: 1px solid var(--edge);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--raised);
-  box-shadow: 0 12px 32px var(--shadow);
-  animation: pop 0.12s var(--ease);
+  box-shadow: var(--shadow-pop);
+  animation: pop var(--open) var(--ease);
 }
 
 @keyframes pop {
@@ -1536,7 +1544,7 @@ input[type='checkbox']:disabled {
 .menu-empty {
   max-width: 220px;
   margin: 0;
-  padding: 6px 8px;
+  padding: 4px 8px;
   color: var(--text-3);
   line-height: 1.5;
 }
@@ -1609,21 +1617,21 @@ input[type='checkbox']:disabled {
   left: 50%;
   z-index: 95;
   max-width: min(560px, 90vw);
-  padding: 8px 14px;
+  padding: 8px 12px;
   border: 1px solid var(--edge);
   border-radius: 8px;
   background: var(--raised);
   color: var(--text);
-  box-shadow: 0 8px 24px var(--shadow);
+  box-shadow: var(--shadow-pop);
   transform: translateX(-50%);
-  animation: toast 0.15s var(--ease);
+  animation: toast var(--open) var(--ease);
   pointer-events: none;
 }
 
 @keyframes toast {
   from {
     opacity: 0;
-    margin-bottom: -6px;
+    margin-bottom: -8px;
   }
 }
 
@@ -1761,7 +1769,7 @@ input[type='checkbox']:disabled {
   display: flex;
   flex: none;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   height: 40px;
   padding: 0 12px;
   border-bottom: 1px solid var(--border);
@@ -1794,7 +1802,7 @@ input[type='checkbox']:disabled {
 .brand .name-input {
   width: auto;
   min-width: 2ch;
-  margin-left: -3px;
+  margin-left: -2px;
   padding: 0 2px;
   field-sizing: content;
   font-size: 12px;
@@ -1802,7 +1810,7 @@ input[type='checkbox']:disabled {
 }
 
 .brand .name-input + .ext {
-  margin-left: -13px;
+  margin-left: -12px;
 }
 
 .mark {
@@ -1830,11 +1838,11 @@ input[type='checkbox']:disabled {
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 3px;
+  padding: 2px;
   border: 1px solid var(--edge);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--raised);
-  box-shadow: 0 6px 20px var(--shadow);
+  box-shadow: var(--shadow-pop);
 }
 
 .quick {
@@ -1894,7 +1902,7 @@ input[type='checkbox']:disabled {
 
 .quick .strokes .chip:not(.none) {
   box-sizing: border-box;
-  padding: 3px;
+  padding: 4px;
   mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
 }
 
@@ -1910,14 +1918,14 @@ input[type='checkbox']:disabled {
   display: inline-block;
   width: 12px;
   height: 12px;
-  margin-right: 6px;
+  margin-right: 8px;
   vertical-align: -1px;
 }
 
 .switcher {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin: 0 8px;
 }
 
@@ -1935,7 +1943,7 @@ input[type='checkbox']:disabled {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 1px;
+  gap: 2px;
   min-width: 76px;
   font-variant-numeric: tabular-nums;
 }
@@ -1953,7 +1961,7 @@ input[type='checkbox']:disabled {
   gap: 4px;
   min-width: 24px;
   height: 24px;
-  padding: 0 5px;
+  padding: 0 4px;
   border: 0;
   border-radius: 6px;
   background: none;
@@ -1990,7 +1998,7 @@ input[type='checkbox']:disabled {
 
 .switcher .spread-pages button + button::before {
   content: '–';
-  margin-right: 6px;
+  margin-right: 4px;
   color: var(--text-3);
 }
 
@@ -1999,7 +2007,7 @@ input[type='checkbox']:disabled {
 }
 
 .switcher .switcher-add {
-  padding: 0 8px 0 6px;
+  padding: 0 8px 0 4px;
 }
 
 .switcher-pages .sep {
@@ -2014,7 +2022,7 @@ input[type='checkbox']:disabled {
 .banner {
   top: 10px;
   left: 50%;
-  gap: 10px;
+  gap: 8px;
   padding-left: 12px;
   border-color: var(--accent);
   transform: translateX(-50%);
@@ -2028,9 +2036,9 @@ input[type='checkbox']:disabled {
 .banner button {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   height: 26px;
-  padding: 0 10px;
+  padding: 0 12px;
   border: 0;
   border-radius: 6px;
   background: var(--raised);
@@ -2042,14 +2050,14 @@ input[type='checkbox']:disabled {
 }
 
 kbd {
-  font: 500 11px 'Hanken Grotesk', system-ui, sans-serif;
+  font: 600 11px 'Hanken Grotesk', system-ui, sans-serif;
 }
 
 .keys {
   display: inline-flex;
   flex: none;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   color: var(--text-3);
   font-size: 11px;
 }
@@ -2058,11 +2066,11 @@ kbd {
   min-width: 18px;
   height: 18px;
   margin: 0;
-  padding: 0 5px;
+  padding: 0 4px;
   border-radius: 4px;
   background: color-mix(in srgb, currentColor 14%, transparent);
   color: var(--text-2);
-  font: 500 11px 'Hanken Grotesk', system-ui, sans-serif;
+  font: 600 11px 'Hanken Grotesk', system-ui, sans-serif;
   line-height: 18px;
   text-align: center;
 }
@@ -2087,7 +2095,7 @@ kbd {
 .layer,
 .menu-item,
 input[type='checkbox'] {
-  transition: background-color 0.1s, color 0.1s, transform 0.08s var(--ease);
+  transition: background-color var(--fast) var(--ease), color var(--fast) var(--ease), transform var(--fast) var(--ease);
 }
 
 .tool:active,
@@ -2099,7 +2107,7 @@ input[type='checkbox']:active {
 
 .tool[aria-pressed='true'] svg,
 .icon-button[aria-pressed='true'] svg {
-  animation: press 0.18s var(--ease);
+  animation: press var(--open) var(--ease);
 }
 
 @keyframes press {
@@ -2119,8 +2127,8 @@ input[type='checkbox']:active {
 
 .pf-count {
   min-width: 18px;
-  padding: 0 5px;
-  border-radius: 9px;
+  padding: 0 4px;
+  border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
   line-height: 16px;
@@ -2128,7 +2136,7 @@ input[type='checkbox']:active {
 
 .pf-btn {
   grid-auto-flow: column;
-  gap: 5px;
+  gap: 4px;
 }
 
 .pf-count[data-sev='error'] {
@@ -2152,7 +2160,7 @@ input[type='checkbox']:active {
   display: flex;
   flex: none;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   height: 40px;
   padding: 0 8px 0 16px;
   border-bottom: 1px solid var(--border);
@@ -2161,6 +2169,7 @@ input[type='checkbox']:active {
 .pf-head h2 {
   margin: 0;
   font-size: 13px;
+  font-weight: 600;
 }
 
 .pf-sum {
@@ -2185,7 +2194,7 @@ input[type='checkbox']:active {
   align-items: center;
   overflow-wrap: anywhere;
   gap: 8px;
-  padding: 7px 8px;
+  padding: 8px;
   border: 0;
   border-radius: 6px;
   background: var(--input);
@@ -2204,7 +2213,7 @@ input[type='checkbox']:active {
 
 .iss strong {
   color: var(--text);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .iss.error svg {
@@ -2257,7 +2266,7 @@ input[type='checkbox']:active {
 .plates {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 6px;
+  gap: 8px;
 }
 
 .plate {
@@ -2318,7 +2327,7 @@ input[type='checkbox']:active {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
   height: 32px;
 }
@@ -2331,7 +2340,7 @@ input[type='checkbox']:active {
 .pf-bar {
   height: 2px;
   margin-top: 8px;
-  border-radius: 1px;
+  border-radius: 2px;
   background: var(--border);
   overflow: hidden;
 }
@@ -2355,7 +2364,7 @@ input[type='checkbox']:active {
   box-sizing: border-box;
   padding: 0 8px;
   border: 1px solid transparent;
-  border-radius: 5px;
+  border-radius: 6px;
   background: none;
   font: inherit;
   color: inherit;
@@ -2398,7 +2407,7 @@ input[type='checkbox']:active {
   height: 28px;
   padding: 0 8px;
   border: 0;
-  border-radius: 5px;
+  border-radius: 6px;
   background: none;
   text-align: left;
   cursor: pointer;
@@ -2446,17 +2455,13 @@ input[type='checkbox']:active {
 }
 
 .var-editor .row > .button {
-  display: flex;
   flex: 1;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
 }
 
 .swatch-list h3 {
   margin: 8px 0 4px;
   padding: 0 8px;
-  color: var(--text-3);
+  color: var(--text-2);
   font-size: 11px;
   font-weight: 600;
 }
@@ -2493,7 +2498,7 @@ input[type='checkbox']:active {
   min-width: 0;
   height: 18px;
   margin-left: 4px;
-  padding: 0 6px;
+  padding: 0 8px;
   overflow: hidden;
   border: 0;
   border-radius: 4px;
@@ -2537,7 +2542,7 @@ input[type='checkbox']:active {
 
 .segmented > .field-label {
   min-width: 0;
-  padding: 0 4px 0 6px;
+  padding: 0 4px 0 8px;
 }
 
 .segmented button {
@@ -2588,7 +2593,7 @@ input[type='checkbox']:active {
   position: relative;
   padding: 0;
   border: 0;
-  border-radius: 3px;
+  border-radius: 4px;
   background: none;
   cursor: pointer;
 }
@@ -2649,8 +2654,8 @@ input[type='checkbox']:active {
   border-radius: 12px;
   background: var(--panel);
   color: var(--text);
-  box-shadow: 0 24px 64px var(--shadow);
-  animation: pop 0.16s var(--ease);
+  box-shadow: var(--shadow-dialog);
+  animation: pop var(--open) var(--ease);
 }
 
 .start::backdrop {
@@ -2659,8 +2664,8 @@ input[type='checkbox']:active {
 
 .start-main {
   display: grid;
-  gap: 20px;
-  padding: 26px 28px 24px;
+  gap: 24px;
+  padding: 24px;
 }
 
 .start h2 {
@@ -2673,14 +2678,14 @@ input[type='checkbox']:active {
 .formats {
   display: grid;
   grid-template-columns: repeat(8, minmax(0, 1fr));
-  gap: 6px;
+  gap: 8px;
 }
 
 .format {
   display: grid;
   justify-items: center;
   gap: 4px;
-  padding: 10px 2px;
+  padding: 12px 2px;
   border: 0;
   border-radius: 8px;
   background: none;
@@ -2706,7 +2711,7 @@ input[type='checkbox']:active {
 .format-box span {
   background: #fff;
   box-shadow: 0 0 0 1px var(--edge);
-  transition: width 0.2s var(--ease), height 0.2s var(--ease);
+  transition: width var(--open) var(--ease), height var(--open) var(--ease);
 }
 
 .format-box .format-custom {
@@ -2751,14 +2756,6 @@ input[type='checkbox']:active {
   justify-content: space-between;
 }
 
-.start-footer button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 34px;
-  padding: 0 14px;
-}
-
 
 .start-options .segmented button {
   width: 32px;
@@ -2771,15 +2768,15 @@ input[type='checkbox']:active {
   display: grid;
   min-height: 0;
   background: var(--canvas);
-  animation: pop 0.16s var(--ease);
+  animation: pop var(--open) var(--ease);
 }
 
 .ov-col {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   min-height: 0;
-  padding: 20px 28px;
+  padding: 24px;
   overflow: auto;
 }
 
@@ -2791,7 +2788,7 @@ input[type='checkbox']:active {
   margin: 0;
   line-height: 28px;
   color: var(--text-2);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
 }
 
@@ -2807,7 +2804,7 @@ input[type='checkbox']:active {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
+  gap: 16px;
   padding: 4px;
   outline: none;
 }
@@ -2841,7 +2838,7 @@ input[type='checkbox']:active {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 20px 28px 6px;
+  padding: 24px 24px 8px;
 }
 
 .ov-head h2 {
@@ -2856,7 +2853,7 @@ input[type='checkbox']:active {
   display: flex;
   flex-wrap: wrap;
   align-items: end;
-  gap: 18px;
+  gap: 16px;
   padding: 8px;
   border-radius: 6px;
   outline: none;
@@ -2865,7 +2862,7 @@ input[type='checkbox']:active {
 .ov-item {
   display: grid;
   justify-items: center;
-  gap: 5px;
+  gap: 4px;
 }
 
 .ov-pages {
@@ -2917,7 +2914,7 @@ input[type='checkbox']:active {
 .ov-ghost canvas {
   position: absolute;
   background: #fff;
-  box-shadow: 0 0 0 1px var(--border), 0 4px 12px rgb(0 0 0 / 30%);
+  box-shadow: 0 0 0 1px var(--border), var(--shadow-pop);
 }
 
 .ov-ghost b {
@@ -2925,10 +2922,10 @@ input[type='checkbox']:active {
   top: 4px;
   left: 4px;
   min-width: 20px;
-  padding: 2px 6px;
-  border-radius: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
   background: var(--accent);
-  color: #fff;
+  color: var(--bg);
   font-size: 11px;
   text-align: center;
 }
@@ -3025,7 +3022,7 @@ input[type='checkbox']:active {
 
 .kv strong {
   color: var(--text);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .text-style {
@@ -3046,12 +3043,12 @@ input[type='checkbox']:active {
 }
 
 .text-style .name-input {
-  margin-left: -6px;
-  font-weight: 500;
+  margin-left: -8px;
+  font-weight: 600;
 }
 
 .text-style-sum {
-  margin: -8px 0 0 19px;
+  margin: -8px 0 0 16px;
   color: var(--text-3);
   font-size: 11px;
 }
@@ -3103,23 +3100,23 @@ input[type='checkbox']:active {
   border-radius: 12px;
   background: var(--raised);
   color: var(--text);
-  box-shadow: 0 24px 64px var(--shadow);
-  animation: pop 0.14s var(--ease);
+  box-shadow: var(--shadow-dialog);
+  animation: pop var(--open) var(--ease);
 }
 
 .ask[open] {
   width: min(360px, 92vw);
-  padding: 20px;
+  padding: 24px;
   border: 1px solid var(--edge);
   border-radius: 12px;
   background: var(--raised);
   color: var(--text);
-  box-shadow: 0 24px 64px var(--shadow);
-  animation: pop 0.14s var(--ease);
+  box-shadow: var(--shadow-dialog);
+  animation: pop var(--open) var(--ease);
 }
 
 .ask p {
-  margin: 0 0 20px;
+  margin: 0 0 24px;
   line-height: 1.5;
 }
 
@@ -3127,19 +3124,6 @@ input[type='checkbox']:active {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-}
-
-.ask button:not(.primary) {
-  height: 28px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: 6px;
-  background: var(--border);
-  cursor: pointer;
-}
-
-.ask button:not(.primary):hover {
-  background: var(--edge);
 }
 
 .ask::backdrop,
@@ -3156,9 +3140,9 @@ input[type='checkbox']:active {
 .pal-top {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   height: 46px;
-  padding: 0 14px;
+  padding: 0 16px;
   border-bottom: 1px solid var(--border);
   color: var(--text-3);
 }
@@ -3171,7 +3155,7 @@ input[type='checkbox']:active {
   color: var(--text);
   outline: none;
   font: inherit;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .pal-list {
@@ -3181,7 +3165,7 @@ input[type='checkbox']:active {
 }
 
 .pal-g {
-  padding: 8px 10px 4px;
+  padding: 8px 12px 4px;
   color: var(--text-3);
   font-size: 11px;
   font-weight: 600;
@@ -3190,10 +3174,10 @@ input[type='checkbox']:active {
 .pal-it {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
   height: 32px;
-  padding: 0 10px;
+  padding: 0 12px;
   border: 0;
   border-radius: 6px;
   background: none;
@@ -3208,7 +3192,7 @@ input[type='checkbox']:active {
 
 .pal-t b {
   color: var(--text);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .pal-it small {
@@ -3255,7 +3239,7 @@ input[type='checkbox']:active {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 10px 10px 10px 20px;
+  padding: 12px 12px 12px 24px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -3268,7 +3252,7 @@ input[type='checkbox']:active {
 .help-search {
   flex: 1;
   height: 30px;
-  padding: 0 10px;
+  padding: 0 12px;
   border: 1px solid var(--edge);
   border-radius: 6px;
   background: var(--bg);
@@ -3283,7 +3267,7 @@ input[type='checkbox']:active {
 
 .help-body {
   flex: 1;
-  padding: 0 20px 24px;
+  padding: 0 24px 24px;
   overflow: auto;
   mask-image: linear-gradient(to bottom, #000 calc(100% - 32px), transparent);
 }
@@ -3302,7 +3286,7 @@ input[type='checkbox']:active {
   flex: none;
   mask-image: none;
   gap: 8px;
-  padding: 16px 20px 20px;
+  padding: 16px 24px 24px;
 }
 
 .settings-row {
@@ -3363,7 +3347,7 @@ input[type='checkbox']:active {
 
 .help-grid h3 {
   margin: 0 0 4px;
-  color: var(--text-3);
+  color: var(--text-2);
   font-size: 11px;
   font-weight: 600;
 }
@@ -3384,7 +3368,7 @@ input[type='checkbox']:active {
 .help-r mark {
   background: none;
   color: var(--text);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .help-r[data-remapped] > span:first-child::before {
@@ -3392,14 +3376,14 @@ input[type='checkbox']:active {
   display: inline-block;
   width: 6px;
   height: 6px;
-  margin: 0 6px 1px 0;
+  margin: 0 8px 0 0;
   border-radius: 50%;
   background: var(--accent);
 }
 
 .help-r:has([data-recording]) {
-  margin: 0 -6px;
-  padding-inline: 6px;
+  margin: 0 -8px;
+  padding-inline: 8px;
   border-radius: 6px;
   background: var(--selected);
 }
@@ -3532,7 +3516,7 @@ input[type='checkbox']:active {
 
   .tool {
     min-width: 26px;
-    padding: 0 5px;
+    padding: 0 4px;
   }
 
   .bar-side,
@@ -3547,7 +3531,7 @@ input[type='checkbox']:active {
   }
 
   .switcher .switcher-add {
-    padding: 0 7px;
+    padding: 0 8px;
   }
 }
 
@@ -3586,9 +3570,9 @@ input[type='checkbox']:active {
   color: var(--text);
   font-size: 11px;
   line-height: 16px;
-  box-shadow: 0 6px 16px var(--shadow);
+  box-shadow: var(--shadow-pop);
   pointer-events: none;
-  animation: pop 0.1s var(--ease);
+  animation: pop var(--open) var(--ease);
 }
 
 .tooltip .keys {
@@ -3602,14 +3586,14 @@ input[type='checkbox']:active {
   justify-self: end;
   z-index: 3;
   display: grid;
-  gap: 6px;
+  gap: 8px;
   width: 340px;
-  margin: 28px 8px;
+  margin: 24px 8px;
   padding: 8px;
   border: 1px solid var(--edge);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--raised);
-  box-shadow: 0 12px 32px var(--shadow);
+  box-shadow: var(--shadow-pop);
 }
 
 .find-row {
@@ -3717,10 +3701,11 @@ input[type='checkbox']:active {
   border: 0;
 }
 
-.home-bar .button {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.home-bar .button,
+.start-footer .button,
+.ask .button {
+  height: 28px;
+  padding: 0 12px;
 }
 
 .home-main {
@@ -3728,7 +3713,7 @@ input[type='checkbox']:active {
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 40px 48px;
+  padding: 48px;
 }
 
 .home-main h2 {
@@ -3748,7 +3733,7 @@ input[type='checkbox']:active {
 }
 
 .home-grid + h3 {
-  margin-top: 40px;
+  margin-top: 48px;
 }
 
 .home-grid {
@@ -3794,7 +3779,7 @@ input[type='checkbox']:active {
   display: grid;
   place-items: center;
   height: 260px;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   padding: 16px;
   overflow: hidden;
   border-radius: 8px;

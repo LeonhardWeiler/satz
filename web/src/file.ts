@@ -263,7 +263,7 @@ export async function save(editor: Editor, as: boolean) {
 export function ask(question: string, yes: string): Promise<boolean> {
   const d = document.createElement('dialog')
   d.className = 'ask'
-  d.innerHTML = '<form method="dialog"><p></p><div><button value="" autofocus>Cancel</button><button value="yes" class="primary"></button></div></form>'
+  d.innerHTML = '<form method="dialog"><p></p><div><button value="" class="button" autofocus>Cancel</button><button value="yes" class="primary"></button></div></form>'
   d.querySelector('p')!.textContent = question
   d.querySelector('.primary')!.textContent = yes
   document.body.append(d)

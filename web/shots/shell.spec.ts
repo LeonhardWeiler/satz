@@ -198,7 +198,7 @@ test('settings applied', async ({ page }) => {
   await shot(page, A, '40 quick edit off, inches', 'Quick edit bar off and lengths in inches (settings)')
   await page.keyboard.press('Control+,')
   await shot(page, D, '22 settings changed', 'Settings with another unit and quick edit off', [page.getByRole('dialog', { name: 'Settings' })])
-  for (const [u, n] of [['cm', 'Centimetres'], ['pt', 'Points']]) {
+  for (const [u, n] of [['cm', 'Centimeters'], ['pt', 'Points']]) {
     await page.getByRole('dialog', { name: 'Settings' }).getByRole('combobox', { name: 'Unit' }).click()
     await page.getByRole('menu').getByRole('menuitemradio', { name: n }).click()
     await page.keyboard.press('Escape')
