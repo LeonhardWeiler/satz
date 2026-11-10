@@ -56,20 +56,24 @@ test('booleans combine shapes into the bottommost, from the panel and the keyboa
   await expect(shapes).toHaveCount(1)
 })
 
-test('the arrange bar flattens a shape and adds auto layout', async ({ page }) => {
+test('the arrange menu flattens a shape and adds auto layout', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
-  const arrange = panel.getByRole('toolbar', { name: 'Arrange' })
+  const arrange = async (name: string) => {
+    await panel.getByRole('button', { name: 'Arrange' }).click()
+    return page.getByRole('menu', { name: 'Arrange' }).getByRole('menuitem', { name })
+  }
   const layers = page.getByRole('tree', { name: 'Layers' })
   await layers.getByRole('button', { name: 'Frame', exact: true }).click()
-  await expect(arrange.getByRole('button', { name: 'Flatten' })).toHaveCount(0)
-  await arrange.getByRole('button', { name: 'Add auto layout' }).click()
+  await expect(await arrange('Flatten')).toBeDisabled()
+  await page.keyboard.press('Escape')
+  await (await arrange('Add auto layout')).click()
   await expect(panel.getByRole('radio', { name: 'Horizontal layout' })).toBeChecked()
 
   await layers.getByRole('button', { name: 'Sun', exact: true }).click()
   await page.keyboard.press('Enter')
   await expect(page.getByRole('toolbar', { name: 'Path tools' })).toBeHidden()
-  await arrange.getByRole('button', { name: 'Flatten' }).click()
+  await (await arrange('Flatten')).click()
   await page.keyboard.press('Enter')
   await expect(page.getByRole('toolbar', { name: 'Path tools' })).toBeVisible()
 })

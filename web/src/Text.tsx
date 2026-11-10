@@ -45,19 +45,11 @@ const CASES = { original: 'As typed', upper: 'Upper case', lower: 'Lower case', 
 const DECORATIONS = { none: 'None', underline: 'Underline', strikethrough: 'Strikethrough' } as const
 const LISTS = { none: 'None', bullet: 'Bullets', number: 'Numbers' } as const
 const POSITIONS = { normal: 'Normal', superscript: 'Superscript', subscript: 'Subscript' } as const
-/** OpenType features: tag, title and whether fonts apply it unless turned off. */
-const FEATURES: [string, string, boolean?][] = [
-  ['kern', 'Kerning', true],
-  ['liga', 'Ligatures', true],
-  ['dlig', 'Discretionary ligatures'],
-  ['smcp', 'Small caps'],
-  ['c2sc', 'Capitals to small caps'],
-  ['case', 'Case-sensitive forms'],
-  ['frac', 'Fractions'],
-  ['zero', 'Slashed zero'],
-  ['sups', 'Superscript glyphs'],
-  ['subs', 'Subscript glyphs'],
-  ['ordn', 'Ordinals'],
+/** OpenType features by group: tag, title and whether fonts apply it unless turned off. */
+const FEATURES: [string, [string, string, boolean?][]][] = [
+  ['Ligatures & kerning', [['kern', 'Kerning', true], ['liga', 'Ligatures', true], ['dlig', 'Discretionary ligatures']]],
+  ['Letterforms', [['smcp', 'Small caps'], ['c2sc', 'Capitals to small caps'], ['case', 'Case-sensitive forms']]],
+  ['Numbers', [['frac', 'Fractions'], ['zero', 'Slashed zero'], ['sups', 'Superscript glyphs'], ['subs', 'Subscript glyphs'], ['ordn', 'Ordinals']]],
 ]
 /** Features of which one at most applies: title, a sample and the tags with their titles. */
 const FIGURES: [string, string, [string, string][]][] = [
@@ -219,21 +211,24 @@ export function TypeOptions({ spans, set, features, paragraph }: { spans: Pick<A
                     <Select label="Position" prefix="Position" value={same((a) => a.position)} options={POSITIONS} onChange={(position) => set({ position })} />
                     <Field label="Shift" title="Baseline shift" unit="pt" min={-Infinity} reset={0} value={same((a) => a.baselineShift)} onCommit={(baselineShift) => set({ baselineShift })} />
                   </Group>
-                  <Group title="OpenType">
-                    {FIGURES.map(([title, prefix, tags]) => (
-                      <Select
-                        key={title}
-                        label={title}
-                        prefix={prefix}
-                        value={same((a) => tags.find(([t]) => a.features.includes(t))?.[0] ?? '')}
-                        options={Object.fromEntries([['', 'Default'], ...tags])}
-                        onChange={(tag) => put(tags.map(([t]) => t), tag ? [tag] : [])}
-                      />
-                    ))}
-                    {FEATURES.map(([tag, title, dflt]) => (
-                      <Check key={tag} label={title} value={same(on(tag, dflt))} set={(c) => put([tag], dflt ? (c ? [] : [`${tag}=0`]) : c ? [tag] : [])} />
-                    ))}
-                  </Group>
+                  {FEATURES.map(([group, list]) => (
+                    <Group key={group} title={group}>
+                      {group === 'Numbers' &&
+                        FIGURES.map(([title, prefix, tags]) => (
+                          <Select
+                            key={title}
+                            label={title}
+                            prefix={prefix}
+                            value={same((a) => tags.find(([t]) => a.features.includes(t))?.[0] ?? '')}
+                            options={Object.fromEntries([['', 'Default'], ...tags])}
+                            onChange={(tag) => put(tags.map(([t]) => t), tag ? [tag] : [])}
+                          />
+                        ))}
+                      {list.map(([tag, title, dflt]) => (
+                        <Check key={tag} label={title} value={same(on(tag, dflt))} set={(c) => put([tag], dflt ? (c ? [] : [`${tag}=0`]) : c ? [tag] : [])} />
+                      ))}
+                    </Group>
+                  ))}
                 </>
               )}
               {tab === 'Paragraph' && (

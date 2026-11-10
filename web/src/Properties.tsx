@@ -4,7 +4,7 @@ import { useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
 import { bounds, ends, MM, scopeOf, useEditor, type Editor } from './editor'
-import { Icon, KindIcon, type IconName } from './icons'
+import { Icon, KindIcon } from './icons'
 import { FORMATS, ORIENTATIONS, formatOf } from './Start'
 import { addFonts, canFindFonts, findFonts, pickProfile, readLocalFonts, removeFont, useLocalFonts } from './file'
 import type { Bindable as Prop, Blend, Constraint, Command, Grid, LineStyle, Node, Page, Props, Section as Numbers, Wrap } from './model'
@@ -16,12 +16,7 @@ import { EffectList, PaintList } from './Paints'
 import { sameOf, TextFrameSection, TextSection, TextStyles } from './Text'
 import { Bindable, ModeSelects, Variables } from './Variables'
 
-const ARRANGE: [string, IconName][] = [
-  ['Flatten', 'flatten'],
-  ['Flip horizontal', 'flipHorizontal'],
-  ['Flip vertical', 'flipVertical'],
-  ['Add auto layout', 'autoLayout'],
-]
+const ARRANGE = ['Flatten', 'Flip horizontal', 'Flip vertical', 'Add auto layout']
 /** The rotation of `n`, for a group that of all its layers, or null if they differ. */
 const turnOf = (n: Node): number | null => {
   if (n.kind !== 'group') return n.rotation
@@ -92,6 +87,7 @@ export function Properties({ editor }: { editor: Editor }) {
   const { fonts, missingFonts } = snapshot
   const locals = useLocalFonts()
   const selection = useEditor(editor, (e) => e.selection)
+  const [arrange, setArrange] = useState<DOMRect | null>(null)
   const nodes = selection.flatMap((id) => editor.nodes.get(id)?.node ?? [])
 
   const same = <T,>(get: (n: Node) => T | undefined) => {
@@ -171,16 +167,25 @@ export function Properties({ editor }: { editor: Editor }) {
           </>
         )}
         {box && !(one && cropping === one.id) && (
-          <div role="toolbar" aria-label="Arrange" className="arrange">
-            {ARRANGE.map(([title, icon]) => {
-              const a = ACTIONS.find((a) => a.title === title)!
-              return (a.can?.(editor) ?? true) && (
-                <button key={title} type="button" className="icon-button" aria-label={title} title={`${title} (${keysOf(a)})`} onClick={() => press(a.keys)}>
-                  <Icon name={icon} />
-                </button>
-              )
-            })}
-          </div>
+          <>
+            <button type="button" className="icon-button arrange" aria-label="Arrange" title="Arrange" aria-haspopup="menu" aria-expanded={!!arrange} onClick={(e) => setArrange(e.currentTarget.getBoundingClientRect())}>
+              <Icon name="more" />
+            </button>
+            {arrange &&
+              createPortal(
+                <ContextMenu
+                  anchor={() => arrange}
+                  side="bottom"
+                  label="Arrange"
+                  onClose={() => setArrange(null)}
+                  items={ARRANGE.map((title) => {
+                    const a = ACTIONS.find((a) => a.title === title)!
+                    return [title, () => press(a.keys), a.can?.(editor) ?? true, undefined, keysOf(a)]
+                  })}
+                />,
+                document.body,
+              )}
+          </>
         )}
       </header>
       {nodes.length > 1 && (

@@ -291,8 +291,6 @@ body,
 }
 
 .arrange {
-  display: flex;
-  flex: none;
   margin-left: auto;
 }
 
