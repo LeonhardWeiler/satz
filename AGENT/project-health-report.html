@@ -41,14 +41,15 @@
 <body>
 <main>
 <h1>Satz – project health report</h1>
+<p class="meta">10 November 2026 · branch <code>main</code> · <code>a0a423a</code></p>
 
 <div class="counters">
   <div class="counter"><b>0</b><span>Critical</span></div>
   <div class="counter"><b>0</b><span>High</span></div>
   <div class="counter"><b>0</b><span>Medium</span></div>
-  <div class="counter"><b>3</b><span>Low</span></div>
+  <div class="counter"><b>4</b><span>Low</span></div>
   <div class="counter"><b>1</b><span>Info</span></div>
-  <div class="counter"><b>4</b><span>Total</span></div>
+  <div class="counter"><b>5</b><span>Total</span></div>
 </div>
 
 <nav aria-label="Contents">
@@ -56,7 +57,8 @@
   <li><a href="#open">Open findings</a>
     <ol>
       <li><a href="#TEST-1">TEST-1 E2E in Chromium only</a></li>
-      <li><a href="#TEST-2">TEST-2 Red CI runs are real failures</a></li>
+      <li><a href="#TEST-3">TEST-3 Fixed preview port</a></li>
+      <li><a href="#UX-1">UX-1 Hex without #</a></li>
       <li><a href="#ARCH-2">ARCH-2 Derived sizes in the document</a></li>
       <li><a href="#PERF-5">PERF-5 Source Serif downloaded twice</a></li>
     </ol>
@@ -74,11 +76,17 @@
   <p>Firefox is a target browser with its own save path (download instead of the file picker) and no Local Font Access, but only a Chromium (SwiftShader) project runs. Blocked: Playwright's Firefox gets no WebGL 2 context headless or under Xvfb, so the app stops at its WebGL check.</p>
   <p class="rec">Add a Firefox project for the file, start, offline and webgl specs once its WebGL path runs in CI.</p>
 </article>
-<article class="card low" id="TEST-2">
-  <header><span class="id">TEST-2</span><span class="badge low">low</span><h3>5 of the last 20 CI runs were red, each time also in the retry</h3></header>
-  <p class="file"><code>.github/workflows/ci.yml</code>; <code>web/e2e/*.spec.ts</code></p>
-  <p>All failures were in e2e and the retry failed as well, so they were real breakages that reached <code>main</code>, not flakes; a red run skips the deploy. The last one (<code>8824a5d</code>, <code>autolayout.spec.ts:93</code> “a child made absolute keeps its place”) passed again from the next push. The trend is better: 1 red of the last 10 runs, 3 cancelled because a newer push superseded them. Since <code>f5d3642</code> the full <code>./check</code> runs only before the push.</p>
-  <p class="rec">Keep running <code>./check</code> before each push; it takes 5 min locally with all workers.</p>
+<article class="card low" id="TEST-3">
+  <header><span class="id">TEST-3</span><span class="badge low">low</span><h3>E2E and shots need port 4173 to themselves</h3></header>
+  <p class="file"><code>web/playwright.config.ts</code> <code>webServer</code>; <code>web/shots/playwright.config.ts</code></p>
+  <p>The preview server starts with <code>--strictPort</code> on 4173 and Playwright does not reuse a running server, so a second checkout of Satz on the same machine (for example a worktree serving its own <code>dist</code>) makes <code>./check e2e</code> and the shots stop at “4173 is already used”. Reusing the server instead would test the other checkout's build.</p>
+  <p class="rec">Read the port from an environment variable (default 4173) in both <code>webServer.command</code> and <code>baseURL</code>, and let <code>./check</code> pick a free one.</p>
+</article>
+<article class="card low" id="UX-1">
+  <header><span class="id">UX-1</span><span class="badge low">low</span><h3>The colour picker shows hex without “#”</h3></header>
+  <p class="file"><code>web/src/ColorPicker.tsx</code> hex field</p>
+  <p>The field reads “Hex 2C5FD9”. Raters flagged it in every round from r5 to r7 (finding 7 in <code>AGENT/design.md</code>); values pasted with or without “#” are both common.</p>
+  <p class="rec">Show the value as <code>#2C5FD9</code> and accept input with or without the “#”.</p>
 </article>
 <article class="card low" id="ARCH-2">
   <header><span class="id">ARCH-2</span><span class="badge low">low</span><h3>Derived hug sizes are written into the Loro document</h3></header>
@@ -88,21 +96,22 @@
 </article>
 <article class="card info" id="PERF-5">
   <header><span class="id">PERF-5</span><span class="badge info">info</span><h3>Source Serif 4 is downloaded twice</h3></header>
-  <p class="file"><code>engine/src/text.rs:17</code> <code>FONT</code>; <code>web/index.html:16</code> <code>@font-face</code></p>
+  <p class="file"><code>engine/src/text.rs:19</code> <code>FONT</code>; <code>web/index.html:16</code> <code>@font-face</code></p>
   <p>The default font is in the engine WASM and again as a 262 kB TTF for the font menus' CSS.</p>
   <p class="rec">Leave it until more built-in fonts arrive; then load all as files and pass them to <code>add_font</code>.</p>
 </article>
 
 <h2 id="strong">2. What is already strong</h2>
 <ul class="plain">
-  <li><span class="badge good">gate</span> <code>./check</code> in <code>nix develop</code> passes end to end on <code>e554868</code>: <code>./check build</code> in 45 s warm (fmt, clippy <code>-D warnings</code>, 283 cargo tests plus the ignored benchmark, wasm build, <code>tsc</code>, eslint, 40 vitest tests in 9 files, vite build), then 221 Playwright tests in 5:00 min. E2E fails on console errors and waits for the drawn frame. CI runs the same script, e2e in 4 shards of 53–54 tests from a slim <code>.#e2e</code> shell, 1 retry reported as flaky, traces uploaded on failure.</li>
+  <li><span class="badge good">gate</span> <code>./check</code> in <code>nix develop</code> passes end to end on <code>f53467e</code>: fmt, clippy <code>-D warnings</code>, 312 cargo tests (4 ignored), wasm build, <code>tsc</code>, eslint, 42 vitest tests in 9 files, vite build, then 251 Playwright tests (3 skipped) in 7.4 min; <code>a0a423a</code> adds the design test (48 vitest tests) and passes <code>./check build</code>. CI: 1 red run of the last 20, a GitHub Pages deploy timeout with all tests green. E2E fails on console errors and waits for the drawn frame. CI runs the same script, e2e in 4 shards of 53–54 tests from a slim <code>.#e2e</code> shell, 1 retry reported as flaky, traces uploaded on failure.</li>
   <li><span class="badge good">test</span> Pixel diff of the live canvas against the exported PDF rasterised by MuPDF, in RGB and CMYK and per page; presets, separations, overprint and the package zip are checked. The display-list fixture is committed and <code>cargo test</code> fails when it is stale.</li>
   <li><span class="badge good">test</span> Engine tests read as specifications and check undo with stable ids; <code>a_command_that_fails_leaves_the_document_as_it_was</code> and a debug assertion guard every command arm. E2E covers unreadable files, fonts and images, a failed engine load, a trap with reload, offline install and the 880 px bar.</li>
   <li><span class="badge good">engine</span> Colours, page sizes, document settings and image size (50 megapixels, also for opened documents) are checked before the first write; deleted nodes keep their ids under <code>trash</code>; a story keeps the lines it set per frame, so render costs 0.03 ms at any page count; a snapshot rebuilds only the pages a change reaches.</li>
   <li><span class="badge good">design</span> One display list feeds canvas, PDF and rasters; PDF, inks and image export run in a worker that starts fresh after a failure; canvas images decode off the main thread with <code>createImageBitmap</code>, adjust and separate on the GPU and stay within a memory budget across page changes; an unreadable autosave is downloaded and kept under <code>doc-unreadable</code>.</li>
   <li><span class="badge good">build</span> Toolchain fully in <code>flake.nix</code>; <code>wasm-bindgen</code> pinned to the CLI in the flake; 3 runtime web dependencies; actions pinned to commits; CI with <code>contents: read</code>, cancelled when superseded and skipped for agent-only pushes; <code>CLAUDE.md</code> matches the code.</li>
   <li><span class="badge good">a11y</span> Labelled controls, <code>:focus-visible</code>, menu, radio, tree and tooltip roles; layers and pages lists and the overview listboxes are one tab stop with arrow keys; <code>prefers-reduced-motion</code> honoured; loading, WebGL 2, start-failure and trap notices, each with an e2e test.</li>
-  <li><span class="badge good">test</span> A temporary seeded probe (random commands, then undo to the start, undo/redo of each change, save/load every 10 steps) passed on more than 90 seeds: undo returns to the empty document, undo/redo give the same display list, and a loaded document renders the same apart from ARCH-3.</li>
+  <li><span class="badge good">test</span> A temporary seeded probe (random commands, then undo to the start, undo/redo of each change, save/load every 10 steps) passed on more than 90 seeds: undo returns to the empty document, undo/redo give the same display list, and a loaded document renders the same apart from auto layout sizes that drifted by about 1e-13 pt at the time.</li>
+  <li><span class="badge good">design</span> <code>AGENT/design.md</code> fixes the type, space and radius scales, 2 shadows, 2 durations, the colour roles and the look of buttons, titles, menus and dialogs; <code>web/src/design.test.ts</code> fails vitest when <code>index.css</code> leaves the scales, uses another shadow or duration, or a raw colour outside the theme.</li>
   <li><span class="badge good">test</span> A temporary seeded monkey test in the browser (30 seeds, up to 250 random keys, clicks, drags and typing) logged no error; undo to the start gave a pixel-equal canvas on 12 seeds. Threads keep their text when the page of the first frame or the first frame is deleted, the page or frame duplicated or the last frame copied.</li>
 </ul>
 
