@@ -560,15 +560,14 @@ function textBelow(editor: Editor, n: Node) {
   return false
 }
 
-/** Facing pages, raster resolution, color mode and profile of the document. */
+/** Facing pages, color mode and profile of the document. */
 function DocumentSection({ editor }: { editor: Editor }) {
-  const { facingPages, colorMode, rasterPpi, profile } = useEditor(editor, (e) => e.snapshot)
+  const { facingPages, colorMode, profile } = useEditor(editor, (e) => e.snapshot)
   return (
     <section className="section" aria-label="Document">
       <div className="section-body">
       <div className="grid">
         <Select label="Spreads" value={facingPages ? 'facing' : 'single'} options={SPREADS} onChange={(v) => editor.apply({ type: 'setDocument', facingPages: v === 'facing' })} />
-        <Field label="Raster" reset={300} value={rasterPpi} unit="ppi" min={72} max={1200} onCommit={(v) => editor.apply({ type: 'setDocument', rasterPpi: v })} />
         <Select label="Color mode" prefix="Color" value={colorMode} options={MODES} onChange={(colorMode) => editor.apply({ type: 'setDocument', colorMode })} />
         <Select<string>
           label="Profile"

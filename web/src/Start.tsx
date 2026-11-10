@@ -131,11 +131,6 @@ export function Start({ editor, onClose }: { editor: Editor; onClose: () => void
           </label>
         </div>
         <footer className="start-footer">
-          <button type="button" className="button" onClick={openFile}>
-            <Icon name="folder" />
-            Open file…
-            <Keys keys="Ctrl O" />
-          </button>
           <button type="button" className="primary" title={`${format}, ${plural(pages)}`} onClick={create}>
             Create
             <Keys keys="Enter" />

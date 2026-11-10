@@ -2745,9 +2745,8 @@ input[type='checkbox']:active {
 
 .start-footer {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
 }
-
 
 .start-options .segmented button {
   width: 32px;

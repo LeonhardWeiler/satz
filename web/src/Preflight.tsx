@@ -244,7 +244,7 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
             />
           </label>
           {chosen === null && <p className="pf-error">{labels.length > 1 ? `Pages ${labels[0]}–${labels.at(-1)}, e.g. 1-3, 5` : `Only page ${labels[0]}`}</p>}
-          {(format === 'png' || format === 'jpeg') && (
+          {(format === 'png' || format === 'jpeg' || preset !== 'screen') && (
             <Field label="Resolution" title="Resolution" unit="ppi" min={72} max={1200} reset={300} value={rasterPpi} onCommit={(rasterPpi) => editor.apply({ type: 'setDocument', rasterPpi })} />
           )}
           <button type="button" className={errors ? 'button pf-go bad' : 'primary pf-go'} disabled={exporting || chosen === null} onClick={() => chosen && onExport(format, chosen)}>

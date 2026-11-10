@@ -96,16 +96,6 @@ test('escape returns to the document and new keeps the changes in their project'
   await expect(home(page).getByRole('list', { name: 'Recent' }).getByRole('listitem')).toHaveCount(2)
 })
 
-test('open file on the start screen asks for a file as ctrl+o does', async ({ page }) => {
-  await page.addInitScript(() => delete (window as { showOpenFilePicker?: unknown }).showOpenFilePicker)
-  await open(page)
-  await page.keyboard.press('Control+Alt+n')
-  const chooser = page.waitForEvent('filechooser')
-  await start(page).getByRole('button', { name: /Open file/ }).click()
-  await chooser
-  await expect(start(page)).toHaveCount(0)
-})
-
 test('ctrl+o on the start screen opens the file it asks for', async ({ page }) => {
   await page.addInitScript(() => delete (window as { showOpenFilePicker?: unknown }).showOpenFilePicker)
   await open(page)

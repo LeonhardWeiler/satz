@@ -34,7 +34,7 @@ test('a first visit creates an a5 booklet, a reload opens it and ctrl+n opens a 
   await page.evaluate(() => delete (window as { showOpenFilePicker?: unknown }).showOpenFilePicker)
   await page.keyboard.press('Control+Alt+n')
   const chooser = page.waitForEvent('filechooser')
-  await start(page).getByRole('button', { name: /Open file/ }).click()
+  await page.keyboard.press('Control+o')
   await (await chooser).setFiles(`${import.meta.dirname}/../../examples/poster.satz`)
   await expect(page).toHaveTitle('poster.satz - Satz')
 })
