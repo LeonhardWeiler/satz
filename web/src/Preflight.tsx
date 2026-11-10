@@ -251,9 +251,11 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
             {!exporting && errors > 0 && <Icon name="warn" />}
             {exporting ? 'Exporting…' : errors ? `Export with ${count(errors, 'error')}` : `Export ${FORMATS[format]}`}
           </button>
-          <div className={`pf-bar${exporting ? ' run' : ''}`}>
-            <i />
-          </div>
+          {exporting && (
+            <div className="pf-bar">
+              <i />
+            </div>
+          )}
         </Section>
       </div>
     </section>

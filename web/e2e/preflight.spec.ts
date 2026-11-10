@@ -25,6 +25,11 @@ test('preflight of an rgb document leaves out the inks and lists a layer short o
   const layers = page.getByRole('tree', { name: 'Layers' })
   await expect(layers.getByRole('treeitem', { selected: true })).toHaveCount(1)
   await expect(page.getByRole('toolbar', { name: 'Quick edit' })).toBeVisible()
+
+  await page.keyboard.press('Control+Alt+Y')
+  await expect(pf).toHaveCount(0)
+  await page.getByRole('button', { name: /^Preflight, \d+ issues?$/ }).click()
+  await expect(pf).toBeVisible()
 })
 
 test('export names the errors of the preflight but still downloads the pdf', async ({ page }) => {
@@ -86,17 +91,13 @@ test('export writes every page or a range as a png or a jpeg, and a package as a
   expect(bytes[2].includes('Untitled/Untitled.pdf')).toBe(true)
 })
 
-test('preflight opens from its shortcut, the counter and export, and esc ends it', async ({ page }) => {
+test('preflight opens from its shortcut and export, and esc ends it', async ({ page }) => {
   await open(page)
   const region = await preflight(page)
   await expect(region).toBeVisible()
   await expect.poll(async () => (await page.locator('.right').boundingBox())?.width).toBe(284)
   await page.keyboard.press('Escape')
   await expect(region).toHaveCount(0)
-
-  await page.getByRole('button', { name: /^Preflight, \d+ issues?$/ }).click()
-  await expect(region).toBeVisible()
-  await page.keyboard.press('Escape')
 
   await page.keyboard.press('Control+Shift+E')
   await expect(region.getByRole('button', { name: 'Export PDF' })).toBeFocused()

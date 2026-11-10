@@ -282,21 +282,20 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           <button type="button" className="tool" aria-label="Settings" title="Settings (Ctrl+,)" onClick={() => setDialog('settings')}>
             <Icon name="settings" />
           </button>
-          <button
-            type="button"
-            className="tool pf-btn"
-            aria-label={`Preflight, ${issues.length} issue${issues.length === 1 ? '' : 's'}`}
-            title="Preflight (Ctrl+Alt+Y)"
-            aria-pressed={preflight}
-            onClick={() => editor.togglePreflight()}
-          >
-            <Icon name="preflight" />
-            {issues.length > 0 && (
-              <span className="pf-count" data-sev={errors ? 'error' : 'warn'}>
-                {errors || issues.length}
-              </span>
-            )}
-          </button>
+          {issues.length > 0 && (
+            <button
+              type="button"
+              className="tool pf-count"
+              data-sev={errors ? 'error' : 'warn'}
+              aria-label={`Preflight, ${issues.length} issue${issues.length === 1 ? '' : 's'}`}
+              title="Preflight (Ctrl+Alt+Y)"
+              aria-pressed={preflight}
+              onClick={() => editor.togglePreflight()}
+            >
+              <Icon name="warn" />
+              {errors || issues.length}
+            </button>
+          )}
           <button type="button" className="primary" title="Export (Ctrl+Shift+E)" onClick={openExport}>
             Export
           </button>

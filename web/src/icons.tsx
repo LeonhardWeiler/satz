@@ -282,7 +282,6 @@ const ICONS = {
       <path d="m10 10 3.5 3.5" />
     </>
   ),
-  preflight: <path d="M8 1.8 13.5 4v4c0 3.2-2.4 5.3-5.5 6.2C4.9 13.3 2.5 11.2 2.5 8V4zM5.5 8l1.8 1.8L10.5 6.5" />,
   panelLeft: (
     <>
       <rect x="2" y="3" width="12" height="10" rx="2" />
