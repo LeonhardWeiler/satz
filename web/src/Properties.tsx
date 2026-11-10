@@ -9,7 +9,7 @@ import { FORMATS, ORIENTATIONS, formatOf } from './Start'
 import { addFonts, canFindFonts, findFonts, pickProfile, readLocalFonts, removeFont, useLocalFonts } from './file'
 import type { Bindable as Prop, Blend, Constraint, Command, Grid, LineStyle, Node, Page, Props, Section as Numbers, Wrap } from './model'
 import { isOpen, radiusOf, rounded } from './model'
-import { AlignBar, BooleanBar, combinable, rowOf, setGap } from './align'
+import { AlignBar, BOOLEANS, combinable, rowOf, setGap } from './align'
 import { ACTIONS, keysOf, press } from './commands'
 import { AutoLayout, flows, Sizing } from './AutoLayout'
 import { EffectList, PaintList } from './Paints'
@@ -178,7 +178,7 @@ export function Properties({ editor }: { editor: Editor }) {
                   side="bottom"
                   label="Arrange"
                   onClose={() => setArrange(null)}
-                  items={ARRANGE.map((title) => {
+                  items={[...ARRANGE, ...(combinable(editor) ? BOOLEANS.map((b) => b[1]) : [])].map((title) => {
                     const a = ACTIONS.find((a) => a.title === title)!
                     return [title, () => press(a.keys), a.can?.(editor) ?? true, undefined, keysOf(a)]
                   })}
@@ -201,7 +201,6 @@ export function Properties({ editor }: { editor: Editor }) {
           )}
         </AlignBar>
       )}
-      {combinable(editor) && <BooleanBar editor={editor} />}
       {!box && <DocumentSection editor={editor} />}
       {!box && (
         <Section
