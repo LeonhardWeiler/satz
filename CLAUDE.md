@@ -33,9 +33,8 @@ Node 22, pnpm, MuPDF (`mutool`, for the PDF tests) and
 - `wasm-bindgen` is pinned with `=` in `engine/Cargo.toml` to the version of the
   flake's `wasm-bindgen-cli`; bump both at once.
 - `@playwright/test` is pinned to the version of `playwright-driver` in the flake's
-  nixpkgs; bump it together with `nix flake update nixpkgs`. harfrust, read-fonts and
-  skrifa move by hand (dependabot only sends their patches), skrifa on the version
-  krilla uses.
+  nixpkgs; bump it together with `nix flake update nixpkgs`. skrifa stays on the
+  version krilla uses.
 - A thread's story lives in its first frame; frames link on with `next`.
 - Pages draw their master under their own layers. A page lists the master layers it
   overrides in `detached`, and each overriding copy names its master layer in
