@@ -41,15 +41,15 @@
 <body>
 <main>
 <h1>Satz – project health report</h1>
-<p class="meta">10 November 2026 · branch <code>main</code> · <code>a0a423a</code></p>
+<p class="meta">10 November 2026 · branch <code>main</code> · <code>7f11e0e</code></p>
 
 <div class="counters">
   <div class="counter"><b>0</b><span>Critical</span></div>
   <div class="counter"><b>0</b><span>High</span></div>
   <div class="counter"><b>0</b><span>Medium</span></div>
-  <div class="counter"><b>4</b><span>Low</span></div>
+  <div class="counter"><b>2</b><span>Low</span></div>
   <div class="counter"><b>1</b><span>Info</span></div>
-  <div class="counter"><b>5</b><span>Total</span></div>
+  <div class="counter"><b>3</b><span>Total</span></div>
 </div>
 
 <nav aria-label="Contents">
@@ -57,8 +57,6 @@
   <li><a href="#open">Open findings</a>
     <ol>
       <li><a href="#TEST-1">TEST-1 E2E in Chromium only</a></li>
-      <li><a href="#TEST-3">TEST-3 Fixed preview port</a></li>
-      <li><a href="#UX-1">UX-1 Hex without #</a></li>
       <li><a href="#ARCH-2">ARCH-2 Derived sizes in the document</a></li>
       <li><a href="#PERF-5">PERF-5 Source Serif downloaded twice</a></li>
     </ol>
@@ -75,18 +73,6 @@
   <p class="file"><code>web/playwright.config.ts</code></p>
   <p>Firefox is a target browser with its own save path (download instead of the file picker) and no Local Font Access, but only a Chromium (SwiftShader) project runs. Blocked: Playwright's Firefox gets no WebGL 2 context headless or under Xvfb, so the app stops at its WebGL check.</p>
   <p class="rec">Add a Firefox project for the file, start, offline and webgl specs once its WebGL path runs in CI.</p>
-</article>
-<article class="card low" id="TEST-3">
-  <header><span class="id">TEST-3</span><span class="badge low">low</span><h3>E2E and shots need port 4173 to themselves</h3></header>
-  <p class="file"><code>web/playwright.config.ts</code> <code>webServer</code>; <code>web/shots/playwright.config.ts</code></p>
-  <p>The preview server starts with <code>--strictPort</code> on 4173 and Playwright does not reuse a running server, so a second checkout of Satz on the same machine (for example a worktree serving its own <code>dist</code>) makes <code>./check e2e</code> and the shots stop at “4173 is already used”. Reusing the server instead would test the other checkout's build.</p>
-  <p class="rec">Read the port from an environment variable (default 4173) in both <code>webServer.command</code> and <code>baseURL</code>, and let <code>./check</code> pick a free one.</p>
-</article>
-<article class="card low" id="UX-1">
-  <header><span class="id">UX-1</span><span class="badge low">low</span><h3>The colour picker shows hex without “#”</h3></header>
-  <p class="file"><code>web/src/ColorPicker.tsx</code> hex field</p>
-  <p>The field reads “Hex 2C5FD9”. Raters flagged it in every round from r5 to r7 (finding 7 in <code>AGENT/design.md</code>); values pasted with or without “#” are both common.</p>
-  <p class="rec">Show the value as <code>#2C5FD9</code> and accept input with or without the “#”.</p>
 </article>
 <article class="card low" id="ARCH-2">
   <header><span class="id">ARCH-2</span><span class="badge low">low</span><h3>Derived hug sizes are written into the Loro document</h3></header>
