@@ -315,6 +315,12 @@ pub enum Command {
         from: String,
         to: String,
     },
+    /// Threads the text layer `to` before `id`: the story flows through `to` first,
+    /// and a story that started in `id` moves into `to`.
+    ThreadBefore {
+        id: String,
+        to: String,
+    },
     /// Breaks the thread after a text layer; its story stays with the frames before.
     Unthread {
         id: String,
@@ -1744,6 +1750,7 @@ impl Doc {
             Command::Override { page, id } => self.override_layer(page, id),
             Command::ResetToMaster { ids } => self.reset_to_master(ids),
             Command::Thread { from, to } => self.thread_after(from, to),
+            Command::ThreadBefore { id, to } => self.thread_before(id, to),
             Command::Unthread { id } => self.unthread(id),
         }
     }
@@ -3787,8 +3794,12 @@ mod tests {
                     h: frame[3],
                     crop: false,
                 },
-                5 => Command::Thread {
+                5 if rand(2) == 0 => Command::Thread {
                     from: id,
+                    to: t[rand(t.len())].0.clone(),
+                },
+                5 => Command::ThreadBefore {
+                    id,
                     to: t[rand(t.len())].0.clone(),
                 },
                 6 => Command::Unthread { id },

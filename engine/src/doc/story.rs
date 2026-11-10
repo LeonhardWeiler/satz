@@ -635,36 +635,40 @@ impl Doc {
             let next = self.next_of(n);
             match (self.prev_of(n), next) {
                 (Some(p), x) => self.set_next(p, x)?,
-                (None, Some(x)) => {
-                    let delta = self.own_text(n)?.to_delta();
-                    let t = self
-                        .meta(x)
-                        .insert_container("text", LoroText::new())
-                        .map_err(err)?;
-                    t.apply_delta(&delta).map_err(err)?;
-                    let (from, to) = (self.meta(n), self.meta(x));
-                    for k in STORY {
-                        match value(&from, k) {
-                            Some(v) => to.insert(k, v).map_err(err)?,
-                            None => to.delete(k).map_err(err)?,
-                        }
-                    }
-                    let mut b = self.bindings(x);
-                    let own = b.clone();
-                    b.extend(
-                        self.bindings(n)
-                            .into_iter()
-                            .filter(|(k, _)| k == "size" || k == "font"),
-                    );
-                    if b != own {
-                        to.insert(BINDINGS, loro(b)?).map_err(err)?;
-                    }
-                }
+                (None, Some(x)) => self.move_story(n, x)?,
                 (None, None) => {}
             }
             if next.is_some() {
                 self.set_next(n, None)?;
             }
+        }
+        Ok(())
+    }
+
+    /// Copies the story that the text layer `n` holds into `x`.
+    fn move_story(&self, n: TreeID, x: TreeID) -> Res<()> {
+        let delta = self.own_text(n)?.to_delta();
+        let t = self
+            .meta(x)
+            .insert_container("text", LoroText::new())
+            .map_err(err)?;
+        t.apply_delta(&delta).map_err(err)?;
+        let (from, to) = (self.meta(n), self.meta(x));
+        for k in STORY {
+            match value(&from, k) {
+                Some(v) => to.insert(k, v).map_err(err)?,
+                None => to.delete(k).map_err(err)?,
+            }
+        }
+        let mut b = self.bindings(x);
+        let own = b.clone();
+        b.extend(
+            self.bindings(n)
+                .into_iter()
+                .filter(|(k, _)| k == "size" || k == "font"),
+        );
+        if b != own {
+            to.insert(BINDINGS, loro(b)?).map_err(err)?;
         }
         Ok(())
     }
@@ -1160,24 +1164,48 @@ impl Doc {
 
     pub(super) fn thread_after(&self, from: String, to: String) -> Res<Vec<String>> {
         let (a, b) = self.threadable(&from, &to)?;
+        self.link(a, b, false)
+    }
+
+    pub(super) fn thread_before(&self, id: String, to: String) -> Res<Vec<String>> {
+        let (a, b) = self.threadable(&id, &to)?;
+        match self.prev_of(a) {
+            Some(p) => self.link(p, b, false),
+            None => self.link(a, b, true),
+        }
+    }
+
+    /// Threads the free text layer `b` after `a`, or before `a` as the first frame of
+    /// its thread, which takes the story.
+    fn link(&self, a: TreeID, b: TreeID, head: bool) -> Res<Vec<String>> {
         let own = self.own_text(b)?;
         if own.len_utf16() > 0 {
             let story = self.text(a)?;
-            let at = story.len_utf16();
+            let at = if head { 0 } else { story.len_utf16() };
             story.insert_utf16(at, "\n").map_err(err)?;
-            let mut delta = vec![TextDelta::Retain {
-                retain: at + 1,
-                attributes: None,
-            }];
+            let mut delta = match head {
+                true => vec![],
+                false => vec![TextDelta::Retain {
+                    retain: at + 1,
+                    attributes: None,
+                }],
+            };
             delta.extend(own.to_delta());
             story.apply_delta(&delta).map_err(err)?;
             own.delete_utf16(0, own.len_utf16()).map_err(err)?;
         }
-        if let Some(c) = self.next_of(a) {
-            self.set_next(b, Some(c))?;
-        }
-        self.set_next(a, Some(b))?;
         let fills = value(&self.meta(self.story(a)), "fills");
+        if head {
+            self.move_story(a, b)?;
+            let t = self.own_text(a)?;
+            t.delete_utf16(0, t.len_utf16()).map_err(err)?;
+            self.set_next(b, Some(a))?;
+        } else {
+            if let Some(c) = self.next_of(a) {
+                self.set_next(b, Some(c))?;
+            }
+            self.set_next(a, Some(b))?;
+        }
         if let Some(f) = fills {
             self.meta(b).insert("fills", f).map_err(err)?;
         }
@@ -2085,6 +2113,46 @@ mod tests {
         assert_eq!(flow(&d, &a).4, Some(b.clone()));
         assert_eq!(flow(&d, &b).4, Some(c.clone()));
         assert_eq!(flow(&d, &c).3, Some(b));
+    }
+
+    #[test]
+    fn a_frame_threaded_before_one_goes_between_it_and_the_frame_before() {
+        let (mut d, p) = empty();
+        let a = fixed_text(&mut d, &p, [0.0, 0.0, 50.0, 20.0]);
+        let c = fixed_text(&mut d, &p, [0.0, 100.0, 50.0, 20.0]);
+        let b = fixed_text(&mut d, &p, [0.0, 50.0, 50.0, 20.0]);
+        thread(&mut d, &a, &c).unwrap();
+        d.apply(Command::ThreadBefore {
+            id: c.clone(),
+            to: b.clone(),
+        })
+        .unwrap();
+        assert_eq!(flow(&d, &a).4, Some(b.clone()));
+        assert_eq!(flow(&d, &b).4, Some(c.clone()));
+    }
+
+    #[test]
+    fn a_frame_threaded_before_the_first_takes_the_story_and_undo_gives_it_back() {
+        let (mut d, _, p2, a, b) = two_pages();
+        let n = fixed_text(&mut d, &p2, [10.0, 0.0, 100.0, 2.0 * LEADING + 1.0]);
+        set_text(&mut d, &n, "Yo");
+        d.apply(Command::ThreadBefore {
+            id: a.clone(),
+            to: n.clone(),
+        })
+        .unwrap();
+        let (text, start, _, prev, next, _) = flow(&d, &n);
+        assert_eq!(
+            (text.as_str(), start, prev),
+            ("Yo\nHi\nHi\nHi\nHi", 0, None)
+        );
+        assert_eq!(next, Some(a.clone()));
+        assert_eq!(flow(&d, &a).3, Some(n.clone()));
+        assert_eq!(flow(&d, &b).3, Some(a.clone()));
+        d.apply(Command::Undo).unwrap();
+        assert_eq!(flow(&d, &a).3, None);
+        assert_eq!(flow(&d, &a).0, "Hi\nHi\nHi\nHi");
+        assert_eq!(flow(&d, &n).0, "Yo");
     }
 
     #[test]
