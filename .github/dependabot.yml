@@ -4,6 +4,9 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
   - package-ecosystem: cargo
     directory: /
     schedule:
@@ -13,6 +16,12 @@ updates:
         patterns: ["*"]
     ignore:
       - dependency-name: wasm-bindgen
+      - dependency-name: harfrust
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: read-fonts
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: skrifa
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
   - package-ecosystem: npm
     directory: /web
     schedule:
@@ -20,3 +29,9 @@ updates:
     groups:
       npm:
         patterns: ["*"]
+    ignore:
+      - dependency-name: "@playwright/test"
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
