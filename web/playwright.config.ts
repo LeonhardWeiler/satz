@@ -5,6 +5,9 @@ const env = Object.fromEntries(
   Object.entries(process.env).filter(([k]) => k !== 'WAYLAND_DISPLAY' && k !== 'DISPLAY'),
 ) as Record<string, string>
 
+const port = process.env.PORT ?? '4173'
+const url = `http://localhost:${port}/satz/`
+
 export default defineConfig({
   testDir: 'e2e',
   fullyParallel: true,
@@ -13,7 +16,7 @@ export default defineConfig({
   expect: { timeout: 15_000 },
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['github'], ['list']] : 'list',
-  use: { baseURL: 'http://localhost:4173/satz/', colorScheme: 'dark', serviceWorkers: 'block', trace: 'retain-on-first-failure', contextOptions: { reducedMotion: 'reduce' } },
+  use: { baseURL: url, colorScheme: 'dark', serviceWorkers: 'block', trace: 'retain-on-first-failure', contextOptions: { reducedMotion: 'reduce' } },
   projects: [
     {
       name: 'chromium',
@@ -27,7 +30,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'pnpm preview --port 4173 --strictPort',
-    url: 'http://localhost:4173/satz/',
+    command: `pnpm preview --port ${port} --strictPort`,
+    url,
   },
 })

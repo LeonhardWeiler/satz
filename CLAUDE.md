@@ -8,7 +8,8 @@ Rust engine (`engine/`, compiled to WASM) owns the Loro document; the React UI
 `./check` runs everything CI runs, in this order: `cargo fmt --check`, clippy with
 `-D warnings`, `cargo test`, the WASM build into `web/src/engine`, then in `web/`
 tsc, eslint, vitest, vite build and Playwright. `./check build` stops before
-Playwright, `./check e2e [args]` runs only Playwright against `web/dist`.
+Playwright, `./check e2e [args]` runs only Playwright against `web/dist`, served on
+`PORT` (default 4173).
 Before a commit run `./check build` and the affected specs (`./check e2e e2e/<name>.spec.ts`);
 the full `./check` runs once before the push.
 `web/src/testdata` holds the display-list fixture that vitest reads, `web/src/types.ts` the engine's types (ts-rs) and `web/src/unicode-names.txt`
