@@ -17,7 +17,7 @@ test('selection marks', async ({ page }) => {
   await shot(page, K, '01 hover outline', 'Hover outline over a layer', [top()], 0)
   await select(page, 'Star')
   await shot(page, K, '02 selection', 'Selected layer: box, handles, size label, extent on the rulers (whole window)')
-  await shot(page, K, '03 selection, close-up', 'Selection handles and quick edit bar, close-up', [top()], 0)
+  await shot(page, K, '03 selection, close-up', 'Selection handles, close-up', [top()], 0)
   await select(page, 'Blurred tile')
   await shot(page, K, '04 rectangle radius handles', 'Rectangle with radius handles', [top()], 0)
   await select(page, 'Arrow')
@@ -211,8 +211,6 @@ test('auto layout marks', async ({ page }) => {
   await page.keyboard.press('Shift+a')
   await rest(page)
   await shot(page, K, '50 auto layout row', 'Auto layout row selected: padding and gap handles', [top()], 0)
-  const tri = (await page.locator('.quick').boundingBox())!
-  void tri
   await page.mouse.dblclick(...SUN)
   await rest(page)
   await page.mouse.move(...SUN)

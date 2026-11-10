@@ -223,6 +223,7 @@ test('enter edits the points of a shape, moving, adding and deleting them', asyn
 
 test('path edit hides the quick bar and shows a move cursor over a point', async ({ page }) => {
   await open(page)
+  await page.keyboard.press('Alt+2')
   const canvas = page.getByLabel('Page canvas')
   await page.keyboard.press('r')
   await drag(page, await screen(page, 20, 20), await screen(page, 60, 60))

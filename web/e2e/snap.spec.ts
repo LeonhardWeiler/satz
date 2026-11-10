@@ -39,6 +39,7 @@ test('drawing and moving snap to the page and other layers unless ctrl is held',
 
 test('alt shows the distances to the layer under the pointer or to the page', async ({ page }) => {
   await open(page)
+  await page.keyboard.press('Alt+2')
   await addMaster(page)
   await page.keyboard.press('r')
   await drag(page, await screen(page, 20, 20), await screen(page, 40, 40))

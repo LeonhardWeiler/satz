@@ -63,3 +63,4 @@ findings:
 | Round | Rubric | Overall | Lowest criterion |
 |---|---|---|---|
 | 1 | v1 | 6 | calm 5, economy 5, clarity 5 |
+| 2 | v1 | 7 | economy 6, clarity 6 |

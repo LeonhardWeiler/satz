@@ -106,8 +106,7 @@ test('menus', async ({ page }) => {
   await shot(page, '11 Menus', '01 context menu, nothing selected', 'Context menu on the empty canvas', [page.getByRole('menu')], 40)
   await page.keyboard.press('Escape')
   await select(page, 'Star')
-  const star = (await page.locator('.quick').boundingBox())!
-  await page.mouse.click(star.x + star.width / 2, star.y + star.height + 60, { button: 'right' })
+  await page.mouse.click(731, 275, { button: 'right' })
   await shot(page, '11 Menus', '02 context menu, selection', 'Context menu with a selection', [page.getByRole('menu')], 40)
   await shot(page, '11 Menus', '03 context menu, selection, in context', 'Context menu with a selection, whole window')
 })
@@ -142,8 +141,7 @@ test('shell feedback', async ({ page }) => {
   const status = page.locator('p.status')
   const canvas = page.getByLabel('Page canvas')
   await select(page, 'Star')
-  const q = (await page.locator('.quick').boundingBox())!
-  await page.mouse.click(q.x + q.width / 2, q.y + q.height + 60, { button: 'right' })
+  await page.mouse.click(731, 275, { button: 'right' })
   await page.getByRole('menu').getByRole('menuitem', { name: /^Transform/ }).click()
   await shot(page, '11 Menus', '04 context menu, transform', 'Transform submenu of the context menu', [page.getByRole('menu')], 40)
   await page.keyboard.press('Escape')

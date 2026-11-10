@@ -15,7 +15,9 @@ test('extras sample', async ({ page }) => {
   await shot(page, T, '13 all characters, search', 'Glyphs dialog searched', [page.getByRole('dialog', { name: 'All characters' })], 8)
   await page.keyboard.press('Escape')
   await select(page, 'Rectangle')
+  await page.keyboard.press('Alt+2')
   await opened(page, Q, '32 quick fill color menu', 'Quick edit fill color menu', page.locator('.quick').getByRole('button', { name: 'Fill color' }), page.getByRole('menu').last())
+  await page.keyboard.press('Alt+2')
   await section(page, 'Fill').getByRole('button', { name: 'Hide fill' }).click()
   await rest(page)
   await shot(page, C, '50 hidden fill', 'Fill hidden with the eye', [section(page, 'Fill')], 8)
@@ -37,6 +39,8 @@ test('extras poster', async ({ page }) => {
   await page.getByRole('tree', { name: 'Layers' }).locator('.layer-name').filter({ hasText: /^Earthrise$/ }).first().click()
   await rest(page)
   await shot(page, P, '22 image in a CMYK document', 'Image fill of an RGB image in a CMYK document (RGB → CMYK)', ['right'])
+  await page.keyboard.press('Alt+2')
+  await rest(page)
   await shot(page, Q, '22 image in a CMYK document', 'Quick edit bar: image', [page.locator('.quick')], 16)
 })
 

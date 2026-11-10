@@ -85,7 +85,7 @@ test('property sections space their rows evenly and size their controls alike', 
   const layers = page.getByRole('tree', { name: 'Layers' })
   const expectEven = async () => {
     const sections = await panel.evaluate((el) =>
-      [...el.querySelectorAll('.section')].map((s) => {
+      [...el.querySelectorAll('.section:not(:has(> .section-body:empty))')].map((s) => {
         const r = s.getBoundingClientRect()
         const kids = [...s.children].filter((c) => c.getClientRects().length).map((c) => c.getBoundingClientRect())
         return {
@@ -344,6 +344,7 @@ test('side panels and the swatches are resized at their inner edge and keep thei
 
 test('ctrl and the wheel over the quick edit bar zoom the canvas', async ({ page }) => {
   await open(page)
+  await page.keyboard.press('Alt+2')
   await page.keyboard.press('r')
   await drag(page, await screen(page, 20, 40), await screen(page, 60, 80))
   const box = (await page.getByRole('toolbar', { name: 'Quick edit' }).boundingBox())!

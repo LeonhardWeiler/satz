@@ -1843,6 +1843,10 @@ input[type='checkbox']:disabled {
   box-shadow: var(--shadow-pop);
 }
 
+.app:not(.no-right) .quick {
+  display: none;
+}
+
 .quick {
   gap: 4px;
   max-width: calc(100% - 16px);

@@ -363,6 +363,7 @@ test('ctrl while resizing a text scales its type, and a new format scales the la
 
 test('a stroke goes around the text', async ({ page }) => {
   await open(page)
+  await page.keyboard.press('Alt+2')
   await page.keyboard.press('t')
   await page.mouse.click(...(await screen(page, 10, 200, 0)))
   await page.keyboard.type('HHHH')

@@ -46,7 +46,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
           Hold a bank card here and match its size for Zoom to 100%
         </div>
         <label className="settings-row">
-          Quick edit bar above the selection
+          Quick edit bar above the selection while the right panel is hidden
           <input type="checkbox" checked={quickEdit} onChange={(e) => setSettings({ quickEdit: e.currentTarget.checked })} />
         </label>
       </div>

@@ -2,6 +2,7 @@ import { expect, test, choose, drag, open, screen } from './util'
 
 test('quick edit sits above the selection, sets stroke and fill, and hides while dragging and editing', async ({ page }) => {
   await open(page)
+  await page.keyboard.press('Alt+2')
   const quick = page.getByRole('toolbar', { name: 'Quick edit' })
   const panel = page.getByRole('complementary', { name: 'Properties' })
   await expect(quick).toBeHidden()
@@ -85,6 +86,7 @@ test('an ellipse opens to an arc and hollows to a ring', async ({ page }) => {
 
 test('quick edit above a text shows its font and sets its type options', async ({ page }) => {
   await open(page)
+  await page.keyboard.press('Alt+2')
   const quick = page.getByRole('toolbar', { name: 'Quick edit' })
   const panel = page.getByRole('complementary', { name: 'Properties' })
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
@@ -96,12 +98,14 @@ test('quick edit above a text shows its font and sets its type options', async (
   await choose(textCase, 'Upper case')
   await expect(textCase).toBeFocused()
   await page.keyboard.press('Escape')
+  await page.keyboard.press('Alt+2')
   await panel.getByRole('button', { name: 'Type options' }).click()
   await expect(page.getByRole('dialog', { name: 'Type options' }).getByRole('combobox', { name: 'Case' })).toHaveText(/Upper case$/)
 })
 
 test('quick edit aligns several layers, sizes a layer in an auto layout and sets the font size', async ({ page }) => {
   await open(page)
+  await page.keyboard.press('Alt+2')
   const quick = page.getByRole('toolbar', { name: 'Quick edit' })
   const panel = page.getByRole('complementary', { name: 'Properties' })
   await page.keyboard.press('r')

@@ -136,6 +136,7 @@ const Q = '12 Quick edit bar'
 test('quick bar and variables', async ({ page }) => {
   await start(page, { h: 1600 })
   const quick = page.locator('.quick')
+  await page.keyboard.press('Alt+2')
   await select(page, 'Star')
   await opened(page, Q, '33 quick stroke color menu', 'Quick edit stroke color menu', quick.getByRole('button', { name: 'Stroke color' }))
   await quick.getByRole('button', { name: 'Fill color' }).click()
@@ -146,6 +147,7 @@ test('quick bar and variables', async ({ page }) => {
   await shot(page, Q, '35 mixed fill chip', 'Two layers with different fills: mixed chip', [quick], 16)
   await select(page, 'Satz sets type…')
   await opened(page, Q, '36 quick type options', 'Type options from the quick edit bar', quick.getByRole('button', { name: 'Type options' }), page.getByRole('dialog', { name: 'Type options' }))
+  await page.keyboard.press('Alt+2')
   const vars = section(page, 'Variables')
   for (const k of ['Number', 'Font']) {
     await vars.getByRole('button', { name: 'Add variable' }).click()
