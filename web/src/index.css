@@ -1186,7 +1186,7 @@ input[type='checkbox']:disabled {
 .picker-area {
   position: relative;
   height: 200px;
-  border-radius: 6px;
+  border-radius: 4px;
   background-image: linear-gradient(to top, #000000, transparent), linear-gradient(to right, #ffffff, transparent);
   cursor: crosshair;
   touch-action: none;

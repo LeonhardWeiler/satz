@@ -23,7 +23,7 @@ fails vitest.
 - Space: 2, 4, 8, 12, 16, 24, 32, 48 for padding, margin and gap. Panel inset 16,
   field gap 8, dialog inset 24, page inset 48. Negative margins only as the negative
   of a scale value, to line text up with its neighbours. Tree indents are 16 per level.
-- Radius: 2 (marks under 8 px), 4 (chips, keycaps, swatches, badges), 6 (controls,
+- Radius: 2 (marks under 8 px), 4 (chips, keycaps, swatches, badges, colour areas), 6 (controls,
   rows, buttons), 8 (popovers, menus, bars, cards), 12 (dialogs), 999 px (counters),
   50% (dots and knobs).
 - Control height 28; icon buttons 28 in panels, 24 inside fields and rows.

@@ -329,7 +329,7 @@ export function Picker({
                   aria-label="Hex"
                   autoComplete="off"
                   spellCheck={false}
-                  defaultValue={hex(rgb)}
+                  defaultValue={`#${hex(rgb)}`}
                   onFocus={(e) => e.currentTarget.select()}
                   onBlur={(e) => commitHex(e.currentTarget.value)}
                   onKeyDown={(e) => {

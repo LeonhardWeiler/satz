@@ -71,7 +71,7 @@ test('hex, saturation, hue and alpha change the fill', async ({ page }) => {
   await hue.focus()
   await hue.press('Home')
   expect(near(await color(), [255, 0, 0])).toBe(true)
-  await expect(picker.getByRole('textbox', { name: 'Hex' })).toHaveValue('FF0000')
+  await expect(picker.getByRole('textbox', { name: 'Hex' })).toHaveValue('#FF0000')
 
   await picker.getByRole('slider', { name: 'Opacity' }).fill('40')
   await expect(panel.getByTitle('Fill opacity').getByRole('textbox')).toHaveValue('40')
