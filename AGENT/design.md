@@ -13,6 +13,18 @@ fails vitest.
 - Show what is used, hide what is rare behind a section, a tab or a menu; never a
   second copy of the same control.
 - Calm motion: short fades and a slight press, nothing moves on its own.
+- A control appears only where it acts: the align bar only for several layers, the
+  wrap offset only with a wrap, the preflight counter only with issues, the progress
+  bar only while exporting, a setting where it takes effect (raster resolution in
+  Export).
+- Rare settings of a section sit behind "More options", which opens by itself when one
+  of them is set. Rare actions (arrange, flip, flatten, booleans) live in the panel's
+  ⋯ menu and the palette, not in icon rows.
+- Empty sections collapse to their title row; mixed values say "Mixed", the
+  explanation goes into the tooltip.
+- Long option lists are grouped under short group titles, never one flat list.
+- One entry point per action per screen: a dialog does not repeat a button of the
+  screen behind it.
 
 ## Tokens
 
