@@ -1,9 +1,8 @@
 import { expect, test, addMaster, addPage, open, option, overview, choose } from './util'
 
-test('the page section sets the format and orientation, the document section the page count', async ({ page }) => {
+test('the page section sets the format and orientation', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
-  const document = panel.getByRole('region', { name: 'Document' })
   await addPage(page)
   const sheet = panel.getByRole('region', { name: 'Page 2' })
   const width = sheet.getByRole('textbox', { name: 'W in mm' })
@@ -14,16 +13,6 @@ test('the page section sets the format and orientation, the document section the
   await expect(page.getByLabel('Zoom')).not.toHaveText(zoom!)
   await sheet.getByRole('radio', { name: 'Landscape' }).click()
   await expect(width).toHaveValue('297')
-
-  const pages = document.getByRole('textbox', { name: 'Pages', exact: true })
-  await expect(pages).toHaveValue('2')
-  await document.getByRole('button', { name: 'Increase Pages' }).click()
-  await expect(pages).toHaveValue('3')
-  await pages.fill('1')
-  await pages.press('Enter')
-  await expect(pages).toHaveValue('1')
-  await page.keyboard.press('Control+z')
-  await expect(pages).toHaveValue('3')
 })
 
 test('the master select sets the master of the pages selected in the overview and shows mixed', async ({ page }) => {

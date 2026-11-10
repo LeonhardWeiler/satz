@@ -3827,3 +3827,42 @@ button.mark {
 .find .field input::placeholder {
   color: var(--text-3);
 }
+
+.more {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-self: start;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-2);
+  font: inherit;
+  cursor: pointer;
+}
+
+.more:hover {
+  color: var(--text);
+}
+
+.more[aria-expanded='true'] svg {
+  transform: rotate(90deg);
+}
+
+.section:has(> .section-body:empty) {
+  padding: 4px 0;
+  border-bottom: 0;
+}
+
+.section:has(> .section-body:empty) h3 {
+  color: var(--text-2);
+}
+
+.section:not(:has(> .section-body:empty)) + .section:has(> .section-body:empty) {
+  padding-top: 12px;
+}
+
+.section:has(> .section-body:empty):last-child {
+  padding-bottom: 12px;
+}

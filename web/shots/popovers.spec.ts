@@ -121,7 +121,6 @@ test('text', async ({ page }) => {
   await opened(page, T, '04 insert character', 'Insert character menu', props(page).getByRole('button', { name: 'Insert character' }))
   await opened(page, T, '05 type options', 'Type options popover', props(page).getByRole('button', { name: 'Type options' }), page.getByRole('dialog', { name: 'Type options' }))
   await select(page, 'Satz sets type…')
-  await opened(page, T, '06 hyphenation language', 'Hyphenation language select', combo(page, 'Hyphenation language'))
   await props(page).getByRole('textbox', { name: 'Columns' }).fill('2')
   await page.keyboard.press('Enter')
   await rest(page)

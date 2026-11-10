@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
-import { Check, Field, FontSelect, Group, NameInput, nextName, Section, Segmented, Select, Sides, useSides } from './controls'
+import { Check, Field, FontSelect, Group, More, NameInput, nextName, Section, Segmented, Select, Sides, useSides } from './controls'
 import { ColorPicker } from './ColorPicker'
 import { neutral, type Color } from './color'
 import { scopeOf, useEditor, type Editor } from './editor'
@@ -166,7 +166,7 @@ export const featuresOf = (editor: Editor, id: string, spans: Span[], r: [number
 }
 
 /** A button that opens the case, decoration, indent and OpenType features of `spans`. */
-export function TypeOptions({ spans, set, features }: { spans: Pick<Attrs, Styled>[]; set: (p: TextProps) => void; features: (f: (old: string[]) => string[]) => void }) {
+export function TypeOptions({ spans, set, features, paragraph }: { spans: Pick<Attrs, Styled>[]; set: (p: TextProps) => void; features: (f: (old: string[]) => string[]) => void; paragraph?: ReactNode }) {
   const [at, setAt] = useState<DOMRect | null>(null)
   const [tab, setTab] = useState<'Character' | 'Paragraph' | 'Tabs'>('Character')
   const same = <T,>(get: (a: Pick<Attrs, Styled>) => T) => sameOf(spans, get)
@@ -238,6 +238,7 @@ export function TypeOptions({ spans, set, features }: { spans: Pick<Attrs, Style
               )}
               {tab === 'Paragraph' && (
                 <>
+                  {paragraph && <Group title="Hyphenation & shading">{paragraph}</Group>}
                   <Group title="Indents & spacing">
                     <Field label="First line" title="First line indent" unit="pt" reset={0} value={same((a) => a.paragraphIndent)} onCommit={(paragraphIndent) => set({ paragraphIndent })} />
                     <Field label="Left" title="Left indent" unit="pt" reset={0} value={same((a) => a.indentLeft)} onCommit={(indentLeft) => set({ indentLeft })} />
@@ -502,22 +503,28 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
       </div>
       <div className="row">
         <Segmented label="Text align" value={align} options={ALIGNS} onChange={(textAlign) => format({ textAlign })} />
-        <TypeOptions spans={spans} set={format} features={featuresOf(editor, node.id, all, r)} />
-      </div>
-      <ColorCheck
-        editor={editor}
-        node={node}
-        label="Shading"
-        color={shading === null ? undefined : JSON.parse(shading)}
-        set={(c) => format({ shading: c })}
-      />
-      <div className="grid">
-        <Check label="Hyphenate" value={hyphenate} set={(hyphenate) => format({ hyphenate })} />
-        <Select
-          label="Hyphenation language"
-          value={lang ?? 'mixed'}
-          options={langs}
-          onChange={(l) => l !== 'mixed' && format({ lang: l as Attrs['lang'] })}
+        <TypeOptions
+          spans={spans}
+          set={format}
+          features={featuresOf(editor, node.id, all, r)}
+          paragraph={
+            <>
+              <Check label="Hyphenate" value={hyphenate} set={(hyphenate) => format({ hyphenate })} />
+              <Select
+                label="Hyphenation language"
+                value={lang ?? 'mixed'}
+                options={langs}
+                onChange={(l) => l !== 'mixed' && format({ lang: l as Attrs['lang'] })}
+              />
+              <ColorCheck
+                editor={editor}
+                node={node}
+                label="Shading"
+                color={shading === null ? undefined : JSON.parse(shading)}
+                set={(c) => format({ shading: c })}
+              />
+            </>
+          }
         />
       </div>
     </Section>
@@ -604,14 +611,18 @@ export function TextFrameSection({ editor, node, set }: { editor: Editor; node: 
       <div className="grid">
         <Field label="Columns" title="Columns" unit="" int min={1} max={20} reset={1} value={node.columns} onCommit={(columns) => set({ columns })} />
         <Field label="Gutter" title="Gutter" unit="length" value={node.gutter} onCommit={(gutter) => set({ gutter })} />
-        <Field label="Baseline" title="Baseline grid" unit="pt" min={1} zero="Off" reset={0} value={node.baselineGrid} onCommit={(baselineGrid) => set({ baselineGrid })} />
-        <Field label="Start" title="Baseline grid start" unit="pt" reset={0} value={node.baselineStart} onCommit={(baselineStart) => set({ baselineStart })} />
-        <Field label="Min" title="Min height" unit="length" zero="None" reset={0} disabled={resizing !== 'autoHeight'} value={node.minHeight} onCommit={(minHeight) => set({ minHeight })} />
-        <Field label="Lines" title="Max lines" unit="" int max={1000} zero="All" reset={0} value={node.maxLines} onCommit={(maxLines) => set({ maxLines })} />
       </div>
       <Segmented label="Vertical align" prefix="Align" value={node.verticalAlign} options={VERTICAL} onChange={(verticalAlign) => set({ verticalAlign })} />
-      <Check label="Trim to cap height" value={node.trim} set={(trim) => set({ trim })} />
-      <Check label="Whole-point baselines" value={node.roundBaselines} set={(roundBaselines) => set({ roundBaselines })} />
+      <More key={node.id} used={!!(node.baselineGrid || node.baselineStart || node.minHeight || node.maxLines || node.trim || node.roundBaselines)}>
+        <div className="grid">
+          <Field label="Baseline" title="Baseline grid" unit="pt" min={1} zero="Off" reset={0} value={node.baselineGrid} onCommit={(baselineGrid) => set({ baselineGrid })} />
+          <Field label="Start" title="Baseline grid start" unit="pt" reset={0} value={node.baselineStart} onCommit={(baselineStart) => set({ baselineStart })} />
+          {resizing === 'autoHeight' && <Field label="Min" title="Min height" unit="length" zero="None" reset={0} value={node.minHeight} onCommit={(minHeight) => set({ minHeight })} />}
+          <Field label="Lines" title="Max lines" unit="" int max={1000} zero="All" reset={0} value={node.maxLines} onCommit={(maxLines) => set({ maxLines })} />
+        </div>
+        <Check label="Trim to cap height" value={node.trim} set={(trim) => set({ trim })} />
+        <Check label="Whole-point baselines" value={node.roundBaselines} set={(roundBaselines) => set({ roundBaselines })} />
+      </More>
       {node.columns > 1 && (
         <ColorCheck
           editor={editor}

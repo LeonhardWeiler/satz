@@ -183,7 +183,7 @@ export function Properties({ editor }: { editor: Editor }) {
           </div>
         )}
       </header>
-      {box && (
+      {nodes.length > 1 && (
         <AlignBar editor={editor}>
           {row && (
             <Field
@@ -453,10 +453,21 @@ export function Properties({ editor }: { editor: Editor }) {
               <Field label="Opacity" title="Opacity" unit="%" digits={1} max={100} value={same((n) => n.opacity * 100)} onCommit={(v) => set({ opacity: v / 100 })} />,
             )}
             <Select label="Blend mode" value={same((n) => n.blend)} options={BLENDS} breaks={BLEND_GROUPS} onChange={(blend) => set({ blend })} />
+            <Select label="Text wrap" value={same((n) => n.wrap)} options={WRAPS} onChange={(wrap) => set({ wrap })} />
+            {nodes.some((n) => n.wrap !== 'none') && (
+              <Field
+                label="Offset"
+                title="Text wrap offset"
+                unit="length"
+                value={same((n) => (n.wrapOffsetX === n.wrapOffsetY ? n.wrapOffsetX : undefined))}
+                onCommit={(v) => set({ wrapOffsetX: Math.max(0, v), wrapOffsetY: Math.max(0, v) })}
+              />
+            )}
             {one?.kind === 'frame' && (
               <ModeSelects editor={editor} id={one.id} own={one.modes} inherited={editor.nodes.get(one.id)?.parent?.activeModes ?? page.modes} />
             )}
           </div>
+          {nodes.some((n) => n.wrap !== 'none' && !textBelow(editor, n)) && <p className="empty">Only text frames below it in the layers wrap around it</p>}
         </Section>
       )}
       {nodes.length > 0 && nodes.every((n) => n.kind !== 'group') && (
@@ -532,22 +543,6 @@ export function Properties({ editor }: { editor: Editor }) {
         </PaintList>
       )}
       {box && <EffectList effects={sameList((n) => n.effects)} mode={mode} scope={scope} onChange={(effects) => set({ effects })} />}
-      {box && (
-        <Section title="Text wrap">
-          <div className="grid">
-            <Select label="Text wrap" value={same((n) => n.wrap)} options={WRAPS} onChange={(wrap) => set({ wrap })} />
-            <Field
-              label="Offset"
-              title="Text wrap offset"
-              unit="length"
-              disabled={nodes.every((n) => n.wrap === 'none')}
-              value={same((n) => (n.wrapOffsetX === n.wrapOffsetY ? n.wrapOffsetX : undefined))}
-              onCommit={(v) => set({ wrapOffsetX: Math.max(0, v), wrapOffsetY: Math.max(0, v) })}
-            />
-          </div>
-          {nodes.some((n) => n.wrap !== 'none' && !textBelow(editor, n)) && <p className="empty">Only text frames below it in the layers wrap around it</p>}
-        </Section>
-      )}
     </aside>
   )
 }
@@ -561,19 +556,13 @@ function textBelow(editor: Editor, n: Node) {
   return false
 }
 
-/** Format, orientation, size, bleed and number of all pages, facing pages, color mode and raster resolution. */
+/** Facing pages, raster resolution, color mode and profile of the document. */
 function DocumentSection({ editor }: { editor: Editor }) {
-  const { pages, facingPages, colorMode, rasterPpi, profile } = useEditor(editor, (e) => e.snapshot)
-  const count = (n: number) =>
-    editor.batch(() => {
-      for (let i = pages.length; i < n; i++) editor.apply({ type: 'addPage', after: editor.snapshot.pages.at(-1)!.id })
-      for (const p of pages.slice(Math.max(1, n)).reverse()) editor.apply({ type: 'deletePage', id: p.id })
-    })
+  const { facingPages, colorMode, rasterPpi, profile } = useEditor(editor, (e) => e.snapshot)
   return (
     <section className="section" aria-label="Document">
       <div className="section-body">
       <div className="grid">
-        <Field label="Pages" title="Pages" unit="" int min={1} value={pages.length} onCommit={count} />
         <Select label="Spreads" value={facingPages ? 'facing' : 'single'} options={SPREADS} onChange={(v) => editor.apply({ type: 'setDocument', facingPages: v === 'facing' })} />
         <Field label="Raster" reset={300} value={rasterPpi} unit="ppi" min={72} max={1200} onCommit={(v) => editor.apply({ type: 'setDocument', rasterPpi: v })} />
         <Select label="Color mode" prefix="Color" value={colorMode} options={MODES} onChange={(colorMode) => editor.apply({ type: 'setDocument', colorMode })} />

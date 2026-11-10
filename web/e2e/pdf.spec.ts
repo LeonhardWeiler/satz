@@ -383,7 +383,11 @@ test('formatted text matches the canvas', async ({ page }) => {
     await panel.getByRole('textbox', { name }).press('Enter')
   }
   await panel.getByRole('radio', { name: 'Align right' }).click()
-  await choose(panel.getByRole('combobox', { name: 'Hyphenation language' }), 'German')
+  await panel.getByRole('button', { name: 'Type options' }).click()
+  await page.getByRole('dialog', { name: 'Type options' }).getByRole('tab', { name: 'Paragraph' }).click()
+  await choose(page.getByRole('dialog', { name: 'Type options' }).getByRole('combobox', { name: 'Hyphenation language' }), 'German')
+  await page.keyboard.press('Escape')
+  await panel.getByRole('button', { name: 'More options' }).click()
   await panel.getByRole('button', { name: 'Inset of each side' }).click()
   for (const [name, value] of [['Top inset in mm', '3'], ['Columns', '2'], ['Gutter in mm', '4'], ['Baseline grid in pt', '21']]) {
     await panel.getByRole('textbox', { name }).fill(value)
