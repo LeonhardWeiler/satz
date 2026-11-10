@@ -40,10 +40,6 @@ Done; numbers and the items measured and not done in `AGENT/performance.md`.
 
 ## Later
 
-- [ ] Threading through the in-port (explain to the user before building it): in InDesign each
-  text frame has an in-port at its top left and an out-port at its bottom right. Clicking the
-  in-port of a frame that is already in a thread and then another frame puts that frame *before*
-  it, so the story flows through the new frame first. Satz can only append through `next`.
 - [ ] Figma import from an account; .fig files import already (`engine/src/fig.rs`, instance overrides, masks and clips ignored, text as outlines).
 - [ ] InDesign import (IDML) beside SVG, PDF and Figma in `import::import`.
 - [ ] Table of contents.

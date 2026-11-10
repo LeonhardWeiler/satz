@@ -111,3 +111,18 @@ test('a double click on an out-port unthreads the frames after it, and undo thre
   await page.keyboard.press('Control+z')
   await expect(layers.getByRole('button', { name: third, exact: true })).toBeVisible()
 })
+
+test('a click on the in-port of the first frame and then on the page threads a new frame in before it, which takes the story', async ({ page }) => {
+  const second = await threaded(page)
+  await page.mouse.click(...(await screen(page, A[0] + 5, A[1] + 5)))
+  await expect(title(page)).toHaveText('Lorem ipsum dolor sit amet, consetetur…')
+  await page.mouse.click(...(await port(page, A, false)))
+  await expect(page.getByLabel('Page canvas')).toHaveAttribute('data-threading')
+  await page.mouse.click(...(await screen(page, A[0], 60)))
+  await expect(page.getByRole('tree', { name: 'Layers' }).getByRole('treeitem')).toHaveCount(3)
+  await expect(title(page)).toHaveText('Lorem ipsum dolor sit amet, consetetur…')
+  await page.mouse.click(...(await screen(page, A[0] + 5, A[1] + 5)))
+  await expect(title(page)).not.toHaveText('Lorem ipsum dolor sit amet, consetetur…')
+  await page.mouse.click(...(await screen(page, B[0] + 5, B[1] + 5)))
+  await expect(title(page)).not.toHaveText(second)
+})

@@ -71,7 +71,7 @@ type Drag =
   | { kind: 'gap'; start: Point; row: Row; index: number }
   | { kind: 'radius'; start: Point; id: string; box: Box; radii: number[]; index: number; turn: number }
   | { kind: 'marquee'; start: Point; end: Point; base: string[]; knots?: At[] }
-  | { kind: 'draw'; start: Point; id: string; dx: number; moved: boolean; tool: keyof typeof DEFAULT_SIZE; thread?: string; snaps?: Snaps }
+  | { kind: 'draw'; start: Point; id: string; dx: number; moved: boolean; tool: keyof typeof DEFAULT_SIZE; thread?: { id: string; before: boolean }; snaps?: Snaps }
   | { kind: 'pen'; start: Point }
   | { kind: 'knot'; start: Point; cs: Contour[]; at: At[]; part: 'point' | 'in' | 'out' }
   | { kind: 'text' }
@@ -319,7 +319,13 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       if (editor.tool !== 'move' || editor.selection.length !== 1 || editor.editing || n?.kind !== 'text') return undefined
       if (n.sizing.horizontal === 'hug' && n.sizing.vertical === 'hug' && !n.prev && !n.next) return undefined
       const p = portsOf(view, editor.shown(n))
-      return { node: n, out: p.out, in: n.prev ? p.in : undefined }
+      return { node: n, out: p.out, in: n.prev || n.next ? p.in : undefined }
+    }
+    /** Threads the text frame `to` after or before the loaded one; whether it could. */
+    const threadWith = (t: { id: string; before: boolean }, to: string) => {
+      const ok = editor.engine.canThread(t.id, to)
+      editor.apply(t.before ? { type: 'threadBefore', id: t.id, to } : { type: 'thread', from: t.id, to })
+      return ok
     }
     const portUnder = (e: Pointer) => {
       const p = ports()
@@ -457,7 +463,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       })
       return {
         ports: [
-          ...(p.in ? [{ ...p.in, state: 'threaded' as const }] : []),
+          ...(p.in ? [{ ...p.in, state: n.prev ? 'threaded' : 'open' }] : []),
           { ...p.out, state: n.overset ? 'overset' : n.next ? 'threaded' : 'open' },
         ] as const,
         threads: lines,
@@ -702,7 +708,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const guide = editor.tool === 'move' && guideAt(toDoc(pointer))
       canvas.style.cursor = guide ? (guide.axis === 'x' ? 'col-resize' : 'row-resize')
         : side ? 'pointer'
-        : to ? (editor.engine.canThread(editor.threading!, to) ? 'alias' : 'not-allowed')
+        : to ? (editor.engine.canThread(editor.threading!.id, to) ? 'alias' : 'not-allowed')
         : editor.threading ? 'alias'
         : editor.vector?.mode === 'add' || editor.vector?.mode === 'fill' ? 'crosshair'
         : editor.vector && knotUnder(toDoc(pointer)) ? 'move' : cursorOf(handleUnder(pointer) ?? '', handles().box?.rotation ?? 0)
@@ -834,15 +840,13 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         return
       }
       if (editor.threading) {
-        // A loaded out-port threads into the text frame clicked, or a new one drawn.
+        // A loaded port threads with the text frame clicked, or a new one drawn.
         const from = editor.threading
         if (portUnder(e)) return
         const to = textUnder(p)
-        if (to === from) return
+        if (to === from.id) return
         if (to) {
-          const ok = editor.engine.canThread(from, to)
-          editor.apply({ type: 'thread', from, to })
-          if (ok) editor.set({ threading: null, selection: [to] })
+          if (threadWith(from, to)) editor.set({ threading: null, selection: [to] })
           return
         }
         editor.beginGroup()
@@ -964,7 +968,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       }
       const port = portUnder(e)
       if (port) {
-        if (port.side === 'out') editor.set({ threading: port.node.id })
+        editor.set({ threading: { id: port.node.id, before: port.side === 'in' } })
         drag = null
         return
       }
@@ -1266,11 +1270,9 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     const onPointerUp = (e: PointerEvent) => {
       flush()
       if (drag?.kind === 'draw' && drag.thread) {
-        const from = editor.lookup(drag.thread)?.node
+        const from = editor.lookup(drag.thread.id)?.node
         if (!drag.moved && from) editor.apply({ type: 'setFrame', id: drag.id, x: drag.start.x - drag.dx, y: drag.start.y, w: from.w, h: from.h })
-        const ok = editor.engine.canThread(drag.thread, drag.id)
-        editor.apply({ type: 'thread', from: drag.thread, to: drag.id })
-        if (ok) editor.set({ threading: null, selection: [drag.id] })
+        if (threadWith(drag.thread, drag.id)) editor.set({ threading: null, selection: [drag.id] })
         else {
           editor.apply({ type: 'delete', ids: [drag.id] })
           editor.set({ selection: [] })

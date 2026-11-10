@@ -68,8 +68,8 @@ export class Editor {
   editing: Editing | null = null
   /** Matches of find and replace, marked on the canvas. */
   found: { story: string; at: number; end: number }[] = []
-  /** The text frame whose out-port was clicked, to thread into the next one clicked. */
-  threading: string | null = null
+  /** The text frame whose out-port, or in-port with `before`, was clicked, to thread with the next one clicked. */
+  threading: { id: string; before: boolean } | null = null
   /** Images to place, the first at the next click on the canvas. */
   placing: { hash: string; name: string; w: number; h: number; url: string }[] = []
   /** The current page or master, shown on the canvas in its spread. */
