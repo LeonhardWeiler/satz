@@ -25,6 +25,18 @@ fails vitest.
 - Long option lists are grouped under short group titles, never one flat list.
 - One entry point per action per screen: a dialog does not repeat a button of the
   screen behind it.
+- The quick edit bar shows only while the right panel is hidden; both never edit the
+  same value at once. The mask toggle lives in the ⋯ menu with the other arrange
+  actions.
+- Segmented controls use icons only where the icon is unambiguous (alignment, joins);
+  otherwise they show short text labels.
+- One control per value inside a popover too: opacity is the alpha slider, not also a
+  field.
+- A field prefix names the value ("Pages", "Opacity"), the same word wherever it shows.
+- A collapsed empty section before a filled one ends with a separator, so a run of
+  empty titles reads as one block.
+- Editors of list items (text styles) open one item at a time; closed rows show only
+  name, preview and the edit action.
 
 ## Tokens
 

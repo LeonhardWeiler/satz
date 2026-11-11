@@ -320,24 +320,24 @@ export function Picker({
               })}
             </div>
           )}
-            <div className="row">
-              <label className="field">
-                <span className="field-label">Hex</span>
-                <input
-                  key={rgb}
-                  name="hex"
-                  aria-label="Hex"
-                  autoComplete="off"
-                  spellCheck={false}
-                  defaultValue={`#${hex(rgb)}`}
-                  onFocus={(e) => e.currentTarget.select()}
-                  onBlur={(e) => commitHex(e.currentTarget.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') commitHex(e.currentTarget.value)
-                  }}
-                />
-              </label>
-            </div>
+          <div className="row">
+            <label className="field">
+              <span className="field-label">Hex</span>
+              <input
+                key={rgb}
+                name="hex"
+                aria-label="Hex"
+                autoComplete="off"
+                spellCheck={false}
+                defaultValue={`#${hex(rgb)}`}
+                onFocus={(e) => e.currentTarget.select()}
+                onBlur={(e) => commitHex(e.currentTarget.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commitHex(e.currentTarget.value)
+                }}
+              />
+            </label>
+          </div>
         </>
       )}
     </Popover>
