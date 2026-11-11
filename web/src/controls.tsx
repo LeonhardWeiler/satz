@@ -311,24 +311,29 @@ export function FontSelect({ label, faces, missing = [], value, compact, onChang
 
 export function Section({
   title,
+  empty,
   onAdd,
   actions,
   children,
 }: {
   title: string
+  /** Shows only a compact add button that sits beside other empty sections. */
+  empty?: boolean
   onAdd?: (e: MouseEvent<HTMLButtonElement>) => void
   actions?: ReactNode
   children?: ReactNode
 }) {
   const add = `Add ${title.toLowerCase().replace(/s$/, '')}`
+  const compact = empty && onAdd
   return (
-    <section className="section" aria-label={title}>
+    <section className={compact ? 'section add' : 'section'} aria-label={title}>
       <header className="section-header">
-        <h3>{title}</h3>
+        {!compact && <h3>{title}</h3>}
         {actions}
         {onAdd && (
-          <button type="button" className="icon-button" aria-label={add} title={add} onClick={onAdd}>
+          <button type="button" className={compact ? 'add-chip' : 'icon-button'} aria-label={add} title={add} onClick={onAdd}>
             <Icon name="plus" />
+            {compact && title}
           </button>
         )}
       </header>

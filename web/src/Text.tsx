@@ -535,7 +535,7 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
 export function TextStyles({ editor }: { editor: Editor }) {
   const styles = useEditor(editor, (e) => e.snapshot.textStyles)
   return (
-    <Section title="Text styles" onAdd={() => editor.apply({ type: 'addTextStyle', name: nextName('Text style', styles.map((s) => s.name)) })}>
+    <Section title="Text styles" empty={styles.length === 0} onAdd={() => editor.apply({ type: 'addTextStyle', name: nextName('Text style', styles.map((s) => s.name)) })}>
       {styles.map((s) => (
         <StyleRow key={s.id} editor={editor} style={s} />
       ))}
