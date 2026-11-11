@@ -85,7 +85,12 @@ export function Start({ editor, onClose }: { editor: Editor; onClose: () => void
       }}
     >
       <div className="start-main">
-        <h2>New document</h2>
+        <header className="start-head">
+          <h2>New document</h2>
+          <button type="button" className="icon-button" aria-label="Close" title="Close" onClick={onClose}>
+            <Icon name="close" />
+          </button>
+        </header>
         <div className="formats" role="radiogroup" aria-label="Format">
           {all.map((f) => {
             const [a, b] = size(f)
