@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { press } from './commands'
-import { Field, Section, Select } from './controls'
+import { Field, More, Section, Select } from './controls'
 import { useEditor, type Editor } from './editor'
 import { length, useSettings } from './settings'
 import { preview } from './file'
@@ -65,6 +65,8 @@ function usePreview(editor: Editor, on: boolean) {
 }
 
 const PRESETS: Record<Preset, string> = { x4: 'PDF/X-4, print', x1a: 'PDF/X-1a, print', screen: 'PDF, screen' }
+const PRINT = { cropMarks: true, includeBleed: true, imagePpi: 0, jpegQuality: 0 }
+const OUTPUT: Record<Preset, Partial<typeof PRINT>> = { x4: PRINT, x1a: PRINT, screen: { imagePpi: 150, jpegQuality: 90 } }
 
 /** The indices of the pages that `text` names by the numbers they show or their place, all for an empty text, null when one is not there. */
 function pagesOf(text: string, labels: string[]) {
@@ -104,7 +106,8 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
   useSettings()
   const inks = useEditor(editor, (e) => e.inks)
   const limit = useEditor(editor, (e) => e.snapshot.inkLimit)
-  const { preset, cropMarks, includeBleed, colorMode, imagePpi, jpegQuality, rasterPpi } = useEditor(editor, (e) => e.snapshot)
+  const doc = useEditor(editor, (e) => e.snapshot)
+  const { preset, cropMarks, includeBleed, colorMode, imagePpi, jpegQuality, rasterPpi } = doc
   const previewed = useEditor(editor, (e) => e.previewed)
   const swatches = useEditor(editor, (e) => e.snapshot.swatches)
   const pointerInk = useSyncExternalStore(editor.subscribePointer, () => editor.pointerInk)
@@ -216,18 +219,24 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
                 value={preset}
                 options={colorMode === 'rgb' ? { ...PRESETS, x1a: 'PDF/X-1a, print, CMYK documents only' } : PRESETS}
                 disabled={colorMode === 'rgb' ? ['x1a'] : []}
-                onChange={(preset) => editor.apply({ type: 'setDocument', preset })}
+                onChange={(preset) => editor.apply({ type: 'setDocument', preset, ...OUTPUT[preset] })}
               />
-              <label className="check">
-                <input type="checkbox" checked={cropMarks && preset !== 'screen'} disabled={preset === 'screen'} onChange={(e) => editor.apply({ type: 'setDocument', cropMarks: e.currentTarget.checked })} />
-                Crop marks
-              </label>
-              <label className="check">
-                <input type="checkbox" checked={includeBleed && preset !== 'screen'} disabled={preset === 'screen'} onChange={(e) => editor.apply({ type: 'setDocument', includeBleed: e.currentTarget.checked })} />
-                Include {length(pages[0]?.bleed ?? 0)} bleed
-              </label>
-              <Select label="Image resolution" prefix="Images" value={String(imagePpi)} options={options([72, 150, 300], 'ppi', 'Keep', imagePpi)} onChange={(v) => editor.apply({ type: 'setDocument', imagePpi: Number(v) })} />
-              <Select label="JPEG quality" prefix="JPEG quality" value={String(jpegQuality)} options={options([90, 75], '%', 'Lossless', jpegQuality)} onChange={(v) => editor.apply({ type: 'setDocument', jpegQuality: Number(v) })} />
+              <More label="Advanced" used={Object.entries(OUTPUT[preset]).some(([k, v]) => doc[k as keyof typeof doc] !== v)}>
+                {preset !== 'screen' && (
+                  <>
+                    <label className="check">
+                      <input type="checkbox" checked={cropMarks} onChange={(e) => editor.apply({ type: 'setDocument', cropMarks: e.currentTarget.checked })} />
+                      Crop marks
+                    </label>
+                    <label className="check">
+                      <input type="checkbox" checked={includeBleed} onChange={(e) => editor.apply({ type: 'setDocument', includeBleed: e.currentTarget.checked })} />
+                      Include {length(pages[0]?.bleed ?? 0)} bleed
+                    </label>
+                  </>
+                )}
+                <Select label="Image resolution" prefix="Images" value={String(imagePpi)} options={options([72, 150, 300], 'ppi', 'Keep', imagePpi)} onChange={(v) => editor.apply({ type: 'setDocument', imagePpi: Number(v) })} />
+                <Select label="JPEG quality" prefix="JPEG quality" value={String(jpegQuality)} options={options([90, 75], '%', 'Lossless', jpegQuality)} onChange={(v) => editor.apply({ type: 'setDocument', jpegQuality: Number(v) })} />
+              </More>
             </>
           )}
           <label className="field">

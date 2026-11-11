@@ -128,6 +128,7 @@ test('a placed image exports as the canvas shows it', async ({ page }) => {
 
   const go = await exportButton(page)
   const region = page.getByRole('region', { name: 'Preflight' })
+  await region.getByRole('button', { name: 'Advanced' }).click()
   for (const [name, value] of [['Image resolution', '72 ppi'], ['JPEG quality', '75 %']]) {
     await region.getByRole('combobox', { name }).click()
     await page.getByRole('menuitemradio', { name: value }).click()
@@ -321,8 +322,9 @@ test('each preset exports as its standard', async ({ page }) => {
   expect(execFileSync('mutool', ['pages', x4, '1']).toString()).toContain('<BleedBox')
 
   await choose(preset, 'PDF, screen')
-  await expect(panel.getByRole('checkbox', { name: 'Crop marks' })).toBeDisabled()
-  await expect(panel.getByRole('checkbox', { name: 'Crop marks' })).not.toBeChecked()
+  await panel.getByRole('button', { name: 'Advanced' }).click()
+  await expect(panel.getByRole('combobox', { name: 'Image resolution' })).toHaveText(/150 ppi/)
+  await expect(panel.getByRole('checkbox', { name: 'Crop marks' })).toHaveCount(0)
   const screen = await save()
   const boxes = execFileSync('mutool', ['pages', screen, '1']).toString()
   expect(pageBox(boxes, 'MediaBox')).toEqual(pageBox(boxes, 'TrimBox'))
@@ -332,6 +334,7 @@ test('each preset exports as its standard', async ({ page }) => {
   await choose(page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Color mode' }), 'CMYK')
   await exportButton(page)
   await choose(preset, 'PDF/X-1a, print')
+  await panel.getByRole('button', { name: 'Advanced' }).click()
   await panel.getByRole('checkbox', { name: 'Crop marks' }).uncheck()
   await panel.getByRole('checkbox', { name: /Include \d+ mm bleed/ }).uncheck()
   const x1a = await save()
