@@ -405,22 +405,20 @@ let grab = 0
 for (const [side, v] of Object.entries(sizes)) document.documentElement.style.setProperty(`--${side}-size`, `${v}px`)
 
 /** The inner edge of a side panel or the top edge of the swatches, dragged to set its size. */
-export function Edge({ side }: { side: 'left' | 'right' | 'swatches' }) {
-  const at = (e: ReactPointerEvent<HTMLElement>) => (side === 'left' ? e.clientX : side === 'right' ? innerWidth - e.clientX : innerHeight - e.clientY)
-  const size = (el: HTMLElement) => (side === 'swatches' ? el.offsetHeight : el.offsetWidth)
-  const [lo, hi] = side === 'swatches' ? [40, innerHeight - 200] : [200, 560]
+export function Edge({ side }: { side: 'left' | 'right' }) {
+  const at = (e: ReactPointerEvent<HTMLElement>) => (side === 'left' ? e.clientX : innerWidth - e.clientX)
   return (
     <div
       className="edge"
       aria-hidden="true"
       onPointerDown={(e) => {
-        grab = at(e) - size(e.currentTarget.parentElement!)
+        grab = at(e) - e.currentTarget.parentElement!.offsetWidth
         e.currentTarget.setPointerCapture(e.pointerId)
         e.preventDefault()
       }}
       onPointerMove={(e) => {
         if (!e.currentTarget.hasPointerCapture(e.pointerId)) return
-        const v = Math.round(Math.min(hi, Math.max(lo, at(e) - grab)))
+        const v = Math.round(Math.min(560, Math.max(200, at(e) - grab)))
         document.documentElement.style.setProperty(`--${side}-size`, `${v}px`)
         sizes[side] = v
       }}

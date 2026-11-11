@@ -205,9 +205,9 @@ export async function openExample(page: Page, name: string) {
   await page.mouse.move(1, 1)
 }
 
-/** Makes a variable of `kind` with the plus of the variables section and returns its popover. */
+/** Makes a variable of `kind` with the plus of the variables section in the assets tab and returns its popover. */
 export async function addVariable(page: Page, kind: 'Color' | 'Number' | 'Font') {
-  const panel = page.getByRole('complementary', { name: 'Properties' })
+  const panel = await assets(page)
   await panel.getByRole('button', { name: 'Add variable' }).click()
   await page.getByRole('menu', { name: 'Create variable' }).getByRole('menuitem', { name: kind }).click()
   const edit = page.getByRole('dialog', { name: /^Edit / })
@@ -219,4 +219,10 @@ export async function addVariable(page: Page, kind: 'Color' | 'Number' | 'Font')
 export async function addPage(page: Page) {
   const add = page.getByRole('navigation', { name: 'Spreads' }).getByRole('button', { name: 'Add page' })
   await ((await add.count()) ? add.click() : page.keyboard.press('Control+Alt+KeyP'))
+}
+
+/** Shows the assets tab of the left panel and returns it. */
+export async function assets(page: Page) {
+  await page.getByRole('tab', { name: 'Assets' }).click()
+  return page.getByRole('tabpanel', { name: 'Assets' })
 }

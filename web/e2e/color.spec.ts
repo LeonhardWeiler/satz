@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { type Locator, type Page } from '@playwright/test'
-import { expect, test, open, pixels, screen, choose } from './util'
+import { expect, test, assets, open, pixels, screen, choose } from './util'
 
 const near = ([r, g, b]: number[], [R, G, B]: number[]) => Math.max(Math.abs(r - R), Math.abs(g - G), Math.abs(b - B)) <= 24
 
@@ -145,6 +145,7 @@ test('a cmyk document shows and takes cmyk values in the picker', async ({ page 
 
 test('a spot swatch is made in the swatches panel, bound in the picker, tinted and deleted', async ({ page }) => {
   await open(page)
+  await assets(page)
   const swatches = page.getByRole('region', { name: 'Swatches' })
   const panel = page.getByRole('complementary', { name: 'Properties' })
   await swatches.getByRole('button', { name: 'Add swatch' }).click()
@@ -159,6 +160,7 @@ test('a spot swatch is made in the swatches panel, bound in the picker, tinted a
   await expect(editor).toBeHidden()
   await expect(swatches.getByRole('option', { name: 'HKS 43' })).toHaveAttribute('title', /Spot color/)
 
+  await page.getByRole('tab', { name: 'Layers' }).click()
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).last().click()
   await panel.getByRole('button', { name: 'Fill color' }).click()
   const picker = page.getByRole('dialog', { name: 'Fill color' })
@@ -175,6 +177,7 @@ test('a spot swatch is made in the swatches panel, bound in the picker, tinted a
   await panel.getByRole('textbox', { name: 'Fill tint' }).fill('100')
   await panel.getByRole('textbox', { name: 'Fill tint' }).press('Enter')
 
+  await assets(page)
   await swatches.getByRole('option', { name: 'HKS 43' }).hover()
   await swatches.getByRole('button', { name: 'Delete HKS 43' }).click()
   await expect(swatches.getByRole('option')).toHaveCount(0)
@@ -185,6 +188,7 @@ test('a spot swatch is made in the swatches panel, bound in the picker, tinted a
 
 test('a click on a swatch edits it, also with a selection', async ({ page }) => {
   await open(page)
+  await assets(page)
   const swatches = page.getByRole('region', { name: 'Swatches' })
   const panel = page.getByRole('complementary', { name: 'Properties' })
   const editor = page.getByRole('dialog', { name: 'Edit swatch' })
@@ -194,7 +198,9 @@ test('a click on a swatch edits it, also with a selection', async ({ page }) => 
   await page.keyboard.press('Escape')
   await expect(editor).toBeHidden()
 
+  await page.getByRole('tab', { name: 'Layers' }).click()
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).first().click()
+  await assets(page)
   await swatches.getByRole('option', { name: 'Ink' }).click()
   await expect(editor).toBeVisible()
   await expect(panel.getByText('Ink')).toHaveCount(0)
@@ -202,6 +208,7 @@ test('a click on a swatch edits it, also with a selection', async ({ page }) => 
 
 test('arrow keys in the saturation area do not move the layer', async ({ page }) => {
   await open(page)
+  await page.getByRole('tab', { name: 'Layers' }).click()
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).last().click()
   const x = page.getByRole('region', { name: 'Layout' }).getByTitle('X in mm').getByRole('textbox')
   const before = await x.inputValue()
@@ -214,6 +221,7 @@ test('arrow keys in the saturation area do not move the layer', async ({ page })
 
 test('a new swatch never repeats the name of an existing one', async ({ page }) => {
   await open(page)
+  await assets(page)
   const swatches = page.getByRole('region', { name: 'Swatches' })
   const add = async () => {
     await swatches.getByRole('button', { name: 'Add swatch' }).click()
@@ -241,6 +249,7 @@ test('a new swatch never repeats the name of an existing one', async ({ page }) 
 
 test('a spot color made from black gets k 100 as its alternate', async ({ page }) => {
   await open(page)
+  await assets(page)
   await page.getByRole('button', { name: 'Add swatch' }).click()
   const editor = page.getByRole('dialog', { name: 'Edit swatch' })
   await editor.getByRole('checkbox', { name: 'Spot color' }).check()
@@ -250,6 +259,7 @@ test('a spot color made from black gets k 100 as its alternate', async ({ page }
 
 test('a double click on a swatch renames it in place and escape keeps the name', async ({ page }) => {
   await open(page)
+  await assets(page)
   const swatches = page.getByRole('region', { name: 'Swatches' })
   await swatches.getByRole('button', { name: 'Add swatch' }).click()
   await page.keyboard.press('Escape')

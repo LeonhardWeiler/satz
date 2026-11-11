@@ -6,14 +6,14 @@ import { ContextMenu } from './ContextMenu'
 import { bounds, ends, MM, scopeOf, useEditor, type Editor } from './editor'
 import { Icon, KindIcon } from './icons'
 import { FORMATS, ORIENTATIONS, formatOf } from './Start'
-import { addFonts, canFindFonts, findFonts, pickProfile, readLocalFonts, removeFont, useLocalFonts } from './file'
+import { pickProfile } from './file'
 import type { Bindable as Prop, Blend, Constraint, Command, DateFormat, Grid, LineStyle, Node, Page, Props, Section as Numbers, TextNode, Wrap } from './model'
 import { isOpen, radiusOf, rounded } from './model'
 import { AlignBar, rowOf, setGap } from './align'
 import { AutoLayout, flows, Sizing } from './AutoLayout'
 import { EffectList, PaintList } from './Paints'
-import { sameOf, TextFrameSection, TextSection, TextStyles } from './Text'
-import { Bindable, ModeSelects, Variables } from './Variables'
+import { sameOf, TextFrameSection, TextSection } from './Text'
+import { Bindable, ModeSelects } from './Variables'
 
 /** The rotation of `n`, for a group that of all its layers, or null if they differ. */
 const turnOf = (n: Node): number | null => {
@@ -82,10 +82,7 @@ export function Properties({ editor }: { editor: Editor }) {
   const overview = useEditor(editor, (e) => e.overview)
   const cropping = useEditor(editor, (e) => e.cropping)
   const snapshot = useEditor(editor, (e) => e.snapshot)
-  const { fonts, missingFonts } = snapshot
-  const locals = useLocalFonts()
   const selection = useEditor(editor, (e) => e.selection)
-  const [fontMenu, setFontMenu] = useState<DOMRect | null>(null)
   const [layerMore, setLayerMore] = useState(false)
   const nodes = selection.flatMap((id) => editor.nodes.get(id)?.node ?? [])
 
@@ -283,50 +280,6 @@ export function Properties({ editor }: { editor: Editor }) {
         </Section>
       )}
       {!box && <GridSection editor={editor} sheets={sheets} all={isPage && targets.length === 1 ? snapshot.pages : []} />}
-      {!box && (
-        <Section title="Fonts" onAdd={(e) => (canFindFonts && !locals.length ? setFontMenu(e.currentTarget.getBoundingClientRect()) : addFonts(editor))}>
-          {fontMenu &&
-            createPortal(
-              <ContextMenu
-                anchor={() => fontMenu}
-                side="bottom"
-                label="Add font"
-                onClose={() => setFontMenu(null)}
-                items={[
-                  ['Font files…', () => addFonts(editor), true],
-                  ['Use local fonts', () => readLocalFonts(editor), true],
-                ]}
-              />,
-              document.body,
-            )}
-          <ul className="fonts">
-            {fonts.map((f, i) => (
-              <li key={f.hash}>
-                <span>{f.name}</span>
-                {i > 0 && (
-                  <button type="button" className="icon-button" aria-label={`Remove ${f.name}`} title="Remove font" onClick={() => removeFont(editor, f.hash).catch(() => {})}>
-                    <Icon name="minus" />
-                  </button>
-                )}
-              </li>
-            ))}
-            {missingFonts.map(({ font }) => (
-              <li key={font.hash} className="missing" title="Missing: its text is set in Source Serif 4">
-                {font.name}
-              </li>
-            ))}
-          </ul>
-          {canFindFonts && missingFonts.length > 0 && (
-            <button type="button" className="button" onClick={() => findFonts(editor)}>
-              Find missing fonts on this computer
-            </button>
-          )}
-        </Section>
-      )}
-      {!box && (
-        <Variables editor={editor} />
-      )}
-      {!box && <TextStyles editor={editor} />}
       {box && (
         <Section
           title="Layout"

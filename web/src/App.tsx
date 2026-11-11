@@ -18,7 +18,7 @@ import { type Format, isError, Preflight } from './Preflight'
 import { Properties } from './Properties'
 import { Start } from './Start'
 import { Home } from './Home'
-import { Swatches } from './Swatches'
+import { Assets } from './Assets'
 import { Switcher } from './Switcher'
 import { Toolbar } from './Toolbar'
 import { Tooltip } from './Tooltip'
@@ -45,6 +45,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   const [finding, setFinding] = useState(false)
   const [menu, setMenu] = useState<{ x: number; y: number; transform?: boolean } | null>(null)
   const [renaming, setRenaming] = useState(false)
+  const [tab, setTab] = useState<'Layers' | 'Assets'>('Layers')
   const selected = useEditor(editor, (e) => e.selection.length > 0)
   const [hidden, setHidden] = useState({ left: false, right: false, ui: false, rulers: false })
   const hide = (panel: keyof typeof hidden) => setHidden((h) => ({ ...h, [panel]: !h[panel] }))
@@ -231,8 +232,14 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
             </h1>
           )}
         </div>
-        <Layers editor={editor} />
-        <Swatches editor={editor} />
+        <div className="tabs" role="tablist" aria-label="Left panel">
+          {(['Layers', 'Assets'] as const).map((t) => (
+            <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
+              {t}
+            </button>
+          ))}
+        </div>
+        {tab === 'Layers' ? <Layers editor={editor} /> : <Assets editor={editor} />}
       </div>
       <header className="bar" inert={hidden.ui}>
         <div className="bar-side">

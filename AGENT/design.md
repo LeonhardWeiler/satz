@@ -27,7 +27,8 @@ fails vitest.
 - One entry point per action per screen: a dialog does not repeat a button of the
   screen behind it.
 - Properties live only in the right panel. The mask toggle, flatten, tidy up and booleans live in
-  the context menu's Transform submenu and the command palette.
+  the context menu's Transform submenu and the command palette. The left panel has 2 tabs: Layers and
+  Assets (swatches, fonts, variables, text styles); the right panel shows only the selection and page.
 - Segmented controls use icons only where the icon is unambiguous (alignment, joins);
   otherwise they show short text labels.
 - One control per value inside a popover too: opacity is the alpha slider, not also a

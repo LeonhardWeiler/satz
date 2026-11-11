@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { fromRgb, neutral, resolve, rgb, type Color } from './color'
 import { Chip, NO_SCOPE, Picker, SwatchOption } from './ColorPicker'
 import { ContextMenu } from './ContextMenu'
-import { Edge, NameInput, nextName } from './controls'
+import { NameInput, nextName, Section } from './controls'
 import { scopeOf, useEditor, type Editor } from './editor'
 import { Icon } from './icons'
 
@@ -13,7 +13,6 @@ export function Swatches({ editor }: { editor: Editor }) {
   const mode = useEditor(editor, (e) => e.snapshot.colorMode)
   const [editing, setEditing] = useState<string | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
-  const [open, setOpen] = useState(true)
   const [menu, setMenu] = useState<{ x: number; y: number; id: string } | null>(null)
   const list = useRef<HTMLDivElement>(null)
   const swatch = swatches.find((s) => s.id === editing)
@@ -41,20 +40,15 @@ export function Swatches({ editor }: { editor: Editor }) {
     editing && editor.apply({ type: 'setSwatch', id: editing, ...patch })
 
   return (
-    <section className="panel swatches" aria-label="Swatches" onPointerDown={editor.gesture}>
-      <Edge side="swatches" />
-      <header className="panel-header">
-        <button type="button" className="panel-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
-          <span className="chevron" data-open={open || undefined}>
-            <Icon name="chevron" />
-          </span>
-          <h2>Swatches</h2>
-        </button>
+    <Section
+      title="Swatches"
+      actions={
         <button type="button" className="icon-button" aria-label="Add swatch" title="Add swatch" onClick={add}>
           <Icon name="plus" />
         </button>
-      </header>
-      <div ref={list} role="listbox" aria-label="Swatches" className="swatch-list" hidden={!open}>
+      }
+    >
+      <div ref={list} role="listbox" aria-label="Swatches" className="swatch-list">
         {swatches.map((s) => (
           <div
             key={s.id}
@@ -145,6 +139,6 @@ export function Swatches({ editor }: { editor: Editor }) {
           </Picker>,
           document.body,
         )}
-    </section>
+    </Section>
   )
 }

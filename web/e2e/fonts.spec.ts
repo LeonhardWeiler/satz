@@ -1,9 +1,10 @@
 import { type Page } from '@playwright/test'
-import { expect, test, choose, open } from './util'
+import { expect, test, assets, choose, open } from './util'
 
 const fonts = (page: Page) => page.getByRole('region', { name: 'Fonts' })
 
 async function add(page: Page, files: string | { name: string; mimeType: string; buffer: Buffer }) {
+  await assets(page)
   const chooser = page.waitForEvent('filechooser')
   await fonts(page).getByRole('button', { name: 'Add font' }).click()
   await page.getByRole('menuitem', { name: 'Font files…' }).click()
@@ -12,16 +13,19 @@ async function add(page: Page, files: string | { name: string; mimeType: string;
 
 test('an added woff2 font is listed, stays after a reload and is removed', async ({ page }) => {
   await open(page)
+  await assets(page)
   await expect(fonts(page).getByRole('listitem')).toHaveText(['Source Serif 4'])
   await add(page, new URL('../../engine/fonts/DMMono-Regular.woff2', import.meta.url).pathname)
   await expect(fonts(page).getByRole('listitem')).toHaveText(['Source Serif 4', 'DM Mono Regular'])
   await page.reload()
+  await assets(page)
   await expect(fonts(page).getByRole('listitem')).toHaveText(['Source Serif 4', 'DM Mono Regular'])
   await expect(page.getByRole('dialog', { name: 'New document' })).toHaveCount(0)
   await fonts(page).getByRole('listitem').last().hover()
   await fonts(page).getByRole('button', { name: 'Remove DM Mono Regular' }).click()
   await expect(fonts(page).getByRole('listitem')).toHaveText(['Source Serif 4'])
   await page.reload()
+  await assets(page)
   await expect(fonts(page).getByRole('listitem')).toHaveText(['Source Serif 4'])
 })
 
@@ -29,6 +33,7 @@ test('text is set in a font picked in the text section', async ({ page }) => {
   await open(page)
   await add(page, new URL('../../engine/fonts/DMMono-Regular.ttf', import.meta.url).pathname)
   await expect(fonts(page).getByRole('listitem')).toHaveText(['Source Serif 4', 'DM Mono Regular'])
+  await page.getByRole('tab', { name: 'Layers' }).click()
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
   const font = page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Font', exact: true })
   await expect(font).toHaveText('Source Serif 4')
@@ -52,13 +57,16 @@ test('a file that is not a font is not added and says why', async ({ page }) => 
 test('a text style sets the font of its text', async ({ page }) => {
   await open(page)
   await add(page, new URL('../../engine/fonts/DMMono-Regular.ttf', import.meta.url).pathname)
+  await page.getByRole('tab', { name: 'Layers' }).click()
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
   const panel = page.getByRole('complementary', { name: 'Properties' })
   await panel.getByTitle('Text style', { exact: true }).first().click()
   await page.getByRole('menuitem', { name: 'New text style' }).click()
   await page.keyboard.press('Escape')
-  await panel.getByRole('button', { name: 'Edit Text style 1' }).click()
-  await choose(panel.getByRole('group', { name: 'Text style 1' }).getByRole('combobox', { name: 'Font', exact: true }), 'DM Mono')
+  const left = await assets(page)
+  await left.getByRole('button', { name: 'Edit Text style 1' }).click()
+  await choose(left.getByRole('group', { name: 'Text style 1' }).getByRole('combobox', { name: 'Font', exact: true }), 'DM Mono')
+  await page.getByRole('tab', { name: 'Layers' }).click()
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
   await expect(panel.getByRole('combobox', { name: 'Font', exact: true })).toHaveText('DM Mono')
   await expect(panel.getByTitle('Text style', { exact: true })).toContainText('Text style 1')

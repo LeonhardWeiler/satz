@@ -1,5 +1,5 @@
 import { type Page } from '@playwright/test'
-import { expect, test, current, open, screen } from './util'
+import { expect, test, assets, current, open, screen } from './util'
 
 const palette = (page: Page) => page.getByRole('dialog', { name: 'Command palette' })
 async function run(page: Page, query: string, name: string | RegExp) {
@@ -72,6 +72,7 @@ test('the arrow keys pick a result and a click runs it', async ({ page }) => {
 
 test('a swatch fills the selection from the palette and says so when nothing is selected', async ({ page }) => {
   await open(page)
+  await assets(page)
   const swatches = page.getByRole('region', { name: 'Swatches' })
   await swatches.getByRole('button', { name: 'Add swatch' }).click()
   await page.keyboard.press('Escape')
@@ -80,6 +81,7 @@ test('a swatch fills the selection from the palette and says so when nothing is 
   await run(page, 'fill with swatch 1', /Fill with Swatch 1/)
   await expect(page.locator('.status')).toHaveText('Select a layer first')
 
+  await page.getByRole('tab', { name: 'Layers' }).click()
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Sun' }).click()
   await run(page, 'fill with swatch 1', /Fill with Swatch 1/)
   await expect(page.getByRole('complementary', { name: 'Properties' }).getByText('Swatch 1')).toBeVisible()

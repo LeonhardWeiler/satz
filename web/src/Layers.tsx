@@ -214,10 +214,6 @@ export function Layers({ editor }: { editor: Editor }) {
 
   return (
     <nav className="panel layers" aria-label="Layers">
-      <header className="panel-header">
-        <Icon name="layers" />
-        <h2>Layers</h2>
-      </header>
       {pages.every((p) => !p.children.length) && <p className="empty layers-empty">No layers yet</p>}
       <ul
         role="tree"

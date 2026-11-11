@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { type Page } from '@playwright/test'
-import { expect, test, addMaster, colors, drag, exportButton, open, preflight, screen, showPage, choose } from './util'
+import { expect, test, addMaster, assets, colors, drag, exportButton, open, preflight, screen, showPage, choose } from './util'
 
 const layers = (page: Page) => page.getByRole('tree', { name: 'Layers' })
 const rect = (page: Page) => layers(page).getByRole('treeitem', { name: 'Rectangle' }).first()
@@ -23,9 +23,15 @@ async function drawn(page: Page) {
   return screen(page, 30, 10)
 }
 
-test('the layers heading names the page shown', async ({ page }) => {
+test('the left panel shows the layers or the assets', async ({ page }) => {
   await open(page)
-  await expect(page.getByRole('navigation', { name: 'Layers' }).getByRole('heading')).toHaveText('Layers')
+  await expect(page.getByRole('tab', { name: 'Layers' })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('region', { name: 'Swatches' })).toHaveCount(0)
+  await assets(page)
+  await expect(page.getByRole('navigation', { name: 'Layers' })).toHaveCount(0)
+  await expect(page.getByRole('region', { name: 'Fonts' })).toBeVisible()
+  await page.getByRole('tab', { name: 'Layers' }).click()
+  await expect(page.getByRole('navigation', { name: 'Layers' })).toBeVisible()
 })
 
 test('a hidden layer is not on the canvas, in the pdf or in preflight until shown again', async ({ page }) => {

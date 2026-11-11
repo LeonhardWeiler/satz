@@ -1,4 +1,4 @@
-import { expect, test, drag, open, pixels, screen, choose } from './util'
+import { expect, test, assets, drag, open, pixels, screen, choose } from './util'
 
 test('type attributes and a text style are set in the text section and edited on the page', async ({ page }) => {
   await open(page)
@@ -24,11 +24,12 @@ test('type attributes and a text style are set in the text section and edited on
   await expect(panel.getByTitle('Text style', { exact: true })).toContainText('Text style 1')
 
   await page.keyboard.press('Escape')
-  const style = panel.getByRole('group', { name: 'Text style 1' })
+  const style = (await assets(page)).getByRole('group', { name: 'Text style 1' })
   await style.getByRole('button', { name: 'Edit Text style 1' }).click()
   await expect(style.getByRole('textbox', { name: 'Font size in pt' })).toHaveValue('11')
   await style.getByRole('textbox', { name: 'Font size in pt' }).fill('9')
   await style.getByRole('textbox', { name: 'Font size in pt' }).press('Enter')
+  await page.getByRole('tab', { name: 'Layers' }).click()
   await text.click()
   await expect(field('Font size in pt')).toHaveValue('9')
   await commit('Line height in pt', 'auto')
@@ -98,8 +99,9 @@ test('case, decoration, indents and OpenType features are set in the type option
   await panel.getByTitle('Text style', { exact: true }).first().click()
   await page.getByRole('menuitem', { name: 'New text style' }).click()
   await page.keyboard.press('Escape')
-  await panel.getByRole('group', { name: 'Text style 1' }).getByRole('button', { name: 'Edit Text style 1' }).click()
-  await panel.getByRole('group', { name: 'Text style 1' }).getByRole('button', { name: 'Type options' }).click()
+  const left = await assets(page)
+  await left.getByRole('group', { name: 'Text style 1' }).getByRole('button', { name: 'Edit Text style 1' }).click()
+  await left.getByRole('group', { name: 'Text style 1' }).getByRole('button', { name: 'Type options' }).click()
   await expect(options.getByRole('combobox', { name: 'Case' })).toHaveText(/Upper case$/)
   await expect(options.getByRole('combobox', { name: 'Decoration' })).toHaveText(/Underline$/)
   await expect(options.getByRole('checkbox', { name: 'Ligatures', exact: true })).not.toBeChecked()

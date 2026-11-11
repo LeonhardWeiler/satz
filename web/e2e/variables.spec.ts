@@ -1,11 +1,11 @@
 import { type Locator, type Page } from '@playwright/test'
-import { expect, test, addVariable, colors, open, screen, choose } from './util'
+import { expect, test, addVariable, assets, colors, open, screen, choose } from './util'
 
 const near = ([r, g, b]: number[], [R, G, B]: number[]) => Math.max(Math.abs(r - R), Math.abs(g - G), Math.abs(b - B)) <= 24
 
 test('modes and variables are made with the plus and edited in a popover', async ({ page }) => {
   await open(page)
-  const panel = page.getByRole('complementary', { name: 'Properties' })
+  const panel = page.getByRole('tabpanel', { name: 'Assets' })
   const edit = await addVariable(page, 'Color')
   await expect(panel.getByRole('textbox', { name: 'Collection name' })).toHaveCount(0)
   const name = edit.getByRole('textbox', { name: 'Variable name' })
@@ -52,6 +52,7 @@ test('modes and variables are made with the plus and edited in a popover', async
 test('a font variable sets the font of a text in the mode of its page', async ({ page }) => {
   await open(page)
   const chooser = page.waitForEvent('filechooser')
+  await assets(page)
   await page.getByRole('region', { name: 'Fonts' }).getByRole('button', { name: 'Add font' }).click()
   await page.getByRole('menuitem', { name: 'Font files…' }).click()
   await (await chooser).setFiles(new URL('../../engine/fonts/DMMono-Regular.ttf', import.meta.url).pathname)
@@ -63,6 +64,7 @@ test('a font variable sets the font of a text in the mode of its page', async ({
   await expect(edit).toBeHidden()
   await choose(panel.getByRole('combobox', { name: 'Mode', exact: true }), 'Mode 2')
 
+  await page.getByRole('tab', { name: 'Layers' }).click()
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
   await panel.getByRole('button', { name: 'Apply variable to Font', exact: true }).click()
   await page.getByRole('listbox', { name: 'Font variables' }).getByRole('option', { name: 'Font 1' }).click()
@@ -99,6 +101,7 @@ test('a fill bound to a color variable follows the mode of its frame and page', 
     await page.keyboard.press('Escape')
   }
   const rects = layers.getByRole('button', { name: 'Rectangle', exact: true })
+  await page.getByRole('tab', { name: 'Layers' }).click()
   await bind(rects.last())
   await bind(rects.first())
   await expect(panel.getByText('Color 1')).toBeVisible()
@@ -135,6 +138,7 @@ test('a number variable binds to width and detaches with the value of the curren
 
   const panel = page.getByRole('complementary', { name: 'Properties' })
   await choose(panel.getByRole('combobox', { name: 'Mode', exact: true }), 'Mode 2')
+  await page.getByRole('tab', { name: 'Layers' }).click()
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).last().click()
   await panel.getByRole('button', { name: 'Apply variable to W' }).click()
   await page.getByRole('listbox', { name: 'Number variables' }).getByRole('option', { name: 'Number 1' }).click()
@@ -146,7 +150,7 @@ test('a number variable binds to width and detaches with the value of the curren
 
 test('a variable is renamed, duplicated and deleted like a swatch', async ({ page }) => {
   await open(page)
-  const panel = page.getByRole('complementary', { name: 'Properties' })
+  const panel = page.getByRole('tabpanel', { name: 'Assets' })
   const edit = await addVariable(page, 'Number')
   const value = edit.getByRole('textbox', { name: 'Number 1 in Mode 1' })
   await value.fill('7')

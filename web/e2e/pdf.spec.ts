@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { type Page } from '@playwright/test'
 import { PNG } from 'pngjs'
 import { fitView, type Sheet } from '../src/renderer'
-import { expect, test, STORY, addMaster, addPage, drag, drawn, exportButton, frameOnNewPage, near, open, openExample, pixels, place, png, port, screen, showPage, choose, addVariable } from './util'
+import { expect, test, STORY, addMaster, addPage, assets, drag, drawn, exportButton, frameOnNewPage, near, open, openExample, pixels, place, png, port, screen, showPage, choose, addVariable } from './util'
 
 const EDGE = 4
 const BLOCK = 4
@@ -260,6 +260,7 @@ test('a cmyk document exports cmyk and spot colors and matches the canvas', asyn
   const rects = page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true })
   await choose(panel.getByRole('combobox', { name: 'Color mode' }), 'CMYK')
 
+  await assets(page)
   await page.getByRole('region', { name: 'Swatches' }).getByRole('button', { name: 'Add swatch' }).click()
   const editor = page.getByRole('dialog', { name: 'Edit swatch' })
   await editor.getByRole('textbox', { name: 'Name' }).fill('HKS 43')
@@ -273,6 +274,7 @@ test('a cmyk document exports cmyk and spot colors and matches the canvas', asyn
   await ink(editor, [100, 60, 0, 0])
   await page.keyboard.press('Escape')
 
+  await page.getByRole('tab', { name: 'Layers' }).click()
   await rects.last().click()
   await panel.getByRole('button', { name: 'Fill color' }).click()
   await ink(page.getByRole('dialog', { name: 'Fill color' }), [0, 100, 100, 0])
@@ -354,6 +356,7 @@ test('an auto layout frame with a color variable in a second mode matches the ca
   await page.keyboard.press('Escape')
   await page.keyboard.press('Escape')
 
+  await page.getByRole('tab', { name: 'Layers' }).click()
   await layers.getByRole('button', { name: 'Frame', exact: true }).click()
   await page.keyboard.press('Shift+A')
   await choose(panel.getByRole('combobox', { name: 'Mode', exact: true }), 'Mode 2')

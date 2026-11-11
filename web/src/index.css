@@ -936,18 +936,6 @@ input[type='checkbox']:disabled {
   overscroll-behavior: contain;
 }
 
-.swatches .swatch-list {
-  flex: 1;
-  min-height: 0;
-  max-height: var(--swatches-size, 200px);
-  padding: 8px;
-}
-
-.swatches .swatch-list:empty,
-.swatches .swatch-list[hidden] {
-  display: none;
-}
-
 .picker .swatch-list {
   max-height: 240px;
 }
@@ -1716,8 +1704,7 @@ input[type='checkbox']:disabled {
 }
 
 .left > .edge,
-.right > .edge,
-.swatches > .edge {
+.right > .edge {
   position: absolute;
   z-index: 5;
   top: 0;
@@ -1725,19 +1712,6 @@ input[type='checkbox']:disabled {
   width: 5px;
   min-width: 0;
   cursor: col-resize;
-}
-
-.swatches > .edge {
-  right: 0;
-  left: 0;
-  bottom: auto;
-  width: auto;
-  height: 5px;
-  cursor: row-resize;
-}
-
-.swatches > .edge:is(:hover, :active) {
-  box-shadow: inset 0 1px var(--text-3);
 }
 
 .left > .edge {
@@ -1757,23 +1731,34 @@ input[type='checkbox']:disabled {
 }
 
 .left > .panel {
-  flex: none;
-  max-height: 30%;
-}
-
-.left > .layers {
   flex: 1;
-  max-height: none;
 }
 
-.left > .swatches {
-  position: relative;
-  height: var(--swatches-size);
-  max-height: calc(100% - 200px);
+.assets {
+  overflow: auto;
 }
 
-.left > .panel + .panel {
-  border-top: 1px solid var(--border);
+.tabs {
+  display: flex;
+  flex: none;
+  gap: 4px;
+  height: 34px;
+  padding: 0 8px;
+}
+
+.tabs button {
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--text-3);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tabs button:hover,
+.tabs button[aria-selected='true'] {
+  color: var(--text);
 }
 
 .brand {
