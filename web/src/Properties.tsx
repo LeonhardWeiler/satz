@@ -7,7 +7,7 @@ import { bounds, ends, MM, scopeOf, useEditor, type Editor } from './editor'
 import { Icon, KindIcon } from './icons'
 import { FORMATS, ORIENTATIONS, formatOf } from './Start'
 import { addFonts, canFindFonts, findFonts, pickProfile, readLocalFonts, removeFont, useLocalFonts } from './file'
-import type { Bindable as Prop, Blend, Constraint, Command, Grid, LineStyle, Node, Page, Props, Section as Numbers, Wrap } from './model'
+import type { Bindable as Prop, Blend, Constraint, Command, DateFormat, Grid, LineStyle, Node, Page, Props, Section as Numbers, Wrap } from './model'
 import { isOpen, radiusOf, rounded } from './model'
 import { AlignBar, BOOLEANS, combinable, rowOf, setGap } from './align'
 import { ACTIONS, keysOf, press } from './commands'
@@ -73,6 +73,7 @@ const CAPS = [
   ['square', 'Square cap', 'capSquare'],
 ] as const
 const MODES: Record<ColorMode, string> = { rgb: 'RGB', cmyk: 'CMYK' }
+const DATES: Record<DateFormat, string> = { english: 'November 9, 2026', german: '9. November 2026', us: '11/09/2026', dotted: '09.11.2026', iso: '2026-11-09' }
 const NUMBERINGS = { arabic: '1, 2, 3', upperRoman: 'I, II, III', lowerRoman: 'i, ii, iii' }
 const HORIZONTAL: Record<Constraint, string> = { min: 'Left', max: 'Right', stretch: 'Left & right', center: 'Center', scale: 'Scale' }
 const VERTICAL: Record<Constraint, string> = { min: 'Top', max: 'Bottom', stretch: 'Top & bottom', center: 'Center', scale: 'Scale' }
@@ -576,9 +577,9 @@ function textBelow(editor: Editor, n: Node) {
   return false
 }
 
-/** Facing pages, color mode and, in CMYK, the profile of the document. */
+/** Facing pages, color mode and, in CMYK, the profile of the document, and how dates show. */
 function DocumentSection({ editor }: { editor: Editor }) {
-  const { facingPages, colorMode, profile } = useEditor(editor, (e) => e.snapshot)
+  const { facingPages, colorMode, profile, dateFormat } = useEditor(editor, (e) => e.snapshot)
   const color = <Select label="Color mode" value={colorMode} options={MODES} onChange={(colorMode) => editor.apply({ type: 'setDocument', colorMode })} />
   return (
     <section className="section" aria-label="Document">
@@ -598,6 +599,7 @@ function DocumentSection({ editor }: { editor: Editor }) {
             />
           </div>
         )}
+        <Select label="Date" value={dateFormat} options={DATES} onChange={(dateFormat) => editor.apply({ type: 'setDocument', dateFormat })} />
       </div>
     </section>
   )

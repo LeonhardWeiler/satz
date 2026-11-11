@@ -38,7 +38,7 @@ thread_local! {
         RefCell::new(vec![(typeface(FONT).unwrap(), FONT.into())]);
 }
 
-/// A paragraph, the page number it shows, and where each span in it starts with its
+/// A paragraph, what its markers show, and where each span in it starts with its
 /// font, features and case.
 type Shaping = (String, String, Vec<(usize, u32, Vec<String>, TextCase)>);
 
@@ -180,6 +180,7 @@ pub fn missing_glyph(text: &str, spans: &[Span]) -> Option<char> {
                 && id & MISSING == 0
                 && !c.is_whitespace()
                 && c != PAGE_NUMBER
+                && c != DATE
                 && map.as_ref().is_some_and(|m| m.map(c).is_none())
             {
                 found = Some(c);
@@ -621,6 +622,9 @@ pub struct TextFrame {
     /// What a page number marker stands for: the number of the page the text is on.
     #[serde(skip)]
     pub number: String,
+    /// What a date marker stands for.
+    #[serde(skip)]
+    pub date: String,
     /// Areas the text keeps out of, [x0, y0, x1, y1] from the frame's top left, and
     /// whether lines jump over one instead of running beside it.
     #[serde(skip)]
@@ -645,6 +649,7 @@ impl Default for TextFrame {
             column_rule: None,
             min_height: 0.0,
             number: String::new(),
+            date: String::new(),
             wrap: Vec::new(),
         }
     }
@@ -659,6 +664,16 @@ pub struct Rule {
 
 /// Stands for the number of the page a text is on, as InDesign's Current Page Number.
 pub const PAGE_NUMBER: char = '\u{18}';
+
+/// Stands for the date the document is exported on, as InDesign's Output Date.
+pub const DATE: char = '\u{19}';
+
+impl TextFrame {
+    /// What the marker `c` stands for.
+    fn marker(&self, c: char) -> &str {
+        if c == DATE { &self.date } else { &self.number }
+    }
+}
 
 /// A glyph at (x, y) on its baseline, `size` pt, drawn with the attributes of `span`,
 /// for the text from byte `cluster`, or a hyphen inserted there.
@@ -706,7 +721,7 @@ pub fn draw(
                 && (a.span == b.span
                     || fonts[a.span] == fonts[b.span] && span_paints[a.span] == span_paints[b.span])
         }) {
-            let (text, ranges) = source(text, line, at..at + run.len(), &tf.number);
+            let (text, ranges) = source(text, line, at..at + run.len(), tf);
             at += run.len();
             let glyphs: Vec<u16> = run.iter().map(|g| g.id).collect();
             let positions: Vec<f32> = run.iter().flat_map(|g| [g.x, g.y]).collect();
@@ -927,13 +942,13 @@ fn decoration(id: u32, decoration: TextDecoration) -> Option<[f32; 2]> {
 
 /// The text that the glyphs `run` of `line` stand for and each glyph's range in it:
 /// up to the next glyph's text or space, so a ligature stands for all its letters.
-/// Spaces have no glyph; PDF readers find them in the gaps. A page number marker
-/// stands for `number`.
+/// Spaces have no glyph; PDF readers find them in the gaps. A marker stands for
+/// what `tf` shows for it.
 fn source(
     text: &str,
     line: &[Glyph],
     run: std::ops::Range<usize>,
-    number: &str,
+    tf: &TextFrame,
 ) -> (String, Vec<std::ops::Range<usize>>) {
     let mut out = String::new();
     let mut ranges = Vec::with_capacity(run.len());
@@ -953,7 +968,7 @@ fn source(
                 .map_or(next, |i| g.cluster + i);
             for c in text[g.cluster..word].chars() {
                 match c {
-                    PAGE_NUMBER => out.push_str(number),
+                    PAGE_NUMBER | DATE => out.push_str(tf.marker(c)),
                     c => out.push(c),
                 }
             }
@@ -1184,7 +1199,7 @@ struct Para {
 
 /// The lines of `text` from the byte `from`, a line start, broken to the column width
 /// `cw`, or each paragraph on one line when `None`; and the width of the widest
-/// paragraph set on one line. A page number marker is set as `number`. Paragraphs
+/// paragraph set on one line. A marker is set as what `tf` shows for it. Paragraphs
 /// stop once their lines need more than `room` in height. Row `i` is moved in by
 /// `insets[i]` from the left and the right.
 fn rows(
@@ -1196,7 +1211,6 @@ fn rows(
     room: f32,
     insets: &[[f32; 2]],
 ) -> (Vec<Row>, f32) {
-    let number = &tf.number;
     let ids: Vec<u32> = spans.iter().map(|s| font_id(&s.attrs.font)).collect();
     let mut used = ids.clone();
     used.sort_unstable();
@@ -1472,7 +1486,7 @@ fn rows(
                 let mut add = |c| buf.add(c, i as u32);
                 let word = prev.is_some_and(char::is_alphanumeric);
                 match (c, spans[span_at(start + i)].attrs.text_case) {
-                    (PAGE_NUMBER, _) => number.chars().for_each(add),
+                    (PAGE_NUMBER | DATE, _) => tf.marker(c).chars().for_each(add),
                     (c, TextCase::Upper) => c.to_uppercase().for_each(add),
                     (c, TextCase::Title) if !word => c.to_uppercase().for_each(add),
                     (c, TextCase::Lower) => c.to_lowercase().for_each(add),
@@ -1520,11 +1534,11 @@ fn rows(
             }
             s += 1;
         }
-        let shown = if para.contains(PAGE_NUMBER) {
-            number.clone()
-        } else {
-            String::new()
-        };
+        let shown: String = [PAGE_NUMBER, DATE]
+            .into_iter()
+            .filter(|&m| para.contains(m))
+            .map(|m| format!("{m}{}", tf.marker(m)))
+            .collect();
         let shaped = kept(&SHAPED, (para.to_string(), shown, runs), || {
             shape_para(para, start)
         });

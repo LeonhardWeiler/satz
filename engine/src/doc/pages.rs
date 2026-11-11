@@ -50,6 +50,65 @@ pub enum Numbering {
     LowerRoman,
 }
 
+/// How date markers show the date.
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum DateFormat {
+    /// November 9, 2026
+    #[default]
+    English,
+    /// 9. November 2026
+    German,
+    /// 11/09/2026
+    Us,
+    /// 09.11.2026
+    Dotted,
+    /// 2026-11-09
+    Iso,
+}
+
+impl DateFormat {
+    pub fn show(self, [y, m, d]: [u32; 3]) -> String {
+        const DE: [&str; 12] = [
+            "Januar",
+            "Februar",
+            "März",
+            "April",
+            "Mai",
+            "Juni",
+            "Juli",
+            "August",
+            "September",
+            "Oktober",
+            "November",
+            "Dezember",
+        ];
+        const EN: [&str; 12] = [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
+        ];
+        let i = (m - 1) as usize;
+        match self {
+            DateFormat::English => format!("{} {d}, {y}", EN[i]),
+            DateFormat::German => format!("{d}. {} {y}", DE[i]),
+            DateFormat::Us => format!("{m:02}/{d:02}/{y}"),
+            DateFormat::Dotted => format!("{d:02}.{m:02}.{y}"),
+            DateFormat::Iso => format!("{y}-{m:02}-{d:02}"),
+        }
+    }
+}
+
 impl Section {
     fn check(&self) -> Res<()> {
         let max = if self.style == Numbering::Arabic {
@@ -394,6 +453,9 @@ impl Doc {
         }
         if let Some(q) = s.jpeg_quality {
             m.insert("jpegQuality", q as i64).map_err(err)?;
+        }
+        if let Some(f) = s.date_format {
+            m.insert("dateFormat", loro(f)?).map_err(err)?;
         }
         Ok(vec![])
     }
@@ -1537,6 +1599,43 @@ mod tests {
         })
         .unwrap();
         assert_eq!(run_texts(&d.render(&p1)), ["3"]);
+    }
+
+    #[test]
+    fn a_date_marker_shows_today_in_the_format_of_the_document() {
+        let (mut d, p) = empty();
+        let t = create(&mut d, &p, NewKind::Text, [0.0, 0.0, 0.0, 0.0]);
+        d.apply(Command::SetText {
+            id: t,
+            text: format!("on {}", text::DATE),
+        })
+        .unwrap();
+        d.set_today(2026, 3, 9).unwrap();
+        assert_eq!(run_texts(&d.render(&p)).concat(), "onMarch 9, 2026");
+        let short = page(&d).children[0].w;
+        for (f, shown) in [
+            (DateFormat::German, "on9. März 2026"),
+            (DateFormat::Us, "on03/09/2026"),
+            (DateFormat::Dotted, "on09.03.2026"),
+            (DateFormat::Iso, "on2026-03-09"),
+        ] {
+            d.apply(Command::SetDocument(Settings {
+                date_format: Some(f),
+                ..Settings::default()
+            }))
+            .unwrap();
+            assert_eq!(run_texts(&d.render(&p)).concat(), shown);
+            assert_eq!(d.snapshot().date_format, f);
+        }
+        d.set_today(2026, 12, 31).unwrap();
+        assert_eq!(run_texts(&d.render(&p)).concat(), "on2026-12-31");
+        d.apply(Command::SetDocument(Settings {
+            date_format: Some(DateFormat::German),
+            ..Settings::default()
+        }))
+        .unwrap();
+        assert!(page(&d).children[0].w > short);
+        assert!(d.set_today(2026, 13, 1).is_err());
     }
 
     #[test]

@@ -9,7 +9,7 @@ import { addLocalFont, useLocalFonts } from './file'
 import { Icon, type IconName } from './icons'
 import { Popover } from './Popover'
 import { MAX_LENGTH, length } from './settings'
-import { PAGE_NUMBER, insert, range } from './textEdit'
+import { DATE, PAGE_NUMBER, insert, range } from './textEdit'
 import { STYLED, type Attrs, type Props, type Span, type Styled, type Tab, type TextNode, type TextProps, type TextStyle, type Typeface, textSizing } from './model'
 import { Bindable } from './Variables'
 import namesUrl from './unicode-names.txt?url'
@@ -323,7 +323,7 @@ const CHARACTERS = [
   ['Multiplication', '\u00d7'],
 ] as const
 
-/** Inserts the page number or a character that keyboards lack into the edited text, or at the end of `node`. */
+/** Inserts the page number, the date or a character that keyboards lack into the edited text, or at the end of `node`. */
 function Characters({ editor, node, font }: { editor: Editor; node: TextNode; font?: string }) {
   const [at, setAt] = useState<DOMRect | null>(null)
   const [all, setAll] = useState<DOMRect | null>(null)
@@ -355,6 +355,7 @@ function Characters({ editor, node, font }: { editor: Editor; node: TextNode; fo
             onClose={() => setAt(null)}
             items={[
               [<span data-glyph="#">Page number</span>, () => put(PAGE_NUMBER), true, undefined, 'Ctrl Alt Shift N'],
+              [<span data-glyph="#">Date</span>, () => put(DATE), true],
               null,
               ...CHARACTERS.map(([name, c]): [ReactNode, () => void, boolean] => [<span data-glyph={c.trim() || '␣'}>{name}</span>, () => put(c), true]),
               null,

@@ -40,7 +40,6 @@ Done; numbers and the items measured and not done in `AGENT/performance.md`.
 
 ## Later
 
-- [ ] Date variable, like the page number.
 - [ ] Table of contents.
 - [ ] Anchored objects.
 - [ ] Tables.

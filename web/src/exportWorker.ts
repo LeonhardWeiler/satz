@@ -30,7 +30,9 @@ onmessage = async ({ data: { doc, fonts, preview, out } }: MessageEvent<{ doc: U
     const e = await engine
     for (const bytes of fonts) if (bytes.length) e.addFont(bytes)
     if (doc) e.sync(doc)
-    const date = new Date().toISOString().slice(0, 19) + 'Z'
+    const now = new Date()
+    e.setToday(now.getFullYear(), now.getMonth() + 1, now.getDate())
+    const date = now.toISOString().slice(0, 19) + 'Z'
     if (out && !('ppi' in out)) {
       const chosen = Uint32Array.from(out.pages)
       const file = out.type === 'application/pdf' ? e.pdf(out.title, date, chosen) : e.package(out.title, date, chosen)

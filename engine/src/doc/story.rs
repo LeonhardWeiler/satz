@@ -274,13 +274,13 @@ pub(super) fn utf16_of(s: &str, byte: usize) -> usize {
 }
 
 /// `text` with Word's and InDesign's line breaks and CR LF as `\n` and without
-/// other control characters but tabs and page numbers.
+/// other control characters but tabs and markers.
 pub(super) fn clean(text: &str) -> String {
     text.replace("\r\n", "\n")
         .chars()
         .filter_map(|c| match c {
             '\r' | '\u{b}' | '\u{c}' | '\u{2028}' | '\u{2029}' => Some('\n'),
-            '\n' | '\t' | text::PAGE_NUMBER => Some(c),
+            '\n' | '\t' | text::PAGE_NUMBER | text::DATE => Some(c),
             c if c.is_control() => None,
             c => Some(c),
         })
@@ -301,6 +301,21 @@ impl Doc {
     /// Removes the added font `hash`; text set in it falls back as a missing font.
     pub fn remove_font(&mut self, hash: &str) -> Res<()> {
         text::remove_font(hash);
+        self.sets.take();
+        self.changed.lock().unwrap().take();
+        self.invalidate();
+        self.doc.set_next_commit_origin(LAYOUT_ORIGIN);
+        self.finish(vec![], false).map(drop)
+    }
+
+    /// Makes date markers show the day `d` of the month `m` of the year `y`.
+    pub fn set_today(&mut self, y: u32, m: u32, d: u32) -> Res<()> {
+        if !(1..=9999).contains(&y) || !(1..=12).contains(&m) || !(1..=31).contains(&d) {
+            return Err(format!("no date {y}-{m}-{d}"));
+        }
+        if self.today.replace([y, m, d]) == [y, m, d] {
+            return Ok(());
+        }
         self.sets.take();
         self.changed.lock().unwrap().take();
         self.invalidate();

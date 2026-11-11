@@ -3,6 +3,8 @@ import type { TextNode } from './model'
 
 /** Stands for the number of the page a text is on, as InDesign's Current Page Number. */
 export const PAGE_NUMBER = '\u0018'
+/** Stands for the date the document is exported on, as InDesign's Output Date. */
+export const DATE = '\u0019'
 
 /** The text layer being edited in its frame; `anchor` and `focus` are UTF-16 indices. */
 export type Editing = { id: string; anchor: number; focus: number }

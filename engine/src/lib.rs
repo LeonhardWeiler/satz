@@ -388,6 +388,12 @@ impl Engine {
         self.doc.set_profile(icc).map_err(|e| JsError::new(&e))
     }
 
+    /// Makes date markers show the day `d` of the month `m` of the year `y`.
+    #[wasm_bindgen(js_name = setToday)]
+    pub fn set_today(&mut self, y: u32, m: u32, d: u32) -> Result<(), JsError> {
+        self.doc.set_today(y, m, d).map_err(|e| JsError::new(&e))
+    }
+
     pub fn save(&self) -> Vec<u8> {
         self.doc.save()
     }

@@ -27,7 +27,7 @@ use loro::{
 use serde::de::value::{Error as DeError, MapAccessDeserializer, MapDeserializer, SeqDeserializer};
 use serde::de::{DeserializeOwned, Deserializer, IntoDeserializer, Visitor};
 use serde::{Deserialize, Serialize};
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Display;
 use std::ops::Range;
@@ -66,6 +66,7 @@ pub struct Settings {
     pub image_ppi: Option<f64>,
     /// 0 keeps the images lossless.
     pub jpeg_quality: Option<u8>,
+    pub date_format: Option<DateFormat>,
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -804,9 +805,21 @@ pub struct Doc {
     version: String,
     /// What the last command changed beyond what it was asked to.
     notes: RefCell<Vec<String>>,
+    /// The date that date markers show, [year, month, day].
+    today: Cell<[u32; 3]>,
 }
 
 type Res<T> = Result<T, String>;
+
+/// The local date in the browser, a fixed one in the tests.
+fn today() -> [u32; 3] {
+    if cfg!(target_arch = "wasm32") {
+        let now = js_sys::Date::new_0();
+        [now.get_full_year(), now.get_month() + 1, now.get_date()]
+    } else {
+        [1970, 1, 1]
+    }
+}
 
 /// The flows and the pages and masters by id of the last snapshot.
 type Sheets = (Rc<HashMap<TreeID, Flow>>, HashMap<TreeID, Rc<Page>>);
@@ -1129,6 +1142,7 @@ impl Doc {
             fits: RefCell::new(HashMap::new()),
             shown: RefCell::default(),
             frames: RefCell::default(),
+            today: Cell::new(today()),
         }
     }
 

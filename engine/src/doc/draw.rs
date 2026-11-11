@@ -48,6 +48,7 @@ pub struct Snapshot {
     pub image_ppi: f64,
     /// Opaque images in the PDF are JPEGs of this quality unless it is 0.
     pub jpeg_quality: u8,
+    pub date_format: DateFormat,
     #[serde(flatten)]
     pub palette: Palette,
     /// The fonts text can be set in, the bundled one first.
@@ -285,7 +286,10 @@ fn text_name(lead: &str) -> String {
     let t: String = lead
         .chars()
         .take(41)
-        .map(|c| if c == text::PAGE_NUMBER { '#' } else { c })
+        .map(|c| match c {
+            text::PAGE_NUMBER | text::DATE => '#',
+            c => c,
+        })
         .collect();
     match t.char_indices().nth(40) {
         Some((end, _)) => {
@@ -940,6 +944,7 @@ impl Doc {
             include_bleed: self.setting("includeBleed", true),
             image_ppi: self.setting("imagePpi", 0.0),
             jpeg_quality: self.setting("jpegQuality", 0),
+            date_format: self.setting("dateFormat", DateFormat::default()),
             palette: (*palette).clone(),
             can_undo: self.undo.can_undo(),
             can_redo: self.undo.can_redo(),
@@ -1207,6 +1212,9 @@ impl Doc {
         };
         TextFrame {
             number: self.number(root),
+            date: self
+                .setting("dateFormat", DateFormat::default())
+                .show(self.today.get()),
             ..frame
         }
     }
