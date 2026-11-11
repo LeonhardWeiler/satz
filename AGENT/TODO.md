@@ -40,13 +40,10 @@ Done; numbers and the items measured and not done in `AGENT/performance.md`.
 
 ## Later
 
-- [ ] Figma import from an account; .fig files import already (`engine/src/fig.rs`, instance overrides, masks and clips ignored, text as outlines).
-- [ ] InDesign import (IDML) beside SVG, PDF and Figma in `import::import`.
-- [ ] Table of contents.
 - [ ] Date variable, like the page number.
-- [ ] Conditional text with variables.
-- [ ] Tables.
+- [ ] Table of contents.
 - [ ] Anchored objects.
+- [ ] Tables.
 - [ ] Linked images: per document, chosen at creation, embed or link. Linking uses File System
   Access (Chromium) with handles in IndexedDB, so links need a click per session and are missing
   on other computers; Firefox shows the option disabled with a hint. Preflight reports missing
@@ -55,8 +52,11 @@ Done; numbers and the items measured and not done in `AGENT/performance.md`.
   the subset) and harfrust shapes them; CanvasKit 0.42 has no variation binding, so the canvas
   draws such glyphs as paths from skrifa at the font's location, cached per font, location and
   glyph.
+- [ ] Conditional text with variables.
 - [ ] Version history from the Loro history: browse and restore earlier states.
 - [ ] GREP styles.
 - [ ] Colour wheel in the picker for harmonies (analogous, complementary, …).
+- [ ] Figma import from an account; .fig files import already (`engine/src/fig.rs`, instance overrides, masks and clips ignored, text as outlines).
+- [ ] InDesign import (IDML) beside SVG, PDF and Figma in `import::import`.
 - [ ] AI connection for the common providers, as in Figma.
 - [ ] With a server: work together on one project through a link or code.
