@@ -99,7 +99,7 @@ test('question mark and the help button show the keyboard shortcuts', async ({ p
   await expect(help).toContainText('No shortcut matches.')
   await page.keyboard.press('Escape')
   await expect(help).toHaveCount(0)
-  await page.getByRole('button', { name: 'Keyboard shortcuts' }).click()
+  await page.keyboard.press('?')
   await help.getByRole('button', { name: 'Close' }).click()
   await expect(help).toHaveCount(0)
 })

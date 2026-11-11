@@ -282,18 +282,6 @@ const ICONS = {
       <path d="m10 10 3.5 3.5" />
     </>
   ),
-  panelLeft: (
-    <>
-      <rect x="2" y="3" width="12" height="10" rx="2" />
-      <path d="M6 3v10" />
-    </>
-  ),
-  panelRight: (
-    <>
-      <rect x="2" y="3" width="12" height="10" rx="2" />
-      <path d="M10 3v10" />
-    </>
-  ),
   help: (
     <>
       <circle cx="8" cy="8" r="5.5" />

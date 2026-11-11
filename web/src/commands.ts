@@ -152,7 +152,7 @@ export const ACTIONS: Action[] = [
 export const MENU = {
   selected: ['Cut', 'Copy', 'Paste', 'Duplicate', null, 'Copy style', 'Paste style', null, 'Group', 'Frame selection', 'Ungroup', 'Add auto layout', 'Transform', null, 'Bring forward', 'Send backward', 'Bring to front', 'Send to back', null, 'Hide', 'Lock', 'Rename', 'Reset to master', null, 'Delete'],
   transform: ['Use as mask', 'Flatten', 'Flip horizontal', 'Flip vertical'],
-  none: ['Paste', 'Select all', null, 'Undo', 'Redo', null, 'Zoom to fit', 'Show or hide rulers', 'Add page', 'Page overview', null, 'Command palette', 'Keyboard shortcuts', 'Settings'],
+  none: ['Paste', 'Select all', null, 'Undo', 'Redo', null, 'Zoom to fit', 'Show or hide rulers', 'Show or hide left panel', 'Show or hide right panel', 'Add page', 'Page overview', null, 'Command palette', 'Keyboard shortcuts', 'Settings'],
 }
 
 const SYMBOLS: Record<string, string> = { Ctrl: '⌘', Alt: '⌥', Shift: '⇧' }

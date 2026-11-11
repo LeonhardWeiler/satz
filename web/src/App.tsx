@@ -191,19 +191,6 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   }, [editor, say])
 
   const off = (panel: 'left' | 'right') => hidden.ui || hidden[panel]
-  const toggle = (panel: 'left' | 'right', label: string, key: string) => (
-    <button
-      type="button"
-      className="tool toggle"
-      aria-label={label}
-      title={`${label} (${key})`}
-      aria-pressed={!hidden[panel]}
-      onClick={() => hide(panel)}
-    >
-      <Icon name={panel === 'left' ? 'panelLeft' : 'panelRight'} />
-    </button>
-  )
-
   const bar = (
     <p
       className={statusError ? 'status error' : 'status'}
@@ -262,8 +249,6 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         </div>
         {overview ? <span /> : <Switcher editor={editor} />}
         <div className="bar-side end">
-          {toggle('left', 'Left panel', 'Alt+1')}
-          {toggle('right', 'Right panel', 'Alt+2')}
           <button
             type="button"
             className="tool toggle"
@@ -275,9 +260,6 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
             <Icon name="pages" />
           </button>
           <span className="sep" />
-          <button type="button" className="tool" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" onClick={() => setDialog('help')}>
-            <Icon name="help" />
-          </button>
           <button type="button" className="tool" aria-label="Settings" title="Settings (Ctrl+,)" onClick={() => setDialog('settings')}>
             <Icon name="settings" />
           </button>
