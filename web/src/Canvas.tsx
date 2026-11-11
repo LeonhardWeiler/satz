@@ -176,6 +176,19 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   const editing = useEditor(editor, (e) => e.editing !== null)
 
   useEffect(() => {
+    // A modal dialog that closes focuses the text input while it is still inert, which then takes no typing.
+    const refocus = () => {
+      const a = area.current
+      if (a && document.activeElement === a) {
+        a.blur()
+        a.focus({ preventScroll: true })
+      }
+    }
+    document.addEventListener('close', refocus, true)
+    return () => document.removeEventListener('close', refocus, true)
+  }, [])
+
+  useEffect(() => {
     const canvas = ref.current!
     const renderer = new Renderer(ck, editor.engine, () => redraw())
     const view: View = { x: 0, y: 0, zoom: 1 }
