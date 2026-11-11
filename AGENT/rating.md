@@ -85,3 +85,4 @@ findings:
 | 9 | v3 | 6 | reduction 5 |
 | 10 | v3 | 7 | order 7, economy 7, rhythm 7, consistency 7, clarity 7, reduction 7 |
 | 11 | v3 | 6 | economy 6, consistency 6, clarity 6, reduction 6 (shot 6 missing) |
+| 12 | v3 | 6 | order 6, economy 6, consistency 6, clarity 6, reduction 6 |

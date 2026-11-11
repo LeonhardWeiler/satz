@@ -62,6 +62,10 @@ fails vitest.
 - The page overview hides the drawing tools and the spread navigation; neither acts there.
 - A section title does not repeat the label of the button it holds (Output, not Export
   above an Export button).
+- Position, size, rotation and radius share one 3-column block of 2 rows
+  (X Y rotation, W H radius).
+- Group headings inside a section or popover are labels (11, `--text-2`), never as loud
+  as a section title.
 
 ## Tokens
 

@@ -350,20 +350,9 @@ export function Properties({ editor }: { editor: Editor }) {
             </>
           }
         >
-          <div className="grid">
+          <div className={line ? 'grid' : 'grid three'}>
             <Field label="X" min={-Infinity} value={nodes.length > 1 ? same((n) => n.x) : box.x} unit="length" onCommit={frame('x')} />
             <Field label="Y" min={-Infinity} value={nodes.length > 1 ? same((n) => n.y) : box.y} unit="length" onCommit={frame('y')} />
-            {line ? (
-              <>
-                <Field label="L" title="Length" value={length!} unit="length" onCommit={(v) => setLine(v, angle!)} />
-                <Field label={<Icon name="angle" />} title="Angle" min={-Infinity} value={angle!} unit="°" onCommit={(v) => setLine(length!, v)} />
-              </>
-            ) : (
-              <>
-                {bindable('w', 'W', 'W', <Field label="W" value={same((n) => n.w)} unit="length" onCommit={frame('w')} />)}
-                {bindable('h', 'H', 'H', <Field label="H" value={same((n) => n.h)} unit="length" onCommit={frame('h')} />)}
-              </>
-            )}
             {!line && (
               <Field
                 label={<Icon name="angle" />}
@@ -384,6 +373,17 @@ export function Properties({ editor }: { editor: Editor }) {
                   })
                 }
               />
+            )}
+            {line ? (
+              <>
+                <Field label="L" title="Length" value={length!} unit="length" onCommit={(v) => setLine(v, angle!)} />
+                <Field label={<Icon name="angle" />} title="Angle" min={-Infinity} value={angle!} unit="°" onCommit={(v) => setLine(length!, v)} />
+              </>
+            ) : (
+              <>
+                {bindable('w', 'W', 'W', <Field label="W" value={same((n) => n.w)} unit="length" onCommit={frame('w')} />)}
+                {bindable('h', 'H', 'H', <Field label="H" value={same((n) => n.h)} unit="length" onCommit={frame('h')} />)}
+              </>
             )}
             {sided && (
               bindable(

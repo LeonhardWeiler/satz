@@ -593,6 +593,10 @@ textarea {
   gap: 8px;
 }
 
+.grid.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .field {
   display: flex;
   align-items: center;
@@ -1125,8 +1129,8 @@ input[type='checkbox']:disabled {
 
 .options-group h4 {
   margin: 0;
-  color: var(--text);
-  font-size: 12px;
+  color: var(--text-2);
+  font-size: 11px;
   font-weight: 600;
 }
 
