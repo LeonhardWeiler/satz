@@ -311,7 +311,7 @@ test('an effect row shows its colour and type, its offset and blur open in a pop
   const settings = page.getByRole('dialog', { name: 'Effect settings' })
   await settings.getByRole('textbox', { name: 'Shadow offset Y in mm' }).fill('3')
   await settings.getByRole('textbox', { name: 'Shadow offset Y in mm' }).press('Enter')
-  await page.mouse.click(5, 300)
+  await page.keyboard.press('Escape')
   await expect(settings).toHaveCount(0)
   await effects.getByRole('button', { name: 'Effect settings' }).click()
   await expect(settings.getByRole('textbox', { name: 'Shadow offset Y in mm' })).toHaveValue('3')

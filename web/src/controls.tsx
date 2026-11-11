@@ -151,6 +151,7 @@ export function Field({
           if (e.key === 'Enter') {
             e.preventDefault()
             e.currentTarget.blur()
+            e.currentTarget.closest<HTMLElement>('.popover[tabindex]')?.focus()
           } else if (e.key === 'Escape') {
             setDraft(null)
             e.currentTarget.blur()
