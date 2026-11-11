@@ -26,8 +26,8 @@ fails vitest.
 - Long option lists are grouped under short group titles, never one flat list.
 - One entry point per action per screen: a dialog does not repeat a button of the
   screen behind it.
-- Properties live only in the right panel. The mask toggle lives in the ⋯ menu with
-  the other arrange actions.
+- Properties live only in the right panel. The mask toggle, flatten, tidy up and booleans live in
+  the context menu's Transform submenu and the command palette.
 - Segmented controls use icons only where the icon is unambiguous (alignment, joins);
   otherwise they show short text labels.
 - One control per value inside a popover too: opacity is the alpha slider, not also a

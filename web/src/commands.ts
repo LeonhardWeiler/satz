@@ -124,7 +124,7 @@ export const ACTIONS: Action[] = [
     run: (editor) => editor.apply({ type: 'resetToMaster', ids: editor.selected().flatMap((n) => (n.overrideOf ? [n.id] : [])) }),
   },
   ...BOOLEANS.map(([op, title, , keys]): Action => ({ title, keys: keys.replaceAll('+', ' '), group: 'Arrange', run: (editor) => combine(editor, op), can: combinable })),
-  ...ALIGNS.map(([how, title, , keys]): Action => ({ title, keys: keys.replaceAll('+', ' '), group: 'Align', run: (editor) => align(editor, how) })),
+  ...ALIGNS.map(([how, title, , keys]): Action => ({ title, keys: keys.replaceAll('+', ' '), group: 'Align', run: (editor) => align(editor, how), can: how === 'tidy' ? (editor) => editor.selection.length > 1 : undefined })),
   {
     title: 'Color mode CMYK or RGB',
     keys: '',
@@ -148,10 +148,13 @@ export const ACTIONS: Action[] = [
   { title: 'Settings', keys: 'Ctrl ,', group: 'View' },
 ]
 
+/** The context menu leaves these out instead of greying them out. */
+export const ONLY_WHEN_ABLE = new Set(['Reset to master', ...BOOLEANS.map((b) => b[1])])
+
 /** The titles of the actions the context menu offers with and without a selection, `null` between groups. */
 export const MENU = {
   selected: ['Cut', 'Copy', 'Paste', 'Duplicate', null, 'Copy style', 'Paste style', null, 'Group', 'Frame selection', 'Ungroup', 'Add auto layout', 'Transform', null, 'Bring forward', 'Send backward', 'Bring to front', 'Send to back', null, 'Hide', 'Lock', 'Rename', 'Reset to master', null, 'Delete'],
-  transform: ['Use as mask', 'Flatten', 'Flip horizontal', 'Flip vertical'],
+  transform: ['Use as mask', 'Flatten', 'Flip horizontal', 'Flip vertical', 'Tidy up', ...BOOLEANS.map((b) => b[1])],
   none: ['Paste', 'Select all', null, 'Undo', 'Redo', null, 'Zoom to fit', 'Show or hide rulers', 'Show or hide left panel', 'Show or hide right panel', 'Add page', 'Page overview', null, 'Command palette', 'Keyboard shortcuts', 'Settings'],
 }
 

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { CanvasKit } from 'canvaskit-wasm'
 import { Canvas, isTyping } from './Canvas'
 import { Edge, Keys, NameInput } from './controls'
-import { ACTIONS, addPage, comboOf, keysOf, MENU, press } from './commands'
+import { ACTIONS, addPage, comboOf, keysOf, MENU, ONLY_WHEN_ABLE, press } from './commands'
 import { ContextMenu } from './ContextMenu'
 import { useEditor, type Editor } from './editor'
 import { Settings } from './SettingsDialog'
@@ -301,7 +301,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           label="Actions"
           onClose={() => setMenu(null)}
           items={MENU[menu.transform ? 'transform' : selected ? 'selected' : 'none']
-            .filter((t) => t !== 'Reset to master' || ACTIONS.find((a) => a.title === t)!.can!(editor))
+            .filter((t) => !t || !ONLY_WHEN_ABLE.has(t) || ACTIONS.find((a) => a.title === t)!.can!(editor))
             .map((title) => {
             if (title === 'Transform') return [title, () => setTimeout(() => setMenu({ ...menu, transform: true })), true, undefined, '›']
             const a = title && ACTIONS.find((a) => a.title === title)!

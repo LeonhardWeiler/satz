@@ -9,14 +9,12 @@ import { FORMATS, ORIENTATIONS, formatOf } from './Start'
 import { addFonts, canFindFonts, findFonts, pickProfile, readLocalFonts, removeFont, useLocalFonts } from './file'
 import type { Bindable as Prop, Blend, Constraint, Command, DateFormat, Grid, LineStyle, Node, Page, Props, Section as Numbers, TextNode, Wrap } from './model'
 import { isOpen, radiusOf, rounded } from './model'
-import { AlignBar, BOOLEANS, combinable, rowOf, setGap } from './align'
-import { ACTIONS, keysOf, press } from './commands'
+import { AlignBar, rowOf, setGap } from './align'
 import { AutoLayout, flows, Sizing } from './AutoLayout'
 import { EffectList, PaintList } from './Paints'
 import { sameOf, TextFrameSection, TextSection, TextStyles } from './Text'
 import { Bindable, ModeSelects, Variables } from './Variables'
 
-const ARRANGE = ['Flatten', 'Flip horizontal', 'Flip vertical', 'Add auto layout']
 /** The rotation of `n`, for a group that of all its layers, or null if they differ. */
 const turnOf = (n: Node): number | null => {
   if (n.kind !== 'group') return n.rotation
@@ -87,7 +85,6 @@ export function Properties({ editor }: { editor: Editor }) {
   const { fonts, missingFonts } = snapshot
   const locals = useLocalFonts()
   const selection = useEditor(editor, (e) => e.selection)
-  const [arrange, setArrange] = useState<DOMRect | null>(null)
   const [fontMenu, setFontMenu] = useState<DOMRect | null>(null)
   const [layerMore, setLayerMore] = useState(false)
   const nodes = selection.flatMap((id) => editor.nodes.get(id)?.node ?? [])
@@ -187,29 +184,6 @@ export function Properties({ editor }: { editor: Editor }) {
             <button type="button" className="button" aria-label="Reset to master" onClick={() => editor.apply({ type: 'resetToMaster', ids: [one.id] })}>
               Reset
             </button>
-          </>
-        )}
-        {box && !(one && cropping === one.id) && (
-          <>
-            <button type="button" className="icon-button arrange" aria-label="Arrange" title="Arrange" aria-haspopup="menu" aria-expanded={!!arrange} onClick={(e) => setArrange(e.currentTarget.getBoundingClientRect())}>
-              <Icon name="more" />
-            </button>
-            {arrange &&
-              createPortal(
-                <ContextMenu
-                  anchor={() => arrange}
-                  side="bottom"
-                  label="Arrange"
-                  onClose={() => setArrange(null)}
-                  items={[
-                    [one?.mask ? 'Release mask' : 'Use as mask', () => (one ? set({ mask: !one.mask }) : editor.set({ selection: editor.apply({ type: 'mask', ids: selection }) })), true, undefined, 'Ctrl Alt M'],
-                    ...[...ARRANGE, ...(nodes.length > 1 ? ['Tidy up'] : []), ...(combinable(editor) ? BOOLEANS.map((b) => b[1]) : [])].map((title): [string, () => void, boolean, undefined, string] => {
-                    const a = ACTIONS.find((a) => a.title === title)!
-                    return [title, () => press(a.keys), a.can?.(editor) ?? true, undefined, keysOf(a)]
-                  })]}
-                />,
-                document.body,
-              )}
           </>
         )}
       </header>

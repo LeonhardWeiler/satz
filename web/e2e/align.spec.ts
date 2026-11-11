@@ -1,3 +1,4 @@
+import { type Page } from '@playwright/test'
 import { drag, expect, test, open, screen } from './util'
 
 test('layers align to each other, a single layer to its frame, and three distribute', async ({ page }) => {
@@ -36,15 +37,19 @@ test('layers align to each other, a single layer to its frame, and three distrib
   expect(rx - tx - tw).toBeCloseTo(tx - sx - sw, 0)
 })
 
-test('booleans combine shapes into the bottommost, from the arrange menu and the keyboard, and undo splits them again', async ({ page }) => {
+const transform = async (page: Page, layer: string, name: string) => {
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: layer, exact: true }).click({ button: 'right' })
+  await page.getByRole('menu', { name: 'Actions' }).getByRole('menuitem', { name: 'Transform' }).click()
+  return page.getByRole('menu', { name: 'Actions' }).getByRole('menuitem', { name })
+}
+
+test('booleans combine shapes into the bottommost, from the context menu and the keyboard, and undo splits them again', async ({ page }) => {
   await open(page)
-  const panel = page.getByRole('complementary', { name: 'Properties' })
   const layers = page.getByRole('tree', { name: 'Layers' })
   const shapes = layers.getByRole('button', { name: /^(Sun|Triangle)$/ })
   await layers.getByRole('button', { name: 'Sun', exact: true }).click()
   await layers.getByRole('button', { name: 'Triangle', exact: true }).click({ modifiers: ['Control'] })
-  await panel.getByRole('button', { name: 'Arrange' }).click()
-  await page.getByRole('menu', { name: 'Arrange' }).getByRole('menuitem', { name: 'Union' }).click()
+  await (await transform(page, 'Triangle', 'Union')).click()
   await expect(shapes).toHaveCount(1)
   await page.keyboard.press('Control+z')
   await expect(shapes).toHaveCount(2)
@@ -55,24 +60,18 @@ test('booleans combine shapes into the bottommost, from the arrange menu and the
   await expect(shapes).toHaveCount(1)
 })
 
-test('the arrange menu flattens a shape and adds auto layout', async ({ page }) => {
+test('the context menu flattens a shape and leaves out booleans for a single layer', async ({ page }) => {
   await open(page)
-  const panel = page.getByRole('complementary', { name: 'Properties' })
-  const arrange = async (name: string) => {
-    await panel.getByRole('button', { name: 'Arrange' }).click()
-    return page.getByRole('menu', { name: 'Arrange' }).getByRole('menuitem', { name })
-  }
-  const layers = page.getByRole('tree', { name: 'Layers' })
-  await layers.getByRole('button', { name: 'Frame', exact: true }).click()
-  await expect(await arrange('Flatten')).toBeDisabled()
+  await expect(await transform(page, 'Frame', 'Flatten')).toBeDisabled()
+  await expect(page.getByRole('menuitem', { name: 'Union' })).toHaveCount(0)
   await page.keyboard.press('Escape')
-  await (await arrange('Add auto layout')).click()
-  await expect(panel.getByRole('radio', { name: 'Horizontal layout' })).toBeChecked()
 
+  const layers = page.getByRole('tree', { name: 'Layers' })
   await layers.getByRole('button', { name: 'Sun', exact: true }).click()
   await page.keyboard.press('Enter')
   await expect(page.getByRole('toolbar', { name: 'Path tools' })).toBeHidden()
-  await (await arrange('Flatten')).click()
+  await (await transform(page, 'Sun', 'Flatten')).click()
+  await page.evaluate(() => (document.activeElement as HTMLElement).blur())
   await page.keyboard.press('Enter')
   await expect(page.getByRole('toolbar', { name: 'Path tools' })).toBeVisible()
 })
