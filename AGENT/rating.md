@@ -75,3 +75,4 @@ findings:
 | 3 | v1 | 6 | calm 6, economy 6, rhythm 6, consistency 6, clarity 6 |
 | 4 | v1 | 6 | economy 6, consistency 6, clarity 6 |
 | 5 | v2 | 6 | reduction 5 |
+| 6 | v2 | 6 | economy 6, consistency 6, clarity 6, reduction 6 |

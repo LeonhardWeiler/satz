@@ -14,7 +14,6 @@ import { STYLED, type Attrs, type Props, type Span, type Styled, type Tab, type 
 import { Bindable } from './Variables'
 import namesUrl from './unicode-names.txt?url'
 
-
 export const ALIGNS = [
   ['left', 'Align left', 'alignLeft'],
   ['center', 'Align center', 'alignCenter'],
@@ -45,11 +44,12 @@ const CASES = { original: 'As typed', upper: 'Upper case', lower: 'Lower case', 
 const DECORATIONS = { none: 'None', underline: 'Underline', strikethrough: 'Strikethrough' } as const
 const LISTS = { none: 'None', bullet: 'Bullets', number: 'Numbers' } as const
 const POSITIONS = { normal: 'Normal', superscript: 'Superscript', subscript: 'Subscript' } as const
+const CASE_TAGS = { smcp: 'Small caps', 'smcp c2sc': 'All small caps', c2sc: 'Capitals to small caps' }
+const POSITION_TAGS = { sups: 'Superscript glyphs', subs: 'Subscript glyphs' }
 /** OpenType features by group: tag, title and whether fonts apply it unless turned off. */
 const FEATURES: [string, [string, string, boolean?][]][] = [
   ['Ligatures & kerning', [['kern', 'Kerning', true], ['liga', 'Ligatures', true], ['dlig', 'Discretionary ligatures']]],
-  ['Letterforms', [['smcp', 'Small caps'], ['c2sc', 'Capitals to small caps'], ['case', 'Case-sensitive forms']]],
-  ['Numbers', [['frac', 'Fractions'], ['zero', 'Slashed zero'], ['sups', 'Superscript glyphs'], ['subs', 'Subscript glyphs'], ['ordn', 'Ordinals']]],
+  ['Numbers & forms', [['frac', 'Fractions'], ['zero', 'Slashed zero'], ['ordn', 'Ordinals'], ['case', 'Case-sensitive forms']]],
 ]
 /** Features of which one at most applies: title, a sample and the tags with their titles. */
 const FIGURES: [string, string, [string, string][]][] = [
@@ -158,12 +158,30 @@ export const featuresOf = (editor: Editor, id: string, spans: Span[], r: [number
 }
 
 /** A button that opens the case, decoration, indent and OpenType features of `spans`. */
-export function TypeOptions({ spans, set, features, paragraph }: { spans: Pick<Attrs, Styled>[]; set: (p: TextProps) => void; features: (f: (old: string[]) => string[]) => void; paragraph?: ReactNode }) {
+export function TypeOptions({ editor, spans, set, features, paragraph }: { editor: Editor; spans: Pick<Attrs, Styled>[]; set: (p: TextProps) => void; features: (f: (old: string[]) => string[]) => void; paragraph?: ReactNode }) {
   const [at, setAt] = useState<DOMRect | null>(null)
   const [tab, setTab] = useState<'Character' | 'Paragraph' | 'Tabs'>('Character')
   const same = <T,>(get: (a: Pick<Attrs, Styled>) => T) => sameOf(spans, get)
   const on = (tag: string, dflt?: boolean) => (a: Pick<Attrs, Styled>) => (dflt ? !a.features.includes(`${tag}=0`) : a.features.includes(tag))
   const put = (drop: string[], add: string[]) => features((old) => [...old.filter((f) => !drop.some((t) => f === t || f === `${t}=0`)), ...add].sort())
+  const fold = <K extends 'textCase' | 'position'>(key: K, options: Record<string, string>, tags: Record<string, string>, plain: string) => {
+    const known = [...new Set(Object.keys(tags).flatMap((t) => t.split(' ')))]
+    const tagged = (a: Pick<Attrs, Styled>) => known.filter((t) => a.features.includes(t)).join(' ')
+    const label = key === 'textCase' ? 'Case' : 'Position'
+    return (
+      <Select
+        label={label}
+        prefix={label}
+        value={same((a) => tagged(a) || a[key])}
+        options={{ ...options, ...tags }}
+        onChange={(v) => editor.batch(() => {
+          const tag = v in tags
+          if (same((a) => a[key]) !== (tag ? plain : v)) set({ [key]: tag ? plain : v } as TextProps)
+          if (same(tagged) !== (tag ? v : '')) put(known, tag ? v.split(' ') : [])
+        })}
+      />
+    )
+  }
   return (
     <>
       <button type="button" className="more" aria-haspopup="dialog" aria-expanded={!!at} onClick={(e) => setAt(e.currentTarget.getBoundingClientRect())}>
@@ -199,14 +217,14 @@ export function TypeOptions({ spans, set, features, paragraph }: { spans: Pick<A
               {tab === 'Character' && (
                 <>
                   <Group title="Case & position">
-                    <Select label="Case" prefix="Case" value={same((a) => a.textCase)} options={CASES} onChange={(textCase) => set({ textCase })} />
+                    {fold('textCase', CASES, CASE_TAGS, 'original')}
                     <Select label="Decoration" prefix="Decoration" value={same((a) => a.textDecoration)} options={DECORATIONS} onChange={(textDecoration) => set({ textDecoration })} />
-                    <Select label="Position" prefix="Position" value={same((a) => a.position)} options={POSITIONS} onChange={(position) => set({ position })} />
+                    {fold('position', POSITIONS, POSITION_TAGS, 'normal')}
                     <Field label="Shift" title="Baseline shift" unit="pt" min={-Infinity} reset={0} value={same((a) => a.baselineShift)} onCommit={(baselineShift) => set({ baselineShift })} />
                   </Group>
                   {FEATURES.map(([group, list]) => (
                     <Group key={group} title={group}>
-                      {group === 'Numbers' &&
+                      {group === 'Numbers & forms' &&
                         FIGURES.map(([title, prefix, tags]) => (
                           <Select
                             key={title}
@@ -491,6 +509,7 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
       </div>
       <Segmented label="Text align" value={align} options={ALIGNS} onChange={(textAlign) => format({ textAlign })} />
       <TypeOptions
+        editor={editor}
         spans={spans}
         set={format}
         features={featuresOf(editor, node.id, all, r)}
@@ -540,7 +559,7 @@ function StyleRow({ editor, style }: { editor: Editor; style: TextStyle }) {
         <NameInput label="Text style name" value={style.name} onCommit={(name) => editor.apply({ type: 'setTextStyle', id: style.id, name })} />
         <button
           type="button"
-          className="icon-button"
+          className="icon-button row-action"
           aria-label={`Delete text style ${style.name}`}
           title="Delete text style"
           onClick={() => editor.apply({ type: 'deleteTextStyle', id: style.id })}
@@ -569,7 +588,7 @@ function StyleRow({ editor, style }: { editor: Editor; style: TextStyle }) {
               </Bindable>
             ))}
           </div>
-          <TypeOptions spans={[style]} set={(p) => editor.apply({ type: 'setTextStyle', id: style.id, ...p })} features={(f) => editor.apply({ type: 'setTextStyle', id: style.id, features: f(style.features) })} />
+          <TypeOptions editor={editor} spans={[style]} set={(p) => editor.apply({ type: 'setTextStyle', id: style.id, ...p })} features={(f) => editor.apply({ type: 'setTextStyle', id: style.id, features: f(style.features) })} />
         </>
       )}
     </div>
@@ -598,7 +617,7 @@ export function TextFrameSection({ editor, node, set }: { editor: Editor; node: 
         <Field label="Columns" title="Columns" unit="" int min={1} max={20} reset={1} value={node.columns} onCommit={(columns) => set({ columns })} />
         <Field label="Gutter" title="Gutter" unit="length" value={node.gutter} onCommit={(gutter) => set({ gutter })} />
       </div>
-      <Segmented label="Vertical align" prefix="Align" value={node.verticalAlign} options={VERTICAL} onChange={(verticalAlign) => set({ verticalAlign })} />
+      <Segmented label="Vertical align" value={node.verticalAlign} options={VERTICAL} onChange={(verticalAlign) => set({ verticalAlign })} />
       <More key={node.id} used={!!(node.baselineGrid || node.baselineStart || node.minHeight || node.maxLines || node.trim || node.roundBaselines)}>
         <div className="grid">
           <Field label="Baseline" title="Baseline grid" unit="pt" min={1} zero="Off" reset={0} value={node.baselineGrid} onCommit={(baselineGrid) => set({ baselineGrid })} />

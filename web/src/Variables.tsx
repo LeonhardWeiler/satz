@@ -165,9 +165,6 @@ function VariableEditor({ editor, id, fonts, onClose }: { editor: Editor; id: st
     >
       <header className="picker-header">
         <h2>Edit variable</h2>
-        <button type="button" className="icon-button" aria-label="Close" title="Close" onClick={onClose}>
-          <Icon name="close" />
-        </button>
       </header>
       <NameInput label="Variable name" value={v.name} onCommit={(name) => editor.apply({ type: 'setVariable', id, name })} />
       {c.modes.map((m) => {

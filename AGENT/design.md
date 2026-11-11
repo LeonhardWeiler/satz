@@ -37,6 +37,12 @@ fails vitest.
   empty titles reads as one block.
 - Editors of list items (text styles) open one item at a time; closed rows show only
   name, preview and the edit action.
+- Popovers close on Escape and a click outside; they carry no close button. Modal
+  dialogs keep one.
+- Row actions (show, remove) appear on hover or focus of their row; a hidden item keeps
+  its crossed eye visible. Icon-only segmented controls carry no prefix.
+- An OpenType variant of a value joins the select of that value (small caps in Case,
+  superscript glyphs in Position) instead of a checkbox beside it.
 
 ## Tokens
 

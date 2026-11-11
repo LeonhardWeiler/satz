@@ -221,9 +221,6 @@ export function Picker({
         ) : (
           <h2>{title}</h2>
         )}
-        <button type="button" className="icon-button" aria-label="Close" title="Close" onClick={() => onClose(true)}>
-          <Icon name="close" />
-        </button>
       </header>
       {children}
       {tab === 'swatches' ? (

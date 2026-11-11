@@ -839,6 +839,12 @@ input[type='checkbox']:disabled {
   opacity: 0.4;
 }
 
+@media (hover: hover) {
+  .row:not(:hover, :focus-within) > .row-action:not([data-off]) {
+    opacity: 0;
+  }
+}
+
 .row {
   display: flex;
   align-items: center;

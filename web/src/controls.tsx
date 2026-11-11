@@ -353,14 +353,15 @@ export function RowActions({
     <>
       <button
         type="button"
-        className="icon-button"
+        className="icon-button row-action"
         aria-label={`${visible ? 'Hide' : 'Show'} ${what}`}
+        data-off={!visible || undefined}
         title={`${visible ? 'Hide' : 'Show'} ${what}`}
         onClick={onToggle}
       >
         <Icon name={visible ? 'eye' : 'eyeOff'} />
       </button>
-      <button type="button" className="icon-button" aria-label={`Remove ${what}`} title={`Remove ${what}`} onClick={onRemove}>
+      <button type="button" className="icon-button row-action" aria-label={`Remove ${what}`} title={`Remove ${what}`} onClick={onRemove}>
         <Icon name="minus" />
       </button>
     </>
