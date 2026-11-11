@@ -28,12 +28,12 @@ it('uses the type scale and 2 weights', () => {
 })
 
 it('uses the space scale', () => {
-  const scale = [0, 2, 4, 8, 12, 16, 24, 32, 48]
+  const scale = [0, 2, 4, 8, 12, 16, 24, 32]
   expect(bad((r) => /^(padding|margin|gap|row-gap|column-gap)/.test(r.prop) && px(r.value).some((n) => !scale.includes(n)))).toEqual([])
 })
 
 it('uses the radius scale', () => {
-  expect(bad((r) => r.prop === 'border-radius' && px(r.value).some((n) => ![0, 2, 4, 6, 8, 12, 999].includes(n)))).toEqual([])
+  expect(bad((r) => r.prop === 'border-radius' && px(r.value).some((n) => ![0, 4, 6, 12, 999].includes(n)))).toEqual([])
 })
 
 it('lifts floating surfaces with one of 2 shadows', () => {
