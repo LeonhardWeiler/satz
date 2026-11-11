@@ -135,6 +135,7 @@ export function Properties({ editor }: { editor: Editor }) {
       field
     )
   const set = (props: Props) => each((n) => ({ type: 'set', id: n.id, ...props }))
+  const wrapped = nodes.some((n) => n.wrap !== 'none')
   const open = nodes.length > 0 && nodes.every(isOpen)
   const stroked = nodes.length > 0 && nodes.every((n) => n.kind !== 'group')
   const sided = nodes.length > 0 && nodes.every(rounded)
@@ -461,7 +462,8 @@ export function Properties({ editor }: { editor: Editor }) {
               <ModeSelects editor={editor} id={one.id} own={one.modes} inherited={editor.nodes.get(one.id)?.parent?.activeModes ?? page.modes} />
             )}
           </div>
-          <More label="Text wrap" used={nodes.some((n) => n.wrap !== 'none')}>
+          {(wrapped || [...editor.nodes.values()].some((e) => e.page?.id === page.id && e.node.kind === 'text' && !selection.includes(e.node.id))) && (
+          <More label="Text wrap" used={wrapped}>
             <div className="grid">
               <Select label="Text wrap" value={same((n) => n.wrap)} options={WRAPS} onChange={(wrap) => set({ wrap })} />
               {nodes.some((n) => n.wrap !== 'none') && (
@@ -476,6 +478,7 @@ export function Properties({ editor }: { editor: Editor }) {
             </div>
             {nodes.some((n) => n.wrap !== 'none' && !textBelow(editor, n)) && <p className="empty">Only text frames below it in the layers wrap around it</p>}
           </More>
+          )}
         </Section>
       )}
       {nodes.length > 0 && nodes.every((n) => n.kind !== 'group') && (

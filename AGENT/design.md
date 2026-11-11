@@ -46,6 +46,9 @@ fails vitest.
   superscript glyphs in Position) instead of a checkbox beside it.
 - An action that a menu already offers has no button beside that menu (New text style
   lives in the text style menu).
+- A setting that cannot take effect is hidden: Gutter with 1 column, Text wrap on a page
+  without text, the spread arrows and the page count of a single spread.
+- Groups inside a popover part by spacing and their heading, not by rules.
 
 ## Tokens
 

@@ -54,7 +54,7 @@ const FEATURES: [string, [string, string, boolean?][]][] = [
 /** Features of which one at most applies: title, a sample and the tags with their titles. */
 const FIGURES: [string, string, [string, string][]][] = [
   ['Figures', 'Figures', [['lnum', 'Lining'], ['onum', 'Oldstyle']]],
-  ['Figure spacing', 'Spacing', [['pnum', 'Proportional'], ['tnum', 'Tabular']]],
+  ['Figure spacing', 'Width', [['pnum', 'Proportional'], ['tnum', 'Tabular']]],
 ]
 
 /** The text style's name set at its size, within what a panel row takes. */
@@ -610,7 +610,7 @@ export function TextFrameSection({ editor, node, set }: { editor: Editor; node: 
       <Sides what="inset" values={insets} each={each} set={(v) => set(Object.fromEntries(INSETS.map((p, i) => [p, v[i]])))} />
       <div className="grid">
         <Field label="Columns" title="Columns" unit="" int min={1} max={20} reset={1} value={node.columns} onCommit={(columns) => set({ columns })} />
-        <Field label="Gutter" title="Gutter" unit="length" value={node.gutter} onCommit={(gutter) => set({ gutter })} />
+        {node.columns > 1 && <Field label="Gutter" title="Gutter" unit="length" value={node.gutter} onCommit={(gutter) => set({ gutter })} />}
       </div>
       <Segmented label="Vertical align" value={node.verticalAlign} options={VERTICAL} onChange={(verticalAlign) => set({ verticalAlign })} />
       <More key={node.id} label="Baseline grid" used={!!(node.baselineGrid || node.baselineStart || node.minHeight || node.maxLines || node.trim || node.roundBaselines)}>

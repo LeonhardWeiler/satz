@@ -22,9 +22,11 @@ export function Switcher({ editor }: { editor: Editor }) {
   return (
     <nav className="switcher" aria-label="Spreads">
       <div className="switcher-pages">
+        {spreads.length > 1 && (
         <button type="button" aria-label="Previous spread" title="Previous spread (PgUp)" disabled={k <= 0} onClick={() => go(k - 1)}>
           <Icon name="left" />
         </button>
+        )}
         <span className="spread">
           <span className="spread-pages">
           {spreads[k]?.map((id) => {
@@ -36,11 +38,13 @@ export function Switcher({ editor }: { editor: Editor }) {
             )
           })}
           </span>
-          <span className="switcher-total">/ {pages.length}</span>
+          {spreads.length > 1 && <span className="switcher-total">/ {pages.length}</span>}
         </span>
+        {spreads.length > 1 && (
         <button type="button" aria-label="Next spread" title="Next spread (PgDn)" disabled={k >= spreads.length - 1} onClick={() => go(k + 1)}>
           <Icon name="chevron" />
         </button>
+        )}
         <span className="sep" />
         <button type="button" className="switcher-add" aria-label="Add page" title="Add page (Ctrl Alt P)" onClick={() => editor.showPage(editor.apply({ type: 'addPage', after: pages.at(-1)!.id })[0])}>
         <Icon name="plus" />

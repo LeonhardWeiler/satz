@@ -45,11 +45,14 @@ earned by what is on screen, not by effort; do not round up.
    disabled, mixed, error) are unambiguous.
 8. Reduction: in each shot, count the elements (controls, labels, lines, icons,
    sections) that could go, merge with another or move behind a disclosure without
-   losing a function a user needs often. Every one lowers this score.
+   losing a function a user needs often. Every one lowers this score: 9 allows at
+   most 1 per shot, 7 about 3.
 
 Prefer fixes that remove, merge or hide over fixes that add. A fix that adds a visible
 control must name what it replaces; a rarely used function belongs behind a menu or
-a disclosure, not on screen.
+a disclosure, not on screen. A setting that cannot take effect in the current state
+is not shown. Prefer findings that state one rule for the whole interface over a fix
+for one screen, and list every shot the rule changes.
 
 Answer in this form, in English, nothing else:
 
@@ -57,7 +60,7 @@ Answer in this form, in English, nothing else:
 scores: calm N, order N, economy N, hierarchy N, rhythm N, consistency N, clarity N, reduction N
 overall: N
 findings:
-1. [shot numbers] what is wrong, and what the fix should be
+1. [shot numbers] what is wrong, and what the fix should be; say how many elements it removes
 ... (8 to 12 findings, most harmful first, concrete: name the control or area)
 ```
 
@@ -65,6 +68,7 @@ findings:
 
 - v1, 10 November 2026: first version.
 - v2, 11 November 2026: after 6, 7, 6, 6 the criterion Reduction and the preference for removing over adding; findings that only add controls had led away from a simpler UI.
+- v3, 11 November 2026: after 6, 6, 6, 6 under v2 an anchor for Reduction (elements per shot), settings that cannot take effect count as clutter, and findings as rules across the interface with the elements they remove; one-off fixes had moved the problem from shot to shot.
 
 ## Rounds
 
@@ -77,3 +81,4 @@ findings:
 | 5 | v2 | 6 | reduction 5 |
 | 6 | v2 | 6 | economy 6, consistency 6, clarity 6, reduction 6 |
 | 7 | v2 | 6 | economy 6, rhythm 6, consistency 6, clarity 6, reduction 6 |
+| 8 | v2 | 6 | reduction 5 |

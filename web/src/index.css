@@ -1113,8 +1113,7 @@ input[type='checkbox']:disabled {
 .options-group + .options-group,
 .options-group + .tab-stops,
 .tab-stops + .options-group {
-  padding-top: 12px;
-  border-top: 1px solid var(--edge);
+  padding-top: 8px;
 }
 
 .options-group header {
