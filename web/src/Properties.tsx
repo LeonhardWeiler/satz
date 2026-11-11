@@ -284,49 +284,10 @@ export function Properties({ editor }: { editor: Editor }) {
       )}
       {!box && <GridSection editor={editor} sheets={sheets} all={isPage && targets.length === 1 ? snapshot.pages : []} />}
       {box && (
-        <Section
-          title="Layout"
-          actions={
-            <>
-              {!line && (
-                <button
-                  type="button"
-                  className="icon-button"
-                  aria-label="Keep aspect ratio"
-                  title="Keep aspect ratio"
-                  aria-pressed={same((n) => n.keepRatio) ?? 'mixed'}
-                  onClick={() => set({ keepRatio: !same((n) => n.keepRatio) })}
-                >
-                  <Icon name="ratio" />
-                </button>
-              )}
-            </>
-          }
-        >
-          <div className={line ? 'grid' : 'grid three'}>
+        <Section title="Layout">
+          <div className="grid">
             <Field label="X" min={-Infinity} value={box.x} unit="length" onCommit={frame('x')} />
             <Field label="Y" min={-Infinity} value={box.y} unit="length" onCommit={frame('y')} />
-            {!line && (
-              <Field
-                label={<Icon name="angle" />}
-                title="Rotation"
-                unit="°"
-                min={-Infinity}
-                reset={0}
-                value={same(turnOf)}
-                onCommit={(v) =>
-                  editor.batch(() => {
-                    for (const n of nodes) {
-                      if (n.kind !== 'group') editor.apply({ type: 'set', id: n.id, rotation: ((v % 360) + 360) % 360 })
-                      else {
-                        const b = editor.shown(n)
-                        editor.turn([n], v - (turnOf(n) ?? 0), { x: b.x + b.w / 2, y: b.y + b.h / 2 })
-                      }
-                    }
-                  })
-                }
-              />
-            )}
             {line ? (
               <>
                 <Field label="L" title="Length" value={length!} unit="length" onCommit={(v) => setLine(v, angle!)} />
@@ -334,8 +295,39 @@ export function Properties({ editor }: { editor: Editor }) {
               </>
             ) : (
               <>
-                {bindable('w', 'W', 'W', <Field label="W" value={box.w} unit="length" onCommit={frame('w')} />)}
-                {bindable('h', 'H', 'H', <Field label="H" value={box.h} unit="length" onCommit={frame('h')} />)}
+                <div className="grid pair">
+                  {bindable('w', 'W', 'W', <Field label="W" value={box.w} unit="length" onCommit={frame('w')} />)}
+                  {bindable('h', 'H', 'H', <Field label="H" value={box.h} unit="length" onCommit={frame('h')} />)}
+                  <button
+                    type="button"
+                    className="icon-button ratio"
+                    aria-label="Keep aspect ratio"
+                    title="Keep aspect ratio"
+                    aria-pressed={same((n) => n.keepRatio) ?? 'mixed'}
+                    onClick={() => set({ keepRatio: !same((n) => n.keepRatio) })}
+                  >
+                    <Icon name="ratio" />
+                  </button>
+                </div>
+                <Field
+                  label={<Icon name="angle" />}
+                  title="Rotation"
+                  unit="°"
+                  min={-Infinity}
+                  reset={0}
+                  value={same(turnOf)}
+                  onCommit={(v) =>
+                    editor.batch(() => {
+                      for (const n of nodes) {
+                        if (n.kind !== 'group') editor.apply({ type: 'set', id: n.id, rotation: ((v % 360) + 360) % 360 })
+                        else {
+                          const b = editor.shown(n)
+                          editor.turn([n], v - (turnOf(n) ?? 0), { x: b.x + b.w / 2, y: b.y + b.h / 2 })
+                        }
+                      }
+                    })
+                  }
+                />
               </>
             )}
             {sided && (

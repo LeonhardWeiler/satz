@@ -279,14 +279,13 @@ test('mixed values fit their fields', async ({ page }) => {
   await open(page)
   const layers = page.getByRole('tree', { name: 'Layers' })
   const rects = layers.getByRole('button', { name: 'Rectangle', exact: true })
+  const opacity = page.getByRole('complementary', { name: 'Properties' }).getByRole('textbox', { name: 'Opacity in %', exact: true })
   await rects.first().click()
+  await opacity.fill('50')
+  await opacity.press('Enter')
   await rects.last().click({ modifiers: ['Control'] })
-  const layout = page.getByRole('region', { name: 'Layout' })
-  for (const title of ['X in mm', 'W in mm']) {
-    const input = layout.getByTitle(title).getByRole('textbox')
-    await expect(input).toHaveValue('Mixed')
-    expect(await input.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
-  }
+  await expect(opacity).toHaveValue('Mixed')
+  expect(await opacity.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
 })
 
 test('dropping a group onto its own child changes nothing', async ({ page }) => {

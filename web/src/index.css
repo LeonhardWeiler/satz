@@ -596,6 +596,19 @@ textarea {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.pair {
+  position: relative;
+  grid-column: 1 / -1;
+}
+
+.pair > .ratio {
+  position: absolute;
+  top: 2px;
+  left: calc(50% - 8px);
+  width: 16px;
+  background: var(--panel);
+}
+
 .field {
   display: flex;
   align-items: center;
