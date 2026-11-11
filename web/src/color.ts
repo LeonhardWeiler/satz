@@ -27,6 +27,14 @@ export function css(c: Color, scope: Scope) {
   return `#${rgb(p, scope).toString(16).padStart(6, '0')}${Math.round(alpha(p) * 2.55).toString(16).padStart(2, '0')}`
 }
 
+/** `c` as hex or CMYK percentages, and its opacity when below 100 %. */
+export function colorText(c: Color, scope: Scope) {
+  const p = resolve(c, scope)
+  const a = Math.round(alpha(p))
+  const text = typeof p === 'number' ? `#${(p >>> 8).toString(16).padStart(6, '0').toUpperCase()}` : p.cmyk.map((v, i) => `${'CMYK'[i]}${Math.round(v * 100)}`).join(' ')
+  return a < 100 ? `${text} · ${a} %` : text
+}
+
 /** `rgb` in the document's mode, with the alpha of `like`. */
 export function fromRgb(rgb: number, like: Color, mode: ColorMode): Color {
   if (mode === 'rgb') return withAlpha(((rgb << 8) | 0xff) >>> 0, alpha(like))

@@ -74,12 +74,12 @@ test('hex, saturation, hue and alpha change the fill', async ({ page }) => {
   await expect(picker.getByRole('textbox', { name: 'Hex' })).toHaveValue('#FF0000')
 
   await picker.getByRole('slider', { name: 'Opacity' }).fill('40')
-  await expect(panel.getByTitle('Fill opacity').getByRole('textbox')).toHaveValue('40')
+  await expect(panel.getByTitle('Fill value')).toHaveText('#FF0000 · 40 %')
 
   await page.mouse.click(10, 10)
   await expect(picker).toBeHidden()
   await page.keyboard.press('Control+z')
-  await expect(panel.getByTitle('Fill opacity').getByRole('textbox')).toHaveValue('100')
+  await expect(panel.getByTitle('Fill value')).toHaveText(/^#[0-9A-F]{6}$/)
 })
 
 test('the picker copies cmyk as text and takes it pasted in common notations', async ({ page, context }) => {
@@ -178,7 +178,7 @@ test('a spot swatch is made in the swatches panel, bound in the picker, tinted a
   await swatches.getByRole('option', { name: 'HKS 43' }).hover()
   await swatches.getByRole('button', { name: 'Delete HKS 43' }).click()
   await expect(swatches.getByRole('option')).toHaveCount(0)
-  await expect(panel.getByTitle('Fill opacity')).toBeVisible()
+  await expect(panel.getByTitle('Fill value')).toBeVisible()
   const [r2, , b2] = (await pixels(page, x, y, 1, 1))[0]
   expect(b2 - r2).toBeGreaterThan(100)
 })
@@ -237,16 +237,6 @@ test('a new swatch never repeats the name of an existing one', async ({ page }) 
   await swatches.getByRole('option', { name: 'Swatch 3' }).click({ button: 'right' })
   await menu.getByRole('menuitem', { name: 'Delete' }).click()
   await expect(swatches.getByRole('option')).toHaveText(['Swatch 2', 'Ink'])
-})
-
-test('opacity shows whole percent', async ({ page }) => {
-  await open(page)
-  const panel = page.getByRole('complementary', { name: 'Properties' })
-  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).last().click()
-  const opacity = panel.getByTitle('Fill opacity').getByRole('textbox')
-  await opacity.fill('50')
-  await opacity.press('Enter')
-  await expect(opacity).toHaveValue('50')
 })
 
 test('a spot color made from black gets k 100 as its alternate', async ({ page }) => {

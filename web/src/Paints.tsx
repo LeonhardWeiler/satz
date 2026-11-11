@@ -1,7 +1,7 @@
 import { Fragment, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ColorPicker } from './ColorPicker'
-import { alpha, css, neutral, withAlpha, type ColorMode } from './color'
+import { alpha, colorText, css, neutral, withAlpha, type ColorMode } from './color'
 import { Field, RowActions, Section, Segmented, Select } from './controls'
 import { Icon } from './icons'
 import { useEditor, type Editor } from './editor'
@@ -201,7 +201,7 @@ function PaintRow({
           {variable ? variable.name : 'Missing variable'}
         </span>
       ) : solid ? (
-        <Field label="Opacity" title={`${title} opacity`} unit="%" value={alpha(p.color)} onCommit={(v) => set({ ...p, color: withAlpha(p.color, v) })} />
+        <span className="bound-name" title={`${title} value`}>{colorText(p.color, scope)}</span>
       ) : p.type === 'linear' ? (
         <Field label="Angle" title={`${title} angle`} unit="°" min={-Infinity} reset={0} value={angle(p.transform)} onCommit={(v) => set({ ...p, transform: linear(v) })} />
       ) : (
