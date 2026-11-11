@@ -1014,24 +1014,6 @@ input[type='checkbox']:disabled {
   padding: 4px 12px;
 }
 
-.swatches-empty {
-  padding: 0 16px 16px;
-  font-size: 12px;
-}
-
-.link {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--accent);
-  font: inherit;
-  cursor: pointer;
-}
-
-.link:hover {
-  text-decoration: underline;
-}
-
 .tabs {
   display: flex;
   gap: 4px;
@@ -1568,7 +1550,6 @@ input[type='checkbox']:disabled {
   outline: none;
 }
 
-
 .menu-item.danger,
 .button.danger {
   color: var(--bad);
@@ -1585,7 +1566,6 @@ input[type='checkbox']:disabled {
 .menu-item[aria-haspopup] > svg {
   color: var(--text-3);
 }
-
 
 .fonts {
   margin: 0;

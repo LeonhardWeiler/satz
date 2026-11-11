@@ -181,7 +181,7 @@ export function Properties({ editor }: { editor: Editor }) {
                   onClose={() => setArrange(null)}
                   items={[
                     [one?.mask ? 'Release mask' : 'Use as mask', () => (one ? set({ mask: !one.mask }) : editor.set({ selection: editor.apply({ type: 'mask', ids: selection }) })), true, undefined, 'Ctrl Alt M'],
-                    ...[...ARRANGE, ...(combinable(editor) ? BOOLEANS.map((b) => b[1]) : [])].map((title): [string, () => void, boolean, undefined, string] => {
+                    ...[...ARRANGE, ...(nodes.length > 1 ? ['Tidy up'] : []), ...(combinable(editor) ? BOOLEANS.map((b) => b[1]) : [])].map((title): [string, () => void, boolean, undefined, string] => {
                     const a = ACTIONS.find((a) => a.title === title)!
                     return [title, () => press(a.keys), a.can?.(editor) ?? true, undefined, keysOf(a)]
                   })]}

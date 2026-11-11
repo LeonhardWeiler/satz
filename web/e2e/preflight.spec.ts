@@ -34,7 +34,7 @@ test('preflight of an rgb document leaves out the inks and lists a layer short o
 test('export names the errors of the preflight but still downloads the pdf', async ({ page }) => {
   await open(page)
   const exportPdf = await exportButton(page)
-  await expect(exportPdf).toHaveText('Export PDF')
+  await expect(exportPdf).toHaveText('Export')
   let download = page.waitForEvent('download')
   await exportPdf.click()
   await download
@@ -55,7 +55,7 @@ test('export writes every page or a range as a png or a jpeg, and a package as a
   const region = page.getByRole('region', { name: 'Preflight' })
   await choose(region.getByRole('combobox', { name: 'Format' }), 'PNG')
   await expect(region.getByRole('combobox', { name: 'Preset' })).toHaveCount(0)
-  await expect(go).toHaveText('Export PNG')
+  await expect(go).toHaveText('Export')
   const names: string[] = []
   const bytes: Buffer[] = []
   page.on('download', async (d) => {
@@ -82,7 +82,7 @@ test('export writes every page or a range as a png or a jpeg, and a package as a
 
   await choose(region.getByRole('combobox', { name: 'Format' }), 'Package')
   await expect(region.getByRole('combobox', { name: 'Preset' })).toBeVisible()
-  await expect(go).toHaveText('Export Package')
+  await expect(go).toHaveText('Export')
   await go.click()
   await expect.poll(() => bytes.length).toBe(3)
   expect(names[2]).toBe('Untitled.zip')
@@ -99,7 +99,7 @@ test('preflight opens from its shortcut and export, and esc ends it', async ({ p
   await expect(region).toHaveCount(0)
 
   await page.keyboard.press('Control+Shift+E')
-  await expect(region.getByRole('button', { name: 'Export PDF' })).toBeFocused()
+  await expect(region.getByRole('button', { name: 'Export', exact: true })).toBeFocused()
 })
 
 test('preflight in the booklet separates the plates, reports ink over the limit and zooms to an issue', async ({ page }) => {

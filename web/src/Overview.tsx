@@ -256,7 +256,6 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     editor.showPage(id)
     select([id])
   }
-  const addPage = () => show(editor.apply({ type: 'addPage', after: ids.at(-1) ?? null })[0])
   const addMaster = (like: string, layers = false) => {
     const [id] = editor.apply({ type: 'addMaster', like, layers })
     if (id) openPage(id)
@@ -354,13 +353,6 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   }
 
   const rows = facing ? spreads : ids.map((id) => [id])
-  const joins = facing && rows.length > 1 && rows.at(-1)!.length === 1
-  const add = (
-    <button type="button" className="ov-add ov-add-page" aria-label="Add page" title="Add page" style={{ width: width(pages.at(-1)!), height: PAGE }} onClick={addPage}>
-      <Icon name="plus" />
-    </button>
-  )
-
   return (
     <section className="overview" aria-label="Page overview" style={{ gridTemplateColumns: `${wide}px 1fr` }} onPointerDown={editor.gesture}>
       <div className="ov-col" onPointerDown={(e) => marquee(e, masterIds, masterList.current)}>
@@ -446,7 +438,6 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
               >
                 <div className="ov-pages" style={facing && k === 0 && spread.length === 1 ? { marginLeft: width(pages[0]) } : undefined}>
                   {spread.map((id) => pageThumb(pages[ids.indexOf(id)]))}
-                  {k === rows.length - 1 && joins && add}
                 </div>
                 <span className="ov-cap" style={{ display: 'grid', gridTemplateColumns: spread.map((id) => `${width(pages[ids.indexOf(id)])}px`).join(' '), paddingLeft: facing && k === 0 && spread.length === 1 ? width(pages[0]) : 0 }}>
                   {spread.map((id) => {
@@ -466,11 +457,6 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
                 </span>
               </div>
             ))}
-            {!joins && (
-              <div className="ov-item">
-                <div className="ov-pages">{add}</div>
-              </div>
-            )}
           </div>
         </div>
       </div>

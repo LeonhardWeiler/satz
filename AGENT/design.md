@@ -90,7 +90,8 @@ fails vitest.
 - Popovers open beside their trigger and fit 640 px of height; longer content is split into sections or tabs.
 - Dialogs: 24 inset, title 16 in weight 600, actions at the bottom with the primary last
   on the right.
-- Empty states: an icon, one sentence and the action that fills them.
+- Empty states: a whole empty view shows an icon, one sentence and the action that fills it; an empty panel section shows nothing below its title and its +.
+- One entry per action: adding a page lives in the pages panel header, not again as a slot; a button label does not repeat the value chosen beside it (Export, not Export PNG); a rare arrangement such as Tidy up sits in the ⋯ menu.
 - Copy: sentence case everywhere, no trailing period on labels, US spelling, numbers
   as digits.
 

@@ -158,13 +158,6 @@ export const option = (page: Page, n: number) =>
 export const current = (page: Page, n: number) =>
   page.getByRole('navigation', { name: 'Spreads' }).getByRole('button', { name: `Page ${n}`, exact: true })
 
-/** Adds a page after the current one in the page overview and closes it. */
-export async function addPage(page: Page) {
-  const o = await overview(page)
-  await o.getByRole('button', { name: 'Add page' }).click()
-  await page.keyboard.press('.')
-  await expect(o).toHaveCount(0)
-}
 
 /** Shows page `n` by a click in the page overview, which closes it. */
 export async function showPage(page: Page, n: number) {
@@ -220,4 +213,10 @@ export async function addVariable(page: Page, kind: 'Color' | 'Number' | 'Font')
   const edit = page.getByRole('dialog', { name: /^Edit / })
   await expect(edit).toBeVisible()
   return edit
+}
+
+/** Adds a page at the end and shows it, from the spreads bar or, on a master, with the shortcut. */
+export async function addPage(page: Page) {
+  const add = page.getByRole('navigation', { name: 'Spreads' }).getByRole('button', { name: 'Add page' })
+  await ((await add.count()) ? add.click() : page.keyboard.press('Control+Alt+KeyP'))
 }

@@ -249,7 +249,7 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
           )}
           <button type="button" className={errors ? 'button pf-go bad' : 'primary pf-go'} disabled={exporting || chosen === null} onClick={() => chosen && onExport(format, chosen)}>
             {!exporting && errors > 0 && <Icon name="warn" />}
-            {exporting ? 'Exporting…' : errors ? `Export with ${count(errors, 'error')}` : `Export ${FORMATS[format]}`}
+            {exporting ? 'Exporting…' : errors ? `Export with ${count(errors, 'error')}` : 'Export'}
           </button>
           {exporting && (
             <div className="pf-bar">

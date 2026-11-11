@@ -131,7 +131,7 @@ export function AlignBar({ editor, inside, children }: { editor: Editor; inside?
       <Icon name={icon} />
     </button>
   )
-  const spread = ALIGNS.slice(6).filter(([how]) => n >= (how === 'tidy' ? 2 : 3) && !(parent && how === 'tidy'))
+  const spread = ALIGNS.slice(6, 8).filter(() => n >= 3)
   return (
     <>
       <div role="toolbar" aria-label={inside ? 'Align inside' : 'Align'} className="align">
