@@ -9,7 +9,7 @@ import { expect, test, STORY, addMaster, addPage, drag, drawn, exportButton, fra
 
 const EDGE = 4
 const BLOCK = 4
-const BACKGROUND = [0x19, 0x19, 0x1c]
+const BACKGROUND = [0x0a, 0x0a, 0x0a]
 const MAX_DIFF = 48
 const MAX_SHARE = 0.0005
 // Skia boosts the contrast of light text on a dark ground and blends the edges of CMYK
@@ -515,7 +515,7 @@ test('the canvas still draws while the pdf is exported', async ({ page }) => {
   await expect(page.getByText('Exporting PDF…')).toBeVisible()
 
   const [x, y] = await screen(page, 23, 52)
-  const accent = async () => (await pixels(page, x - 1, y - 3, 3, 7)).some((p) => near(p, [56, 174, 224]))
+  const accent = async () => (await pixels(page, x - 1, y - 3, 3, 7)).some((p) => near(p, [77, 124, 255]))
   await page.mouse.move(x, y - 20)
   expect(await accent()).toBe(false)
   await page.keyboard.down('Control')

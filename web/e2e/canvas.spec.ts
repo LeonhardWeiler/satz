@@ -13,7 +13,7 @@ test('moving a gradient layer leaves the page and the handles alone', async ({ p
   for (const p of await pixels(page, wx, wy, 4, 4)) expect(p).toEqual([255, 255, 255])
   const [tx, ty] = await screen(page, 23, 22)
   const edge = await pixels(page, tx + 40 - 1, ty - 3, 3, 7)
-  expect(edge.some((p) => near(p, [56, 174, 224]))).toBe(true)
+  expect(edge.some((p) => near(p, [77, 124, 255]))).toBe(true)
 })
 
 test('a click beside the pages with a tool picks the move tool, a drag from there draws', async ({ page }) => {
@@ -151,7 +151,7 @@ test('a selected masked layer is dragged where the mask hides it', async ({ page
 test('holding ctrl hovers the deepest layer under the pointer', async ({ page }) => {
   await open(page)
   const [x, y] = await screen(page, 23, 52)
-  const accent = async () => (await pixels(page, x - 1, y - 3, 3, 7)).some((p) => near(p, [56, 174, 224]))
+  const accent = async () => (await pixels(page, x - 1, y - 3, 3, 7)).some((p) => near(p, [77, 124, 255]))
   await page.mouse.move(x, y - 20)
   expect(await accent()).toBe(false)
   await page.keyboard.down('Control')
@@ -413,7 +413,7 @@ test('a marquee outlines the lines it selects along the line, not around its box
   await page.mouse.move(...(await screen(page, 65, 125)), { steps: 4 })
   const accent = async (x: number, y: number) => {
     const [sx, sy] = await screen(page, x, y)
-    return (await pixels(page, sx - 2, sy - 2, 5, 5)).some((p) => near(p, [56, 174, 224]))
+    return (await pixels(page, sx - 2, sy - 2, 5, 5)).some((p) => near(p, [77, 124, 255]))
   }
   expect(await accent(60, 100)).toBe(false)
   await page.mouse.up()

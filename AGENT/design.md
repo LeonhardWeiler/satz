@@ -84,11 +84,13 @@ fails vitest.
 - Colour roles, defined once in `:root` per theme: `--bg` panels, `--canvas` behind
   the pages, `--raised` popovers and cards, `--input` fields, `--hover`, `--selected`,
   `--border` separators and resting outlines, `--edge` hover outlines and floating surfaces,
-  `--accent`, `--bad`, `--warn`. Text on the accent is `--bg`. No raw colours in rules
+  `--accent`, `--select`, `--good`, `--bad`, `--warn`. Text on the accent is `--bg`. No raw colours in rules
   except paper white, masks, the checker, the colour picker's scales and the process
   inks of the plates.
 - Greys: `--text` values, `--text-2` labels, `--text-3` placeholders, units and disabled values. Never two of them for one role.
-- One accent for selection, focus, primary action and links. Masters, spots and snaps are not accents: masters use text colours, snap guides magenta only on the canvas.
+- Greys are neutral, without a tint; dark panels #141414 with #f5f5f5 text, the canvas near black.
+- The UI accent is the text colour (white in dark, black in light): focus, checked controls, primary action, the current page. Colour only carries meaning: `--good` green, `--warn` yellow, `--bad` red.
+- The canvas has its own colour for selection chrome, `--select` blue (#4d7cff), apart from the cyan guides and bleed, the magenta snaps and the red grid; white would vanish on paper.
 - Elevation: flat surfaces have no shadow. Floating surfaces have a 1 px `--edge`
   border and one of 2 shadows: `--shadow-pop` (menus, popovers, tooltips, bars over the
   canvas) and `--shadow-dialog` (dialogs, palette).

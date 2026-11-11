@@ -17,7 +17,7 @@ export type View = { x: number; y: number; zoom: number }
 export type Box = { x: number; y: number; w: number; h: number; rotation?: number }
 type Line = [{ x: number; y: number }, { x: number; y: number }]
 export type Overlay = {
-  /** The color of the selection chrome, the theme's accent. */
+  /** The color of the selection chrome, the theme's `--select`. */
   accent: string
   /** Layers beyond the bleed are drawn too. */
   pasteboard?: boolean

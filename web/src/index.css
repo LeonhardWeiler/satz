@@ -16,12 +16,14 @@
 
 :root {
   color-scheme: dark;
-  --bg: #1e1e21;
-  --fg: #d8dbe1;
-  --canvas: #19191c;
+  --bg: #141414;
+  --fg: #f5f5f5;
+  --canvas: #0a0a0a;
   --raised: color-mix(in srgb, var(--fg) 6%, var(--bg));
   --input: color-mix(in srgb, var(--fg) 3%, var(--bg));
-  --accent: #38aee0;
+  --accent: var(--fg);
+  --select: #4d7cff;
+  --good: #4ade80;
   --bad: #ff6b5e;
   --warn: #f1b43a;
   --shadow: rgb(0 0 0 / 0.5);
@@ -29,8 +31,8 @@
   --hover: color-mix(in srgb, var(--fg) 7%, transparent);
   --selected: color-mix(in srgb, var(--fg) 12%, transparent);
   --text: var(--fg);
-  --text-2: color-mix(in srgb, var(--fg) 72%, var(--bg));
-  --text-3: color-mix(in srgb, var(--fg) 62%, var(--bg));
+  --text-2: color-mix(in srgb, var(--fg) 64%, var(--bg));
+  --text-3: color-mix(in srgb, var(--fg) 54%, var(--bg));
   --border: color-mix(in srgb, var(--fg) 10%, var(--bg));
   --edge: color-mix(in srgb, var(--fg) 18%, var(--bg));
   --scrim: color-mix(in srgb, var(--bg) 70%, transparent);
@@ -50,12 +52,13 @@
 
 :root[data-theme='light'] {
   color-scheme: light;
-  --bg: #f4f5f7;
-  --fg: #1e1e21;
-  --canvas: #d8dade;
+  --bg: #fafafa;
+  --fg: #171717;
+  --canvas: #e5e5e5;
   --raised: #fff;
   --input: #fff;
-  --accent: #0b72a3;
+  --select: #3366ff;
+  --good: #15803d;
   --bad: #af3024;
   --warn: #855500;
   --shadow: rgb(30 30 33 / 0.18);
@@ -2265,6 +2268,10 @@ input[type='checkbox']:active {
   white-space: nowrap;
 }
 
+.pf-empty svg {
+  color: var(--good);
+}
+
 .pf-empty,
 .pf-note {
   display: flex;
@@ -3473,13 +3480,13 @@ input[type='checkbox']:active {
   }
 
   .guide {
-    stroke: var(--accent);
+    stroke: var(--select);
     stroke-width: 2;
   }
 
   .wrap {
     fill: none;
-    stroke: var(--accent);
+    stroke: var(--select);
     stroke-dasharray: 4 3;
   }
 
@@ -3503,7 +3510,7 @@ input[type='checkbox']:active {
   }
 
   .override {
-    fill: var(--accent);
+    fill: var(--select);
   }
 
   .overset {
@@ -3512,7 +3519,7 @@ input[type='checkbox']:active {
 
   .swap {
     fill: #fff;
-    stroke: var(--accent);
+    stroke: var(--select);
     stroke-width: 1.5;
   }
 

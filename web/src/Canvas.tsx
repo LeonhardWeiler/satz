@@ -527,7 +527,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       renderer.draw(surface.getCanvas(), lists, editor.sheets, view, canvas.width / canvas.clientWidth, {
         text,
         found,
-        accent: (accent ||= getComputedStyle(canvas).getPropertyValue('--accent')),
+        accent: (accent ||= getComputedStyle(canvas).getPropertyValue('--select')),
         pasteboard: !editor.preflight,
         selection: editor.selection.length > 1 || ed || drag?.kind === 'marquee' ? editor.selected().map(outline) : [],
         editing: !!ed,

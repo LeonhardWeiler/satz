@@ -78,7 +78,7 @@ test('a frame that cannot take the thread shows a not-allowed cursor and a click
 test('the in-port of a threaded frame shows the frame it comes from while hovered', async ({ page }) => {
   await threaded(page)
   const [x, y] = await screen(page, (A[0] + A[2]) / 2, A[1])
-  const edge = async () => (await pixels(page, x, y - 2, 1, 5)).some(([r, g, b]) => b > 200 && r < 100 && g > 140)
+  const edge = async () => (await pixels(page, x, y - 2, 1, 5)).some(([r, g, b]) => b > 200 && r < 120 && g > 90)
   await page.mouse.move(1, 1)
   expect(await edge()).toBe(false)
   await page.mouse.move(...(await port(page, B, false)))
