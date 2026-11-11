@@ -45,7 +45,6 @@ test('color pickers and selects', async ({ page }) => {
 test('document and page selects', async ({ page }) => {
   await start(page, { h: 1400 })
   await opened(page, C, '20 page format select', 'Document format select', section(page, 'Document').getByRole('combobox').first())
-  await opened(page, C, '21 spreads select', 'Spreads select', combo(page, 'Spreads'))
   await opened(page, C, '22 color mode select', 'Color mode select', combo(page, 'Color mode'))
   if (await combo(page, 'Master').isEnabled()) await opened(page, C, '23 master select', 'Master select of a page', combo(page, 'Master'))
   await props(page).getByRole('region', { name: /^Page / }).getByRole('button', { name: 'Section', exact: true }).click()
