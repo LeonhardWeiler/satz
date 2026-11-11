@@ -470,7 +470,7 @@ export function Keys({ keys }: { keys: string }) {
 export const SIDE_NAMES = ['Top', 'Right', 'Bottom', 'Left']
 
 /** Whether the sides of `what` of the layer `id` show one field each, kept for `opened`, and the button in the section header that switches it. */
-export function useSides(what: string, id: string, values: number[], opened?: boolean): [boolean, ReactNode] {
+export function useSides(what: string, id: string, values: (number | null)[], opened?: boolean): [boolean, ReactNode] {
   const [shown, setShown] = useState<{ id: string; each: boolean } | null>(null)
   const each = (shown?.id === id ? shown.each : values[0] !== values[2] || values[1] !== values[3]) || !!opened
   return [each, <SidesToggle what={what} pressed={each} disabled={opened} onClick={() => setShown({ id, each: !each })} />]
@@ -485,10 +485,10 @@ export function Sides({
   set,
 }: {
   what: string
-  values: number[]
+  values: (number | null)[]
   each: boolean
   wrap?: (side: number, field: ReactNode) => ReactNode
-  set: (values: number[]) => void
+  set: (values: (number | null)[]) => void
 }) {
   return (
     <div className="grid">

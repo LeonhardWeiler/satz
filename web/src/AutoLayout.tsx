@@ -124,7 +124,7 @@ export function AutoLayout({ editor, node, set }: { editor: Editor; node: Node &
             {field}
           </Bindable>
         )}
-        set={(v) => set(Object.fromEntries(PADDING.map((p, i) => [p, Math.max(0, v[i])])))}
+        set={(v) => set(Object.fromEntries(PADDING.map((p, i) => [p, Math.max(0, v[i] ?? 0)])))}
       />
     </Section>
   )

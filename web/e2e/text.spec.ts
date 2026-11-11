@@ -452,3 +452,31 @@ test('text runs around a layer above it that wraps it and jumps over one that ju
   await expect(offset).toHaveCount(0)
   await expect(hint).toHaveCount(0)
 })
+
+test('the text and text frame sections set all selected texts and show mixed values', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  const texts = page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ })
+  const size = panel.getByRole('textbox', { name: 'Font size in pt' })
+  const columns = panel.getByRole('region', { name: 'Text frame' }).getByRole('textbox', { name: 'Columns' })
+  const commit = async (field: typeof size, value: string) => {
+    await field.fill(value)
+    await field.press('Enter')
+  }
+  await texts.click()
+  await page.keyboard.press('Control+d')
+  await commit(size, '20')
+  const select = async () => {
+    await texts.first().click()
+    await texts.last().click({ modifiers: ['Control'] })
+  }
+  await select()
+  await expect(size).toHaveValue('Mixed')
+  await commit(size, '12')
+  await commit(columns, '2')
+  for (const text of [texts.first(), texts.last()]) {
+    await text.click()
+    await expect(size).toHaveValue('12')
+    await expect(columns).toHaveValue('2')
+  }
+})

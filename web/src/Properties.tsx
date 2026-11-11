@@ -7,7 +7,7 @@ import { bounds, ends, MM, scopeOf, useEditor, type Editor } from './editor'
 import { Icon, KindIcon } from './icons'
 import { FORMATS, ORIENTATIONS, formatOf } from './Start'
 import { addFonts, canFindFonts, findFonts, pickProfile, readLocalFonts, removeFont, useLocalFonts } from './file'
-import type { Bindable as Prop, Blend, Constraint, Command, DateFormat, Grid, LineStyle, Node, Page, Props, Section as Numbers, Wrap } from './model'
+import type { Bindable as Prop, Blend, Constraint, Command, DateFormat, Grid, LineStyle, Node, Page, Props, Section as Numbers, TextNode, Wrap } from './model'
 import { isOpen, radiusOf, rounded } from './model'
 import { AlignBar, BOOLEANS, combinable, rowOf, setGap } from './align'
 import { ACTIONS, keysOf, press } from './commands'
@@ -463,9 +463,9 @@ export function Properties({ editor }: { editor: Editor }) {
           </div>
         </Section>
       )}
-      {one?.kind === 'text' && <TextSection editor={editor} node={one} />}
+      {texts && <TextSection editor={editor} nodes={nodes as TextNode[]} />}
       {texts && fill}
-      {one?.kind === 'text' && <TextFrameSection editor={editor} node={one} set={set} />}
+      {texts && <TextFrameSection editor={editor} nodes={nodes as TextNode[]} set={set} />}
       {one?.kind === 'frame' && <AutoLayout editor={editor} node={one} set={set} />}
       {box && (
         <Section title="Layer">

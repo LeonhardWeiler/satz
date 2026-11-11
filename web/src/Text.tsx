@@ -10,7 +10,7 @@ import { Icon, type IconName } from './icons'
 import { Popover } from './Popover'
 import { MAX_LENGTH, length } from './settings'
 import { DATE, PAGE_NUMBER, insert, range } from './textEdit'
-import { STYLED, type Attrs, type Props, type Span, type Styled, type Tab, type TextNode, type TextProps, type TextStyle, type Typeface, textSizing } from './model'
+import { STYLED, type Attrs, type Props, type Span, type Styled, type Tab, type TextNode, type TextProps, type TextStyle, type Typeface } from './model'
 import { Bindable } from './Variables'
 import namesUrl from './unicode-names.txt?url'
 
@@ -455,16 +455,19 @@ export function Font({ editor, id, fonts, compact, set }: { editor: Editor; id?:
   )
 }
 
-/** Text style, type and alignment of a text layer. */
-export function TextSection({ editor, node }: { editor: Editor; node: TextNode }) {
-  const all = useEditor(editor, (e) => e.snapshot.stories[node.story])?.spans ?? []
-  const edited = useEditor(editor, (e) => (e.editing?.id === node.id && e.editing.anchor !== e.editing.focus ? e.editing : null))
+/** Text style, type and alignment of text layers. */
+export function TextSection({ editor, nodes }: { editor: Editor; nodes: TextNode[] }) {
+  const stories = useEditor(editor, (e) => e.snapshot.stories)
+  const one = nodes.length === 1 ? nodes[0] : undefined
+  const edited = useEditor(editor, (e) => (one && e.editing?.id === one.id && e.editing.anchor !== e.editing.focus ? e.editing : null))
   const r = edited && range(edited)
+  const all = nodes.map((n) => stories[n.story]?.spans ?? [])
   let at = 0
-  const spans = r ? all.filter((s) => (at += s.len) > r[0] && at - s.len < r[1]) : all
+  const spans = r ? all[0].filter((s) => (at += s.len) > r[0] && at - s.len < r[1]) : all.flat()
   const same = <T,>(get: (a: Attrs) => T) => sameOf(spans, get)
   /** Formats the selection of the text being edited, or else all of it. */
-  const format = (props: TextProps) => editor.apply({ type: 'format', id: node.id, range: r, ...props })
+  const format = (props: TextProps) => editor.batch(() => nodes.forEach((n) => editor.apply({ type: 'format', id: n.id, range: r, ...props })))
+  const features = (f: (old: string[]) => string[]) => editor.batch(() => nodes.forEach((n, i) => featuresOf(editor, n.id, all[i], r)(f)))
   const align = same((a) => a.textAlign)
   const hyphenate = same((a) => a.hyphenate)
   const lang = same((a) => a.lang)
@@ -476,9 +479,9 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
     <Section title="Text">
       <div className="row">
         <Specimen editor={editor} spans={spans} format={format} />
-        <Characters editor={editor} node={node} font={same((a) => a.font?.hash ?? null) ?? undefined} />
+        {one && <Characters editor={editor} node={one} font={same((a) => a.font?.hash ?? null) ?? undefined} />}
       </div>
-      <Font editor={editor} id={node.id} fonts={spans.map((a) => a.font)} set={(font) => format({ font })} />
+      <Font editor={editor} id={one?.id} fonts={spans.map((a) => a.font)} set={(font) => format({ font })} />
       <div className="grid">
         {METRICS.map(([prop, title, label, unit, min, max, zero]) => {
           const field = (
@@ -494,8 +497,8 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
               onCommit={(v) => format({ [prop]: v })}
             />
           )
-          return prop === 'size' ? (
-            <Bindable key={prop} editor={editor} id={node.id} prop={prop} title={title} label={<Icon name={label} />}>
+          return prop === 'size' && one ? (
+            <Bindable key={prop} editor={editor} id={one.id} prop={prop} title={title} label={<Icon name={label} />}>
               {field}
             </Bindable>
           ) : (
@@ -508,7 +511,7 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
         editor={editor}
         spans={spans}
         set={format}
-        features={featuresOf(editor, node.id, all, r)}
+        features={features}
         paragraph={
           <>
             <Check label="Hyphenate" value={hyphenate} set={(hyphenate) => format({ hyphenate })} />
@@ -520,7 +523,7 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
             />
             <ColorCheck
               editor={editor}
-              node={node}
+              node={nodes[0]}
               label="Shading"
               color={shading === null ? undefined : JSON.parse(shading)}
               set={(c) => format({ shading: c })}
@@ -591,13 +594,17 @@ function StyleRow({ editor, style }: { editor: Editor; style: TextStyle }) {
   )
 }
 
-/** Resizing, insets, columns, vertical alignment and baseline grid of a text layer. */
-export function TextFrameSection({ editor, node, set }: { editor: Editor; node: TextNode; set: (p: Props) => void }) {
-  const { horizontal, vertical } = node.sizing
-  const resizing = horizontal === 'hug' ? 'autoWidth' : vertical === 'hug' ? 'autoHeight' : 'fixedSize'
-  const rule = node.columnRule?.weight ? node.columnRule : null
-  const insets = INSETS.map((p) => node[p])
-  const [each, toggle] = useSides('inset', node.id, insets)
+/** Resizing, insets, columns, vertical alignment and baseline grid of text layers. */
+export function TextFrameSection({ editor, nodes, set }: { editor: Editor; nodes: TextNode[]; set: (p: Props) => void }) {
+  const same = <T,>(get: (n: TextNode) => T) => sameOf(nodes, get)
+  const resizing = same((n) => (n.sizing.horizontal === 'hug' ? 'autoWidth' : n.sizing.vertical === 'hug' ? 'autoHeight' : 'fixedSize'))
+  const ruled = same((n) => JSON.stringify(n.columnRule?.weight ? n.columnRule : null))
+  const rule: TextNode['columnRule'] | null | undefined = ruled === null ? undefined : JSON.parse(ruled)
+  const insets = INSETS.map((p) => same((n) => n[p]))
+  const ids = nodes.map((n) => n.id).join()
+  const [each, toggle] = useSides('inset', ids, insets)
+  const columns = same((n) => n.columns)
+  const columned = nodes.every((n) => n.columns > 1)
   return (
     <Section title="Text frame" actions={toggle}>
       <Segmented
@@ -605,29 +612,29 @@ export function TextFrameSection({ editor, node, set }: { editor: Editor; node: 
         text
         value={resizing}
         options={RESIZING}
-        disabled={(v) => (v === 'autoWidth' && !!(node.prev || node.next)) || (v === 'autoHeight' && !!node.next)}
-        onChange={(mode) => set({ sizing: textSizing(node.sizing, mode) })}
+        disabled={(v) => nodes.some((n) => (v === 'autoWidth' && !!(n.prev || n.next)) || (v === 'autoHeight' && !!n.next))}
+        onChange={(mode) => editor.resize(nodes, mode)}
       />
-      <Sides what="inset" values={insets} each={each} set={(v) => set(Object.fromEntries(INSETS.map((p, i) => [p, v[i]])))} />
+      <Sides what="inset" values={insets} each={each} set={(v) => set(Object.fromEntries(INSETS.flatMap((p, i) => (v[i] === null ? [] : [[p, v[i]]]))))} />
       <div className="grid">
-        <Field label="Columns" title="Columns" unit="" int min={1} max={20} reset={1} value={node.columns} onCommit={(columns) => set({ columns })} />
-        {node.columns > 1 && <Field label="Gutter" title="Gutter" unit="length" value={node.gutter} onCommit={(gutter) => set({ gutter })} />}
-        <Segmented label="Vertical align" value={node.verticalAlign} options={VERTICAL} onChange={(verticalAlign) => set({ verticalAlign })} />
+        <Field label="Columns" title="Columns" unit="" int min={1} max={20} reset={1} value={columns} onCommit={(columns) => set({ columns })} />
+        {columned && <Field label="Gutter" title="Gutter" unit="length" value={same((n) => n.gutter)} onCommit={(gutter) => set({ gutter })} />}
+        <Segmented label="Vertical align" value={same((n) => n.verticalAlign)} options={VERTICAL} onChange={(verticalAlign) => set({ verticalAlign })} />
       </div>
-      <More key={node.id} label="Baseline grid" used={!!(node.baselineGrid || node.baselineStart || node.minHeight || node.maxLines || node.trim || node.roundBaselines)}>
+      <More key={ids} label="Baseline grid" used={nodes.some((n) => !!(n.baselineGrid || n.baselineStart || n.minHeight || n.maxLines || n.trim || n.roundBaselines))}>
         <div className="grid">
-          <Field label="Baseline" title="Baseline grid" unit="pt" min={1} zero="Off" reset={0} value={node.baselineGrid} onCommit={(baselineGrid) => set({ baselineGrid })} />
-          <Field label="Start" title="Baseline grid start" unit="pt" reset={0} value={node.baselineStart} onCommit={(baselineStart) => set({ baselineStart })} />
-          {resizing === 'autoHeight' && <Field label="Min" title="Min height" unit="length" zero="None" reset={0} value={node.minHeight} onCommit={(minHeight) => set({ minHeight })} />}
-          <Field label="Lines" title="Max lines" unit="" int max={1000} zero="All" reset={0} value={node.maxLines} onCommit={(maxLines) => set({ maxLines })} />
+          <Field label="Baseline" title="Baseline grid" unit="pt" min={1} zero="Off" reset={0} value={same((n) => n.baselineGrid)} onCommit={(baselineGrid) => set({ baselineGrid })} />
+          <Field label="Start" title="Baseline grid start" unit="pt" reset={0} value={same((n) => n.baselineStart)} onCommit={(baselineStart) => set({ baselineStart })} />
+          {resizing === 'autoHeight' && <Field label="Min" title="Min height" unit="length" zero="None" reset={0} value={same((n) => n.minHeight)} onCommit={(minHeight) => set({ minHeight })} />}
+          <Field label="Lines" title="Max lines" unit="" int max={1000} zero="All" reset={0} value={same((n) => n.maxLines)} onCommit={(maxLines) => set({ maxLines })} />
         </div>
-        <Check label="Trim to cap height" value={node.trim} set={(trim) => set({ trim })} />
-        <Check label="Whole-point baselines" value={node.roundBaselines} set={(roundBaselines) => set({ roundBaselines })} />
+        <Check label="Trim to cap height" value={same((n) => n.trim)} set={(trim) => set({ trim })} />
+        <Check label="Whole-point baselines" value={same((n) => n.roundBaselines)} set={(roundBaselines) => set({ roundBaselines })} />
       </More>
-      {node.columns > 1 && (
+      {columned && (
         <ColorCheck
           editor={editor}
-          node={node}
+          node={nodes[0]}
           label="Column rule"
           color={rule && rule.color}
           set={(color) => set({ columnRule: color ? { weight: 1, color } : { ...rule!, weight: 0 } })}
