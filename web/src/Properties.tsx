@@ -627,7 +627,7 @@ function GridSection({ editor, sheets, all }: { editor: Editor; sheets: Page[]; 
         </>
       }
     >
-      {!grids && <p className="empty">Mixed — + replaces</p>}
+      {!grids && <p className="empty" title="Adding one replaces them on all pages">Mixed</p>}
       {grids && grids.length > 0 && (
         <ul className="rows">
           {grids.map((g, i) => {

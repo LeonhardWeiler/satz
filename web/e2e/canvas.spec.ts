@@ -90,7 +90,7 @@ test('property sections space their rows evenly and size their controls alike', 
         const kids = [...s.children].filter((c) => c.getClientRects().length).map((c) => c.getBoundingClientRect())
         return {
           name: s.getAttribute('aria-label'),
-          top: kids[0].top - r.top,
+          top: kids[0].top - r.top - parseFloat(getComputedStyle(s).borderTopWidth),
           bottom: r.bottom - parseFloat(getComputedStyle(s).borderBottomWidth) - kids.at(-1)!.bottom,
           gaps: kids.slice(1).map((k, i) => k.top - kids[i].bottom),
           heights: [...s.querySelectorAll('.field, .select, .segmented, .specimen')].map((c) => c.getBoundingClientRect().height),

@@ -166,16 +166,9 @@ export function TypeOptions({ spans, set, features, paragraph }: { spans: Pick<A
   const put = (drop: string[], add: string[]) => features((old) => [...old.filter((f) => !drop.some((t) => f === t || f === `${t}=0`)), ...add].sort())
   return (
     <>
-      <button
-        type="button"
-        className="icon-button"
-        aria-label="Type options"
-        title="Type options"
-        aria-haspopup="dialog"
-        aria-expanded={!!at}
-        onClick={(e) => setAt(e.currentTarget.getBoundingClientRect())}
-      >
-        <Icon name="more" />
+      <button type="button" className="more" aria-haspopup="dialog" aria-expanded={!!at} onClick={(e) => setAt(e.currentTarget.getBoundingClientRect())}>
+        <Icon name="chevron" />
+        Type options
       </button>
       {at &&
         createPortal(
@@ -496,32 +489,30 @@ export function TextSection({ editor, node }: { editor: Editor; node: TextNode }
           )
         })}
       </div>
-      <div className="row">
-        <Segmented label="Text align" value={align} options={ALIGNS} onChange={(textAlign) => format({ textAlign })} />
-        <TypeOptions
-          spans={spans}
-          set={format}
-          features={featuresOf(editor, node.id, all, r)}
-          paragraph={
-            <>
-              <Check label="Hyphenate" value={hyphenate} set={(hyphenate) => format({ hyphenate })} />
-              <Select
-                label="Hyphenation language"
-                value={lang ?? 'mixed'}
-                options={langs}
-                onChange={(l) => l !== 'mixed' && format({ lang: l as Attrs['lang'] })}
-              />
-              <ColorCheck
-                editor={editor}
-                node={node}
-                label="Shading"
-                color={shading === null ? undefined : JSON.parse(shading)}
-                set={(c) => format({ shading: c })}
-              />
-            </>
-          }
-        />
-      </div>
+      <Segmented label="Text align" value={align} options={ALIGNS} onChange={(textAlign) => format({ textAlign })} />
+      <TypeOptions
+        spans={spans}
+        set={format}
+        features={featuresOf(editor, node.id, all, r)}
+        paragraph={
+          <>
+            <Check label="Hyphenate" value={hyphenate} set={(hyphenate) => format({ hyphenate })} />
+            <Select
+              label="Hyphenation language"
+              value={lang ?? 'mixed'}
+              options={langs}
+              onChange={(l) => l !== 'mixed' && format({ lang: l as Attrs['lang'] })}
+            />
+            <ColorCheck
+              editor={editor}
+              node={node}
+              label="Shading"
+              color={shading === null ? undefined : JSON.parse(shading)}
+              set={(c) => format({ shading: c })}
+            />
+          </>
+        }
+      />
     </Section>
   )
 }
@@ -547,7 +538,6 @@ function StyleRow({ editor, style }: { editor: Editor; style: TextStyle }) {
           <Icon name="chevron" />
         </button>
         <NameInput label="Text style name" value={style.name} onCommit={(name) => editor.apply({ type: 'setTextStyle', id: style.id, name })} />
-        {open && <TypeOptions spans={[style]} set={(p) => editor.apply({ type: 'setTextStyle', id: style.id, ...p })} features={(f) => editor.apply({ type: 'setTextStyle', id: style.id, features: f(style.features) })} />}
         <button
           type="button"
           className="icon-button"
@@ -561,24 +551,25 @@ function StyleRow({ editor, style }: { editor: Editor; style: TextStyle }) {
       {!open && <small className="text-style-sum">{`${style.font?.family ?? 'Source Serif 4'} ${style.font?.style ?? 'Regular'} · ${style.size}/${style.lineHeight || 'auto'} pt`}</small>}
       {open && (
         <>
-      <Font editor={editor} id={style.id} fonts={[style.font]} set={(font) => editor.apply({ type: 'setTextStyle', id: style.id, font })} />
-      <div className="grid">
-        {METRICS.map(([prop, title, label, unit, min, max, zero]) => (
-          <Bindable key={prop} editor={editor} id={style.id} prop={prop} title={title} label={<Icon name={label} />}>
-            <Field
-              label={<Icon name={label} />}
-              title={title}
-              unit={unit}
-              min={min}
-              max={max}
-              zero={zero}
-              reset={prop === 'size' ? undefined : 0}
-              value={style[prop]}
-              onCommit={(v) => editor.apply({ type: 'setTextStyle', id: style.id, [prop]: v })}
-            />
-          </Bindable>
-        ))}
-      </div>
+          <Font editor={editor} id={style.id} fonts={[style.font]} set={(font) => editor.apply({ type: 'setTextStyle', id: style.id, font })} />
+          <div className="grid">
+            {METRICS.map(([prop, title, label, unit, min, max, zero]) => (
+              <Bindable key={prop} editor={editor} id={style.id} prop={prop} title={title} label={<Icon name={label} />}>
+                <Field
+                  label={<Icon name={label} />}
+                  title={title}
+                  unit={unit}
+                  min={min}
+                  max={max}
+                  zero={zero}
+                  reset={prop === 'size' ? undefined : 0}
+                  value={style[prop]}
+                  onCommit={(v) => editor.apply({ type: 'setTextStyle', id: style.id, [prop]: v })}
+                />
+              </Bindable>
+            ))}
+          </div>
+          <TypeOptions spans={[style]} set={(p) => editor.apply({ type: 'setTextStyle', id: style.id, ...p })} features={(f) => editor.apply({ type: 'setTextStyle', id: style.id, features: f(style.features) })} />
         </>
       )}
     </div>

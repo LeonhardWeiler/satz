@@ -3867,7 +3867,7 @@ button.mark {
   padding-bottom: 12px;
 }
 
-.section:has(> .section-body:empty):has(+ .section:not(:has(> .section-body:empty))) {
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border);
+.section:has(> .section-body:empty) + .section:not(:has(> .section-body:empty)) {
+  margin-top: 8px;
+  border-top: 1px solid var(--border);
 }
