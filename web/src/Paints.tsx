@@ -1,7 +1,7 @@
 import { Fragment, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ColorPicker } from './ColorPicker'
-import { alpha, colorText, css, neutral, withAlpha, type ColorMode } from './color'
+import { colorText, css, neutral, withAlpha, type ColorMode } from './color'
 import { Field, RowActions, Section, Segmented, Select } from './controls'
 import { Icon } from './icons'
 import { useEditor, type Editor } from './editor'
@@ -294,57 +294,75 @@ export function EffectList({
       {!effects && <p className="empty" title="Adding one replaces them on all layers">Mixed</p>}
       {effects && effects.length > 0 && (
         <ul className="rows">
-          {effects.map((e, i) => {
-            const set = (next: Partial<Effect>) => onChange(replace(effects, i, { ...e, ...next }))
-            const what = EFFECTS[e.type].toLowerCase()
-            return (
-              <li key={i} className="paint" data-hidden={!e.visible || undefined}>
-                <div className="row">
-                  <Select
-                    label="Effect type"
-                    value={e.type}
-                    options={EFFECTS}
-                    onChange={(type) => set({ ...(type === 'blur' ? blur : shadow)(mode), visible: e.visible })}
-                  />
-                  <RowActions
-                    what={what}
-                    visible={e.visible}
-                    onToggle={() => set({ visible: !e.visible })}
-                    onRemove={() => onChange(effects.filter((_, j) => j !== i))}
-                  />
-                </div>
-                <div className="grid">
-                  {e.type === 'dropShadow' && (
-                    <>
-                      <Field label="Offset X" title="Shadow offset X" unit="length" min={-Infinity} value={e.x} onCommit={(x) => set({ x })} />
-                      <Field label="Offset Y" title="Shadow offset Y" unit="length" min={-Infinity} value={e.y} onCommit={(y) => set({ y })} />
-                    </>
-                  )}
-                  <Field
-                    label="Blur"
-                    unit="length"
-                    value={e.radius}
-                    onCommit={(radius) => set({ radius })}
-                  />
-                  {e.type === 'dropShadow' && (
-                    <div className="row">
-                      <ColorPicker label="Shadow color" color={e.color} mode={mode} scope={scope} onChange={(color) => set({ color })} />
-                      <Field
-                        label="Opacity"
-                        title="Shadow opacity"
-                        unit="%"
-                        value={alpha(e.color)}
-                        onCommit={(v) => set({ color: withAlpha(e.color, v) })}
-                      />
-                    </div>
-                  )}
-                </div>
-              </li>
-            )
-          })}
+          {effects.map((e, i) => (
+            <EffectRow
+              key={i}
+              effect={e}
+              mode={mode}
+              scope={scope}
+              set={(next) => onChange(replace(effects, i, { ...e, ...next }))}
+              onRemove={() => onChange(effects.filter((_, j) => j !== i))}
+            />
+          ))}
         </ul>
       )}
     </Section>
+  )
+}
+
+/** An effect's colour, type and visibility, and a button that opens its offset and blur. */
+function EffectRow({ effect: e, mode, scope, set, onRemove }: { effect: Effect; mode: ColorMode; scope: Scope; set: (e: Partial<Effect>) => void; onRemove: () => void }) {
+  const [at, setAt] = useState<DOMRect | null>(null)
+  const shadowed = e.type === 'dropShadow'
+  return (
+    <li className="paint" data-hidden={!e.visible || undefined}>
+      <div className="row">
+        {shadowed && <ColorPicker label="Shadow color" color={e.color} mode={mode} scope={scope} onChange={(color) => set({ color })} />}
+        <Select label="Effect type" value={e.type} options={EFFECTS} onChange={(type) => set({ ...(type === 'blur' ? blur : shadow)(mode), visible: e.visible })} />
+        <button type="button" className="icon-button" aria-label="Effect settings" title="Effect settings" aria-haspopup="dialog" aria-expanded={!!at} onClick={(ev) => setAt(ev.currentTarget.getBoundingClientRect())}>
+          <Icon name="adjust" />
+        </button>
+        <RowActions what={EFFECTS[e.type].toLowerCase()} visible={e.visible} onToggle={() => set({ visible: !e.visible })} onRemove={onRemove} />
+      </div>
+      {at && (
+        <Options label="Effect settings" at={at} onClose={() => setAt(null)}>
+          <div className="grid">
+            {shadowed && (
+              <>
+                <Field label="X" title="Shadow offset X" unit="length" min={-Infinity} value={e.x} onCommit={(x) => set({ x })} />
+                <Field label="Y" title="Shadow offset Y" unit="length" min={-Infinity} value={e.y} onCommit={(y) => set({ y })} />
+              </>
+            )}
+            <Field label="Blur" title="Blur" unit="length" value={e.radius} onCommit={(radius) => set({ radius })} />
+          </div>
+        </Options>
+      )}
+    </li>
+  )
+}
+
+/** A popover dialog at `at` that closes on Escape or a click outside. */
+function Options({ label, at, onClose, children }: { label: string; at: DOMRect; onClose: () => void; children: ReactNode }) {
+  return createPortal(
+    <div className="menu-backdrop" onPointerDown={onClose}>
+      <Popover
+        anchor={() => at}
+        side="bottom"
+        className="picker options"
+        role="dialog"
+        aria-label={label}
+        tabIndex={-1}
+        onPointerDown={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          if (e.key !== 'Escape') return
+          e.stopPropagation()
+          onClose()
+        }}
+      >
+        {children}
+      </Popover>
+    </div>,
+    document.body,
   )
 }
 
@@ -394,39 +412,22 @@ function ImageTools({ editor, id, paint: p, set }: { editor: Editor; id: string;
           />,
           document.body,
         )}
-      {adjustAt &&
-        createPortal(
-          <div className="menu-backdrop" onPointerDown={() => setAdjustAt(null)}>
-            <Popover
-              anchor={() => adjustAt}
-              side="bottom"
-              className="picker options"
-              role="dialog"
-              aria-label="Adjust image"
-              tabIndex={-1}
-              onPointerDown={(e) => e.stopPropagation()}
-              onKeyDown={(e) => {
-                if (e.key !== 'Escape') return
-                e.stopPropagation()
-                setAdjustAt(null)
-              }}
-            >
-              <div className="adjust">
-                {ADJUST.map((name, i) => (
-                  <Fragment key={name}>
-                    <span>{name}</span>
-                    <input type="range" aria-label={name} min={-100} max={100} value={Math.round(adjust[i] * 100)} onChange={(e) => change(i, Number(e.currentTarget.value))} />
-                    <Field label="" title={name} unit="%" min={-100} max={100} reset={0} value={Math.round(adjust[i] * 100)} onCommit={(v) => change(i, v)} />
-                  </Fragment>
-                ))}
-                <button type="button" className="button" disabled={adjust.every((v) => !v)} onClick={() => set({ ...p, adjust: [0, 0, 0] })}>
-                  Reset
-                </button>
-              </div>
-            </Popover>
-          </div>,
-          document.body,
-        )}
+      {adjustAt && (
+        <Options label="Adjust image" at={adjustAt} onClose={() => setAdjustAt(null)}>
+          <div className="adjust">
+            {ADJUST.map((name, i) => (
+              <Fragment key={name}>
+                <span>{name}</span>
+                <input type="range" aria-label={name} min={-100} max={100} value={Math.round(adjust[i] * 100)} onChange={(e) => change(i, Number(e.currentTarget.value))} />
+                <Field label="" title={name} unit="%" min={-100} max={100} reset={0} value={Math.round(adjust[i] * 100)} onCommit={(v) => change(i, v)} />
+              </Fragment>
+            ))}
+            <button type="button" className="button" disabled={adjust.every((v) => !v)} onClick={() => set({ ...p, adjust: [0, 0, 0] })}>
+              Reset
+            </button>
+          </div>
+        </Options>
+      )}
     </>
   )
 }
