@@ -1,5 +1,5 @@
 import { type Page } from '@playwright/test'
-import { expect, test, current, open } from './util'
+import { expect, test, current, open, screen } from './util'
 
 const palette = (page: Page) => page.getByRole('dialog', { name: 'Command palette' })
 async function run(page: Page, query: string, name: string | RegExp) {
@@ -102,4 +102,14 @@ test('question mark and the help button show the keyboard shortcuts', async ({ p
   await page.keyboard.press('?')
   await help.getByRole('button', { name: 'Close' }).click()
   await expect(help).toHaveCount(0)
+})
+
+test('the palette inserts the date into the edited text', async ({ page }) => {
+  await open(page)
+  await page.keyboard.press('t')
+  await page.mouse.click(...(await screen(page, 10, 200, 0)))
+  await page.keyboard.type('a')
+  await run(page, 'insert date', /^Insert date/)
+  await page.keyboard.type('b')
+  await expect(page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^a.+b$/ })).toBeVisible()
 })

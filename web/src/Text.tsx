@@ -33,11 +33,9 @@ const RESIZING = [
 ] as const
 const LANGS = { en: 'English', de: 'German', fr: 'French', it: 'Italian', es: 'Spanish', nl: 'Dutch' } as const
 /** Styled numbers: title, label, unit, least value and the text shown for 0. */
-const METRICS: [Exclude<Styled, 'font' | 'textCase' | 'textDecoration' | 'features' | 'paragraphIndent' | 'indentLeft' | 'indentRight' | 'spaceBefore' | 'position' | 'baselineShift' | 'dropLines' | 'dropChars' | 'keepLines' | 'keepTogether' | 'keepNext' | 'tabs' | 'list'>, string, IconName, string, number, number, string?][] = [
+const METRICS: ['size' | 'lineHeight', string, IconName, string, number, number, string?][] = [
   ['size', 'Font size', 'fontSize', 'pt', 0.1, 5000],
   ['lineHeight', 'Line height', 'lineHeight', 'pt', 0, MAX_LENGTH, 'Auto'],
-  ['letterSpacing', 'Letter spacing', 'letterSpacing', '%', -100, 10000],
-  ['paragraphSpacing', 'Paragraph spacing', 'paragraphSpacing', 'pt', 0, MAX_LENGTH],
 ]
 
 const CASES = { original: 'As typed', upper: 'Upper case', lower: 'Lower case', title: 'Title case' } as const
@@ -211,6 +209,9 @@ export function TypeOptions({ editor, spans, set, features, paragraph }: { edito
               </header>
               {tab === 'Character' && (
                 <>
+                  <Group title="Spacing">
+                    <Field label={<Icon name="letterSpacing" />} title="Letter spacing" unit="%" min={-100} max={10000} reset={0} value={same((a) => a.letterSpacing)} onCommit={(letterSpacing) => set({ letterSpacing })} />
+                  </Group>
                   <Group title="Case & position">
                     {fold('textCase', CASES, CASE_TAGS, 'original')}
                     <Select label="Decoration" prefix="Decoration" value={same((a) => a.textDecoration)} options={DECORATIONS} onChange={(textDecoration) => set({ textDecoration })} />
@@ -475,11 +476,8 @@ export function TextSection({ editor, nodes }: { editor: Editor; nodes: TextNode
   if (lang === null) langs.mixed = 'Mixed'
 
   return (
-    <Section title="Text">
-      <div className="row">
-        <Specimen editor={editor} spans={spans} format={format} />
-        {one && <Characters editor={editor} node={one} font={same((a) => a.font?.hash ?? null) ?? undefined} />}
-      </div>
+    <Section title="Text" actions={one && <Characters editor={editor} node={one} font={same((a) => a.font?.hash ?? null) ?? undefined} />}>
+      <Specimen editor={editor} spans={spans} format={format} />
       <Font editor={editor} id={one?.id} fonts={spans.map((a) => a.font)} set={(font) => format({ font })} />
       <div className="grid">
         {METRICS.map(([prop, title, label, unit, min, max, zero]) => {

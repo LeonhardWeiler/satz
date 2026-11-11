@@ -3,7 +3,7 @@ import type { Editor } from './editor'
 import type { Props } from './model'
 import { settings } from './settings'
 import { keyOf } from './keys'
-import { MAC } from './textEdit'
+import { DATE, insert, MAC, PAGE_NUMBER } from './textEdit'
 
 /** A command by its title, shortcut and group; one without `run` runs by pressing its shortcut, one whose `can` fails is greyed out in the context menu. */
 export type Action = { title: string; keys: string; group: string; run?: (editor: Editor) => void; can?: (editor: Editor) => boolean }
@@ -133,6 +133,8 @@ export const ACTIONS: Action[] = [
   },
   { title: 'Auto height', keys: 'Ctrl Alt H', group: 'Text' },
   { title: 'Auto fit', keys: 'Ctrl Alt C', group: 'Text' },
+  { title: 'Insert page number', keys: 'Ctrl Alt Shift N', group: 'Text', run: (editor) => editor.editing && insert(editor, PAGE_NUMBER) },
+  { title: 'Insert date', keys: '', group: 'Text', run: (editor) => editor.editing && insert(editor, DATE) },
   { title: 'Move tool', keys: 'V', group: 'Tools' },
   { title: 'Frame tool', keys: 'F', group: 'Tools' },
   { title: 'Rectangle tool', keys: 'R', group: 'Tools' },

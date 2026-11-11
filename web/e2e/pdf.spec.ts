@@ -378,14 +378,21 @@ test('formatted text matches the canvas', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
-  for (const [name, value] of [['W in mm', '110'], ['Font size in pt', '13'], ['Line height in pt', '21'], ['Letter spacing in %', '4'], ['Paragraph spacing in pt', '8']]) {
+  for (const [name, value] of [['W in mm', '110'], ['Font size in pt', '13'], ['Line height in pt', '21']]) {
     await panel.getByRole('textbox', { name }).fill(value)
     await panel.getByRole('textbox', { name }).press('Enter')
   }
   await panel.getByRole('radio', { name: 'Align right' }).click()
   await panel.getByRole('button', { name: 'Type options' }).click()
-  await page.getByRole('dialog', { name: 'Type options' }).getByRole('tab', { name: 'Paragraph' }).click()
-  await choose(page.getByRole('dialog', { name: 'Type options' }).getByRole('combobox', { name: 'Hyphenation language' }), 'German')
+  const options = page.getByRole('dialog', { name: 'Type options' })
+  const commit = async (name: string, value: string) => {
+    await options.getByRole('textbox', { name }).fill(value)
+    await options.getByRole('textbox', { name }).press('Enter')
+  }
+  await commit('Letter spacing in %', '4')
+  await options.getByRole('tab', { name: 'Paragraph' }).click()
+  await commit('Space after in pt', '8')
+  await choose(options.getByRole('combobox', { name: 'Hyphenation language' }), 'German')
   await page.keyboard.press('Escape')
   await panel.getByRole('region', { name: 'Text frame' }).getByRole('button', { name: 'Frame options' }).click()
   await panel.getByRole('button', { name: 'Inset of each side' }).click()
