@@ -228,8 +228,8 @@ test('insets, columns, vertical alignment, baseline grid, max lines, trim and wh
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
   const frame = panel.getByRole('region', { name: 'Text frame' })
   const field = (name: string) => frame.getByRole('textbox', { name })
+  await frame.getByRole('button', { name: 'Frame options' }).click()
   await expect(field('Columns')).toHaveValue('1')
-  await frame.getByRole('button', { name: 'Baseline grid' }).click()
   await expect(field('Baseline grid in pt')).toHaveAttribute('placeholder', 'Off')
   await frame.getByRole('button', { name: 'Inset of each side' }).click()
   for (const [name, value] of [['Top inset in mm', '2'], ['Columns', '2'], ['Gutter in mm', '5'], ['Baseline grid in pt', '18'], ['Max lines', '3']]) {
@@ -472,6 +472,7 @@ test('the text and text frame sections set all selected texts and show mixed val
   await select()
   await expect(size).toHaveValue('Mixed')
   await commit(size, '12')
+  await panel.getByRole('region', { name: 'Text frame' }).getByRole('button', { name: 'Frame options' }).click()
   await commit(columns, '2')
   for (const text of [texts.first(), texts.last()]) {
     await text.click()

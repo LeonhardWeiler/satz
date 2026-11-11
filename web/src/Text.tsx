@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
-import { Check, Field, FontSelect, Group, More, NameInput, nextName, Section, Segmented, Select, Sides, useSides } from './controls'
+import { Check, Field, FontSelect, Group, NameInput, nextName, Section, Segmented, Select, Sides, useSides } from './controls'
 import { ColorPicker } from './ColorPicker'
 import { neutral, type Color } from './color'
 import { scopeOf, useEditor, type Editor } from './editor'
@@ -604,8 +604,23 @@ export function TextFrameSection({ editor, nodes, set }: { editor: Editor; nodes
   const [each, toggle] = useSides('inset', ids, insets)
   const columns = same((n) => n.columns)
   const columned = nodes.every((n) => n.columns > 1)
+  const used = nodes.some((n) => n.columns > 1 || INSETS.some((p) => n[p]) || !!(n.baselineGrid || n.baselineStart || n.minHeight || n.maxLines || n.trim || n.roundBaselines))
+  const [more, setMore] = useState(false)
+  const shown = more || used
   return (
-    <Section title="Text frame" actions={toggle}>
+    <Section
+      title="Text frame"
+      actions={
+        <>
+          {shown && toggle}
+          {!used && (
+            <button type="button" className="icon-button" aria-label="Frame options" title="Inset, columns and baseline grid" aria-expanded={more} onClick={() => setMore(!more)}>
+              <Icon name="more" />
+            </button>
+          )}
+        </>
+      }
+    >
       <Segmented
         label="Resizing"
         text
@@ -614,32 +629,34 @@ export function TextFrameSection({ editor, nodes, set }: { editor: Editor; nodes
         disabled={(v) => nodes.some((n) => (v === 'autoWidth' && !!(n.prev || n.next)) || (v === 'autoHeight' && !!n.next))}
         onChange={(mode) => editor.resize(nodes, mode)}
       />
-      <Sides what="inset" values={insets} each={each} set={(v) => set(Object.fromEntries(INSETS.flatMap((p, i) => (v[i] === null ? [] : [[p, v[i]]]))))} />
-      <div className="grid">
-        <Field label="Columns" title="Columns" unit="" int min={1} max={20} reset={1} value={columns} onCommit={(columns) => set({ columns })} />
-        {columned && <Field label="Gutter" title="Gutter" unit="length" value={same((n) => n.gutter)} onCommit={(gutter) => set({ gutter })} />}
-        <Segmented label="Vertical align" value={same((n) => n.verticalAlign)} options={VERTICAL} onChange={(verticalAlign) => set({ verticalAlign })} />
-      </div>
-      <More key={ids} label="Baseline grid" used={nodes.some((n) => !!(n.baselineGrid || n.baselineStart || n.minHeight || n.maxLines || n.trim || n.roundBaselines))}>
-        <div className="grid">
-          <Field label="Baseline" title="Baseline grid" unit="pt" min={1} zero="Off" reset={0} value={same((n) => n.baselineGrid)} onCommit={(baselineGrid) => set({ baselineGrid })} />
-          <Field label="Start" title="Baseline grid start" unit="pt" reset={0} value={same((n) => n.baselineStart)} onCommit={(baselineStart) => set({ baselineStart })} />
-          {resizing === 'autoHeight' && <Field label="Min" title="Min height" unit="length" zero="None" reset={0} value={same((n) => n.minHeight)} onCommit={(minHeight) => set({ minHeight })} />}
-          <Field label="Lines" title="Max lines" unit="" int max={1000} zero="All" reset={0} value={same((n) => n.maxLines)} onCommit={(maxLines) => set({ maxLines })} />
-        </div>
-        <Check label="Trim to cap height" value={same((n) => n.trim)} set={(trim) => set({ trim })} />
-        <Check label="Whole-point baselines" value={same((n) => n.roundBaselines)} set={(roundBaselines) => set({ roundBaselines })} />
-      </More>
-      {columned && (
-        <ColorCheck
-          editor={editor}
-          node={nodes[0]}
-          label="Column rule"
-          color={rule && rule.color}
-          set={(color) => set({ columnRule: color ? { weight: 1, color } : { ...rule!, weight: 0 } })}
-        >
-          {rule && <Field label="Weight" title="Column rule weight" unit="pt" value={rule.weight} onCommit={(weight) => set({ columnRule: { ...rule, weight } })} />}
-        </ColorCheck>
+      <Segmented label="Vertical align" value={same((n) => n.verticalAlign)} options={VERTICAL} onChange={(verticalAlign) => set({ verticalAlign })} />
+      {shown && (
+        <>
+          <Sides what="inset" values={insets} each={each} set={(v) => set(Object.fromEntries(INSETS.flatMap((p, i) => (v[i] === null ? [] : [[p, v[i]]]))))} />
+          <div className="grid">
+            <Field label="Columns" title="Columns" unit="" int min={1} max={20} reset={1} value={columns} onCommit={(columns) => set({ columns })} />
+            {columned && <Field label="Gutter" title="Gutter" unit="length" value={same((n) => n.gutter)} onCommit={(gutter) => set({ gutter })} />}
+          </div>
+          {columned && (
+            <ColorCheck
+              editor={editor}
+              node={nodes[0]}
+              label="Column rule"
+              color={rule && rule.color}
+              set={(color) => set({ columnRule: color ? { weight: 1, color } : { ...rule!, weight: 0 } })}
+            >
+              {rule && <Field label="Weight" title="Column rule weight" unit="pt" value={rule.weight} onCommit={(weight) => set({ columnRule: { ...rule, weight } })} />}
+            </ColorCheck>
+          )}
+          <div className="grid">
+            <Field label="Baseline" title="Baseline grid" unit="pt" min={1} zero="Off" reset={0} value={same((n) => n.baselineGrid)} onCommit={(baselineGrid) => set({ baselineGrid })} />
+            <Field label="Start" title="Baseline grid start" unit="pt" reset={0} value={same((n) => n.baselineStart)} onCommit={(baselineStart) => set({ baselineStart })} />
+            {resizing === 'autoHeight' && <Field label="Min" title="Min height" unit="length" zero="None" reset={0} value={same((n) => n.minHeight)} onCommit={(minHeight) => set({ minHeight })} />}
+            <Field label="Lines" title="Max lines" unit="" int max={1000} zero="All" reset={0} value={same((n) => n.maxLines)} onCommit={(maxLines) => set({ maxLines })} />
+          </div>
+          <Check label="Trim to cap height" value={same((n) => n.trim)} set={(trim) => set({ trim })} />
+          <Check label="Whole-point baselines" value={same((n) => n.roundBaselines)} set={(roundBaselines) => set({ roundBaselines })} />
+        </>
       )}
     </Section>
   )

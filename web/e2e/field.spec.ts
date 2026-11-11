@@ -52,6 +52,7 @@ test('an integer field has minus and plus buttons', async ({ page }) => {
   const panel = page.getByRole('complementary', { name: 'Properties' })
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
   const frame = panel.getByRole('region', { name: 'Text frame' })
+  await frame.getByRole('button', { name: 'Frame options' }).click()
   const columns = frame.getByRole('textbox', { name: 'Columns' })
   await expect(columns).toHaveValue('1')
   await frame.getByRole('button', { name: 'Increase Columns' }).click()
