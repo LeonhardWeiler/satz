@@ -95,6 +95,41 @@ test('properties the selected layers share are edited together', async ({ page }
   }
 })
 
+
+test('several selected layers show and set the box around them', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  const layers = page.getByRole('tree', { name: 'Layers' })
+  const field = (name: string) => panel.getByRole('textbox', { name: `${name} in mm` })
+  const read = async (name: string) => Number((await field(name).inputValue()).replace(',', '.'))
+  const each = async () => {
+    const out = []
+    for (const name of ['Sun', 'Triangle']) {
+      await layers.getByRole('button', { name, exact: true }).click()
+      out.push({ x: await read('X'), w: await read('W') })
+    }
+    return out
+  }
+  const [sun, tri] = await each()
+  const both = async () => {
+    await layers.getByRole('button', { name: 'Sun', exact: true }).click()
+    await layers.getByRole('button', { name: 'Triangle', exact: true }).click({ modifiers: ['Control'] })
+  }
+  await both()
+  const x = Math.min(sun.x, tri.x)
+  const w = Math.max(sun.x + sun.w, tri.x + tri.w) - x
+  expect(await read('X')).toBeCloseTo(x, 0)
+  expect(await read('W')).toBeCloseTo(w, 0)
+  await field('X').fill(String(x + 10))
+  await field('X').press('Enter')
+  await field('W').fill(String(w * 2))
+  await field('W').press('Enter')
+  const [sun2, tri2] = await each()
+  expect(sun2.x - x - 10).toBeCloseTo((sun.x - x) * 2, 0)
+  expect(tri2.x - x - 10).toBeCloseTo((tri.x - x) * 2, 0)
+  expect(sun2.w).toBeCloseTo(sun.w * 2, 0)
+  expect(tri2.w).toBeCloseTo(tri.w * 2, 0)
+})
 test('focus moved after a click shows no ring until a key is pressed', async ({ page }) => {
   await open(page)
   await page.keyboard.press('Escape')

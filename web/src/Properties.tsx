@@ -102,11 +102,14 @@ export function Properties({ editor }: { editor: Editor }) {
       }
     })
   }
-  const frame = (key: 'x' | 'y' | 'w' | 'h') => (v: number) =>
-    each((n) => {
-      const by = n.keepRatio && (key === 'w' || key === 'h') && n[key] ? v / n[key] : 1
-      return { type: 'setFrame', id: n.id, x: n.x, y: n.y, w: n.w * by, h: n.h * by, [key]: v }
-    })
+  const frame = (key: 'x' | 'y' | 'w' | 'h') => (v: number) => {
+    const b = bounds(nodes)
+    const by = nodes.every((n) => n.keepRatio) && (key === 'w' || key === 'h') && b[key] ? v / b[key] : 1
+    const t = { x: b.x, y: b.y, w: b.w * by, h: b.h * by, [key]: v }
+    const sx = b.w ? t.w / b.w : 1
+    const sy = b.h ? t.h / b.h : 1
+    each((n) => ({ type: 'setFrame', id: n.id, x: t.x + (n.x - b.x) * sx, y: t.y + (n.y - b.y) * sy, w: b.w ? n.w * sx : t.w, h: b.h ? n.h * sy : t.h }))
+  }
 
   const one = nodes.length === 1 ? nodes[0] : undefined
   const row = rowOf(editor)
@@ -301,8 +304,8 @@ export function Properties({ editor }: { editor: Editor }) {
           }
         >
           <div className={line ? 'grid' : 'grid three'}>
-            <Field label="X" min={-Infinity} value={nodes.length > 1 ? same((n) => n.x) : box.x} unit="length" onCommit={frame('x')} />
-            <Field label="Y" min={-Infinity} value={nodes.length > 1 ? same((n) => n.y) : box.y} unit="length" onCommit={frame('y')} />
+            <Field label="X" min={-Infinity} value={box.x} unit="length" onCommit={frame('x')} />
+            <Field label="Y" min={-Infinity} value={box.y} unit="length" onCommit={frame('y')} />
             {!line && (
               <Field
                 label={<Icon name="angle" />}
@@ -331,8 +334,8 @@ export function Properties({ editor }: { editor: Editor }) {
               </>
             ) : (
               <>
-                {bindable('w', 'W', 'W', <Field label="W" value={same((n) => n.w)} unit="length" onCommit={frame('w')} />)}
-                {bindable('h', 'H', 'H', <Field label="H" value={same((n) => n.h)} unit="length" onCommit={frame('h')} />)}
+                {bindable('w', 'W', 'W', <Field label="W" value={box.w} unit="length" onCommit={frame('w')} />)}
+                {bindable('h', 'H', 'H', <Field label="H" value={box.h} unit="length" onCommit={frame('h')} />)}
               </>
             )}
             {sided && (
