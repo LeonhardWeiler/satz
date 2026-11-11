@@ -49,6 +49,11 @@ fails vitest.
 - A setting that cannot take effect is hidden: Gutter with 1 column, Text wrap on a page
   without text, the spread arrows and the page count of a single spread.
 - Groups inside a popover part by spacing and their heading, not by rules.
+- Fields in the document unit show no unit suffix; only a value in another unit names it.
+- One control type per setting everywhere: an on/off setting is a checkbox (Facing
+  pages), not a two-item segmented control.
+- A setting that only applies in one mode shows only in it (the profile only in CMYK).
+- A chevron always expands inline; a trigger that opens a popover uses another icon.
 
 ## Tokens
 
@@ -93,7 +98,7 @@ fails vitest.
 - Default values (Auto, None, All, No style) in `--text`; only Mixed and search hints in `--text-3`.
 - Swatches: 16 px squares, radius 4, 1 px inset ring; stroke swatches are the same square as a ring.
 - Icons: 16 px outline, 1.5 stroke, no filled glyphs.
-- Fields: label inside on the left in `--text-2`, value in `--text`, unit in `--text-3` on the right; steppers show the unit after the value, before the plus.
+- Fields: label inside on the left in `--text-2`, value in `--text`, a unit other than the document unit in `--text-3` on the right; steppers show the unit after the value, before the plus.
 - Titles: panel and popover titles 13 in weight 600, `--text`; section titles 12 in weight
   600, `--text`; group labels inside lists and the overview 11 in weight 600, `--text-2`;
   sentence case, no capitals.

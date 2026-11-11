@@ -82,3 +82,4 @@ findings:
 | 6 | v2 | 6 | economy 6, consistency 6, clarity 6, reduction 6 |
 | 7 | v2 | 6 | economy 6, rhythm 6, consistency 6, clarity 6, reduction 6 |
 | 8 | v2 | 6 | reduction 5 |
+| 9 | v3 | 6 | reduction 5 |

@@ -63,7 +63,7 @@ test('enter creates a document of the chosen format, orientation and pages', asy
   const panel = page.getByRole('complementary', { name: 'Properties' })
   await expect(panel.getByRole('textbox', { name: 'W in mm' })).toHaveValue('297')
   await expect(panel.getByRole('textbox', { name: 'H in mm' })).toHaveValue('210')
-  await expect(panel.getByRole('combobox', { name: 'Spreads' })).toHaveText(/Facing$/)
+  await expect(panel.getByRole('checkbox', { name: 'Facing pages' })).toBeChecked()
   await expect(spreads(page).getByRole('button', { name: 'Page 1' })).toBeVisible()
 })
 

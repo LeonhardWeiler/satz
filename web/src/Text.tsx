@@ -180,7 +180,7 @@ export function TypeOptions({ editor, spans, set, features, paragraph }: { edito
   return (
     <>
       <button type="button" className="more" aria-haspopup="dialog" aria-expanded={!!at} onClick={(e) => setAt(e.currentTarget.getBoundingClientRect())}>
-        <Icon name="chevron" />
+        <Icon name="adjust" />
         Type options
       </button>
       {at &&

@@ -1,5 +1,5 @@
 import { type Page } from '@playwright/test'
-import { expect, test, addMaster, choose, drag, open, screen } from './util'
+import { expect, test, addMaster, drag, open, screen } from './util'
 
 const layout = (page: Page) => page.getByRole('complementary', { name: 'Properties' }).getByRole('region', { name: 'Layout' })
 const value = async (page: Page, name: string) => Number(await layout(page).getByRole('textbox', { name: `${name} in mm` }).inputValue())
@@ -65,7 +65,7 @@ test('alt shows the distances to the layer under the pointer or to the page', as
 
 test('alt on the left page of a facing master measures to its own edges', async ({ page }) => {
   await open(page)
-  await choose(page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Spreads' }), 'Facing pages')
+  await page.getByRole('complementary', { name: 'Properties' }).getByRole('checkbox', { name: 'Facing pages' }).check()
   await addMaster(page)
   await page.keyboard.press('r')
   await drag(page, await screen(page, 20, 20, 0), await screen(page, 40, 40, 0))

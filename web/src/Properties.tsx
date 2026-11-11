@@ -74,7 +74,6 @@ const CAPS = [
 ] as const
 const MODES: Record<ColorMode, string> = { rgb: 'RGB', cmyk: 'CMYK' }
 const NUMBERINGS = { arabic: '1, 2, 3', upperRoman: 'I, II, III', lowerRoman: 'i, ii, iii' }
-const SPREADS = { single: 'Single', facing: 'Facing' }
 const HORIZONTAL: Record<Constraint, string> = { min: 'Left', max: 'Right', stretch: 'Left & right', center: 'Center', scale: 'Scale' }
 const VERTICAL: Record<Constraint, string> = { min: 'Top', max: 'Bottom', stretch: 'Top & bottom', center: 'Center', scale: 'Scale' }
 export function Properties({ editor }: { editor: Editor }) {
@@ -573,24 +572,29 @@ function textBelow(editor: Editor, n: Node) {
   return false
 }
 
-/** Facing pages, color mode and profile of the document. */
+/** Facing pages, color mode and, in CMYK, the profile of the document. */
 function DocumentSection({ editor }: { editor: Editor }) {
   const { facingPages, colorMode, profile } = useEditor(editor, (e) => e.snapshot)
+  const color = <Select label="Color mode" prefix="Color" value={colorMode} options={MODES} onChange={(colorMode) => editor.apply({ type: 'setDocument', colorMode })} />
   return (
     <section className="section" aria-label="Document">
       <div className="section-body">
-        <Select label="Spreads" prefix="Pages" value={facingPages ? 'facing' : 'single'} options={SPREADS} onChange={(v) => editor.apply({ type: 'setDocument', facingPages: v === 'facing' })} />
-      <div className="grid">
-        <Select label="Color mode" prefix="Color" value={colorMode} options={MODES} onChange={(colorMode) => editor.apply({ type: 'setDocument', colorMode })} />
-        <Select<string>
-          label="Profile"
-          prefix="Profile"
-          value={colorMode === 'rgb' ? 'srgb' : profile === null ? 'fogra' : 'own'}
-          options={colorMode === 'rgb' ? { srgb: 'sRGB' } : { fogra: 'FOGRA51', ...(profile !== null && { own: profile || 'Uploaded' }), upload: 'Upload ICC…' }}
-          breaks={[profile === null ? 'fogra' : 'own']}
-          onChange={(v) => (v === 'upload' ? pickProfile(editor) : v === 'fogra' && editor.setProfile(null))}
-        />
-      </div>
+        <Check label="Facing pages" value={facingPages} set={(facingPages) => editor.apply({ type: 'setDocument', facingPages })} />
+        {colorMode === 'rgb' ? (
+          color
+        ) : (
+          <div className="grid">
+            {color}
+            <Select<string>
+              label="Profile"
+              prefix="Profile"
+              value={profile === null ? 'fogra' : 'own'}
+              options={{ fogra: 'FOGRA51', ...(profile !== null && { own: profile || 'Uploaded' }), upload: 'Upload ICC…' }}
+              breaks={[profile === null ? 'fogra' : 'own']}
+              onChange={(v) => (v === 'upload' ? pickProfile(editor) : v === 'fogra' && editor.setProfile(null))}
+            />
+          </div>
+        )}
       </div>
     </section>
   )

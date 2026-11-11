@@ -3829,7 +3829,7 @@ button.mark {
   color: var(--text);
 }
 
-.more[aria-expanded='true'] svg {
+.more:not([aria-haspopup])[aria-expanded='true'] svg {
   transform: rotate(90deg);
 }
 

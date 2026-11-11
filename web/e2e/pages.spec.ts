@@ -74,10 +74,10 @@ test('the page size is set per page in the properties panel', async ({ page }) =
 test('with facing pages the page overview shows spreads from a first right page, without them single pages', async ({ page }) => {
   await open(page)
   const row = (n: number) => option(page, n)
-  const facing = page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Spreads' })
+  const facing = page.getByRole('complementary', { name: 'Properties' }).getByRole('checkbox', { name: 'Facing pages' })
   for (let i = 0; i < 3; i++) await addPage(page)
   await showPage(page, 1)
-  await expect(facing).toHaveText(/Facing$/)
+  await expect(facing).toBeChecked()
   const pages = await overview(page)
   await pages.getByRole('textbox', { name: 'Columns' }).fill('1')
   await pages.getByRole('textbox', { name: 'Columns' }).press('Enter')
@@ -90,11 +90,11 @@ test('with facing pages the page overview shows spreads from a first right page,
   expect(three.x).toBeGreaterThan(two.x)
   expect(Math.abs(one.x - three.x)).toBeLessThan(1)
 
-  await choose(facing, 'Single')
+  await facing.uncheck()
   await expect(pages.getByRole('group', { name: /^Spread/ })).toHaveCount(0)
   await expect(row(4)).toBeVisible()
   await page.keyboard.press('Control+z')
-  await expect(facing).toHaveText(/Facing$/)
+  await expect(facing).toBeChecked()
   await expect(spread('Spread 2–3')).toBeVisible()
 })
 
