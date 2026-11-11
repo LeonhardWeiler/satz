@@ -12,7 +12,7 @@ stagnate, and then only to ask more of the UI; every change is listed under Revi
 3. `04 Canvas/30 text frame selected.png`
 4. `05 Properties/12 text frame.png`
 5. `05 Properties/11 frame.png`
-6. `05 Properties/15 two shapes (boolean bar, mixed values).png`
+6. `05 Properties/15 two shapes (mixed values).png`
 7. `06 Popovers & menus/01 color picker, RGB.png`
 8. `07 Text/05 type options.png`
 9. `02 Dialogs/00b projects with a recent document.png`
@@ -43,11 +43,18 @@ earned by what is on screen, not by effort; do not round up.
    buttons, icons, titles, selected states).
 7. Clarity: every icon and label is understandable without guessing; states (selected,
    disabled, mixed, error) are unambiguous.
+8. Reduction: in each shot, count the elements (controls, labels, lines, icons,
+   sections) that could go, merge with another or move behind a disclosure without
+   losing a function a user needs often. Every one lowers this score.
+
+Prefer fixes that remove, merge or hide over fixes that add. A fix that adds a visible
+control must name what it replaces; a rarely used function belongs behind a menu or
+a disclosure, not on screen.
 
 Answer in this form, in English, nothing else:
 
 ```
-scores: calm N, order N, economy N, hierarchy N, rhythm N, consistency N, clarity N
+scores: calm N, order N, economy N, hierarchy N, rhythm N, consistency N, clarity N, reduction N
 overall: N
 findings:
 1. [shot numbers] what is wrong, and what the fix should be
@@ -57,6 +64,7 @@ findings:
 ## Revisions
 
 - v1, 10 November 2026: first version.
+- v2, 11 November 2026: after 6, 7, 6, 6 the criterion Reduction and the preference for removing over adding; findings that only add controls had led away from a simpler UI.
 
 ## Rounds
 

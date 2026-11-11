@@ -2084,11 +2084,6 @@ kbd {
   font-size: 12px;
 }
 
-.primary .keys,
-.primary .keys kbd {
-  color: inherit;
-}
-
 .tool,
 .icon-button,
 .button,
@@ -2322,7 +2317,7 @@ input[type='checkbox']:active {
   justify-content: center;
   gap: 8px;
   width: 100%;
-  height: 32px;
+  height: 28px;
 }
 
 .pf-go.bad {

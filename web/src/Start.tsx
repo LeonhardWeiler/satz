@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Engine } from './engine/engine'
 import { MM, type Editor } from './editor'
 import { begin, discard, open } from './file'
-import { Field, Keys, Segmented } from './controls'
+import { Field, Segmented } from './controls'
 import { length } from './settings'
 import { Icon } from './icons'
 
@@ -138,7 +138,6 @@ export function Start({ editor, onClose }: { editor: Editor; onClose: () => void
         <footer className="start-footer">
           <button type="button" className="primary" title={`${format}, ${plural(pages)}`} onClick={create}>
             Create
-            <Keys keys="Enter" />
           </button>
         </footer>
       </div>

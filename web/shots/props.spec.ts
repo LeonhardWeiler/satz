@@ -41,7 +41,7 @@ test('sample elements', async ({ page }) => {
   await rest(page)
   await both(page, '14', 'rectangle')
   await select(page, 'Star', 'Triangle')
-  await both(page, '15', 'two shapes (boolean bar, mixed values)')
+  await both(page, '15', 'two shapes (mixed values)')
   await select(page, 'Star', 'Satz sets type…')
   await both(page, '16', 'shape and text (mixed kinds)')
   await select(page, 'Star')

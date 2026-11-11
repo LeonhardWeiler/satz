@@ -56,7 +56,7 @@ test('enter creates a document of the chosen format, orientation and pages', asy
   await dialog.getByRole('radio', { name: 'Landscape' }).click()
   await dialog.getByRole('textbox', { name: 'Pages' }).fill('3')
   await dialog.getByRole('textbox', { name: 'Pages' }).press('Enter')
-  await expect(dialog.getByRole('button', { name: 'Create Enter' })).toHaveAttribute('title', 'A4, 3 pages')
+  await expect(dialog.getByRole('button', { name: 'Create' })).toHaveAttribute('title', 'A4, 3 pages')
   await dialog.getByRole('radio', { name: /A4/ }).press('Enter')
   await expect(dialog).toHaveCount(0)
   await expect(page.getByText('Created A4, 3 pages')).toBeVisible()

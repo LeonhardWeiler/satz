@@ -84,7 +84,6 @@ export function Toolbar({ editor, onPlaceImage }: { editor: Editor; onPlaceImage
         ))}
         <button type="button" className="primary" onClick={() => editor.set({ vector: null })}>
           Done
-          <Keys keys="Enter" />
         </button>
       </div>
     )
