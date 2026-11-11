@@ -537,13 +537,13 @@ export function Group({ title, action, children }: { title: string; action?: Rea
 }
 
 /** A toggle under a section that shows its rarer settings, open from the start when `used`. */
-export function More({ used, children }: { used: boolean; children: ReactNode }) {
+export function More({ label, used, children }: { label: string; used: boolean; children: ReactNode }) {
   const [open, setOpen] = useState(used)
   return (
     <>
       <button type="button" className="more" aria-expanded={open} onClick={() => setOpen(!open)}>
         <Icon name="chevron" />
-        More options
+        {label}
       </button>
       {open && children}
     </>

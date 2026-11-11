@@ -204,7 +204,7 @@ test('a page number on the pages of a master spread shows the number of each pag
     await addPage(page)
     await choose(panel.getByRole('combobox', { name: 'Master' }), 'A-Master')
   }
-  await panel.getByRole('region', { name: /^Page / }).getByRole('button', { name: 'More options' }).click()
+  await panel.getByRole('region', { name: /^Page / }).getByRole('button', { name: 'Section', exact: true }).click()
   await panel.getByRole('checkbox', { name: 'Start section' }).check()
   await panel.getByRole('textbox', { name: 'Section starts at' }).fill('9')
   await panel.getByRole('textbox', { name: 'Section starts at' }).press('Enter')

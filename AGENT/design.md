@@ -17,7 +17,8 @@ fails vitest.
   wrap offset only with a wrap, the preflight counter only with issues, the progress
   bar only while exporting, a setting where it takes effect (raster resolution in
   Export).
-- Rare settings of a section sit behind "More options", which opens by itself when one
+- Rare settings of a section sit behind a disclosure named for what it holds ("Text wrap",
+  "Baseline grid", "Section"), never a generic "More options"; it opens by itself when one
   of them is set. Rare actions (arrange, flip, flatten, booleans) live in the panel's
   ⋯ menu and the palette, not in icon rows.
 - Empty sections collapse to their title row; mixed values say "Mixed", the
@@ -43,6 +44,8 @@ fails vitest.
   its crossed eye visible. Icon-only segmented controls carry no prefix.
 - An OpenType variant of a value joins the select of that value (small caps in Case,
   superscript glyphs in Position) instead of a checkbox beside it.
+- An action that a menu already offers has no button beside that menu (New text style
+  lives in the text style menu).
 
 ## Tokens
 

@@ -91,7 +91,6 @@ test('quick edit above a text shows its font and sets its type options', async (
   const panel = page.getByRole('complementary', { name: 'Properties' })
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
   await expect(quick.getByRole('combobox', { name: 'Font', exact: true })).toHaveText('Source Serif 4 Regular')
-  await expect(quick.getByRole('button', { name: 'Create text style' })).toHaveCount(0)
   expect((await quick.boundingBox())!.width).toBeLessThan(640)
   await quick.getByRole('button', { name: 'Type options' }).click()
   const textCase = page.getByRole('dialog', { name: 'Type options' }).getByRole('combobox', { name: 'Case' })

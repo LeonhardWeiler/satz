@@ -103,11 +103,6 @@ export function Specimen({ editor, spans, compact, format }: { editor: Editor; s
         {current && !compact && <span className="specimen-size">{`${current.size}/${current.lineHeight || 'Auto'} pt`}</span>}
         <Icon name="chevron" />
       </button>
-      {!compact && (
-        <button type="button" className="icon-button" aria-label="Create text style" title="Create text style" disabled={!spans.length} onClick={create}>
-          <Icon name="plus" />
-        </button>
-      )}
       {menu &&
         createPortal(
           <ContextMenu
@@ -618,7 +613,7 @@ export function TextFrameSection({ editor, node, set }: { editor: Editor; node: 
         <Field label="Gutter" title="Gutter" unit="length" value={node.gutter} onCommit={(gutter) => set({ gutter })} />
       </div>
       <Segmented label="Vertical align" value={node.verticalAlign} options={VERTICAL} onChange={(verticalAlign) => set({ verticalAlign })} />
-      <More key={node.id} used={!!(node.baselineGrid || node.baselineStart || node.minHeight || node.maxLines || node.trim || node.roundBaselines)}>
+      <More key={node.id} label="Baseline grid" used={!!(node.baselineGrid || node.baselineStart || node.minHeight || node.maxLines || node.trim || node.roundBaselines)}>
         <div className="grid">
           <Field label="Baseline" title="Baseline grid" unit="pt" min={1} zero="Off" reset={0} value={node.baselineGrid} onCommit={(baselineGrid) => set({ baselineGrid })} />
           <Field label="Start" title="Baseline grid start" unit="pt" reset={0} value={node.baselineStart} onCommit={(baselineStart) => set({ baselineStart })} />

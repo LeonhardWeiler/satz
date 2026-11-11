@@ -114,7 +114,7 @@ test('property states', async ({ page }) => {
   await sec(page, 'Text frame').getByRole('textbox', { name: 'Columns' }).fill('2')
   await page.keyboard.press('Enter')
   await sec(page, 'Text frame').getByRole('checkbox', { name: 'Column rule' }).check()
-  await sec(page, 'Text frame').getByRole('button', { name: 'More options' }).click()
+  await sec(page, 'Text frame').getByRole('button', { name: 'Baseline grid' }).click()
   await sec(page, 'Text frame').getByRole('textbox', { name: 'Baseline grid in pt', exact: true }).fill('12')
   await page.keyboard.press('Enter')
   await sec(page, 'Text frame').getByRole('radio', { name: 'Auto height' }).click()

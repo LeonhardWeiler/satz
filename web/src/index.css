@@ -1386,6 +1386,9 @@ input[type='checkbox']:disabled {
 
 .distribute > .field {
   flex: 1;
+}
+
+.distribute > :not(:first-child).field {
   margin-left: 8px;
 }
 

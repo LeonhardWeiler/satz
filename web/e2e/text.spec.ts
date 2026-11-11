@@ -18,7 +18,8 @@ test('type attributes and a text style are set in the text section and edited on
   await commit('Line height in pt', '15')
   await panel.getByRole('radio', { name: 'Align center' }).click()
   await expect(panel.getByRole('radio', { name: 'Align center' })).toBeChecked()
-  await panel.getByRole('button', { name: 'Create text style' }).click()
+  await panel.getByTitle('Text style', { exact: true }).first().click()
+  await page.getByRole('menuitem', { name: 'New text style' }).click()
   await page.mouse.move(0, 0)
   await expect(panel.getByTitle('Text style', { exact: true })).toContainText('Text style 1')
 
@@ -94,7 +95,8 @@ test('case, decoration, indents and OpenType features are set in the type option
   await page.keyboard.press('Escape')
   await expect(options).toHaveCount(0)
 
-  await panel.getByRole('button', { name: 'Create text style' }).click()
+  await panel.getByTitle('Text style', { exact: true }).first().click()
+  await page.getByRole('menuitem', { name: 'New text style' }).click()
   await page.keyboard.press('Escape')
   await panel.getByRole('group', { name: 'Text style 1' }).getByRole('button', { name: 'Edit Text style 1' }).click()
   await panel.getByRole('group', { name: 'Text style 1' }).getByRole('button', { name: 'Type options' }).click()
@@ -227,7 +229,7 @@ test('insets, columns, vertical alignment, baseline grid, max lines, trim and wh
   const frame = panel.getByRole('region', { name: 'Text frame' })
   const field = (name: string) => frame.getByRole('textbox', { name })
   await expect(field('Columns')).toHaveValue('1')
-  await frame.getByRole('button', { name: 'More options' }).click()
+  await frame.getByRole('button', { name: 'Baseline grid' }).click()
   await expect(field('Baseline grid in pt')).toHaveAttribute('placeholder', 'Off')
   await frame.getByRole('button', { name: 'Inset of each side' }).click()
   for (const [name, value] of [['Top inset in mm', '2'], ['Columns', '2'], ['Gutter in mm', '5'], ['Baseline grid in pt', '18'], ['Max lines', '3']]) {
@@ -432,7 +434,7 @@ test('text runs around a layer above it that wraps it and jumps over one that ju
   const wrap = props.getByRole('combobox', { name: 'Text wrap' })
   const offset = props.getByRole('textbox', { name: 'Text wrap offset in mm' })
   await expect(offset).toHaveCount(0)
-  await props.getByRole('region', { name: 'Layer', exact: true }).getByRole('button', { name: 'More options' }).click()
+  await props.getByRole('region', { name: 'Layer', exact: true }).getByRole('button', { name: 'Text wrap', exact: true }).click()
   const [x, y] = await screen(page, 95, 110)
   const [x1, y1] = await screen(page, 130, 128)
   const inked = async () => (await pixels(page, x, y, x1 - x, y1 - y)).some((p) => Math.max(...p) < 120)

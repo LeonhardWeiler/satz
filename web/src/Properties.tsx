@@ -262,7 +262,7 @@ export function Properties({ editor }: { editor: Editor }) {
             <ModeSelects editor={editor} id={page.id} own={page.modes} inherited={{}} />
           </div>
           {isPage && targets.length === 1 && (
-            <More used={page.section !== null}>
+            <More label="Section" used={page.section !== null}>
               <label className="check">
                 <input
                   type="checkbox"
@@ -461,7 +461,7 @@ export function Properties({ editor }: { editor: Editor }) {
               <ModeSelects editor={editor} id={one.id} own={one.modes} inherited={editor.nodes.get(one.id)?.parent?.activeModes ?? page.modes} />
             )}
           </div>
-          <More used={nodes.some((n) => n.wrap !== 'none')}>
+          <More label="Text wrap" used={nodes.some((n) => n.wrap !== 'none')}>
             <div className="grid">
               <Select label="Text wrap" value={same((n) => n.wrap)} options={WRAPS} onChange={(wrap) => set({ wrap })} />
               {nodes.some((n) => n.wrap !== 'none') && (
@@ -543,7 +543,7 @@ export function Properties({ editor }: { editor: Editor }) {
             </div>
           )}
           {!!strokes?.length && (
-            <More used={nodes.some((n) => n.join !== 'miter' || (open && n.cap !== 'none'))}>
+            <More label={open ? 'Cap & join' : 'Align & join'} used={nodes.some((n) => n.join !== 'miter' || (open && n.cap !== 'none'))}>
               <div className="grid">
                 {open ? (
                   <Segmented label="Stroke cap" prefix="Cap" value={same((n) => n.cap)} options={CAPS} onChange={(cap) => set({ cap })} />
