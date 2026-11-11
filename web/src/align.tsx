@@ -117,6 +117,7 @@ export function setGap(editor: Editor, { axis, nodes }: Row, gap: number) {
  */
 export function AlignBar({ editor, inside, children }: { editor: Editor; inside?: Node[]; children?: ReactNode }) {
   const [toParent, setToParent] = useState(false)
+  const [more, setMore] = useState(false)
   const n = inside?.length ?? editor.selection.length
   const parent = !inside && n > 1 && toParent
   const button = ([how, title, icon, key]: (typeof ALIGNS)[number]) => (
@@ -150,8 +151,13 @@ export function AlignBar({ editor, inside, children }: { editor: Editor; inside?
           )
         )}
         {ALIGNS.slice(0, 6).map(button)}
+        {(spread.length > 0 || children) && (
+          <button type="button" className="icon-button" aria-label="Distribute and spacing" title="Distribute and spacing" aria-expanded={more} onClick={() => setMore(!more)}>
+            <Icon name="more" />
+          </button>
+        )}
       </div>
-      {(spread.length > 0 || children) && (
+      {more && (spread.length > 0 || children) && (
         <div role="toolbar" aria-label="Distribute" className="align distribute">
           {spread.map(button)}
           {children}
