@@ -308,7 +308,7 @@ test('each preset exports as its standard', async ({ page }) => {
   const preset = panel.getByRole('combobox', { name: 'Preset' })
   const show = (pdf: string) => execFileSync('mutool', ['show', '-b', pdf, 'trailer/Root/OutputIntents/1']).toString()
   const trace = (pdf: string) => execFileSync('mutool', ['draw', '-F', 'trace', '-o', '-', pdf]).toString()
-  await expect(preset).toHaveText('PresetPDF/X-4, print')
+  await expect(preset).toHaveText('PDF/X-4, print')
   await preset.click()
   await expect(page.getByRole('menuitemradio', { name: 'PDF/X-1a, print, CMYK documents only' })).toBeDisabled()
   await page.keyboard.press('Escape')

@@ -113,6 +113,7 @@ fails vitest.
 - Paint rows: the swatch and one value field (Opacity for solid, Angle for linear, Tint for a swatch). The paint type and gradient stops live in the picker; stops are markers on a gradient bar, a click on the bar adds one.
 - Icons: 16 px outline, 1.5 stroke, no filled glyphs.
 - Fields: label inside on the left in `--text-2`, value in `--text`, a unit other than the document unit in `--text-3` on the right; steppers show the unit after the value, before the plus.
+- Labels: geometry fields take a letter (X, Y, W, H, R), type metrics an icon, every other field a word; one quantity has one label everywhere (Opacity). A select shows a prefix only when its value alone does not name the property (None, Keep, 300 ppi); values that name themselves (RGB, PDF/X-4, FOGRA51, Normal, a dash) carry none.
 - Titles: panel and popover titles 13 in weight 600, `--text`; section titles 12 in weight
   600, `--text`; group labels inside lists and the overview 11 in weight 600, `--text-2`;
   sentence case, no capitals.

@@ -524,7 +524,7 @@ export function Properties({ editor }: { editor: Editor }) {
                 <Field label="Weight" title="Stroke weight" unit="pt" value={same((n) => n.strokeWeight)} onCommit={(v) => set({ strokeWeight: v })} />,
               )}
               {nodes.every((n) => n.kind !== 'text') ? (
-                <Select label="Line style" prefix="Dash" value={same((n) => n.lineStyle)} options={LINE_STYLES} onChange={(lineStyle) => set({ lineStyle })} />
+                <Select label="Line style" value={same((n) => n.lineStyle)} options={LINE_STYLES} onChange={(lineStyle) => set({ lineStyle })} />
               ) : (
                 <span />
               )}
@@ -579,7 +579,7 @@ function textBelow(editor: Editor, n: Node) {
 /** Facing pages, color mode and, in CMYK, the profile of the document. */
 function DocumentSection({ editor }: { editor: Editor }) {
   const { facingPages, colorMode, profile } = useEditor(editor, (e) => e.snapshot)
-  const color = <Select label="Color mode" prefix="Color" value={colorMode} options={MODES} onChange={(colorMode) => editor.apply({ type: 'setDocument', colorMode })} />
+  const color = <Select label="Color mode" value={colorMode} options={MODES} onChange={(colorMode) => editor.apply({ type: 'setDocument', colorMode })} />
   return (
     <section className="section" aria-label="Document">
       <div className="section-body">
@@ -591,7 +591,6 @@ function DocumentSection({ editor }: { editor: Editor }) {
             {color}
             <Select<string>
               label="Profile"
-              prefix="Profile"
               value={profile === null ? 'fogra' : 'own'}
               options={{ fogra: 'FOGRA51', ...(profile !== null && { own: profile || 'Uploaded' }), upload: 'Upload ICC…' }}
               breaks={[profile === null ? 'fogra' : 'own']}
