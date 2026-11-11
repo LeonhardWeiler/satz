@@ -49,3 +49,15 @@ it('keeps raw colours in the theme', () => {
   const allowed = /^:root|picker|plate|thumb|format-box|ov-ghost canvas|swap|^text$/
   expect(bad((r) => /#[\da-f]{3,8}\b|rgba?\(/i.test(r.value) && !/^mask/.test(r.prop) && !allowed.test(r.sel))).toEqual([])
 })
+
+it('paints the loading screen, manifest and icon in the theme colours', () => {
+  const token = (sel: string, prop: string) => rules.find((r) => r.sel === sel && r.prop === prop)!.value
+  const dark = [token(':root', '--bg'), token(':root', '--fg')]
+  const light = [token(":root[data-theme='light']", '--bg'), token(":root[data-theme='light']", '--fg')]
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8')
+  const manifest = readFileSync(new URL('../public/manifest.webmanifest', import.meta.url), 'utf8')
+  const icon = readFileSync(new URL('../public/favicon.svg', import.meta.url), 'utf8').toLowerCase()
+  for (const c of [...dark, ...light]) expect(html).toContain(c)
+  expect(manifest).toContain(dark[0])
+  for (const c of dark) expect(icon).toContain(c)
+})
