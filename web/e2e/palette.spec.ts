@@ -15,7 +15,7 @@ test('ctrl k finds and runs commands, layers, pages and text styles', async ({ p
   const layers = page.getByRole('tree', { name: 'Layers' })
   await page.keyboard.press('Control+k')
   await expect(palette(page).getByRole('option')).toHaveCount(9)
-  await expect(palette(page).getByRole('option', { name: /Export PDF/ })).toContainText('Ctrl+Shift+E')
+  await expect(palette(page).getByRole('option', { name: /^Export/ })).toContainText('Ctrl+Shift+E')
   await palette(page).getByRole('textbox', { name: 'Search' }).fill('zzqx')
   await expect(palette(page).getByText('Nothing matches. Try a layer name or a command.')).toBeVisible()
   await page.keyboard.press('Escape')

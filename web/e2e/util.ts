@@ -177,11 +177,9 @@ export async function pageCount(page: Page, n: number) {
   await page.keyboard.press('.')
 }
 
-/** The export button of the preflight, which the Export button in the top bar opens; fits the narrower canvas again. */
+/** The export button of the preflight; fits the narrower canvas again. */
 export async function exportButton(page: Page) {
-  await page.getByRole('button', { name: 'Export', exact: true }).click()
-  await page.keyboard.press('Shift+1')
-  return page.getByRole('region', { name: 'Preflight' }).locator('.pf-go')
+  return (await preflight(page)).locator('.pf-go')
 }
 
 /** The preflight, opened with Ctrl Alt Y if it is closed; fits the narrower canvas again. */

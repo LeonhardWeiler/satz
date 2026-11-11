@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CanvasKit } from 'canvaskit-wasm'
 import { Canvas, isTyping } from './Canvas'
 import { Edge, Keys, NameInput } from './controls'
@@ -40,6 +40,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   const home = useEditor(editor, (e) => e.home)
 
   const [exporting, setExporting] = useState(false)
+  const lastFormat = useRef<Format>('pdf')
   const [starting, setStarting] = useState(false)
   const [dialog, setDialog] = useState<'palette' | 'help' | 'settings' | null>(null)
   const [finding, setFinding] = useState(false)
@@ -52,6 +53,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
 
   const exportAs = (format: Format, pages: number[]) => {
     if (exporting) return
+    lastFormat.current = format
     const kind = format === 'zip' ? 'package' : format.toUpperCase()
     const image = format === 'png' || format === 'jpeg'
     const zipped = image && pages.length > 1
@@ -70,8 +72,9 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       )
       .finally(() => setExporting(false))
   }
-  /** Opens the preflight at its export button. */
-  const openExport = () => {
+  /** Exports every page in the last format, or opens the preflight at its export button when it has errors. */
+  const quickExport = () => {
+    if (!editor.snapshot.preflight.some(isError)) return exportAs(lastFormat.current, editor.snapshot.pages.map((_, i) => i))
     if (!editor.preflight) editor.togglePreflight()
     setHidden((h) => ({ ...h, right: false, ui: false }))
     requestAnimationFrame(() => document.querySelector<HTMLElement>('.pf-go')?.focus())
@@ -117,7 +120,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       else if (e.shiftKey && !mod && !e.altKey && e.code === 'KeyW') {
         if (!hidden.ui) editor.say(<><Keys keys="Shift W" /> shows the interface again</>)
         hide('ui')
-      } else if (mod && e.shiftKey && e.code === 'KeyE') openExport()
+      } else if (mod && e.shiftKey && e.code === 'KeyE') quickExport()
       else if (mod && e.altKey && e.code === 'KeyY') editor.togglePreflight()
       else if (mod && !e.altKey && e.code === 'KeyS') saveFile(e.shiftKey)
       else if (mod && !e.altKey && !e.shiftKey && e.code === 'KeyO') open(editor)
@@ -270,21 +273,19 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           <button type="button" className="tool" aria-label="Settings" title="Settings (Ctrl+,)" onClick={() => setDialog('settings')}>
             <Icon name="settings" />
           </button>
-          {issues.length > 0 && (
-            <button
-              type="button"
-              className="tool pf-count"
-              data-sev={errors ? 'error' : 'warn'}
-              aria-label={`Preflight, ${issues.length} issue${issues.length === 1 ? '' : 's'}`}
-              title="Preflight (Ctrl+Alt+Y)"
-              aria-pressed={preflight}
-              onClick={() => editor.togglePreflight()}
-            >
-              <Icon name="warn" />
-              {errors || issues.length}
-            </button>
-          )}
-          <button type="button" className="primary" title="Export (Ctrl+Shift+E)" onClick={openExport}>
+          <button
+            type="button"
+            className="tool pf-count"
+            data-sev={errors ? 'error' : issues.length ? 'warn' : undefined}
+            aria-label={issues.length ? `Preflight, ${issues.length} issue${issues.length === 1 ? '' : 's'}` : 'Preflight and export options'}
+            title="Preflight and export options (Ctrl+Alt+Y)"
+            aria-pressed={preflight}
+            onClick={() => editor.togglePreflight()}
+          >
+            <Icon name={issues.length ? 'warn' : 'ok'} />
+            {issues.length > 0 && (errors || issues.length)}
+          </button>
+          <button type="button" className="primary" title={errors ? 'Export: shows the errors first (Ctrl+Shift+E)' : 'Export every page (Ctrl+Shift+E)'} onClick={quickExport}>
             Export
           </button>
         </div>

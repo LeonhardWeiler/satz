@@ -31,7 +31,7 @@ test('preflight of an rgb document leaves out the inks and lists a layer short o
   await expect(pf).toBeVisible()
 })
 
-test('export names the errors of the preflight but still downloads the pdf', async ({ page }) => {
+test('export with errors opens the preflight, which names them but still downloads the pdf', async ({ page }) => {
   await open(page)
   const exportPdf = await exportButton(page)
   await expect(exportPdf).toHaveText('Export')
@@ -43,6 +43,10 @@ test('export names the errors of the preflight but still downloads the pdf', asy
   await page.keyboard.press('r')
   await drag(page, await screen(page, 20, -1), await screen(page, 40, 20))
   await expect(exportPdf).toHaveText('Export with 1 error')
+  await page.keyboard.press('Control+Alt+Y')
+  await expect(exportPdf).toHaveCount(0)
+  await page.keyboard.press('Control+Shift+E')
+  await expect(exportPdf).toBeFocused()
   download = page.waitForEvent('download')
   await exportPdf.click()
   await download
@@ -90,16 +94,20 @@ test('export writes every page or a range as a png or a jpeg, and a package as a
   expect(bytes[2].includes('Untitled/Untitled.pdf')).toBe(true)
 })
 
-test('preflight opens from its shortcut and export, and esc ends it', async ({ page }) => {
+test('export saves every page at once, and the preflight opens from its shortcut and its button, and esc ends it', async ({ page }) => {
   await open(page)
+  const download = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Export', exact: true }).click()
+  expect((await download).suggestedFilename()).toBe('Untitled.pdf')
+  await expect(page.getByRole('region', { name: 'Preflight' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Preflight and export options' }).click()
+  await expect(page.getByRole('region', { name: 'Preflight' })).toBeVisible()
+  await page.keyboard.press('Escape')
   const region = await preflight(page)
   await expect(region).toBeVisible()
   await expect.poll(async () => (await page.locator('.right').boundingBox())?.width).toBe(284)
   await page.keyboard.press('Escape')
   await expect(region).toHaveCount(0)
-
-  await page.keyboard.press('Control+Shift+E')
-  await expect(region.getByRole('button', { name: 'Export', exact: true })).toBeFocused()
 })
 
 test('preflight in the booklet separates the plates, reports ink over the limit and zooms to an issue', async ({ page }) => {

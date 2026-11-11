@@ -25,7 +25,7 @@ export const ACTIONS: Action[] = [
   { title: 'Save', keys: 'Ctrl S', group: 'File' },
   { title: 'Save as', keys: 'Ctrl Shift S', group: 'File' },
   { title: 'Place image', keys: 'Ctrl Shift K', group: 'File' },
-  { title: 'Export PDF', keys: 'Ctrl Shift E', group: 'File' },
+  { title: 'Export', keys: 'Ctrl Shift E', group: 'File' },
   { title: 'Preflight', keys: 'Ctrl Alt Y', group: 'File' },
   { title: 'Page overview', keys: '.', group: 'View' },
   { title: 'Show or hide left panel', keys: 'Alt 1', group: 'View' },
