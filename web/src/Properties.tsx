@@ -364,7 +364,7 @@ export function Properties({ editor }: { editor: Editor }) {
                 {bindable('h', 'H', 'H', <Field label="H" value={same((n) => n.h)} unit="length" onCommit={frame('h')} />)}
               </>
             )}
-            {!line && (
+            {!line && (sided || same(turnOf) !== 0) && (
               <Field
                 label={<Icon name="angle" />}
                 title="Rotation"

@@ -54,6 +54,10 @@ fails vitest.
   pages), not a two-item segmented control.
 - A setting that only applies in one mode shows only in it (the profile only in CMYK).
 - A chevron always expands inline; a trigger that opens a popover uses another icon.
+- Panel titles name the panel only; the current page is shown by the spread navigation,
+  not repeated in the layers title.
+- No orphan half rows in a field grid: rotation pairs with the corner radius; on a shape
+  without a radius it shows only once the layer is turned (the canvas handles turn it).
 
 ## Tokens
 

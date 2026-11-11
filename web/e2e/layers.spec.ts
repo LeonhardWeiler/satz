@@ -25,7 +25,7 @@ async function drawn(page: Page) {
 
 test('the layers heading names the page shown', async ({ page }) => {
   await open(page)
-  await expect(page.getByRole('navigation', { name: 'Layers' }).getByRole('heading')).toHaveText('Layers · Page 1')
+  await expect(page.getByRole('navigation', { name: 'Layers' }).getByRole('heading')).toHaveText('Layers')
 })
 
 test('a hidden layer is not on the canvas, in the pdf or in preflight until shown again', async ({ page }) => {
