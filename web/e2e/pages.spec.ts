@@ -77,7 +77,7 @@ test('with facing pages the page overview shows spreads from a first right page,
   const facing = page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Spreads' })
   for (let i = 0; i < 3; i++) await addPage(page)
   await showPage(page, 1)
-  await expect(facing).toHaveText('Facing pages')
+  await expect(facing).toHaveText(/Facing$/)
   const pages = await overview(page)
   await pages.getByRole('textbox', { name: 'Columns' }).fill('1')
   await pages.getByRole('textbox', { name: 'Columns' }).press('Enter')
@@ -90,11 +90,11 @@ test('with facing pages the page overview shows spreads from a first right page,
   expect(three.x).toBeGreaterThan(two.x)
   expect(Math.abs(one.x - three.x)).toBeLessThan(1)
 
-  await choose(facing, 'Single pages')
+  await choose(facing, 'Single')
   await expect(pages.getByRole('group', { name: /^Spread/ })).toHaveCount(0)
   await expect(row(4)).toBeVisible()
   await page.keyboard.press('Control+z')
-  await expect(facing).toHaveText('Facing pages')
+  await expect(facing).toHaveText(/Facing$/)
   await expect(spread('Spread 2–3')).toBeVisible()
 })
 

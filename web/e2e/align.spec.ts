@@ -79,6 +79,7 @@ test('the arrange menu flattens a shape and adds auto layout', async ({ page }) 
 
 test('the quick edit bar of a group aligns the layers inside it', async ({ page }) => {
   await open(page)
+  await page.keyboard.press('Alt+2')
   const panel = page.getByRole('complementary', { name: 'Properties' })
   const layers = page.getByRole('tree', { name: 'Layers' })
   const x = async (name: string) => {

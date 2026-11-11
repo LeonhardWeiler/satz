@@ -547,7 +547,7 @@ function StyleRow({ editor, style }: { editor: Editor; style: TextStyle }) {
           <Icon name="chevron" />
         </button>
         <NameInput label="Text style name" value={style.name} onCommit={(name) => editor.apply({ type: 'setTextStyle', id: style.id, name })} />
-        <TypeOptions spans={[style]} set={(p) => editor.apply({ type: 'setTextStyle', id: style.id, ...p })} features={(f) => editor.apply({ type: 'setTextStyle', id: style.id, features: f(style.features) })} />
+        {open && <TypeOptions spans={[style]} set={(p) => editor.apply({ type: 'setTextStyle', id: style.id, ...p })} features={(f) => editor.apply({ type: 'setTextStyle', id: style.id, features: f(style.features) })} />}
         <button
           type="button"
           className="icon-button"
@@ -596,7 +596,7 @@ export function TextFrameSection({ editor, node, set }: { editor: Editor; node: 
     <Section title="Text frame" actions={toggle}>
       <Segmented
         label="Resizing"
-        prefix="Size"
+        text
         value={resizing}
         options={RESIZING}
         disabled={(v) => (v === 'autoWidth' && !!(node.prev || node.next)) || (v === 'autoHeight' && !!node.next)}

@@ -3861,3 +3861,8 @@ button.mark {
 .section:has(> .section-body:empty):last-child {
   padding-bottom: 12px;
 }
+
+.section:has(> .section-body:empty):has(+ .section:not(:has(> .section-body:empty))) {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}

@@ -71,6 +71,7 @@ test('case, decoration, indents and OpenType features are set in the type option
 
   await panel.getByRole('button', { name: 'Create text style' }).click()
   await page.keyboard.press('Escape')
+  await panel.getByRole('group', { name: 'Text style 1' }).getByRole('button', { name: 'Edit Text style 1' }).click()
   await panel.getByRole('group', { name: 'Text style 1' }).getByRole('button', { name: 'Type options' }).click()
   await expect(options.getByRole('combobox', { name: 'Case' })).toHaveText(/Upper case$/)
   await expect(options.getByRole('combobox', { name: 'Decoration' })).toHaveText(/Underline$/)

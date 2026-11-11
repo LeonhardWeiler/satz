@@ -74,7 +74,7 @@ const CAPS = [
 ] as const
 const MODES: Record<ColorMode, string> = { rgb: 'RGB', cmyk: 'CMYK' }
 const NUMBERINGS = { arabic: '1, 2, 3', upperRoman: 'I, II, III', lowerRoman: 'i, ii, iii' }
-const SPREADS = { single: 'Single pages', facing: 'Facing pages' }
+const SPREADS = { single: 'Single', facing: 'Facing' }
 const HORIZONTAL: Record<Constraint, string> = { min: 'Left', max: 'Right', stretch: 'Left & right', center: 'Center', scale: 'Scale' }
 const VERTICAL: Record<Constraint, string> = { min: 'Top', max: 'Bottom', stretch: 'Top & bottom', center: 'Center', scale: 'Scale' }
 export function Properties({ editor }: { editor: Editor }) {
@@ -178,10 +178,12 @@ export function Properties({ editor }: { editor: Editor }) {
                   side="bottom"
                   label="Arrange"
                   onClose={() => setArrange(null)}
-                  items={[...ARRANGE, ...(combinable(editor) ? BOOLEANS.map((b) => b[1]) : [])].map((title) => {
+                  items={[
+                    [one?.mask ? 'Release mask' : 'Use as mask', () => (one ? set({ mask: !one.mask }) : editor.set({ selection: editor.apply({ type: 'mask', ids: selection }) })), true, undefined, 'Ctrl Alt M'],
+                    ...[...ARRANGE, ...(combinable(editor) ? BOOLEANS.map((b) => b[1]) : [])].map((title): [string, () => void, boolean, undefined, string] => {
                     const a = ACTIONS.find((a) => a.title === title)!
                     return [title, () => press(a.keys), a.can?.(editor) ?? true, undefined, keysOf(a)]
-                  })}
+                  })]}
                 />,
                 document.body,
               )}
@@ -434,21 +436,7 @@ export function Properties({ editor }: { editor: Editor }) {
       {one?.kind === 'text' && <TextFrameSection editor={editor} node={one} set={set} />}
       {one?.kind === 'frame' && <AutoLayout editor={editor} node={one} set={set} />}
       {box && (
-        <Section
-          title="Layer"
-          actions={
-            <button
-              type="button"
-              className="icon-button"
-              aria-label={one?.mask ? 'Release mask' : 'Use as mask'}
-              aria-pressed={!!one?.mask}
-              title={`${one?.mask ? 'Release mask' : 'Use as mask'} (Ctrl+Alt+M)`}
-              onClick={() => (one ? set({ mask: !one.mask }) : editor.set({ selection: editor.apply({ type: 'mask', ids: selection }) }))}
-            >
-              <Icon name="mask" />
-            </button>
-          }
-        >
+        <Section title="Layer">
           <div className="grid">
             {bindable(
               'opacity',
@@ -566,8 +554,8 @@ function DocumentSection({ editor }: { editor: Editor }) {
   return (
     <section className="section" aria-label="Document">
       <div className="section-body">
+        <Select label="Spreads" prefix="Pages" value={facingPages ? 'facing' : 'single'} options={SPREADS} onChange={(v) => editor.apply({ type: 'setDocument', facingPages: v === 'facing' })} />
       <div className="grid">
-        <Select label="Spreads" value={facingPages ? 'facing' : 'single'} options={SPREADS} onChange={(v) => editor.apply({ type: 'setDocument', facingPages: v === 'facing' })} />
         <Select label="Color mode" prefix="Color" value={colorMode} options={MODES} onChange={(colorMode) => editor.apply({ type: 'setDocument', colorMode })} />
         <Select<string>
           label="Profile"
