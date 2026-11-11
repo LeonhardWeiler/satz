@@ -64,7 +64,7 @@ export function PaintList({
   children,
 }: {
   editor: Editor
-  title: 'Fill' | 'Stroke'
+  title: 'Fill' | 'Text color' | 'Stroke'
   /** Null when the selected layers differ. */
   paints: Fill[] | null
   mode: ColorMode

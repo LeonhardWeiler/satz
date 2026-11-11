@@ -56,8 +56,9 @@ fails vitest.
 - A chevron always expands inline; a trigger that opens a popover uses another icon.
 - Panel titles name the panel only; the current page is shown by the spread navigation,
   not repeated in the layers title.
-- No orphan half rows in a field grid: rotation pairs with the corner radius; on a shape
-  without a radius it shows only once the layer is turned (the canvas handles turn it).
+- A section is titled for what it changes: the fill of text layers is "Text color".
+- Short controls of one section share a grid row before a new row starts (Columns and
+  vertical align).
 
 ## Tokens
 

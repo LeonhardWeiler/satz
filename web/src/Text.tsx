@@ -611,8 +611,8 @@ export function TextFrameSection({ editor, node, set }: { editor: Editor; node: 
       <div className="grid">
         <Field label="Columns" title="Columns" unit="" int min={1} max={20} reset={1} value={node.columns} onCommit={(columns) => set({ columns })} />
         {node.columns > 1 && <Field label="Gutter" title="Gutter" unit="length" value={node.gutter} onCommit={(gutter) => set({ gutter })} />}
+        <Segmented label="Vertical align" value={node.verticalAlign} options={VERTICAL} onChange={(verticalAlign) => set({ verticalAlign })} />
       </div>
-      <Segmented label="Vertical align" value={node.verticalAlign} options={VERTICAL} onChange={(verticalAlign) => set({ verticalAlign })} />
       <More key={node.id} label="Baseline grid" used={!!(node.baselineGrid || node.baselineStart || node.minHeight || node.maxLines || node.trim || node.roundBaselines)}>
         <div className="grid">
           <Field label="Baseline" title="Baseline grid" unit="pt" min={1} zero="Off" reset={0} value={node.baselineGrid} onCommit={(baselineGrid) => set({ baselineGrid })} />

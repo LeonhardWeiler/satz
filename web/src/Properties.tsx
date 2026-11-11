@@ -364,7 +364,7 @@ export function Properties({ editor }: { editor: Editor }) {
                 {bindable('h', 'H', 'H', <Field label="H" value={same((n) => n.h)} unit="length" onCommit={frame('h')} />)}
               </>
             )}
-            {!line && (sided || same(turnOf) !== 0) && (
+            {!line && (
               <Field
                 label={<Icon name="angle" />}
                 title="Rotation"
@@ -483,7 +483,7 @@ export function Properties({ editor }: { editor: Editor }) {
       {nodes.length > 0 && nodes.every((n) => n.kind !== 'group') && (
         <PaintList
           editor={editor}
-          title="Fill"
+          title={nodes.every((n) => n.kind === 'text') ? 'Text color' : 'Fill'}
           paints={sameList((n) => n.fills)}
           ppi={one?.ppi}
           images={snapshot.images}
