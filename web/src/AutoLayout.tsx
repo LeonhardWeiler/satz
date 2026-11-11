@@ -46,7 +46,7 @@ export function Sizing({ editor, node, compact, set }: { editor: Editor; node: N
 export function AutoLayout({ editor, node, set }: { editor: Editor; node: Node & Layout; set: (p: Props) => void }) {
   const padding = PADDING.map((p) => node[p])
   const [each, toggle] = useSides('padding', node.id, padding, PADDING.some((p) => node.bindings[p]))
-  if (node.direction === 'none') return <Section title="Auto layout" empty onAdd={() => editor.apply({ type: 'autoLayout', ids: [node.id] })} />
+  if (node.direction === 'none') return <Section title="Auto layout" onAdd={() => editor.apply({ type: 'autoLayout', ids: [node.id] })} />
   const horizontal = node.direction === 'horizontal'
   const between = node.alignMain === 'spaceBetween'
   const align = (r: number, c: number) => {

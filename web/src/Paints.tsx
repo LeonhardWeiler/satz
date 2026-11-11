@@ -72,7 +72,7 @@ export function PaintList({
 }) {
   const [dragged, setDragged] = useState<number | null>(null)
   return (
-    <Section title={title} empty={paints?.length === 0} actions={actions} onAdd={() => onChange([...(paints ?? []), added])}>
+    <Section title={title} actions={actions} onAdd={() => onChange([...(paints ?? []), added])}>
       {!paints && <p className="empty" title="Adding one replaces them on all layers">Mixed</p>}
       {paints && paints.length > 0 && (
         <ul className="rows">
@@ -280,7 +280,7 @@ export function EffectList({
   onChange: (effects: Effect[]) => void
 }) {
   return (
-    <Section title="Effects" empty={effects?.length === 0} onAdd={() => onChange([...(effects ?? []), shadow(mode)])}>
+    <Section title="Effects" onAdd={() => onChange([...(effects ?? []), shadow(mode)])}>
       {!effects && <p className="empty" title="Adding one replaces them on all layers">Mixed</p>}
       {effects && effects.length > 0 && (
         <ul className="rows">

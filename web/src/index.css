@@ -554,7 +554,6 @@ textarea {
 .properties {
   flex: 1;
   min-height: 0;
-  display: block;
   overflow: auto;
 }
 
@@ -3874,38 +3873,3 @@ button.mark {
   transform: rotate(90deg);
 }
 
-.section.add {
-  display: inline-flex;
-  align-items: center;
-  margin: 8px 0 0 8px;
-  padding: 0;
-  border: 0;
-}
-
-.section.add:has(+ .section:not(.add)),
-.section.add:last-child {
-  margin-bottom: 8px;
-}
-
-.section.add + .section:not(.add) {
-  border-top: 1px solid var(--border);
-}
-
-.add-chip {
-  display: inline-flex;
-  gap: 4px;
-  align-items: center;
-  height: 24px;
-  padding: 0 8px 0 4px;
-  border: 0;
-  border-radius: 6px;
-  background: none;
-  color: var(--text-2);
-  font: inherit;
-  font-size: 12px;
-}
-
-.add-chip:hover {
-  background: var(--hover);
-  color: var(--text);
-}

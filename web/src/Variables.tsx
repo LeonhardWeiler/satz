@@ -52,7 +52,7 @@ export function Variables({ editor }: { editor: Editor }) {
     'color' in v ? <Chip color={v.color} scope={scope} /> : 'number' in v ? <span>{v.number}</span> : <span>{v.font?.name ?? fonts[0].name}</span>
 
   return (
-    <Section title="Variables" empty={variables.length === 0} onAdd={(e) => setMenu(e.currentTarget.getBoundingClientRect())}>
+    <Section title="Variables" onAdd={(e) => setMenu(e.currentTarget.getBoundingClientRect())}>
       {variables.length > 0 && (
         <div className="var-group">
           {variables.map((v) => (

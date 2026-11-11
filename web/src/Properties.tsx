@@ -617,7 +617,6 @@ function GridSection({ editor, sheets, all }: { editor: Editor; sheets: Page[]; 
   return (
     <Section
       title="Layout grids"
-      empty={grids?.length === 0}
       onAdd={(e) => setPresets(e.currentTarget.getBoundingClientRect())}
       actions={
         <>
