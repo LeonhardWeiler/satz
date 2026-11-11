@@ -67,8 +67,8 @@ export function SwatchOption({ swatch, selected, onPick }: { swatch: Swatch; sel
   )
 }
 
-/** A swatch button that opens the picker; `editor` adds the swatches tab. */
-export function ColorPicker(props: Props & { editor?: Editor }) {
+/** A swatch button that opens the picker; `editor` adds the swatches tab, `chip` replaces the colour chip, `children` sit above the colour. */
+export function ColorPicker({ chip, children, ...props }: Props & { editor?: Editor; chip?: ReactNode; children?: ReactNode }) {
   const [open, setOpen] = useState<Element | null>(null)
   const button = useRef<HTMLButtonElement>(null)
   return (
@@ -86,7 +86,7 @@ export function ColorPicker(props: Props & { editor?: Editor }) {
           setOpen((o) => (o ? null : into))
         }}
       >
-        <Chip color={props.color} scope={props.scope} />
+        {chip ?? <Chip color={props.color} scope={props.scope} />}
       </button>
       {open &&
         createPortal(
@@ -103,7 +103,9 @@ export function ColorPicker(props: Props & { editor?: Editor }) {
               setOpen(null)
               if (refocus) button.current?.focus()
             }}
-          />,
+          >
+            {children}
+          </Picker>,
           open,
         )}
     </>

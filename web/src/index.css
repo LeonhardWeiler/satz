@@ -872,6 +872,35 @@ input[type='checkbox']:disabled {
   gap: 8px;
 }
 
+.picker-stop-bar {
+  position: relative;
+  height: 16px;
+  margin: 0 8px;
+  border-radius: 4px;
+  background: var(--gradient), var(--checker);
+  box-shadow: inset 0 0 0 1px var(--border);
+  cursor: copy;
+  touch-action: none;
+}
+
+.picker-stop {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 20px;
+  padding: 0;
+  border: 2px solid #ffffff;
+  border-radius: 4px;
+  background: linear-gradient(var(--color), var(--color)), var(--checker);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.3);
+  transform: translate(-50%, -50%);
+  cursor: ew-resize;
+}
+
+.picker-stop[aria-pressed='true'] {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
 .swatch {
   flex: none;
   display: grid;

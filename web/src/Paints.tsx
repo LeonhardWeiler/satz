@@ -1,12 +1,12 @@
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { ColorPicker } from './ColorPicker'
 import { alpha, css, neutral, withAlpha, type ColorMode } from './color'
-import { Field, Group, RowActions, Section, Select } from './controls'
+import { Field, RowActions, Section, Segmented, Select } from './controls'
 import { Icon } from './icons'
 import type { Editor } from './editor'
 import type { Effect, Fill, Scope, Snapshot } from './model'
 
-const TYPES = { solid: 'Solid', linear: 'Linear', radial: 'Radial' } as const
+const TYPES = [['solid', 'Solid'], ['linear', 'Linear'], ['radial', 'Radial']] as const
 const EFFECTS = { dropShadow: 'Drop shadow', blur: 'Layer blur' } as const
 const RADIAL = [0.5, 0, 0, 0.5, 0.5, 0.5]
 const shadow = (mode: ColorMode): Effect => ({
@@ -31,13 +31,6 @@ function retype(p: Fill, type: Fill['type']): Fill {
 }
 
 const replace = <T,>(list: T[], i: number, item: T) => list.map((v, j) => (j === i ? item : v))
-/** `stops` with a new stop halfway along the widest gap, in the colour of the stop before it. */
-const split = <S extends { at: number }>(stops: S[]) => {
-  const sorted = stops.toSorted((a, b) => a.at - b.at)
-  let k = 0
-  for (let i = 1; i < sorted.length - 1; i++) if (sorted[i + 1].at - sorted[i].at > sorted[k + 1].at - sorted[k].at) k = i
-  return sorted.toSpliced(k + 1, 0, { ...sorted[k], at: (sorted[k].at + sorted[k + 1].at) / 2 })
-}
 const move = <T,>(list: T[], from: number, to: number) => {
   const out = list.filter((_, j) => j !== from)
   out.splice(to, 0, list[from])
@@ -77,7 +70,6 @@ export function PaintList({
   actions?: ReactNode
   children?: ReactNode
 }) {
-  const what = title.toLowerCase()
   const [dragged, setDragged] = useState<number | null>(null)
   return (
     <Section title={title} actions={actions} onAdd={() => onChange([...(paints ?? []), added])}>
@@ -89,11 +81,6 @@ export function PaintList({
             .toReversed()
             .map(({ p, i }) => {
               const set = (next: Fill) => onChange(replace(paints, i, next))
-              const c = p.color
-              const bound = p.type === 'solid' && typeof c === 'object' && 'swatch' in c ? c : null
-              const swatch = bound && scope.swatches.find((s) => s.id === bound.swatch)
-              const boundVar = p.type === 'solid' && typeof c === 'object' && 'variable' in c ? c : null
-              const variable = boundVar && scope.variables.find((v) => v.id === boundVar.variable)
               return (
                 <li
                   key={i}
@@ -109,120 +96,17 @@ export function PaintList({
                   onDrop={() => dragged !== null && dragged !== i && onChange(move(paints, dragged, i))}
                   onDragEnd={() => setDragged(null)}
                 >
-                  <div className="row">
-                    {p.type === 'image' ? (
-                      <Icon name="image" />
-                    ) : p.type === 'solid' ? (
-                      <ColorPicker
-                        label={`${title} color`}
-                        color={p.color}
-                        mode={mode}
-                        scope={scope}
-                        editor={editor}
-                        onChange={(color) => set({ ...p, color })}
-                      />
-                    ) : (
-                      <span className="swatch" aria-hidden="true">
-                        <span className="chip" style={{ background: gradient(p, scope) }} />
-                      </span>
-                    )}
-                    {p.type === 'image' ? (
-                      <span className="bound-name">
-                        Image{ppi !== undefined && ` · ${Math.round(ppi)} ppi`} · {images[p.image!]}
-                        {images[p.image!] === (mode === 'cmyk' ? 'RGB' : 'CMYK') && ` → ${mode.toUpperCase()}`}
-                      </span>
-                    ) : bound ? (
-                      <>
-                        <span className="bound-name" title={swatch ? swatch.name : 'Missing swatch'}>
-                          {swatch ? swatch.name : 'Missing swatch'}
-                        </span>
-                        <Field
-                          label={swatch?.spot ? 'Tint' : <Icon name="opacity" />}
-                          title={`${title} ${swatch?.spot ? 'tint' : 'opacity'}`}
-                          unit="%"
-                          max={100}
-                          value={swatch?.spot ? bound.tint * 100 : bound.alpha * 100}
-                          onCommit={(v) => {
-                            const x = v / 100
-                            set({ ...p, color: swatch?.spot ? { ...bound, tint: x } : { ...bound, alpha: x } })
-                          }}
-                        />
-                      </>
-                    ) : boundVar ? (
-                      <span className="bound-name" title={variable ? variable.name : 'Missing variable'}>
-                        <Icon name="drop" size={12} />
-                        {variable ? variable.name : 'Missing variable'}
-                      </span>
-                    ) : (
-                      <Select label={`${title} type`} value={p.type} options={TYPES} onChange={(t) => set(retype(p, t))} />
-                    )}
-                    {p.type === 'solid' && !bound && (
-                      <Field
-                        label={<Icon name="opacity" />}
-                        title={`${title} opacity`}
-                        unit="%"
-                        value={alpha(p.color)}
-                        onCommit={(v) => set({ ...p, color: withAlpha(p.color, v) })}
-                      />
-                    )}
-                    {p.type === 'linear' && (
-                      <Field
-                        label={<Icon name="angle" />}
-                        title={`${title} angle`}
-                        unit="°"
-                        min={-Infinity}
-                        reset={0}
-                        value={angle(p.transform)}
-                        onCommit={(v) => set({ ...p, transform: linear(v) })}
-                      />
-                    )}
-                    <RowActions
-                      what={what}
-                      visible={p.visible}
-                      onToggle={() => set({ ...p, visible: !p.visible })}
-                      onRemove={() => onChange(paints.filter((_, j) => j !== i))}
-                    />
-                  </div>
-                  {(p.type === 'linear' || p.type === 'radial') && (
-                    <div className="stops">
-                      <Group
-                        title="Stops"
-                        action={
-                          <button type="button" className="icon-button" aria-label="Add stop" title="Add stop" onClick={() => set({ ...p, stops: split(p.stops) })}>
-                            <Icon name="plus" />
-                          </button>
-                        }
-                      >
-                        {p.stops.map((s, k) => {
-                          const stop = (next: Partial<typeof s>) => set({ ...p, stops: replace(p.stops, k, { ...s, ...next }) })
-                          return (
-                            <div key={k} className="row wide">
-                              <ColorPicker label={`Stop ${k + 1} color`} color={s.color} mode={mode} scope={scope} onChange={(color) => stop({ color })} />
-                              <Field
-                                label="Pos"
-                                title={`Stop ${k + 1} position`}
-                                unit="%"
-                                max={100}
-                                value={s.at * 100}
-                                onCommit={(v) => stop({ at: v / 100 })}
-                              />
-                              {p.stops.length > 2 && (
-                                <button
-                                  type="button"
-                                  className="icon-button"
-                                  aria-label={`Remove stop ${k + 1}`}
-                                  title="Remove stop"
-                                  onClick={() => set({ ...p, stops: p.stops.filter((_, j) => j !== k) })}
-                                >
-                                  <Icon name="minus" />
-                                </button>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </Group>
-                    </div>
-                  )}
+                  <PaintRow
+                    editor={editor}
+                    title={title}
+                    paint={p}
+                    mode={mode}
+                    scope={scope}
+                    ppi={ppi}
+                    images={images}
+                    set={set}
+                    onRemove={() => onChange(paints.filter((_, j) => j !== i))}
+                  />
                 </li>
               )
             })}
@@ -230,6 +114,156 @@ export function PaintList({
       )}
       {children}
     </Section>
+  )
+}
+
+function PaintRow({
+  editor,
+  title,
+  paint: p,
+  mode,
+  scope,
+  ppi,
+  images,
+  set,
+  onRemove,
+}: {
+  editor: Editor
+  title: string
+  paint: Fill
+  mode: ColorMode
+  scope: Scope
+  ppi?: number
+  images: Snapshot['images']
+  set: (p: Fill) => void
+  onRemove: () => void
+}) {
+  const [at, setAt] = useState(0)
+  const k = Math.min(at, p.stops.length - 1)
+  const solid = p.type === 'solid'
+  const c = p.color
+  const bound = solid && typeof c === 'object' && 'swatch' in c ? c : null
+  const swatch = bound && scope.swatches.find((s) => s.id === bound.swatch)
+  const boundVar = solid && typeof c === 'object' && 'variable' in c ? c : null
+  const variable = boundVar && scope.variables.find((v) => v.id === boundVar.variable)
+  return (
+    <div className="row">
+      {p.type === 'image' ? (
+        <Icon name="image" />
+      ) : (
+        <ColorPicker
+          label={`${title} color`}
+          color={solid ? p.color : p.stops[k].color}
+          mode={mode}
+          scope={scope}
+          editor={solid ? editor : undefined}
+          chip={solid ? undefined : <span className="chip" style={{ background: gradient(p, scope) }} />}
+          onChange={(color) => set(solid ? { ...p, color } : { ...p, stops: replace(p.stops, k, { ...p.stops[k], color }) })}
+        >
+          <Segmented label={`${title} type`} value={p.type} options={TYPES} onChange={(t) => set(retype(p, t))} />
+          {!solid && <Stops paint={p} at={k} scope={scope} select={setAt} set={set} />}
+        </ColorPicker>
+      )}
+      {p.type === 'image' ? (
+        <span className="bound-name">
+          Image{ppi !== undefined && ` · ${Math.round(ppi)} ppi`} · {images[p.image!]}
+          {images[p.image!] === (mode === 'cmyk' ? 'RGB' : 'CMYK') && ` → ${mode.toUpperCase()}`}
+        </span>
+      ) : bound ? (
+        <>
+          <span className="bound-name" title={swatch ? swatch.name : 'Missing swatch'}>
+            {swatch ? swatch.name : 'Missing swatch'}
+          </span>
+          <Field
+            label={swatch?.spot ? 'Tint' : 'Opacity'}
+            title={`${title} ${swatch?.spot ? 'tint' : 'opacity'}`}
+            unit="%"
+            max={100}
+            value={swatch?.spot ? bound.tint * 100 : bound.alpha * 100}
+            onCommit={(v) => {
+              const x = v / 100
+              set({ ...p, color: swatch?.spot ? { ...bound, tint: x } : { ...bound, alpha: x } })
+            }}
+          />
+        </>
+      ) : boundVar ? (
+        <span className="bound-name" title={variable ? variable.name : 'Missing variable'}>
+          <Icon name="drop" size={12} />
+          {variable ? variable.name : 'Missing variable'}
+        </span>
+      ) : solid ? (
+        <Field label="Opacity" title={`${title} opacity`} unit="%" value={alpha(p.color)} onCommit={(v) => set({ ...p, color: withAlpha(p.color, v) })} />
+      ) : p.type === 'linear' ? (
+        <Field label="Angle" title={`${title} angle`} unit="°" min={-Infinity} reset={0} value={angle(p.transform)} onCommit={(v) => set({ ...p, transform: linear(v) })} />
+      ) : (
+        <span className="bound-name">Radial</span>
+      )}
+      <RowActions what={title.toLowerCase()} visible={p.visible} onToggle={() => set({ ...p, visible: !p.visible })} onRemove={onRemove} />
+    </div>
+  )
+}
+
+/** A gradient bar with a marker per stop: a click on the bar adds a stop, a marker drags or takes arrow keys, Delete removes it. */
+function Stops({ paint: p, at, scope, select, set }: { paint: Fill; at: number; scope: Scope; select: (k: number) => void; set: (p: Fill) => void }) {
+  const bar = useRef<HTMLDivElement>(null)
+  const where = (x: number) => {
+    const r = bar.current!.getBoundingClientRect()
+    return Math.min(1, Math.max(0, (x - r.left) / r.width))
+  }
+  const put = (k: number, v: number) => set({ ...p, stops: replace(p.stops, k, { ...p.stops[k], at: Math.min(1, Math.max(0, v)) }) })
+  const remove = (k: number) => {
+    if (p.stops.length < 3) return
+    set({ ...p, stops: p.stops.filter((_, j) => j !== k) })
+    select(0)
+  }
+  return (
+    <div className="stops">
+      <div
+        ref={bar}
+        className="picker-stop-bar"
+        style={{ '--gradient': gradient({ ...p, type: 'linear', transform: linear(0) }, scope) } as CSSProperties}
+        onPointerDown={(e) => {
+          if (e.target !== e.currentTarget) return
+          const t = where(e.clientX)
+          const before = p.stops.filter((s) => s.at <= t).sort((a, b) => b.at - a.at)[0] ?? p.stops[0]
+          set({ ...p, stops: [...p.stops, { ...before, at: t }] })
+          select(p.stops.length)
+        }}
+      >
+        {p.stops.map((s, k) => (
+          <button
+            key={k}
+            type="button"
+            className="picker-stop"
+            aria-label={`Stop ${k + 1}`}
+            title={`Stop ${k + 1}`}
+            aria-pressed={k === at}
+            onFocus={() => select(k)}
+            style={{ left: `${s.at * 100}%`, '--color': css(s.color, scope) } as CSSProperties}
+            onPointerDown={(e) => {
+              select(k)
+              e.currentTarget.setPointerCapture(e.pointerId)
+            }}
+            onPointerMove={(e) => e.currentTarget.hasPointerCapture(e.pointerId) && put(k, where(e.clientX))}
+            onKeyDown={(e) => {
+              const d = { ArrowLeft: -1, ArrowRight: 1 }[e.key]
+              if (d) put(k, s.at + (d * (e.shiftKey ? 10 : 1)) / 100)
+              else if (e.key === 'Delete' || e.key === 'Backspace') remove(k)
+              else return
+              e.preventDefault()
+            }}
+          />
+        ))}
+      </div>
+      <div className="row">
+        <Field label="Position" title="Stop position" unit="%" max={100} value={p.stops[at].at * 100} onCommit={(v) => put(at, v / 100)} />
+        {p.stops.length > 2 && (
+          <button type="button" className="icon-button" aria-label="Remove stop" title="Remove stop" onClick={() => remove(at)}>
+            <Icon name="minus" />
+          </button>
+        )}
+      </div>
+    </div>
   )
 }
 

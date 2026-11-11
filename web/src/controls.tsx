@@ -380,7 +380,7 @@ export function Segmented<T extends string>({
 }: {
   label: string
   value: T | null
-  options: readonly (readonly [T, string, IconName])[]
+  options: readonly (readonly [T, string, IconName?])[]
   disabled?: (v: T) => boolean
   prefix?: string
   text?: boolean
@@ -391,7 +391,7 @@ export function Segmented<T extends string>({
       {prefix && <span className="field-label">{prefix}</span>}
       {options.map(([v, title, icon]) => (
         <button key={v} type="button" role="radio" aria-checked={value === v} aria-label={title} title={title} disabled={disabled?.(v)} onClick={() => onChange(v)}>
-          {text ? title : <Icon name={icon} />}
+          {text || !icon ? title : <Icon name={icon} />}
         </button>
       ))}
     </div>

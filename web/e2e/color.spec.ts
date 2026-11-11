@@ -32,7 +32,7 @@ test('the color picker and the shape menu stay inside the window', async ({ page
 
 test('the color picker follows its button when the properties panel scrolls', async ({ page }) => {
   await open(page)
-  await page.setViewportSize({ width: 1400, height: 400 })
+  await page.setViewportSize({ width: 1400, height: 480 })
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).last().click()
   const panel = page.getByRole('complementary', { name: 'Properties' })
   for (let i = 0; i < 4; i++) await panel.getByRole('button', { name: 'Add effect' }).click()
@@ -178,7 +178,7 @@ test('a spot swatch is made in the swatches panel, bound in the picker, tinted a
   await swatches.getByRole('option', { name: 'HKS 43' }).hover()
   await swatches.getByRole('button', { name: 'Delete HKS 43' }).click()
   await expect(swatches.getByRole('option')).toHaveCount(0)
-  await expect(panel.getByRole('combobox', { name: 'Fill type' })).toHaveText('Solid')
+  await expect(panel.getByTitle('Fill opacity')).toBeVisible()
   const [r2, , b2] = (await pixels(page, x, y, 1, 1))[0]
   expect(b2 - r2).toBeGreaterThan(100)
 })

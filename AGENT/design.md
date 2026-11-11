@@ -110,6 +110,7 @@ fails vitest.
 - Shortcuts: filled keycap chips in dialogs, the palette and tooltips, mouse actions too ("Ctrl" + "click"); plain `--text-3` text in menus. Buttons carry no keycap; Enter on a primary button is implied.
 - Default values (Auto, None, All, No style) in `--text`; only Mixed and search hints in `--text-3`.
 - Swatches: 16 px squares, radius 4, 1 px inset ring; stroke swatches are the same square as a ring.
+- Paint rows: the swatch and one value field (Opacity for solid, Angle for linear, Tint for a swatch). The paint type and gradient stops live in the picker; stops are markers on a gradient bar, a click on the bar adds one.
 - Icons: 16 px outline, 1.5 stroke, no filled glyphs.
 - Fields: label inside on the left in `--text-2`, value in `--text`, a unit other than the document unit in `--text-3` on the right; steppers show the unit after the value, before the plus.
 - Titles: panel and popover titles 13 in weight 600, `--text`; section titles 12 in weight

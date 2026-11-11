@@ -32,7 +32,7 @@ test('color pickers and selects', async ({ page }) => {
   await opened(page, C, '12 shadow color', 'Shadow color picker (no swatch tab)', section(page, 'Effects').getByRole('button', { name: 'Shadow color' }), page.getByRole('dialog', { name: 'Shadow color' }))
   await select(page, 'Sun')
   await shot(page, C, '13 gradient stops', 'Radial gradient with stops', [section(page, 'Fill')], 8)
-  await opened(page, C, '14 gradient stop picker', 'Color picker of a gradient stop', section(page, 'Fill').getByRole('button').filter({ has: page.locator('.chip') }).nth(1), page.getByRole('dialog').last())
+  await opened(page, C, '14 gradient stop picker', 'Color picker of a gradient with its stops', section(page, 'Fill').getByRole('button', { name: 'Fill color' }).first(), page.getByRole('dialog').last())
   await select(page, 'Arrow')
   await select(page, 'Frame')
   await page.keyboard.press('Shift+a')

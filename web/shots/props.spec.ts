@@ -82,8 +82,9 @@ const part = (page, n: string, what: string, name: string) => shot(page, P, `${n
 test('property states', async ({ page }) => {
   await start(page, { h: 2200 })
   await select(page, 'Sun')
-  await sec(page, 'Fill').getByRole('combobox').first().click()
-  await page.getByRole('menu').getByRole('menuitemradio', { name: 'Linear' }).click()
+  await sec(page, 'Fill').getByRole('button', { name: 'Fill color' }).first().click()
+  await page.getByRole('dialog', { name: 'Fill color' }).getByRole('radio', { name: 'Linear' }).click()
+  await page.keyboard.press('Escape')
   await rest(page)
   await part(page, '50', 'linear gradient', 'Fill')
   await select(page, 'Rectangle…')
