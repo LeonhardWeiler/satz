@@ -84,7 +84,7 @@ export function Properties({ editor }: { editor: Editor }) {
   const snapshot = useEditor(editor, (e) => e.snapshot)
   const selection = useEditor(editor, (e) => e.selection)
   const [layerMore, setLayerMore] = useState(false)
-  const nodes = selection.flatMap((id) => editor.nodes.get(id)?.node ?? [])
+  const nodes = overview ? [] : selection.flatMap((id) => editor.nodes.get(id)?.node ?? [])
 
   const same = <T,>(get: (n: Node) => T | undefined) => {
     const values = nodes.map(get)
@@ -176,7 +176,7 @@ export function Properties({ editor }: { editor: Editor }) {
     >
       <header className="panel-header">
         {one ? <KindIcon node={one} /> : <Icon name={nodes.length ? 'group' : isPage ? 'doc' : 'master'} />}
-        <h2>{one && cropping === one.id ? 'Crop' : one ? (one.kind === 'text' ? 'Text frame' : one.name) : nodes.length ? `${nodes.length} layers` : isPage ? 'Document' : page.name}</h2>
+        <h2>{one && cropping === one.id ? 'Crop' : one ? (one.kind === 'text' ? 'Text frame' : one.name) : nodes.length ? `${nodes.length} layers` : overview ? 'Pages' : isPage ? 'Document' : page.name}</h2>
         {one && cropping === one.id && <button type="button" className="button" onClick={() => editor.set({ cropping: null })}>Done</button>}
         {one?.overrideOf && (
           <>
@@ -201,7 +201,7 @@ export function Properties({ editor }: { editor: Editor }) {
         </AlignBar>
       )}
       {one?.kind === 'group' && one.children.length > 1 && <AlignBar editor={editor} inside={one.children} />}
-      {!box && <DocumentSection editor={editor} />}
+      {!box && <DocumentSection editor={editor} pagesOnly={!!overview} />}
       {!box && (
         <Section
           title={isPage ? (targets.length > 1 ? `Pages ${numbers.toSorted((a, b) => a - b).join(', ')}` : `Page ${numbers[0]}`) : 'Master'}
@@ -514,15 +514,15 @@ function textBelow(editor: Editor, n: Node) {
   return false
 }
 
-/** Facing pages, color mode and, in CMYK, the profile of the document, and how dates show. */
-function DocumentSection({ editor }: { editor: Editor }) {
+/** Facing pages and, unless `pagesOnly`, color mode and, in CMYK, the profile of the document, and how dates show. */
+function DocumentSection({ editor, pagesOnly }: { editor: Editor; pagesOnly: boolean }) {
   const { facingPages, colorMode, profile, dateFormat } = useEditor(editor, (e) => e.snapshot)
   const color = <Select label="Color mode" value={colorMode} options={MODES} onChange={(colorMode) => editor.apply({ type: 'setDocument', colorMode })} />
   return (
     <section className="section" aria-label="Document">
       <div className="section-body">
         <Check label="Facing pages" value={facingPages} set={(facingPages) => editor.apply({ type: 'setDocument', facingPages })} />
-        {colorMode === 'rgb' ? (
+        {pagesOnly ? null : colorMode === 'rgb' ? (
           color
         ) : (
           <div className="grid">
@@ -536,7 +536,7 @@ function DocumentSection({ editor }: { editor: Editor }) {
             />
           </div>
         )}
-        <Select label="Date" value={dateFormat} options={DATES} onChange={(dateFormat) => editor.apply({ type: 'setDocument', dateFormat })} />
+        {!pagesOnly && <Select label="Date" value={dateFormat} options={DATES} onChange={(dateFormat) => editor.apply({ type: 'setDocument', dateFormat })} />}
       </div>
     </section>
   )

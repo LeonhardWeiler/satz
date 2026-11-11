@@ -253,3 +253,16 @@ test('a band selects pages or masters, shift click adds a range, the selection d
   await expect(region).toHaveCount(0)
   await expect(page.getByText(/Editing master/)).toContainText('A-Master')
 })
+
+test('the page overview shows only the page properties, not those of the selected layer or the document', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).last().click()
+  await expect(panel.getByRole('region', { name: 'Layout', exact: true })).toBeVisible()
+  await overview(page)
+  await expect(panel.getByRole('heading', { level: 2 })).toHaveText('Pages')
+  await expect(panel.getByRole('region', { name: 'Layout', exact: true })).toHaveCount(0)
+  await expect(panel.getByRole('combobox', { name: 'Color mode' })).toHaveCount(0)
+  await expect(panel.getByRole('checkbox', { name: 'Facing pages' })).toBeVisible()
+  await expect(panel.getByRole('region', { name: 'Page 1' })).toBeVisible()
+})
