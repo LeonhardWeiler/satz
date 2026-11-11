@@ -149,6 +149,24 @@ export function Properties({ editor }: { editor: Editor }) {
     editor.apply({ type: 'setPath', id: one.id, path: [0, a.x, a.y, 1, a.x + length * Math.cos(r), a.y - length * Math.sin(r)] })
   }
 
+  const texts = nodes.length > 0 && nodes.every((n) => n.kind === 'text')
+  const fill = nodes.length > 0 && nodes.every((n) => n.kind !== 'group') && (
+    <PaintList
+      editor={editor}
+      title={texts ? 'Text color' : 'Fill'}
+      paints={sameList((n) => n.fills)}
+      ppi={one?.ppi}
+      images={snapshot.images}
+      added={solid(neutral(texts ? 'black' : 'gray', mode))}
+      mode={mode}
+      scope={scope}
+      onChange={(fills) => set({ fills })}>
+      {mode === 'cmyk' && !!sameList((n) => n.fills)?.length && (
+        <Check label="Overprint fill" value={same((n) => n.overprintFill)} set={(overprintFill) => set({ overprintFill })} />
+      )}
+    </PaintList>
+  )
+
   return (
     <aside
       className="panel properties"
@@ -445,6 +463,7 @@ export function Properties({ editor }: { editor: Editor }) {
         </Section>
       )}
       {one?.kind === 'text' && <TextSection editor={editor} node={one} />}
+      {texts && fill}
       {one?.kind === 'text' && <TextFrameSection editor={editor} node={one} set={set} />}
       {one?.kind === 'frame' && <AutoLayout editor={editor} node={one} set={set} />}
       {box && (
@@ -480,22 +499,7 @@ export function Properties({ editor }: { editor: Editor }) {
           )}
         </Section>
       )}
-      {nodes.length > 0 && nodes.every((n) => n.kind !== 'group') && (
-        <PaintList
-          editor={editor}
-          title={nodes.every((n) => n.kind === 'text') ? 'Text color' : 'Fill'}
-          paints={sameList((n) => n.fills)}
-          ppi={one?.ppi}
-          images={snapshot.images}
-          added={solid(neutral(nodes.every((n) => n.kind === 'text') ? 'black' : 'gray', mode))}
-          mode={mode}
-          scope={scope}
-          onChange={(fills) => set({ fills })}>
-          {mode === 'cmyk' && !!sameList((n) => n.fills)?.length && (
-            <Check label="Overprint fill" value={same((n) => n.overprintFill)} set={(overprintFill) => set({ overprintFill })} />
-          )}
-        </PaintList>
-      )}
+      {!texts && fill}
       {stroked && (
         <PaintList
           editor={editor}

@@ -56,7 +56,8 @@ fails vitest.
 - A chevron always expands inline; a trigger that opens a popover uses another icon.
 - Panel titles name the panel only; the current page is shown by the spread navigation,
   not repeated in the layers title.
-- A section is titled for what it changes: the fill of text layers is "Text color".
+- A section is titled for what it changes and sits beside its kin: the fill of text layers
+  is "Text color", directly under Text.
 - Short controls of one section share a grid row before a new row starts (Columns and
   vertical align).
 - The page overview hides the drawing tools and the spread navigation; neither acts there.
