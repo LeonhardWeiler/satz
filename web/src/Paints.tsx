@@ -165,6 +165,17 @@ export function PaintList({
                         onCommit={(v) => set({ ...p, color: withAlpha(p.color, v) })}
                       />
                     )}
+                    {p.type === 'linear' && (
+                      <Field
+                        label={<Icon name="angle" />}
+                        title={`${title} angle`}
+                        unit="°"
+                        min={-Infinity}
+                        reset={0}
+                        value={angle(p.transform)}
+                        onCommit={(v) => set({ ...p, transform: linear(v) })}
+                      />
+                    )}
                     <RowActions
                       what={what}
                       visible={p.visible}
@@ -174,16 +185,6 @@ export function PaintList({
                   </div>
                   {(p.type === 'linear' || p.type === 'radial') && (
                     <div className="stops">
-                      {p.type === 'linear' && (
-                        <Field
-                          label="Angle"
-                          unit="°"
-                          min={-Infinity}
-                          reset={0}
-                          value={angle(p.transform)}
-                          onCommit={(v) => set({ ...p, transform: linear(v) })}
-                        />
-                      )}
                       <Group
                         title="Stops"
                         action={
@@ -204,13 +205,6 @@ export function PaintList({
                                 max={100}
                                 value={s.at * 100}
                                 onCommit={(v) => stop({ at: v / 100 })}
-                              />
-                              <Field
-                                label={<Icon name="opacity" />}
-                                title={`Stop ${k + 1} opacity`}
-                                unit="%"
-                                value={alpha(s.color)}
-                                onCommit={(v) => stop({ color: withAlpha(s.color, v) })}
                               />
                               {p.stops.length > 2 && (
                                 <button

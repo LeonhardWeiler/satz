@@ -860,7 +860,6 @@ input[type='checkbox']:disabled {
 .stops {
   display: grid;
   gap: 8px;
-  padding-left: 24px;
 }
 
 .swatch {
