@@ -259,9 +259,9 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
               <span className="sep" />
             </>
           )}
-          <Toolbar editor={editor} onPlaceImage={() => placeImages(editor)} />
+          {!overview && <Toolbar editor={editor} onPlaceImage={() => placeImages(editor)} />}
         </div>
-        <Switcher editor={editor} />
+        {overview ? <span /> : <Switcher editor={editor} />}
         <div className="bar-side end">
           {toggle('left', 'Left panel', 'Alt+1')}
           {toggle('right', 'Right panel', 'Alt+2')}

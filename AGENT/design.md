@@ -59,6 +59,9 @@ fails vitest.
 - A section is titled for what it changes: the fill of text layers is "Text color".
 - Short controls of one section share a grid row before a new row starts (Columns and
   vertical align).
+- The page overview hides the drawing tools and the spread navigation; neither acts there.
+- A section title does not repeat the label of the button it holds (Output, not Export
+  above an Export button).
 
 ## Tokens
 

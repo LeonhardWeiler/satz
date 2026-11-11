@@ -207,7 +207,7 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
           </Section>
           </>
         )}
-        <Section title="Export">
+        <Section title="Output">
           <Select label="Format" prefix="Format" value={format} options={FORMATS} onChange={setFormat} />
           {(format === 'pdf' || format === 'zip') && (
             <>
