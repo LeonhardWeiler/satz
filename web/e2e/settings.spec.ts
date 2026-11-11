@@ -43,7 +43,7 @@ test('the theme follows the system until light or dark is chosen', async ({ page
 test('a shortcut changed in the shortcut list runs its command and frees the old keys', async ({ page }) => {
   await open(page)
   await page.keyboard.press('?')
-  const help = page.getByRole('dialog', { name: 'Keyboard shortcuts' })
+  const help = page.getByRole('dialog', { name: 'Settings' })
   const keys = help.getByRole('button', { name: 'Shortcut for Rectangle tool' })
   await keys.click()
   await page.keyboard.press('q')
@@ -66,7 +66,7 @@ test('a shortcut changed in the shortcut list runs its command and frees the old
 test('a shortcut that another command has swaps the keys of both and says so', async ({ page }) => {
   await open(page)
   await page.keyboard.press('?')
-  const help = page.getByRole('dialog', { name: 'Keyboard shortcuts' })
+  const help = page.getByRole('dialog', { name: 'Settings' })
   await help.getByRole('button', { name: 'Shortcut for Rectangle tool' }).click()
   await page.keyboard.press('v')
   await expect(help.getByRole('status')).toHaveText('Move tool takes R')
@@ -96,12 +96,15 @@ test('the layers of the spread are listed under a heading for each page', async 
   await expect(tree.getByRole('treeitem', { name: 'Page 2' })).toHaveAttribute('aria-expanded', 'false')
 })
 
-test('zoom to 100% shows the page at the size calibrated in the settings', async ({ page }) => {
+test('zoom to 100% shows the page at the size measured against a reference in the settings', async ({ page }) => {
   await open(page)
   await page.keyboard.press('Control+Comma')
   const dialog = page.getByRole('dialog', { name: 'Settings' })
-  await dialog.getByRole('slider', { name: 'Screen size' }).fill('5')
-  expect((await dialog.locator('.card-bar').boundingBox())!.width).toBeCloseTo(428, 0)
+  await dialog.getByRole('button', { name: 'Screen size' }).click()
+  await dialog.getByRole('slider', { name: 'Screen size' }).fill('3')
+  expect((await dialog.locator('.measure').boundingBox())!.width).toBeCloseTo(256.8, 0)
+  await choose(dialog.getByRole('combobox', { name: 'Reference' }), 'A4 width')
+  expect((await dialog.locator('.measure').boundingBox())!.width).toBeCloseTo(630, 0)
   await page.keyboard.press('Escape')
   await page.keyboard.press('Control+0')
   await expect(page.getByRole('status', { name: 'Zoom' })).toHaveText('100%')

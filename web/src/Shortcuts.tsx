@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { ACTIONS, comboOf, keysOf, type Action } from './commands'
 import { Keys } from './controls'
 import { Icon } from './icons'
@@ -70,38 +70,35 @@ const assign = (a: Action, keys: string | null) => {
   return other ? `${other.title} takes ${old}` : null
 }
 
-/** "?": every shortcut by where it works; a click on the keys of a command records new ones. */
-export function Help({ onClose }: { onClose: () => void }) {
-  const ref = useRef<HTMLDialogElement>(null)
+/** Every shortcut by where it works; a click on the keys of a command records new ones. */
+export function Shortcuts() {
   const [query, setQuery] = useState('')
   const [recording, setRecording] = useState<string | null>(null)
   const [note, setNote] = useState<string | null>(null)
   const remapped = useSettings().keys
-  useEffect(() => {
-    ref.current!.showModal()
-  }, [])
   const q = query.trim().toLowerCase()
   const keys = (r: Action | { keys: string }) => ('group' in r ? keysOf(r) : r.keys)
   const groups = GROUPS.map(([g, rows]) => [g, rows.filter((r) => `${g} ${r.title} ${keys(r)}`.toLowerCase().includes(q))] as const).filter(([, rows]) => rows.length)
   return (
-    <dialog ref={ref} className="help" aria-label="Keyboard shortcuts" onClose={onClose} onClick={(e) => e.target === e.currentTarget && ref.current!.close()}>
-      <header className="help-head">
-        <h2>Keyboard shortcuts</h2>
+    <>
+      <div className="settings-tools">
         <input className="help-search" aria-label="Search shortcuts" placeholder="Search" autoFocus value={query} onChange={(e) => setQuery(e.target.value)} />
         {Object.keys(remapped).length > 0 && (
           <button type="button" className="button" onClick={() => setSettings({ keys: {} })}>
             Reset shortcuts
           </button>
         )}
-        <button type="button" className="icon-button" aria-label="Close" onClick={() => ref.current!.close()}>
-          <Icon name="close" />
-        </button>
-      </header>
-      <div className="help-body">
-        <div className="help-grid">
-          {groups.map(([group, rows]) => (
-            <section key={group} aria-label={group}>
-              <h3>{group}</h3>
+      </div>
+      {note && (
+        <p className="settings-note" role="status">
+          {note}
+        </p>
+      )}
+      <div className="help-grid">
+        {groups.map(([group, rows]) => (
+          <section key={group} aria-label={group}>
+            <h3>{group}</h3>
+            <div className="settings-card">
               {rows.map((r) => (
                 <div key={r.title} className="help-r" data-remapped={r.title in remapped || undefined}>
                   <span>{mark(r.title, q)}</span>
@@ -136,12 +133,11 @@ export function Help({ onClose }: { onClose: () => void }) {
                   )}
                 </div>
               ))}
-            </section>
-          ))}
-        </div>
-        {!groups.length && <p className="help-empty">No shortcut matches.</p>}
-        {note && <p className="help-empty" role="status">{note}</p>}
+            </div>
+          </section>
+        ))}
       </div>
-    </dialog>
+      {!groups.length && <p className="settings-note">No shortcut matches.</p>}
+    </>
   )
 }

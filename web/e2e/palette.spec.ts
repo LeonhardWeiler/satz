@@ -87,7 +87,7 @@ test('a swatch fills the selection from the palette and says so when nothing is 
 
 test('question mark and the help button show the keyboard shortcuts', async ({ page }) => {
   await open(page)
-  const help = page.getByRole('dialog', { name: 'Keyboard shortcuts' })
+  const help = page.getByRole('dialog', { name: 'Settings' })
   await page.keyboard.press('?')
   for (const group of ['Canvas', 'Tools', 'Edit', 'Align', 'Layers', 'Pages', 'View', 'Fields', 'File']) await expect(help.getByRole('region', { name: group })).toBeVisible()
   await expect(help.getByRole('region', { name: 'View' })).toContainText('Command paletteCtrl+K')

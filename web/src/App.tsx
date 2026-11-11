@@ -5,7 +5,6 @@ import { Edge, Keys, NameInput } from './controls'
 import { ACTIONS, addPage, comboOf, keysOf, MENU, press } from './commands'
 import { ContextMenu } from './ContextMenu'
 import { useEditor, type Editor } from './editor'
-import { Help } from './Help'
 import { Settings } from './SettingsDialog'
 import { Find } from './Find'
 import { settings } from './settings'
@@ -312,8 +311,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       )}
       {finding && <Find editor={editor} onClose={() => setFinding(false)} />}
       {dialog === 'palette' && <Palette editor={editor} onClose={() => setDialog(null)} />}
-      {dialog === 'help' && <Help onClose={() => setDialog(null)} />}
-      {dialog === 'settings' && <Settings onClose={() => setDialog(null)} />}
+      {(dialog === 'settings' || dialog === 'help') && <Settings page={dialog === 'help' ? 'shortcuts' : 'general'} onClose={() => setDialog(null)} />}
       <Tooltip />
       {menu && (
         <ContextMenu
