@@ -39,7 +39,6 @@ test('drawing and moving snap to the page and other layers unless ctrl is held',
 
 test('alt shows the distances to the layer under the pointer or to the page', async ({ page }) => {
   await open(page)
-  await page.keyboard.press('Alt+2')
   await addMaster(page)
   await page.keyboard.press('r')
   await drag(page, await screen(page, 20, 20), await screen(page, 40, 40))
@@ -54,13 +53,6 @@ test('alt shows the distances to the layer under the pointer or to the page', as
   await expect(labels(page)).toHaveText(['40 mm'])
   await page.keyboard.up('Alt')
   await expect(labels(page)).toHaveCount(0)
-
-  const bar = page.getByRole('toolbar', { name: 'Quick edit' })
-  await bar.hover()
-  await page.keyboard.down('Alt')
-  await expect(bar).toBeVisible()
-  await expect(labels(page)).toHaveCount(0)
-  await page.keyboard.up('Alt')
 })
 
 test('alt on the left page of a facing master measures to its own edges', async ({ page }) => {

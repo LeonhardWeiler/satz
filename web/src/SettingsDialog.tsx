@@ -34,7 +34,7 @@ export function Settings({ page: first = 'general', onClose }: { page?: Settings
   const ref = useRef<HTMLDialogElement>(null)
   const [page, setPage] = useState(first)
   const [reference, setReference] = useState('card')
-  const { unit, theme, quickEdit, layers, screenMm } = useSettings()
+  const { unit, theme, layers, screenMm } = useSettings()
   useEffect(() => ref.current!.showModal(), [])
   const [, how, w, h, r = 0] = REFERENCES[reference]
   return (
@@ -65,9 +65,6 @@ export function Settings({ page: first = 'general', onClose }: { page?: Settings
             </Row>
             <Row title="Layers panel" note="The layers of the current page or of its whole spread">
               <Select label="Layers panel shows" value={layers} options={{ page: 'Current page', spread: 'Current spread' }} onChange={(l) => setSettings({ layers: l })} />
-            </Row>
-            <Row title="Quick edit bar" note="A bar above the selection while the right panel is hidden">
-              <input type="checkbox" aria-label="Quick edit bar" checked={quickEdit} onChange={(e) => setSettings({ quickEdit: e.currentTarget.checked })} />
             </Row>
           </div>
         )}

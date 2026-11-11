@@ -343,20 +343,6 @@ test('side panels and the swatches are resized at their inner edge and keep thei
   await expect.poll(sizes).toEqual(want)
 })
 
-test('ctrl and the wheel over the quick edit bar zoom the canvas', async ({ page }) => {
-  await open(page)
-  await page.keyboard.press('Alt+2')
-  await page.keyboard.press('r')
-  await drag(page, await screen(page, 20, 40), await screen(page, 60, 80))
-  const box = (await page.getByRole('toolbar', { name: 'Quick edit' }).boundingBox())!
-  const zoom = await page.getByLabel('Zoom').textContent()
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-  await page.keyboard.down('Control')
-  await page.mouse.wheel(0, -100)
-  await page.keyboard.up('Control')
-  await expect(page.getByLabel('Zoom')).not.toHaveText(zoom!)
-})
-
 test('the canvas scrolls no further than 20000 mm from the page', async ({ page }) => {
   await open(page)
   const middle = await screen(page, 74, 105)

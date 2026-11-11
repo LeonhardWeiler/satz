@@ -160,16 +160,3 @@ export function AlignBar({ editor, inside, children }: { editor: Editor; inside?
     </>
   )
 }
-
-/** A button for each boolean of the selected shapes. */
-export function BooleanBar({ editor }: { editor: Editor }) {
-  return (
-    <div role="toolbar" aria-label="Boolean" className="align">
-      {BOOLEANS.map(([op, title, icon, key]) => (
-        <button key={op} type="button" className="icon-button" aria-label={title} title={`${title} (${key})`} onClick={() => combine(editor, op)}>
-          <Icon name={icon} />
-        </button>
-      ))}
-    </div>
-  )
-}

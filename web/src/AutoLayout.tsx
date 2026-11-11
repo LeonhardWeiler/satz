@@ -24,7 +24,7 @@ export function flows(editor: Editor, node: Node) {
 }
 
 /** Width and height sizing of `node`: hug for auto layout frames and text in one, fill in one. */
-export function Sizing({ editor, node, compact, set }: { editor: Editor; node: Node; compact?: boolean; set: (p: Props) => void }) {
+export function Sizing({ editor, node, set }: { editor: Editor; node: Node; set: (p: Props) => void }) {
   const fills = flows(editor, node)
   const hugs = (node.kind === 'frame' && node.direction !== 'none') || (node.kind === 'text' && fills)
   if (!hugs && !fills) return null
@@ -39,7 +39,7 @@ export function Sizing({ editor, node, compact, set }: { editor: Editor; node: N
       onChange={(s) => set({ sizing: { ...node.sizing, [axis]: s } })}
     />
   ))
-  return compact ? selects : <Group title="Resizing">{selects}</Group>
+  return <Group title="Resizing">{selects}</Group>
 }
 
 /** Direction, alignment, gap and padding of an auto layout frame, or a button that adds one. */

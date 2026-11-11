@@ -11,7 +11,6 @@ const KEY = 'satz.settings'
 const DEFAULTS = {
   unit: 'mm' as Unit,
   theme: 'system' as 'system' | 'light' | 'dark',
-  quickEdit: true,
   /** CSS px in 1 mm of this screen, for Zoom to 100%. */
   screenMm: 96 / 25.4,
   layers: 'page' as 'page' | 'spread',

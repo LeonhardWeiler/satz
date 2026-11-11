@@ -67,7 +67,7 @@ export function sameOf<A, T>(spans: A[], get: (a: A) => T): T | null {
 }
 
 /** A button with the text style's name set at its size that opens a menu of the styles, and creates one from the text. */
-export function Specimen({ editor, spans, compact, format }: { editor: Editor; spans: Attrs[]; compact?: boolean; format: (p: TextProps) => void }) {
+export function Specimen({ editor, spans, format }: { editor: Editor; spans: Attrs[]; format: (p: TextProps) => void }) {
   const styles = useEditor(editor, (e) => e.snapshot.textStyles)
   const style = sameOf(spans, (a) => a.textStyle)
   const current = styles.find((s) => s.id === style)
@@ -100,7 +100,7 @@ export function Specimen({ editor, spans, compact, format }: { editor: Editor; s
         onClick={(e) => setMenu(e.currentTarget.getBoundingClientRect())}
       >
         <span style={specimen(current)}>{style === null ? 'Mixed' : current ? `${current.name}${changed ? '*' : ''}` : 'No style'}</span>
-        {current && !compact && <span className="specimen-size">{`${current.size}/${current.lineHeight || 'Auto'} pt`}</span>}
+        {current && <span className="specimen-size">{`${current.size}/${current.lineHeight || 'Auto'} pt`}</span>}
         <Icon name="chevron" />
       </button>
       {menu &&
@@ -427,7 +427,7 @@ function Glyphs({ editor, font, at, put, onClose }: { editor: Editor; font?: str
 }
 
 /** Family and style of `fonts`, null for the bundled one, bindable to a font variable on `id` if given. */
-export function Font({ editor, id, fonts, compact, set }: { editor: Editor; id?: string; fonts: (Typeface | null)[]; compact?: boolean; set: (f: Typeface) => void }) {
+export function Font({ editor, id, fonts, set }: { editor: Editor; id?: string; fonts: (Typeface | null)[]; set: (f: Typeface) => void }) {
   const added = useEditor(editor, (e) => e.snapshot.fonts)
   const missing = useEditor(editor, (e) => e.snapshot.missingFonts).map((m) => m.font)
   const locals = useLocalFonts().filter((l) => !added.some((f) => f.name === l.fullName))
@@ -438,7 +438,6 @@ export function Font({ editor, id, fonts, compact, set }: { editor: Editor; id?:
       faces={[...added, ...missing, ...locals.map((l) => ({ name: l.fullName, family: l.family, style: l.style, hash: `local:${l.postscriptName}` }))]}
       missing={missing.map((f) => f.hash)}
       value={hashes.every((h) => h === hashes[0]) ? hashes[0] : null}
-      compact={compact}
       onChange={(f) => {
         const l = locals.find((l) => `local:${l.postscriptName}` === f.hash)
         if (!l) set(f)

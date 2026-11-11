@@ -391,7 +391,6 @@ test('ctrl while resizing a text scales its type, and a new format scales the la
 
 test('a stroke goes around the text', async ({ page }) => {
   await open(page)
-  await page.keyboard.press('Alt+2')
   await page.keyboard.press('t')
   await page.mouse.click(...(await screen(page, 10, 200, 0)))
   await page.keyboard.type('HHHH')
@@ -400,9 +399,9 @@ test('a stroke goes around the text', async ({ page }) => {
   const ink = async () => (await pixels(page, x, y, 80, 30)).filter((p) => p[0] < 100).length
   const before = await ink()
   expect(before).toBeGreaterThan(0)
-  await page.getByRole('toolbar', { name: 'Quick edit' }).getByTitle('Stroke color').click()
-  await page.getByRole('menu', { name: 'Stroke color' }).getByRole('menuitemradio', { name: 'Black' }).click()
-  const weight = page.getByRole('toolbar', { name: 'Quick edit' }).getByRole('textbox', { name: 'Stroke weight' })
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  await panel.getByRole('button', { name: 'Add stroke' }).click()
+  const weight = panel.getByRole('textbox', { name: 'Stroke weight' })
   await weight.fill('2')
   await weight.press('Enter')
   await expect.poll(ink).toBeGreaterThan(before * 1.3)

@@ -1,9 +1,12 @@
-import { useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { Fragment, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { ColorPicker } from './ColorPicker'
 import { alpha, css, neutral, withAlpha, type ColorMode } from './color'
 import { Field, RowActions, Section, Segmented, Select } from './controls'
 import { Icon } from './icons'
-import type { Editor } from './editor'
+import { useEditor, type Editor } from './editor'
+import { ContextMenu } from './ContextMenu'
+import { Popover } from './Popover'
 import type { Effect, Fill, Scope, Snapshot } from './model'
 
 const TYPES = [['solid', 'Solid'], ['linear', 'Linear'], ['radial', 'Radial']] as const
@@ -52,6 +55,7 @@ export function PaintList({
   scope,
   ppi,
   images = {},
+  image,
   onChange,
   actions,
   children,
@@ -66,6 +70,8 @@ export function PaintList({
   /** Effective pixels per inch of the coarsest image among `paints`. */
   ppi?: number
   images?: Snapshot['images']
+  /** The layer whose image paints get crop, fit and adjust. */
+  image?: string
   onChange: (paints: Fill[]) => void
   actions?: ReactNode
   children?: ReactNode
@@ -104,6 +110,7 @@ export function PaintList({
                     scope={scope}
                     ppi={ppi}
                     images={images}
+                    image={image}
                     set={set}
                     onRemove={() => onChange(paints.filter((_, j) => j !== i))}
                   />
@@ -125,6 +132,7 @@ function PaintRow({
   scope,
   ppi,
   images,
+  image,
   set,
   onRemove,
 }: {
@@ -135,6 +143,7 @@ function PaintRow({
   scope: Scope
   ppi?: number
   images: Snapshot['images']
+  image?: string
   set: (p: Fill) => void
   onRemove: () => void
 }) {
@@ -198,6 +207,7 @@ function PaintRow({
       ) : (
         <span className="bound-name">Radial</span>
       )}
+      {p.type === 'image' && image && <ImageTools editor={editor} id={image} paint={p} set={set} />}
       <RowActions what={title.toLowerCase()} visible={p.visible} onToggle={() => set({ ...p, visible: !p.visible })} onRemove={onRemove} />
     </div>
   )
@@ -335,5 +345,88 @@ export function EffectList({
         </ul>
       )}
     </Section>
+  )
+}
+
+const FITS = [
+  ['cover', 'Fill frame'],
+  ['contain', 'Fit in frame'],
+  ['frame', 'Frame to image'],
+] as const
+const ADJUST = ['Brightness', 'Contrast', 'Saturation']
+
+const near = (a: number, b: number) => Math.abs(a - b) < 1e-4
+
+/** How `fitImage` placed the image `p`, `frame` first when the frame has the image's aspect ratio. */
+function fitOf(p: Fill) {
+  const t = p.transform
+  if (!near(t[1], 0) || !near(t[2], 0) || !near(t[4], (1 - t[0]) / 2) || !near(t[5], (1 - t[3]) / 2)) return undefined
+  const [lo, hi] = [Math.min(t[0], t[3]), Math.max(t[0], t[3])]
+  return near(lo, 1) && near(hi, 1) ? 'frame' : near(lo, 1) ? 'cover' : near(hi, 1) ? 'contain' : undefined
+}
+
+/** Crop, fit and the brightness, contrast and saturation of the image `p` of the layer `id`. */
+function ImageTools({ editor, id, paint: p, set }: { editor: Editor; id: string; paint: Fill; set: (p: Fill) => void }) {
+  const cropping = useEditor(editor, (e) => e.cropping)
+  const [fitAt, setFitAt] = useState<DOMRect | null>(null)
+  const [adjustAt, setAdjustAt] = useState<DOMRect | null>(null)
+  const adjust = p.adjust ?? [0, 0, 0]
+  const change = (i: number, v: number) => set({ ...p, adjust: adjust.with(i, v / 100) as Fill['adjust'] })
+  return (
+    <>
+      <button type="button" className="icon-button" title="Crop" aria-pressed={cropping === id} onClick={() => editor.set({ cropping: cropping === id ? null : id })}>
+        <Icon name="crop" />
+      </button>
+      <button type="button" className="icon-button" title="Fit image" aria-haspopup="menu" onClick={(e) => setFitAt(e.currentTarget.getBoundingClientRect())}>
+        <Icon name="fit" />
+      </button>
+      <button type="button" className="icon-button" title="Adjust image" aria-haspopup="dialog" aria-expanded={!!adjustAt} onClick={(e) => setAdjustAt(e.currentTarget.getBoundingClientRect())}>
+        <Icon name="adjust" />
+      </button>
+      {fitAt &&
+        createPortal(
+          <ContextMenu
+            anchor={() => fitAt}
+            side="bottom"
+            label="Fit image"
+            onClose={() => setFitAt(null)}
+            items={FITS.map(([fit, name]) => [name, () => editor.apply({ type: 'fitImage', id, fit }), true, fit === fitOf(p)])}
+          />,
+          document.body,
+        )}
+      {adjustAt &&
+        createPortal(
+          <div className="menu-backdrop" onPointerDown={() => setAdjustAt(null)}>
+            <Popover
+              anchor={() => adjustAt}
+              side="bottom"
+              className="picker options"
+              role="dialog"
+              aria-label="Adjust image"
+              tabIndex={-1}
+              onPointerDown={(e) => e.stopPropagation()}
+              onKeyDown={(e) => {
+                if (e.key !== 'Escape') return
+                e.stopPropagation()
+                setAdjustAt(null)
+              }}
+            >
+              <div className="adjust">
+                {ADJUST.map((name, i) => (
+                  <Fragment key={name}>
+                    <span>{name}</span>
+                    <input type="range" aria-label={name} min={-100} max={100} value={Math.round(adjust[i] * 100)} onChange={(e) => change(i, Number(e.currentTarget.value))} />
+                    <Field label="" title={name} unit="%" min={-100} max={100} reset={0} value={Math.round(adjust[i] * 100)} onCommit={(v) => change(i, v)} />
+                  </Fragment>
+                ))}
+                <button type="button" className="button" disabled={adjust.every((v) => !v)} onClick={() => set({ ...p, adjust: [0, 0, 0] })}>
+                  Reset
+                </button>
+              </div>
+            </Popover>
+          </div>,
+          document.body,
+        )}
+    </>
   )
 }

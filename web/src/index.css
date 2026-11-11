@@ -1427,12 +1427,6 @@ input[type='checkbox']:disabled {
   margin-left: 8px;
 }
 
-.quick > .align {
-  justify-content: normal;
-  padding: 0;
-  border: 0;
-}
-
 .align-inside {
   display: flex;
   align-self: center;
@@ -1852,8 +1846,7 @@ input[type='checkbox']:disabled {
   content: '';
 }
 
-.banner,
-.quick {
+.banner {
   position: absolute;
   z-index: 2;
   display: flex;
@@ -1864,71 +1857,6 @@ input[type='checkbox']:disabled {
   border-radius: 8px;
   background: var(--raised);
   box-shadow: var(--shadow-pop);
-}
-
-.app:not(.no-right) .quick {
-  display: none;
-}
-
-.quick {
-  gap: 4px;
-  max-width: calc(100% - 16px);
-  padding: 4px;
-}
-
-.quick[hidden] {
-  display: none;
-}
-
-.quick > .specimen {
-  width: 110px;
-}
-
-.quick > .select {
-  flex: none;
-  max-width: 170px;
-}
-
-.quick .segmented {
-  flex: none;
-}
-
-.quick .segmented button {
-  width: 28px;
-}
-
-.quick .icon-button {
-  width: 28px;
-  height: 28px;
-}
-
-.quick:empty {
-  display: none;
-}
-
-.quick .field:not(:hover, :focus-within, .scrub) {
-  background: none;
-  box-shadow: -4px 0 0 -3px var(--edge);
-}
-
-.quick .field {
-  margin-left: 4px;
-}
-
-.quick .field input {
-  width: auto;
-}
-
-.quick .chip {
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
-}
-
-.quick .strokes .chip:not(.none) {
-  box-sizing: border-box;
-  padding: 4px;
-  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
 }
 
 .chip.none {

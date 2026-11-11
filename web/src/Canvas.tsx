@@ -13,7 +13,6 @@ import { length, settings, subscribeSettings, UNITS } from './settings'
 import { equals, guides, measure, nearest, snap, spacings, targets, type Guide, type Lines, type Measure } from './snap'
 import { curved, nearest as nearestSegment, remove, shift, smooth, split, type At, type Contour, type Knot } from './vector'
 import { handleTextKey, insert, range, select, textOf, wordAt } from './textEdit'
-import { Quick } from './Quick'
 import { MasterBanner } from './Switcher'
 import { Keys } from './controls'
 
@@ -170,7 +169,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   const rulerX = useRef<HTMLCanvasElement>(null)
   const rulerY = useRef<HTMLCanvasElement>(null)
   const area = useRef<HTMLTextAreaElement>(null)
-  const quick = useRef<HTMLDivElement>(null)
   const marks = useRef<SVGSVGElement>(null)
   const ghost = useRef<HTMLImageElement>(null)
   const [zoom, setZoom] = useState(0)
@@ -556,20 +554,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       if (image && cursor) {
         if (g.getAttribute('src') !== image.url) g.src = image.url
         Object.assign(g.style, { left: `${view.x + (cursor.x - image.w / 2) * view.zoom}px`, top: `${view.y + (cursor.y - image.h / 2) * view.zoom}px`, width: `${image.w * view.zoom}px`, height: `${image.h * view.zoom}px` })
-      }
-      const bar = quick.current!
-      bar.hidden =
-        !sel || !settings.quickEdit || (alt && !!pointer) || !!ed || !!pen || editor.threading !== null || editor.tool !== 'move' ||
-        (!!drag && drag.kind !== 'pan' && !(drag.kind === 'move' && !drag.active))
-      if (sel && !bar.hidden) {
-        const { clientWidth: vw, clientHeight: vh } = canvas
-        const w = bar.offsetWidth
-        const h = bar.offsetHeight
-        const x = Math.min(Math.max(view.x + (sel.x + sel.w / 2) * view.zoom - w / 2, 8), vw - w - 8)
-        const above = view.y + sel.y * view.zoom - h - 14
-        const below = view.y + (sel.y + sel.h) * view.zoom + 14
-        bar.style.left = `${x}px`
-        bar.style.top = `${Math.min(Math.max(above >= 8 ? above : below, 8), vh - h - 8)}px`
       }
       const page = pointer ? pageAt(toDoc(pointer), editor.sheets) : undefined
       const target = !alt || !sel || drag || ed || pen || editor.tool !== 'move'
@@ -1528,9 +1512,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         <output className="sr-only" aria-label="Zoom">
           {Math.round(((zoom * MM) / settings.screenMm) * 100)}%
         </output>
-        <div ref={quick} className="quick" role="toolbar" aria-label="Quick edit">
-          <Quick editor={editor} />
-        </div>
         <MasterBanner editor={editor} />
       </div>
     </div>

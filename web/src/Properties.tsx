@@ -157,6 +157,7 @@ export function Properties({ editor }: { editor: Editor }) {
       title={texts ? 'Text color' : 'Fill'}
       paints={sameList((n) => n.fills)}
       ppi={one?.ppi}
+      image={one?.id}
       images={snapshot.images}
       added={solid(neutral(texts ? 'black' : 'gray', mode))}
       mode={mode}
@@ -223,6 +224,7 @@ export function Properties({ editor }: { editor: Editor }) {
           )}
         </AlignBar>
       )}
+      {one?.kind === 'group' && one.children.length > 1 && <AlignBar editor={editor} inside={one.children} />}
       {!box && <DocumentSection editor={editor} />}
       {!box && (
         <Section
