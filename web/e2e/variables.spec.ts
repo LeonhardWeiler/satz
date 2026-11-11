@@ -53,6 +53,7 @@ test('a font variable sets the font of a text in the mode of its page', async ({
   await open(page)
   const chooser = page.waitForEvent('filechooser')
   await page.getByRole('region', { name: 'Fonts' }).getByRole('button', { name: 'Add font' }).click()
+  await page.getByRole('menuitem', { name: 'Font files…' }).click()
   await (await chooser).setFiles(new URL('../../engine/fonts/DMMono-Regular.ttf', import.meta.url).pathname)
   const panel = page.getByRole('complementary', { name: 'Properties' })
   const edit = await addVariable(page, 'Font')

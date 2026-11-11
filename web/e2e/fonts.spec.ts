@@ -6,6 +6,7 @@ const fonts = (page: Page) => page.getByRole('region', { name: 'Fonts' })
 async function add(page: Page, files: string | { name: string; mimeType: string; buffer: Buffer }) {
   const chooser = page.waitForEvent('filechooser')
   await fonts(page).getByRole('button', { name: 'Add font' }).click()
+  await page.getByRole('menuitem', { name: 'Font files…' }).click()
   await (await chooser).setFiles(files)
 }
 

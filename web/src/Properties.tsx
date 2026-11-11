@@ -88,6 +88,7 @@ export function Properties({ editor }: { editor: Editor }) {
   const locals = useLocalFonts()
   const selection = useEditor(editor, (e) => e.selection)
   const [arrange, setArrange] = useState<DOMRect | null>(null)
+  const [fontMenu, setFontMenu] = useState<DOMRect | null>(null)
   const nodes = selection.flatMap((id) => editor.nodes.get(id)?.node ?? [])
 
   const same = <T,>(get: (n: Node) => T | undefined) => {
@@ -286,7 +287,21 @@ export function Properties({ editor }: { editor: Editor }) {
       )}
       {!box && <GridSection editor={editor} sheets={sheets} all={isPage && targets.length === 1 ? snapshot.pages : []} />}
       {!box && (
-        <Section title="Fonts" onAdd={() => addFonts(editor)}>
+        <Section title="Fonts" onAdd={(e) => (canFindFonts && !locals.length ? setFontMenu(e.currentTarget.getBoundingClientRect()) : addFonts(editor))}>
+          {fontMenu &&
+            createPortal(
+              <ContextMenu
+                anchor={() => fontMenu}
+                side="bottom"
+                label="Add font"
+                onClose={() => setFontMenu(null)}
+                items={[
+                  ['Font files…', () => addFonts(editor), true],
+                  ['Use local fonts', () => readLocalFonts(editor), true],
+                ]}
+              />,
+              document.body,
+            )}
           <ul className="fonts">
             {fonts.map((f, i) => (
               <li key={f.hash}>
@@ -304,11 +319,6 @@ export function Properties({ editor }: { editor: Editor }) {
               </li>
             ))}
           </ul>
-          {canFindFonts && !locals.length && (
-            <button type="button" className="button" onClick={() => readLocalFonts(editor)}>
-              Use local fonts
-            </button>
-          )}
           {canFindFonts && missingFonts.length > 0 && (
             <button type="button" className="button" onClick={() => findFonts(editor)}>
               Find missing fonts on this computer
