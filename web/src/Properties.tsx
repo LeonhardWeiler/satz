@@ -89,6 +89,7 @@ export function Properties({ editor }: { editor: Editor }) {
   const selection = useEditor(editor, (e) => e.selection)
   const [arrange, setArrange] = useState<DOMRect | null>(null)
   const [fontMenu, setFontMenu] = useState<DOMRect | null>(null)
+  const [layerMore, setLayerMore] = useState(false)
   const nodes = selection.flatMap((id) => editor.nodes.get(id)?.node ?? [])
 
   const same = <T,>(get: (n: Node) => T | undefined) => {
@@ -136,6 +137,7 @@ export function Properties({ editor }: { editor: Editor }) {
     )
   const set = (props: Props) => each((n) => ({ type: 'set', id: n.id, ...props }))
   const wrapped = nodes.some((n) => n.wrap !== 'none')
+  const layerUsed = wrapped || nodes.some((n) => n.blend !== 'normal')
   const open = nodes.length > 0 && nodes.every(isOpen)
   const stroked = nodes.length > 0 && nodes.every((n) => n.kind !== 'group')
   const sided = nodes.length > 0 && nodes.every(rounded)
@@ -470,7 +472,16 @@ export function Properties({ editor }: { editor: Editor }) {
       {texts && <TextFrameSection editor={editor} nodes={nodes as TextNode[]} set={set} />}
       {one?.kind === 'frame' && <AutoLayout editor={editor} node={one} set={set} />}
       {box && (
-        <Section title="Layer">
+        <Section
+          title="Layer"
+          actions={
+            !layerUsed && (
+              <button type="button" className="icon-button" aria-label="Layer options" title="Blend mode and text wrap" aria-expanded={layerMore} onClick={() => setLayerMore(!layerMore)}>
+                <Icon name="more" />
+              </button>
+            )
+          }
+        >
           <div className="grid">
             {bindable(
               'opacity',
@@ -478,27 +489,29 @@ export function Properties({ editor }: { editor: Editor }) {
               'Opacity',
               <Field label="Opacity" title="Opacity" unit="%" digits={1} max={100} value={same((n) => n.opacity * 100)} onCommit={(v) => set({ opacity: v / 100 })} />,
             )}
-            <Select label="Blend mode" value={same((n) => n.blend)} options={BLENDS} breaks={BLEND_GROUPS} onChange={(blend) => set({ blend })} />
             {one?.kind === 'frame' && (
               <ModeSelects editor={editor} id={one.id} own={one.modes} inherited={editor.nodes.get(one.id)?.parent?.activeModes ?? page.modes} />
             )}
           </div>
-          {(wrapped || [...editor.nodes.values()].some((e) => e.page?.id === page.id && e.node.kind === 'text' && !selection.includes(e.node.id))) && (
-          <More label="Text wrap" used={wrapped}>
-            <div className="grid">
-              <Select label="Text wrap" value={same((n) => n.wrap)} options={WRAPS} onChange={(wrap) => set({ wrap })} />
-              {nodes.some((n) => n.wrap !== 'none') && (
-                <Field
-                  label="Offset"
-                  title="Text wrap offset"
-                  unit="length"
-                  value={same((n) => (n.wrapOffsetX === n.wrapOffsetY ? n.wrapOffsetX : undefined))}
-                  onCommit={(v) => set({ wrapOffsetX: Math.max(0, v), wrapOffsetY: Math.max(0, v) })}
-                />
-              )}
-            </div>
-            {nodes.some((n) => n.wrap !== 'none' && !textBelow(editor, n)) && <p className="empty">Only text frames below it in the layers wrap around it</p>}
-          </More>
+          {(layerMore || layerUsed) && (
+            <>
+              <div className="grid">
+                <Select label="Blend mode" value={same((n) => n.blend)} options={BLENDS} breaks={BLEND_GROUPS} onChange={(blend) => set({ blend })} />
+                {(wrapped || [...editor.nodes.values()].some((e) => e.page?.id === page.id && e.node.kind === 'text' && !selection.includes(e.node.id))) && (
+                  <Select label="Text wrap" value={same((n) => n.wrap)} options={WRAPS} onChange={(wrap) => set({ wrap })} />
+                )}
+                {wrapped && (
+                  <Field
+                    label="Offset"
+                    title="Text wrap offset"
+                    unit="length"
+                    value={same((n) => (n.wrapOffsetX === n.wrapOffsetY ? n.wrapOffsetX : undefined))}
+                    onCommit={(v) => set({ wrapOffsetX: Math.max(0, v), wrapOffsetY: Math.max(0, v) })}
+                  />
+                )}
+              </div>
+              {nodes.some((n) => n.wrap !== 'none' && !textBelow(editor, n)) && <p className="empty">Only text frames below it in the layers wrap around it</p>}
+            </>
           )}
         </Section>
       )}
