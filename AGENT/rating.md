@@ -64,3 +64,4 @@ findings:
 |---|---|---|---|
 | 1 | v1 | 6 | calm 5, economy 5, clarity 5 |
 | 2 | v1 | 7 | economy 6, clarity 6 |
+| 3 | v1 | 6 | calm 6, economy 6, rhythm 6, consistency 6, clarity 6 |

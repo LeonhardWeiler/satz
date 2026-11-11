@@ -1,5 +1,5 @@
 import { neutral, solid, type ColorMode } from './color'
-import { Check, Field, Group, NameInput, Section, Segmented, Select, SIDE_NAMES, SidesToggle } from './controls'
+import { Check, Field, Group, More, NameInput, Section, Segmented, Select, SIDE_NAMES, SidesToggle } from './controls'
 import { useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
@@ -261,24 +261,26 @@ export function Properties({ editor }: { editor: Editor }) {
             <ModeSelects editor={editor} id={page.id} own={page.modes} inherited={{}} />
           </div>
           {isPage && targets.length === 1 && (
-            <label className="check">
-              <input
-                type="checkbox"
-                checked={page.section !== null}
-                onChange={(e) => editor.apply({ type: 'setSection', id: page.id, section: e.currentTarget.checked ? { start: numbers[0], style: 'arabic', prefix: '' } : null })}
-              />
-              Start section
-            </label>
-          )}
-          {isPage && targets.length === 1 && page.section && (
-            <div className="grid">
-              <Field label="Start" title="Section starts at" unit="" int min={1} max={page.section.style === 'arabic' ? 9999 : 3999} value={page.section.start} onCommit={(start) => setSection({ start })} />
-              <Select label="Numbering" value={page.section.style} options={NUMBERINGS} onChange={(style) => setSection({ style })} />
-              <label className="field">
-                <span className="field-label">Prefix</span>
-                <NameInput label="Prefix" value={page.section.prefix} blank onCommit={(prefix) => setSection({ prefix })} />
+            <More used={page.section !== null}>
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={page.section !== null}
+                  onChange={(e) => editor.apply({ type: 'setSection', id: page.id, section: e.currentTarget.checked ? { start: numbers[0], style: 'arabic', prefix: '' } : null })}
+                />
+                Start section
               </label>
-            </div>
+              {page.section && (
+                <div className="grid">
+                  <Field label="Start" title="Section starts at" unit="" int min={1} max={page.section.style === 'arabic' ? 9999 : 3999} value={page.section.start} onCommit={(start) => setSection({ start })} />
+                  <Select label="Numbering" value={page.section.style} options={NUMBERINGS} onChange={(style) => setSection({ style })} />
+                  <label className="field">
+                    <span className="field-label">Prefix</span>
+                    <NameInput label="Prefix" value={page.section.prefix} blank onCommit={(prefix) => setSection({ prefix })} />
+                  </label>
+                </div>
+              )}
+            </More>
           )}
         </Section>
       )}
@@ -445,21 +447,25 @@ export function Properties({ editor }: { editor: Editor }) {
               <Field label="Opacity" title="Opacity" unit="%" digits={1} max={100} value={same((n) => n.opacity * 100)} onCommit={(v) => set({ opacity: v / 100 })} />,
             )}
             <Select label="Blend mode" value={same((n) => n.blend)} options={BLENDS} breaks={BLEND_GROUPS} onChange={(blend) => set({ blend })} />
-            <Select label="Text wrap" value={same((n) => n.wrap)} options={WRAPS} onChange={(wrap) => set({ wrap })} />
-            {nodes.some((n) => n.wrap !== 'none') && (
-              <Field
-                label="Offset"
-                title="Text wrap offset"
-                unit="length"
-                value={same((n) => (n.wrapOffsetX === n.wrapOffsetY ? n.wrapOffsetX : undefined))}
-                onCommit={(v) => set({ wrapOffsetX: Math.max(0, v), wrapOffsetY: Math.max(0, v) })}
-              />
-            )}
             {one?.kind === 'frame' && (
               <ModeSelects editor={editor} id={one.id} own={one.modes} inherited={editor.nodes.get(one.id)?.parent?.activeModes ?? page.modes} />
             )}
           </div>
-          {nodes.some((n) => n.wrap !== 'none' && !textBelow(editor, n)) && <p className="empty">Only text frames below it in the layers wrap around it</p>}
+          <More used={nodes.some((n) => n.wrap !== 'none')}>
+            <div className="grid">
+              <Select label="Text wrap" value={same((n) => n.wrap)} options={WRAPS} onChange={(wrap) => set({ wrap })} />
+              {nodes.some((n) => n.wrap !== 'none') && (
+                <Field
+                  label="Offset"
+                  title="Text wrap offset"
+                  unit="length"
+                  value={same((n) => (n.wrapOffsetX === n.wrapOffsetY ? n.wrapOffsetX : undefined))}
+                  onCommit={(v) => set({ wrapOffsetX: Math.max(0, v), wrapOffsetY: Math.max(0, v) })}
+                />
+              )}
+            </div>
+            {nodes.some((n) => n.wrap !== 'none' && !textBelow(editor, n)) && <p className="empty">Only text frames below it in the layers wrap around it</p>}
+          </More>
         </Section>
       )}
       {nodes.length > 0 && nodes.every((n) => n.kind !== 'group') && (
@@ -502,16 +508,10 @@ export function Properties({ editor }: { editor: Editor }) {
                 <Field label="Weight" title="Stroke weight" unit="pt" value={same((n) => n.strokeWeight)} onCommit={(v) => set({ strokeWeight: v })} />,
               )}
               {nodes.every((n) => n.kind !== 'text') ? (
-                <Select label="Line style" value={same((n) => n.lineStyle)} options={LINE_STYLES} onChange={(lineStyle) => set({ lineStyle })} />
+                <Select label="Line style" prefix="Dash" value={same((n) => n.lineStyle)} options={LINE_STYLES} onChange={(lineStyle) => set({ lineStyle })} />
               ) : (
                 <span />
               )}
-              {open ? (
-                <Segmented label="Stroke cap" prefix="Cap" value={same((n) => n.cap)} options={CAPS} onChange={(cap) => set({ cap })} />
-              ) : (
-                !nodes.some(isOpen) && <Segmented label="Stroke position" prefix="Align" value={same((n) => n.strokeAlign)} options={STROKE_ALIGNS} onChange={(strokeAlign) => set({ strokeAlign })} />
-              )}
-              <Segmented label="Stroke join" prefix="Join" value={same((n) => n.join)} options={JOINS} onChange={(join) => set({ join })} />
               {open && (
                 <>
                   <Select label="Start point" prefix="Start" value={same((n) => (n.arrowStart ? 'arrow' : 'none'))} options={ARROWS.start} onChange={(v) => set({ arrowStart: v === 'arrow' })} />
@@ -531,6 +531,18 @@ export function Properties({ editor }: { editor: Editor }) {
                 ))}
               {mode === 'cmyk' && <Check label="Overprint stroke" value={same((n) => n.overprintStroke)} set={(overprintStroke) => set({ overprintStroke })} />}
             </div>
+          )}
+          {!!strokes?.length && (
+            <More used={nodes.some((n) => n.join !== 'miter' || (open && n.cap !== 'none'))}>
+              <div className="grid">
+                {open ? (
+                  <Segmented label="Stroke cap" prefix="Cap" value={same((n) => n.cap)} options={CAPS} onChange={(cap) => set({ cap })} />
+                ) : (
+                  !nodes.some(isOpen) && <Segmented label="Stroke position" prefix="Align" value={same((n) => n.strokeAlign)} options={STROKE_ALIGNS} onChange={(strokeAlign) => set({ strokeAlign })} />
+                )}
+                <Segmented label="Stroke join" prefix="Join" value={same((n) => n.join)} options={JOINS} onChange={(join) => set({ join })} />
+              </div>
+            </More>
           )}
         </PaintList>
       )}

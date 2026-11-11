@@ -135,6 +135,7 @@ test('the layers panel, the overview and the export range use the numbers a sect
   await open(page)
   await addPage(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
+  await panel.getByRole('region', { name: /^Page / }).getByRole('button', { name: 'More options' }).click()
   await panel.getByRole('checkbox', { name: 'Start section' }).check()
   await choose(panel.getByRole('combobox', { name: 'Numbering' }), 'i, ii, iii')
   await expect(page.getByRole('heading', { name: 'Layers · Page ii', exact: true })).toBeVisible()

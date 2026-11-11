@@ -407,6 +407,7 @@ test('text runs around a layer above it that wraps it and jumps over one that ju
   const wrap = props.getByRole('combobox', { name: 'Text wrap' })
   const offset = props.getByRole('textbox', { name: 'Text wrap offset in mm' })
   await expect(offset).toHaveCount(0)
+  await props.getByRole('region', { name: 'Layer', exact: true }).getByRole('button', { name: 'More options' }).click()
   const [x, y] = await screen(page, 95, 110)
   const [x1, y1] = await screen(page, 130, 128)
   const inked = async () => (await pixels(page, x, y, x1 - x, y1 - y)).some((p) => Math.max(...p) < 120)
