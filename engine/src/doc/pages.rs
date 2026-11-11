@@ -1591,7 +1591,7 @@ mod tests {
         assert_eq!(run_texts(&d.render(&m)), ["PageA"]);
         assert_eq!(run_texts(&d.render(&p2)), ["Page2"]);
         assert_eq!(run_texts(&d.render(&p3)), ["Page3"]);
-        assert_eq!(page(&d).children[0].name, "#");
+        assert_eq!(page(&d).children[0].name, "1");
         assert!(page(&d).children[0].w > 0.0);
         d.apply(Command::MovePages {
             ids: vec![p1.clone()],
@@ -1599,6 +1599,14 @@ mod tests {
         })
         .unwrap();
         assert_eq!(run_texts(&d.render(&p1)), ["3"]);
+        let moved = d
+            .snapshot()
+            .pages
+            .iter()
+            .find(|p| p.id == p1)
+            .unwrap()
+            .clone();
+        assert_eq!(moved.children[0].name, "3");
     }
 
     #[test]
@@ -1612,6 +1620,7 @@ mod tests {
         .unwrap();
         d.set_today(2026, 3, 9).unwrap();
         assert_eq!(run_texts(&d.render(&p)).concat(), "onMarch 9, 2026");
+        assert_eq!(page(&d).children[0].name, "on March 9, 2026");
         let short = page(&d).children[0].w;
         for (f, shown) in [
             (DateFormat::German, "on9. März 2026"),

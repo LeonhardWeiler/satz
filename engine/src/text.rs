@@ -670,7 +670,7 @@ pub const DATE: char = '\u{19}';
 
 impl TextFrame {
     /// What the marker `c` stands for.
-    fn marker(&self, c: char) -> &str {
+    pub fn marker(&self, c: char) -> &str {
         if c == DATE { &self.date } else { &self.number }
     }
 }

@@ -272,25 +272,25 @@ fn untitled(kind: &Kind, style: &Style) -> String {
         Kind::Shape(Shape::Path { .. }) if style.arrow_start || style.arrow_end => "Arrow".into(),
         Kind::Shape(Shape::Path { path, .. }) if path.len() == 6 => "Line".into(),
         Kind::Shape(Shape::Path { .. }) => "Vector".into(),
-        Kind::Text { content, .. } => text_name(&content.text),
+        Kind::Text { content, frame, .. } => text_name(&content.text, frame),
         Kind::Group { .. } => "Group".into(),
         Kind::Frame { .. } => "Frame".into(),
     }
 }
 
-/// The name of a text layer that has none and whose text starts with `lead`.
-fn text_name(lead: &str) -> String {
+/// The name of a text layer that has none and whose text starts with `lead`, its
+/// markers as `tf` shows them.
+fn text_name(lead: &str, tf: &TextFrame) -> String {
     if lead.is_empty() {
         return "Text".into();
     }
-    let t: String = lead
-        .chars()
-        .take(41)
-        .map(|c| match c {
-            text::PAGE_NUMBER | text::DATE => '#',
-            c => c,
-        })
-        .collect();
+    let mut t = String::new();
+    for c in lead.chars().take(41) {
+        match c {
+            text::PAGE_NUMBER | text::DATE => t.push_str(tf.marker(c)),
+            c => t.push(c),
+        }
+    }
     match t.char_indices().nth(40) {
         Some((end, _)) => {
             let cut = t[..end].rfind(' ').unwrap_or(end);
@@ -1391,7 +1391,7 @@ impl Doc {
                 *overset = f.overset;
                 *placed = f.placed.clone();
                 if self.meta(id).get("name").is_none() {
-                    untitled_text = Some(text_name(f.lead()));
+                    untitled_text = Some(text_name(f.lead(), frame));
                 }
             }
             Kind::Group { children } | Kind::Frame { children, .. } => {
@@ -1479,7 +1479,7 @@ impl Doc {
         };
         let style: Style = from_loro(v.clone()).unwrap_or_default();
         let name = field(&v, "name").unwrap_or_else(|| match flows.get(&id) {
-            Some(f) => text_name(f.lead()),
+            Some(f) => text_name(f.lead(), &self.text_frame_of(id)),
             None => untitled(&kind, &style),
         });
         let [x, y, w, h] = self.bounds(id);

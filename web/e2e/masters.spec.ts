@@ -199,7 +199,7 @@ test('a page number on the pages of a master spread shows the number of each pag
   await page.keyboard.press('Control+Alt+Shift+N')
   await page.keyboard.press('Escape')
   await page.keyboard.press('Escape')
-  await expect(layers.getByRole('button', { name: '#', exact: true })).toHaveCount(2)
+  await expect(layers.getByRole('button', { name: 'A', exact: true })).toHaveCount(2)
   for (let i = 0; i < 2; i++) {
     await addPage(page)
     await choose(panel.getByRole('combobox', { name: 'Master' }), 'A-Master')
