@@ -118,6 +118,7 @@ export function Layers({ editor }: { editor: Editor }) {
             data-hidden={node.hidden || undefined}
             data-locked={node.locked || undefined}
             onMouseEnter={() => editor.point({ hover: node.id })}
+            data-dragging={dragging.includes(node.id) || undefined}
             data-drop={drop?.id === node.id ? drop.at : undefined}
             draggable={renaming !== node.id}
             onDragStart={(e) => {

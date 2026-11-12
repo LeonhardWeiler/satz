@@ -2887,25 +2887,26 @@ input[type='checkbox']:active {
   z-index: 1;
 }
 
+.layer[data-dragging],
 .ov-page[data-dragging],
 .ov-master[data-dragging] {
   opacity: 0.4;
 }
 
 .ov-page[data-drop='before'] {
-  box-shadow: -3px 0 0 var(--accent);
+  box-shadow: -2px 0 0 var(--accent);
 }
 
 .ov-page[data-drop='after'] {
-  box-shadow: 3px 0 0 var(--accent);
+  box-shadow: 2px 0 0 var(--accent);
 }
 
 .ov-master[data-drop='before'] {
-  box-shadow: 0 -3px 0 var(--accent);
+  box-shadow: 0 -2px 0 var(--accent);
 }
 
 .ov-master[data-drop='after'] {
-  box-shadow: 0 3px 0 var(--accent);
+  box-shadow: 0 2px 0 var(--accent);
 }
 
 .ov-item[data-current] .ov-pages,
