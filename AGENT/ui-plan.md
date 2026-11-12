@@ -9,7 +9,8 @@ Schatten, Dauer, rohe Farben nur in `:root`).
 
 ## Offen
 
-- Runden 2–5: Zustände, die noch nicht als Screenshot geprüft sind (siehe unten).
+- Exportfehler-Toast: nur über einen echten Datei- oder Exportfehler auslösbar, Stil
+  (`.status.error`) im Code geprüft, nicht als Screenshot.
 
 ## Bewusst nicht umgesetzt
 
@@ -31,16 +32,13 @@ Schatten, Dauer, rohe Farben nur in `:root`).
 
 ## Geprüft und nicht geprüft
 
-Runde 1 geprüft (je Light und Dark): Home, Neues Dokument mit Format, leeres Dokument,
-Tooltip, Shape-Menü, Eigenschaften aller Beispielebenen, Text mit Type- und
-Frame-Optionen, Font-Select, Insert character, All characters, Mehrfachauswahl mit
-Distribute, Farbwähler Solid und Linear, Stroke-, Layer- und Effekt-Optionen,
-Effekt-Typ, Auto layout mit Kind, Kontextmenüs mit Transform, Assets, Übersicht mit
-Kontextmenü, Preflight mit Format und Advanced, Einstellungen (alle 3 Seiten,
-Theme-Select), Palette mit Suche, Suchen mit Treffer, Color-mode-Select, Ansicht ohne
-UI, Swatch anlegen.
-
-Noch nicht geprüft: Text-Style-Menü, Textbearbeitung auf dem Canvas, Pfadbearbeitung,
-Status-Toast, Swatch bearbeiten, Variablen und Text styles in Assets, Layout grids,
-Master-Seite bearbeiten, Bildfüllung mit Adjust image, Umbenennen im Baum,
-Drag-Zustände, Exportfehler, schmale Fenster, Tastaturfokus.
+Runden 1–5 geprüft (je Light und Dark): Home, Neues Dokument mit Format, leeres
+Dokument, Tooltip, Shape-Menü, Eigenschaften aller Beispielebenen, Text mit Type- und
+Frame-Optionen, Font-Select, Text-Style-Menü, Insert character, All characters,
+Textbearbeitung, Pfadbearbeitung, Umbenennen, Mehrfachauswahl mit Distribute,
+Farbwähler Solid und Linear, Stroke-, Layer- und Effekt-Optionen, Auto layout,
+Kontextmenüs mit Transform, Assets mit Variablen und Text styles, Swatch anlegen und
+bearbeiten, Übersicht mit Kontextmenü, Master bearbeiten, Preflight mit Separationen,
+Format und Advanced, Einstellungen, Palette, Suchen, Ansicht ohne UI, Bildfüllung mit
+Adjust image, Layout grids mit Menü, Tastaturfokus, Toast mit Undo, Drag-Zustände
+(im Code), schmales Fenster (900×800).
