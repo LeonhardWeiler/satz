@@ -378,6 +378,7 @@ test('the centre of a layer in a selected group dragged onto another in it swaps
   const x = await panel.getByRole('textbox', { name: 'X in mm' }).inputValue()
   await expect(page.locator('.swap')).toHaveCount(0)
   await tree.getByRole('button', { name: 'Group', exact: true }).click()
+  await page.mouse.move(...(await screen(page, 50, 40)))
   await expect(page.locator('.swap')).toHaveCount(2)
   await drag(page, await screen(page, 30, 30), await screen(page, 70, 45))
   await tree.getByRole('button', { name: 'Rectangle', exact: true }).first().click()

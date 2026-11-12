@@ -202,6 +202,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     let space = false
     let drag: Drag | null = null
     let hover: string | undefined
+    let near = false
     let accent = ''
     let markup = ''
     let cursor: Point | undefined
@@ -343,6 +344,11 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const side = p && portAt(p, e.offsetX, e.offsetY)
       return side && { side, node: p.node }
     }
+    const over = (b: Box | undefined) => {
+      const p = pointer && toDoc(pointer)
+      const u = b && upright(b)
+      return !!(p && u && p.x >= u.x && p.x <= u.x + u.w && p.y >= u.y && p.y <= u.y + u.h)
+    }
     /** Box handles of the selection, or the ends of a single selected line. */
     const handles = () => {
       const nodes = editor.selected().map(placed)
@@ -355,7 +361,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const row = rowOf(editor)
       return {
         box,
-        radii: shown && rounded(n) && drag?.kind !== 'draw' ? radiusHandles(view, shown, radii(n)) : undefined,
+        radii: shown && rounded(n) && (drag?.kind === 'radius' || (!drag && over(box))) ? radiusHandles(view, shown, radii(n)) : undefined,
         gaps: row ? gapHandles(view, row.axis, row.nodes.map(placed)) : undefined,
       }
     }
@@ -448,7 +454,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       if (size) note(`${length(size.w)} × ${length(size.h)}`, X(size.x + size.w / 2), Y(size.y + size.h) + 18)
       if (turn !== undefined && pointer) note(`${Math.round((turn % 360) + 360) % 360}°`, pointer.offsetX + 28, pointer.offsetY + 20)
       const moving = drag?.kind === 'swap' ? drag : undefined
-      for (const s of swaps()) {
+      for (const s of moving || near ? swaps() : []) {
         const on = moving?.id === s.id
         svg += `<circle class="swap" cx="${X(on ? moving.at.x : s.x)}" cy="${Y(on ? moving.at.y : s.y)}" r="5"/>`
       }
@@ -717,9 +723,11 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         : !editor.cropping ? ''
         : handle ? 'Drag to crop the frame'
         : id === editor.cropping ? 'Drag to move the image' : ''
-      if (id !== hover || side !== port) {
+      const on = over(handles().box)
+      if (id !== hover || side !== port || on !== near) {
         hover = id
         port = side
+        near = on
         redraw()
       }
     }
@@ -1361,6 +1369,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       pointer = undefined
       editor.pointer = undefined
       hover = undefined
+      near = false
       cursor = undefined
       if (editor.pointerInk !== null) editor.point({ pointerInk: null })
       redraw()

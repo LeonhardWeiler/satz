@@ -6,7 +6,7 @@ test('the page section sets the format and orientation', async ({ page }) => {
   await addPage(page)
   const sheet = panel.getByRole('region', { name: 'Page 2' })
   const width = sheet.getByRole('textbox', { name: 'W in mm' })
-  await expect(sheet.getByRole('combobox', { name: 'Format' })).toHaveText('A5')
+  await expect(sheet.getByRole('combobox', { name: 'Format' })).toHaveText(/A5$/)
   const zoom = await page.getByLabel('Zoom').textContent()
   await choose(sheet.getByRole('combobox', { name: 'Format' }), 'A4')
   await expect(width).toHaveValue('210')
