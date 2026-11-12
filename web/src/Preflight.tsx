@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { press } from './commands'
-import { Field, More, Section, Select } from './controls'
+import { Field, Section, Select, useMore } from './controls'
 import { useEditor, type Editor } from './editor'
 import { length, useSettings } from './settings'
 import { preview } from './file'
@@ -108,6 +108,7 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
   const limit = useEditor(editor, (e) => e.snapshot.inkLimit)
   const doc = useEditor(editor, (e) => e.snapshot)
   const { preset, cropMarks, includeBleed, colorMode, imagePpi, jpegQuality, rasterPpi } = doc
+  const [advanced, advancedButton] = useMore('Advanced output', 'Marks, bleed and image compression', Object.entries(OUTPUT[preset]).some(([k, v]) => doc[k as keyof typeof doc] !== v))
   const previewed = useEditor(editor, (e) => e.previewed)
   const swatches = useEditor(editor, (e) => e.snapshot.swatches)
   const pointerInk = useSyncExternalStore(editor.subscribePointer, () => editor.pointerInk)
@@ -210,7 +211,7 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
           </Section>
           </>
         )}
-        <Section title="Output">
+        <Section title="Output" actions={(format === 'pdf' || format === 'zip') && advancedButton}>
           <Select label="Format" value={format} options={FORMATS} onChange={setFormat} />
           {(format === 'pdf' || format === 'zip') && (
             <>
@@ -221,7 +222,8 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
                 disabled={colorMode === 'rgb' ? ['x1a'] : []}
                 onChange={(preset) => editor.apply({ type: 'setDocument', preset, ...OUTPUT[preset] })}
               />
-              <More label="Advanced" used={Object.entries(OUTPUT[preset]).some(([k, v]) => doc[k as keyof typeof doc] !== v)}>
+              {advanced && (
+                <>
                 {preset !== 'screen' && (
                   <>
                     <label className="check">
@@ -236,7 +238,8 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
                 )}
                 <Select label="Image resolution" prefix="Images" value={String(imagePpi)} options={options([72, 150, 300], 'ppi', 'Keep', imagePpi)} onChange={(v) => editor.apply({ type: 'setDocument', imagePpi: Number(v) })} />
                 <Select label="JPEG quality" prefix="JPEG quality" value={String(jpegQuality)} options={options([90, 75], '%', 'Lossless', jpegQuality)} onChange={(v) => editor.apply({ type: 'setDocument', jpegQuality: Number(v) })} />
-              </More>
+                </>
+              )}
             </>
           )}
           <label className="field">

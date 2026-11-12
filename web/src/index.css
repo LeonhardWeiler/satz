@@ -3746,25 +3746,6 @@ button.mark {
   color: var(--muted);
 }
 
-.more {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  justify-self: start;
-  height: 24px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--muted);
-  font: inherit;
-  cursor: pointer;
-}
 
-.more:hover {
-  color: var(--text);
-}
 
-.more:not([aria-haspopup])[aria-expanded='true'] svg {
-  transform: rotate(90deg);
-}
 

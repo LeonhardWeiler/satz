@@ -557,16 +557,15 @@ export function Group({ title, action, children }: { title: string; action?: Rea
   )
 }
 
-/** A toggle under a section that shows its rarer settings, open from the start when `used`. */
-export function More({ label, used, children }: { label: string; used: boolean; children: ReactNode }) {
-  const [open, setOpen] = useState(used)
-  return (
-    <>
-      <button type="button" className="more" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <Icon name="chevron" />
-        {label}
+/** Whether a section shows its rarer settings `title`, always when `used`, and the `…` button for its header that shows them. */
+export function useMore(label: string, title: string, used: boolean): [boolean, ReactNode] {
+  const [open, setOpen] = useState(false)
+  return [
+    open || used,
+    !used && (
+      <button type="button" className="icon-button" aria-label={label} title={title} aria-expanded={open} onClick={() => setOpen(!open)}>
+        <Icon name="more" />
       </button>
-      {open && children}
-    </>
-  )
+    ),
+  ]
 }

@@ -1,5 +1,5 @@
 import { neutral, solid, type ColorMode } from './color'
-import { Check, Field, Group, More, NameInput, Section, Segmented, Select, SIDE_NAMES, SidesToggle } from './controls'
+import { Check, Field, Group, NameInput, Section, Segmented, Select, SIDE_NAMES, SidesToggle, useMore } from './controls'
 import { useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
@@ -84,7 +84,6 @@ export function Properties({ editor }: { editor: Editor }) {
   const cropping = useEditor(editor, (e) => e.cropping)
   const snapshot = useEditor(editor, (e) => e.snapshot)
   const selection = useEditor(editor, (e) => e.selection)
-  const [layerMore, setLayerMore] = useState(false)
   const nodes = overview ? [] : selection.flatMap((id) => editor.nodes.get(id)?.node ?? [])
 
   const same = <T,>(get: (n: Node) => T | undefined) => {
@@ -135,8 +134,10 @@ export function Properties({ editor }: { editor: Editor }) {
     )
   const set = (props: Props) => each((n) => ({ type: 'set', id: n.id, ...props }))
   const wrapped = nodes.some((n) => n.wrap !== 'none')
-  const layerUsed = wrapped || nodes.some((n) => n.blend !== 'normal')
+  const [layerMore, layerButton] = useMore('Layer options', 'Blend mode and text wrap', wrapped || nodes.some((n) => n.blend !== 'normal'))
   const open = nodes.length > 0 && nodes.every(isOpen)
+  const [sectionMore, sectionButton] = useMore('Page options', 'Section numbering', page.section !== null)
+  const [joinMore, joinButton] = useMore('Stroke options', open ? 'Cap and join' : 'Align and join', nodes.some((n) => n.join !== 'miter' || (open && n.cap !== 'none')))
   const stroked = nodes.length > 0 && nodes.every((n) => n.kind !== 'group')
   const sided = nodes.length > 0 && nodes.every(rounded)
   const strokes = stroked ? sameList((n) => n.strokes) : null
@@ -232,6 +233,7 @@ export function Properties({ editor }: { editor: Editor }) {
                     <Icon name="pages" />
                   </button>
                 )}
+              {isPage && targets.length === 1 && sectionButton}
             </>
           }
         >
@@ -260,7 +262,8 @@ export function Properties({ editor }: { editor: Editor }) {
             <ModeSelects editor={editor} id={page.id} own={page.modes} inherited={{}} />
           </div>
           {isPage && targets.length === 1 && (
-            <More label="Section" used={page.section !== null}>
+            sectionMore && (
+              <>
               <label className="check">
                 <input
                   type="checkbox"
@@ -279,7 +282,8 @@ export function Properties({ editor }: { editor: Editor }) {
                   </label>
                 </div>
               )}
-            </More>
+              </>
+            )
           )}
         </Section>
       )}
@@ -397,13 +401,7 @@ export function Properties({ editor }: { editor: Editor }) {
       {box && (
         <Section
           title="Layer"
-          actions={
-            !layerUsed && (
-              <button type="button" className="icon-button" aria-label="Layer options" title="Blend mode and text wrap" aria-expanded={layerMore} onClick={() => setLayerMore(!layerMore)}>
-                <Icon name="more" />
-              </button>
-            )
-          }
+          actions={layerButton}
         >
           <div className="grid">
             {bindable(
@@ -416,7 +414,7 @@ export function Properties({ editor }: { editor: Editor }) {
               <ModeSelects editor={editor} id={one.id} own={one.modes} inherited={editor.nodes.get(one.id)?.parent?.activeModes ?? page.modes} />
             )}
           </div>
-          {(layerMore || layerUsed) && (
+          {layerMore && (
             <>
               <div className="grid">
                 <Select label="Blend mode" value={same((n) => n.blend)} options={BLENDS} breaks={BLEND_GROUPS} onChange={(blend) => set({ blend })} />
@@ -444,13 +442,17 @@ export function Properties({ editor }: { editor: Editor }) {
           editor={editor}
           title="Stroke"
           actions={
-            sided &&
             !!strokes?.length && (
-              <SidesToggle
-                what="stroke"
-                pressed={same((n) => !!n.strokeSides?.length)}
-                onClick={() => set({ strokeSides: same((n) => !!n.strokeSides?.length) ? [] : Array(4).fill(one?.strokeWeight ?? 1) })}
-              />
+              <>
+                {sided && (
+                  <SidesToggle
+                    what="stroke"
+                    pressed={same((n) => !!n.strokeSides?.length)}
+                    onClick={() => set({ strokeSides: same((n) => !!n.strokeSides?.length) ? [] : Array(4).fill(one?.strokeWeight ?? 1) })}
+                  />
+                )}
+                {joinButton}
+              </>
             )
           }
           paints={strokes} added={solid(neutral('black', mode))} mode={mode} scope={scope} onChange={(strokes) => set({ strokes })}>
@@ -488,7 +490,7 @@ export function Properties({ editor }: { editor: Editor }) {
             </div>
           )}
           {!!strokes?.length && (
-            <More label={open ? 'Cap & join' : 'Align & join'} used={nodes.some((n) => n.join !== 'miter' || (open && n.cap !== 'none'))}>
+            joinMore && (
               <div className="grid">
                 {open ? (
                   <Segmented label="Stroke cap" prefix="Cap" value={same((n) => n.cap)} options={CAPS} onChange={(cap) => set({ cap })} />
@@ -497,7 +499,7 @@ export function Properties({ editor }: { editor: Editor }) {
                 )}
                 <Segmented label="Stroke join" prefix="Join" value={same((n) => n.join)} options={JOINS} onChange={(join) => set({ join })} />
               </div>
-            </More>
+            )
           )}
         </PaintList>
       )}

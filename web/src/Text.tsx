@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
-import { Check, Field, FontSelect, Group, NameInput, nextName, Section, Segmented, Select, Sides, useSides } from './controls'
+import { Check, Field, FontSelect, Group, NameInput, nextName, Section, Segmented, Select, Sides, useMore, useSides } from './controls'
 import { ColorPicker } from './ColorPicker'
 import { neutral, type Color } from './color'
 import { scopeOf, useEditor, type Editor } from './editor'
@@ -177,9 +177,8 @@ export function TypeOptions({ editor, spans, set, features, paragraph }: { edito
   }
   return (
     <>
-      <button type="button" className="more" aria-haspopup="dialog" aria-expanded={!!at} onClick={(e) => setAt(e.currentTarget)}>
-        <Icon name="adjust" />
-        Type options
+      <button type="button" className="icon-button" aria-label="Type options" title="Type options" aria-haspopup="dialog" aria-expanded={!!at} onClick={(e) => setAt(e.currentTarget)}>
+        <Icon name="more" />
       </button>
       {at && (
             <Dialog label="Type options" at={at} onClose={() => setAt(null)}>
@@ -446,7 +445,38 @@ export function TextSection({ editor, nodes }: { editor: Editor; nodes: TextNode
   if (lang === null) langs.mixed = 'Mixed'
 
   return (
-    <Section title="Text" actions={one && <Characters editor={editor} node={one} font={same((a) => a.font?.hash ?? null) ?? undefined} />}>
+    <Section
+      title="Text"
+      actions={
+        <>
+          {one && <Characters editor={editor} node={one} font={same((a) => a.font?.hash ?? null) ?? undefined} />}
+          <TypeOptions
+            editor={editor}
+            spans={spans}
+            set={format}
+            features={features}
+            paragraph={
+              <>
+                <Check label="Hyphenate" value={hyphenate} set={(hyphenate) => format({ hyphenate })} />
+                <Select
+                  label="Hyphenation language"
+                  value={lang ?? 'mixed'}
+                  options={langs}
+                  onChange={(l) => l !== 'mixed' && format({ lang: l as Attrs['lang'] })}
+                />
+                <ColorCheck
+                  editor={editor}
+                  node={nodes[0]}
+                  label="Shading"
+                  color={shading === null ? undefined : JSON.parse(shading)}
+                  set={(c) => format({ shading: c })}
+                />
+              </>
+            }
+          />
+        </>
+      }
+    >
       <Specimen editor={editor} spans={spans} format={format} />
       <Font editor={editor} id={one?.id} fonts={spans.map((a) => a.font)} set={(font) => format({ font })} />
       <div className="grid">
@@ -474,30 +504,6 @@ export function TextSection({ editor, nodes }: { editor: Editor; nodes: TextNode
         })}
       </div>
       <Segmented label="Text align" value={align} options={ALIGNS} onChange={(textAlign) => format({ textAlign })} />
-      <TypeOptions
-        editor={editor}
-        spans={spans}
-        set={format}
-        features={features}
-        paragraph={
-          <>
-            <Check label="Hyphenate" value={hyphenate} set={(hyphenate) => format({ hyphenate })} />
-            <Select
-              label="Hyphenation language"
-              value={lang ?? 'mixed'}
-              options={langs}
-              onChange={(l) => l !== 'mixed' && format({ lang: l as Attrs['lang'] })}
-            />
-            <ColorCheck
-              editor={editor}
-              node={nodes[0]}
-              label="Shading"
-              color={shading === null ? undefined : JSON.parse(shading)}
-              set={(c) => format({ shading: c })}
-            />
-          </>
-        }
-      />
     </Section>
   )
 }
@@ -523,6 +529,7 @@ function StyleRow({ editor, style }: { editor: Editor; style: TextStyle }) {
           <Icon name="chevron" />
         </button>
         <NameInput label="Text style name" value={style.name} onCommit={(name) => editor.apply({ type: 'setTextStyle', id: style.id, name })} />
+        {open && <TypeOptions editor={editor} spans={[style]} set={(p) => editor.apply({ type: 'setTextStyle', id: style.id, ...p })} features={(f) => editor.apply({ type: 'setTextStyle', id: style.id, features: f(style.features) })} />}
         <button
           type="button"
           className="icon-button row-action"
@@ -554,7 +561,6 @@ function StyleRow({ editor, style }: { editor: Editor; style: TextStyle }) {
               </Bindable>
             ))}
           </div>
-          <TypeOptions editor={editor} spans={[style]} set={(p) => editor.apply({ type: 'setTextStyle', id: style.id, ...p })} features={(f) => editor.apply({ type: 'setTextStyle', id: style.id, features: f(style.features) })} />
         </>
       )}
     </div>
@@ -573,19 +579,14 @@ export function TextFrameSection({ editor, nodes, set }: { editor: Editor; nodes
   const columns = same((n) => n.columns)
   const columned = nodes.every((n) => n.columns > 1)
   const used = nodes.some((n) => n.columns > 1 || INSETS.some((p) => n[p]) || !!(n.baselineGrid || n.baselineStart || n.minHeight || n.maxLines || n.trim || n.roundBaselines))
-  const [more, setMore] = useState(false)
-  const shown = more || used
+  const [shown, moreButton] = useMore('Frame options', 'Inset, columns and baseline grid', used)
   return (
     <Section
       title="Text frame"
       actions={
         <>
           {shown && toggle}
-          {!used && (
-            <button type="button" className="icon-button" aria-label="Frame options" title="Inset, columns and baseline grid" aria-expanded={more} onClick={() => setMore(!more)}>
-              <Icon name="more" />
-            </button>
-          )}
+          {moreButton}
         </>
       }
     >
