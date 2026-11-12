@@ -212,11 +212,12 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
           </>
         )}
         <Section title="Output" actions={(format === 'pdf' || format === 'zip') && advancedButton}>
-          <Select label="Format" value={format} options={FORMATS} onChange={setFormat} />
+          <Select label="Format" prefix="Format" value={format} options={FORMATS} onChange={setFormat} />
           {(format === 'pdf' || format === 'zip') && (
             <>
               <Select
                 label="Preset"
+                prefix="Preset"
                 value={preset}
                 options={colorMode === 'rgb' ? { ...PRESETS, x1a: 'PDF/X-1a, print, CMYK documents only' } : PRESETS}
                 disabled={colorMode === 'rgb' ? ['x1a'] : []}

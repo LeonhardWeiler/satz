@@ -643,6 +643,7 @@ textarea {
 }
 
 .field.int input {
+  flex: 1;
   text-align: center;
 }
 
@@ -677,13 +678,11 @@ textarea {
 }
 
 .field-unit {
-  margin-left: 4px;
   color: var(--muted);
 }
 
 .field input {
   flex: 0 1 auto;
-  width: 100%;
   min-width: 1ch;
   field-sizing: content;
   height: 100%;

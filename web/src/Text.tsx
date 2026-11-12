@@ -460,6 +460,7 @@ export function TextSection({ editor, nodes }: { editor: Editor; nodes: TextNode
                 <Check label="Hyphenate" value={hyphenate} set={(hyphenate) => format({ hyphenate })} />
                 <Select
                   label="Hyphenation language"
+                  prefix="Language"
                   value={lang ?? 'mixed'}
                   options={langs}
                   onChange={(l) => l !== 'mixed' && format({ lang: l as Attrs['lang'] })}

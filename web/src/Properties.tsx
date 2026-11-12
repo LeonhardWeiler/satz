@@ -275,7 +275,7 @@ export function Properties({ editor }: { editor: Editor }) {
               {page.section && (
                 <div className="grid">
                   <Field label="Start" title="Section starts at" unit="" int min={1} max={page.section.style === 'arabic' ? 9999 : 3999} value={page.section.start} onCommit={(start) => setSection({ start })} />
-                  <Select label="Numbering" value={page.section.style} options={NUMBERINGS} onChange={(style) => setSection({ style })} />
+                  <Select label="Numbering" prefix="Numbers" value={page.section.style} options={NUMBERINGS} onChange={(style) => setSection({ style })} />
                   <label className="field">
                     <span className="field-label">Prefix</span>
                     <NameInput label="Prefix" value={page.section.prefix} blank onCommit={(prefix) => setSection({ prefix })} />
@@ -417,9 +417,9 @@ export function Properties({ editor }: { editor: Editor }) {
           {layerMore && (
             <>
               <div className="grid">
-                <Select label="Blend mode" value={same((n) => n.blend)} options={BLENDS} breaks={BLEND_GROUPS} onChange={(blend) => set({ blend })} />
+                <Select label="Blend mode" prefix="Blend" value={same((n) => n.blend)} options={BLENDS} breaks={BLEND_GROUPS} onChange={(blend) => set({ blend })} />
                 {(wrapped || [...editor.nodes.values()].some((e) => e.page?.id === page.id && e.node.kind === 'text' && !selection.includes(e.node.id))) && (
-                  <Select label="Text wrap" value={same((n) => n.wrap)} options={WRAPS} onChange={(wrap) => set({ wrap })} />
+                  <Select label="Text wrap" prefix="Wrap" value={same((n) => n.wrap)} options={WRAPS} onChange={(wrap) => set({ wrap })} />
                 )}
                 {wrapped && (
                   <Field
@@ -465,7 +465,7 @@ export function Properties({ editor }: { editor: Editor }) {
                 <Field label="Weight" title="Stroke weight" unit="pt" value={same((n) => n.strokeWeight)} onCommit={(v) => set({ strokeWeight: v })} />,
               )}
               {nodes.every((n) => n.kind !== 'text') ? (
-                <Select label="Line style" value={same((n) => n.lineStyle)} options={LINE_STYLES} onChange={(lineStyle) => set({ lineStyle })} />
+                <Select label="Line style" prefix="Style" value={same((n) => n.lineStyle)} options={LINE_STYLES} onChange={(lineStyle) => set({ lineStyle })} />
               ) : (
                 <span />
               )}
@@ -520,7 +520,7 @@ function textBelow(editor: Editor, n: Node) {
 /** Facing pages and, unless `pagesOnly`, color mode and, in CMYK, the profile of the document, and how dates show. */
 function DocumentSection({ editor, pagesOnly }: { editor: Editor; pagesOnly: boolean }) {
   const { facingPages, colorMode, profile, dateFormat } = useEditor(editor, (e) => e.snapshot)
-  const color = <Select label="Color mode" value={colorMode} options={MODES} onChange={(colorMode) => editor.apply({ type: 'setDocument', colorMode })} />
+  const color = <Select label="Color mode" prefix="Color" value={colorMode} options={MODES} onChange={(colorMode) => editor.apply({ type: 'setDocument', colorMode })} />
   return (
     <section className="section" aria-label="Document">
       <div className="section-body">
@@ -532,6 +532,7 @@ function DocumentSection({ editor, pagesOnly }: { editor: Editor; pagesOnly: boo
             {color}
             <Select<string>
               label="Profile"
+              prefix="Profile"
               value={profile === null ? 'fogra' : 'own'}
               options={{ fogra: 'FOGRA51', ...(profile !== null && { own: profile || 'Uploaded' }), upload: 'Upload ICC…' }}
               breaks={[profile === null ? 'fogra' : 'own']}
@@ -539,7 +540,7 @@ function DocumentSection({ editor, pagesOnly }: { editor: Editor; pagesOnly: boo
             />
           </div>
         )}
-        {!pagesOnly && <Select label="Date" value={dateFormat} options={DATES} onChange={(dateFormat) => editor.apply({ type: 'setDocument', dateFormat })} />}
+        {!pagesOnly && <Select label="Date" prefix="Date" value={dateFormat} options={DATES} onChange={(dateFormat) => editor.apply({ type: 'setDocument', dateFormat })} />}
       </div>
     </section>
   )
@@ -662,6 +663,7 @@ function FormatRow({ sheets, each }: { sheets: Page[]; each: (props: PageProps) 
       <div className="grid">
         <Select
           label="Format"
+          prefix="Format"
           value={format}
           options={Object.fromEntries([...FORMATS.map(([n]) => [n, n]), ...(format === 'Custom' ? [['Custom', 'Custom']] : [])])}
           onChange={(n) => {
