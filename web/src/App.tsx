@@ -54,6 +54,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   const [renaming, setRenaming] = useState(false)
   const [tab, setTab] = useState<'Layers' | 'Assets'>('Layers')
   const selected = useEditor(editor, (e) => e.selection.length > 0)
+  const picked = useEditor(editor, (e) => e.selection.join())
   const [hidden, setHidden] = useState({ left: false, right: false, ui: false, rulers: false })
   const hide = (panel: keyof typeof hidden) => setHidden((h) => ({ ...h, [panel]: !h[panel] }))
 
@@ -306,7 +307,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       {overview && <Overview ck={ck} editor={editor} />}
       <div className="right" inert={off('right')}>
         <Edge side="right" />
-        {preflight ? <Preflight editor={editor} exporting={exporting} onExport={exportAs} /> : <Properties editor={editor} />}
+        {preflight ? <Preflight editor={editor} exporting={exporting} onExport={exportAs} /> : <Properties key={picked} editor={editor} />}
       </div>
       {starting && (
         <Start editor={editor} onClose={() => setStarting(false)} />

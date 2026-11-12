@@ -548,7 +548,7 @@ function DocumentSection({ editor, pagesOnly }: { editor: Editor; pagesOnly: boo
             />
           </div>
         )}
-        {!pagesOnly && <Select label="Date" prefix="Date" value={dateFormat} options={DATES} onChange={(dateFormat) => editor.apply({ type: 'setDocument', dateFormat })} />}
+        {!pagesOnly && <Select label="Date format" prefix="Date" value={dateFormat} options={DATES} onChange={(dateFormat) => editor.apply({ type: 'setDocument', dateFormat })} />}
       </div>
     </section>
   )

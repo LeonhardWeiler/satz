@@ -229,7 +229,7 @@ test('a date shows the day of the export in the format of the document', async (
   await page.getByRole('menuitem', { name: 'Date' }).click()
   await page.keyboard.press('Escape')
   await page.keyboard.press('Escape')
-  await choose(panel.getByRole('combobox', { name: 'Date' }), '2026-11-09')
+  await choose(panel.getByRole('combobox', { name: 'Date format' }), '2026-11-09')
   const pdf = join(mkdtempSync(join(tmpdir(), 'satz-')), 'satz.pdf')
   const download = page.waitForEvent('download')
   await (await exportButton(page)).click()
