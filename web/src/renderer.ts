@@ -513,7 +513,7 @@ export class Renderer {
       Array.isArray(b) ? canvas.drawLine(...at(b[0].x, b[0].y), ...at(b[1].x, b[1].y), paint) : turned(b, () => canvas.drawRect(screen(b), paint))
     if (editing) {
       paint.setStrokeWidth(2)
-      for (const b of selection) if (!Array.isArray(b)) turned(b, () => canvas.drawRect(screen({ ...b, x: b.x - 4 / view.zoom, y: b.y - 4 / view.zoom, w: b.w + 8 / view.zoom, h: b.h + 8 / view.zoom }), paint))
+      selection.forEach(outline)
       paint.setStrokeWidth(1)
     } else selection.forEach(outline)
     if (hover) {
