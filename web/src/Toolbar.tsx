@@ -24,6 +24,7 @@ const MOVE: Entry = { tool: 'move', label: 'Move', key: 'V', icon: 'move' }
 const FRAME: Entry = { tool: 'frame', label: 'Frame', key: 'F', icon: 'frame' }
 const PEN: Entry = { tool: 'pen', label: 'Pen', key: 'P', icon: 'pen' }
 const TEXT: Entry = { tool: 'text', label: 'Text', key: 'T', icon: 'text' }
+const TABLE: Entry = { tool: 'table', label: 'Table', key: '', icon: 'table' }
 const EYEDROPPER: Entry = { tool: 'eyedropper', label: 'Eyedropper', key: 'I', icon: 'eyedropper' }
 
 function ToolButton({ entry, active, editor }: { entry: Entry; active: Tool; editor: Editor }) {
@@ -142,6 +143,7 @@ export function Toolbar({ editor, onPlaceImage }: { editor: Editor; onPlaceImage
       </div>
       <ToolButton entry={PEN} active={active} editor={editor} />
       <ToolButton entry={TEXT} active={active} editor={editor} />
+      <ToolButton entry={TABLE} active={active} editor={editor} />
       <ToolButton entry={EYEDROPPER} active={active} editor={editor} />
       <button type="button" className="tool" aria-pressed={placing} aria-label="Place image" title="Place image (Ctrl+Shift+K)" onClick={onPlaceImage}>
         <Icon name="image" />

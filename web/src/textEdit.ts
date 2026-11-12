@@ -1,5 +1,6 @@
 import type { Editor } from './editor'
 import type { TextNode } from './model'
+import { tab } from './Table'
 
 /** Stands for the number of the page a text is on, as InDesign's Current Page Number. */
 export const PAGE_NUMBER = '\u0018'
@@ -131,7 +132,10 @@ export function handleTextKey(editor: Editor, e: KeyboardEvent): boolean {
     editor.apply({ type: key === 'y' || e.shiftKey ? 'redo' : 'undo' })
   } else if (e.key === 'Tab') {
     const m = a === b && /\blorem(\d*)$/i.exec(text.slice(0, a))
-    if (!m) return true
+    if (!m) {
+      tab(editor, ed.id, e.shiftKey)
+      return true
+    }
     select(editor, a - m[0].length, a)
     insert(editor, lorem(Math.min(Number(m[1] || 10), 10000)))
   }

@@ -40,7 +40,6 @@ Done; numbers and the items measured and not done in `AGENT/performance.md`.
 
 ## Later
 
-- [ ] Tables.
 - [ ] Linked images: per document, chosen at creation, embed or link. Linking uses File System
   Access (Chromium) with handles in IndexedDB, so links need a click per session and are missing
   on other computers; Firefox shows the option disabled with a hint. Preflight reports missing

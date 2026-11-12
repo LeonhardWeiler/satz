@@ -66,3 +66,6 @@ Node 22, pnpm, MuPDF (`mutool`, for the PDF tests) and
 - An anchored layer follows the object replacement character of a story whose `object`
   mark names it, inline (the line makes room for it) or `custom` (it keeps its offset
   to `anchorAt`); `Doc::finish` places it, and it wraps no text.
+- A table is a frame with a `table` (column widths, least row heights); its cells are text
+  layers with a `cell` ([column, row, columns, rows]). `lay_out_table` places them, rows
+  growing to the text of unthreaded cells; `reframe` scales the table.

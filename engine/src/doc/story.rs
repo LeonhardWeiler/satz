@@ -772,19 +772,36 @@ impl Doc {
         if vertical != Size::Hug || self.next_of(id).is_some() {
             return Ok(());
         }
-        let (story, flows) = self.flow(self.story(id))?;
-        let from = flows.iter().find(|f| f.0 == id).map_or(0, |f| f.1);
-        let tf = self.text_frame_of(id);
         let old = self.bounds(id);
         let [x, y, w, _] = old;
         let auto_width = horizontal == Size::Hug;
-        let fw = (!auto_width).then_some(w as f32);
+        let [nw, nh] = self.measured(id, (!auto_width).then_some(w as f32))?;
+        let h = f64::from(nh).max(self.text_frame_of(id).min_height);
+        let new = [x, y, if auto_width { nw.into() } else { w }, h];
+        if new != old {
+            self.set_frame(id, new)?;
+        }
+        Ok(())
+    }
+
+    /// The height the text of the cell `id` needs at the width `w`.
+    pub(super) fn natural(&self, id: TreeID, w: f64) -> Res<f64> {
+        let h = self.measured(id, Some(w as f32))?[1];
+        Ok(f64::from(h).max(self.text_frame_of(id).min_height))
+    }
+
+    /// The size the text of `id` takes from where its thread's story reaches it, at
+    /// the width `fw` or as wide as its lines.
+    fn measured(&self, id: TreeID, fw: Option<f32>) -> Res<[f32; 2]> {
+        let (story, flows) = self.flow(self.story(id))?;
+        let from = flows.iter().find(|f| f.0 == id).map_or(0, |f| f.1);
+        let tf = self.text_frame_of(id);
         let kept = self.fits.borrow().get(&id).and_then(|f| {
             (Rc::ptr_eq(&f.story, &story) && f.frame == tf && f.w == fw && f.from == from)
                 .then_some(f.size)
         });
         let measure = || text::measure(&story.text, &story.spans, &tf, fw, from);
-        let [nw, nh] = match kept {
+        Ok(match kept {
             Some(size) => {
                 debug_assert_eq!(
                     size,
@@ -805,13 +822,7 @@ impl Doc {
                 self.fits.borrow_mut().insert(id, fit);
                 size
             }
-        };
-        let h = f64::from(nh).max(tf.min_height);
-        let new = [x, y, if auto_width { nw.into() } else { w }, h];
-        if new != old {
-            self.set_frame(id, new)?;
-        }
-        Ok(())
+        })
     }
 
     /// The flows through all text layers, kept since the last command.

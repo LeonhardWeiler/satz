@@ -44,6 +44,7 @@ mod draw;
 mod pages;
 mod palette;
 mod story;
+mod table;
 mod toc;
 
 pub use anchor::Anchoring;
@@ -52,6 +53,8 @@ use clipboard::*;
 pub use draw::*;
 use pages::*;
 use story::*;
+pub use table::Table;
+use table::*;
 
 /// The settings of the document that `Command::SetDocument` changes; `None` keeps one.
 #[cfg_attr(test, derive(ts_rs::TS))]
@@ -174,6 +177,34 @@ pub enum Command {
     /// Frees the anchored layer `id` and removes its character.
     Unanchor {
         id: String,
+    },
+    /// Adds a row or, with `column`, a column before index `at` of the table of `id`,
+    /// the table or one of its cells, like the one before it.
+    TableInsert {
+        id: String,
+        column: bool,
+        at: usize,
+    },
+    /// Removes the row or, with `column`, the column `at` of the table of `id` and
+    /// the cells only in it.
+    TableDelete {
+        id: String,
+        column: bool,
+        at: usize,
+    },
+    /// Merges the cells `ids`, a rectangle of one table, into the first.
+    MergeCells {
+        ids: Vec<String>,
+    },
+    /// Splits the merged cell `id` into one cell per column and row.
+    SplitCell {
+        id: String,
+    },
+    /// Sets the column widths and least row heights of the table of `id`.
+    SizeTable {
+        id: String,
+        columns: Vec<f64>,
+        rows: Vec<f64>,
     },
     Set {
         id: String,
@@ -738,6 +769,8 @@ pub enum NewKind {
     Path,
     Text,
     Frame,
+    /// A frame of 3 by 3 text cells.
+    Table,
 }
 
 #[cfg_attr(test, derive(ts_rs::TS))]
@@ -1699,6 +1732,13 @@ impl Doc {
             Command::Toc { id, styles } => self.toc(id, styles),
             Command::Anchor { id, text, at } => self.anchor(id, text, at),
             Command::Unanchor { id } => self.unanchor(id),
+            Command::TableInsert { id, column, at } => self.table_insert(id, column, at),
+            Command::TableDelete { id, column, at } => self.table_delete(id, column, at),
+            Command::MergeCells { ids } => self.merge_cells(ids),
+            Command::SplitCell { id } => self.split_cell(id),
+            Command::SizeTable { id, columns, rows } => {
+                self.size_table(id, Table { columns, rows })
+            }
             Command::Set { id, props } => self.set_props(id, props),
             Command::SetPath { id, path } => self.set_path(id, path),
             Command::FitImage { id, fit } => self.fit_image(id, fit),
@@ -1879,6 +1919,16 @@ impl Doc {
                     ..closed
                 },
             ),
+            NewKind::Table => (
+                NodeKind::Frame,
+                "",
+                Props {
+                    name: Some("Table".into()),
+                    fills: Some(vec![]),
+                    clip: Some(false),
+                    ..Props::default()
+                },
+            ),
         };
         m.insert(KIND, name.as_str()).map_err(err)?;
         if !shape.is_empty() {
@@ -1886,6 +1936,9 @@ impl Doc {
         }
         self.set(id, props)?;
         self.set_frame(id, frame)?;
+        if kind == NewKind::Table {
+            self.fill_table(id)?;
+        }
         Ok(id)
     }
 
@@ -1984,7 +2037,11 @@ impl Doc {
         }
         match self.kind(id) {
             Some(NodeKind::Text) => return self.fit(id),
-            Some(NodeKind::Frame) => {}
+            Some(NodeKind::Frame) => {
+                if let Some(t) = self.table(id) {
+                    return self.lay_out_table(id, t);
+                }
+            }
             _ => return Ok(()),
         }
         let mut l = self.layout(id);
@@ -2610,6 +2667,9 @@ impl Doc {
         }
         if sizing != old {
             self.meta(id).insert(SIZING, loro(sizing)?).map_err(err)?;
+        }
+        if self.table(id).is_some() {
+            self.scale_table(id, w, h)?;
         }
         self.resize(id, [x, y, w, h], !crop)?;
         if cropped {
@@ -3811,6 +3871,7 @@ mod tests {
         set_value(&mut d, &size, &m2, Value::Number(16.0)).unwrap();
         bind(&mut d, &a, "size", Some(&size)).unwrap();
         let obj = create(&mut d, &p1, NewKind::Rect, [0.0, 0.0, 12.0, 30.0]);
+        let table = create(&mut d, &p1, NewKind::Table, [300.0, 300.0, 200.0, 60.0]);
         let mut pages = vec![p1, p2];
         let mut r = seed;
         let mut rand = |n: usize| {
@@ -3832,7 +3893,7 @@ mod tests {
                 20.0 + rand(300) as f64,
                 20.0 + rand(300) as f64,
             ];
-            let cmd = match rand(16) {
+            let cmd = match rand(20) {
                 0 | 1 => Command::EditText {
                     id,
                     range,
@@ -3915,6 +3976,25 @@ mod tests {
                     },
                 },
                 12 => Command::Undo,
+                15 => Command::TableInsert {
+                    id: [table.clone(), id][rand(2)].clone(),
+                    column: rand(2) == 0,
+                    at: rand(4),
+                },
+                16 => Command::TableDelete {
+                    id: table.clone(),
+                    column: rand(2) == 0,
+                    at: rand(3),
+                },
+                17 if rand(2) == 0 => Command::SplitCell { id },
+                17 => Command::MergeCells {
+                    ids: vec![id, t[rand(t.len())].0.clone()],
+                },
+                18 => Command::SizeTable {
+                    id: table.clone(),
+                    columns: vec![frame[2]; 2],
+                    rows: vec![frame[3] / 4.0; 2],
+                },
                 _ => Command::Redo,
             };
             if let Ok(ids) = d.apply(cmd) {

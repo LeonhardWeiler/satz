@@ -221,6 +221,14 @@ pub struct Node {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg_attr(test, ts(optional))]
     pub anchored: Option<Anchoring>,
+    /// The grid of a table.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional))]
+    pub table: Option<Table>,
+    /// Where a cell of a table sits: column, row, and the columns and rows it spans.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional))]
+    pub cell: Option<[usize; 4]>,
     /// The outline of a shape or frame and, when its fills cover less, what they cover.
     #[serde(skip)]
     pub outline: Vec<f32>,
@@ -1550,6 +1558,8 @@ impl Doc {
             rotation: field(&v, "rotation").unwrap_or(0.0),
             wrap: field(&v, "wrap").unwrap_or_default(),
             anchored: field(&v, ANCHORED),
+            table: self.table(id),
+            cell: field(&v, CELL),
             wrap_offset_x: field(&v, "wrapOffsetX").unwrap_or(0.0),
             wrap_offset_y: field(&v, "wrapOffsetY").unwrap_or(0.0),
             ppi: style

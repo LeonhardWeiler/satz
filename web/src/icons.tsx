@@ -68,6 +68,7 @@ const ICONS = {
     </>
   ),
   text: <path d="M3.5 4V3h9v1M8 3v10M6 13h4" />,
+  table: <path d="M2.5 3.5h11v9h-11zM2.5 6.5h11M2.5 9.5h11M6.5 3.5v9" />,
   image: (
     <>
       <rect x="2.5" y="3.5" width="11" height="9" rx="2" />

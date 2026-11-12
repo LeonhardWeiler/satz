@@ -44,7 +44,7 @@ function cursorOf(handle: string, turn: number) {
 }
 /** Size in mm of a layer made with a click; a clicked text is auto width, a dragged one fixed. */
 const DEFAULT_SIZE: Record<Exclude<Tool, 'move' | 'pen' | 'eyedropper'>, [number, number]> = {
-  rect: [30, 30], ellipse: [30, 30], polygon: [30, 30], star: [30, 30], frame: [30, 30], text: [0, 0],
+  rect: [30, 30], ellipse: [30, 30], polygon: [30, 30], star: [30, 30], frame: [30, 30], text: [0, 0], table: [90, 30],
   line: [30, 0],
 }
 

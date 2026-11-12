@@ -15,6 +15,7 @@ import { AutoLayout, flows, Sizing } from './AutoLayout'
 import { EffectList, PaintList } from './Paints'
 import { ContentsSection, sameOf, TextFrameSection, TextSection } from './Text'
 import { Bindable, ModeSelects } from './Variables'
+import { TableSection } from './Table'
 
 /** The rotation of `n`, for a group that of all its layers, or null if they differ. */
 const turnOf = (n: Node): number | null => {
@@ -386,6 +387,7 @@ export function Properties({ editor }: { editor: Editor }) {
           {one?.kind === 'group' && one.children.length > 1 && <AlignBar editor={editor} inside={one.children} />}
         </Section>
       )}
+      {box && <TableSection editor={editor} nodes={nodes} />}
       {one?.kind === 'shape' && (one.shape === 'ellipse' || one.shape === 'polygon' || one.shape === 'star') && (
         <Section title="Shape">
           <div className="grid">
