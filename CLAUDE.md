@@ -62,4 +62,7 @@ Node 22, pnpm, MuPDF (`mutool`, for the PDF tests) and
   builds every page again.
 - Deleted nodes move under a `trash` root so that undo restores them with their ids.
 - A text frame wraps around the shown layers above it on its page whose `wrap` is
+- An anchored layer follows the object replacement character of a story whose `object`
+  mark names it, inline (the line makes room for it) or `custom` (it keeps its offset
+  to `anchorAt`); `Doc::finish` places it, and it wraps no text.
   set (`around` or `jump`, `wrapOffset` pt away); auto width text does not wrap.

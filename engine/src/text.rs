@@ -181,6 +181,7 @@ pub fn missing_glyph(text: &str, spans: &[Span]) -> Option<char> {
                 && !c.is_whitespace()
                 && c != PAGE_NUMBER
                 && c != DATE
+                && c != ANCHOR
                 && map.as_ref().is_some_and(|m| m.map(c).is_none())
             {
                 found = Some(c);
@@ -436,6 +437,11 @@ pub struct Attrs {
     pub list: List,
     /// The color behind the paragraph across its column.
     pub shading: Option<Color>,
+    /// The id of the layer an object replacement character in this span stands for.
+    pub object: String,
+    /// The width and height that layer takes in the line.
+    #[serde(skip)]
+    pub object_size: [f64; 2],
 }
 
 impl Attrs {
@@ -488,6 +494,8 @@ impl Default for Attrs {
             tabs: Vec::new(),
             list: List::None,
             shading: None,
+            object: String::new(),
+            object_size: [0.0; 2],
         }
     }
 }
@@ -671,6 +679,9 @@ pub const PAGE_NUMBER: char = '\u{18}';
 /// Stands for the date the document is exported on, as InDesign's Output Date.
 pub const DATE: char = '\u{19}';
 
+/// Stands for the anchored layer that its span names.
+pub const ANCHOR: char = '\u{FFFC}';
+
 impl TextFrame {
     /// What the marker `c` stands for.
     pub fn marker(&self, c: char) -> &str {
@@ -718,13 +729,17 @@ pub fn draw(
     let stroked = style.strokes.iter().any(|f| f.visible);
     let mut outlines = Vec::new();
     for (line, geometry) in placed.lines.iter().zip(&placed.geometry) {
+        let line: Vec<_> = (line.iter())
+            .filter(|g| spans[g.span].attrs.object.is_empty())
+            .cloned()
+            .collect();
         let mut at = 0;
         for run in line.chunk_by(|a, b| {
             a.size == b.size
                 && (a.span == b.span
                     || fonts[a.span] == fonts[b.span] && span_paints[a.span] == span_paints[b.span])
         }) {
-            let (text, ranges) = source(text, line, at..at + run.len(), tf);
+            let (text, ranges) = source(text, &line, at..at + run.len(), tf);
             at += run.len();
             let glyphs: Vec<u16> = run.iter().map(|g| g.id).collect();
             let positions: Vec<f32> = run.iter().flat_map(|g| [g.x, g.y]).collect();
@@ -1253,7 +1268,8 @@ fn rows(
             l => l,
         };
         let above = ascent * s + (l - (ascent + descent) * s) / 2.0;
-        (above + a.rise(), l - above - a.rise())
+        let (below, above) = (l - above, above.max(a.object_size[1] as f32));
+        (above + a.rise(), below - a.rise())
     };
 
     // `text` repeated in whole copies over `x..x + w`, on a grid of its width.
@@ -1589,7 +1605,10 @@ fn rows(
                 continue;
             }
             let (size, rise) = (a.drawn(), a.rise());
-            let adv = adv * size + size * (a.letter_spacing / 100.0) as f32;
+            let adv = match a.object.is_empty() {
+                true => adv * size + size * (a.letter_spacing / 100.0) as f32,
+                false => a.object_size[0] as f32,
+            };
             if breaks.binary_search(&at).is_ok() {
                 items.push(Item::Penalty {
                     width: m.hyphen_adv * size,

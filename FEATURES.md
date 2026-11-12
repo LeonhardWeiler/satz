@@ -47,6 +47,7 @@
 - Knuth-Plass line breaking, hyphenation per language, baseline grid, columns with column rules, paragraph shading, insets, vertical alignment, max lines, trim
 - Text styles, special characters, lorem ipsum, find and replace across stories
 - Table of contents from the paragraphs of chosen text styles, one level each, with dot leaders and page numbers; updates on demand
+- Anchored objects: layers pasted into a text sit in its line or keep their offset to their character, and follow it onto other pages
 - Threaded frames across pages, text wrap around or jumping over layers with separate horizontal and vertical offsets
 
 ## Output

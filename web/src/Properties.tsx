@@ -8,7 +8,7 @@ import { Icon, KindIcon } from './icons'
 import { FORMATS, ORIENTATIONS, formatOf } from './Start'
 import { pickProfile } from './file'
 import { length, setSettings, useSettings } from './settings'
-import type { Bindable as Prop, Blend, Constraint, Command, DateFormat, Grid, LineStyle, Node, Page, Props, Section as Numbers, TextNode, Wrap } from './model'
+import type { Bindable as Prop, Blend, Constraint, Command, DateFormat, Grid, LineStyle, Node, Page, Props, Section as Numbers, Anchoring, TextNode, Wrap } from './model'
 import { isOpen, radiusOf, rounded } from './model'
 import { AlignBar, BOOLEANS, combinable, combine, rowOf, setGap } from './align'
 import { AutoLayout, flows, Sizing } from './AutoLayout'
@@ -23,6 +23,7 @@ const turnOf = (n: Node): number | null => {
   return turns.every((t) => t === turns[0]) ? turns[0] : null
 }
 const WRAPS: Record<Wrap, string> = { none: 'None', around: 'Wrap around', jump: 'Jump over' }
+const ANCHORINGS = [['inline', 'In the line'], ['custom', 'Custom']] as const satisfies readonly (readonly [Anchoring, string])[]
 const BLENDS: Record<Blend, string> = {
   normal: 'Normal', darken: 'Darken', multiply: 'Multiply', colorBurn: 'Color burn',
   lighten: 'Lighten', screen: 'Screen', colorDodge: 'Color dodge',
@@ -422,6 +423,14 @@ export function Properties({ editor }: { editor: Editor }) {
               <Field label={<Icon name="opacity" />} title="Opacity" unit="%" digits={1} max={100} value={same((n) => n.opacity * 100)} onCommit={(v) => set({ opacity: v / 100 })} />,
             )}
             <Select label="Blend mode" prefix="Blend" value={same((n) => n.blend)} options={BLENDS} breaks={BLEND_GROUPS} onChange={(blend) => set({ blend })} />
+            {one?.anchored && (
+              <>
+                <Segmented label="Anchoring" prefix="Anchored" text value={one.anchored} options={ANCHORINGS} onChange={(anchored) => set({ anchored })} />
+                <button type="button" className="button" onClick={() => editor.apply({ type: 'unanchor', id: one.id })}>
+                  Release
+                </button>
+              </>
+            )}
             {one?.kind === 'frame' && (
               <ModeSelects editor={editor} id={one.id} own={one.modes} inherited={editor.nodes.get(one.id)?.parent?.activeModes ?? page.modes} />
             )}

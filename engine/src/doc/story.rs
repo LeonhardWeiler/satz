@@ -43,7 +43,7 @@ pub(super) struct Reach {
     pub(super) roots: HashSet<TreeID>,
     /// The text layers whose flows go, and the stories to set again.
     texts: HashSet<TreeID>,
-    heads: HashSet<TreeID>,
+    pub(super) heads: HashSet<TreeID>,
 }
 
 /// A story set through the frames of its thread, with the bounds and settings of
@@ -830,6 +830,12 @@ impl Doc {
         let mut todo = self.texts(&roots.iter().copied().collect::<Vec<_>>());
         todo.retain(|&t| self.reflows(t, &nodes, old));
         todo.extend(nodes.iter().filter(|n| old.contains_key(n)));
+        for &n in nodes
+            .iter()
+            .filter(|&&n| value(&self.meta(n), ANCHORED).is_some())
+        {
+            todo.extend(self.texts(&[self.root(n)]));
+        }
         for &n in nodes.iter().filter(|&&n| !self.is_sheet(self.root(n))) {
             let mut under = Vec::new();
             self.walk(n, &mut under);
@@ -884,6 +890,13 @@ impl Doc {
         matches!(self.kind(r), Some(NodeKind::Page | NodeKind::Master))
     }
 
+    /// The first frames of the threads on the pages and masters.
+    pub(super) fn heads(&self) -> HashSet<TreeID> {
+        (self.texts(&self.tree.roots()).into_iter())
+            .filter(|&n| self.prev_of(n).is_none())
+            .collect()
+    }
+
     /// The text layers on the pages and masters `roots`.
     fn texts(&self, roots: &[TreeID]) -> Vec<TreeID> {
         let mut all = Vec::new();
@@ -913,11 +926,7 @@ impl Doc {
                 r.heads.clone()
             }
             None => {
-                let heads: HashSet<_> = self
-                    .texts(&self.tree.roots())
-                    .into_iter()
-                    .filter(|&n| self.prev_of(n).is_none())
-                    .collect();
+                let heads = self.heads();
                 self.sets.borrow_mut().retain(|h, _| heads.contains(h));
                 heads
             }

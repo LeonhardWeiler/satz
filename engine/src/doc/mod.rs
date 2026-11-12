@@ -21,8 +21,9 @@ use harfrust::Feature;
 use loro::event::{ContainerDiff, Diff};
 use loro::{
     Container, ContainerID, ExpandType, ExportMode, Index, LoroBinaryValue, LoroDoc, LoroMap,
-    LoroText, LoroTree, LoroValue, StyleConfig, Subscription, TextDelta, TreeExternalDiff, TreeID,
-    TreeParentId, UndoManager, UpdateOptions, ValueOrContainer, VersionVector,
+    LoroText, LoroTree, LoroValue, StyleConfig, StyleConfigMap, Subscription, TextDelta,
+    TreeExternalDiff, TreeID, TreeParentId, UndoManager, UpdateOptions, ValueOrContainer,
+    VersionVector,
 };
 use serde::de::value::{Error as DeError, MapAccessDeserializer, MapDeserializer, SeqDeserializer};
 use serde::de::{DeserializeOwned, Deserializer, IntoDeserializer, Visitor};
@@ -34,6 +35,7 @@ use std::ops::Range;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
+mod anchor;
 #[cfg(test)]
 mod bench;
 mod boolean;
@@ -44,6 +46,8 @@ mod palette;
 mod story;
 mod toc;
 
+pub use anchor::Anchoring;
+use anchor::*;
 use clipboard::*;
 pub use draw::*;
 use pages::*;
@@ -158,6 +162,18 @@ pub enum Command {
     Toc {
         id: String,
         styles: Vec<String>,
+    },
+    /// Anchors the layer `id` inline before the UTF-16 index `at` of the story of the
+    /// text layer `text`: an object replacement character stands for it there, and it
+    /// moves with that character, onto the page of the frame that sets it.
+    Anchor {
+        id: String,
+        text: String,
+        at: usize,
+    },
+    /// Frees the anchored layer `id` and removes its character.
+    Unanchor {
+        id: String,
     },
     Set {
         id: String,
@@ -485,6 +501,7 @@ pub struct Props {
     pub wrap: Option<Wrap>,
     pub wrap_offset_x: Option<f64>,
     pub wrap_offset_y: Option<f64>,
+    pub anchored: Option<Anchoring>,
 }
 
 /// The largest length in pt: 20 m.
@@ -1113,6 +1130,14 @@ impl<'de> Deserializer<'de> for De {
 
 impl Doc {
     fn with(doc: LoroDoc) -> Doc {
+        let mut styles = StyleConfigMap::new();
+        styles.insert(
+            anchor::OBJECT.into(),
+            StyleConfig {
+                expand: ExpandType::None,
+            },
+        );
+        doc.config_text_style(styles);
         doc.config_default_text_style(Some(StyleConfig {
             expand: ExpandType::After,
         }));
@@ -1672,6 +1697,8 @@ impl Doc {
             Command::SetTextStyle { id, name, props } => self.set_text_style(id, name, props),
             Command::DeleteTextStyle { id } => self.delete_text_style(id),
             Command::Toc { id, styles } => self.toc(id, styles),
+            Command::Anchor { id, text, at } => self.anchor(id, text, at),
+            Command::Unanchor { id } => self.unanchor(id),
             Command::Set { id, props } => self.set_props(id, props),
             Command::SetPath { id, path } => self.set_path(id, path),
             Command::FitImage { id, fit } => self.fit_image(id, fit),
@@ -1886,6 +1913,7 @@ impl Doc {
         let palette = self.palette();
         self.repaint(&palette);
         let mut done = HashSet::new();
+        let mut rounds = 0;
         let reach = loop {
             let reach = self.reach();
             let todo: Vec<_> = (self.tree.roots().into_iter())
@@ -1900,6 +1928,13 @@ impl Doc {
                 self.lay_out(p)?;
                 done.insert(p);
             }
+            let heads = reach
+                .as_ref()
+                .map_or_else(|| self.heads(), |r| r.heads.clone());
+            if self.place_anchored(&heads)? && rounds < 8 {
+                rounds += 1;
+                done.clear();
+            }
             self.doc.commit();
             self.purge();
         };
@@ -1909,6 +1944,7 @@ impl Doc {
                 self.settle(p, &Modes::new(), &palette)?;
                 self.lay_out(p)?;
             }
+            self.place_anchored(&self.heads())?;
             assert_eq!(
                 self.doc.get_pending_txn_len(),
                 0,
@@ -2605,6 +2641,9 @@ impl Doc {
 
     fn set_props(&self, id: String, mut props: Props) -> Res<Vec<String>> {
         let id = self.node(&id)?;
+        if props.anchored.is_some() && value(&self.meta(id), ANCHORED).is_none() {
+            return Err("not anchored".into());
+        }
         if let Some(s) = props.sizing {
             let threaded = self.next_of(id).is_some() || self.prev_of(id).is_some();
             if threaded && s.horizontal == Size::Hug {
@@ -3771,6 +3810,7 @@ mod tests {
         let size = variable(&mut d, &c, "Size", Value::Number(10.0)).unwrap();
         set_value(&mut d, &size, &m2, Value::Number(16.0)).unwrap();
         bind(&mut d, &a, "size", Some(&size)).unwrap();
+        let obj = create(&mut d, &p1, NewKind::Rect, [0.0, 0.0, 12.0, 30.0]);
         let mut pages = vec![p1, p2];
         let mut r = seed;
         let mut rand = |n: usize| {
@@ -3792,7 +3832,7 @@ mod tests {
                 20.0 + rand(300) as f64,
                 20.0 + rand(300) as f64,
             ];
-            let cmd = match rand(14) {
+            let cmd = match rand(16) {
                 0 | 1 => Command::EditText {
                     id,
                     range,
@@ -3860,6 +3900,19 @@ mod tests {
                     height: None,
                     bleed: None,
                     scale: false,
+                },
+                13 => Command::Anchor {
+                    id: obj.clone(),
+                    text: id,
+                    at: x,
+                },
+                14 if rand(2) == 0 => Command::Unanchor { id: obj.clone() },
+                14 => Command::Set {
+                    id: obj.clone(),
+                    props: Props {
+                        anchored: Some(Anchoring::Custom),
+                        ..Props::default()
+                    },
                 },
                 12 => Command::Undo,
                 _ => Command::Redo,

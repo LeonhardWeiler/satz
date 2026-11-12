@@ -80,7 +80,7 @@ impl Doc {
                     let para = s.text[b..].split('\n').next().unwrap_or_default();
                     let entry: String = para
                         .chars()
-                        .filter(|&c| c != text::PAGE_NUMBER && c != text::DATE)
+                        .filter(|c| ![text::PAGE_NUMBER, text::DATE, text::ANCHOR].contains(c))
                         .map(|c| if c == '\t' { ' ' } else { c })
                         .collect();
                     if !entry.trim().is_empty() {

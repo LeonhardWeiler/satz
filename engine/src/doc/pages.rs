@@ -738,7 +738,9 @@ impl Doc {
         if detached.contains(&id) {
             return Err("already overridden".into());
         }
-        let copy = self.paste(&self.clip(item), p.into(), 0)?;
+        let clip = self.clip(item);
+        let copy = self.paste(&clip, p.into(), 0)?;
+        self.rethread(&[(clip, copy)])?;
         self.meta(copy)
             .insert(OVERRIDE_OF, id.clone())
             .map_err(err)?;

@@ -15,6 +15,8 @@ export type Tool = 'move' | 'frame' | 'text' | 'pen' | 'eyedropper' | Shape
 export type Pen = { id: string; anchors: Anchor[] }
 
 export const MM = 72 / 25.4
+/** The clipboard type of copied layers. */
+export const CLIP = 'application/x-satz-layers'
 const FRAMED = ['create', 'placeImage', 'setFrame']
 const GRID: Record<string, number> = { x: 10, y: 10, w: 100, h: 100 }
 const FRACTIONS = ['opacity', 'sweep', 'inner', 'ratio']
@@ -430,7 +432,7 @@ export class Editor {
     this.set({ selection: copies })
   }
 
-  /** Pastes the copied layers, or those of another document's `clip`, above the selection, centred under the pointer when it is away from where they were. */
+  /** Pastes the copied layers, or those of another document's `clip`, above the selection, centred under the pointer when it is away from where they were, or anchored in place of the selected text when editing. */
   paste(clip = this.clip) {
     if (clip && clip !== this.clip) {
       try {
@@ -440,8 +442,16 @@ export class Editor {
       }
       this.clip = clip
     }
+    const editing = this.editing
     const ids = this.batch(() => {
       const ids = this.apply({ type: 'paste', above: this.selection, page: this.page.id })
+      if (editing) {
+        const [a, b] = [Math.min(editing.anchor, editing.focus), Math.max(editing.anchor, editing.focus)]
+        if (a < b) this.apply({ type: 'editText', id: editing.id, range: [a, b], text: '' })
+        for (const id of [...ids].reverse()) this.apply({ type: 'anchor', id, text: editing.id, at: a })
+        this.set({ editing: { id: editing.id, anchor: a + ids.length, focus: a + ids.length } })
+        return ids
+      }
       const nodes = ids.map((id) => this.nodes.get(id)!.node)
       const b = bounds(nodes.map((n) => ({ ...n, x: n.x + this.dx(n.id) })))
       const p = this.pointer
@@ -450,7 +460,7 @@ export class Editor {
       for (const n of nodes) this.apply({ type: 'setFrame', id: n.id, x: n.x + dx, y: n.y + dy, w: n.w, h: n.h })
       return ids
     })
-    this.set({ selection: ids })
+    if (!editing) this.set({ selection: ids })
   }
 
   /** Replaces the text of the one selected text layer with `text` from outside, or places it as a new text layer amid the current page, at most 80 % of its width wide. */

@@ -4,7 +4,7 @@ import { Canvas, isTyping } from './Canvas'
 import { Edge, Keys, NameInput } from './controls'
 import { ACTIONS, addPage, comboOf, keysOf, MENU, ONLY_WHEN_ABLE, press } from './commands'
 import { ContextMenu } from './ContextMenu'
-import { useEditor, type Editor } from './editor'
+import { CLIP, useEditor, type Editor } from './editor'
 import { Settings } from './SettingsDialog'
 import { Find } from './Find'
 import { settings } from './settings'
@@ -24,7 +24,6 @@ import { Switcher } from './Switcher'
 import { Toolbar } from './Toolbar'
 import { Tooltip } from './Tooltip'
 
-const CLIP = 'application/x-satz-layers'
 const SHOWS: Record<string, [label: string, panel: 'rulers' | 'left' | 'right']> = {
   'Show or hide rulers': ['Rulers', 'rulers'],
   'Show or hide left panel': ['Left panel', 'left'],

@@ -217,6 +217,10 @@ pub struct Node {
     pub wrap: Wrap,
     pub wrap_offset_x: f64,
     pub wrap_offset_y: f64,
+    /// How it follows the character of a story it is anchored at.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional))]
+    pub anchored: Option<Anchoring>,
     /// The outline of a shape or frame and, when its fills cover less, what they cover.
     #[serde(skip)]
     pub outline: Vec<f32>,
@@ -1284,7 +1288,8 @@ impl Doc {
         fn walk(d: &Doc, id: TreeID, out: &mut Vec<(TreeID, bool)>) {
             let m = d.meta(id);
             if value(&m, "hidden") != Some(true.into()) {
-                out.push((id, value(&m, "wrap").is_some()));
+                let wraps = value(&m, "wrap").is_some() && value(&m, ANCHORED).is_none();
+                out.push((id, wraps));
                 d.children(id).into_iter().for_each(|c| walk(d, c, out));
             }
         }
@@ -1544,6 +1549,7 @@ impl Doc {
             keep_ratio: field(&v, "keepRatio") == Some(true),
             rotation: field(&v, "rotation").unwrap_or(0.0),
             wrap: field(&v, "wrap").unwrap_or_default(),
+            anchored: field(&v, ANCHORED),
             wrap_offset_x: field(&v, "wrapOffsetX").unwrap_or(0.0),
             wrap_offset_y: field(&v, "wrapOffsetY").unwrap_or(0.0),
             ppi: style
@@ -1569,7 +1575,12 @@ impl Doc {
                 m.extend(st.values(s));
             }
             m.extend(marks);
-            serde_json::from_value(serde_json::Value::Object(m)).unwrap_or_default()
+            let mut a: Attrs =
+                serde_json::from_value(serde_json::Value::Object(m)).unwrap_or_default();
+            if !a.object.is_empty() {
+                a.object_size = self.object_size(&a.object);
+            }
+            a
         };
         let mut known: HashMap<String, Attrs> = HashMap::new();
         let mut out: Vec<Span> = Vec::new();

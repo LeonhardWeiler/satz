@@ -67,14 +67,14 @@ impl Doc {
             .iter()
             .map(|(old, new, _)| (old.to_string(), *new))
             .collect();
-        for (_, new, next) in pairs {
-            if let Some(&to) = next.and_then(|n| copies.get(&n)) {
-                self.set_next(new, Some(to))?;
+        for (_, new, next) in &pairs {
+            if let Some(&to) = next.as_ref().and_then(|n| copies.get(n)) {
+                self.set_next(*new, Some(to))?;
                 let own = self.own_text(to)?;
                 own.delete_utf16(0, own.len_utf16()).map_err(err)?;
             }
         }
-        Ok(())
+        self.reanchor(pairs.iter().map(|p| p.1), &copies)
     }
 
     /// Each layer copied into `clip` with its copy under `copy` and the layer it threads to.

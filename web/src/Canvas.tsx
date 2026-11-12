@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CanvasKit, Surface } from 'canvaskit-wasm'
-import { MM, bounds, ends, insertion, timed, useEditor, type Editor, type Point, type Tool } from './editor'
+import { CLIP, MM, bounds, ends, insertion, timed, useEditor, type Editor, type Point, type Tool } from './editor'
 import type { Container, NewKind, Node, Page, TextNode } from './model'
 import { radii, rounded } from './model'
 import { penPath } from './pen'
@@ -1526,7 +1526,9 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
               e.preventDefault()
             }}
             onPaste={(e) => {
-              insert(editor, e.clipboardData.getData('text/plain').replace(/\r\n?/g, '\n'))
+              const clip = e.clipboardData.getData(CLIP)
+              if (clip) editor.paste(clip)
+              else insert(editor, e.clipboardData.getData('text/plain').replace(/\r\n?/g, '\n'))
               e.preventDefault()
             }}
           />
