@@ -7,7 +7,7 @@ import { Field, FontSelect, NameInput, nextName, Section, Select } from './contr
 import { MM, scopeOf, useEditor, type Editor } from './editor'
 import { Icon } from './icons'
 import type { Bindable as Prop, Modes, Typeface, Value } from './model'
-import { Popover } from './Popover'
+import { docked, Popover } from './Popover'
 
 type Kind = 'color' | 'number' | 'font'
 const KINDS: Record<Kind, string> = { color: 'Color', number: 'Number', font: 'Font' }
@@ -152,11 +152,7 @@ function VariableEditor({ editor, id, fonts, onClose }: { editor: Editor; id: st
   return (
     <Popover
       ref={ref}
-      anchor={() => {
-        const b = row()?.getBoundingClientRect() ?? new DOMRect()
-        const panel = row()?.closest('.panel')?.getBoundingClientRect() ?? b
-        return new DOMRect(panel.x, b.y, panel.width, b.height)
-      }}
+      anchor={() => { const r = row(); return r ? docked(r)() : new DOMRect() }}
       side="left"
       className="picker var-editor"
       role="dialog"

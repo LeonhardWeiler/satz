@@ -6,6 +6,7 @@ import { ContextMenu } from './ContextMenu'
 import { NameInput, nextName, Section } from './controls'
 import { scopeOf, useEditor, type Editor } from './editor'
 import { Icon } from './icons'
+import { docked } from './Popover'
 
 export function Swatches({ editor }: { editor: Editor }) {
   const snapshot = useEditor(editor, (e) => e.snapshot)
@@ -104,12 +105,7 @@ export function Swatches({ editor }: { editor: Editor }) {
         createPortal(
           <Picker
             key={swatch.id}
-            anchor={() => {
-              const row = list.current!.querySelector(`[data-id="${CSS.escape(swatch.id)}"]`) ?? list.current!
-              const panel = list.current!.closest('.left')!.getBoundingClientRect()
-              const r = row.getBoundingClientRect()
-              return new DOMRect(panel.x, r.y, panel.width, r.height)
-            }}
+            anchor={() => docked(list.current!.querySelector(`[data-id="${CSS.escape(swatch.id)}"]`) ?? list.current!)()}
             side="right"
             label="Edit swatch"
             color={swatch.color}

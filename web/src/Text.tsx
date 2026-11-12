@@ -7,7 +7,7 @@ import { neutral, type Color } from './color'
 import { scopeOf, useEditor, type Editor } from './editor'
 import { addFonts, addLocalFont, useLocalFonts } from './file'
 import { Icon, type IconName } from './icons'
-import { Popover } from './Popover'
+import { Dialog } from './Popover'
 import { MAX_LENGTH, length } from './settings'
 import { DATE, PAGE_NUMBER, insert, range } from './textEdit'
 import { STYLED, type Attrs, type Props, type Span, type Styled, type Tab, type TextNode, type TextProps, type TextStyle, type Typeface } from './model'
@@ -152,7 +152,7 @@ export const featuresOf = (editor: Editor, id: string, spans: Span[], r: [number
 
 /** A button that opens the case, decoration, indent and OpenType features of `spans`. */
 export function TypeOptions({ editor, spans, set, features, paragraph }: { editor: Editor; spans: Pick<Attrs, Styled>[]; set: (p: TextProps) => void; features: (f: (old: string[]) => string[]) => void; paragraph?: ReactNode }) {
-  const [at, setAt] = useState<DOMRect | null>(null)
+  const [at, setAt] = useState<Element | null>(null)
   const [tab, setTab] = useState<'Character' | 'Paragraph' | 'Tabs'>('Character')
   const same = <T,>(get: (a: Pick<Attrs, Styled>) => T) => sameOf(spans, get)
   const on = (tag: string, dflt?: boolean) => (a: Pick<Attrs, Styled>) => (dflt ? !a.features.includes(`${tag}=0`) : a.features.includes(tag))
@@ -177,27 +177,12 @@ export function TypeOptions({ editor, spans, set, features, paragraph }: { edito
   }
   return (
     <>
-      <button type="button" className="more" aria-haspopup="dialog" aria-expanded={!!at} onClick={(e) => setAt(e.currentTarget.getBoundingClientRect())}>
+      <button type="button" className="more" aria-haspopup="dialog" aria-expanded={!!at} onClick={(e) => setAt(e.currentTarget)}>
         <Icon name="adjust" />
         Type options
       </button>
-      {at &&
-        createPortal(
-          <div className="menu-backdrop" onPointerDown={() => setAt(null)}>
-            <Popover
-              anchor={() => at}
-              side="bottom"
-              className="picker options"
-              role="dialog"
-              aria-label="Type options"
-              tabIndex={-1}
-              onPointerDown={(e) => e.stopPropagation()}
-              onKeyDown={(e) => {
-                if (e.key !== 'Escape') return
-                e.stopPropagation()
-                setAt(null)
-              }}
-            >
+      {at && (
+            <Dialog label="Type options" at={at} onClose={() => setAt(null)}>
               <header className="picker-header">
                 <div role="tablist" className="tabs">
                   {(['Character', 'Paragraph', 'Tabs'] as const).map((t) => (
@@ -261,10 +246,8 @@ export function TypeOptions({ editor, spans, set, features, paragraph }: { edito
                 </>
               )}
               {tab === 'Tabs' && <TabStops tabs={same((a) => JSON.stringify(a.tabs))} set={(tabs) => set({ tabs })} />}
-            </Popover>
-          </div>,
-          document.body,
-        )}
+            </Dialog>
+      )}
     </>
   )
 }
@@ -326,8 +309,8 @@ const CHARACTERS = [
 
 /** Inserts the page number, the date or a character that keyboards lack into the edited text, or at the end of `node`. */
 function Characters({ editor, node, font }: { editor: Editor; node: TextNode; font?: string }) {
-  const [at, setAt] = useState<DOMRect | null>(null)
-  const [all, setAll] = useState<DOMRect | null>(null)
+  const [at, setAt] = useState<Element | null>(null)
+  const [all, setAll] = useState<Element | null>(null)
   const put = (c: string) => {
     const end = editor.storyOf(node).text.length
     if (editor.editing?.id !== node.id) editor.set({ editing: { id: node.id, anchor: end, focus: end } })
@@ -343,14 +326,14 @@ function Characters({ editor, node, font }: { editor: Editor; node: TextNode; fo
         aria-haspopup="menu"
         // Keeps the focus in the edited text.
         onMouseDown={(e) => e.preventDefault()}
-        onClick={(e) => setAt(e.currentTarget.getBoundingClientRect())}
+        onClick={(e) => setAt(e.currentTarget)}
       >
         <Icon name="omega" />
       </button>
       {at &&
         createPortal(
           <ContextMenu
-            anchor={() => at}
+            anchor={() => at.getBoundingClientRect()}
             side="bottom"
             label="Insert character"
             onClose={() => setAt(null)}
@@ -365,7 +348,7 @@ function Characters({ editor, node, font }: { editor: Editor; node: TextNode; fo
           />,
           document.body,
         )}
-      {all && createPortal(<Glyphs editor={editor} font={font} at={all} put={put} onClose={() => setAll(null)} />, document.body)}
+      {all && <Glyphs editor={editor} font={font} at={all} put={put} onClose={() => setAll(null)} />}
     </>
   )
 }
@@ -381,7 +364,7 @@ const loadNames = () =>
     .catch(() => new Map()))
 
 /** All characters of the font `font`, found by name, code point or themselves, and inserted on click. */
-function Glyphs({ editor, font, at, put, onClose }: { editor: Editor; font?: string; at: DOMRect; put: (c: string) => void; onClose: () => void }) {
+function Glyphs({ editor, font, at, put, onClose }: { editor: Editor; font?: string; at: Element; put: (c: string) => void; onClose: () => void }) {
   const [query, setQuery] = useState('')
   const [hover, setHover] = useState('')
   const [[id, codes]] = useState(() => editor.engine.characters(font) as [number, number[]])
@@ -396,20 +379,7 @@ function Glyphs({ editor, font, at, put, onClose }: { editor: Editor; font?: str
   const q = query.trim().toLowerCase()
   const shown = chars.filter(([c, name]) => !q || name.toLowerCase().includes(q) || String.fromCodePoint(c) === query.trim() || c.toString(16) === q.replace(/^u\+/, ''))
   return (
-    <div className="menu-backdrop" onPointerDown={onClose}>
-      <Popover
-        anchor={() => at}
-        side="bottom"
-        className="picker glyphs"
-        role="dialog"
-        aria-label="All characters"
-        onPointerDown={(e) => e.stopPropagation()}
-        onKeyDown={(e) => {
-          if (e.key !== 'Escape') return
-          e.stopPropagation()
-          onClose()
-        }}
-      >
+    <Dialog label="All characters" at={at} className="glyphs" onClose={onClose}>
         <input className="help-search" aria-label="Search characters" placeholder="Search" autoFocus value={query} onChange={(e) => setQuery(e.target.value)} />
         <div className="glyph-grid" style={{ fontFamily: family }}>
           {shown.map(([c, name]) => {
@@ -422,8 +392,7 @@ function Glyphs({ editor, font, at, put, onClose }: { editor: Editor; font?: str
           })}
         </div>
         <div className="glyph-name">{hover || `${shown.length} characters`}</div>
-      </Popover>
-    </div>
+      </Dialog>
   )
 }
 

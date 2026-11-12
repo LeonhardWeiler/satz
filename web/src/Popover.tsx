@@ -1,4 +1,5 @@
-import { useLayoutEffect, useRef, type HTMLAttributes, type RefObject } from 'react'
+import { useLayoutEffect, useRef, type HTMLAttributes, type ReactNode, type RefObject } from 'react'
+import { createPortal } from 'react-dom'
 
 export type Anchor = () => DOMRect
 
@@ -55,4 +56,38 @@ export function Popover({
     }
   }, [side, ref])
   return <div ref={ref} {...props} className={`popover ${props.className ?? ''}`} />
+}
+
+/** The row of `el` stretched across its panel, so that a popover on its side docks to the panel's edge. */
+export const docked =
+  (el: Element): Anchor =>
+  () => {
+    const b = el.getBoundingClientRect()
+    const panel = el.closest('.panel, .left')?.getBoundingClientRect() ?? b
+    return new DOMRect(panel.x, b.y, panel.width, b.height)
+  }
+
+/** A dialog docked beside the panel of `at` that closes on Escape or a click outside. */
+export function Dialog({ label, at, className, onClose, children }: { label: string; at: Element; className?: string; onClose: () => void; children: ReactNode }) {
+  return createPortal(
+    <div className="menu-backdrop" onPointerDown={onClose}>
+      <Popover
+        anchor={docked(at)}
+        side="left"
+        className={`picker ${className ?? 'options'}`}
+        role="dialog"
+        aria-label={label}
+        tabIndex={-1}
+        onPointerDown={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          if (e.key !== 'Escape') return
+          e.stopPropagation()
+          onClose()
+        }}
+      >
+        {children}
+      </Popover>
+    </div>,
+    document.body,
+  )
 }

@@ -6,7 +6,7 @@ import { Field, RowActions, Section, Segmented, Select } from './controls'
 import { Icon } from './icons'
 import { useEditor, type Editor } from './editor'
 import { ContextMenu } from './ContextMenu'
-import { Popover } from './Popover'
+import { Dialog } from './Popover'
 import type { Effect, Fill, Scope, Snapshot } from './model'
 
 const TYPES = [['solid', 'Solid'], ['linear', 'Linear'], ['radial', 'Radial']] as const
@@ -174,9 +174,8 @@ function PaintRow({
         </ColorPicker>
       )}
       {p.type === 'image' ? (
-        <span className="bound-name">
-          Image{ppi !== undefined && ` · ${Math.round(ppi)} ppi`} · {images[p.image!]}
-          {images[p.image!] === (mode === 'cmyk' ? 'RGB' : 'CMYK') && ` → ${mode.toUpperCase()}`}
+        <span className="bound-name" title={imageText(ppi, images[p.image!], mode)}>
+          {imageText(ppi, images[p.image!], mode)}
         </span>
       ) : bound ? (
         <>
@@ -212,6 +211,9 @@ function PaintRow({
     </div>
   )
 }
+
+const imageText = (ppi: number | undefined, space: string, mode: ColorMode) =>
+  ['Image', ppi !== undefined && `${Math.round(ppi)} ppi`, space === (mode === 'cmyk' ? 'RGB' : 'CMYK') ? `${space} → ${mode.toUpperCase()}` : space].filter(Boolean).join(' · ')
 
 /** A gradient bar with a marker per stop: a click on the bar adds a stop, a marker drags or takes arrow keys, Delete removes it. */
 function Stops({ paint: p, at, scope, select, set }: { paint: Fill; at: number; scope: Scope; select: (k: number) => void; set: (p: Fill) => void }) {
@@ -312,20 +314,20 @@ export function EffectList({
 
 /** An effect's colour, type and visibility, and a button that opens its offset and blur. */
 function EffectRow({ effect: e, mode, scope, set, onRemove }: { effect: Effect; mode: ColorMode; scope: Scope; set: (e: Partial<Effect>) => void; onRemove: () => void }) {
-  const [at, setAt] = useState<DOMRect | null>(null)
+  const [at, setAt] = useState<Element | null>(null)
   const shadowed = e.type === 'dropShadow'
   return (
     <li className="paint" data-hidden={!e.visible || undefined}>
       <div className="row">
         {shadowed && <ColorPicker label="Shadow color" color={e.color} mode={mode} scope={scope} onChange={(color) => set({ color })} />}
         <Select label="Effect type" value={e.type} options={EFFECTS} onChange={(type) => set({ ...(type === 'blur' ? blur : shadow)(mode), visible: e.visible })} />
-        <button type="button" className="icon-button" aria-label="Effect settings" title="Effect settings" aria-haspopup="dialog" aria-expanded={!!at} onClick={(ev) => setAt(ev.currentTarget.getBoundingClientRect())}>
+        <button type="button" className="icon-button" aria-label="Effect settings" title="Effect settings" aria-haspopup="dialog" aria-expanded={!!at} onClick={(ev) => setAt(ev.currentTarget)}>
           <Icon name="adjust" />
         </button>
         <RowActions what={EFFECTS[e.type].toLowerCase()} visible={e.visible} onToggle={() => set({ visible: !e.visible })} onRemove={onRemove} />
       </div>
       {at && (
-        <Options label="Effect settings" at={at} onClose={() => setAt(null)}>
+        <Dialog label="Effect settings" at={at} onClose={() => setAt(null)}>
           <div className="grid">
             {shadowed && (
               <>
@@ -335,34 +337,9 @@ function EffectRow({ effect: e, mode, scope, set, onRemove }: { effect: Effect; 
             )}
             <Field label="Blur" title="Blur" unit="length" value={e.radius} onCommit={(radius) => set({ radius })} />
           </div>
-        </Options>
+        </Dialog>
       )}
     </li>
-  )
-}
-
-/** A popover dialog at `at` that closes on Escape or a click outside. */
-function Options({ label, at, onClose, children }: { label: string; at: DOMRect; onClose: () => void; children: ReactNode }) {
-  return createPortal(
-    <div className="menu-backdrop" onPointerDown={onClose}>
-      <Popover
-        anchor={() => at}
-        side="bottom"
-        className="picker options"
-        role="dialog"
-        aria-label={label}
-        tabIndex={-1}
-        onPointerDown={(e) => e.stopPropagation()}
-        onKeyDown={(e) => {
-          if (e.key !== 'Escape') return
-          e.stopPropagation()
-          onClose()
-        }}
-      >
-        {children}
-      </Popover>
-    </div>,
-    document.body,
   )
 }
 
@@ -387,7 +364,7 @@ function fitOf(p: Fill) {
 function ImageTools({ editor, id, paint: p, set }: { editor: Editor; id: string; paint: Fill; set: (p: Fill) => void }) {
   const cropping = useEditor(editor, (e) => e.cropping)
   const [fitAt, setFitAt] = useState<DOMRect | null>(null)
-  const [adjustAt, setAdjustAt] = useState<DOMRect | null>(null)
+  const [adjustAt, setAdjustAt] = useState<Element | null>(null)
   const adjust = p.adjust ?? [0, 0, 0]
   const change = (i: number, v: number) => set({ ...p, adjust: adjust.with(i, v / 100) as Fill['adjust'] })
   return (
@@ -398,7 +375,7 @@ function ImageTools({ editor, id, paint: p, set }: { editor: Editor; id: string;
       <button type="button" className="icon-button" title="Fit image" aria-haspopup="menu" onClick={(e) => setFitAt(e.currentTarget.getBoundingClientRect())}>
         <Icon name="fit" />
       </button>
-      <button type="button" className="icon-button" title="Adjust image" aria-haspopup="dialog" aria-expanded={!!adjustAt} onClick={(e) => setAdjustAt(e.currentTarget.getBoundingClientRect())}>
+      <button type="button" className="icon-button" title="Adjust image" aria-haspopup="dialog" aria-expanded={!!adjustAt} onClick={(e) => setAdjustAt(e.currentTarget)}>
         <Icon name="adjust" />
       </button>
       {fitAt &&
@@ -413,7 +390,7 @@ function ImageTools({ editor, id, paint: p, set }: { editor: Editor; id: string;
           document.body,
         )}
       {adjustAt && (
-        <Options label="Adjust image" at={adjustAt} onClose={() => setAdjustAt(null)}>
+        <Dialog label="Adjust image" at={adjustAt} onClose={() => setAdjustAt(null)}>
           <div className="adjust">
             {ADJUST.map((name, i) => (
               <Fragment key={name}>
@@ -426,7 +403,7 @@ function ImageTools({ editor, id, paint: p, set }: { editor: Editor; id: string;
               Reset
             </button>
           </div>
-        </Options>
+        </Dialog>
       )}
     </>
   )

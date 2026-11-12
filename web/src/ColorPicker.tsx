@@ -29,7 +29,7 @@ import { Field, nextName } from './controls'
 import type { Editor } from './editor'
 import { Icon } from './icons'
 import type { Scope, Swatch } from './model'
-import { Popover, type Anchor } from './Popover'
+import { docked, Popover, type Anchor } from './Popover'
 
 const hex = (rgb: number) => rgb.toString(16).padStart(6, '0').toUpperCase()
 const clamp = (v: number) => Math.min(1, Math.max(0, v))
@@ -92,11 +92,7 @@ export function ColorPicker({ chip, children, ...props }: Props & { editor?: Edi
         createPortal(
           <Picker
             {...props}
-            anchor={() => {
-              const b = button.current!.getBoundingClientRect()
-              const panel = button.current!.closest('.panel')?.getBoundingClientRect() ?? b
-              return new DOMRect(panel.x, b.y, panel.width, b.height)
-            }}
+            anchor={() => docked(button.current!)()}
             side="left"
             owner={button}
             onClose={(refocus) => {

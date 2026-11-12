@@ -542,6 +542,7 @@ textarea {
 
 .section-body {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   margin-top: 8px;
   padding: 0 12px;
@@ -799,6 +800,7 @@ input[type='checkbox']:disabled {
 
 .rows {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   margin: 0;
   padding: 0;
@@ -807,6 +809,7 @@ input[type='checkbox']:disabled {
 
 .paint {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
 
@@ -907,6 +910,7 @@ input[type='checkbox']:disabled {
 
 .swatch-list {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-content: start;
   gap: 2px;
   overflow: auto;
