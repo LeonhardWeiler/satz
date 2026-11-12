@@ -555,6 +555,11 @@ textarea {
   display: none;
 }
 
+.section:has(> .section-body:empty) {
+  padding: 4px 0;
+  border-bottom: 0;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1682,11 +1687,15 @@ input[type='checkbox']:disabled {
 }
 
 .left > .panel {
-  flex: 1;
+  flex: 0 1 auto;
 }
 
 .assets {
   overflow: auto;
+}
+
+.left-swatches .section {
+  border-bottom: 0;
 }
 
 .left-swatches {

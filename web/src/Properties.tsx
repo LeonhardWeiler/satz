@@ -134,7 +134,8 @@ export function Properties({ editor }: { editor: Editor }) {
     )
   const set = (props: Props) => each((n) => ({ type: 'set', id: n.id, ...props }))
   const wrapped = nodes.some((n) => n.wrap !== 'none')
-  const [layerMore, layerButton] = useMore('Layer options', 'Blend mode and text wrap', wrapped || nodes.some((n) => n.blend !== 'normal'))
+  const [layerMore, layerButton] = useMore('Layer options', 'Text wrap', wrapped)
+  const canWrap = wrapped || [...editor.nodes.values()].some((e) => e.page?.id === page.id && e.node.kind === 'text' && !selection.includes(e.node.id))
   const open = nodes.length > 0 && nodes.every(isOpen)
   const [sectionMore, sectionButton] = useMore('Page options', 'Section numbering', page.section !== null)
   const [joinMore, joinButton] = useMore('Stroke options', open ? 'Cap and join' : 'Align and join', nodes.some((n) => n.join !== 'miter' || (open && n.cap !== 'none')))
@@ -401,7 +402,7 @@ export function Properties({ editor }: { editor: Editor }) {
       {box && (
         <Section
           title="Layer"
-          actions={layerButton}
+          actions={canWrap && layerButton}
         >
           <div className="grid">
             {bindable(
@@ -410,17 +411,15 @@ export function Properties({ editor }: { editor: Editor }) {
               'Opacity',
               <Field label="Opacity" title="Opacity" unit="%" digits={1} max={100} value={same((n) => n.opacity * 100)} onCommit={(v) => set({ opacity: v / 100 })} />,
             )}
+            <Select label="Blend mode" prefix="Blend" value={same((n) => n.blend)} options={BLENDS} breaks={BLEND_GROUPS} onChange={(blend) => set({ blend })} />
             {one?.kind === 'frame' && (
               <ModeSelects editor={editor} id={one.id} own={one.modes} inherited={editor.nodes.get(one.id)?.parent?.activeModes ?? page.modes} />
             )}
           </div>
-          {layerMore && (
+          {layerMore && canWrap && (
             <>
               <div className="grid">
-                <Select label="Blend mode" prefix="Blend" value={same((n) => n.blend)} options={BLENDS} breaks={BLEND_GROUPS} onChange={(blend) => set({ blend })} />
-                {(wrapped || [...editor.nodes.values()].some((e) => e.page?.id === page.id && e.node.kind === 'text' && !selection.includes(e.node.id))) && (
-                  <Select label="Text wrap" prefix="Wrap" value={same((n) => n.wrap)} options={WRAPS} onChange={(wrap) => set({ wrap })} />
-                )}
+                <Select label="Text wrap" prefix="Wrap" value={same((n) => n.wrap)} options={WRAPS} onChange={(wrap) => set({ wrap })} />
                 {wrapped && (
                   <Field
                     label="Offset"
