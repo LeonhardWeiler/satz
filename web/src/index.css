@@ -34,7 +34,7 @@
   --muted: color-mix(in srgb, var(--fg) 64%, var(--bg));
   --border: color-mix(in srgb, var(--fg) 10%, var(--bg));
   --edge: color-mix(in srgb, var(--fg) 18%, var(--bg));
-  --scrim: color-mix(in srgb, var(--bg) 70%, transparent);
+  --scrim: rgb(0 0 0 / 0.6);
   --magenta: #cc2f83;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --fast: 120ms;
@@ -62,6 +62,7 @@
   --shadow: rgb(30 30 33 / 0.18);
   --border: color-mix(in srgb, var(--fg) 15%, var(--bg));
   --edge: color-mix(in srgb, var(--fg) 30%, var(--bg));
+  --scrim: rgb(23 23 23 / 0.3);
 }
 
 *,
@@ -931,7 +932,7 @@ input[type='checkbox']:disabled {
 
 .chip {
   border-radius: 4px;
-  box-shadow: inset 0 0 0 1px var(--selected);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fg) 24%, transparent);
   background: linear-gradient(var(--color), var(--color)), var(--checker);
 }
 
@@ -1490,15 +1491,6 @@ input[type='range']:focus-visible::-moz-range-thumb {
 .icon-button[aria-pressed='true'] {
   background: var(--selected);
   color: var(--text);
-}
-
-.toggle[aria-pressed='true'] {
-  background: none;
-  color: var(--text);
-}
-
-.toggle[aria-pressed='false'] {
-  color: var(--muted);
 }
 
 .tool-group {
@@ -2574,11 +2566,6 @@ input[type='checkbox']:active {
   animation: pop var(--open) var(--ease);
 }
 
-.start::backdrop {
-  background: var(--scrim);
-}
-
-.start-head {
   display: flex;
   grid-area: head;
   justify-content: space-between;
@@ -3079,9 +3066,7 @@ input[type='checkbox']:active {
   gap: 8px;
 }
 
-.ask::backdrop,
-.palette::backdrop,
-.help::backdrop {
+dialog::backdrop {
   background: var(--scrim);
 }
 

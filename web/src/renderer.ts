@@ -78,7 +78,7 @@ export function fitView(sheets: Sheet[], width: number, height: number): View {
   return { x: (width - w * zoom) / 2 - left * zoom, y: (height - h * zoom) / 2, zoom }
 }
 
-const BLEED = [56, 174, 224, 0.45] as const
+const BLEED = [56, 174, 224, 0.7] as const
 const CROP = [128, 131, 139, 1] as const
 const GRID = [255, 72, 72] as const
 const GUIDE = [0, 170, 255, 0.9] as const
@@ -314,7 +314,7 @@ export class Renderer {
       }
     }
     const faint = new ck.Paint()
-    faint.setAlphaf(0.4)
+    faint.setAlphaf(0.7)
     for (const [layer, lists] of [[faint, overlay?.found], [null, overlay?.text]] as const) {
       for (const { ops, x } of lists ?? []) {
         canvas.saveLayer(layer ?? undefined)
