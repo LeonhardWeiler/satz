@@ -21,8 +21,14 @@ export const FORMATS: [string, number, number][] = [
   ['A4', 210, 297],
   ['A5', 148, 210],
   ['A6', 105, 148],
+  ['B4', 250, 353],
+  ['B5', 176, 250],
   ['DL', 99, 210],
+  ['Square', 210, 210],
+  ['Business card', 55, 85],
   ['Letter', 215.9, 279.4],
+  ['Legal', 215.9, 355.6],
+  ['Tabloid', 279.4, 431.8],
 ]
 const near = (a: number, b: number) => Math.abs(a - b) < 0.5
 /** The name of the format of a `w` by `h` pt page in either orientation, or Custom. */
@@ -51,7 +57,7 @@ export function Start({ editor, onClose }: { editor: Editor; onClose: () => void
   const saved = useSettings().docPresets
   const [doc, setDoc] = useState(A5)
   const [preset, setPreset] = useState<string | null>(null)
-  const [name, setName] = useState('')
+  const [name, setName] = useState(() => nextName('Preset', saved.map((p) => p.name)))
   useEffect(() => {
     ref.current!.showModal()
     ref.current!.querySelector<HTMLElement>('[role=radio][aria-checked=true]')?.focus()
@@ -163,7 +169,7 @@ export function Start({ editor, onClose }: { editor: Editor; onClose: () => void
         <div className="start-name">
           <label className="field">
             <span className="field-label">Name</span>
-            <input aria-label="Preset name" placeholder="Untitled preset" autoComplete="off" value={name} onChange={(e) => setName(e.currentTarget.value)} />
+            <input aria-label="Preset name" autoComplete="off" value={name} onFocus={(e) => e.currentTarget.select()} onChange={(e) => setName(e.currentTarget.value)} />
           </label>
           <button type="button" className="icon-button" aria-label="Save preset" title="Save preset" onClick={save}>
             <Icon name="plus" />

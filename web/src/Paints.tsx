@@ -395,7 +395,7 @@ function ImageTools({ editor, id, paint: p, set }: { editor: Editor; id: string;
             {ADJUST.map((name, i) => (
               <Fragment key={name}>
                 <span>{name}</span>
-                <input type="range" aria-label={name} min={-100} max={100} value={Math.round(adjust[i] * 100)} onChange={(e) => change(i, Number(e.currentTarget.value))} />
+                <input type="range" aria-label={name} min={-100} max={100} value={Math.round(adjust[i] * 100)} style={{ '--a': `${50 + Math.min(0, adjust[i]) * 50}%`, '--b': `${50 + Math.max(0, adjust[i]) * 50}%` } as CSSProperties} onChange={(e) => change(i, Number(e.currentTarget.value))} />
                 <Field label="" title={name} unit="%" min={-100} max={100} reset={0} value={Math.round(adjust[i] * 100)} onCommit={(v) => change(i, v)} />
               </Fragment>
             ))}

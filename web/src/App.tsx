@@ -245,6 +245,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         </div>
         {tab === 'Layers' ? <Layers editor={editor} /> : <Assets editor={editor} />}
         <div className="left-swatches" onPointerDown={editor.gesture}>
+          <Edge side="swatches" />
           <Swatches editor={editor} />
         </div>
       </div>

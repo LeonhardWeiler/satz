@@ -34,6 +34,7 @@ import { docked, Popover, type Anchor } from './Popover'
 const hex = (rgb: number) => rgb.toString(16).padStart(6, '0').toUpperCase()
 const clamp = (v: number) => Math.min(1, Math.max(0, v))
 const INKS = ['Cyan', 'Magenta', 'Yellow', 'Black']
+const INK_COLORS = ['#00a0e3', '#e5007e', '#ffed00', '#1d1d1b']
 
 type Props = { label: string; color: Color; mode: ColorMode; scope: Scope; onChange: (c: Color) => void }
 
@@ -303,7 +304,7 @@ export function Picker({
                 const put = (p: number) => onChange({ ...cmyk, cmyk: cmyk.cmyk.map((c, j) => (j === i ? clamp(p / 100) : c)) })
                 return (
                   <Fragment key={ink}>
-                    <input type="range" aria-label={ink} min={0} max={100} value={Math.round(cmyk.cmyk[i] * 100)} onChange={(e) => put(Number(e.currentTarget.value))} />
+                    <input type="range" aria-label={ink} style={{ '--ink': INK_COLORS[i] } as CSSProperties} min={0} max={100} value={Math.round(cmyk.cmyk[i] * 100)} onChange={(e) => put(Number(e.currentTarget.value))} />
                     <Field label={'CMYK'[i]} title={ink} unit="" value={Math.round(cmyk.cmyk[i] * 100)} onCommit={put} />
                   </Fragment>
                 )

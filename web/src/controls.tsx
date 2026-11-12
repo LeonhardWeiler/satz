@@ -164,7 +164,7 @@ export function Field({
           }
         }}
       />
-      {given !== 'length' && (draft !== null || !(shown === 0 && zero)) && unit && <span className="field-unit">{unit}</span>}
+      {(draft !== null || !(shown === 0 && zero)) && unit && <span className="field-unit" data-unit={unit}>{unit}</span>}
       {int && (edit || disabled) && (
         <button type="button" className="field-step" tabIndex={-1} aria-label={`Increase ${title}`} disabled={disabled || (shown !== null && shown >= max)} onClick={(e) => bump(step(e, true))}>
           <Icon name="plus" />
@@ -427,20 +427,22 @@ let grab = 0
 for (const [side, v] of Object.entries(sizes)) document.documentElement.style.setProperty(`--${side}-size`, `${v}px`)
 
 /** The inner edge of a side panel or the top edge of the swatches, dragged to set its size. */
-export function Edge({ side }: { side: 'left' | 'right' }) {
-  const at = (e: ReactPointerEvent<HTMLElement>) => (side === 'left' ? e.clientX : innerWidth - e.clientX)
+export function Edge({ side }: { side: 'left' | 'right' | 'swatches' }) {
+  const tall = side === 'swatches'
+  const at = (e: ReactPointerEvent<HTMLElement>) => (side === 'left' ? e.clientX : tall ? innerHeight - e.clientY : innerWidth - e.clientX)
   return (
     <div
       className="edge"
       aria-hidden="true"
       onPointerDown={(e) => {
-        grab = at(e) - e.currentTarget.parentElement!.offsetWidth
+        const panel = e.currentTarget.parentElement!
+        grab = at(e) - (tall ? panel.offsetHeight : panel.offsetWidth)
         e.currentTarget.setPointerCapture(e.pointerId)
         e.preventDefault()
       }}
       onPointerMove={(e) => {
         if (!e.currentTarget.hasPointerCapture(e.pointerId)) return
-        const v = Math.round(Math.min(560, Math.max(200, at(e) - grab)))
+        const v = Math.round(tall ? Math.min(innerHeight - 200, Math.max(48, at(e) - grab)) : Math.min(560, Math.max(200, at(e) - grab)))
         document.documentElement.style.setProperty(`--${side}-size`, `${v}px`)
         sizes[side] = v
       }}
