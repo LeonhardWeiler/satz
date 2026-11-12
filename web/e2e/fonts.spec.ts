@@ -71,3 +71,15 @@ test('a text style sets the font of its text', async ({ page }) => {
   await expect(panel.getByRole('combobox', { name: 'Font', exact: true })).toHaveText('DM Mono')
   await expect(panel.getByTitle('Text style', { exact: true })).toContainText('Text style 1')
 })
+
+test('add font at the end of the font select adds a font file', async ({ page }) => {
+  await open(page)
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
+  const font = page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Font', exact: true })
+  await font.click()
+  const chooser = page.waitForEvent('filechooser')
+  await page.getByRole('menuitemradio', { name: 'Add font…' }).click()
+  await (await chooser).setFiles(new URL('../../engine/fonts/DMMono-Regular.ttf', import.meta.url).pathname)
+  await font.click()
+  await expect(page.getByRole('menuitemradio', { name: 'DM Mono' })).toBeVisible()
+})

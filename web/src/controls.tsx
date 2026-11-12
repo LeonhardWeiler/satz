@@ -274,12 +274,34 @@ export function Select<T extends string>({
 }
 
 /** Family and style of the font `value`, a hash of `faces`, or Mixed for null; the missing ones are listed but not picked. */
-export function FontSelect({ label, faces, missing = [], value, compact, onChange }: { label: string; faces: Typeface[]; missing?: string[]; value: string | null; compact?: boolean; onChange: (f: Typeface) => void }) {
+const ADD = '\0add'
+
+export function FontSelect({
+  label,
+  faces,
+  missing = [],
+  value,
+  compact,
+  onAdd,
+  onChange,
+}: {
+  label: string
+  faces: Typeface[]
+  missing?: string[]
+  value: string | null
+  compact?: boolean
+  /** Adds an "Add font…" entry at the end of the families. */
+  onAdd?: () => void
+  onChange: (f: Typeface) => void
+}) {
   const family = (f: Typeface) => f.family || f.name
   const face = faces.find((f) => f.hash === value)
-  const families = Object.fromEntries(faces.map((f) => [family(f), family(f)]))
+  const families: Record<string, string> = Object.fromEntries(faces.map((f) => [family(f), family(f)]))
+  const last = Object.keys(families).at(-1)
+  if (onAdd) families[ADD] = 'Add font…'
   const styles = faces.filter((f) => face && family(f) === family(face))
   const pick = (name: string) => {
+    if (name === ADD) return onAdd!()
     const all = faces.filter((f) => family(f) === name && !missing.includes(f.hash))
     const styled = (s?: string) => all.find((f) => f.style === s)
     const f = styled(face?.style) ?? styled('Regular') ?? all[0]
@@ -298,7 +320,7 @@ export function FontSelect({ label, faces, missing = [], value, compact, onChang
     )
   return (
     <div className="grid">
-      <Select label={label} value={face ? family(face) : null} options={families} search onChange={pick} />
+      <Select label={label} value={face ? family(face) : null} options={families} breaks={onAdd && last ? [last] : []} search onChange={pick} />
       <Select
         label={`${label} style`}
         value={face?.hash ?? null}

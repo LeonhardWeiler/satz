@@ -5,7 +5,7 @@ import { Check, Field, FontSelect, Group, NameInput, nextName, Section, Segmente
 import { ColorPicker } from './ColorPicker'
 import { neutral, type Color } from './color'
 import { scopeOf, useEditor, type Editor } from './editor'
-import { addLocalFont, useLocalFonts } from './file'
+import { addFonts, addLocalFont, useLocalFonts } from './file'
 import { Icon, type IconName } from './icons'
 import { Popover } from './Popover'
 import { MAX_LENGTH, length } from './settings'
@@ -439,6 +439,7 @@ export function Font({ editor, id, fonts, set }: { editor: Editor; id?: string; 
       faces={[...added, ...missing, ...locals.map((l) => ({ name: l.fullName, family: l.family, style: l.style, hash: `local:${l.postscriptName}` }))]}
       missing={missing.map((f) => f.hash)}
       value={hashes.every((h) => h === hashes[0]) ? hashes[0] : null}
+      onAdd={() => addFonts(editor)}
       onChange={(f) => {
         const l = locals.find((l) => `local:${l.postscriptName}` === f.hash)
         if (!l) set(f)
