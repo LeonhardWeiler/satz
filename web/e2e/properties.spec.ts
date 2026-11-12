@@ -69,7 +69,7 @@ test('a fill is dragged below another to reorder them', async ({ page }) => {
   await fills.getByRole('button', { name: 'Fill color' }).first().click()
   await page.getByRole('dialog', { name: 'Fill color' }).getByRole('radio', { name: 'Linear' }).click()
   await page.keyboard.press('Escape')
-  const angles = (n: number) => fills.getByRole('listitem').nth(n).getByTitle('Fill angle')
+  const angles = (n: number) => fills.getByRole('listitem').nth(n).getByRole('textbox', { name: 'Fill angle in °' })
   await expect(angles(0)).toHaveCount(1)
   await fills.getByRole('listitem').first().dragTo(fills.getByRole('listitem').last())
   await expect(angles(0)).toHaveCount(0)
