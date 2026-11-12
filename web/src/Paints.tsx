@@ -158,7 +158,9 @@ function PaintRow({
   return (
     <div className="row">
       {p.type === 'image' ? (
-        <Icon name="image" />
+        <span className="swatch static">
+          <Icon name="image" />
+        </span>
       ) : (
         <ColorPicker
           label={`${title} color`}
@@ -319,7 +321,13 @@ function EffectRow({ effect: e, mode, scope, set, onRemove }: { effect: Effect; 
   return (
     <li className="paint" data-hidden={!e.visible || undefined}>
       <div className="row">
-        {shadowed && <ColorPicker label="Shadow color" color={e.color} mode={mode} scope={scope} onChange={(color) => set({ color })} />}
+        {shadowed ? (
+          <ColorPicker label="Shadow color" color={e.color} mode={mode} scope={scope} onChange={(color) => set({ color })} />
+        ) : (
+          <span className="swatch static">
+            <Icon name="blur" />
+          </span>
+        )}
         <Select label="Effect type" value={e.type} options={EFFECTS} onChange={(type) => set({ ...(type === 'blur' ? blur : shadow)(mode), visible: e.visible })} />
         <button type="button" className="icon-button" aria-label="Effect settings" title="Effect settings" aria-haspopup="dialog" aria-expanded={!!at} onClick={(ev) => setAt(ev.currentTarget)}>
           <Icon name="adjust" />
@@ -328,7 +336,7 @@ function EffectRow({ effect: e, mode, scope, set, onRemove }: { effect: Effect; 
       </div>
       {at && (
         <Dialog label="Effect settings" at={at} onClose={() => setAt(null)}>
-          <div className="grid">
+          <div className={shadowed ? 'grid' : undefined}>
             {shadowed && (
               <>
                 <Field label="X" title="Shadow offset X" unit="length" min={-Infinity} value={e.x} onCommit={(x) => set({ x })} />

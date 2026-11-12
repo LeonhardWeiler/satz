@@ -182,15 +182,13 @@ export function TypeOptions({ editor, spans, set, features, paragraph }: { edito
       </button>
       {at && (
             <Dialog label="Type options" at={at} onClose={() => setAt(null)}>
-              <header className="picker-header">
-                <div role="tablist" className="tabs">
-                  {(['Character', 'Paragraph', 'Tabs'] as const).map((t) => (
-                    <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
-                      {t}
-                    </button>
-                  ))}
+              <div role="tablist" className="tabs">
+                {(['Character', 'Paragraph', 'Tabs'] as const).map((t) => (
+                  <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
+                    {t}
+                  </button>
+                ))}
                 </div>
-              </header>
               {tab === 'Character' && (
                 <>
                   <Group title="Spacing">

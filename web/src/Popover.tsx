@@ -85,6 +85,9 @@ export function Dialog({ label, at, className, onClose, children }: { label: str
           onClose()
         }}
       >
+        <header className="picker-header">
+          <h2>{label}</h2>
+        </header>
         {children}
       </Popover>
     </div>,

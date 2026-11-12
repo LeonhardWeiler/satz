@@ -925,6 +925,17 @@ input[type='checkbox']:disabled {
   border-color: var(--edge);
 }
 
+.swatch.static {
+  place-items: center;
+  padding: 0;
+  color: var(--muted);
+  cursor: default;
+}
+
+.swatch.static:hover {
+  border-color: var(--border);
+}
+
 .swatch:focus-visible {
   border-color: var(--muted);
   outline: none;
@@ -1073,7 +1084,6 @@ input[type='checkbox']:disabled {
 
 .glyphs {
   width: 320px;
-  padding-top: 12px;
 }
 
 .glyph-grid {
@@ -1780,8 +1790,7 @@ input[type='range']:focus-visible::-moz-range-thumb {
   background: var(--input);
 }
 
-.picker-header .tabs {
-  flex: 1;
+.picker > .tabs {
   margin: 0;
 }
 
@@ -2566,6 +2575,7 @@ input[type='checkbox']:active {
   animation: pop var(--open) var(--ease);
 }
 
+.start-head {
   display: flex;
   grid-area: head;
   justify-content: space-between;
@@ -3810,10 +3820,6 @@ button.mark {
 
 .find .field input::placeholder {
   color: var(--muted);
-}
-
-.picker-header:has(.tabs) {
-  gap: 4px;
 }
 
 .booleans {
