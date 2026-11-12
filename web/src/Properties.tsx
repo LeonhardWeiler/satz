@@ -7,6 +7,7 @@ import { bounds, ends, MM, scopeOf, useEditor, type Editor } from './editor'
 import { Icon, KindIcon } from './icons'
 import { FORMATS, ORIENTATIONS, formatOf } from './Start'
 import { pickProfile } from './file'
+import { length, setSettings, useSettings } from './settings'
 import type { Bindable as Prop, Blend, Constraint, Command, DateFormat, Grid, LineStyle, Node, Page, Props, Section as Numbers, TextNode, Wrap } from './model'
 import { isOpen, radiusOf, rounded } from './model'
 import { AlignBar, rowOf, setGap } from './align'
@@ -550,11 +551,30 @@ function GridSection({ editor, sheets, all }: { editor: Editor; sheets: Page[]; 
   const grids = sameOf(sheets, key) === null ? null : sheets[0].grids
   const setGrids = (grids: Grid[], to = sheets) => editor.batch(() => to.forEach((p) => editor.apply({ type: 'setGrids', id: p.id, grids })))
   const fresh: Grid = { kind: 'columns', count: 2, gutter: 5 * MM, margin: 15 * MM, size: 5 * MM }
-  const [presets, setPresets] = useState<DOMRect | null>(null)
+  const [presets, setPresets] = useState<{ at: DOMRect; remove?: boolean } | null>(null)
+  const saved = useSettings().gridPresets
+  const add = (more: Grid[]) => setGrids([...(grids ?? []), ...more])
+  const items: ([string, () => void, boolean, undefined?, string?] | null)[] = presets?.remove
+    ? saved.map((p) => [p.name, () => setSettings({ gridPresets: saved.filter((q) => q !== p) }), true])
+    : [
+        ...GRID_PRESETS.map(([name, kinds]): [string, () => void, boolean] => [name, () => add(kinds.map(([kind, count]) => ({ ...fresh, kind, count, gutter: (count > 6 ? 4 : 5) * MM }))), true]),
+        null,
+        ...saved.map((p): [string, () => void, boolean] => [p.name, () => add(p.grids), true]),
+        ...(saved.length ? [null] : []),
+        [
+          'Save grids as preset',
+          () => {
+            const name = describe(grids!)
+            setSettings({ gridPresets: [...saved.filter((p) => p.name !== name), { name, grids: grids! }] })
+          },
+          !!grids?.length,
+        ],
+        ...(saved.length ? [['Delete preset', () => setTimeout(() => setPresets({ ...presets!, remove: true })), true, undefined, '›'] as [string, () => void, boolean, undefined, string]] : []),
+      ]
   return (
     <Section
       title="Layout grids"
-      onAdd={(e) => setPresets(e.currentTarget.getBoundingClientRect())}
+      onAdd={(e) => setPresets({ at: e.currentTarget.getBoundingClientRect() })}
       actions={
         <>
           {grids && all.some((p) => key(p) !== key(sheets[0])) && (
@@ -565,11 +585,11 @@ function GridSection({ editor, sheets, all }: { editor: Editor; sheets: Page[]; 
           {presets &&
             createPortal(
               <ContextMenu
-                anchor={() => presets}
+                anchor={() => presets.at}
                 side="bottom"
-                label="Add layout grid"
+                label={presets.remove ? 'Delete preset' : 'Add layout grid'}
                 onClose={() => setPresets(null)}
-                items={GRID_PRESETS.map(([name, kinds]) => [name, () => setGrids([...(grids ?? []), ...kinds.map(([kind, count]) => ({ ...fresh, kind, count, gutter: (count > 6 ? 4 : 5) * MM }))]), true])}
+                items={items}
               />,
               document.body,
             )}
@@ -619,6 +639,12 @@ const GRID_PRESETS: [string, [Grid['kind'], number][]][] = [
   ['6 × 6 modules', [['columns', 6], ['rows', 6]]],
   ['5 mm grid', [['grid', 1]]],
 ]
+
+/** A name for `grids` like "3 columns, 5 mm gutter, 15 mm margin". */
+const describe = (grids: Grid[]) =>
+  grids
+    .map((g) => (g.kind === 'grid' ? `${length(g.size)} grid` : `${g.count} ${g.count === 1 ? g.kind.slice(0, -1) : g.kind}, ${length(g.gutter)} gutter, ${length(g.margin)} margin`))
+    .join(' + ')
 
 type PageProps = (p: Page) => Partial<Pick<Page, 'width' | 'height' | 'bleed'>> & { scale?: boolean }
 
