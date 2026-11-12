@@ -42,3 +42,22 @@ bearbeiten, Übersicht mit Kontextmenü, Master bearbeiten, Preflight mit Separa
 Format und Advanced, Einstellungen, Palette, Suchen, Ansicht ohne UI, Bildfüllung mit
 Adjust image, Layout grids mit Menü, Tastaturfokus, Toast mit Undo, Drag-Zustände
 (im Code), schmales Fenster (900×800).
+
+## Zusammenfassung: umgesetzt
+
+In 5 Runden, je Light und Dark geprüft, in 6 Commits umgesetzt:
+
+- **Dialoge:** ein Scrim für alle Dialoge; jeder Popover-Dialog hat einen Titel im
+  Kopf, Tabs darunter; Optionen und Popover schließen bei neuer Auswahl; Kopf des
+  Start-Dialogs wieder gestylt.
+- **Panel:** Ebenenname im Panel-Kopf; Datumsfeld mit Label; kein Einheit-Suffix
+  nach „Mixed“; Select-Werte enden mit „…“; Swatch-Slot auch für Blur- und Bildzeilen,
+  sichtbare Swatch-Ränder.
+- **Leisten und Menüs:** gedrückter Übersicht-Button; nur ein Export-Button bei
+  offenem Preflight; Häkchen-Toggles im Canvas-Menü; Pfadbearbeitung endet mit einem
+  normalen Done-Button wie Zuschneiden und Master.
+- **Felder:** Suchfelder (Hilfe, Menüs) sehen aus wie alle anderen Felder, Fokus mit
+  Akzentrahmen; flache Format-Kacheln; Shape-Icons nur als Kontur.
+- **Canvas:** Beschnittlinien und Suchtreffer in beiden Themes sichtbar.
+- **Ziehen:** gezogene Ebenen werden abgeblendet wie gezogene Seiten; Drop-Linien
+  überall 2 px.
