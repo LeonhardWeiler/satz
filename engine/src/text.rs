@@ -619,6 +619,8 @@ pub struct TextFrame {
     pub column_rule: Option<Rule>,
     /// The least height of an auto height frame in pt.
     pub min_height: f64,
+    /// The text styles of the levels of the table of contents the story is.
+    pub toc: Vec<String>,
     /// What a page number marker stands for: the number of the page the text is on.
     #[serde(skip)]
     pub number: String,
@@ -648,6 +650,7 @@ impl Default for TextFrame {
             round_baselines: false,
             column_rule: None,
             min_height: 0.0,
+            toc: Vec::new(),
             number: String::new(),
             date: String::new(),
             wrap: Vec::new(),

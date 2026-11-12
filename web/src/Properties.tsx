@@ -13,7 +13,7 @@ import { isOpen, radiusOf, rounded } from './model'
 import { AlignBar, BOOLEANS, combinable, combine, rowOf, setGap } from './align'
 import { AutoLayout, flows, Sizing } from './AutoLayout'
 import { EffectList, PaintList } from './Paints'
-import { sameOf, TextFrameSection, TextSection } from './Text'
+import { ContentsSection, sameOf, TextFrameSection, TextSection } from './Text'
 import { Bindable, ModeSelects } from './Variables'
 
 /** The rotation of `n`, for a group that of all its layers, or null if they differ. */
@@ -407,6 +407,7 @@ export function Properties({ editor }: { editor: Editor }) {
       {texts && <TextSection editor={editor} nodes={nodes as TextNode[]} />}
       {texts && fill}
       {texts && <TextFrameSection editor={editor} nodes={nodes as TextNode[]} set={set} />}
+      {texts && one && <ContentsSection editor={editor} node={one as TextNode} />}
       {one?.kind === 'frame' && <AutoLayout editor={editor} node={one} set={set} />}
       {box && (
         <Section

@@ -183,7 +183,7 @@ impl<'a> Tail<'a> {
 pub(super) type Placing = (TreeID, usize, Option<usize>, Rc<text::Placed>);
 
 /// The index of the span that holds the UTF-16 index `at`.
-fn span_at(spans: &[Span], at: usize) -> usize {
+pub(super) fn span_at(spans: &[Span], at: usize) -> usize {
     let mut end = 0;
     spans
         .iter()

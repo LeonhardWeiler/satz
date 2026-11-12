@@ -642,3 +642,32 @@ function ColorCheck({ editor, node, label, color, set, children }: { editor: Edi
     </div>
   )
 }
+
+/** The table of contents a text layer holds: the text styles whose paragraphs it lists, one level each. */
+export function ContentsSection({ editor, node }: { editor: Editor; node: TextNode }) {
+  const styles = useEditor(editor, (e) => e.snapshot.textStyles)
+  const toc = node.toc
+  const run = (ids: string[]) => editor.apply({ type: 'toc', id: node.id, styles: ids })
+  if (!styles.length) return null
+  return (
+    <Section
+      title="Table of contents"
+      actions={
+        toc.length ? (
+          <button type="button" className="icon-button" aria-label="Update table of contents" title="Update table of contents" onClick={() => run(toc)}>
+            <Icon name="reset" />
+          </button>
+        ) : (
+          <button type="button" className="icon-button" aria-label="Add table of contents" title="Add table of contents" onClick={() => run([styles[0].id])}>
+            <Icon name="plus" />
+          </button>
+        )
+      }
+    >
+      {toc.length > 0 &&
+        styles.map((s) => (
+          <Check key={s.id} label={s.name} value={toc.includes(s.id)} set={(on) => run(styles.filter((x) => (x.id === s.id ? on : toc.includes(x.id))).map((x) => x.id))} />
+        ))}
+    </Section>
+  )
+}

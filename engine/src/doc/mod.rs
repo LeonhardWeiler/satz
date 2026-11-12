@@ -42,6 +42,7 @@ mod draw;
 mod pages;
 mod palette;
 mod story;
+mod toc;
 
 use clipboard::*;
 pub use draw::*;
@@ -150,6 +151,13 @@ pub enum Command {
     /// Removes a text style; text using it keeps its values.
     DeleteTextStyle {
         id: String,
+    },
+    /// Fills the story of the text layer `id` with a table of contents of the
+    /// paragraphs in the text styles `styles`, one level each, with their page
+    /// numbers; running it again updates it, and no styles forget it.
+    Toc {
+        id: String,
+        styles: Vec<String>,
     },
     Set {
         id: String,
@@ -857,7 +865,8 @@ const BINDABLE: [&str; 12] = [
 ];
 
 /// The keys of a text layer that belong to its story and move with it.
-const STORY: [&str; 28] = [
+const STORY: [&str; 29] = [
+    "toc",
     "shading",
     "size",
     "lineHeight",
@@ -894,6 +903,7 @@ const STORY: [&str; 28] = [
 /// left page of a master spread to the one on the right it was copied from.
 const KIND: &str = "kind";
 const NEXT: &str = "next";
+const TOC: &str = "toc";
 const MASTER: &str = "master";
 const DETACHED: &str = "detached";
 const GRIDS: &str = "grids";
@@ -1661,6 +1671,7 @@ impl Doc {
             Command::AddTextStyle { name, props } => self.add_text_style(name, props),
             Command::SetTextStyle { id, name, props } => self.set_text_style(id, name, props),
             Command::DeleteTextStyle { id } => self.delete_text_style(id),
+            Command::Toc { id, styles } => self.toc(id, styles),
             Command::Set { id, props } => self.set_props(id, props),
             Command::SetPath { id, path } => self.set_path(id, path),
             Command::FitImage { id, fit } => self.fit_image(id, fit),

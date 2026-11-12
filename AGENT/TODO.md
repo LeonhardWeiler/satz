@@ -40,7 +40,6 @@ Done; numbers and the items measured and not done in `AGENT/performance.md`.
 
 ## Later
 
-- [ ] Table of contents.
 - [ ] Anchored objects.
 - [ ] Tables.
 - [ ] Linked images: per document, chosen at creation, embed or link. Linking uses File System
