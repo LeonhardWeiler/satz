@@ -1,5 +1,5 @@
 import { neutral, solid, type ColorMode } from './color'
-import { Check, Field, Group, NameInput, Section, Segmented, Select, SIDE_NAMES, SidesToggle, useMore } from './controls'
+import { Check, Field, Group, NameInput, Section, Segmented, Select, SIDE_ICONS, SIDE_NAMES, SidesToggle, useMore } from './controls'
 import { useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
@@ -10,7 +10,7 @@ import { pickProfile } from './file'
 import { length, setSettings, useSettings } from './settings'
 import type { Bindable as Prop, Blend, Constraint, Command, DateFormat, Grid, LineStyle, Node, Page, Props, Section as Numbers, TextNode, Wrap } from './model'
 import { isOpen, radiusOf, rounded } from './model'
-import { AlignBar, rowOf, setGap } from './align'
+import { AlignBar, BOOLEANS, combinable, combine, rowOf, setGap } from './align'
 import { AutoLayout, flows, Sizing } from './AutoLayout'
 import { EffectList, PaintList } from './Paints'
 import { sameOf, TextFrameSection, TextSection } from './Text'
@@ -22,7 +22,7 @@ const turnOf = (n: Node): number | null => {
   const turns = n.children.map(turnOf)
   return turns.every((t) => t === turns[0]) ? turns[0] : null
 }
-const WRAPS: Record<Wrap, string> = { none: 'No text wrap', around: 'Wrap around', jump: 'Jump over' }
+const WRAPS: Record<Wrap, string> = { none: 'None', around: 'Wrap around', jump: 'Jump over' }
 const BLENDS: Record<Blend, string> = {
   normal: 'Normal', darken: 'Darken', multiply: 'Multiply', colorBurn: 'Color burn',
   lighten: 'Lighten', screen: 'Screen', colorDodge: 'Color dodge',
@@ -189,21 +189,16 @@ export function Properties({ editor }: { editor: Editor }) {
             </button>
           </>
         )}
+        {box && combinable(editor) && (
+          <div role="toolbar" aria-label="Boolean" className="booleans">
+            {BOOLEANS.map(([op, title, icon, key]) => (
+              <button key={op} type="button" className="icon-button" aria-label={title} title={`${title} (${key})`} onClick={() => combine(editor, op)}>
+                <Icon name={icon} />
+              </button>
+            ))}
+          </div>
+        )}
       </header>
-      {nodes.length > 1 && (
-        <AlignBar editor={editor}>
-          {row && (
-            <Field
-              label="Spacing"
-              title={row.axis === 'x' ? 'Horizontal spacing' : 'Vertical spacing'}
-              unit="length"
-              value={row.gaps.every((g) => Math.abs(g - row.gaps[0]) < 1e-6) ? row.gaps[0] : null}
-              onCommit={(v) => setGap(editor, row, v)}
-            />
-          )}
-        </AlignBar>
-      )}
-      {one?.kind === 'group' && one.children.length > 1 && <AlignBar editor={editor} inside={one.children} />}
       {!box && <DocumentSection editor={editor} pagesOnly={!!overview} />}
       {!box && (
         <Section
@@ -291,7 +286,20 @@ export function Properties({ editor }: { editor: Editor }) {
       {!box && <GridSection editor={editor} sheets={sheets} all={isPage && targets.length === 1 ? snapshot.pages : []} />}
       {box && (
         <Section title="Layout">
-          <div className="grid">
+          {!nodes.every((n) => flows(editor, n)) && (
+            <AlignBar editor={editor}>
+              {row && (
+                <Field
+                  label={<Icon name={row.axis === 'x' ? 'distributeX' : 'distributeY'} />}
+                  title={row.axis === 'x' ? 'Horizontal spacing' : 'Vertical spacing'}
+                  unit="length"
+                  value={row.gaps.every((g) => Math.abs(g - row.gaps[0]) < 1e-6) ? row.gaps[0] : null}
+                  onCommit={(v) => setGap(editor, row, v)}
+                />
+              )}
+            </AlignBar>
+          )}
+          <div className="grid layout">
             <Field label="X" min={-Infinity} value={box.x} unit="length" onCommit={frame('x')} />
             <Field label="Y" min={-Infinity} value={box.y} unit="length" onCommit={frame('y')} />
             {line ? (
@@ -312,7 +320,7 @@ export function Properties({ editor }: { editor: Editor }) {
                     aria-pressed={same((n) => n.keepRatio) ?? 'mixed'}
                     onClick={() => set({ keepRatio: !same((n) => n.keepRatio) })}
                   >
-                    <Icon name="ratio" />
+                    <Icon name={same((n) => n.keepRatio) ? 'ratio' : 'unlink'} />
                   </button>
                 </div>
                 <Field
@@ -342,7 +350,7 @@ export function Properties({ editor }: { editor: Editor }) {
                 'Corner radius',
                 'R',
                 <Field
-                  label="R"
+                  label={<Icon name="radius" />}
                   title="Corner radius"
                   unit="length"
                   reset={0}
@@ -366,7 +374,7 @@ export function Properties({ editor }: { editor: Editor }) {
                 <Select
                   key={axis}
                   label={`${axis === 'horizontal' ? 'Horizontal' : 'Vertical'} constraint`}
-                  prefix={axis === 'horizontal' ? '↔' : '↕'}
+                  prefix={<Icon name={axis === 'horizontal' ? 'autoWidth' : 'autoHeight'} />}
                   value={one.constraints[axis]}
                   options={axis === 'horizontal' ? HORIZONTAL : VERTICAL}
                   onChange={(k) => set({ constraints: { ...one.constraints, [axis]: k } })}
@@ -374,6 +382,7 @@ export function Properties({ editor }: { editor: Editor }) {
               ))}
             </Group>
           )}
+          {one?.kind === 'group' && one.children.length > 1 && <AlignBar editor={editor} inside={one.children} />}
         </Section>
       )}
       {one?.kind === 'shape' && (one.shape === 'ellipse' || one.shape === 'polygon' || one.shape === 'star') && (
@@ -409,7 +418,7 @@ export function Properties({ editor }: { editor: Editor }) {
               'opacity',
               'Opacity',
               'Opacity',
-              <Field label="Opacity" title="Opacity" unit="%" digits={1} max={100} value={same((n) => n.opacity * 100)} onCommit={(v) => set({ opacity: v / 100 })} />,
+              <Field label={<Icon name="opacity" />} title="Opacity" unit="%" digits={1} max={100} value={same((n) => n.opacity * 100)} onCommit={(v) => set({ opacity: v / 100 })} />,
             )}
             <Select label="Blend mode" prefix="Blend" value={same((n) => n.blend)} options={BLENDS} breaks={BLEND_GROUPS} onChange={(blend) => set({ blend })} />
             {one?.kind === 'frame' && (
@@ -461,10 +470,10 @@ export function Properties({ editor }: { editor: Editor }) {
                 'strokeWeight',
                 'Stroke weight',
                 'Weight',
-                <Field label="Weight" title="Stroke weight" unit="pt" value={same((n) => n.strokeWeight)} onCommit={(v) => set({ strokeWeight: v })} />,
+                <Field label={<Icon name="strokeWeight" />} title="Stroke weight" unit="pt" value={same((n) => n.strokeWeight)} onCommit={(v) => set({ strokeWeight: v })} />,
               )}
               {nodes.every((n) => n.kind !== 'text') ? (
-                <Select label="Line style" prefix="Style" value={same((n) => n.lineStyle)} options={LINE_STYLES} onChange={(lineStyle) => set({ lineStyle })} />
+                <Select label="Line style" value={same((n) => n.lineStyle)} options={LINE_STYLES} onChange={(lineStyle) => set({ lineStyle })} />
               ) : (
                 <span />
               )}
@@ -478,7 +487,7 @@ export function Properties({ editor }: { editor: Editor }) {
                 SIDE_NAMES.map((side, i) => (
                   <Field
                     key={side}
-                    label={side}
+                    label={<Icon name={SIDE_ICONS[i]} />}
                     title={`${side} stroke`}
                     unit="pt"
                     value={one.strokeSides![i]}
@@ -492,11 +501,11 @@ export function Properties({ editor }: { editor: Editor }) {
             joinMore && (
               <div className="grid">
                 {open ? (
-                  <Segmented label="Stroke cap" prefix="Cap" value={same((n) => n.cap)} options={CAPS} onChange={(cap) => set({ cap })} />
+                  <Segmented label="Stroke cap" value={same((n) => n.cap)} options={CAPS} onChange={(cap) => set({ cap })} />
                 ) : (
-                  !nodes.some(isOpen) && <Segmented label="Stroke position" prefix="Align" value={same((n) => n.strokeAlign)} options={STROKE_ALIGNS} onChange={(strokeAlign) => set({ strokeAlign })} />
+                  !nodes.some(isOpen) && <Segmented label="Stroke position" value={same((n) => n.strokeAlign)} options={STROKE_ALIGNS} onChange={(strokeAlign) => set({ strokeAlign })} />
                 )}
-                <Segmented label="Stroke join" prefix="Join" value={same((n) => n.join)} options={JOINS} onChange={(join) => set({ join })} />
+                <Segmented label="Stroke join" value={same((n) => n.join)} options={JOINS} onChange={(join) => set({ join })} />
               </div>
             )
           )}

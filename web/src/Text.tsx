@@ -591,20 +591,21 @@ export function TextFrameSection({ editor, nodes, set }: { editor: Editor; nodes
         </>
       }
     >
-      <Segmented
-        label="Resizing"
-        text
-        value={resizing}
-        options={RESIZING}
-        disabled={(v) => nodes.some((n) => (v === 'autoWidth' && !!(n.prev || n.next)) || (v === 'autoHeight' && !!n.next))}
-        onChange={(mode) => editor.resize(nodes, mode)}
-      />
-      <Segmented label="Vertical align" value={same((n) => n.verticalAlign)} options={VERTICAL} onChange={(verticalAlign) => set({ verticalAlign })} />
+      <div className="grid">
+        <Segmented
+          label="Resizing"
+          value={resizing}
+          options={RESIZING}
+          disabled={(v) => nodes.some((n) => (v === 'autoWidth' && !!(n.prev || n.next)) || (v === 'autoHeight' && !!n.next))}
+          onChange={(mode) => editor.resize(nodes, mode)}
+        />
+        <Segmented label="Vertical align" value={same((n) => n.verticalAlign)} options={VERTICAL} onChange={(verticalAlign) => set({ verticalAlign })} />
+      </div>
       {shown && (
         <>
-          <Sides what="inset" values={insets} each={each} set={(v) => set(Object.fromEntries(INSETS.flatMap((p, i) => (v[i] === null ? [] : [[p, v[i]]]))))} />
           <div className="grid">
-            <Field label="Columns" title="Columns" unit="" int min={1} max={20} reset={1} value={columns} onCommit={(columns) => set({ columns })} />
+            <Sides what="inset" values={insets} each={each} set={(v) => set(Object.fromEntries(INSETS.flatMap((p, i) => (v[i] === null ? [] : [[p, v[i]]]))))} />
+            <Field label={<Icon name="columns" />} title="Columns" unit="" int min={1} max={20} reset={1} value={columns} onCommit={(columns) => set({ columns })} />
             {columned && <Field label="Gutter" title="Gutter" unit="length" value={same((n) => n.gutter)} onCommit={(gutter) => set({ gutter })} />}
           </div>
           {columned && (
@@ -615,7 +616,7 @@ export function TextFrameSection({ editor, nodes, set }: { editor: Editor; nodes
               color={rule && rule.color}
               set={(color) => set({ columnRule: color ? { weight: 1, color } : { ...rule!, weight: 0 } })}
             >
-              {rule && <Field label="Weight" title="Column rule weight" unit="pt" value={rule.weight} onCommit={(weight) => set({ columnRule: { ...rule, weight } })} />}
+              {rule && <Field label={<Icon name="strokeWeight" />} title="Column rule weight" unit="pt" value={rule.weight} onCommit={(weight) => set({ columnRule: { ...rule, weight } })} />}
             </ColorCheck>
           )}
           <div className="grid">

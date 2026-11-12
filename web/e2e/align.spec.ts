@@ -18,8 +18,7 @@ test('layers align to each other, a single layer to its frame, and three distrib
   await expect(panel.getByRole('button', { name: 'Distribute horizontal spacing' })).toHaveCount(0)
   await panel.getByRole('button', { name: 'Align left' }).click()
   expect(await x('Triangle')).toBe(await x('Sun'))
-  await pick()
-  await panel.getByRole('button', { name: 'Align to the parent frame or page' }).click()
+  await layers.getByRole('button', { name: 'Triangle', exact: true }).click()
   await panel.getByRole('button', { name: 'Align left' }).click()
   expect(await x('Triangle')).toBe(0)
   await page.keyboard.press('Control+z')
@@ -91,7 +90,7 @@ test('the align bar of a group aligns the layers inside it', async ({ page }) =>
   expect(await x('Star')).toBe(left)
 })
 
-test('layers side by side show their gap in the panel and drag it on the canvas, and the panel keeps its spacing row open', async ({ page }) => {
+test('layers side by side show their gap in the panel and drag it on the canvas, and the spacing stays in view', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
   for (const x of [20, 50]) {
@@ -101,8 +100,6 @@ test('layers side by side show their gap in the panel and drag it on the canvas,
   await page.keyboard.down('Shift')
   await page.mouse.click(...(await screen(page, 30, 30)))
   await page.keyboard.up('Shift')
-  await expect(panel.getByRole('textbox', { name: 'Horizontal spacing in mm' })).toHaveCount(0)
-  await panel.getByRole('button', { name: 'Distribute and spacing' }).click()
   const gap = panel.getByRole('textbox', { name: 'Horizontal spacing in mm' })
   await expect(gap).toHaveValue('10')
   await gap.fill('5')

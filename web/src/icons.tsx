@@ -11,6 +11,13 @@ function aligned(edge: string, ...bars: [number, number, number, number][]) {
   )
 }
 
+const side = (d: string) => (
+  <>
+    <rect x="3" y="3" width="10" height="10" rx="1.5" strokeOpacity=".35" />
+    <path d={d} strokeWidth="1.75" />
+  </>
+)
+
 const ICONS = {
   move: <path d="M3.6 3.3c-.2-.6.3-1 .8-.7l8.1 4.9c.5.3.4 1-.2 1.1L8.8 9.2l-1.7 3.7c-.3.6-1 .5-1.1-.1z" />,
   frame: <path d="M5 2v12M11 2v12M2 5h12M2 11h12" />,
@@ -109,6 +116,7 @@ const ICONS = {
   flipHorizontal: <path d="M8 2v12M6 4.5v8H2.5zM10 4.5v8h3.5z" />,
   flipVertical: <path d="M2 8h12M11.5 6h-8V2.5zM11.5 10h-8v3.5z" />,
   reset: <path d="M3 3v3h3M3.4 6A5 5 0 1 1 3 8.5" />,
+  unlink: <path d="M6.75 5.75l1-1a2.5 2.5 0 0 1 3.5 3.5l-1 1M9.25 10.25l-1 1a2.5 2.5 0 0 1-3.5-3.5l1-1M3 3l1.5 1.5M13 13l-1.5-1.5" />,
   ratio: <path d="M7 9l2-2M6.75 5.75l1-1a2.5 2.5 0 0 1 3.5 3.5l-1 1M9.25 10.25l-1 1a2.5 2.5 0 0 1-3.5-3.5l1-1" />,
   arrowDown: <path d="M8 3v10M4.5 9.5 8 13l3.5-3.5" />,
   arrowUp: <path d="M8 13V3M4.5 6.5 8 3l3.5 3.5" />,
@@ -249,6 +257,16 @@ const ICONS = {
     <>
       <circle cx="8" cy="8" r="5.5" />
       <path d="M8 2.5a5.5 5.5 0 0 1 0 11z" fill="currentColor" stroke="none" />
+    </>
+  ),
+  sideTop: side('M3 3h10'),
+  sideRight: side('M13 3v10'),
+  sideBottom: side('M3 13h10'),
+  sideLeft: side('M3 3v10'),
+  padding: (
+    <>
+      <rect x="2.5" y="2.5" width="11" height="11" rx="2" />
+      <rect x="5.5" y="5.5" width="5" height="5" rx=".75" fill="currentColor" fillOpacity=".35" stroke="none" />
     </>
   ),
   sides: <path d="M5 2.5h6M13.5 5v6M5 13.5h6M2.5 5v6" />,

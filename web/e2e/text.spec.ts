@@ -449,7 +449,7 @@ test('text runs around a layer above it that wraps it and jumps over one that ju
   await expect(hint).toHaveCount(0)
   await page.keyboard.press('Control+Shift+BracketLeft')
   await expect(hint).toBeVisible()
-  await choose(wrap, 'No text wrap')
+  await choose(wrap, 'None')
   await expect(offset).toHaveCount(0)
   await expect(hint).toHaveCount(0)
 })

@@ -33,7 +33,7 @@ export function Sizing({ editor, node, set }: { editor: Editor; node: Node; set:
     <Select
       key={axis}
       label={`${axis === 'horizontal' ? 'Width' : 'Height'} sizing`}
-      prefix={axis === 'horizontal' ? 'W' : 'H'}
+      prefix={<Icon name={axis === 'horizontal' ? 'autoWidth' : 'autoHeight'} />}
       value={node.sizing[axis]}
       options={sizes}
       onChange={(s) => set({ sizing: { ...node.sizing, [axis]: s } })}
@@ -47,6 +47,19 @@ export function AutoLayout({ editor, node, set }: { editor: Editor; node: Node &
   const padding = PADDING.map((p) => node[p])
   const [each, toggle] = useSides('padding', node.id, padding, PADDING.some((p) => node.bindings[p]))
   if (node.direction === 'none') return <Section title="Auto layout" onAdd={() => editor.apply({ type: 'autoLayout', ids: [node.id] })} />
+  const sides = (
+    <Sides
+      what="padding"
+      values={padding}
+      each={each}
+      wrap={(i, field) => (
+        <Bindable editor={editor} id={node.id} prop={PADDING[i]} title={`${SIDE_NAMES[i]} padding`} label={SIDE_NAMES[i]}>
+          {field}
+        </Bindable>
+      )}
+      set={(v) => set(Object.fromEntries(PADDING.map((p, i) => [p, Math.max(0, v[i] ?? 0)])))}
+    />
+  )
   const horizontal = node.direction === 'horizontal'
   const between = node.alignMain === 'spaceBetween'
   const align = (r: number, c: number) => {
@@ -65,7 +78,10 @@ export function AutoLayout({ editor, node, set }: { editor: Editor; node: Node &
         </>
       }
     >
-      <Segmented label="Direction" prefix="Direction" value={node.direction} options={DIRECTIONS} onChange={(direction) => set({ direction })} />
+      <div className="grid">
+        <Segmented label="Direction" value={node.direction} options={DIRECTIONS} onChange={(direction) => set({ direction })} />
+        {!each && sides}
+      </div>
       <div className="auto-layout">
         <div
           role="radiogroup"
@@ -115,17 +131,7 @@ export function AutoLayout({ editor, node, set }: { editor: Editor; node: Node &
           />
         </div>
       </div>
-      <Sides
-        what="padding"
-        values={padding}
-        each={each}
-        wrap={(i, field) => (
-          <Bindable editor={editor} id={node.id} prop={PADDING[i]} title={`${SIDE_NAMES[i]} padding`} label={SIDE_NAMES[i]}>
-            {field}
-          </Bindable>
-        )}
-        set={(v) => set(Object.fromEntries(PADDING.map((p, i) => [p, Math.max(0, v[i] ?? 0)])))}
-      />
+      {each && <div className="grid">{sides}</div>}
     </Section>
   )
 }

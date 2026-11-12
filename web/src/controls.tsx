@@ -491,15 +491,16 @@ export function Keys({ keys }: { keys: string }) {
 }
 
 export const SIDE_NAMES = ['Top', 'Right', 'Bottom', 'Left']
+export const SIDE_ICONS: IconName[] = ['sideTop', 'sideRight', 'sideBottom', 'sideLeft']
 
 /** Whether the sides of `what` of the layer `id` show one field each, kept for `opened`, and the button in the section header that switches it. */
 export function useSides(what: string, id: string, values: (number | null)[], opened?: boolean): [boolean, ReactNode] {
   const [shown, setShown] = useState<{ id: string; each: boolean } | null>(null)
-  const each = (shown?.id === id ? shown.each : values[0] !== values[2] || values[1] !== values[3]) || !!opened
+  const each = (shown?.id === id ? shown.each : values.some((v) => v !== values[0])) || !!opened
   return [each, <SidesToggle what={what} pressed={each} disabled={opened} onClick={() => setShown({ id, each: !each })} />]
 }
 
-/** Lengths of the four sides, top first, as a horizontal and a vertical field or, `each`, one field per side; `wrap` wraps those. */
+/** Lengths of the four sides, top first, as one field for all or, `each`, one field per side; `wrap` wraps those. */
 export function Sides({
   what,
   values,
@@ -513,27 +514,22 @@ export function Sides({
   wrap?: (side: number, field: ReactNode) => ReactNode
   set: (values: (number | null)[]) => void
 }) {
-  return (
-    <div className="grid">
-      {each
-        ? SIDE_NAMES.map((side, i) => (
-            <Fragment key={side}>
-              {wrap(i, <Field label={side} title={`${side} ${what}`} unit="length" reset={0} value={values[i]} onCommit={(v) => set(values.with(i, v))} />)}
-            </Fragment>
-          ))
-        : ([['H', 'Horizontal', 1, 3], ['V', 'Vertical', 0, 2]] as const).map(([label, name, a, b]) => (
-            <Field
-              key={name}
-              label={`${what[0].toUpperCase()}${what.slice(1)} ${label}`}
-              title={`${name} ${what}`}
-              unit="length"
-              reset={0}
-              value={values[a] === values[b] ? values[a] : null}
-              onCommit={(v) => set(values.with(a, v).with(b, v))}
-            />
-          ))}
-    </div>
-  )
+  if (!each)
+    return (
+      <Field
+        label={<Icon name="padding" />}
+        title={`${what[0].toUpperCase()}${what.slice(1)}`}
+        unit="length"
+        reset={0}
+        value={values.every((v) => v === values[0]) ? values[0] : null}
+        onCommit={(v) => set(values.map(() => v))}
+      />
+    )
+  return SIDE_NAMES.map((side, i) => (
+    <Fragment key={side}>
+      {wrap(i, <Field label={<Icon name={SIDE_ICONS[i]} />} title={`${side} ${what}`} unit="length" reset={0} value={values[i]} onCommit={(v) => set(values.with(i, v))} />)}
+    </Fragment>
+  ))
 }
 
 /** The button that shows one field per side of `what`. */

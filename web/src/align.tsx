@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { bounds, MM, type Editor } from './editor'
 import { Icon, type IconName } from './icons'
 import type { BooleanOp, Node } from './model'
@@ -34,13 +34,13 @@ export const ALIGNS: [Align, string, IconName, string][] = [
 ]
 
 /**
- * Aligns `layers` to their bounds, or a single layer or with `toParent` all to the parent frame or page;
+ * Aligns `layers` to their bounds, or a single layer to its parent frame or page;
  * distributes and tidies three and two layers or more.
  */
-export function align(editor: Editor, how: Align, layers = editor.selected(), toParent = false) {
+export function align(editor: Editor, how: Align, layers = editor.selected()) {
   const nodes = layers.filter((n) => !n.locked)
   const parent = nodes.length > 0 && editor.nodes.get(nodes[0].id)?.parent
-  const to = nodes.length > 1 && !toParent ? bounds(nodes) : parent && parent.kind === 'frame' ? parent : { x: 0, y: 0, w: editor.page.width, h: editor.page.height }
+  const to = nodes.length > 1 ? bounds(nodes) : parent && parent.kind === 'frame' ? parent : { x: 0, y: 0, w: editor.page.width, h: editor.page.height }
   const moves = new Map<Node, [number, number]>()
   const sorted = (x: 'x' | 'y', w: 'w' | 'h') => [...nodes].sort((a, b) => a[x] + a[w] / 2 - b[x] - b[w] / 2)
   const spread = (x: 'x' | 'y', w: 'w' | 'h') => {
@@ -111,58 +111,45 @@ export function setGap(editor: Editor, { axis, nodes }: Row, gap: number) {
   })
 }
 
-let moreOpen = false
-
 /**
- * A button for each alignment of the selection, to itself or its parent, or of the layers `inside` a group, and a 2nd row
- * for distributing them and `children`; those it cannot do are left out.
+ * A button for each alignment of the selection, of several layers to their bounds and of one to its parent, or of the
+ * layers `inside` a group; below them distribute and tidy for three layers or more, and `children`.
  */
 export function AlignBar({ editor, inside, children }: { editor: Editor; inside?: Node[]; children?: ReactNode }) {
-  const [toParent, setToParent] = useState(false)
-  const [more, setMoreState] = useState(moreOpen)
-  const setMore = (v: boolean) => setMoreState((moreOpen = v))
   const n = inside?.length ?? editor.selection.length
-  const parent = !inside && n > 1 && toParent
   const button = ([how, title, icon, key]: (typeof ALIGNS)[number]) => (
     <button
       key={how}
       type="button"
       className="icon-button"
       aria-label={title}
-      title={inside ? `${title} inside the group` : `${title} (${key})`}
-      onClick={() => align(editor, how, inside, parent)}
+      title={inside ? `${title} inside the group` : n > 1 ? `${title} (${key})` : `${title} to the ${editor.nodes.get(editor.selection[0])?.parent?.kind === 'frame' ? 'frame' : 'page'} (${key})`}
+      onClick={() => align(editor, how, inside)}
     >
       <Icon name={icon} />
     </button>
   )
-  const spread = ALIGNS.slice(6, 8).filter(() => n >= 3)
+  const spread = !inside && n >= 3
+  const bar = (
+    <div role="toolbar" aria-label={inside ? 'Align inside' : 'Align'} className="align">
+      {ALIGNS.slice(0, 6).map(button)}
+    </div>
+  )
+  if (inside)
+    return (
+      <div role="group" aria-label="Inside the group" className="options-group">
+        <header>
+          <h4>Inside the group</h4>
+        </header>
+        {bar}
+      </div>
+    )
   return (
     <>
-      <div role="toolbar" aria-label={inside ? 'Align inside' : 'Align'} className="align">
-        {inside ? (
-          <span className="align-inside" title="Aligns the layers inside the group">
-            <Icon name="group" />
-          </span>
-        ) : (
-          n > 1 && (
-            <>
-              <button type="button" className="icon-button" aria-label="Align to the parent frame or page" title="Align to the parent frame or page" aria-pressed={toParent} onClick={() => setToParent(!toParent)}>
-                <Icon name="frame" />
-              </button>
-              <span className="sep" />
-            </>
-          )
-        )}
-        {ALIGNS.slice(0, 6).map(button)}
-        {(spread.length > 0 || children) && (
-          <button type="button" className="icon-button" aria-label="Distribute and spacing" title="Distribute and spacing" aria-expanded={more} onClick={() => setMore(!more)}>
-            <Icon name="more" />
-          </button>
-        )}
-      </div>
-      {more && (spread.length > 0 || children) && (
-        <div role="toolbar" aria-label="Distribute" className="align distribute">
-          {spread.map(button)}
+      {bar}
+      {(spread || children) && (
+        <div role="toolbar" aria-label="Distribute" className="align">
+          {spread && ALIGNS.slice(6).map(button)}
           {children}
         </div>
       )}

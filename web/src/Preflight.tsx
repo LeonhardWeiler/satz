@@ -237,28 +237,32 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
                     </label>
                   </>
                 )}
-                <Select label="Image resolution" prefix="Images" value={String(imagePpi)} options={options([72, 150, 300], 'ppi', 'Keep', imagePpi)} onChange={(v) => editor.apply({ type: 'setDocument', imagePpi: Number(v) })} />
-                <Select label="JPEG quality" prefix="JPEG quality" value={String(jpegQuality)} options={options([90, 75], '%', 'Lossless', jpegQuality)} onChange={(v) => editor.apply({ type: 'setDocument', jpegQuality: Number(v) })} />
+                <div className="grid">
+                  <Select label="Image resolution" prefix="Images" value={String(imagePpi)} options={options([72, 150, 300], 'ppi', 'Keep', imagePpi)} onChange={(v) => editor.apply({ type: 'setDocument', imagePpi: Number(v) })} />
+                  <Select label="JPEG quality" prefix="JPEG" value={String(jpegQuality)} options={options([90, 75], '%', 'Lossless', jpegQuality)} onChange={(v) => editor.apply({ type: 'setDocument', jpegQuality: Number(v) })} />
+                </div>
                 </>
               )}
             </>
           )}
-          <label className="field">
-            <span className="field-label">Pages</span>
-            <input
-              name="pages"
-              aria-label="Pages to export"
-              aria-invalid={chosen === null}
-              autoComplete="off"
-              placeholder="All"
-              value={range}
-              onChange={(e) => setRange(e.currentTarget.value)}
-            />
-          </label>
+          <div className="grid">
+            <label className="field">
+              <span className="field-label">Pages</span>
+              <input
+                name="pages"
+                aria-label="Pages to export"
+                aria-invalid={chosen === null}
+                autoComplete="off"
+                placeholder="All"
+                value={range}
+                onChange={(e) => setRange(e.currentTarget.value)}
+              />
+            </label>
+            {(format === 'png' || format === 'jpeg' || preset !== 'screen') && (
+              <Field label="Resolution" title="Resolution" unit="ppi" min={72} max={1200} reset={300} value={rasterPpi} onCommit={(rasterPpi) => editor.apply({ type: 'setDocument', rasterPpi })} />
+            )}
+          </div>
           {chosen === null && <p className="pf-error">{labels.length > 1 ? `Pages ${labels[0]}–${labels.at(-1)}, e.g. 1-3, 5` : `Only page ${labels[0]}`}</p>}
-          {(format === 'png' || format === 'jpeg' || preset !== 'screen') && (
-            <Field label="Resolution" title="Resolution" unit="ppi" min={72} max={1200} reset={300} value={rasterPpi} onCommit={(rasterPpi) => editor.apply({ type: 'setDocument', rasterPpi })} />
-          )}
           <button type="button" className={errors ? 'button pf-go bad' : 'primary pf-go'} disabled={exporting || chosen === null} onClick={() => chosen && onExport(format, chosen)}>
             {!exporting && errors > 0 && <Icon name="warn" />}
             {exporting ? 'Exporting…' : errors ? `Export with ${count(errors, 'error')}` : 'Export'}

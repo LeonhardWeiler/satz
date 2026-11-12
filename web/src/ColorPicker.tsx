@@ -210,13 +210,29 @@ export function Picker({
     >
       <header className="picker-header">
         {editor ? (
-          <div role="tablist" className="tabs">
-            {(['custom', 'swatches'] as const).map((t) => (
-              <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
-                {t === 'custom' ? 'Custom' : 'Swatches'}
-              </button>
-            ))}
-          </div>
+          <>
+            <div role="tablist" className="tabs">
+              {(['custom', 'swatches'] as const).map((t) => (
+                <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
+                  {t === 'custom' ? 'Custom' : 'Swatches'}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Add to swatches"
+              title="Add to swatches"
+              onClick={() => {
+                const name = nextName('Swatch', scope.swatches.map((s) => s.name))
+                const [swatch] = editor.apply({ type: 'addSwatch', name, color: withAlpha(process, 100), spot: false })
+                onChange({ swatch, tint: 1, alpha: alpha(process) / 100 })
+                setTab('swatches')
+              }}
+            >
+              <Icon name="plus" />
+            </button>
+          </>
         ) : (
           <h2>{title}</h2>
         )}
@@ -330,20 +346,6 @@ export function Picker({
             </label>
           </div>
         </>
-      )}
-      {editor && (
-        <button
-          type="button"
-          className="button"
-          onClick={() => {
-            const name = nextName('Swatch', scope.swatches.map((s) => s.name))
-            const [swatch] = editor.apply({ type: 'addSwatch', name, color: withAlpha(process, 100), spot: false })
-            onChange({ swatch, tint: 1, alpha: alpha(process) / 100 })
-            setTab('swatches')
-          }}
-        >
-          <Icon name="plus" /> Add to swatches
-        </button>
       )}
     </Popover>
   )
