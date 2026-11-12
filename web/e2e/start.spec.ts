@@ -18,7 +18,7 @@ test('the projects show at the start, list what was opened and open it again', a
   await autosaved(page, false)
   await page.getByRole('button', { name: 'Projects' }).click()
   const cards = home(page).getByRole('list', { name: 'Recent' }).getByRole('listitem')
-  await expect(cards).toHaveCount(2)
+  await expect(cards).toHaveCount(3)
   await expect(cards.first()).toContainText('poster')
   await expect(cards.first().locator('img')).toBeVisible()
   await page.keyboard.press('Escape')
@@ -32,7 +32,7 @@ test('the projects show at the start, list what was opened and open it again', a
   await page.getByRole('button', { name: 'Projects' }).click()
   await home(page).getByRole('button', { name: 'Delete booklet.satz' }).click()
   await page.locator('.ask').getByRole('button', { name: 'Delete' }).click()
-  await expect(cards).toHaveCount(1)
+  await expect(cards).toHaveCount(2)
   await page.reload()
   await expect(home(page)).toBeVisible()
 })
@@ -93,7 +93,7 @@ test('escape returns to the document and new keeps the changes in their project'
   await start(page).getByRole('button', { name: /Create/ }).click()
   await expect(page).toHaveTitle('Untitled.satz - Satz')
   await page.getByRole('button', { name: 'Projects' }).click()
-  await expect(home(page).getByRole('list', { name: 'Recent' }).getByRole('listitem')).toHaveCount(2)
+  await expect(home(page).getByRole('list', { name: 'Recent' }).getByRole('listitem')).toHaveCount(3)
 })
 
 test('ctrl+o on the start screen opens the file it asks for', async ({ page }) => {

@@ -94,34 +94,34 @@ export function Home({ editor, onNew, children }: { editor: Editor; onNew: () =>
           <span className="mark" aria-hidden="true" />
           <h1>Satz</h1>
         </div>
-        <button type="button" className="button" onClick={() => open(editor)}>
-          <Icon name="folder" />
-          Open or import…
-        </button>
-        <button type="button" className="primary" onClick={onNew}>
-          <Icon name="plus" />
-          New document
-        </button>
       </header>
       <section className="home-main">
         <h2>Projects</h2>
-        {list.length > 0 && <h3>Recent</h3>}
-        {list.length > 0 && (
-          <ul className="home-grid" aria-label="Recent">
-            {list.map((p) => (
-              <li key={p.id} className="home-card">
-                <button type="button" onClick={() => openProject(editor, p.id)}>
-                  <Thumb bytes={p.thumb} />
-                  <strong>{p.name.replace(/\.satz$/, '')}</strong>
-                  <small>{ago(p.at)}</small>
-                </button>
-                <button type="button" className="icon-button" aria-label={`Delete ${p.name}`} title="Delete" onClick={() => remove(p)}>
-                  <Icon name="close" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
+        <h3>Recent</h3>
+        <ul className="home-grid" aria-label="Recent">
+          {list.map((p) => (
+            <li key={p.id} className="home-card">
+              <button type="button" onClick={() => openProject(editor, p.id)}>
+                <Thumb bytes={p.thumb} />
+                <strong>{p.name.replace(/\.satz$/, '')}</strong>
+                <small>{ago(p.at)}</small>
+              </button>
+              <button type="button" className="icon-button" aria-label={`Delete ${p.name}`} title="Delete" onClick={() => remove(p)}>
+                <Icon name="close" />
+              </button>
+            </li>
+          ))}
+          <li className="home-new">
+            <button type="button" className="primary" onClick={onNew}>
+              <Icon name="plus" />
+              New document
+            </button>
+            <button type="button" className="button" onClick={() => open(editor)}>
+              <Icon name="folder" />
+              Open or import…
+            </button>
+          </li>
+        </ul>
         <h3>Examples</h3>
         <ul className="home-grid" aria-label="Examples">
           {EXAMPLES.map(([title, text, url, name], i) => (

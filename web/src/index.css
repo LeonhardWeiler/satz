@@ -3580,7 +3580,7 @@ input[type='checkbox']:active {
   border: 0;
 }
 
-.home-bar .button,
+.home-new .button,
 .start-footer .button,
 .ask .button {
   height: 28px;
@@ -3671,6 +3671,22 @@ input[type='checkbox']:active {
   max-width: 100%;
   max-height: 228px;
   box-shadow: 0 0 0 1px var(--edge);
+}
+
+.home-new {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  box-sizing: border-box;
+  height: 260px;
+  padding: 24px;
+  border: 1px dashed var(--edge);
+  border-radius: 12px;
+}
+
+.home-new button {
+  justify-content: center;
 }
 
 .home-card .icon-button {
