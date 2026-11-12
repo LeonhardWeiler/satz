@@ -239,7 +239,10 @@ export function Picker({
               aria-selected={v.id === bound}
               className="swatch-option"
               title={v.name}
-              onClick={() => onChange({ variable: v.id, alpha: 1 })}
+              onClick={() => {
+                onChange({ variable: v.id, alpha: 1 })
+                onClose(true)
+              }}
             >
               <Chip color={{ variable: v.id, alpha: 1 }} scope={scope} />
               <span className="swatch-name">{v.name}</span>
@@ -251,20 +254,12 @@ export function Picker({
               key={sw.id}
               swatch={sw}
               selected={sw.id === bound}
-              onPick={() => onChange({ swatch: sw.id, tint: 1, alpha: 1 })}
+              onPick={() => {
+                onChange({ swatch: sw.id, tint: 1, alpha: 1 })
+                onClose(true)
+              }}
             />
           ))}
-          <button
-            type="button"
-            className="button"
-            onClick={() => {
-              const name = nextName('Swatch', scope.swatches.map((s) => s.name))
-              const [swatch] = editor!.apply({ type: 'addSwatch', name, color: withAlpha(process, 100), spot: false })
-              onChange({ swatch, tint: 1, alpha: alpha(process) / 100 })
-            }}
-          >
-            <Icon name="plus" /> Save as swatch
-          </button>
         </div>
       ) : (
         <>
@@ -338,6 +333,20 @@ export function Picker({
             </label>
           </div>
         </>
+      )}
+      {editor && (
+        <button
+          type="button"
+          className="button"
+          onClick={() => {
+            const name = nextName('Swatch', scope.swatches.map((s) => s.name))
+            const [swatch] = editor.apply({ type: 'addSwatch', name, color: withAlpha(process, 100), spot: false })
+            onChange({ swatch, tint: 1, alpha: alpha(process) / 100 })
+            setTab('swatches')
+          }}
+        >
+          <Icon name="plus" /> Add to swatches
+        </button>
       )}
     </Popover>
   )

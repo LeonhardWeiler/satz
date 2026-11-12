@@ -166,7 +166,7 @@ test('a spot swatch is made in the swatches panel, bound in the picker, tinted a
   const picker = page.getByRole('dialog', { name: 'Fill color' })
   await picker.getByRole('tab', { name: 'Swatches' }).click()
   await picker.getByRole('option', { name: 'HKS 43' }).click()
-  await page.keyboard.press('Escape')
+  await expect(picker).toBeHidden()
   const [x, y] = await screen(page, 74, 7)
   const [r, , b] = (await pixels(page, x, y, 1, 1))[0]
   expect(b - r).toBeGreaterThan(100)
@@ -295,16 +295,17 @@ test('a cmyk document takes an uploaded icc profile and goes back to fogra51', a
   await expect(profile).toHaveText(/FOGRA51$/)
 })
 
-test('save as swatch in the swatches tab adds the color as a swatch and binds it', async ({ page }) => {
+test('add to swatches in the picker adds the color as a swatch and binds it', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).last().click()
   await panel.getByRole('button', { name: 'Fill color' }).click()
   const picker = page.getByRole('dialog', { name: 'Fill color' })
-  await picker.getByRole('tab', { name: 'Swatches' }).click()
   const options = picker.getByRole('option')
+  await picker.getByRole('tab', { name: 'Swatches' }).click()
   const before = await options.count()
-  await picker.getByRole('button', { name: 'Save as swatch' }).click()
+  await picker.getByRole('tab', { name: 'Custom' }).click()
+  await picker.getByRole('button', { name: 'Add to swatches' }).click()
   await expect(options).toHaveCount(before + 1)
   await expect(options.last()).toHaveAttribute('aria-selected', 'true')
 })

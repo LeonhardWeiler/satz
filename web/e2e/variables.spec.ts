@@ -98,7 +98,7 @@ test('a fill bound to a color variable follows the mode of its frame and page', 
     const picker = page.getByRole('dialog', { name: 'Fill color' })
     await picker.getByRole('tab', { name: 'Swatches' }).click()
     await picker.getByRole('option', { name: 'Color 1' }).click()
-    await page.keyboard.press('Escape')
+    await expect(picker).toBeHidden()
   }
   const rects = layers.getByRole('button', { name: 'Rectangle', exact: true })
   await page.getByRole('tab', { name: 'Layers' }).click()
