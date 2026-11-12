@@ -25,6 +25,11 @@ import { Toolbar } from './Toolbar'
 import { Tooltip } from './Tooltip'
 
 const CLIP = 'application/x-satz-layers'
+const SHOWS: Record<string, [label: string, panel: 'rulers' | 'left' | 'right']> = {
+  'Show or hide rulers': ['Rulers', 'rulers'],
+  'Show or hide left panel': ['Left panel', 'left'],
+  'Show or hide right panel': ['Right panel', 'right'],
+}
 
 export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   const status = useEditor(editor, (e) => e.status)
@@ -290,9 +295,11 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
             <Icon name={issues.length ? 'warn' : 'ok'} />
             {issues.length > 0 && (errors || issues.length)}
           </button>
-          <button type="button" className="primary" title={errors ? 'Export: shows the errors first (Ctrl+Shift+E)' : 'Export every page (Ctrl+Shift+E)'} onClick={quickExport}>
-            Export
-          </button>
+          {!preflight && (
+            <button type="button" className="primary" title={errors ? 'Export: shows the errors first (Ctrl+Shift+E)' : 'Export every page (Ctrl+Shift+E)'} onClick={quickExport}>
+              Export
+            </button>
+          )}
         </div>
       </header>
       <Canvas ck={ck} editor={editor} />
@@ -318,6 +325,8 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
             .map((title) => {
             if (title === 'Transform') return [title, () => setTimeout(() => setMenu({ ...menu, transform: true })), true, undefined, '›']
             const a = title && ACTIONS.find((a) => a.title === title)!
+            const shows = title && SHOWS[title]
+            if (a && shows) return [shows[0], () => hide(shows[1]), true, !hidden[shows[1]], keysOf(a)]
             return a ? [a.title, () => (a.run ? a.run(editor) : press(a.keys)), a.can?.(editor) ?? true, undefined, keysOf(a)] : null
           })}
         />

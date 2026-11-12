@@ -179,7 +179,7 @@ export function Properties({ editor }: { editor: Editor }) {
     >
       <header className="panel-header">
         {one ? <KindIcon node={one} /> : <Icon name={nodes.length ? 'group' : isPage ? 'doc' : 'master'} />}
-        <h2>{one && cropping === one.id ? 'Crop' : one ? (one.kind === 'text' ? 'Text frame' : one.name) : nodes.length ? `${nodes.length} layers` : overview ? 'Pages' : isPage ? 'Document' : page.name}</h2>
+        <h2>{one && cropping === one.id ? 'Crop' : one ? one.name : nodes.length ? `${nodes.length} layers` : overview ? 'Pages' : isPage ? 'Document' : page.name}</h2>
         {one && cropping === one.id && <button type="button" className="button" onClick={() => editor.set({ cropping: null })}>Done</button>}
         {one?.overrideOf && (
           <>

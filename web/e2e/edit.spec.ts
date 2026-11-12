@@ -187,7 +187,7 @@ test('a right click selects the layer under it and offers the actions for it', a
   await expect(menu.getByRole('menuitem', { name: /Select all/ })).toBeVisible()
   const ruler = async () => (await page.locator('.ruler-x').boundingBox())?.height ?? 0
   expect(await ruler()).toBeGreaterThan(0)
-  await menu.getByRole('menuitem', { name: /Show or hide rulers/ }).click()
+  await menu.getByRole('menuitemradio', { name: 'Rulers' }).click()
   await expect.poll(ruler).toBe(0)
   await page.keyboard.press('Shift+R')
   await expect.poll(ruler).toBeGreaterThan(0)

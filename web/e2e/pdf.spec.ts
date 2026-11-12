@@ -191,7 +191,7 @@ test('marquee, group, enter the group and undo', async ({ page }) => {
   await expect(title).toHaveText('Group')
   await expect(groups).toHaveCount(1)
   await page.mouse.dblclick(...at(0.5, 0.5))
-  await expect(title).toHaveText('Text frame')
+  await expect(title).toHaveText(/^Satz sets type/)
   await page.keyboard.press('Escape')
   await expect(title).toHaveText('Group')
   await page.keyboard.press('Control+z')
