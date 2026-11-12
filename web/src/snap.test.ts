@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest'
 import type { Node } from './model'
+import type { Sheet } from './renderer'
 import { equals, guides, measure, nearest, snap, spacings, targets } from './snap'
 
 const box = (x: number, y: number, w: number, h: number) => ({ kind: 'shape', x, y, w, h }) as Node
@@ -15,6 +16,14 @@ test('pages and layers give their edges and centres', () => {
 test('a spread snaps to its outer bleed edges only', () => {
   const { x } = targets([sheet, { ...sheet, x: 100 }], [])
   expect(x.map((l) => l.at)).toEqual([0, 50, 100, -3, 100, 150, 200, 203])
+})
+
+test('a layout grid gives every edge of its columns and rows, its margins too', () => {
+  const grids = [{ kind: 'columns', count: 2, gutter: 10, margin: 10, size: 5 }, { kind: 'rows', count: 1, gutter: 0, margin: 20, size: 5 }] as Sheet['grids']
+  const { x, y } = targets([{ ...sheet, grids }], [], true)
+  expect(x.map((l) => l.at).slice(5)).toEqual([10, 45, 55, 90, 20, 80])
+  expect(y.map((l) => l.at).slice(5)).toEqual([10, 190, 10, 190, 20, 180])
+  expect(y[5]).toEqual({ at: 10, from: 10, to: 45 })
 })
 
 test('text frames also give their insets, columns and baseline grid', () => {

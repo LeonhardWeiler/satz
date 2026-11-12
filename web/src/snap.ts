@@ -56,8 +56,14 @@ export function targets(sheets: Sheet[], nodes: Node[], grids = false): Lines {
     for (const at of s.guides?.x ?? []) x.push({ at: s.x + at, from: 0, to: s.height })
     for (const at of s.guides?.y ?? []) y.push({ at, from: s.x, to: s.x + s.width })
     const spans = gridSpans(s)
-    for (const at of spans.x.flatMap(([a, b]) => [a, b])) x.push({ at, from: 0, to: s.height })
-    for (const at of spans.y.flatMap(([a, b]) => [a, b])) y.push({ at, from: s.x, to: s.x + s.width })
+    for (const [a, b, m = 0] of spans.x) {
+      x.push({ at: a, from: 0, to: s.height }, { at: b, from: 0, to: s.height })
+      if (m) y.push({ at: m, from: a, to: b }, { at: s.height - m, from: a, to: b })
+    }
+    for (const [a, b, m = 0] of spans.y) {
+      y.push({ at: a, from: s.x, to: s.x + s.width }, { at: b, from: s.x, to: s.x + s.width })
+      if (m) x.push({ at: s.x + m, from: a, to: b }, { at: s.x + s.width - m, from: a, to: b })
+    }
   }
   for (const n of nodes) {
     box(n)
