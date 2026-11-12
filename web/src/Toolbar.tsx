@@ -82,7 +82,7 @@ export function Toolbar({ editor, onPlaceImage }: { editor: Editor; onPlaceImage
             <Icon name={icon} />
           </button>
         ))}
-        <button type="button" className="primary" onClick={() => editor.set({ vector: null })}>
+        <button type="button" className="button" onClick={() => editor.set({ vector: null })}>
           Done
         </button>
       </div>
