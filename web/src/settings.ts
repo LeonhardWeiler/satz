@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { MM } from './editor'
+import type { ColorMode, Grid } from './types'
 
 /** Points per length unit. */
 export const UNITS = { mm: MM, cm: 10 * MM, in: 72, pt: 1 } as const
@@ -17,7 +18,12 @@ const DEFAULTS = {
   keys: {} as Record<string, string>,
   /** The width of the masters in the page overview, its page height and columns of spreads, 0 to fill the width, all in px. */
   overview: { masters: 170, pages: 200, columns: 0 },
+  /** New document presets, lengths in pt. */
+  docPresets: [] as DocPreset[],
+  /** Layout grid presets, lengths in pt. */
+  gridPresets: [] as { name: string; grids: Grid[] }[],
 }
+export type DocPreset = { name: string; w: number; h: number; pages: number; facing: boolean; mode: ColorMode; margin: number; columns: number; gutter: number; bleed: number }
 export type Settings = typeof DEFAULTS
 
 const stored = (): Partial<Settings> => {

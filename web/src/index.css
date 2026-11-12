@@ -2485,8 +2485,9 @@ input[type='checkbox']:active {
 
 .start[open] {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  width: min(780px, 94vw);
+  grid-template: 'head head' auto 'presets details' minmax(0, 1fr) 'foot foot' auto / minmax(0, 1fr) 272px;
+  width: min(960px, 94vw);
+  height: min(640px, 90vh);
   padding: 0;
   overflow: hidden;
   border: 1px solid var(--edge);
@@ -2501,16 +2502,13 @@ input[type='checkbox']:active {
   background: var(--scrim);
 }
 
-.start-main {
-  display: grid;
-  gap: 24px;
-  padding: 24px;
-}
-
 .start-head {
   display: flex;
+  grid-area: head;
   justify-content: space-between;
   align-items: center;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
 }
 
 .start h2 {
@@ -2520,9 +2518,48 @@ input[type='checkbox']:active {
   font-weight: 600;
 }
 
+.start h3 {
+  margin: 8px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.start-presets {
+  display: grid;
+  grid-area: presets;
+  align-content: start;
+  gap: 12px;
+  padding: 16px 24px 24px;
+  overflow: auto;
+  background: var(--canvas);
+}
+
+.start-details {
+  display: grid;
+  grid-area: details;
+  align-content: start;
+  gap: 8px;
+  padding: 16px;
+  overflow: auto;
+  border-left: 1px solid var(--border);
+}
+
+.start-name {
+  display: flex;
+  gap: 4px;
+}
+
+.start-name .field {
+  flex: 1;
+}
+
+.start-details .segmented {
+  flex: none;
+}
+
 .formats {
   display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
   gap: 8px;
 }
 
@@ -2530,6 +2567,7 @@ input[type='checkbox']:active {
   display: grid;
   justify-items: center;
   gap: 4px;
+  width: 100%;
   padding: 12px 2px;
   border: 0;
   border-radius: 12px;
@@ -2559,50 +2597,41 @@ input[type='checkbox']:active {
   transition: width var(--open) var(--ease), height var(--open) var(--ease);
 }
 
-.format-box .format-custom {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 45px;
-  border: 1px dashed var(--muted);
-  background: none;
-  box-shadow: none;
-  color: var(--muted);
-}
-
 .format strong {
+  overflow: hidden;
+  max-width: 100%;
   color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-
-.format small,
 
 .format small {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 
-.start-options {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
+.saved {
+  position: relative;
 }
 
-.start-options .segmented {
-  flex: none;
+.saved .icon-button {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  opacity: 0;
 }
 
-.start-options .field {
-  width: 120px;
+.saved:is(:hover, :focus-within) .icon-button {
+  opacity: 1;
 }
 
 .start-footer {
   display: flex;
+  grid-area: foot;
   justify-content: flex-end;
-}
-
-.start-options .segmented button {
-  width: 32px;
+  gap: 8px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
 }
 
 .overview {

@@ -67,18 +67,48 @@ test('enter creates a document of the chosen format, orientation and pages', asy
   await expect(spreads(page).getByRole('button', { name: 'Page 1' })).toBeVisible()
 })
 
-test('a custom format takes its width and height', async ({ page }) => {
+test('a custom size, color mode, bleed and columns go into the document', async ({ page }) => {
   await open(page)
   await page.keyboard.press('Control+Alt+n')
   const dialog = start(page)
-  await dialog.getByRole('radio', { name: /Custom/ }).click()
-  await dialog.getByRole('textbox', { name: 'Width' }).fill('100')
+  const fill = async (name: string, v: string) => {
+    await dialog.getByRole('textbox', { name }).fill(v)
+    await dialog.getByRole('textbox', { name }).press('Tab')
+  }
+  await dialog.getByRole('radio', { name: 'RGB' }).click()
+  await fill('Bleed', '5')
+  await fill('Columns', '3')
+  await fill('Width', '100')
+  await expect(dialog.getByRole('radio', { checked: true, name: /A5/ })).toHaveCount(0)
   await dialog.getByRole('textbox', { name: 'Width' }).press('Tab')
   await dialog.getByRole('textbox', { name: 'Pages' }).fill('1')
   await dialog.getByRole('textbox', { name: 'Pages' }).press('Tab')
   await expect(dialog.getByRole('checkbox', { name: 'Facing pages' })).toBeDisabled()
   await dialog.getByRole('button', { name: /Create/ }).click()
-  await expect(page.getByRole('complementary', { name: 'Properties' }).getByRole('textbox', { name: 'W in mm' })).toHaveValue('100')
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  await expect(panel.getByRole('textbox', { name: 'W in mm' })).toHaveValue('100')
+  await expect(panel.getByRole('textbox', { name: 'Bleed in mm' })).toHaveValue('5')
+  await expect(panel.getByRole('combobox', { name: 'Color mode' })).toHaveText('RGB')
+  await expect(panel.getByRole('textbox', { name: 'Columns' })).toHaveValue('3')
+})
+
+test('a new document preset is saved, picked after a reload and deleted', async ({ page }) => {
+  await open(page)
+  await page.keyboard.press('Control+Alt+n')
+  const dialog = start(page)
+  await dialog.getByRole('radio', { name: /A4/ }).click()
+  await dialog.getByRole('textbox', { name: 'Pages' }).fill('12')
+  await dialog.getByRole('textbox', { name: 'Pages' }).press('Tab')
+  await dialog.getByRole('textbox', { name: 'Preset name' }).fill('Report')
+  await dialog.getByRole('button', { name: 'Save preset' }).click()
+  await page.reload()
+  await page.keyboard.press('Control+Alt+n')
+  const saved = dialog.getByRole('radiogroup', { name: 'Saved presets' })
+  await saved.getByRole('radio', { name: /Report/ }).click()
+  await expect(dialog.getByRole('textbox', { name: 'Pages' })).toHaveValue('12')
+  await expect(dialog.getByRole('button', { name: 'Create' })).toHaveAttribute('title', 'A4, 12 pages')
+  await saved.getByRole('button', { name: 'Delete preset Report' }).click()
+  await expect(saved).toHaveCount(0)
 })
 
 test('escape returns to the document and new keeps the changes in their project', async ({ page }) => {
