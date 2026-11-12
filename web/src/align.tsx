@@ -111,13 +111,16 @@ export function setGap(editor: Editor, { axis, nodes }: Row, gap: number) {
   })
 }
 
+let moreOpen = false
+
 /**
  * A button for each alignment of the selection, to itself or its parent, or of the layers `inside` a group, and a 2nd row
  * for distributing them and `children`; those it cannot do are left out.
  */
 export function AlignBar({ editor, inside, children }: { editor: Editor; inside?: Node[]; children?: ReactNode }) {
   const [toParent, setToParent] = useState(false)
-  const [more, setMore] = useState(false)
+  const [more, setMoreState] = useState(moreOpen)
+  const setMore = (v: boolean) => setMoreState((moreOpen = v))
   const n = inside?.length ?? editor.selection.length
   const parent = !inside && n > 1 && toParent
   const button = ([how, title, icon, key]: (typeof ALIGNS)[number]) => (

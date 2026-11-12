@@ -91,7 +91,7 @@ test('the align bar of a group aligns the layers inside it', async ({ page }) =>
   expect(await x('Star')).toBe(left)
 })
 
-test('layers side by side show their gap in the panel and drag it on the canvas', async ({ page }) => {
+test('layers side by side show their gap in the panel and drag it on the canvas, and the panel keeps its spacing row open', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
   for (const x of [20, 50]) {
@@ -112,4 +112,12 @@ test('layers side by side show their gap in the panel and drag it on the canvas'
   await expect(gap).toHaveValue('10')
   await page.keyboard.press('Control+z')
   await expect(gap).toHaveValue('5')
+
+  await page.keyboard.press('Escape')
+  await expect(gap).toHaveCount(0)
+  await page.mouse.click(...(await screen(page, 30, 30)))
+  await page.keyboard.down('Shift')
+  await page.mouse.click(...(await screen(page, 55, 30)))
+  await page.keyboard.up('Shift')
+  await expect(gap).toBeVisible()
 })
