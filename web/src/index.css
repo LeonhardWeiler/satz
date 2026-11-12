@@ -1751,7 +1751,7 @@ input[type='range']:focus-visible::-moz-range-thumb {
 }
 
 .left > .panel {
-  flex: 0 1 auto;
+  flex: 1;
 }
 
 .assets {
