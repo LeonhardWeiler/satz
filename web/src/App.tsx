@@ -19,6 +19,7 @@ import { Properties } from './Properties'
 import { Start } from './Start'
 import { Home } from './Home'
 import { Assets } from './Assets'
+import { Swatches } from './Swatches'
 import { Switcher } from './Switcher'
 import { Toolbar } from './Toolbar'
 import { Tooltip } from './Tooltip'
@@ -243,6 +244,9 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           ))}
         </div>
         {tab === 'Layers' ? <Layers editor={editor} /> : <Assets editor={editor} />}
+        <div className="left-swatches" onPointerDown={editor.gesture}>
+          <Swatches editor={editor} />
+        </div>
       </div>
       <header className="bar" inert={hidden.ui}>
         <div className="bar-side">

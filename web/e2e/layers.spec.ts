@@ -23,11 +23,12 @@ async function drawn(page: Page) {
   return screen(page, 30, 10)
 }
 
-test('the left panel shows the layers or the assets', async ({ page }) => {
+test('the left panel shows the layers or the assets, and the swatches below both', async ({ page }) => {
   await open(page)
   await expect(page.getByRole('tab', { name: 'Layers' })).toHaveAttribute('aria-selected', 'true')
-  await expect(page.getByRole('region', { name: 'Swatches' })).toHaveCount(0)
+  await expect(page.getByRole('region', { name: 'Swatches' })).toBeVisible()
   await assets(page)
+  await expect(page.getByRole('region', { name: 'Swatches' })).toBeVisible()
   await expect(page.getByRole('navigation', { name: 'Layers' })).toHaveCount(0)
   await expect(page.getByRole('region', { name: 'Fonts' })).toBeVisible()
   await page.getByRole('tab', { name: 'Layers' }).click()

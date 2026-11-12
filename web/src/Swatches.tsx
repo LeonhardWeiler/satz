@@ -106,7 +106,7 @@ export function Swatches({ editor }: { editor: Editor }) {
             key={swatch.id}
             anchor={() => {
               const row = list.current!.querySelector(`[data-id="${CSS.escape(swatch.id)}"]`) ?? list.current!
-              const panel = list.current!.closest('.panel')!.getBoundingClientRect()
+              const panel = list.current!.closest('.left')!.getBoundingClientRect()
               const r = row.getBoundingClientRect()
               return new DOMRect(panel.x, r.y, panel.width, r.height)
             }}
