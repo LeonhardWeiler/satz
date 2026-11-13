@@ -25,7 +25,7 @@ import {
   type ColorMode,
   type Hsv,
 } from './color'
-import { Field, nextName } from './controls'
+import { Field, nextName, Select } from './controls'
 import type { Editor } from './editor'
 import { Icon } from './icons'
 import type { Scope, Swatch } from './model'
@@ -109,6 +109,61 @@ export function ColorPicker({ chip, children, ...props }: Props & { editor?: Edi
   )
 }
 
+const HARMONIES = { complementary: [0, 180], analogous: [-30, 0, 30], triadic: [0, 120, 240], split: [0, 150, 210], square: [0, 90, 180, 270] }
+type Harmony = keyof typeof HARMONIES
+const TABS = { custom: 'Custom', harmony: 'Harmony', swatches: 'Swatches' }
+const HARMONY_NAMES: Record<Harmony, string> = { complementary: 'Complementary', analogous: 'Analogous', triadic: 'Triadic', split: 'Split complementary', square: 'Square' }
+
+/** The colours of `rule` around the hue of `hsv`, at its saturation and brightness. */
+const harmony = ([h, s, v]: Hsv, rule: Harmony) => HARMONIES[rule].map((o): Hsv => [(h + o + 360) % 360, s, v])
+
+/** Hue around and saturation out from the centre, with the colours of `rule` marked; only the colour itself moves. */
+function Wheel({ hsv, rule, set }: { hsv: Hsv; rule: Harmony; set: (hsv: Hsv) => void }) {
+  const [h, s, v] = hsv
+  const pick = (e: PointerEvent<HTMLDivElement>) => {
+    if (!(e.buttons & 1)) return
+    const r = e.currentTarget.getBoundingClientRect()
+    const [x, y] = [((e.clientX - r.left) / r.width) * 2 - 1, ((e.clientY - r.top) / r.height) * 2 - 1]
+    set([((Math.atan2(x, -y) * 180) / Math.PI + 360) % 360, clamp(Math.hypot(x, y)), v])
+  }
+  const step = (e: KeyboardEvent<HTMLDivElement>) => {
+    const d = e.shiftKey ? 10 : 1
+    const move = { ArrowLeft: [-d, 0], ArrowRight: [d, 0], ArrowDown: [0, -d / 100], ArrowUp: [0, d / 100] }[e.key]
+    if (!move) return
+    e.preventDefault()
+    set([(h + move[0] + 360) % 360, clamp(s + move[1]), v])
+  }
+  return (
+    <div
+      className="picker-wheel"
+      role="slider"
+      tabIndex={0}
+      aria-label="Hue and saturation"
+      aria-valuenow={Math.round(h)}
+      aria-valuetext={`Hue ${Math.round(h)}°, saturation ${Math.round(s * 100)}%`}
+      style={{ '--dark': 1 - v } as CSSProperties}
+      onPointerDown={(e) => {
+        e.currentTarget.setPointerCapture(e.pointerId)
+        pick(e)
+      }}
+      onPointerMove={pick}
+      onKeyDown={step}
+    >
+      {harmony(hsv, rule).map((c, i) => {
+        const a = (c[0] * Math.PI) / 180
+        return (
+          <span
+            key={i}
+            className="picker-thumb"
+            data-own={HARMONIES[rule][i] === 0 || undefined}
+            style={{ left: `${50 + 50 * s * Math.sin(a)}%`, top: `${50 - 50 * s * Math.cos(a)}%`, background: `#${hex(fromHsv(c))}` }}
+          />
+        )
+      })}
+    </div>
+  )
+}
+
 export function Picker({
   anchor,
   side,
@@ -133,7 +188,8 @@ export function Picker({
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const bound = typeof color === 'object' ? ('swatch' in color ? color.swatch : 'variable' in color ? color.variable : null) : null
-  const [tab, setTab] = useState<'custom' | 'swatches'>(bound ? 'swatches' : 'custom')
+  const [tab, setTab] = useState<'custom' | 'harmony' | 'swatches'>(bound ? 'swatches' : 'custom')
+  const [rule, setRule] = useState<Harmony>('complementary')
   const process = resolve(color, scope)
   const rgb = screen(process, scope)
   const [state, setState] = useState(() => ({ color, hsv: toHsv(rgb) }))
@@ -153,7 +209,7 @@ export function Picker({
   useEffect(() => {
     const down = (e: globalThis.PointerEvent) => {
       const t = e.target as Node
-      if (!ref.current?.contains(t) && !owner?.current?.contains(t)) onClose(false)
+      if (!ref.current?.contains(t) && !owner?.current?.contains(t) && !(t as Element).closest?.('[role=menu]')) onClose(false)
     }
     const key = (e: globalThis.KeyboardEvent) => {
       if (e.key !== 'Escape') return
@@ -228,16 +284,42 @@ export function Picker({
         )}
       </header>
       {children}
-      {editor && (
-        <div role="tablist" className="tabs">
-          {(['custom', 'swatches'] as const).map((t) => (
-            <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
-              {t === 'custom' ? 'Custom' : 'Swatches'}
+      <div role="tablist" className="tabs">
+        {(editor ? (['custom', 'harmony', 'swatches'] as const) : (['custom', 'harmony'] as const)).map((t) => (
+          <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
+            {TABS[t]}
+          </button>
+        ))}
+      </div>
+      {tab === 'harmony' ? (
+        <>
+          <Wheel hsv={state.hsv} rule={rule} set={set} />
+          <Select label="Harmony" value={rule} options={HARMONY_NAMES} onChange={setRule} />
+          <div className="picker-harmony" role="group" aria-label="Harmony colors">
+            {harmony(state.hsv, rule).map((c, i) => (
+              <button key={i} type="button" aria-label={`Harmony color #${hex(fromHsv(c))}`} title={`#${hex(fromHsv(c))}`} style={{ background: `#${hex(fromHsv(c))}` }} onClick={() => set(c)} />
+            ))}
+          </div>
+          {editor && (
+            <button
+              type="button"
+              className="button"
+              onClick={() =>
+                editor.batch(() => {
+                  const names = scope.swatches.map((s) => s.name)
+                  for (const c of harmony(state.hsv, rule)) {
+                    names.push(nextName('Swatch', names))
+                    editor.apply({ type: 'addSwatch', name: names.at(-1)!, color: withAlpha(fromRgb(fromHsv(c), process, mode), 100), spot: false })
+                  }
+                  setTab('swatches')
+                })
+              }
+            >
+              Add harmony to swatches
             </button>
-          ))}
-        </div>
-      )}
-      {tab === 'swatches' ? (
+          )}
+        </>
+      ) : tab === 'swatches' ? (
         <div role="listbox" aria-label="Swatches" className="swatch-list">
           {scope.swatches.length + colors.length === 0 && (
             <p className="empty">No swatches or color variables yet.</p>

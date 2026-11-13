@@ -1206,6 +1206,54 @@ input[type='checkbox']:disabled {
   pointer-events: none;
 }
 
+.picker-wheel {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  justify-self: center;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, #ffffff, transparent), conic-gradient(#f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.picker-wheel::after {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgb(0 0 0 / var(--dark));
+  content: '';
+}
+
+.picker-wheel:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.picker-wheel .picker-thumb {
+  z-index: 1;
+  width: 8px;
+  height: 8px;
+}
+
+.picker-wheel .picker-thumb[data-own] {
+  width: 12px;
+  height: 12px;
+}
+
+.picker-harmony {
+  display: flex;
+  gap: 4px;
+}
+
+.picker-harmony button {
+  flex: 1;
+  height: 24px;
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
 .picker-inks {
   display: grid;
   grid-template-columns: 1fr 72px;

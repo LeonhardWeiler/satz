@@ -35,6 +35,7 @@
 - Stroke weight (or one per side of rectangles and frames), alignment, joins, caps, dashed and dotted lines
 - Opacity, blend modes, shadows and blur
 - RGB and CMYK documents, spot colours with tints, swatches, an uploaded CMYK ICC profile or FOGRA51; CMYK values copy and paste as text
+- A colour wheel in the picker for harmonies (complementary, analogous, triadic, split complementary, square), each colour picked or all added as swatches
 - Variables (colour, number, font, boolean) in collections with modes per frame and page; text shows only where its boolean condition is true
 
 ## Images

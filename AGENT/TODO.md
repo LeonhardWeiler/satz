@@ -40,7 +40,6 @@ Done; numbers and the items measured and not done in `AGENT/performance.md`.
 
 ## Later
 
-- [ ] Colour wheel in the picker for harmonies (analogous, complementary, …).
 - [ ] Figma import from an account; .fig files import already (`engine/src/fig.rs`, instance overrides, masks and clips ignored, text as outlines).
 - [ ] InDesign import (IDML) beside SVG, PDF and Figma in `import::import`.
 - [ ] AI connection for the common providers, as in Figma.
