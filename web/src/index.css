@@ -2789,7 +2789,7 @@ input[type='checkbox']:active {
   padding: 0;
   border: 0;
   background: none;
-  box-shadow: 0 0 0 1px var(--border);
+  box-shadow: 0 0 0 1px var(--edge);
   cursor: pointer;
 }
 
@@ -2816,7 +2816,7 @@ input[type='checkbox']:active {
 .ov-ghost canvas {
   position: absolute;
   background: #fff;
-  box-shadow: 0 0 0 1px var(--border), var(--shadow-pop);
+  box-shadow: 0 0 0 1px var(--edge), var(--shadow-pop);
 }
 
 .ov-ghost b {

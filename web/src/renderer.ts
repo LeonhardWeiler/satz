@@ -335,6 +335,7 @@ export class Renderer {
     paint.setPathEffect(null)
     dash?.delete()
     paint.setColor(ck.Color(...CROP))
+    for (const t of trims) canvas.drawRect(t, paint)
     const l = sheets[0].x
     const r = Math.max(...sheets.map((s) => s.x + s.width))
     const b = Math.max(...sheets.map((s) => s.height))
