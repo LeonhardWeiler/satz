@@ -315,7 +315,7 @@ export class Renderer {
       }
     }
     const faint = new ck.Paint()
-    faint.setAlphaf(0.7)
+    faint.setAlphaf(0.4)
     for (const [layer, lists] of [[faint, overlay?.found], [null, overlay?.text]] as const) {
       for (const { ops, x } of lists ?? []) {
         canvas.saveLayer(layer ?? undefined)
