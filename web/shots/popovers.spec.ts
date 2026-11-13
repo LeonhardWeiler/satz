@@ -132,6 +132,11 @@ test('text', async ({ page }) => {
   await page.getByRole('menuitem', { name: 'New text style' }).click()
   await rest(page)
   await shot(page, T, '11 text style created', 'Text styles section after Create text style', ['right'])
+  await page.getByRole('tab', { name: 'Assets' }).click()
+  await shot(page, T, '17 text styles in assets', 'Text styles in the assets tab', ['left'])
+  await page.getByRole('button', { name: 'Edit Text style 1' }).click()
+  await rest(page)
+  await shot(page, T, '18 text style open', 'A text style opened in the assets tab', ['left'])
 })
 
 test('variables', async ({ page }) => {
