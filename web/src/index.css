@@ -2241,18 +2241,8 @@ input[type='checkbox']:active {
 }
 
 .field .name-input {
+  padding: 0;
   border: 0;
-}
-
-.var-editor .name-input {
-  height: 28px;
-  border-color: var(--border);
-  border-radius: 6px;
-  background: var(--input);
-}
-
-.var-editor .name-input:focus {
-  border-color: var(--muted);
 }
 
 .var-group {

@@ -162,14 +162,19 @@ function VariableEditor({ editor, id, fonts, onClose }: { editor: Editor; id: st
       <header className="picker-header">
         <h2>Edit variable</h2>
       </header>
-      <NameInput label="Variable name" value={v.name} onCommit={(name) => editor.apply({ type: 'setVariable', id, name })} />
+      <label className="field">
+        <span className="field-label">Name</span>
+        <NameInput label="Variable name" value={v.name} onCommit={(name) => editor.apply({ type: 'setVariable', id, name })} />
+      </label>
       {c.modes.map((m) => {
         const value = v.values[m.id]
         const label = `${v.name} in ${m.name}`
         const set = (value: Value) => editor.apply({ type: 'setVariable', id, mode: m.id, value })
         return (
           <div key={m.id} className="var-mode">
-            <NameInput label="Mode name" value={m.name} onCommit={(name) => editor.apply({ type: 'setMode', collection: c.id, id: m.id, name })} />
+            <label className="field">
+              <NameInput label="Mode name" value={m.name} onCommit={(name) => editor.apply({ type: 'setMode', collection: c.id, id: m.id, name })} />
+            </label>
             {'color' in value ? (
               <ColorPicker label={label} color={value.color} mode={snapshot.colorMode} scope={scope} editor={editor} onChange={(color) => set({ color })} />
             ) : 'number' in value ? (
