@@ -14,6 +14,8 @@ pub struct Version {
     pub counter: i32,
     pub time: f64,
     pub restored: bool,
+    /// The operations of the change.
+    pub edits: u32,
 }
 
 impl Doc {
@@ -39,6 +41,7 @@ impl Doc {
                 counter: m.id.counter + m.len as i32 - 1,
                 time: m.timestamp as f64,
                 restored: m.message.as_deref() == Some(RESTORED),
+                edits: m.len as u32,
             })
             .collect()
     }

@@ -367,6 +367,10 @@ condition: string, };
 export type Typeface = { name: string, family: string, style: string, hash: string, };
 export type Value = { "color": Color } | { "number": number } | { "font": Typeface | null } | { "boolean": boolean };
 export type Variable = { id: string, collection: string, name: string, values: { [key in string]: Value }, };
-export type Version = { peer: string, counter: number, time: number, restored: boolean, };
+export type Version = { peer: string, counter: number, time: number, restored: boolean, 
+/**
+ * The operations of the change.
+ */
+edits: number, };
 export type VerticalAlign = "top" | "center" | "bottom";
 export type Wrap = "none" | "around" | "jump";

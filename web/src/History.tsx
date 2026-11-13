@@ -5,7 +5,7 @@ import { Icon } from './icons'
 import type { Version } from './model'
 
 const day = (t: number) => new Date(t * 1000).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-const time = (t: number) => new Date(t * 1000).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+const time = (t: number) => new Date(t * 1000).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 
 /** Ctrl Alt Z: the versions of the document's history by day; choosing one restores it. */
 export function History({ editor, onClose }: { editor: Editor; onClose: () => void }) {
@@ -34,7 +34,7 @@ export function History({ editor, onClose }: { editor: Editor; onClose: () => vo
             {(i === 0 || day(v.time) !== day(versions[i - 1].time)) && <div className="pal-g">{day(v.time)}</div>}
             <button type="button" className="pal-it" role="option" aria-selected={i === 0} onClick={() => restore(v)}>
               <span className="pal-t">{time(v.time)}</span>
-              <small>{[i === 0 && 'Current', v.restored && 'Restored'].filter(Boolean).join(', ')}</small>
+              <small>{[i === 0 && 'Current', v.restored ? 'Restored' : `${v.edits} ${v.edits === 1 ? 'edit' : 'edits'}`].filter(Boolean).join(' · ')}</small>
             </button>
           </div>
         ))}
