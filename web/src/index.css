@@ -2761,7 +2761,10 @@ input[type='checkbox']:active {
 }
 
 .ov-cap > span {
+  overflow: hidden;
   text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ov-page,
