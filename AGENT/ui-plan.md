@@ -6,7 +6,7 @@ Zustand; Light und Dark unterscheiden sich nur in Tokens.
 
 ## Offen
 
-Runde 3 (Zustände: hover, pressed, disabled, Bewegung): nichts offen.
+Runde 4 (Kontrast): nichts offen.
 
 ## Umgesetzt
 
@@ -22,9 +22,13 @@ Runde 3 (Zustände: hover, pressed, disabled, Bewegung): nichts offen.
   Deckkraft, Skalierung) auch für Primary, Feld und Swatch; Primary drückt sich wie jeder
   Button.
 - Disabled: Werkzeuge dimmen, eine deaktivierte Checkbox dimmt mit ihrem Label.
+- Kontrast: der Audit listet Text unter 4.5:1 (3:1 ab 18.66 px); `--muted` mischt 72 %
+  statt 64 % und erreicht AA auf Canvas, Feldern und ausgewählten Zeilen.
+- Palette: die Tasten des ausgewählten Befehls folgen seinem Icon (`--text`).
 
 ## Bewusst nicht
 
+- Disabled-Text (`--dim`) und Platzhalter in Feldern zählen nicht zum Kontrast-Audit.
 - Opacity behält ihr Icon-Label wie die anderen Metrik-Felder.
 - Farbmodus bleibt Select im Dokument-Panel (Umrechnung ist gewichtig).
 - Find-Buttons behalten den Rand wie jeder `.button`.
