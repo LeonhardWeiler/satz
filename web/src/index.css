@@ -3096,10 +3096,6 @@ dialog::backdrop {
   flex: 1;
 }
 
-.pal-t b {
-  color: var(--text);
-}
-
 .pal-it small {
   color: var(--muted);
 }
@@ -3300,9 +3296,9 @@ dialog::backdrop {
 
 .help-r > span:first-child {
   flex: 1;
-  color: var(--muted);
 }
 
+.pal-t b,
 .help-r mark {
   background: none;
   color: var(--text);
