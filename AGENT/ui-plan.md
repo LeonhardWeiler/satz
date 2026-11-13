@@ -1,28 +1,22 @@
 # UI-Plan: Audit 3 (2026-11)
 
-Grundlage: Shot-Suite `web/shots` (292 Shots je Modus, Light und Dark, 2× DPR) und
+Grundlage: Shot-Suite `web/shots` (293 Shots je Modus, Light und Dark, 2× DPR) und
 `audit.spec.ts`. Leitidee: ein Baustein je Aufgabe, ein Token je Farbe, eine Regel je
 Zustand; Light und Dark unterscheiden sich nur in Tokens.
 
-## Offen (Reihenfolge)
+## Offen
 
-1. Tokens
-   - Dark: schwarze Seiten verschwinden auf `--canvas`. Haarlinie um die Trim-Box jeder
-     Seite im Renderer, Farbe aus `--page-edge`; dasselbe Token umrandet `.ov-page`.
-   - Dark: schwarze Chips in Swatch-, Variablen- und Picker-Listen ohne Innenkante;
-     eine Chip-Regel mit der Innenkante des Fill-Swatch.
-2. Fokus: die Ebenen-Zeile zeigt den Ring um die ganze Zeile (Radius 6), nicht eckig um
-   den Namen. [beide]
-3. Suchtreffer: Palette (`<b>`) und Shortcuts (`<mark>`) teilen eine Regel, Treffer 600,
-   Rest `--text`.
-4. Find: der aktuelle Treffer hebt sich ab (andere Treffer schwächer); „Style any“ → „Any“.
-5. Neues-Dokument-Dialog: Höhe folgt dem Inhalt, „Preset Preset 1“ nicht doppelt,
-   Icon-Buttons im Kopf auf der Inhaltskante.
-6. Properties: „Align left“ auf der rechten Kante wie der Fill-Swatch (4 px Versatz).
-7. `AGENT/design.md`: veraltete Regel zur Einheiten-Endung streichen.
+Runde 2 (Pixel-Diff s0→s1, Audit): nichts offen.
 
-Punkte sind unabhängig; 1 zuerst, weil es Canvas- und Overview-Shots ändert. Nach jedem
-Punkt die Shots der Kategorie, nach jeder Runde alle.
+## Umgesetzt
+
+- Canvas: jede Seite zeigt ihre Trim-Kante in der Farbe der Schnittmarken; schwarze
+  Seiten verschwinden im Dark Mode nicht mehr. Übersicht: Seiten mit `--edge` umrandet.
+- Ebenen: der Tastaturfokus umrandet die ganze Zeile (Radius 6); Shot „05b keyboard focus“.
+- Suchtreffer: Palette und Shortcuts teilen eine Regel (Treffer 600, Rest `--text`).
+- Find: andere Treffer schwächer (0.4), der aktuelle hebt sich ab; Stilfilter „Any“.
+- Neues Dokument: Höhe folgt dem Inhalt (max. 640 px), Feld „Name“ statt „Preset“.
+- `design.md`: veraltete Regel zur Einheiten-Endung gestrichen.
 
 ## Bewusst nicht
 
@@ -35,3 +29,9 @@ Punkt die Shots der Kategorie, nach jeder Runde alle.
 - Textstile bleiben aufklappbare Zeilen mit fettem Namen (sie tragen Einstellungen),
   Variablen und Swatches öffnen einen Editor.
 - Das W/H-Schloss sitzt in der 8-px-Lücke (Brücke).
+- Benachbart ausgewählte Ebenen bleiben einzelne Pillen.
+- Audit-Kantenversatz bei verschieden breiten Nachbarn (24 vs. 28 px) ist kein Fehler;
+  die bündige Kante zählt.
+- Chips in Listen haben ihre Innenkante, auch schwarze sind im Dark Mode sichtbar.
+- Shot „28 exporting“ zeigt einen Rest-Kasten; er stammt vom Zuschnitt in `shot()`, der
+  volle Screenshot ist sauber.
