@@ -188,14 +188,11 @@ export function Start({ editor, onClose }: { editor: Editor; onClose: () => void
         </label>
         <h3>Color</h3>
         <Segmented label="Color mode" value={doc.mode} options={MODES} text onChange={(mode) => set({ mode })} />
-        <h3>Margins and columns</h3>
+        <h3>Margins, columns and bleed</h3>
         <div className="grid">
           <Field label="Margin" title="Margin" value={doc.margin} unit="length" onCommit={(margin) => set({ margin })} />
           <Field label="Columns" title="Columns" value={doc.columns} unit="" int min={1} max={24} onCommit={(v) => set({ columns: Math.round(v) })} />
           <Field label="Gutter" title="Gutter" value={doc.gutter} unit="length" onCommit={(gutter) => set({ gutter })} />
-        </div>
-        <h3>Bleed</h3>
-        <div className="grid">
           <Field label="Bleed" title="Bleed" value={doc.bleed} unit="length" max={100 * MM} onCommit={(bleed) => set({ bleed })} />
         </div>
       </section>

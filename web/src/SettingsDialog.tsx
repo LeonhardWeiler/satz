@@ -35,7 +35,11 @@ export function Settings({ page: first = 'general', onClose }: { page?: Settings
   const [page, setPage] = useState(first)
   const [reference, setReference] = useState('card')
   const { unit, theme, layers, screenMm } = useSettings()
-  useEffect(() => ref.current!.showModal(), [])
+  useEffect(() => {
+    const d = ref.current!
+    d.showModal()
+    ;(d.querySelector<HTMLElement>('.help-search') ?? d.querySelector<HTMLElement>('nav [aria-current]'))!.focus()
+  }, [])
   const [, how, w, h, r = 0] = REFERENCES[reference]
   return (
     <dialog ref={ref} className="settings" aria-label="Settings" onClose={onClose} onClick={(e) => e.target === e.currentTarget && ref.current!.close()}>

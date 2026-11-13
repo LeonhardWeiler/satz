@@ -75,7 +75,7 @@ export function Swatches({ editor }: { editor: Editor }) {
             {renaming !== s.id && (
               <button
                 type="button"
-                className="swatch-delete"
+                className="icon-button swatch-delete"
                 aria-label={`Delete ${s.name}`}
                 title="Delete swatch"
                 onClick={() => remove(s.id)}
