@@ -3447,12 +3447,13 @@ dialog::backdrop {
 @container bar (max-width: 700px) {
   .bar-side > .toggle,
   .bar-side > .sep,
+  .palette-button,
   .switcher > .icon-button {
     display: none;
   }
 
   .switcher {
-    margin: 0 8px;
+    margin: 0;
   }
 
   .switcher-at {
