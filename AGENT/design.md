@@ -48,6 +48,15 @@ fails vitest.
 - A setting that cannot take effect is hidden: Gutter with 1 column, Text wrap on a page
   without text, the spread arrows and the page count of a single spread.
 - Groups inside a popover part by spacing and their heading, not by rules.
+- Keep aspect ratio sits between W and H; while it is on, a bridge joins the 2 fields.
+- A section's actions on its subject (insert rows, merge cells) sit in header menus
+  (`MenuButton`: + for adding, ⋯ for the rest), the same actions in the context menu
+  and the palette; no rows of text buttons.
+- A layer that only exists inside another (a table cell) shows only what applies to
+  it: no Layout, frame options or auto layout; empty cells are named by address (A1).
+- Shortcuts: text format keys work on the edited range and on selected text layers
+  (Ctrl B, I, U, Shift X, Alt L/T/R/J, Shift . and ,); single letters only pick tools;
+  rename is F2 only.
 - Fields in the document unit show no unit suffix; only a value in another unit names it.
 - One control type per setting everywhere: an on/off setting is a checkbox (Facing
   pages), not a two-item segmented control.

@@ -12,24 +12,21 @@ Token in `:root`. Gleiche Aufgabe sieht überall gleich aus, Zustände (hover, p
 selected, disabled, focus) haben je genau eine Regel. Light und Dark teilen alle Regeln
 und unterscheiden sich nur in Tokens.
 
-## Offen
-
-Neue Features (Shots `12 Features`, `web/shots/features.spec.ts`):
-
-1. Tabelle auf dem Canvas: eine leere Tabelle zeigt keine Zellen, nur den Auswahlrahmen.
-2. Tabellen-Sektion: bis zu 8 Textbuttons mit ungleicher Breite im Raster; W/H doppeln
-   die Layout-Labels. Ziel: Zeilen/Spalten als Kopf-Aktionen (+, ⋯-Menü und
-   Kontextmenü), Felder „Column“/„Row“.
-3. Tabelle als Frame: Clip content, Radius und Auto layout erscheinen, wirken aber nicht.
-4. Zellen: Kopf „2 layers“ mit Gruppen-Icon, Layout zeigt Verteilen, X/Y/W/H und Drehung;
-   Text frame zeigt Spalten, Grundlinienraster und Zeilen, die in Zellen nicht passen.
-5. Ebenen einer Tabelle: 9× „Text“ ohne Zeile/Spalte.
-6. GREP-Zeile: „Find“ klebt am Muster, das Feld sitzt nicht auf dem 2-Spalten-Raster.
-7. Inhaltsverzeichnis: Stil-Liste ohne Überschrift, steht zwischen Text frame und Layer.
-8. Anker: im Shot erscheint die Anchoring-Gruppe nicht, und der Textrahmen wird nach
-   dem Einfügen auto width (559 mm); prüfen, ob Shot-Ablauf oder Fehler.
-
 ## Umgesetzt
+
+- Shortcuts: Bold, Italic, Underline, Strikethrough, Ausrichtung und Schriftgröße per
+  Taste auf Auswahl oder markiertem Text; `a` als zweite Frame-Taste und Ctrl R (Rename
+  doppelt zu F2) entfernt; Ctrl Shift , öffnet nicht mehr die Settings.
+- Keep aspect ratio wieder zwischen W und H, verbunden zeigt eine Brücke beide Felder als
+  ein Paar.
+- Tabellen: Zellraster auf dem Canvas, solange Tabelle oder Zelle gewählt ist; Zeilen und
+  Spalten über + und ⋯ im Kopf, dieselben Aktionen im Kontextmenü (Table) und in der
+  Palette; Felder „Column“/„Row“; Radius, Clip und Auto layout nicht bei Tabellen;
+  Zellen zeigen „n cells“, keine Layout-Sektion und nur Ausrichtung und Inset; leere
+  Zellen heißen A1, B1 …
+- `MenuButton` in `controls.tsx` für Kopf-Menüs, auch Fit image nutzt ihn.
+- GREP-Zeile auf dem 2-Spalten-Raster, ohne Label; Inhaltsverzeichnis mit Überschrift
+  „Listed text styles“; Verankerung als „Inline | Custom“ neben „Release anchor“.
 
 - Messrunde (6): jede Box im Panel sitzt auf der 12-px-Inhaltskante, links und rechts
   (Tabs, Baum, Zeilen, Icon-Buttons im Kopf); Felder, Selects, Buttons und Farbchips
@@ -41,7 +38,7 @@ Neue Features (Shots `12 Features`, `web/shots/features.spec.ts`):
 
 - Zustände: `--dim` ist der einzige Disabled-Wert, eine Regel dimmt jede deaktivierte
   Steuerung; Tabs und Segmented teilen Fläche, Auswahl und Hover.
-- Panel: Layout auf einem 2-Spalten-Raster, Keep-Ratio als Icon im Kopf; Felder ohne
+- Panel: Layout auf einem 2-Spalten-Raster; Felder ohne
   `disabled` (Drop-Cap-Zeichen erst ab 1 Zeile); Einzüge in der Reihenfolge Left, Right,
   Before, After, First line; kurze Labels („Inner“), voller Name im Tooltip.
 - Felder: Namensfelder (Swatch, Variable, Modus, Tab-Leader, GREP, Präfix) sitzen in
