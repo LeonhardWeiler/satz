@@ -2,7 +2,9 @@
 
 Grundlage: Shot-Suite `web/shots` (90 Tests, Light und Dark, 2× DPR, dazu 900 px Breite)
 gegen `web/dist`, dazu das Mess-Audit `web/shots/audit.spec.ts` (Kanten, Höhen,
-Text-Einzüge, Schriften, Abstände). 6 Runden, deployt und geprüft am 2026-11-13.
+Text-Einzüge, Schriften, Abstände). 6 Runden, deployt und geprüft am 2026-11-13; danach
+Runde 7 (Shortcuts, Ratio-Link, Tabellen, GREP, Inhaltsverzeichnis, Anker): 106 Shots
+und Audit grün, `./check` 264 e2e grün, CI grün (bae9414), Pages-Bundle geprüft.
 
 ## Leitidee
 
