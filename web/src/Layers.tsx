@@ -187,6 +187,7 @@ export function Layers({ editor }: { editor: Editor }) {
             <span className="acts">
               <button
                 type="button"
+                className="icon-button"
                 tabIndex={-1}
                 data-on={node.locked || undefined}
                 aria-label={node.locked ? 'Unlock' : 'Lock'}
@@ -197,6 +198,7 @@ export function Layers({ editor }: { editor: Editor }) {
               </button>
               <button
                 type="button"
+                className="icon-button"
                 tabIndex={-1}
                 data-on={node.hidden || undefined}
                 aria-label={node.hidden ? 'Show' : 'Hide'}

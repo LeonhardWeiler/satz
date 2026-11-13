@@ -391,7 +391,6 @@ button {
   gap: 4px;
   height: 28px;
   margin-bottom: 2px;
-  padding-right: 8px;
   border-radius: 6px;
   color: var(--text);
   user-select: none;
@@ -481,29 +480,12 @@ textarea {
   flex: none;
 }
 
-.acts button {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: 0;
-  border-radius: 4px;
-  background: none;
-  color: var(--muted);
-}
-
 .layer .acts button:not([data-on]) {
   display: none;
 }
 
 .layer:hover .acts button {
   display: grid;
-}
-
-.acts button:hover {
-  background: var(--hover);
-  color: var(--text);
 }
 
 .layer[data-hidden] > :not(.acts, .chevron) {
