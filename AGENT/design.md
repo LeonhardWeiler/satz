@@ -99,7 +99,8 @@ fails vitest.
   `--accent`, `--select`, `--good`, `--bad`, `--warn`. Text on the accent is `--bg`. No raw colours in rules
   except paper white, masks, the checker, the colour picker's scales and the process
   inks of the plates.
-- Greys: `--text` values, `--muted` labels, placeholders and units. Disabled controls
+- Greys: `--text` values, `--muted` labels, placeholders and units, at least 4.5:1 on every
+  surface it sits on (the audit lists what falls below). Disabled controls
   keep their colours at `--dim` opacity, set by one rule.
 - Greys are neutral, without a tint; dark panels #141414 with #f5f5f5 text, the canvas near black.
 - The UI accent is the text colour (white in dark, black in light): focus, checked controls, primary action, the current page. Colour only carries meaning: `--good` green, `--warn` yellow, `--bad` red.
