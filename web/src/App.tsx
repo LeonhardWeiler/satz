@@ -123,11 +123,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       if (e.defaultPrevented || document.querySelector('dialog:modal')) return
       if (e.altKey && !mod && e.code === 'Digit1') hide('left')
       else if (e.altKey && !mod && e.code === 'Digit2') hide('right')
-      else if (e.shiftKey && !mod && !e.altKey && e.code === 'KeyR') hide('rulers')
-      else if (e.shiftKey && !mod && !e.altKey && e.code === 'KeyW') {
-        if (!hidden.ui) editor.say(<><Keys keys="Shift W" /> shows the interface again</>)
-        hide('ui')
-      } else if (mod && e.shiftKey && e.code === 'KeyE') quickExport()
+      else if (mod && e.shiftKey && e.code === 'KeyE') quickExport()
       else if (mod && e.altKey && e.code === 'KeyY') editor.togglePreflight()
       else if (mod && !e.altKey && e.code === 'KeyS') saveFile(e.shiftKey)
       else if (mod && !e.altKey && !e.shiftKey && e.code === 'KeyO') open(editor)
@@ -139,7 +135,11 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       else if (mod && e.altKey && !e.shiftKey && e.code === 'KeyZ') setDialog('history')
       else if (mod && !e.shiftKey && !e.altKey && e.code === 'KeyF') setFinding(true)
       else if (isTyping(e) || (e.target as Element).closest?.('.menu')) return
-      else if (e.key === '.' && !mod) editor.toggleOverview()
+      else if (e.shiftKey && !mod && !e.altKey && e.code === 'KeyR') hide('rulers')
+      else if (e.shiftKey && !mod && !e.altKey && e.code === 'KeyW') {
+        if (!hidden.ui) editor.say(<><Keys keys="Shift W" /> shows the interface again</>)
+        hide('ui')
+      } else if (e.key === '.' && !mod) editor.toggleOverview()
       else if (e.key === '?' && !mod) setDialog('help')
       else if (editor.overview && e.key === 'Escape') editor.set({ overview: null })
       else if (editor.preflight && e.key === 'Escape') editor.togglePreflight()
