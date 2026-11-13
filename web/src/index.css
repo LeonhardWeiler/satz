@@ -1464,7 +1464,8 @@ input[type='range']:focus-visible::-moz-range-thumb {
   grid-column: 4 / -1;
 }
 
-:is(.primary, .button, .icon-button, .field-step, .segmented button, .menu-item, input[type='checkbox']):disabled {
+:is(.primary, .button, .icon-button, .tool, .field-step, .segmented button, .menu-item, input[type='checkbox']:not(.check > *)):disabled,
+.check:has(> :disabled) {
   opacity: var(--dim);
   pointer-events: none;
 }
