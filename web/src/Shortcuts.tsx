@@ -24,7 +24,6 @@ const GESTURES: Record<string, [string, string][]> = {
   Text: [
     ['Enter', 'Edit the selected text'],
     ['Esc', 'Stop editing the text'],
-    ['Ctrl Alt Shift N', 'Insert the page number'],
     ['Click an in-port, then a frame', 'Thread the frame in before it'],
     ['Double-click a port', 'Unthread a text frame'],
     ['lorem Tab', 'Insert placeholder text, lorem50 for 50 words'],
