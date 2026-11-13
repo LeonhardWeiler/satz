@@ -168,7 +168,7 @@ export const ONLY_WHEN_ABLE = new Set(['Reset to master', 'Table', ...BOOLEANS.m
 
 /** The titles of the actions the context menu offers with and without a selection, `null` between groups. */
 export const MENU = {
-  selected: ['Cut', 'Copy', 'Paste', 'Duplicate', null, 'Group', 'Ungroup', 'Add auto layout', 'Transform', 'Table', null, 'Bring to front', 'Send to back', 'Reset to master', null, 'Delete'],
+  selected: ['Cut', 'Copy', 'Paste', 'Duplicate', null, 'Group', 'Ungroup', 'Add auto layout', 'Transform', 'Table', null, 'Bring to front', 'Send to back', 'Reset to master', null, 'Rename', 'Hide', 'Lock', null, 'Delete'],
   transform: ['Use as mask', 'Flatten', 'Flip horizontal', 'Flip vertical', 'Tidy up', ...BOOLEANS.map((b) => b[1])],
   table: TABLE_ACTIONS.map((a) => a.title),
   none: ['Paste', 'Select all', null, 'Undo', 'Redo', null, 'Zoom to fit', 'Show or hide rulers', 'Show or hide left panel', 'Show or hide right panel', 'Add page', 'Page overview', null, 'Command palette', 'Keyboard shortcuts', 'Settings'],
