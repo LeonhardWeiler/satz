@@ -357,11 +357,6 @@ button {
   opacity: 0.86;
 }
 
-.primary:disabled {
-  opacity: var(--dim);
-  cursor: default;
-}
-
 .primary:focus-visible {
   outline-offset: 2px;
 }
@@ -658,11 +653,7 @@ textarea {
   color: var(--muted);
 }
 
-.field-step:disabled {
-  opacity: var(--dim);
-}
-
-.field-step:hover:not(:disabled) {
+.field-step:hover {
   background: var(--hover);
   color: var(--text);
 }
@@ -770,11 +761,6 @@ input[type='checkbox']:indeterminate::before {
   height: 2px;
   background: var(--bg);
   content: '';
-}
-
-input[type='checkbox']:disabled {
-  opacity: var(--dim);
-  cursor: default;
 }
 
 .rows {
@@ -1390,11 +1376,6 @@ input[type='range']:focus-visible::-moz-range-thumb {
   border-color: var(--edge);
 }
 
-.button:disabled {
-  opacity: var(--dim);
-  pointer-events: none;
-}
-
 .kind {
   display: grid;
   flex: none;
@@ -1433,7 +1414,7 @@ input[type='range']:focus-visible::-moz-range-thumb {
   grid-column: 4 / -1;
 }
 
-.icon-button:disabled {
+:is(.primary, .button, .icon-button, .field-step, .segmented button, .menu-item, input[type='checkbox']):disabled {
   opacity: var(--dim);
   pointer-events: none;
 }
@@ -2440,12 +2421,7 @@ input[type='checkbox']:active {
   cursor: pointer;
 }
 
-.segmented button:disabled {
-  opacity: var(--dim);
-  cursor: default;
-}
-
-:is(.tabs, .segmented) button:hover:not(:disabled) {
+:is(.tabs, .segmented) button:hover {
   color: var(--text);
 }
 
@@ -2517,12 +2493,6 @@ input[type='checkbox']:active {
   margin: 4px 0;
   border: 0;
   border-top: 1px solid var(--edge);
-}
-
-.menu-item:disabled {
-  opacity: var(--dim);
-  background: none;
-  cursor: default;
 }
 
 .start[open] {
