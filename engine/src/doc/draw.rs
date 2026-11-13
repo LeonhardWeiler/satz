@@ -1606,11 +1606,12 @@ impl Doc {
     }
 
     /// The text of `id` in runs of equal attributes: the layer's, under those of its
-    /// text style, under the marks; paragraph attributes from each paragraph's start.
+    /// text style or the one its GREP style sets there, under the marks; paragraph
+    /// attributes from each paragraph's start.
     pub(super) fn spans(&self, id: TreeID, node: &serde_json::Value, s: &Scope) -> Vec<Span> {
         let resolve = |marks: serde_json::Map<String, serde_json::Value>| -> Attrs {
             let mut m = node.as_object().cloned().unwrap_or_default();
-            let style = marks.get("textStyle").or(m.get("textStyle"));
+            let style = (marks.get("grep").or(marks.get("textStyle"))).or(m.get("textStyle"));
             let style = style.and_then(|v| v.as_str()).unwrap_or_default();
             if let Some(st) = s.palette.text_styles.iter().find(|t| t.id == style) {
                 m.extend(st.values(s));
@@ -1625,8 +1626,14 @@ impl Doc {
             a
         };
         let mut known: HashMap<String, Attrs> = HashMap::new();
-        let mut out: Vec<Span> = Vec::new();
-        let mut para: Option<Attrs> = None;
+        let mut attrs = |marks: &Marks| -> Attrs {
+            let key = serde_json::Value::Object(marks.clone()).to_string();
+            known
+                .entry(key)
+                .or_insert_with(|| resolve(marks.clone()))
+                .clone()
+        };
+        let mut pieces: Vec<(String, Marks)> = Vec::new();
         for d in self.text(id).map(|t| t.to_delta()).unwrap_or_default() {
             let TextDelta::Insert { insert, attributes } = d else {
                 continue;
@@ -1635,10 +1642,28 @@ impl Doc {
                 .ok()
                 .and_then(|v| v.as_object().cloned())
                 .unwrap_or_default();
-            let key = serde_json::Value::Object(marks.clone()).to_string();
-            let attrs = known.entry(key).or_insert_with(|| resolve(marks)).clone();
-            for piece in insert.split_inclusive('\n') {
-                let p = para.get_or_insert_with(|| attrs.clone());
+            pieces.extend(
+                insert
+                    .split_inclusive('\n')
+                    .map(|p| (p.into(), marks.clone())),
+            );
+        }
+        let mut patterns = HashMap::new();
+        let mut out: Vec<Span> = Vec::new();
+        let mut rest = &pieces[..];
+        while !rest.is_empty() {
+            let n = rest
+                .iter()
+                .position(|(t, _)| t.ends_with('\n'))
+                .map_or(rest.len(), |i| i + 1);
+            let (para, tail) = rest.split_at(n);
+            rest = tail;
+            let p = attrs(&para[0].1);
+            let grep = (s.palette.text_styles.iter())
+                .find(|t| t.id == p.text_style)
+                .map_or(&[][..], |t| &t.grep);
+            for (piece, marks) in matched(para, &p.text_style, grep, &mut patterns) {
+                let attrs = attrs(&marks);
                 let a = Attrs {
                     text_align: p.text_align,
                     paragraph_spacing: p.paragraph_spacing,
@@ -1656,15 +1681,12 @@ impl Doc {
                     tabs: p.tabs.clone(),
                     list: p.list,
                     shading: p.shading.clone(),
-                    ..attrs.clone()
+                    ..attrs
                 };
                 let len = piece.encode_utf16().count();
                 match out.last_mut() {
                     Some(l) if l.attrs == a => l.len += len,
                     _ => out.push(Span { len, attrs: a }),
-                }
-                if piece.ends_with('\n') {
-                    para = None;
                 }
             }
         }
@@ -1676,6 +1698,55 @@ impl Doc {
         }
         out
     }
+}
+
+type Marks = serde_json::Map<String, serde_json::Value>;
+
+/// The pieces of a paragraph in the text style `style`, cut where the patterns of its
+/// `grep` match and set there in their styles, unless a piece names another style.
+fn matched(
+    para: &[(String, Marks)],
+    style: &str,
+    grep: &[Grep],
+    patterns: &mut HashMap<String, Option<regex::Regex>>,
+) -> Vec<(String, Marks)> {
+    if grep.is_empty() {
+        return para.to_vec();
+    }
+    let text: String = para.iter().map(|(t, _)| t.as_str()).collect();
+    let mut by = vec![None; text.len()];
+    for g in grep {
+        let re = (patterns.entry(g.pattern.clone()))
+            .or_insert_with(|| regex::Regex::new(&g.pattern).ok());
+        for m in re
+            .iter()
+            .flat_map(|r| r.find_iter(text.trim_end_matches('\n')))
+        {
+            by[m.range()].fill(Some(g.style.as_str()));
+        }
+    }
+    let mut out = Vec::new();
+    let mut at = 0;
+    for (t, marks) in para {
+        let mine = marks
+            .get("textStyle")
+            .is_none_or(|v| v.as_str() == Some(style));
+        let mut from = 0;
+        while from < t.len() {
+            let st = by[at + from].filter(|_| mine);
+            let to = (from..t.len())
+                .find(|&i| by[at + i].filter(|_| mine) != st)
+                .unwrap_or(t.len());
+            let mut m = marks.clone();
+            if let Some(st) = st {
+                m.insert("grep".into(), st.into());
+            }
+            out.push((t[from..to].to_string(), m));
+            from = to;
+        }
+        at += t.len();
+    }
+    out
 }
 
 #[cfg(test)]

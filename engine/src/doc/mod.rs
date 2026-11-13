@@ -11,8 +11,8 @@ use crate::style::{
     Style,
 };
 use crate::text::{
-    self, Attrs, Lang, PARAGRAPH, Position, STYLED, Span, TextAlign, TextCase, TextDecoration,
-    TextFrame, TextStyle, Typeface, VerticalAlign, Wrap,
+    self, Attrs, Grep, Lang, PARAGRAPH, Position, STYLED, Span, TextAlign, TextCase,
+    TextDecoration, TextFrame, TextStyle, Typeface, VerticalAlign, Wrap,
 };
 use crate::variable::{Collection, Mode, Modes, Palette, Scope, Value, Variable};
 pub use boolean::BooleanOp;
@@ -153,13 +153,15 @@ pub enum Command {
         #[serde(flatten)]
         props: TextProps,
     },
+    /// Sets a text style; `grep` replaces its GREP styles.
     SetTextStyle {
         id: String,
         name: Option<String>,
+        grep: Option<Vec<Grep>>,
         #[serde(flatten)]
         props: TextProps,
     },
-    /// Removes a text style; text using it keeps its values.
+    /// Removes a text style and the GREP styles that set it; text using it keeps its values.
     DeleteTextStyle {
         id: String,
     },
@@ -1742,7 +1744,12 @@ impl Doc {
                 Ok(vec![])
             }
             Command::AddTextStyle { name, props } => self.add_text_style(name, props),
-            Command::SetTextStyle { id, name, props } => self.set_text_style(id, name, props),
+            Command::SetTextStyle {
+                id,
+                name,
+                grep,
+                props,
+            } => self.set_text_style(id, name, grep, props),
             Command::DeleteTextStyle { id } => self.delete_text_style(id),
             Command::Toc { id, styles } => self.toc(id, styles),
             Command::Anchor { id, text, at } => self.anchor(id, text, at),
@@ -3959,6 +3966,7 @@ mod tests {
                 7 => Command::SetTextStyle {
                     id: body.clone(),
                     name: None,
+                    grep: None,
                     props: TextProps {
                         size: Some(6.0 + rand(20) as f64),
                         ..TextProps::default()

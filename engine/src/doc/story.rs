@@ -1156,6 +1156,7 @@ impl Doc {
             name,
             attrs: Attrs::default(),
             bindings: BTreeMap::new(),
+            grep: vec![],
         };
         restyle(&mut s, props)?;
         self.put_text_style(None, s)?;
@@ -1166,10 +1167,21 @@ impl Doc {
         &self,
         id: String,
         name: Option<String>,
+        grep: Option<Vec<Grep>>,
         props: TextProps,
     ) -> Res<Vec<String>> {
         let (i, mut s) = self.find::<TextStyle>("textStyles", &id)?;
+        for g in grep.iter().flatten() {
+            if g.pattern.is_empty() || regex::Regex::new(&g.pattern).is_err() {
+                return Err(format!("{} is no regular expression", g.pattern));
+            }
+            if g.style == id {
+                return Err("a GREP style sets another text style".into());
+            }
+            self.find::<TextStyle>("textStyles", &g.style)?;
+        }
         s.name = name.unwrap_or(s.name);
+        s.grep = grep.unwrap_or(s.grep);
         restyle(&mut s, props)?;
         self.put_text_style(Some(i), s)?;
         Ok(vec![])
@@ -1181,6 +1193,12 @@ impl Doc {
             Some(NodeKind::Text) if self.story(n) == n => self.detach(n, None, |s| s == id),
             _ => Ok(()),
         })?;
+        for (j, mut s) in self.list::<TextStyle>("textStyles").into_iter().enumerate() {
+            if s.grep.iter().any(|g| g.style == id) {
+                s.grep.retain(|g| g.style != id);
+                self.put("textStyles", Some(j), s)?;
+            }
+        }
         self.doc.get_list("textStyles").delete(i, 1).map_err(err)?;
         Ok(vec![])
     }
@@ -1449,6 +1467,43 @@ mod tests {
     }
 
     #[test]
+    fn a_grep_style_sets_its_matches_in_the_paragraphs_of_its_text_style() {
+        let (mut d, _) = empty();
+        let t = text(&mut d, "Chapter 12 ends\nNo 3");
+        let body = style(&mut d, "Body", 10.0);
+        let num = style(&mut d, "Number", 20.0);
+        let styled = TextProps {
+            text_style: Some(body.clone()),
+            ..TextProps::default()
+        };
+        format(&mut d, &t, None, styled).unwrap();
+        let grep = |pattern: &str, style: &str| Command::SetTextStyle {
+            id: body.clone(),
+            name: None,
+            grep: Some(vec![Grep {
+                pattern: pattern.into(),
+                style: style.into(),
+            }]),
+            props: TextProps::default(),
+        };
+        assert!(d.apply(grep("(", &num)).is_err());
+        assert!(d.apply(grep("", &num)).is_err());
+        assert!(d.apply(grep(r"\d+", &body)).is_err());
+        assert!(d.apply(grep(r"\d+", "nothing")).is_err());
+        d.apply(grep(r"\d+", &num)).unwrap();
+        let sizes = [(8, 10.0), (2, 20.0), (9, 10.0), (1, 20.0)];
+        assert_eq!(lens_and(&d, |a| a.size), sizes);
+        assert!(spans(&d).iter().all(|s| s.attrs.text_style == body));
+        format(&mut d, &t, Some([8, 9]), sized(5.0)).unwrap();
+        assert_eq!(lens_and(&d, |a| a.size)[1..3], [(1, 5.0), (1, 20.0)]);
+
+        d.apply(Command::DeleteTextStyle { id: num }).unwrap();
+        assert!(d.snapshot().palette.text_styles[0].grep.is_empty());
+        assert_eq!(lens_and(&d, |a| a.size)[1], (1, 5.0));
+        assert_eq!(lens_and(&d, |a| a.size)[2], (11, 10.0));
+    }
+
+    #[test]
     fn a_text_style_sets_its_values_where_applied_and_follows_changes_and_variables() {
         let (mut d, p) = empty();
         let t = text(&mut d, "Hello world");
@@ -1469,6 +1524,7 @@ mod tests {
         d.apply(Command::SetTextStyle {
             id: body.clone(),
             name: None,
+            grep: None,
             props: TextProps {
                 size: Some(11.0),
                 ..TextProps::default()

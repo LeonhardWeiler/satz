@@ -10,7 +10,7 @@ import { Icon, type IconName } from './icons'
 import { Dialog } from './Popover'
 import { MAX_LENGTH, length } from './settings'
 import { DATE, PAGE_NUMBER, insert, range } from './textEdit'
-import { STYLED, type Attrs, type Props, type Span, type Styled, type Tab, type TextNode, type TextProps, type TextStyle, type Typeface } from './model'
+import { STYLED, type Attrs, type Grep, type Props, type Span, type Styled, type Tab, type TextNode, type TextProps, type TextStyle, type Typeface } from './model'
 import { Bindable, kindOf } from './Variables'
 import namesUrl from './unicode-names.txt?url'
 
@@ -578,8 +578,45 @@ function StyleRow({ editor, style }: { editor: Editor; style: TextStyle }) {
               </Bindable>
             ))}
           </div>
+          <GrepStyles editor={editor} style={style} />
         </>
       )}
+    </div>
+  )
+}
+
+/** The GREP styles of `style`: what each regular expression matches in its paragraphs takes another text style. */
+function GrepStyles({ editor, style }: { editor: Editor; style: TextStyle }) {
+  const styles = useEditor(editor, (e) => e.snapshot.textStyles)
+  const others = Object.fromEntries(styles.filter((s) => s.id !== style.id).map((s) => [s.id, s.name]))
+  const set = (grep: Grep[]) => editor.apply({ type: 'setTextStyle', id: style.id, grep })
+  const put = (i: number, g: Partial<Grep>) => set(style.grep.with(i, { ...style.grep[i], ...g }))
+  const first = Object.keys(others)[0]
+  return (
+    <div className="tab-stops">
+      <Group
+        title="GREP styles"
+        action={
+          first && (
+            <button type="button" className="icon-button" aria-label="Add GREP style" title="Add GREP style" onClick={() => set([...style.grep, { pattern: '\\d+', style: first }])}>
+              <Icon name="plus" />
+            </button>
+          )
+        }
+      />
+      {!first && <p className="pf-note">Add another text style to set what a pattern matches in it.</p>}
+      {style.grep.map((g, i) => (
+        <div key={i} className="row">
+          <label className="field">
+            <span className="field-label">Find</span>
+            <NameInput label={`GREP pattern ${i + 1}`} value={g.pattern} onCommit={(pattern) => put(i, { pattern })} />
+          </label>
+          <Select label={`GREP text style ${i + 1}`} value={g.style} options={others} onChange={(s) => put(i, { style: s })} />
+          <button type="button" className="icon-button" aria-label={`Remove GREP style ${i + 1}`} title="Remove GREP style" onClick={() => set(style.grep.toSpliced(i, 1))}>
+            <Icon name="minus" />
+          </button>
+        </div>
+      ))}
     </div>
   )
 }

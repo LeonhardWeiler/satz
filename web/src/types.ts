@@ -25,7 +25,7 @@ condition?: string | null, position?: Position | null, baselineShift?: number | 
 /**
  * `Some(None)` takes the shading off.
  */
-shading?: Color | null | null, } | { "type": "setTextStyle", id: string, name?: string | null, size?: number | null, lineHeight?: number | null, letterSpacing?: number | null, paragraphSpacing?: number | null, fill?: Color | null, textStyle?: string | null, textAlign?: TextAlign | null, hyphenate?: boolean | null, lang?: Lang | null, font?: Typeface | null, paragraphIndent?: number | null, indentLeft?: number | null, indentRight?: number | null, spaceBefore?: number | null, textCase?: TextCase | null, textDecoration?: TextDecoration | null, features?: Array<string> | null, axes?: { [key in string]: number } | null, 
+shading?: Color | null | null, } | { "type": "setTextStyle", id: string, name?: string | null, grep?: Array<Grep> | null, size?: number | null, lineHeight?: number | null, letterSpacing?: number | null, paragraphSpacing?: number | null, fill?: Color | null, textStyle?: string | null, textAlign?: TextAlign | null, hyphenate?: boolean | null, lang?: Lang | null, font?: Typeface | null, paragraphIndent?: number | null, indentLeft?: number | null, indentRight?: number | null, spaceBefore?: number | null, textCase?: TextCase | null, textDecoration?: TextDecoration | null, features?: Array<string> | null, axes?: { [key in string]: number } | null, 
 /**
  * A boolean variable; empty shows the text always.
  */
@@ -44,6 +44,7 @@ export type Fill = { type: FillKind, color: Color, stops: Array<FillStop>, trans
 export type FillKind = "solid" | "linear" | "radial" | "image";
 export type FillStop = { at: number, color: Color, };
 export type Fit = "cover" | "contain" | "frame";
+export type Grep = { pattern: string, style: string, };
 export type Grid = { kind: GridKind, count: number, gutter: number, margin: number, size: number, };
 export type GridKind = "columns" | "rows" | "grid";
 export type Guides = { x: Array<number>, y: Array<number>, };
@@ -329,7 +330,7 @@ minHeight: number,
  * The text styles of the levels of the table of contents the story is.
  */
 toc: Array<string>, };
-export type TextStyle = { id: string, name: string, bindings: { [key in string]: string }, size: number, lineHeight: number, letterSpacing: number, paragraphSpacing: number, fill: Color | null, textStyle: string, textAlign: TextAlign, hyphenate: boolean, lang: Lang, 
+export type TextStyle = { id: string, name: string, bindings: { [key in string]: string }, grep: Array<Grep>, size: number, lineHeight: number, letterSpacing: number, paragraphSpacing: number, fill: Color | null, textStyle: string, textAlign: TextAlign, hyphenate: boolean, lang: Lang, 
 /**
  * `None` is the bundled font.
  */

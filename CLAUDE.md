@@ -81,3 +81,6 @@ Node 22, pnpm, MuPDF (`mutool`, for the PDF tests) and
 - Saved documents keep their Loro history. A version of `Doc::versions` is a Loro change
   (a peer's commits within 60 s merge); `Restore` is a `revert_to` whose commits, layout
   too, carry the message `restore`, so that undo takes it back as one.
+- A text style's `grep` (pattern, style) sets what the pattern matches in the paragraphs
+  in that style in the other style, unless the text names a style of its own; `spans` marks
+  the matches `grep`, so `text_style` stays the paragraph's for the table of contents.

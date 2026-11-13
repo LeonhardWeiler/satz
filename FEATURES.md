@@ -47,7 +47,7 @@
 - Frames that are auto width, auto height (with a min height) or fixed; fit frame to text
 - Fonts, size, leading, tracking, case, decoration, OpenType features, variable font axes, indents, alignment
 - Knuth-Plass line breaking, hyphenation per language, baseline grid, columns with column rules, paragraph shading, insets, vertical alignment, max lines, trim
-- Text styles, special characters, lorem ipsum, find and replace across stories
+- Text styles with GREP styles (what a regular expression matches in their paragraphs takes another text style), special characters, lorem ipsum, find and replace across stories
 - Table of contents from the paragraphs of chosen text styles, one level each, with dot leaders and page numbers; updates on demand
 - Anchored objects: layers pasted into a text sit in its line or keep their offset to their character, and follow it onto other pages
 - Tables of text cells whose rows grow to their text; insert and delete rows and columns, merge and split cells, set column widths and row heights, Tab to the next cell

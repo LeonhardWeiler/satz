@@ -600,7 +600,8 @@ pub struct Span {
     pub attrs: Attrs,
 }
 
-/// Named values for the `STYLED` attributes of `attrs`; `bindings` holds variables by key.
+/// Named values for the `STYLED` attributes of `attrs`; `bindings` holds variables by key
+/// and `grep` sets what its patterns match in its paragraphs in other styles.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -611,6 +612,16 @@ pub struct TextStyle {
     pub attrs: Attrs,
     #[serde(default)]
     pub bindings: BTreeMap<String, String>,
+    #[serde(default)]
+    pub grep: Vec<Grep>,
+}
+
+/// A regular expression and the text style of its matches; a later one wins.
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Grep {
+    pub pattern: String,
+    pub style: String,
 }
 
 impl TextStyle {
