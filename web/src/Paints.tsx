@@ -174,8 +174,8 @@ function PaintRow({
         </ColorPicker>
       )}
       {p.type === 'image' ? (
-        <span className="bound-name" title={imageText(ppi, images[p.image!], mode)}>
-          {imageText(ppi, images[p.image!], mode)}
+        <span className="bound-name" title={imageText(ppi, images[p.image!], mode).title}>
+          {imageText(ppi, images[p.image!], mode).shown}
         </span>
       ) : bound ? (
         <>
@@ -212,8 +212,10 @@ function PaintRow({
   )
 }
 
-const imageText = (ppi: number | undefined, space: string, mode: ColorMode) =>
-  ['Image', ppi !== undefined && `${Math.round(ppi)} ppi`, space === (mode === 'cmyk' ? 'RGB' : 'CMYK') ? `${space} → ${mode.toUpperCase()}` : space].filter(Boolean).join(' · ')
+const imageText = (ppi: number | undefined, space: string, mode: ColorMode) => {
+  const shown = `${ppi === undefined ? 'Image' : `${Math.round(ppi)} ppi`} · ${space}`
+  return { shown, title: space === (mode === 'cmyk' ? 'RGB' : 'CMYK') ? `${shown}, converted to ${mode.toUpperCase()}` : shown }
+}
 
 /** A gradient bar with a marker per stop: a click on the bar adds a stop, a marker drags or takes arrow keys, Delete removes it. */
 function Stops({ paint: p, at, scope, select, set }: { paint: Fill; at: number; scope: Scope; select: (k: number) => void; set: (p: Fill) => void }) {
