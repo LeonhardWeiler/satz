@@ -1,6 +1,9 @@
 import type { Editor } from './editor'
-import type { TextNode } from './model'
+import { keyOf } from './keys'
+import type { Span, TextNode, TextProps, Typeface } from './model'
 import { tab } from './Table'
+import { eachOf } from './Text'
+import type { TextAlign, TextDecoration } from './types'
 
 /** Stands for the number of the page a text is on, as InDesign's Current Page Number. */
 export const PAGE_NUMBER = '\u0018'
@@ -82,6 +85,53 @@ function move(editor: Editor, to: number, extend: boolean) {
   select(editor, extend ? e.anchor : to, to)
 }
 
+const ALIGN: Record<string, TextAlign> = { l: 'left', t: 'center', r: 'right', j: 'justify' }
+const DECORATION: Record<string, TextDecoration> = { u: 'underline', x: 'strikethrough' }
+
+/** The runs of `spans` that reach into `r`. */
+export function within(spans: Span[], r: [number, number]) {
+  let at = 0
+  return spans.filter((s) => (at += s.len) > r[0] && at - s.len < r[1])
+}
+
+/** The style of the family of `f` that is or is not bold or italic as `key` (b or i) toggles it. */
+function face(fonts: Typeface[], f: Typeface, key: string) {
+  const bold = /bold|black|heavy/i.test(f.style) !== (key === 'b')
+  const italic = /italic|oblique/i.test(f.style) !== (key === 'i')
+  const style = [bold && 'Bold', italic && 'Italic'].filter(Boolean).join(' ') || 'Regular'
+  return [fonts.find((o) => o.family === f.family && o.style.toLowerCase() === style.toLowerCase()), `${f.family} ${style}`] as const
+}
+
+/** Figma's type shortcuts on the selection of the text being edited, or else on the selected text layers. Returns true when handled. */
+export function formatKey(editor: Editor, e: KeyboardEvent): boolean {
+  if (!(e.ctrlKey || e.metaKey)) return false
+  const key = keyOf(e)
+  const ed = editor.editing
+  const nodes = (ed ? [editor.nodes.get(ed.id)!.node] : editor.selected()).filter((n): n is TextNode => n.kind === 'text')
+  const r = ed && ed.anchor !== ed.focus ? range(ed) : null
+  const all = nodes.map((n) => editor.storyOf(n)?.spans ?? [])
+  const spans = r ? within(all[0], r) : all.flat()
+  const format = (props: TextProps) => nodes.forEach((n) => editor.apply({ type: 'format', id: n.id, range: r, ...props }))
+  let run: (() => void) | undefined
+  if (e.altKey && !e.shiftKey && ALIGN[key]) run = () => format({ textAlign: ALIGN[key] })
+  else if (!e.altKey && e.shiftKey === (key === 'x') && DECORATION[key]) {
+    run = () => format({ textDecoration: spans.every((s) => s.textDecoration === DECORATION[key]) ? 'none' : DECORATION[key] })
+  } else if (!e.altKey && !e.shiftKey && (key === 'b' || key === 'i')) {
+    run = () => {
+      const [to, name] = face(editor.snapshot.fonts, spans[0].font ?? editor.snapshot.fonts[0], key)
+      if (to) format({ font: to })
+      else editor.say(`No ${name} in this document`)
+    }
+  } else if (!e.altKey && e.shiftKey && (e.code === 'Period' || e.code === 'Comma')) {
+    const by = e.code === 'Period' ? 1 : -1
+    run = () => nodes.forEach((n, i) => eachOf(editor, n.id, all[i], r)('size', (v) => Math.min(5000, Math.max(1, v + by))))
+  }
+  if (!run || !spans.length) return false
+  editor.endTyping()
+  editor.batch(run)
+  return true
+}
+
 /** Keys of a text layer being edited, Figma's with Ctrl for Cmd. Returns true when handled. */
 export function handleTextKey(editor: Editor, e: KeyboardEvent): boolean {
   const ed = editor.editing
@@ -138,7 +188,6 @@ export function handleTextKey(editor: Editor, e: KeyboardEvent): boolean {
     }
     select(editor, a - m[0].length, a)
     insert(editor, lorem(Math.min(Number(m[1] || 10), 10000)))
-  }
-  else return false
+  } else if (!formatKey(editor, e)) return false
   return true
 }

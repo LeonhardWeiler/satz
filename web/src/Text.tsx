@@ -9,7 +9,7 @@ import { addFonts, addLocalFont, useLocalFonts } from './file'
 import { Icon, type IconName } from './icons'
 import { Dialog } from './Popover'
 import { MAX_LENGTH, length } from './settings'
-import { DATE, PAGE_NUMBER, insert, range } from './textEdit'
+import { DATE, PAGE_NUMBER, insert, range, within } from './textEdit'
 import { STYLED, type Attrs, type Grep, type Props, type Span, type Styled, type Tab, type TextNode, type TextProps, type TextStyle, type Typeface } from './model'
 import { Bindable, kindOf } from './Variables'
 import namesUrl from './unicode-names.txt?url'
@@ -151,7 +151,7 @@ export const eachOf = (editor: Editor, id: string, spans: Span[], r: [number, nu
 }
 
 /** Changes the features or the axes of text by `f`. */
-type Each = <K extends 'features' | 'axes'>(key: K, f: (old: Attrs[K]) => Attrs[K]) => void
+type Each = <K extends 'features' | 'axes' | 'size'>(key: K, f: (old: Attrs[K]) => Attrs[K]) => void
 
 /** A button that opens the case, decoration, indent, OpenType features and font axes of `spans`. */
 export function TypeOptions({ editor, spans, set, each, paragraph }: { editor: Editor; spans: Pick<Attrs, Styled>[]; set: (p: TextProps) => void; each: Each; paragraph?: ReactNode }) {
@@ -442,8 +442,7 @@ export function TextSection({ editor, nodes }: { editor: Editor; nodes: TextNode
   const edited = useEditor(editor, (e) => (one && e.editing?.id === one.id && e.editing.anchor !== e.editing.focus ? e.editing : null))
   const r = edited && range(edited)
   const all = nodes.map((n) => stories[n.story]?.spans ?? [])
-  let at = 0
-  const spans = r ? all[0].filter((s) => (at += s.len) > r[0] && at - s.len < r[1]) : all.flat()
+  const spans = r ? within(all[0], r) : all.flat()
   const same = <T,>(get: (a: Attrs) => T) => sameOf(spans, get)
   /** Formats the selection of the text being edited, or else all of it. */
   const format = (props: TextProps) => editor.batch(() => nodes.forEach((n) => editor.apply({ type: 'format', id: n.id, range: r, ...props })))

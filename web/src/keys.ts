@@ -1,9 +1,10 @@
 import { align, ALIGNS, BOOLEANS, combine } from './align'
 import { MM, type Editor, type Tool } from './editor'
+import { formatKey } from './textEdit'
 import { remove } from './vector'
 
 const TOOLS: Record<string, Tool> = {
-  v: 'move', f: 'frame', a: 'frame', r: 'rect', o: 'ellipse', l: 'line', y: 'polygon', s: 'star', p: 'pen', t: 'text', i: 'eyedropper',
+  v: 'move', f: 'frame', r: 'rect', o: 'ellipse', l: 'line', y: 'polygon', s: 'star', p: 'pen', t: 'text', i: 'eyedropper',
 }
 const VECTOR_KEYS: Record<string, 'move' | 'add' | 'delete' | 'fill'> = { v: 'move', p: 'add', '-': 'delete', b: 'fill' }
 const ORDER = { BracketRight: ['forward', 'front'], BracketLeft: ['backward', 'back'] } as const
@@ -79,6 +80,7 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
     editor.apply({ type: 'setGuides', id, guides: { ...guides, [axis]: guides[axis].toSpliced(index, 1) } })
     editor.set({ guide: null })
   } else if (!ids.length) return false
+  else if (formatKey(editor, e)) return true
   else if (e.key === 'Delete' || e.key === 'Backspace') editor.apply({ type: 'delete', ids })
   else if (mod && e.altKey && key === 'c') editor.resize(editor.selected(), 'autoFit')
   else if (mod && e.altKey && key === 'h') editor.resize(editor.selected(), 'autoHeight')
@@ -98,7 +100,7 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
   } else if (mod && key === 'd') editor.duplicate(ids)
   else if (mod && key === 'g' && e.shiftKey) editor.set({ selection: editor.apply({ type: 'ungroup', ids }) })
   else if (mod && key === 'g') editor.set({ selection: editor.apply({ type: 'group', ids, frame: e.altKey }) })
-  else if ((mod && key === 'r') || e.key === 'F2') editor.set({ renaming: ids[0] })
+  else if (e.key === 'F2') editor.set({ renaming: ids[0] })
   else if (mod && e.shiftKey && key === 'h') toggle('hidden')
   else if (mod && e.shiftKey && key === 'l') toggle('locked')
   else if (!mod && e.shiftKey && e.altKey && key === 'a') {

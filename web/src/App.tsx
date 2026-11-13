@@ -131,7 +131,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       else if (mod && e.shiftKey && !e.altKey && e.code === 'KeyK') placeImages(editor)
       else if (mod && e.altKey && !e.shiftKey && e.code === 'KeyP') addPage(editor)
       else if (mod && !e.shiftKey && !e.altKey && e.code === 'KeyK') setDialog('palette')
-      else if (mod && e.code === 'Comma') setDialog('settings')
+      else if (mod && !e.shiftKey && e.code === 'Comma') setDialog('settings')
       else if (mod && e.altKey && !e.shiftKey && e.code === 'KeyZ') setDialog('history')
       else if (mod && !e.shiftKey && !e.altKey && e.code === 'KeyF') setFinding(true)
       else if (isTyping(e) || (e.target as Element).closest?.('.menu')) return
