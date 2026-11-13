@@ -217,3 +217,11 @@ test('dialogs more', async ({ page }) => {
   await shot(page, D, '44 find, current match', 'Find: current match ("1 of N"), replace text entered', [page.getByLabel('Find and replace')], 24)
   await shot(page, D, '45 find, current match on the canvas', 'Current match on the canvas')
 })
+
+test('narrow window', async ({ page }) => {
+  await start(page, { w: 900, h: 800 })
+  await select(page, 'Star')
+  await shot(page, A, '50 narrow window', 'The editor at 900 × 800 with a selection')
+  await page.keyboard.press('Control+,')
+  await shot(page, D, '50 settings, narrow', 'Settings at 900 × 800')
+})

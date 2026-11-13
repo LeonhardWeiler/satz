@@ -399,13 +399,13 @@ export function Properties({ editor }: { editor: Editor }) {
               <Field label="Points" title="Points" unit="" int min={3} max={60} value={one.count} onCommit={(count) => set({ count })} />
             )}
             {one.shape === 'star' && (
-              <Field label="Inner radius" title="Inner radius" unit="%" digits={1} min={1} max={100} value={one.ratio * 100} onCommit={(v) => set({ ratio: v / 100 })} />
+              <Field label="Inner" title="Inner radius" unit="%" digits={1} min={1} max={100} value={one.ratio * 100} onCommit={(v) => set({ ratio: v / 100 })} />
             )}
             {one.shape === 'ellipse' && (
               <>
                 <Field label="Start" title="Arc start" unit="°" min={-Infinity} reset={0} value={one.start} onCommit={(v) => set({ start: ((v % 360) + 360) % 360 })} />
                 <Field label="Sweep" title="Arc sweep" unit="°" max={360} reset={360} value={one.sweep * 360} onCommit={(v) => set({ sweep: v / 360 })} />
-                <Field label="Inner radius" title="Inner radius" unit="%" digits={1} max={100} reset={0} value={one.inner * 100} onCommit={(v) => set({ inner: v / 100 })} />
+                <Field label="Inner" title="Inner radius" unit="%" digits={1} max={100} reset={0} value={one.inner * 100} onCommit={(v) => set({ inner: v / 100 })} />
               </>
             )}
           </div>
