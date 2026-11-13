@@ -31,7 +31,7 @@
   --hover: color-mix(in srgb, var(--fg) 7%, transparent);
   --selected: color-mix(in srgb, var(--fg) 12%, transparent);
   --text: var(--fg);
-  --muted: color-mix(in srgb, var(--fg) 64%, var(--bg));
+  --muted: color-mix(in srgb, var(--fg) 72%, var(--bg));
   --border: color-mix(in srgb, var(--fg) 10%, var(--bg));
   --edge: color-mix(in srgb, var(--fg) 18%, var(--bg));
   --scrim: rgb(0 0 0 / 0.6);
