@@ -409,8 +409,8 @@ export function Picker({
             </div>
           )}
           <div className="row">
-            <label className="field">
-              <span className="field-label">Hex</span>
+            <label className="field" title={mode === 'cmyk' ? 'The screen color of these inks; a hex converts to CMYK' : undefined}>
+              <span className="field-label">{mode === 'cmyk' ? 'RGB' : 'Hex'}</span>
               <input
                 key={rgb}
                 name="hex"
