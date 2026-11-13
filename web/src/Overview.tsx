@@ -379,7 +379,7 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
                   snapshot={snapshot}
                   lists={[{ id: m.id, x: 0 }]}
                   sheets={facing ? [sheet(m, -m.width), sheet(m)] : [sheet(m)]}
-                  height={Math.max(40, Math.round(((wide - 64) * m.height) / (m.width * (facing ? 2 : 1))))}
+                  height={Math.max(40, Math.round(((wide - 57) * m.height) / (m.width * (facing ? 2 : 1))))}
                 />,
               )}
               {renaming === m.id ? (
