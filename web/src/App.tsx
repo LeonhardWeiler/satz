@@ -272,6 +272,9 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         </div>
         {overview ? <span /> : <Switcher editor={editor} />}
         <div className="bar-side end">
+          <button type="button" className="tool" aria-label="Command palette" title="Search commands, layers and pages (Ctrl+K)" onClick={() => setDialog('palette')}>
+            <Icon name="search" />
+          </button>
           <button
             type="button"
             className="tool toggle"
