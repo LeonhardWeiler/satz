@@ -1,0 +1,26 @@
+import { expect, test, open } from './util'
+
+test('a version of the history is restored and undo takes it back', async ({ page }) => {
+  await page.clock.install()
+  await open(page)
+  await page.clock.fastForward('02:00')
+  await page.getByRole('tab', { name: 'Layers' }).click()
+  const layer = page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ })
+  await layer.click()
+  await page.keyboard.press('Delete')
+  await expect(layer).toHaveCount(0)
+
+  const history = page.getByRole('dialog', { name: 'Version history' })
+  const versions = history.getByRole('option')
+  await page.getByRole('button', { name: 'Version history' }).click()
+  await expect(versions.first()).toHaveText(/Current$/)
+  await versions.nth(1).click()
+  await expect(history).toBeHidden()
+  await expect(layer).toHaveCount(1)
+  await page.keyboard.press('Control+Alt+z')
+  await expect(versions.first()).toHaveText(/Current, Restored$/)
+  await page.keyboard.press('Escape')
+  await expect(history).toBeHidden()
+  await page.keyboard.press('Control+z')
+  await expect(layer).toHaveCount(0)
+})

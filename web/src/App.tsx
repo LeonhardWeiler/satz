@@ -7,6 +7,7 @@ import { ContextMenu } from './ContextMenu'
 import { CLIP, useEditor, type Editor } from './editor'
 import { Settings } from './SettingsDialog'
 import { Find } from './Find'
+import { History } from './History'
 import { settings } from './settings'
 import { autosave, download, drop, exportFile, flush, open, placeImages, save, show, type Handle } from './file'
 import { Icon } from './icons'
@@ -47,7 +48,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   const [exporting, setExporting] = useState(false)
   const lastFormat = useRef<Format>('pdf')
   const [starting, setStarting] = useState(false)
-  const [dialog, setDialog] = useState<'palette' | 'help' | 'settings' | null>(null)
+  const [dialog, setDialog] = useState<'palette' | 'help' | 'settings' | 'history' | null>(null)
   const [finding, setFinding] = useState(false)
   const [menu, setMenu] = useState<{ x: number; y: number; transform?: boolean } | null>(null)
   const [renaming, setRenaming] = useState(false)
@@ -135,6 +136,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       else if (mod && e.altKey && !e.shiftKey && e.code === 'KeyP') addPage(editor)
       else if (mod && !e.shiftKey && !e.altKey && e.code === 'KeyK') setDialog('palette')
       else if (mod && e.code === 'Comma') setDialog('settings')
+      else if (mod && e.altKey && !e.shiftKey && e.code === 'KeyZ') setDialog('history')
       else if (mod && !e.shiftKey && !e.altKey && e.code === 'KeyF') setFinding(true)
       else if (isTyping(e) || (e.target as Element).closest?.('.menu')) return
       else if (e.key === '.' && !mod) editor.toggleOverview()
@@ -281,6 +283,9 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
             <Icon name="pages" />
           </button>
           <span className="sep" />
+          <button type="button" className="tool" aria-label="Version history" title="Version history (Ctrl+Alt+Z)" onClick={() => setDialog('history')}>
+            <Icon name="clock" />
+          </button>
           <button type="button" className="tool" aria-label="Settings" title="Settings (Ctrl+,)" onClick={() => setDialog('settings')}>
             <Icon name="settings" />
           </button>
@@ -314,6 +319,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       )}
       {finding && <Find editor={editor} onClose={() => setFinding(false)} />}
       {dialog === 'palette' && <Palette editor={editor} onClose={() => setDialog(null)} />}
+      {dialog === 'history' && <History editor={editor} onClose={() => setDialog(null)} />}
       {(dialog === 'settings' || dialog === 'help') && <Settings page={dialog === 'help' ? 'shortcuts' : 'general'} onClose={() => setDialog(null)} />}
       <Tooltip />
       {menu && (

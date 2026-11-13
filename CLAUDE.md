@@ -78,3 +78,6 @@ Node 22, pnpm, MuPDF (`mutool`, for the PDF tests) and
   instances in the PDF.
 - A span's `condition` names a boolean variable; where it is false in the text's mode the
   span is `hidden` and `text::set` lays out the rest (`Shown`), mapping bytes back.
+- Saved documents keep their Loro history. A version of `Doc::versions` is a Loro change
+  (a peer's commits within 60 s merge); `Restore` is a `revert_to` whose commits, layout
+  too, carry the message `restore`, so that undo takes it back as one.

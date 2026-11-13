@@ -159,6 +159,12 @@ const ICONS = {
   left: <path d="m9.5 4-4 4 4 4" />,
   close: <path d="m4 4 8 8M12 4l-8 8" />,
   check: <path d="m3.5 8.5 3 3 6-7" />,
+  clock: (
+    <>
+      <circle cx="8" cy="8" r="5.5" />
+      <path d="M8 5v3l2 1.5" />
+    </>
+  ),
   plus: <path d="M8 4.5v7M4.5 8h7" />,
   minus: <path d="M4.5 8h7" />,
   eye: (

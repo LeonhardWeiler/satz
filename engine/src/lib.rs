@@ -421,6 +421,11 @@ impl Engine {
         Ok(())
     }
 
+    /// The versions of the document's history, the newest first.
+    pub fn versions(&self) -> Result<JsValue, JsError> {
+        Ok(serde_wasm_bindgen::to_value(&self.doc.versions())?)
+    }
+
     #[wasm_bindgen(js_name = versionVector)]
     pub fn version_vector(&self) -> Vec<u8> {
         self.doc.version_vector()

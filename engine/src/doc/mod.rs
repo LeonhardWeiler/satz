@@ -41,6 +41,7 @@ mod bench;
 mod boolean;
 mod clipboard;
 mod draw;
+mod history;
 mod link;
 mod pages;
 mod palette;
@@ -468,6 +469,11 @@ pub enum Command {
         collection: String,
         mode: Option<String>,
     },
+    /// Makes the document what it was at a version of `Doc::versions`.
+    Restore {
+        peer: String,
+        counter: i32,
+    },
     Undo,
     Redo,
     BeginUndoGroup,
@@ -885,6 +891,8 @@ pub struct Doc {
     version: String,
     /// What the last command changed beyond what it was asked to.
     notes: RefCell<Vec<String>>,
+    /// The message of the commits of the running command.
+    message: Cell<Option<&'static str>>,
     /// The date that date markers show, [year, month, day].
     today: Cell<[u32; 3]>,
 }
@@ -1198,6 +1206,8 @@ impl Doc {
         doc.config_default_text_style(Some(StyleConfig {
             expand: ExpandType::After,
         }));
+        doc.set_record_timestamp(true);
+        doc.set_change_merge_interval(60);
         let tree = doc.get_tree("nodes");
         tree.enable_fractional_index(0);
         let changed = Arc::new(Mutex::new(None));
@@ -1217,6 +1227,7 @@ impl Doc {
             sheets: RefCell::default(),
             reflowed: RefCell::default(),
             notes: RefCell::default(),
+            message: Cell::default(),
             undo: undo_manager(&doc),
             grouped: false,
             spares: RefCell::default(),
@@ -1475,7 +1486,7 @@ impl Doc {
         d
     }
 
-    /// The document for `load`, without its history and so without the images
+    /// The document for `load` with its history, its latest state without the images
     /// that only the trash or undo still use.
     pub fn save(&self) -> Vec<u8> {
         let used = self.used_images();
@@ -1495,8 +1506,7 @@ impl Doc {
             doc.commit();
             doc
         };
-        doc.export(ExportMode::shallow_snapshot(&doc.state_frontiers()))
-            .expect("export")
+        doc.export(ExportMode::Snapshot).expect("export")
     }
 
     /// The images that the layers outside the trash fill with.
@@ -1600,11 +1610,7 @@ impl Doc {
         since
             .filter(|v| self.doc.oplog_vv().includes_vv(v))
             .and_then(|v| self.doc.export(ExportMode::updates_owned(v)).ok())
-            .unwrap_or_else(|| {
-                (self.doc)
-                    .export(ExportMode::shallow_snapshot(&self.doc.state_frontiers()))
-                    .expect("export")
-            })
+            .unwrap_or_else(|| (self.doc).export(ExportMode::Snapshot).expect("export"))
     }
 
     /// Takes in what `updates` gave: loads a document, imports changes.
@@ -1669,6 +1675,7 @@ impl Doc {
         }
         self.invalidate();
         self.notes.take();
+        self.message.take();
         let history = matches!(cmd, Command::Undo | Command::Redo);
         let alone = !history && !self.grouped;
         if history {
@@ -1763,6 +1770,7 @@ impl Doc {
             Command::AutoLayout { ids } => self.auto_layout(ids),
             Command::Move { ids, parent, index } => self.move_layers(ids, parent, index),
             Command::Order { ids, to } => self.order(ids, to),
+            Command::Restore { peer, counter } => self.restore(peer, counter),
             Command::Undo => {
                 self.undo.group_end();
                 self.grouped = false;
@@ -1952,6 +1960,17 @@ impl Doc {
         Ok(id)
     }
 
+    /// Commits the pending ops with the message of the running command.
+    fn commit(&self) {
+        if self.doc.get_pending_txn_len() == 0 {
+            return;
+        }
+        if let Some(m) = self.message.get() {
+            self.doc.set_next_commit_message(m);
+        }
+        self.doc.commit();
+    }
+
     fn finish(&self, out: Vec<String>, history: bool) -> Res<Vec<String>> {
         let icc = value(&self.doc.get_map("document"), "profile");
         if color::use_profile(match &icc {
@@ -1960,9 +1979,7 @@ impl Doc {
         }) {
             image::forget(&[]);
         }
-        if self.doc.get_pending_txn_len() > 0 {
-            self.doc.commit();
-        }
+        self.commit();
         self.purge();
         self.numbers.take();
         self.check_links();
@@ -1998,7 +2015,7 @@ impl Doc {
                 rounds += 1;
                 done.clear();
             }
-            self.doc.commit();
+            self.commit();
             self.purge();
         };
         #[cfg(debug_assertions)]
@@ -5770,6 +5787,7 @@ mod tests {
         d.visit::<crate::text::TextFrame>();
         d.visit::<Props>();
         d.visit::<Palette>();
+        d.visit::<history::Version>();
         let ts: String = d.1.values().map(|v| format!("export {v}\n")).collect();
         crate::fixture(
             "types.ts",
