@@ -225,3 +225,11 @@ test('narrow window', async ({ page }) => {
   await page.keyboard.press('Control+,')
   await shot(page, D, '50 settings, narrow', 'Settings at 900 × 800')
 })
+
+test('version history', async ({ page }) => {
+  await start(page)
+  await select(page, 'Star')
+  await page.keyboard.press('Delete')
+  await page.keyboard.press('Control+Alt+z')
+  await shot(page, D, '60 version history', 'Version history (Ctrl+Alt+Z)', [page.getByRole('dialog', { name: 'Version history' })])
+})
