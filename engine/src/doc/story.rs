@@ -2041,6 +2041,8 @@ mod tests {
         set_text(&mut d, &a, "Hi");
         assert_eq!(d.frame_range(&a).unwrap(), [0, 0]);
         assert_eq!(page(&d).children[0].name, "Hi");
+        set_text(&mut d, &a, "\u{FFFC} Hi\u{FFFC}!");
+        assert_eq!(page(&d).children[0].name, "Hi!");
     }
 
     #[test]

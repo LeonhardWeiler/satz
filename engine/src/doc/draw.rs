@@ -323,15 +323,20 @@ fn text_or_cell_name(lead: &str, tf: &TextFrame, cell: Option<[usize; 4]>) -> St
 /// The name of a text layer that has none and whose text starts with `lead`, its
 /// markers as `tf` shows them.
 fn text_name(lead: &str, tf: &TextFrame) -> String {
-    if lead.is_empty() {
-        return "Text".into();
-    }
     let mut t = String::new();
-    for c in lead.chars().take(41) {
+    for c in lead
+        .trim_start_matches([text::ANCHOR, ' '])
+        .chars()
+        .filter(|&c| c != text::ANCHOR)
+        .take(41)
+    {
         match c {
             text::PAGE_NUMBER | text::DATE => t.push_str(tf.marker(c)),
             c => t.push(c),
         }
+    }
+    if t.is_empty() {
+        return "Text".into();
     }
     match t.char_indices().nth(40) {
         Some((end, _)) => {
