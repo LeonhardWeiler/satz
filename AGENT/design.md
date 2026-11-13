@@ -57,7 +57,6 @@ fails vitest.
 - Shortcuts: text format keys work on the edited range and on selected text layers
   (Ctrl B, I, U, Shift X, Alt L/T/R/J, Shift . and ,); single letters only pick tools;
   rename is F2 only.
-- Fields in the document unit show no unit suffix; only a value in another unit names it.
 - One control type per setting everywhere: an on/off setting is a checkbox (Facing
   pages), not a two-item segmented control.
 - A setting that only applies in one mode shows only in it (the profile only in CMYK).
