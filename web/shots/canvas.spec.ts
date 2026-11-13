@@ -194,7 +194,7 @@ test('grids, guides, wrap', async ({ page }) => {
   await page.mouse.move(800, 450)
   await shot(page, K, '44 guide hover', 'Hovered guide', [view()], 0)
   await select(page, 'Blurred tile')
-  await props(page).getByRole('region', { name: 'Layer', exact: true }).getByRole('button', { name: 'Text wrap', exact: true }).click()
+  await props(page).getByRole('region', { name: 'Layer', exact: true }).getByRole('button', { name: 'Layer options' }).click()
   await props(page).getByRole('combobox', { name: 'Text wrap' }).click()
   await page.getByRole('menu').getByRole('menuitemradio', { name: 'Wrap around' }).click()
   await props(page).getByRole('textbox', { name: /^Y\b/ }).first().fill('100')

@@ -2,16 +2,7 @@ import { opened, png, rest, select, shot, start, test } from './lib'
 import { place } from '../e2e/util'
 
 const P = '05 Properties'
-const Q = '12 Quick edit bar'
-const quick = (page) => page.locator('.quick')
-
-async function both(page, n: string, what: string) {
-  await shot(page, P, n + ' ' + what, `Properties: ${what}`, ['right'])
-  await page.keyboard.press('Alt+2')
-  await rest(page)
-  if (await quick(page).isVisible()) await shot(page, Q, n + ' ' + what, `Quick edit bar: ${what}`, [quick(page)], 16)
-  await page.keyboard.press('Alt+2')
-}
+const both = (page, n: string, what: string) => shot(page, P, n + ' ' + what, `Properties: ${what}`, ['right'])
 
 test('sample elements', async ({ page }) => {
   await start(page, { h: 2200 })
@@ -62,15 +53,13 @@ test('image', async ({ page }) => {
   await place(page, png('photo.png', 200, 140, (x, y) => [x, y, 160]), [74, 150])
   await rest(page)
   await both(page, '20', 'image')
-  await page.keyboard.press('Alt+2')
   await page.getByRole('button', { name: 'Fit image' }).click()
-  await shot(page, Q, '30 fit image menu', 'Fit image menu', [quick(page), page.getByRole('menu')], 16)
+  await shot(page, P, '30 fit image menu', 'Fit image menu', [page.getByRole('menu')], 16)
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: 'Adjust image' }).click()
-  await shot(page, Q, '31 adjust image', 'Adjust image popover', [quick(page), page.getByRole('dialog').last()], 16)
+  await shot(page, P, '31 adjust image', 'Adjust image popover', [page.getByRole('dialog').last()], 16)
   await page.locator('.menu-backdrop').click({ position: { x: 5, y: 5 } })
   await page.getByRole('button', { name: 'Crop' }).click()
-  await page.keyboard.press('Alt+2')
   await rest(page)
   await shot(page, '04 Canvas', '40 crop mode', 'Image crop mode', [page.getByLabel('Page canvas')], 0)
   await both(page, '21', 'image in crop mode')
@@ -111,11 +100,10 @@ test('property states', async ({ page }) => {
   await page.keyboard.press('Escape')
   await rest(page)
   await part(page, '55', 'text shading', 'Text')
-  await sec(page, 'Text frame').getByRole('button', { name: 'Inset of each side' }).click()
+  await sec(page, 'Text frame').getByRole('button', { name: 'Frame options' }).click()
   await sec(page, 'Text frame').getByRole('textbox', { name: 'Columns' }).fill('2')
   await page.keyboard.press('Enter')
   await sec(page, 'Text frame').getByRole('checkbox', { name: 'Column rule' }).check()
-  await sec(page, 'Text frame').getByRole('button', { name: 'Baseline grid' }).click()
   await sec(page, 'Text frame').getByRole('textbox', { name: 'Baseline grid in pt', exact: true }).fill('12')
   await page.keyboard.press('Enter')
   await sec(page, 'Text frame').getByRole('radio', { name: 'Auto height' }).click()

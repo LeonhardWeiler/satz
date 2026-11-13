@@ -52,6 +52,7 @@ export async function opened(page: Page, cat: string, name: string, caption: str
 }
 
 export async function select(page: Page, ...names: string[]) {
+  await page.getByRole('tab', { name: 'Layers' }).click()
   for (const [i, n] of names.entries()) {
     const row = layers(page).locator('.layer-name').filter({ hasText: new RegExp(`^${n.endsWith('…') ? n.slice(0, -1) : n + '$'}`) }).first()
     await row.click({ modifiers: i ? ['Shift'] : [] })
@@ -95,4 +96,10 @@ export async function shot(page: Page, cat: string, name: string, caption: strin
   const file = join(out, cat, `${name}.png`)
   await page.screenshot({ path: file, clip })
   appendFileSync(join(out, 'manifest.jsonl'), JSON.stringify({ cat, name, caption, file }) + '\n')
+}
+
+/** The Variables section of the Assets tab, which it opens. */
+export async function variables(page: Page) {
+  await page.getByRole('tab', { name: 'Assets' }).click()
+  return page.locator('.left').getByRole('region', { name: 'Variables', exact: true })
 }

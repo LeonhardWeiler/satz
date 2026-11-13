@@ -237,15 +237,6 @@ test('overview of one page', async ({ page }) => {
   await shot(page, G, '05 switcher, one page', 'Spread switcher of a single page document', [sw(page)], 8)
 })
 
-test('layers more', async ({ page }) => {
-  await example(page, 'booklet.satz')
-  await page.keyboard.press('PageDown')
-  await rest(page)
-  await page.locator('.layer-master').click()
-  await rest(page)
-  await shot(page, L, '12 master layers expanded', 'Layers of a page with the master layers expanded', ['left'])
-})
-
 test('swatches more', async ({ page }) => {
   await example(page, 'poster.satz', { h: 1400 })
   const sws = page.getByRole('region', { name: 'Swatches' })
@@ -279,6 +270,7 @@ test('preflight more', async ({ page }) => {
   await shot(page, F, '09 screen preset', 'PDF screen preset: bleed and marks off', [pf.getByRole('region', { name: 'Output' })], 8)
   await pf.getByRole('combobox', { name: 'Preset' }).click()
   await page.getByRole('menu').getByRole('menuitemradio', { name: /^PDF\/X-4/ }).click()
+  await pf.getByRole('button', { name: 'Advanced output' }).click()
   await opened(page, F, '14 image resolution select', 'Image resolution select', pf.getByRole('combobox', { name: 'Image resolution' }))
   await opened(page, F, '15 JPEG quality select', 'JPEG quality select', pf.getByRole('combobox', { name: 'JPEG quality' }))
 })

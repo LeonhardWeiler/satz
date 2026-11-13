@@ -18,8 +18,6 @@ test('start dialog', async ({ page }) => {
   const d = page.getByRole('dialog', { name: 'New document' })
   await shot(page, D, '01 new document, first launch', 'New document dialog on first launch (Esc closes)')
   await shot(page, D, '02 new document, close-up', 'New document dialog, close-up', [d])
-  await d.getByText('Custom', { exact: true }).click()
-  await shot(page, D, '03 new document, custom format', 'Custom format with W and H fields', [d])
   await page.keyboard.press('Enter')
   await expect(d).toHaveCount(0)
   await rest(page)
@@ -62,7 +60,7 @@ test('shell states', async ({ page }) => {
 test('dialogs', async ({ page }) => {
   await start(page)
   await page.keyboard.press('?')
-  const help = page.getByRole('dialog', { name: 'Keyboard shortcuts' })
+  const help = page.getByRole('dialog', { name: 'Settings' })
   await shot(page, D, '10 keyboard shortcuts', 'Keyboard shortcuts (?)')
   await help.getByRole('textbox', { name: 'Search shortcuts' }).fill('zoom')
   await shot(page, D, '11 keyboard shortcuts, search', 'Shortcuts filtered by a search', [help])
@@ -162,10 +160,6 @@ test('shell feedback', async ({ page }) => {
   await page.keyboard.press('Escape')
   await page.keyboard.press('Escape')
   await page.keyboard.press('v')
-  await page.getByRole('region', { name: 'Swatches' }).getByRole('button', { name: 'Swatches' }).click()
-  await rest(page)
-  await shot(page, A, '33 swatches collapsed', 'Left panel with the swatches collapsed', ['left'])
-  await page.getByRole('region', { name: 'Swatches' }).getByRole('button', { name: 'Swatches' }).click()
   await select(page, 'Sun')
   await page.keyboard.press('Shift+2')
   await rest(page)
@@ -190,12 +184,12 @@ test('shell feedback', async ({ page }) => {
 })
 
 test('settings applied', async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('satz.settings', JSON.stringify({ unit: 'in', quickEdit: false })))
+  await page.addInitScript(() => localStorage.setItem('satz.settings', JSON.stringify({ unit: 'in' })))
   await start(page)
   await select(page, 'Star')
-  await shot(page, A, '40 quick edit off, inches', 'Quick edit bar off and lengths in inches (settings)')
+  await shot(page, A, '40 inches', 'Lengths in inches (settings)')
   await page.keyboard.press('Control+,')
-  await shot(page, D, '22 settings changed', 'Settings with another unit and quick edit off', [page.getByRole('dialog', { name: 'Settings' })])
+  await shot(page, D, '22 settings changed', 'Settings with another unit', [page.getByRole('dialog', { name: 'Settings' })])
   for (const [u, n] of [['cm', 'Centimeters'], ['pt', 'Points']]) {
     await page.getByRole('dialog', { name: 'Settings' }).getByRole('combobox', { name: 'Unit' }).click()
     await page.getByRole('menu').getByRole('menuitemradio', { name: n }).click()
@@ -209,7 +203,7 @@ test('settings applied', async ({ page }) => {
 test('dialogs more', async ({ page }) => {
   await start(page, { h: 2400 })
   await page.keyboard.press('?')
-  await shot(page, D, '15 keyboard shortcuts, all', 'Every shortcut (tall window)', [page.getByRole('dialog', { name: 'Keyboard shortcuts' })])
+  await shot(page, D, '15 keyboard shortcuts, all', 'Every shortcut (tall window)', [page.getByRole('dialog', { name: 'Settings' })])
   await page.keyboard.press('Escape')
   await page.keyboard.press('Control+k')
   const pal = page.getByRole('dialog', { name: 'Command palette' })

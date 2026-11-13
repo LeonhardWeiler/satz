@@ -1,4 +1,4 @@
-import { opened, props, rest, section, select, shot, start, test } from './lib'
+import { variables, opened, props, rest, section, select, shot, start, test } from './lib'
 
 const C = '06 Popovers & menus'
 const T = '07 Text'
@@ -14,9 +14,8 @@ test('color pickers and selects', async ({ page }) => {
   await pick.getByRole('tab', { name: 'Swatches' }).click()
   await shot(page, C, '02 color picker, swatches tab empty', 'Swatches tab without swatches or variables', [fill, pick], 16)
   await page.keyboard.press('Escape')
-  await opened(page, C, '03 fill type select', 'Paint type select (Solid, Linear, Radial)', fill.getByRole('combobox').first())
   await opened(page, C, '04 blend mode select', 'Blend mode select', combo(page, 'Blend mode'))
-  await section(page, 'Layer').getByRole('button', { name: 'Text wrap', exact: true }).click()
+  await section(page, 'Layer').getByRole('button', { name: 'Layer options' }).click()
   await opened(page, C, '05 text wrap select', 'Text wrap select', combo(page, 'Text wrap'))
   await opened(page, C, '06 constraints select', 'Constraint select (inside a frame)', section(page, 'Layout').getByRole('combobox').first())
   await section(page, 'Stroke').getByRole('button', { name: 'Add stroke' }).click()
@@ -47,7 +46,7 @@ test('document and page selects', async ({ page }) => {
   await opened(page, C, '20 page format select', 'Document format select', section(page, 'Document').getByRole('combobox').first())
   await opened(page, C, '22 color mode select', 'Color mode select', combo(page, 'Color mode'))
   if (await combo(page, 'Master').isEnabled()) await opened(page, C, '23 master select', 'Master select of a page', combo(page, 'Master'))
-  await props(page).getByRole('region', { name: /^Page / }).getByRole('button', { name: 'Section', exact: true }).click()
+  await props(page).getByRole('region', { name: /^Page / }).getByRole('button', { name: 'Page options' }).click()
   await props(page).getByText('Start section').click()
   await shot(page, C, '24 start section', 'Page starting a section (start, numbering, prefix)', ['right'])
   await opened(page, C, '25 numbering select', 'Numbering select', combo(page, 'Numbering'))
@@ -57,24 +56,25 @@ test('document and page selects', async ({ page }) => {
   await rest(page)
   await shot(page, C, '27 layout grid', 'Layout grid row (columns)', [section(page, 'Layout grids')], 8)
   await opened(page, C, '28 grid type select', 'Grid type select', combo(page, 'Grid type'))
-  await opened(page, C, '29 variable kinds', 'Create variable menu', section(page, 'Variables').getByRole('button', { name: 'Add variable' }))
-  await section(page, 'Variables').getByRole('button', { name: 'Add variable' }).click()
+  const vars = await variables(page)
+  await opened(page, C, '29 variable kinds', 'Create variable menu', vars.getByRole('button', { name: 'Add variable' }))
+  await vars.getByRole('button', { name: 'Add variable' }).click()
   await page.getByRole('menu', { name: 'Create variable' }).getByRole('menuitem', { name: 'Color' }).click()
   const edit = page.getByRole('dialog', { name: /^Edit / })
-  await shot(page, C, '30 variable editor', 'Variable editor popover (modes)', [section(page, 'Variables'), edit], 16)
+  await shot(page, C, '30 variable editor', 'Variable editor popover (modes)', [vars, edit], 16)
   await edit.getByRole('button', { name: /Add mode/ }).click().catch(() => {})
-  await shot(page, C, '31 variable editor, two modes', 'Variable editor with a second mode', [section(page, 'Variables'), edit], 16)
+  await shot(page, C, '31 variable editor, two modes', 'Variable editor with a second mode', [vars, edit], 16)
   await page.keyboard.press('Escape')
   await rest(page)
-  await shot(page, C, '32 variables section', 'Variables section with a color variable and mode selects', ['right'])
-  await section(page, 'Variables').getByRole('button').filter({ hasText: /Color|Variable/ }).first().click({ button: 'right' }).catch(() => {})
+  await shot(page, C, '32 variables section', 'Variables section with a color variable and mode selects', ['left'])
+  await vars.getByRole('button').filter({ hasText: /Color|Variable/ }).first().click({ button: 'right' }).catch(() => {})
   if (await page.getByRole('menu', { name: 'Variable' }).count()) {
-    await shot(page, C, '33 variable context menu', 'Variable row context menu', [section(page, 'Variables'), page.getByRole('menu')], 16)
+    await shot(page, C, '33 variable context menu', 'Variable row context menu', [vars, page.getByRole('menu')], 16)
     await page.keyboard.press('Escape')
   }
   await select(page, 'Rectangle')
   const bind = props(page).locator('.bind-button').first()
-  await opened(page, C, '34 apply variable', 'Apply variable listbox', bind, page.getByRole('listbox').last())
+  await opened(page, C, '34 apply variable', 'Apply variable listbox', bind, page.getByRole('listbox', { name: / variables$/ }))
   await section(page, 'Fill').getByRole('button', { name: 'Fill color' }).first().click()
   await page.getByRole('dialog', { name: 'Fill color' }).getByRole('tab', { name: 'Swatches' }).click()
   await shot(page, C, '35 swatches tab with variable', 'Swatches tab listing a color variable', [section(page, 'Fill'), page.getByRole('dialog', { name: 'Fill color' })], 16)
@@ -122,6 +122,7 @@ test('text', async ({ page }) => {
   await opened(page, T, '04 insert character', 'Insert character menu', props(page).getByRole('button', { name: 'Insert character' }))
   await opened(page, T, '05 type options', 'Type options popover', props(page).getByRole('button', { name: 'Type options' }), page.getByRole('dialog', { name: 'Type options' }))
   await select(page, 'Satz sets type…')
+  await section(page, 'Text frame').getByRole('button', { name: 'Frame options' }).click()
   await props(page).getByRole('textbox', { name: 'Columns' }).fill('2')
   await page.keyboard.press('Enter')
   await rest(page)
@@ -133,24 +134,9 @@ test('text', async ({ page }) => {
   await shot(page, T, '11 text style created', 'Text styles section after Create text style', ['right'])
 })
 
-const Q = '12 Quick edit bar'
-
-test('quick bar and variables', async ({ page }) => {
+test('variables', async ({ page }) => {
   await start(page, { h: 1600 })
-  const quick = page.locator('.quick')
-  await page.keyboard.press('Alt+2')
-  await select(page, 'Star')
-  await opened(page, Q, '33 quick stroke color menu', 'Quick edit stroke color menu', quick.getByRole('button', { name: 'Stroke color' }))
-  await quick.getByRole('button', { name: 'Fill color' }).click()
-  await page.getByRole('menu').getByRole('menuitem', { name: 'Custom…' }).click()
-  await shot(page, Q, '34 quick custom color', 'Quick edit Custom… color picker', [quick, page.getByRole('dialog').last()], 16)
-  await page.keyboard.press('Escape')
-  await select(page, 'Star', 'Sun')
-  await shot(page, Q, '35 mixed fill chip', 'Two layers with different fills: mixed chip', [quick], 16)
-  await select(page, 'Satz sets type…')
-  await opened(page, Q, '36 quick type options', 'Type options from the quick edit bar', quick.getByRole('button', { name: 'Type options' }), page.getByRole('dialog', { name: 'Type options' }))
-  await page.keyboard.press('Alt+2')
-  const vars = section(page, 'Variables')
+  const vars = await variables(page)
   for (const k of ['Number', 'Font']) {
     await vars.getByRole('button', { name: 'Add variable' }).click()
     await page.getByRole('menu', { name: 'Create variable' }).getByRole('menuitem', { name: k }).click()
@@ -162,7 +148,7 @@ test('quick bar and variables', async ({ page }) => {
   await shot(page, C, '38 variable rename', 'Variable being renamed', [vars], 8)
   await page.keyboard.press('Escape')
   await select(page, 'Satz sets type…')
-  await opened(page, C, '39 font variables', 'Apply a font variable', props(page).getByRole('button', { name: 'Apply variable to Font', exact: true }), page.getByRole('listbox').last())
+  await opened(page, C, '39 font variables', 'Apply a font variable', props(page).getByRole('button', { name: 'Apply variable to Font', exact: true }), page.getByRole('listbox', { name: / variables$/ }))
 })
 
 test('text more', async ({ page }) => {
