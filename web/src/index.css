@@ -1433,6 +1433,22 @@ input[type='range']:focus-visible::-moz-range-thumb {
   cursor: pointer;
 }
 
+.icon-button[data-used] {
+  position: relative;
+  color: var(--text);
+}
+
+.icon-button[data-used]::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
 .align {
   display: grid;
   grid-template-columns: repeat(6, 24px);

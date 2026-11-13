@@ -153,6 +153,25 @@ export const eachOf = (editor: Editor, id: string, spans: Span[], r: [number, nu
 /** Changes the features or the axes of text by `f`. */
 type Each = <K extends 'features' | 'axes' | 'size'>(key: K, f: (old: Attrs[K]) => Attrs[K]) => void
 
+/** The type options any of `spans` sets away from their default. */
+const typeOptionsUsed = (spans: Pick<Attrs, Styled>[]) =>
+  (
+    [
+      ['Letter spacing', (a) => a.letterSpacing !== 0],
+      ['Case', (a) => a.textCase !== 'original'],
+      ['Decoration', (a) => a.textDecoration !== 'none'],
+      ['Position', (a) => a.position !== 'normal' || a.baselineShift !== 0],
+      ['OpenType', (a) => a.features.length > 0],
+      ['Indents', (a) => !!(a.indentLeft || a.indentRight || a.spaceBefore || a.paragraphIndent)],
+      ['List', (a) => a.list !== 'none'],
+      ['Drop cap', (a) => a.dropLines > 0],
+      ['Keep', (a) => a.keepTogether || a.keepNext],
+      ['Tabs', (a) => a.tabs.length > 0],
+    ] as [string, (a: Pick<Attrs, Styled>) => boolean][]
+  )
+    .filter(([, on]) => spans.some(on))
+    .map(([name]) => name)
+
 /** A button that opens the case, decoration, indent, OpenType features and font axes of `spans`. */
 export function TypeOptions({ editor, spans, set, each, paragraph }: { editor: Editor; spans: Pick<Attrs, Styled>[]; set: (p: TextProps) => void; each: Each; paragraph?: ReactNode }) {
   const [at, setAt] = useState<Element | null>(null)
@@ -180,9 +199,19 @@ export function TypeOptions({ editor, spans, set, each, paragraph }: { editor: E
       />
     )
   }
+  const used = typeOptionsUsed(spans)
   return (
     <>
-      <button type="button" className="icon-button" aria-label="Type options" title="Type options" aria-haspopup="dialog" aria-expanded={!!at} onClick={(e) => setAt(e.currentTarget)}>
+      <button
+        type="button"
+        className="icon-button"
+        aria-label="Type options"
+        title={used.length ? `Type options: ${used.join(', ')}` : 'Type options'}
+        data-used={used.length ? '' : undefined}
+        aria-haspopup="dialog"
+        aria-expanded={!!at}
+        onClick={(e) => setAt(e.currentTarget)}
+      >
         <Icon name="more" />
       </button>
       {at && (
