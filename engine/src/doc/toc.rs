@@ -7,7 +7,8 @@ impl Doc {
     /// Fills the story of `id` with the paragraphs of the pages in the text styles
     /// `styles`, one level per style, each followed by a right tab with a dot leader
     /// and the number of the page it starts on, and keeps `styles` for updating it.
-    /// Empty `styles` keep the text and forget the table.
+    /// An unthreaded frame grows to the entries. Empty `styles` keep the text and
+    /// forget the table.
     pub(super) fn toc(&self, id: String, styles: Vec<String>) -> Res<Vec<String>> {
         let n = self.story(self.node(&id)?);
         let t = self.own_text(n)?;
@@ -29,6 +30,13 @@ impl Doc {
         t.update(&text.join("\n"), UpdateOptions::default())
             .map_err(|e| format!("{e:?}"))?;
         m.insert(TOC, loro(&styles)?).map_err(err)?;
+        let fit = Sizing {
+            horizontal: Size::Fixed,
+            vertical: Size::Hug,
+        };
+        if self.next_of(n).is_none() && self.layout(n).sizing != fit {
+            m.insert(SIZING, loro(fit)?).map_err(err)?;
+        }
         let mut start = 0;
         for ((level, ..), line) in entries.iter().zip(&text) {
             let end = start + line.encode_utf16().count();
@@ -151,6 +159,8 @@ mod tests {
         let s = d.flows()[&d.node(&toc).unwrap()].story.spans.clone();
         let t = s.iter().find(|s| s.attrs.indent_left == LEVEL).unwrap();
         assert_eq!((t.len, t.attrs.tabs[0].at), (9, 200.0));
+        let [.., w, h] = frames(&d, &toc)[0];
+        assert!(w == 200.0 && close(h, 3.0 * LEADING), "{w} {h}");
 
         d.apply(Command::MovePages {
             ids: vec![p2],

@@ -1894,9 +1894,10 @@ fn rows(
                 Item::Penalty { .. } => 0.0,
             })
             .collect();
+        let indent = first.indent_left as f32;
         let set = |j: usize| tab_at(&items[j], clusters[j]);
         let point = |j: usize| point_at(&items[j], clusters[j]);
-        for (k, _) in tabs(&first.tabs, &mut ws, set, point, dw + hang) {
+        for (k, _) in tabs(&first.tabs, &mut ws, set, point, indent + dw + hang) {
             items[k] = Item::Glue {
                 width: ws[k],
                 stretch: 0.0,
@@ -1921,7 +1922,6 @@ fn rows(
             line0 = from;
         }
         start += para.len() + 1;
-        let indent = first.indent_left as f32;
         let natural = natural + dw + hang + indent + first.indent_right as f32;
         widest = widest.max(natural);
         let mut left = vec![indent + dw + hang; if dw > 0.0 { lines } else { 1 }];
