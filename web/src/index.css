@@ -1988,7 +1988,6 @@ kbd {
   padding: 0 4px;
   border-radius: 4px;
   background: color-mix(in srgb, currentColor 14%, transparent);
-  color: var(--muted);
   font: 600 11px 'Hanken Grotesk', system-ui, sans-serif;
   line-height: 18px;
   text-align: center;
@@ -3119,7 +3118,7 @@ dialog::backdrop {
   background: var(--selected);
 }
 
-.pal-it[aria-selected='true'] svg {
+.pal-it[aria-selected='true'] :is(svg, .keys) {
   color: var(--text);
 }
 
