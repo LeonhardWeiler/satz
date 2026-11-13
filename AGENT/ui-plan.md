@@ -1,6 +1,6 @@
 # UI-Plan: Audit 2 (2026-11)
 
-Grundlage: Shot-Suite `web/shots` (89 Tests, Light und Dark, 2× DPR) gegen `web/dist`.
+Grundlage: Shot-Suite `web/shots` (90 Tests, Light und Dark, 2× DPR) gegen `web/dist`.
 Erledigte Punkte werden gelöscht; was umgesetzt wurde, steht am Ende.
 
 ## Leitidee
@@ -13,19 +13,8 @@ eine Regel. Light und Dark teilen alle Regeln und unterscheiden sich nur in Toke
 
 ## Offen
 
-### Panel
-1. Feldlabels passen in eine halbe Spalte bei 900 px Fensterbreite (kein abgeschnittener
-   Wert); lange Namen gehören in `title`.
-
-### Dialoge
-2. Kopfzeilen von Palette, Find und History: Titel und Eingabe auf einer Mittellinie.
-
-### Light / Dark
-3. Shots in beiden Themes nach jeder Runde vollständig durchsehen; bisher ohne
-   Theme-spezifischen Befund offen.
-
-### Pflege
-4. Shot-Suite deckt jeden Dialog ab (History ergänzt, schmales Fenster ergänzt).
+Nach 5 Runden keine offenen Befunde. Prüfung je Runde: volle Shot-Suite (90 Tests) in
+Light und Dark, dazu 900 px Fensterbreite.
 
 ## Bewusst nicht
 
@@ -35,7 +24,5 @@ eine Regel. Light und Dark teilen alle Regeln und unterscheiden sich nur in Toke
 - Ein deaktiviertes Select dimmt nur den Pfeil, der Wert bleibt lesbar.
 - `.kv strong` bleibt fett (Schlüssel-Anzeige), `.iss`-Auswahl bleibt Innenring.
 - Paint-Zeilen lassen rechts Platz für die Hover-Aktionen.
-
-## Abhängigkeiten und Reihenfolge
-
-4 vor jeder Runde (Shots sind die Prüfgrundlage); 1 und 2 unabhängig; 3 zuletzt je Runde.
+- Textstile bleiben aufklappbare Zeilen mit fettem Namen (sie tragen Einstellungen),
+  Variablen und Swatches öffnen einen Editor.
