@@ -27,7 +27,7 @@ Keine Befunde.
 - Dialoge: Settings fokussiert Suche bzw. aktuelle Seite; Bleed steht bei den Rändern im
   Neues-Dokument-Dialog; Titel der Versionshistorie mittig im Kopf.
 - Menüs und Listen: Auswahl per Häkchen statt fett; Swatch-Löschen ist `.icon-button`.
-- Pflege: doppelte und tote CSS-Regeln entfernt (`index.css` −170 Zeilen);
+- Pflege: doppelte und tote CSS-Regeln entfernt (`index.css` −127 Zeilen netto);
   `AGENT/design.md` beschreibt das CSS; Shots für schmales Fenster, Versionshistorie und
   Textstile im Assets-Tab.
 
