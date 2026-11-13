@@ -2425,6 +2425,43 @@ mod tests {
     }
 
     #[test]
+    fn a_variable_font_is_set_at_its_axes_on_the_canvas_and_in_the_pdf() {
+        let (mut d, _) = empty();
+        let t = text(&mut d, "Hello world");
+        let face = text::add_font(include_bytes!(
+            "../../../web/src/fonts/hanken-grotesk-latin.woff2"
+        ))
+        .unwrap();
+        format(&mut d, &t, None, in_font(face.clone())).unwrap();
+        let axes = &d.snapshot().axes[&face.hash];
+        assert_eq!(axes[0].tag, "wght");
+        assert_eq!(axes[0].name, "Weight");
+        let (regular, _, plain) = runs(&d).remove(0);
+        let ink = |d: &Doc| text::outline(runs(d)[0].0, 12.0, &runs(d)[0].1, &runs(d)[0].2);
+        let before = ink(&d);
+        let printed = pdf(&d);
+        let bold = TextProps {
+            axes: Some(BTreeMap::from([
+                ("wght".into(), 2000.0),
+                ("wdth".into(), 50.0),
+            ])),
+            ..TextProps::default()
+        };
+        format(&mut d, &t, None, bold).unwrap();
+        let (font, _, xy) = runs(&d).remove(0);
+        assert!(font & text::VARIED != 0 && font & text::MISSING == 0);
+        assert_eq!(text::located(font), (regular, vec![("wght".into(), 900.0)]));
+        assert!(xy[xy.len() - 2] > plain[plain.len() - 2]);
+        assert_ne!(ink(&d), before);
+        assert_ne!(pdf(&d), printed);
+        let wrong = TextProps {
+            axes: Some(BTreeMap::from([("weight".into(), 700.0)])),
+            ..TextProps::default()
+        };
+        assert!(format(&mut d, &t, None, wrong).is_err());
+    }
+
+    #[test]
     fn a_removed_font_is_reported_missing_until_it_is_added_again() {
         let (mut d, _) = empty();
         let t = text(&mut d, "Hello world");

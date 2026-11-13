@@ -680,6 +680,7 @@ pub struct TextProps {
     pub text_case: Option<TextCase>,
     pub text_decoration: Option<TextDecoration>,
     pub features: Option<Vec<String>>,
+    pub axes: Option<BTreeMap<String, f64>>,
     pub position: Option<Position>,
     pub baseline_shift: Option<f64>,
     pub drop_lines: Option<u32>,
@@ -751,6 +752,11 @@ impl TextProps {
             .find(|f| f.parse::<Feature>().is_err())
         {
             return Err(format!("{f} is not an OpenType feature"));
+        }
+        if (self.axes.iter().flatten())
+            .any(|(t, v)| t.len() != 4 || !t.is_ascii() || !v.is_finite())
+        {
+            return Err("an axis has a 4 letter tag and a finite value".into());
         }
         self.fill
             .iter()
@@ -929,7 +935,7 @@ const BINDABLE: [&str; 12] = [
 ];
 
 /// The keys of a text layer that belong to its story and move with it.
-const STORY: [&str; 29] = [
+const STORY: [&str; 30] = [
     "toc",
     "shading",
     "size",
@@ -943,6 +949,7 @@ const STORY: [&str; 29] = [
     "textCase",
     "textDecoration",
     "features",
+    "axes",
     "position",
     "baselineShift",
     "fill",

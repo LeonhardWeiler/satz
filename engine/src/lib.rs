@@ -445,6 +445,12 @@ impl Engine {
         Uint8Array::from(&text::font_bytes(id)[..])
     }
 
+    /// The outlines of the glyphs of a glyph run as a display list path, for the fonts
+    /// at a location of their axes, which the canvas cannot set.
+    pub fn outline(&self, font: u32, size: f32, glyphs: &[u16], positions: &[f32]) -> Vec<f32> {
+        text::outline(font, size, glyphs, positions)
+    }
+
     /// The id of the font `hash`, the bundled one for none, and its characters as
     /// code points.
     pub fn characters(&self, hash: Option<String>) -> Result<JsValue, JsError> {

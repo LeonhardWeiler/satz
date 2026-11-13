@@ -55,6 +55,8 @@ pub struct Snapshot {
     pub palette: Palette,
     /// The fonts text can be set in, the bundled one first.
     pub fonts: Vec<Typeface>,
+    /// The axes of each variable font by its hash.
+    pub axes: BTreeMap<String, Vec<text::Axis>>,
     pub missing_fonts: Vec<MissingFont>,
     /// The colors of each image by its hash.
     pub images: BTreeMap<String, image::Space>,
@@ -945,6 +947,7 @@ impl Doc {
         let document = self.doc.get_map("document");
         let mut snap = Snapshot {
             fonts: text::fonts(),
+            axes: text::axes(),
             missing_fonts,
             images: self
                 .doc

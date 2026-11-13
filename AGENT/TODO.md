@@ -40,10 +40,6 @@ Done; numbers and the items measured and not done in `AGENT/performance.md`.
 
 ## Later
 
-- [ ] Variable font axes as in Figma. krilla 0.8.2 exports them (`Font::new_variable` instances
-  the subset) and harfrust shapes them; CanvasKit 0.42 has no variation binding, so the canvas
-  draws such glyphs as paths from skrifa at the font's location, cached per font, location and
-  glyph.
 - [ ] Conditional text with variables.
 - [ ] Version history from the Loro history: browse and restore earlier states.
 - [ ] GREP styles.

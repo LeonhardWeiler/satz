@@ -7,6 +7,7 @@ import { toPath, type At, type Contour } from './vector'
 
 /** Marks the font of a glyph run whose own font is missing, drawn in the bundled one. */
 const MISSING = 2 ** 31
+const VARIED = 2 ** 30
 /** Marks an image id as the C, M and Y or K plate, as `image::CMY` and `image::K` do. */
 const [PLATE_CMY, PLATE_K] = [2 ** 30, 2 ** 29]
 
@@ -760,7 +761,12 @@ export class Renderer {
       canvas.drawRect(ck.LTRBRect(x, y + ascent, op.positions[2 * last] + widths[last], y + descent), paint)
     }
     const shader = this.setPaint(op.paint)
-    if (op.op === 'glyphRun') canvas.drawGlyphs(op.glyphs, op.positions, 0, 0, this.font(op.font, op.size), paint)
+    if (op.op === 'glyphRun' && op.font < MISSING && op.font >= VARIED) {
+      paint.setStyle(ck.PaintStyle.Fill)
+      const path = ck.Path.MakeFromCmds(this.engine.outline(op.font, op.size, op.glyphs, op.positions))
+      if (path) canvas.drawPath(path, paint)
+      path?.delete()
+    } else if (op.op === 'glyphRun') canvas.drawGlyphs(op.glyphs, op.positions, 0, 0, this.font(op.font, op.size), paint)
     else {
       const path = ck.Path.MakeFromCmds(op.path)
       if (op.op === 'strokePath') {

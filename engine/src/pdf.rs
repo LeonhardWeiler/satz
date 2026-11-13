@@ -5,7 +5,7 @@ use crate::image::{self, plate};
 use crate::pdfx;
 use crate::raster::{blur, extent, fit, rasterize, tint};
 use crate::style::Blend;
-use crate::text::{MISSING, font_bytes, fonts};
+use crate::text::{font_bytes, located};
 use krilla::color::separation::{SeparationColorant, SeparationSpace};
 use krilla::color::{cmyk, rgb, separation};
 use krilla::configure::{ConfigurationBuilder, PdfVersion};
@@ -60,9 +60,7 @@ pub struct Export<'a> {
 }
 
 pub fn pdf(pages: &[Vec<Op>], x: &Export) -> Result<Vec<u8>, String> {
-    let fonts: Vec<Font> = (0..fonts().len() as u32)
-        .map(|i| Font::new(font_bytes(i).to_vec().into(), 0).unwrap())
-        .collect();
+    let fonts = RefCell::default();
     let print = x.preset != Preset::Screen;
     let version = match x.preset {
         Preset::Screen => PdfVersion::Pdf17,
@@ -218,7 +216,8 @@ fn flatten(ops: &[Op]) -> (Vec<Op>, Vec<[f32; 4]>) {
 }
 
 struct Env<'a> {
-    fonts: &'a [Font],
+    /// The fonts of the glyph runs by id, made once used.
+    fonts: &'a RefCell<HashMap<u32, Font>>,
     ppi: f32,
     /// Images and rasterized effects are CMYK.
     cmyk: bool,
@@ -230,6 +229,19 @@ struct Env<'a> {
     jpeg_quality: u8,
     /// Rasterized groups by their ops and area, so that a master's are made once.
     rasters: &'a RefCell<HashMap<String, Option<Image>>>,
+}
+
+impl Env<'_> {
+    fn font(&self, id: u32) -> Font {
+        let mut fonts = self.fonts.borrow_mut();
+        let font = fonts.entry(id).or_insert_with(|| {
+            let at: Vec<_> = (located(id).1.iter())
+                .filter_map(|(t, v)| Some((krilla::text::Tag::try_from_str(t)?, *v)))
+                .collect();
+            Font::new_variable(font_bytes(id).to_vec().into(), 0, &at).unwrap()
+        });
+        font.clone()
+    }
 }
 
 fn draw(s: &mut Surface, env: &Env, ops: &[Op]) {
@@ -301,7 +313,7 @@ fn draw(s: &mut Surface, env: &Env, ops: &[Op]) {
                 s.draw_glyphs(
                     Point::from_xy(x0, y0),
                     &run,
-                    env.fonts[(font & !MISSING) as usize].clone(),
+                    env.font(*font),
                     text,
                     *size,
                     false,

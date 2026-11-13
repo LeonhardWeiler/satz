@@ -2,21 +2,22 @@
 export type Align = "inside" | "center" | "outside";
 export type Align3 = "start" | "center" | "end";
 export type Anchoring = "inline" | "custom";
+export type Axis = { tag: string, name: string, min: number, default: number, max: number, };
 export type Blend = "normal" | "multiply" | "screen" | "overlay" | "darken" | "lighten" | "colorDodge" | "colorBurn" | "hardLight" | "softLight" | "difference" | "exclusion" | "hue" | "saturation" | "color" | "luminosity";
 export type BooleanOp = "union" | "subtract" | "intersect" | "exclude";
 export type Cap = "none" | "round" | "square";
 export type Collection = { id: string, name: string, modes: Array<Mode>, };
 export type Color = number | { cmyk: Array<number>, alpha: number, } | { swatch: string, tint: number, alpha: number, } | { variable: string, alpha: number, };
 export type ColorMode = "rgb" | "cmyk";
-export type Command = { "type": "create", parent: string, kind: NewKind, x: number, y: number, w: number, h: number, } | { "type": "placeImage", parent: string, image: string, name: string, x: number, y: number, w: number, h: number, } | { "type": "setFrame", id: string, x: number, y: number, w: number, h: number, crop?: boolean, } | { "type": "setText", id: string, text: string, } | { "type": "editText", id: string, range: [number, number], text: string, } | { "type": "format", id: string, range?: [number, number] | null, size?: number | null, lineHeight?: number | null, letterSpacing?: number | null, paragraphSpacing?: number | null, fill?: Color | null, textStyle?: string | null, textAlign?: TextAlign | null, hyphenate?: boolean | null, lang?: Lang | null, font?: Typeface | null, paragraphIndent?: number | null, indentLeft?: number | null, indentRight?: number | null, spaceBefore?: number | null, textCase?: TextCase | null, textDecoration?: TextDecoration | null, features?: Array<string> | null, position?: Position | null, baselineShift?: number | null, dropLines?: number | null, dropChars?: number | null, keepLines?: number | null, keepTogether?: boolean | null, keepNext?: boolean | null, tabs?: Array<Tab> | null, list?: List | null, 
+export type Command = { "type": "create", parent: string, kind: NewKind, x: number, y: number, w: number, h: number, } | { "type": "placeImage", parent: string, image: string, name: string, x: number, y: number, w: number, h: number, } | { "type": "setFrame", id: string, x: number, y: number, w: number, h: number, crop?: boolean, } | { "type": "setText", id: string, text: string, } | { "type": "editText", id: string, range: [number, number], text: string, } | { "type": "format", id: string, range?: [number, number] | null, size?: number | null, lineHeight?: number | null, letterSpacing?: number | null, paragraphSpacing?: number | null, fill?: Color | null, textStyle?: string | null, textAlign?: TextAlign | null, hyphenate?: boolean | null, lang?: Lang | null, font?: Typeface | null, paragraphIndent?: number | null, indentLeft?: number | null, indentRight?: number | null, spaceBefore?: number | null, textCase?: TextCase | null, textDecoration?: TextDecoration | null, features?: Array<string> | null, axes?: { [key in string]: number } | null, position?: Position | null, baselineShift?: number | null, dropLines?: number | null, dropChars?: number | null, keepLines?: number | null, keepTogether?: boolean | null, keepNext?: boolean | null, tabs?: Array<Tab> | null, list?: List | null, 
 /**
  * `Some(None)` takes the shading off.
  */
-shading?: Color | null | null, } | { "type": "scaleText", id: string, by: number, } | { "type": "addTextStyle", name: string, size?: number | null, lineHeight?: number | null, letterSpacing?: number | null, paragraphSpacing?: number | null, fill?: Color | null, textStyle?: string | null, textAlign?: TextAlign | null, hyphenate?: boolean | null, lang?: Lang | null, font?: Typeface | null, paragraphIndent?: number | null, indentLeft?: number | null, indentRight?: number | null, spaceBefore?: number | null, textCase?: TextCase | null, textDecoration?: TextDecoration | null, features?: Array<string> | null, position?: Position | null, baselineShift?: number | null, dropLines?: number | null, dropChars?: number | null, keepLines?: number | null, keepTogether?: boolean | null, keepNext?: boolean | null, tabs?: Array<Tab> | null, list?: List | null, 
+shading?: Color | null | null, } | { "type": "scaleText", id: string, by: number, } | { "type": "addTextStyle", name: string, size?: number | null, lineHeight?: number | null, letterSpacing?: number | null, paragraphSpacing?: number | null, fill?: Color | null, textStyle?: string | null, textAlign?: TextAlign | null, hyphenate?: boolean | null, lang?: Lang | null, font?: Typeface | null, paragraphIndent?: number | null, indentLeft?: number | null, indentRight?: number | null, spaceBefore?: number | null, textCase?: TextCase | null, textDecoration?: TextDecoration | null, features?: Array<string> | null, axes?: { [key in string]: number } | null, position?: Position | null, baselineShift?: number | null, dropLines?: number | null, dropChars?: number | null, keepLines?: number | null, keepTogether?: boolean | null, keepNext?: boolean | null, tabs?: Array<Tab> | null, list?: List | null, 
 /**
  * `Some(None)` takes the shading off.
  */
-shading?: Color | null | null, } | { "type": "setTextStyle", id: string, name?: string | null, size?: number | null, lineHeight?: number | null, letterSpacing?: number | null, paragraphSpacing?: number | null, fill?: Color | null, textStyle?: string | null, textAlign?: TextAlign | null, hyphenate?: boolean | null, lang?: Lang | null, font?: Typeface | null, paragraphIndent?: number | null, indentLeft?: number | null, indentRight?: number | null, spaceBefore?: number | null, textCase?: TextCase | null, textDecoration?: TextDecoration | null, features?: Array<string> | null, position?: Position | null, baselineShift?: number | null, dropLines?: number | null, dropChars?: number | null, keepLines?: number | null, keepTogether?: boolean | null, keepNext?: boolean | null, tabs?: Array<Tab> | null, list?: List | null, 
+shading?: Color | null | null, } | { "type": "setTextStyle", id: string, name?: string | null, size?: number | null, lineHeight?: number | null, letterSpacing?: number | null, paragraphSpacing?: number | null, fill?: Color | null, textStyle?: string | null, textAlign?: TextAlign | null, hyphenate?: boolean | null, lang?: Lang | null, font?: Typeface | null, paragraphIndent?: number | null, indentLeft?: number | null, indentRight?: number | null, spaceBefore?: number | null, textCase?: TextCase | null, textDecoration?: TextDecoration | null, features?: Array<string> | null, axes?: { [key in string]: number } | null, position?: Position | null, baselineShift?: number | null, dropLines?: number | null, dropChars?: number | null, keepLines?: number | null, keepTogether?: boolean | null, keepNext?: boolean | null, tabs?: Array<Tab> | null, list?: List | null, 
 /**
  * `Some(None)` takes the shading off.
  */
@@ -230,7 +231,11 @@ linkImages: boolean,
 /**
  * The fonts text can be set in, the bundled one first.
  */
-fonts: Array<Typeface>, missingFonts: Array<MissingFont>, 
+fonts: Array<Typeface>, 
+/**
+ * The axes of each variable font by its hash.
+ */
+axes: { [key in string]: Array<Axis> }, missingFonts: Array<MissingFont>, 
 /**
  * The colors of each image by its hash.
  */
@@ -249,7 +254,11 @@ font: Typeface | null, paragraphIndent: number,
  * The paragraph's lines move in by `indent_left` and `indent_right`, and it starts
  * `space_before` below the paragraph before it in its column.
  */
-indentLeft: number, indentRight: number, spaceBefore: number, textCase: TextCase, textDecoration: TextDecoration, features: Array<string>, position: Position, baselineShift: number, 
+indentLeft: number, indentRight: number, spaceBefore: number, textCase: TextCase, textDecoration: TextDecoration, features: Array<string>, 
+/**
+ * Values of the font's variation axes by tag, clamped to their range.
+ */
+axes: { [key in string]: number }, position: Position, baselineShift: number, 
 /**
  * Lines the first `drop_chars` characters of a paragraph drop over; 0 is off.
  */
@@ -313,7 +322,11 @@ font: Typeface | null, paragraphIndent: number,
  * The paragraph's lines move in by `indent_left` and `indent_right`, and it starts
  * `space_before` below the paragraph before it in its column.
  */
-indentLeft: number, indentRight: number, spaceBefore: number, textCase: TextCase, textDecoration: TextDecoration, features: Array<string>, position: Position, baselineShift: number, 
+indentLeft: number, indentRight: number, spaceBefore: number, textCase: TextCase, textDecoration: TextDecoration, features: Array<string>, 
+/**
+ * Values of the font's variation axes by tag, clamped to their range.
+ */
+axes: { [key in string]: number }, position: Position, baselineShift: number, 
 /**
  * Lines the first `drop_chars` characters of a paragraph drop over; 0 is off.
  */

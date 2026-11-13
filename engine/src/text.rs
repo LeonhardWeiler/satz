@@ -4,7 +4,7 @@ use crate::display_list::{CLOSE, CUBIC, LINE, MOVE, Op, Paint, rect};
 use crate::linebreak::{Item, break_lines};
 use crate::style::{Cap, Join, Style, paints};
 use crate::variable::{Scope, Value};
-use harfrust::{Feature, FontRef, ShapeOptions, ShaperData, UnicodeBuffer};
+use harfrust::{Feature, FontRef, ShapeOptions, ShaperData, ShaperInstance, UnicodeBuffer};
 use read_fonts::TableProvider;
 use serde::{Deserialize, Serialize};
 use serde_json::Map;
@@ -19,6 +19,8 @@ use std::thread::LocalKey;
 pub const FONT: &[u8] = include_bytes!("../fonts/SourceSerif4-Regular.ttf");
 /// Marks the font of a glyph run whose own font is missing, drawn in the bundled one.
 pub const MISSING: u32 = 1 << 31;
+/// Marks the font of a glyph run set at a location of its axes, by its index in `INSTANCES`.
+pub const VARIED: u32 = 1 << 30;
 
 /// A font by its full name, family and style, and a hash of its bytes.
 #[cfg_attr(test, derive(ts_rs::TS))]
@@ -36,7 +38,12 @@ thread_local! {
     /// The fonts text can be set in by id, the bundled one first.
     static FONTS: RefCell<Vec<(Typeface, Rc<[u8]>)>> =
         RefCell::new(vec![(typeface(FONT).unwrap(), FONT.into())]);
+    /// The fonts at a location of their axes: the font and the axes off their default.
+    static INSTANCES: RefCell<Vec<(u32, Location)>> = RefCell::default();
 }
+
+/// Axis tags and their values.
+type Location = Vec<(String, f32)>;
 
 /// A paragraph, what its markers show, and where each span in it starts with its
 /// font, features and case.
@@ -137,8 +144,81 @@ pub fn font_id(face: &Option<Typeface>) -> u32 {
         .map_or(MISSING, |i| i as u32)
 }
 
+/// The id of the font of `a` at its axes.
+pub fn font_of(a: &Attrs) -> u32 {
+    let id = font_id(&a.font);
+    if id & MISSING != 0 || a.axes.is_empty() {
+        return id;
+    }
+    let bytes = font_bytes(id);
+    let Ok(f) = skrifa::FontRef::new(&bytes) else {
+        return id;
+    };
+    let at: Location = (f.axes().iter())
+        .filter_map(|x| {
+            let tag = x.tag().to_string();
+            let v = (*a.axes.get(&tag)? as f32).clamp(x.min_value(), x.max_value());
+            (v != x.default_value()).then_some((tag, v))
+        })
+        .collect();
+    if at.is_empty() {
+        return id;
+    }
+    INSTANCES.with_borrow_mut(|i| {
+        let n = i.iter().position(|e| e.0 == id && e.1 == at);
+        VARIED
+            | n.unwrap_or_else(|| {
+                i.push((id, at));
+                i.len() - 1
+            }) as u32
+    })
+}
+
+/// The font `id` is set in and the location of its axes.
+pub fn located(id: u32) -> (u32, Location) {
+    if id & (VARIED | MISSING) != VARIED {
+        return (id & !MISSING, Vec::new());
+    }
+    INSTANCES.with_borrow(|i| i[(id & !VARIED) as usize].clone())
+}
+
 pub fn font_bytes(id: u32) -> Rc<[u8]> {
-    FONTS.with_borrow(|f| f.get((id & !MISSING) as usize).unwrap_or(&f[0]).1.clone())
+    let id = located(id).0;
+    FONTS.with_borrow(|f| f.get(id as usize).unwrap_or(&f[0]).1.clone())
+}
+
+/// An axis of a variable font: its tag, name and range.
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Axis {
+    pub tag: String,
+    pub name: String,
+    pub min: f32,
+    pub default: f32,
+    pub max: f32,
+}
+
+/// The axes of each variable font text can be set in by its hash, hidden ones left out.
+pub fn axes() -> BTreeMap<String, Vec<Axis>> {
+    FONTS.with_borrow(|fonts| {
+        (fonts.iter())
+            .filter_map(|(t, b)| {
+                let f = skrifa::FontRef::new(b).ok()?;
+                let axes: Vec<Axis> = (f.axes().iter())
+                    .filter(|x| !x.is_hidden())
+                    .map(|x| Axis {
+                        tag: x.tag().to_string(),
+                        name: (f.localized_strings(x.name_id()).english_or_first())
+                            .map_or_else(|| x.tag().to_string(), |s| s.to_string()),
+                        min: x.min_value(),
+                        default: x.default_value(),
+                        max: x.max_value(),
+                    })
+                    .collect();
+                (!axes.is_empty()).then(|| (t.hash.clone(), axes))
+            })
+            .collect()
+    })
 }
 
 /// The id of the font `hash`, the bundled one for `None`, and its characters.
@@ -167,7 +247,7 @@ pub fn characters(hash: Option<&str>) -> (u32, Vec<u32>) {
 pub fn missing_glyph(text: &str, spans: &[Span]) -> Option<char> {
     let mut chars = text.chars();
     spans.iter().find_map(|s| {
-        let id = font_id(&s.attrs.font);
+        let id = font_of(&s.attrs);
         let bytes = font_bytes(id);
         let font = skrifa::FontRef::new(&bytes).ok();
         let map = font.as_ref().map(|f| f.charmap());
@@ -216,7 +296,7 @@ pub fn fonts() -> Vec<Typeface> {
 }
 
 /// The keys of `Attrs` a text style sets.
-pub const STYLED: [&str; 21] = [
+pub const STYLED: [&str; 22] = [
     "size",
     "lineHeight",
     "letterSpacing",
@@ -229,6 +309,7 @@ pub const STYLED: [&str; 21] = [
     "textCase",
     "textDecoration",
     "features",
+    "axes",
     "position",
     "baselineShift",
     "dropLines",
@@ -424,6 +505,8 @@ pub struct Attrs {
     pub text_case: TextCase,
     pub text_decoration: TextDecoration,
     pub features: Vec<String>,
+    /// Values of the font's variation axes by tag, clamped to their range.
+    pub axes: BTreeMap<String, f64>,
     pub position: Position,
     pub baseline_shift: f64,
     /// Lines the first `drop_chars` characters of a paragraph drop over; 0 is off.
@@ -484,6 +567,7 @@ impl Default for Attrs {
             text_case: TextCase::Original,
             text_decoration: TextDecoration::None,
             features: Vec::new(),
+            axes: BTreeMap::new(),
             position: Position::Normal,
             baseline_shift: 0.0,
             drop_lines: 0,
@@ -713,7 +797,7 @@ pub fn draw(
     s: &Scope,
     placed: &Placed,
 ) -> Vec<Op> {
-    let fonts: Vec<u32> = spans.iter().map(|s| font_id(&s.attrs.font)).collect();
+    let fonts: Vec<u32> = spans.iter().map(|s| font_of(&s.attrs)).collect();
     let span_paints: Vec<Vec<Paint>> = spans
         .iter()
         .map(|sp| match &sp.attrs.fill {
@@ -783,7 +867,7 @@ pub fn draw(
                 continue;
             }
             let a = &spans[run[0].span].attrs;
-            let Some([at, thick]) = decoration(font_id(&a.font), a.text_decoration) else {
+            let Some([at, thick]) = decoration(font_of(a), a.text_decoration) else {
                 continue;
             };
             let last = run[run.len() - 1].cluster;
@@ -870,6 +954,10 @@ pub fn outline(id: u32, size: f32, glyphs: &[u16], positions: &[f32]) -> Vec<f32
     let Ok(font) = skrifa::FontRef::new(&bytes) else {
         return Vec::new();
     };
+    let at = located(id).1;
+    let location = font
+        .axes()
+        .location(at.iter().map(|(t, v)| (t.as_str(), *v)));
     let outlines = font.outline_glyphs();
     let mut pen = Pen {
         path: Vec::new(),
@@ -880,10 +968,7 @@ pub fn outline(id: u32, size: f32, glyphs: &[u16], positions: &[f32]) -> Vec<f32
         if let Some(o) = outlines.get(skrifa::GlyphId::new(*g as u32)) {
             pen.origin = [p[0], p[1]];
             let size = skrifa::instance::Size::new(size);
-            let settings = skrifa::outline::DrawSettings::unhinted(
-                size,
-                skrifa::instance::LocationRef::default(),
-            );
+            let settings = skrifa::outline::DrawSettings::unhinted(size, &location);
             let _ = o.draw(settings, &mut pen);
         }
     }
@@ -1141,21 +1226,25 @@ fn columns([x, y, w, h]: [f32; 4], tf: &TextFrame) -> ([f32; 4], f32) {
 struct Face {
     bytes: Rc<[u8]>,
     data: ShaperData,
+    instance: ShaperInstance,
     metrics: Metrics,
 }
 
 thread_local! {
-    /// The faces by the address of their bytes.
-    static FACES: RefCell<HashMap<*const u8, Rc<Face>>> = RefCell::default();
+    /// The faces by the address of their bytes and their id.
+    static FACES: RefCell<HashMap<(*const u8, u32), Rc<Face>>> = RefCell::default();
 }
 
 fn face(id: u32) -> Rc<Face> {
     let bytes = font_bytes(id);
     FACES.with_borrow_mut(|faces| {
-        let face = faces.entry(bytes.as_ptr()).or_insert_with(|| {
+        let face = faces.entry((bytes.as_ptr(), id)).or_insert_with(|| {
             let font = FontRef::new(&bytes).unwrap();
             let data = ShaperData::new(&font);
-            let shaper = data.shaper(&font).build();
+            let at = located(id).1;
+            let instance =
+                ShaperInstance::from_variations(&font, at.iter().map(|(t, v)| (t.as_str(), *v)));
+            let shaper = data.shaper(&font).instance(Some(&instance)).build();
             let upem = font.head().unwrap().units_per_em() as f32;
             let hhea = font.hhea().unwrap();
             let mut buf = UnicodeBuffer::new();
@@ -1178,6 +1267,7 @@ fn face(id: u32) -> Rc<Face> {
             Rc::new(Face {
                 bytes: bytes.clone(),
                 data,
+                instance,
                 metrics,
             })
         });
@@ -1229,7 +1319,7 @@ fn rows(
     room: f32,
     insets: &[[f32; 2]],
 ) -> (Vec<Row>, f32) {
-    let ids: Vec<u32> = spans.iter().map(|s| font_id(&s.attrs.font)).collect();
+    let ids: Vec<u32> = spans.iter().map(|s| font_of(&s.attrs)).collect();
     let mut used = ids.clone();
     used.sort_unstable();
     used.dedup();
@@ -1242,7 +1332,7 @@ fn rows(
     let shapers: Vec<_> = fonts
         .iter()
         .zip(&faces)
-        .map(|(f, c)| c.data.shaper(f).build())
+        .map(|(f, c)| c.data.shaper(f).instance(Some(&c.instance)).build())
         .collect();
     let metrics: Vec<&Metrics> = faces.iter().map(|f| &f.metrics).collect();
 

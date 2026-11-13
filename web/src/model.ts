@@ -16,7 +16,7 @@ export type Bindable =
 export type Attrs = Omit<Span, 'len'>
 export type TextProps = Partial<Attrs>
 /** The attributes a text style sets. */
-export const STYLED = ['size', 'lineHeight', 'letterSpacing', 'paragraphSpacing', 'paragraphIndent', 'indentLeft', 'indentRight', 'spaceBefore', 'font', 'textCase', 'textDecoration', 'features', 'position', 'baselineShift', 'dropLines', 'dropChars', 'keepLines', 'keepTogether', 'keepNext', 'tabs', 'list'] as const
+export const STYLED = ['size', 'lineHeight', 'letterSpacing', 'paragraphSpacing', 'paragraphIndent', 'indentLeft', 'indentRight', 'spaceBefore', 'font', 'textCase', 'textDecoration', 'features', 'axes', 'position', 'baselineShift', 'dropLines', 'dropChars', 'keepLines', 'keepTogether', 'keepNext', 'tabs', 'list'] as const
 export type Styled = (typeof STYLED)[number]
 
 /** The radii of a rectangle's top left, top right, bottom right and bottom left corner. */

@@ -73,3 +73,6 @@ Node 22, pnpm, MuPDF (`mutool`, for the PDF tests) and
   keeps its file's handle by hash. `Doc::register_image` reads a link's file for the
   session (the export worker gets the read files too), `relink` puts another read image in
   its place and `embed` keeps its file in the document.
+- A span's `axes` set its variable font at a location; `text::font_of` gives the run a
+  `VARIED` font id, which the canvas draws as outlines from `Engine::outline` and krilla
+  instances in the PDF.

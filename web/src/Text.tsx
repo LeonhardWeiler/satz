@@ -134,29 +134,34 @@ export function Specimen({ editor, spans, format }: { editor: Editor; spans: Att
   )
 }
 
-/** Changes the OpenType features of each run of `spans` in `r`, or in all of them, by `f`. */
-export const featuresOf = (editor: Editor, id: string, spans: Span[], r: [number, number] | null) => (f: (old: string[]) => string[]) => {
+/** Changes the OpenType features or the axes of each run of `spans` in `r`, or of all of them, by `f`. */
+export const eachOf = (editor: Editor, id: string, spans: Span[], r: [number, number] | null): Each => (key, f) => {
   const [a, b] = r ?? [0, Infinity]
   let at = 0
   const runs = spans.flatMap((s) => {
     const from = Math.max(at, a)
     at += s.len
-    return from < Math.min(at, b) ? [{ range: [from, Math.min(at, b)] as [number, number], features: f(s.features) }] : []
+    return from < Math.min(at, b) ? [{ range: [from, Math.min(at, b)] as [number, number], [key]: f(s[key]) }] : []
   })
-  const all = runs[0]?.features ?? f(spans[0]?.features ?? [])
+  const all = runs[0]?.[key] ?? f(spans[0]?.[key] ?? (key === 'features' ? [] : {}))
   editor.batch(() => {
-    editor.apply({ type: 'format', id, range: r, features: all })
-    runs.filter((x) => x.features.join() !== all.join()).forEach((x) => editor.apply({ type: 'format', id, ...x }))
+    editor.apply({ type: 'format', id, range: r, [key]: all })
+    runs.filter((x) => JSON.stringify(x[key]) !== JSON.stringify(all)).forEach((x) => editor.apply({ type: 'format', id, ...x }))
   })
 }
 
-/** A button that opens the case, decoration, indent and OpenType features of `spans`. */
-export function TypeOptions({ editor, spans, set, features, paragraph }: { editor: Editor; spans: Pick<Attrs, Styled>[]; set: (p: TextProps) => void; features: (f: (old: string[]) => string[]) => void; paragraph?: ReactNode }) {
+/** Changes the features or the axes of text by `f`. */
+type Each = <K extends 'features' | 'axes'>(key: K, f: (old: Attrs[K]) => Attrs[K]) => void
+
+/** A button that opens the case, decoration, indent, OpenType features and font axes of `spans`. */
+export function TypeOptions({ editor, spans, set, each, paragraph }: { editor: Editor; spans: Pick<Attrs, Styled>[]; set: (p: TextProps) => void; each: Each; paragraph?: ReactNode }) {
   const [at, setAt] = useState<Element | null>(null)
-  const [tab, setTab] = useState<'Character' | 'Paragraph' | 'Tabs'>('Character')
+  const [chosen, setTab] = useState<'Character' | 'Paragraph' | 'Tabs' | 'Variable'>('Character')
+  const axes = useEditor(editor, (e) => e.snapshot.axes[sameOf(spans, (a) => a.font?.hash) ?? ''])
+  const tab = chosen === 'Variable' && !axes ? 'Character' : chosen
   const same = <T,>(get: (a: Pick<Attrs, Styled>) => T) => sameOf(spans, get)
   const on = (tag: string, dflt?: boolean) => (a: Pick<Attrs, Styled>) => (dflt ? !a.features.includes(`${tag}=0`) : a.features.includes(tag))
-  const put = (drop: string[], add: string[]) => features((old) => [...old.filter((f) => !drop.some((t) => f === t || f === `${t}=0`)), ...add].sort())
+  const put = (drop: string[], add: string[]) => each('features', (old) => [...old.filter((f) => !drop.some((t) => f === t || f === `${t}=0`)), ...add].sort())
   const fold = <K extends 'textCase' | 'position'>(key: K, options: Record<string, string>, tags: Record<string, string>, plain: string) => {
     const known = [...new Set(Object.keys(tags).flatMap((t) => t.split(' ')))]
     const tagged = (a: Pick<Attrs, Styled>) => known.filter((t) => a.features.includes(t)).join(' ')
@@ -183,7 +188,7 @@ export function TypeOptions({ editor, spans, set, features, paragraph }: { edito
       {at && (
             <Dialog label="Type options" at={at} onClose={() => setAt(null)}>
               <div role="tablist" className="tabs">
-                {(['Character', 'Paragraph', 'Tabs'] as const).map((t) => (
+                {(['Character', 'Paragraph', 'Tabs', ...(axes ? ['Variable' as const] : [])] as const).map((t) => (
                   <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
                     {t}
                   </button>
@@ -243,6 +248,13 @@ export function TypeOptions({ editor, spans, set, features, paragraph }: { edito
                 </>
               )}
               {tab === 'Tabs' && <TabStops tabs={same((a) => JSON.stringify(a.tabs))} set={(tabs) => set({ tabs })} />}
+              {tab === 'Variable' && axes && (
+                <Group title="Axes">
+                  {axes.map((x) => (
+                    <Field key={x.tag} label={x.name} title={x.name} unit="" min={x.min} max={x.max} reset={x.default} value={same((a) => a.axes[x.tag] ?? x.default)} onCommit={(v) => each('axes', (old) => ({ ...old, [x.tag]: v }))} />
+                  ))}
+                </Group>
+              )}
             </Dialog>
       )}
     </>
@@ -434,7 +446,7 @@ export function TextSection({ editor, nodes }: { editor: Editor; nodes: TextNode
   const same = <T,>(get: (a: Attrs) => T) => sameOf(spans, get)
   /** Formats the selection of the text being edited, or else all of it. */
   const format = (props: TextProps) => editor.batch(() => nodes.forEach((n) => editor.apply({ type: 'format', id: n.id, range: r, ...props })))
-  const features = (f: (old: string[]) => string[]) => editor.batch(() => nodes.forEach((n, i) => featuresOf(editor, n.id, all[i], r)(f)))
+  const each: Each = (key, f) => editor.batch(() => nodes.forEach((n, i) => eachOf(editor, n.id, all[i], r)(key, f)))
   const align = same((a) => a.textAlign)
   const hyphenate = same((a) => a.hyphenate)
   const lang = same((a) => a.lang)
@@ -452,7 +464,7 @@ export function TextSection({ editor, nodes }: { editor: Editor; nodes: TextNode
             editor={editor}
             spans={spans}
             set={format}
-            features={features}
+            each={each}
             paragraph={
               <>
                 <Check label="Hyphenate" value={hyphenate} set={(hyphenate) => format({ hyphenate })} />
@@ -528,7 +540,7 @@ function StyleRow({ editor, style }: { editor: Editor; style: TextStyle }) {
           <Icon name="chevron" />
         </button>
         <NameInput label="Text style name" value={style.name} onCommit={(name) => editor.apply({ type: 'setTextStyle', id: style.id, name })} />
-        {open && <TypeOptions editor={editor} spans={[style]} set={(p) => editor.apply({ type: 'setTextStyle', id: style.id, ...p })} features={(f) => editor.apply({ type: 'setTextStyle', id: style.id, features: f(style.features) })} />}
+        {open && <TypeOptions editor={editor} spans={[style]} set={(p) => editor.apply({ type: 'setTextStyle', id: style.id, ...p })} each={(key, f) => editor.apply({ type: 'setTextStyle', id: style.id, [key]: f(style[key]) })} />}
         <button
           type="button"
           className="icon-button row-action"
