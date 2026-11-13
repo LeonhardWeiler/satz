@@ -16,7 +16,7 @@ export function TableSection({ editor, nodes }: { editor: Editor; nodes: Node[] 
   const items = (list: Action[]) => list.map((a): [string, () => void, boolean] => [a.title, () => a.run!(editor), a.can!(editor)])
   return (
     <Section
-      title="Table"
+      title={`Table ${table.columns.length} × ${table.rows.length}`}
       actions={
         <>
           <MenuButton icon="plus" title="Insert rows or columns" items={items(TABLE_ACTIONS.slice(0, 4))} />

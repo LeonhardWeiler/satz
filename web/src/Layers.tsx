@@ -8,7 +8,7 @@ import { useSettings } from './settings'
 
 type Drop = { id: string; at: 'above' | 'below' | 'into' }
 
-const flows = (n: object) => 'direction' in n && n.direction !== 'none'
+const flows = (n: object) => ('direction' in n && n.direction !== 'none') || ('table' in n && !!n.table)
 const inOrder = (nodes: Node[], flow: boolean) => (flow ? nodes : nodes.toReversed())
 
 export function Layers({ editor }: { editor: Editor }) {

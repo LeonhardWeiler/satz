@@ -4,7 +4,7 @@ test('a drawn table takes text cell by cell, grows a row past its end, merges an
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
   const layers = page.getByRole('tree', { name: 'Layers' })
-  const table = panel.getByRole('region', { name: 'Table', exact: true })
+  const table = panel.getByRole('region', { name: /^Table \d/ })
   const menu = async (button: string, item: string) => {
     await table.getByRole('button', { name: button }).click()
     await page.getByRole('menuitem', { name: item }).click()
