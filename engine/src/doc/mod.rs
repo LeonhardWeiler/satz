@@ -1969,9 +1969,6 @@ impl Doc {
 
     /// Commits the pending ops with the message of the running command.
     fn commit(&self) {
-        if self.doc.get_pending_txn_len() == 0 {
-            return;
-        }
         if let Some(m) = self.message.get() {
             self.doc.set_next_commit_message(m);
         }
@@ -1986,7 +1983,9 @@ impl Doc {
         }) {
             image::forget(&[]);
         }
-        self.commit();
+        if self.doc.get_pending_txn_len() > 0 {
+            self.commit();
+        }
         self.purge();
         self.numbers.take();
         self.check_links();
