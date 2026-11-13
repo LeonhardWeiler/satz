@@ -13,6 +13,7 @@ import { createPortal } from 'react-dom'
 import {
   alpha,
   cmykText,
+  colorText,
   css,
   fromHsv,
   fromRgb,
@@ -46,12 +47,12 @@ export function Chip({ color, scope }: { color: Color; scope: Scope }) {
 export const NO_SCOPE: Scope = { swatches: [], collections: [], variables: [], modes: {} }
 
 /** A swatch color's CMYK values in %, or RGB. */
-export const ink = (c: Color) => (typeof c === 'object' && 'cmyk' in c ? c.cmyk.map((v, i) => 'CMYK'[i] + Math.round(v * 100)).join(' ') : 'RGB')
+export const ink = (c: Color) => (typeof c === 'object' && 'cmyk' in c ? c.cmyk.map((v, i) => 'CMYK'[i] + Math.round(v * 100)).filter((s) => !/^.0$/.test(s)).join(' ') || 'K0' : 'RGB')
 
 export function SwatchOption({ swatch, selected, onPick }: { swatch: Swatch; selected: boolean; onPick: () => void }) {
   const values = ink(swatch.color)
   const kind = swatch.spot ? 'Spot color' : 'Process color'
-  const inks = values === 'RGB' ? 'RGB only, converted to CMYK when printed' : values
+  const inks = values === 'RGB' ? 'RGB only, converted to CMYK when printed' : colorText(swatch.color, NO_SCOPE)
   return (
     <button type="button" role="option" aria-selected={selected} className="swatch-option" title={`${swatch.name} · ${kind} · ${inks}`} onClick={onPick}>
       <Chip color={swatch.color} scope={NO_SCOPE} />
