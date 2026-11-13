@@ -37,7 +37,6 @@ export function Field({
   min = 0,
   max = given === 'length' || given === 'pt' ? MAX_LENGTH : Infinity,
   reset,
-  disabled,
   title: name = typeof label === 'string' ? label : undefined,
 }: {
   label: ReactNode
@@ -58,7 +57,6 @@ export function Field({
   max?: number
   /** The default value, in pt for lengths. */
   reset?: number
-  disabled?: boolean
   title?: string
 }) {
   const [draft, setDraft] = useState<string | null>(null)
@@ -74,7 +72,7 @@ export function Field({
     const c = zero && v === 0 ? 0 : Math.min(max / per, Math.max(min / per, v))
     onCommit?.((int ? Math.round(c) : round(c, digits)) * per)
   }
-  const edit = !readOnly && !disabled && onCommit && shown !== null
+  const edit = !readOnly && onCommit && shown !== null
   const cur = shown ?? 0
   const commit = () => {
     setDraft(null)
@@ -87,7 +85,7 @@ export function Field({
   return (
     <label
       htmlFor={id}
-      className={`field${int ? ' int' : ''}${bad ? ' bad' : ''}${scrub ? ' scrub' : ''}${disabled ? ' disabled' : ''}`}
+      className={`field${int ? ' int' : ''}${bad ? ' bad' : ''}${scrub ? ' scrub' : ''}`}
       title={bad ? `${title}: not a number, e.g. 12, 10+5 or 1cm` : title}
     >
       {label && (
@@ -120,8 +118,8 @@ export function Field({
           {label}
         </span>
       )}
-      {int && (edit || disabled) && (
-        <button type="button" className="field-step" tabIndex={-1} aria-label={`Decrease ${title}`} disabled={disabled || (shown !== null && shown <= min / per)} onClick={(e) => bump(-step(e, true))}>
+      {int && edit && (
+        <button type="button" className="field-step" tabIndex={-1} aria-label={`Decrease ${title}`} disabled={shown !== null && shown <= min / per} onClick={(e) => bump(-step(e, true))}>
           <Icon name="minus" />
         </button>
       )}
@@ -134,7 +132,6 @@ export function Field({
         autoComplete="off"
         spellCheck={false}
         readOnly={readOnly}
-        disabled={disabled}
         placeholder={zero}
         data-mixed={(draft === null && shown === null) || undefined}
         value={draft ?? (shown === null ? 'Mixed' : shown === 0 && zero ? '' : String(shown))}
@@ -165,8 +162,8 @@ export function Field({
         }}
       />
       {(draft !== null || (shown !== null && !(shown === 0 && zero))) && unit && <span className="field-unit" data-unit={unit}>{unit}</span>}
-      {int && (edit || disabled) && (
-        <button type="button" className="field-step" tabIndex={-1} aria-label={`Increase ${title}`} disabled={disabled || (shown !== null && shown >= max)} onClick={(e) => bump(step(e, true))}>
+      {int && edit && (
+        <button type="button" className="field-step" tabIndex={-1} aria-label={`Increase ${title}`} disabled={shown !== null && shown >= max} onClick={(e) => bump(step(e, true))}>
           <Icon name="plus" />
         </button>
       )}

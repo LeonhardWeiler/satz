@@ -229,11 +229,11 @@ export function TypeOptions({ editor, spans, set, each, paragraph }: { editor: E
                 <>
                   {paragraph && <Group title="Hyphenation & shading">{paragraph}</Group>}
                   <Group title="Indents & spacing">
-                    <Field label="First line" title="First line indent" unit="pt" reset={0} value={same((a) => a.paragraphIndent)} onCommit={(paragraphIndent) => set({ paragraphIndent })} />
                     <Field label="Left" title="Left indent" unit="pt" reset={0} value={same((a) => a.indentLeft)} onCommit={(indentLeft) => set({ indentLeft })} />
                     <Field label="Right" title="Right indent" unit="pt" reset={0} value={same((a) => a.indentRight)} onCommit={(indentRight) => set({ indentRight })} />
                     <Field label="Before" title="Space before" unit="pt" reset={0} value={same((a) => a.spaceBefore)} onCommit={(spaceBefore) => set({ spaceBefore })} />
                     <Field label="After" title="Space after" unit="pt" reset={0} value={same((a) => a.paragraphSpacing)} onCommit={(paragraphSpacing) => set({ paragraphSpacing })} />
+                    <Field label="First line" title="First line indent" unit="pt" reset={0} value={same((a) => a.paragraphIndent)} onCommit={(paragraphIndent) => set({ paragraphIndent })} />
                   </Group>
                   <Group title="Lists & breaks">
                     <Select label="List" prefix="List" value={same((a) => a.list)} options={LISTS} onChange={(list) => set({ list })} />
@@ -243,7 +243,7 @@ export function TypeOptions({ editor, spans, set, each, paragraph }: { editor: E
                   </Group>
                   <Group title="Drop cap">
                     <Field label="Lines" title="Drop cap lines" unit="" int min={0} max={20} reset={0} value={same((a) => a.dropLines)} onCommit={(dropLines) => set({ dropLines })} />
-                    <Field label="Characters" title="Drop cap characters" disabled={same((a) => a.dropLines) === 0} unit="" int min={1} max={20} reset={1} value={same((a) => a.dropChars)} onCommit={(dropChars) => set({ dropChars })} />
+                    {same((a) => a.dropLines) !== 0 && <Field label="Characters" title="Drop cap characters" unit="" int min={1} max={20} reset={1} value={same((a) => a.dropChars)} onCommit={(dropChars) => set({ dropChars })} />}
                   </Group>
                 </>
               )}
