@@ -41,6 +41,7 @@ mod bench;
 mod boolean;
 mod clipboard;
 mod draw;
+mod link;
 mod pages;
 mod palette;
 mod story;
@@ -75,6 +76,8 @@ pub struct Settings {
     /// 0 keeps the images lossless.
     pub jpeg_quality: Option<u8>,
     pub date_format: Option<DateFormat>,
+    /// Places images as links to their files.
+    pub link_images: Option<bool>,
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -280,6 +283,17 @@ pub enum Command {
         ids: Vec<String>,
     },
     SetDocument(Settings),
+    /// Fills the layers filled with the linked image `image` with `to` in its place, read with
+    /// `Doc::register_image`, linked to the file `name` unless the document embeds it.
+    Relink {
+        image: String,
+        to: String,
+        name: String,
+    },
+    /// Keeps the files of the read linked images `images` in the document.
+    Embed {
+        images: Vec<String>,
+    },
     /// Pastes above the topmost of `above`, or else into the parent the layers were
     /// copied from when that is on `page`, or else onto `page`.
     Paste {
@@ -1498,24 +1512,6 @@ impl Doc {
         used
     }
 
-    /// Adds a PNG or JPEG file that `image::register` takes to the images of the document,
-    /// for `PlaceImage`; undo does not take it out again.
-    pub fn add_image(&mut self, bytes: &[u8]) -> Res<ImageInfo> {
-        let bytes = LoroBinaryValue::from(image::upright(bytes).unwrap_or_else(|| bytes.to_vec()));
-        let info = image::register(bytes.clone())?;
-        let images = self.doc.get_map("images");
-        if images.get(&info.hash).is_none() {
-            self.doc.commit();
-            self.doc.set_next_commit_origin(IMAGE_ORIGIN);
-            images
-                .insert(&info.hash, LoroValue::Binary(bytes))
-                .map_err(err)?;
-            self.doc.commit();
-            self.version = format!("{:?}", self.doc.oplog_frontiers());
-        }
-        Ok(info)
-    }
-
     /// Makes `icc` the CMYK profile of the document, or FOGRA51 for `None`.
     pub fn set_profile(&mut self, icc: Option<Vec<u8>>) -> Res<()> {
         if let Some(icc) = &icc {
@@ -1564,16 +1560,18 @@ impl Doc {
         Ok(d)
     }
 
-    /// Registers the images of the document that `image` does not know and forgets the others.
+    /// Registers the embedded images of the document that `image` does not know and
+    /// forgets the others but the linked ones read.
     fn register_images(&self) -> Res<()> {
         let mut hashes = vec![];
         let images = self.doc.get_map("images").get_value().into_map();
         for (h, v) in images.unwrap_or_default().iter() {
-            if let LoroValue::Binary(bytes) = v {
-                hashes.push(match image::info(h) {
-                    Some(i) => i.hash,
-                    None => image::register(bytes.clone())?.hash,
-                });
+            match (image::info(h), v) {
+                (Some(i), _) => hashes.push(i.hash),
+                (None, LoroValue::Binary(bytes)) => {
+                    hashes.push(image::register(bytes.clone())?.hash)
+                }
+                _ => {}
             }
         }
         image::retain(&hashes);
@@ -1780,6 +1778,8 @@ impl Doc {
             }
             Command::Duplicate { ids } => self.duplicate(ids),
             Command::SetDocument(s) => self.set_document(s),
+            Command::Relink { image, to, name } => self.relink_image(image, to, name),
+            Command::Embed { images } => self.embed(images),
             Command::AddSwatch { name, color, spot } => self.add_swatch(name, color, spot),
             Command::SetSwatch {
                 id,
@@ -3813,7 +3813,7 @@ mod tests {
     }
 
     pub(super) fn place(d: &mut Doc, page: &str, w: u32, h: u32) -> (String, String) {
-        let hash = d.add_image(&image::tests::png(w, h)).unwrap().hash;
+        let hash = d.add_image(&image::tests::png(w, h), None).unwrap().hash;
         let id = d
             .apply(Command::PlaceImage {
                 parent: page.into(),
@@ -5380,7 +5380,7 @@ mod tests {
     fn a_package_holds_the_document_its_pdf_fonts_and_used_images() {
         let mut b = booklet();
         let (_, hash) = place(&mut b.d, &b.pages[0], 2, 2);
-        b.d.add_image(&image::tests::png(3, 3)).unwrap();
+        b.d.add_image(&image::tests::png(3, 3), None).unwrap();
         let zip = b.d.package("Satz", "2026-09-28T12:00:00Z", &[0]).unwrap();
         let files = crate::zip::unzip(&zip);
         let names: Vec<&str> = files.iter().map(|f| f.0.as_str()).collect();
@@ -5706,14 +5706,14 @@ mod tests {
             })
         };
         assert!(apply(&t, fills(Fill::image(&hash))).is_err());
-        assert!(d.add_image(b"GIF89a").is_err());
+        assert!(d.add_image(b"GIF89a", None).is_err());
         let mut huge = Vec::new();
         let mut w = png::Encoder::new(&mut huge, 10_000, 5_001)
             .write_header()
             .unwrap();
         w.write_chunk(png::chunk::IDAT, &[]).unwrap();
         drop(w);
-        let e = d.add_image(&huge).unwrap_err();
+        let e = d.add_image(&huge, None).unwrap_err();
         assert_eq!(e, "the image has more than 50 megapixels");
         let other = Doc::default();
         other

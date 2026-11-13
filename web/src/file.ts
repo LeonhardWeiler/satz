@@ -4,27 +4,33 @@ import { UNTITLED, type Editor } from './editor'
 import type { Typeface } from './model'
 import type { Out, Preview, Previewed } from './exportWorker'
 
-export type Handle = FileSystemFileHandle & { requestPermission(o: { mode: 'readwrite' }): Promise<PermissionState>; move?(name: string): Promise<void> }
+export type Handle = FileSystemFileHandle & {
+  queryPermission(o: { mode: 'read' }): Promise<PermissionState>
+  requestPermission(o: { mode: 'read' | 'readwrite' }): Promise<PermissionState>
+  move?(name: string): Promise<void>
+}
 export type Saved = { bytes: Uint8Array; name: string; handle: Handle | null; dirty: boolean }
 export type Project = { id: string; name: string; at: number; thumb?: Uint8Array }
 
 type Types = { description: string; accept: Record<string, string[]> }[]
 const TYPES = [{ description: 'Satz document', accept: { 'application/x-satz': ['.satz'] } }]
 const OPENS = [{ description: 'Satz, SVG, PDF or Figma', accept: { 'application/x-satz': ['.satz'], 'image/svg+xml': ['.svg'], 'application/pdf': ['.pdf'], 'application/x-figma': ['.fig'] } }]
+const IMAGES = [{ description: 'PNG or JPEG image', accept: { 'image/png': ['.png'], 'image/jpeg': ['.jpg', '.jpeg'] } }]
+const PLACES = [{ description: 'Image, SVG, PDF or Figma', accept: { ...IMAGES[0].accept, 'image/svg+xml': ['.svg'], 'application/pdf': ['.pdf'], 'application/x-figma': ['.fig'] } }]
 const imports = (name: string) => /\.(svg|pdf|fig)$/i.test(name)
 const pickers = window as {
   showSaveFilePicker?: (o: { suggestedName: string; types: Types }) => Promise<Handle>
-  showOpenFilePicker?: (o: { types: Types }) => Promise<Handle[]>
+  showOpenFilePicker?: (o: { types: Types; multiple?: boolean }) => Promise<Handle[]>
 }
 
 let db: Promise<IDBDatabase> | undefined
 
-/** The autosaved documents by project id with their updates under [id, n], the projects by id, or the added fonts by hash. */
-async function store(name: 'files' | 'fonts' | 'projects') {
+/** The autosaved documents by project id with their updates under [id, n], the projects by id, the added fonts by hash or the files of linked images by hash. */
+async function store(name: 'files' | 'fonts' | 'projects' | 'links') {
   db ??= new Promise((done, fail) => {
-    const r = indexedDB.open('satz', 3)
+    const r = indexedDB.open('satz', 4)
     r.onupgradeneeded = () => {
-      for (const s of ['files', 'fonts', 'projects']) if (!r.result.objectStoreNames.contains(s)) r.result.createObjectStore(s)
+      for (const s of ['files', 'fonts', 'projects', 'links']) if (!r.result.objectStoreNames.contains(s)) r.result.createObjectStore(s)
     }
     r.onsuccess = () => done(r.result)
     r.onerror = () => fail(r.error)
@@ -101,7 +107,7 @@ export async function openProject(editor: Editor, id: string) {
     return editor.fail(`Could not open ${saved.name}: ${(e as Error).message}.`)
   }
   show(editor, id)
-  await findGrantedFonts(editor)
+  await findGranted(editor)
 }
 
 /** Opens the document `bytes` as a new project; throws when it is not one. */
@@ -184,14 +190,15 @@ export function download(bytes: Uint8Array, name: string, type: string) {
   URL.revokeObjectURL(url)
 }
 
-/** A worker with the fonts it was sent, the bundled one from the start, the version and version vector of the document it has and its last job, which the next waits for. */
-type Job = { worker?: Worker; fonts: number; version: string; seen: Uint8Array; queue: Promise<unknown> }
-const exporter: Job = { fonts: 1, version: '', seen: new Uint8Array(), queue: Promise.resolve() }
-const previewer: Job = { fonts: 1, version: '', seen: new Uint8Array(), queue: Promise.resolve() }
+/** A worker with the fonts it was sent, the bundled one from the start, the linked image files it was sent, the version and version vector of the document it has and its last job, which the next waits for. */
+type Job = { worker?: Worker; fonts: number; images: number; version: string; seen: Uint8Array; queue: Promise<unknown> }
+const fresh = () => ({ fonts: 1, images: 0, version: '', seen: new Uint8Array(), queue: Promise.resolve() })
+const exporter: Job = fresh()
+const previewer: Job = fresh()
 
 function reset(job: Job) {
   job.worker?.terminate()
-  Object.assign(job, { worker: undefined, fonts: 1, version: '', seen: new Uint8Array(), queue: Promise.resolve() })
+  Object.assign(job, { worker: undefined, ...fresh() })
 }
 
 /** Removes the added font `hash` from the document's fonts, this browser and the workers. */
@@ -211,6 +218,8 @@ function run<T>(job: Job, editor: Editor, preview?: Preview, out?: Out) {
     const version = editor.engine.version()
     const seen = editor.engine.versionVector()
     const doc = version === job.version ? null : editor.engine.updates(job.seen)
+    const read = linked.length
+    const images = linked.slice(job.images)
     return new Promise<T>((done, fail) => {
       w.onmessage = ({ data }: MessageEvent<T & { error?: string }>) => {
         if (data.error !== undefined) {
@@ -218,6 +227,7 @@ function run<T>(job: Job, editor: Editor, preview?: Preview, out?: Out) {
           return fail(new Error(data.error))
         }
         job.fonts = n
+        job.images = read
         job.version = version
         job.seen = seen
         done(data)
@@ -226,7 +236,7 @@ function run<T>(job: Job, editor: Editor, preview?: Preview, out?: Out) {
         reset(job)
         fail(new Error(e.message))
       }
-      w.postMessage({ doc, fonts, preview, out }, [...(doc ? [doc.buffer] : []), ...fonts.map((f) => f.buffer)])
+      w.postMessage({ doc, fonts, images, preview, out },[...(doc ? [doc.buffer] : []), ...fonts.map((f) => f.buffer)])
     })
   })
   job.queue = next.catch(() => {})
@@ -289,7 +299,7 @@ async function load(editor: Editor, file: File, handle: Handle | null) {
   } catch (e) {
     return editor.fail(`Could not open ${file.name}: ${(e as Error).message}. Choose a .satz file saved by Satz, an SVG, a PDF or a Figma file.`)
   }
-  await findGrantedFonts(editor)
+  await findGranted(editor)
 }
 
 /** Asks for a document, SVG, PDF or Figma file and opens it as a new project. */
@@ -330,10 +340,16 @@ async function addFont(editor: Editor, file: File) {
   }
 }
 
-async function placeImage(editor: Editor, file: File) {
+/** Places `file`, a PNG or JPEG one as a link to `handle` when given and the document links images. */
+async function placeImage(editor: Editor, file: File, handle: Handle | null = null) {
   try {
     const bytes = new Uint8Array(await file.arrayBuffer())
-    if (!imports(file.name)) return editor.loadImage(bytes, file.name)
+    if (!imports(file.name) && handle && editor.snapshot.linkImages) {
+      const hash = editor.loadImage(bytes, file.name, true)
+      linked.push(bytes)
+      return await result((await store('links')).put(handle, hash))
+    }
+    if (!imports(file.name)) return void editor.loadImage(bytes, file.name)
     editor.engine.takeClip(Engine.importFile(bytes, file.name))
     editor.clip = null
     editor.paste()
@@ -360,19 +376,26 @@ export const pickProfile = (editor: Editor) =>
     }
   })
 
-/** Asks for PNG, JPEG, SVG, PDF and Figma files and places each on the current page, an SVG, PDF or Figma file with its first page's layers. */
-export const placeImages = (editor: Editor) =>
-  pick('.png,.jpg,.jpeg,.svg,.pdf,.fig', true, async (files) => {
-    for (const file of files) await placeImage(editor, file)
-  })
+/** Asks for PNG, JPEG, SVG, PDF and Figma files and places each on the current page, an SVG, PDF or Figma file with its first page's layers and a PNG or JPEG file as a link to it when the document links images and the browser can keep files. */
+export async function placeImages(editor: Editor) {
+  if (!editor.snapshot.linkImages || !pickers.showOpenFilePicker)
+    return pick('.png,.jpg,.jpeg,.svg,.pdf,.fig', true, async (files) => {
+      for (const file of files) await placeImage(editor, file)
+    })
+  try {
+    for (const handle of await pickers.showOpenFilePicker({ types: PLACES, multiple: true })) await placeImage(editor, await handle.getFile(), handle)
+  } catch (e) {
+    if ((e as Error).name !== 'AbortError') editor.fail(`Could not place a file: ${(e as Error).message}.`)
+  }
+}
 
-/** Opens a dropped document, places dropped images, SVGs, PDFs and Figma files (opens them on the projects) and adds dropped fonts. */
-export async function drop(editor: Editor, files: File[]) {
-  for (const file of files) {
+/** Opens a dropped document, places dropped images, SVGs, PDFs and Figma files (opens them on the projects), a PNG or JPEG one as a link to its file of `handles` when the document links images, and adds dropped fonts. */
+export async function drop(editor: Editor, files: File[], handles: Promise<Handle | null>[] = []) {
+  for (const [i, file] of files.entries()) {
     const ext = file.name.split('.').pop()!.toLowerCase()
     if (ext === 'satz' || (editor.home && imports(file.name))) await load(editor, file, null)
     else if (['ttf', 'otf', 'woff', 'woff2'].includes(ext)) await addFont(editor, file)
-    else if (!editor.home && ['png', 'jpg', 'jpeg', 'svg', 'pdf', 'fig'].includes(ext)) await placeImage(editor, file)
+    else if (!editor.home && ['png', 'jpg', 'jpeg', 'svg', 'pdf', 'fig'].includes(ext)) await placeImage(editor, file, await handles[i]?.catch(() => null))
     else editor.fail(`Could not use ${file.name}. Drop a .satz document, a PNG, JPEG, SVG, PDF or Figma file or a .ttf, .otf, .woff or .woff2 font.`)
   }
 }
@@ -431,9 +454,48 @@ export async function findFonts(editor: Editor) {
   editor.say(`Found ${found} of ${missing.length} missing fonts on this computer.${found < missing.length ? ' Add the others with Add font.' : ''}`)
 }
 
-/** Adds the missing fonts that this computer has, if Satz may already read them. */
-export async function findGrantedFonts(editor: Editor) {
+/** Adds the missing fonts that this computer has and reads the missing linked images, if Satz may already read them. */
+export async function findGranted(editor: Editor) {
+  const { links, images } = editor.snapshot
+  for (const hash of Object.keys(links).filter((h) => !(h in images))) {
+    const handle = await link(hash)
+    const file = handle && (await handle.queryPermission({ mode: 'read' })) === 'granted' && (await handle.getFile().catch(() => null))
+    if (file) await readLink(editor, hash, file, handle).catch((e: Error) => editor.fail(`Could not read ${file.name}: ${e.message}.`))
+  }
   if (!canFindFonts || !editor.snapshot.missingFonts.length) return
   const p = await navigator.permissions.query({ name: 'local-fonts' as PermissionName }).catch(() => null)
   if (p?.state === 'granted') await findFonts(editor)
 }
+
+/** The files of the linked images read in this session, in the order read, for the workers. */
+const linked: Uint8Array[] = []
+
+/** The file of the linked image `hash` as this browser keeps it. */
+const link = (hash: string) => store('links').then((s) => result<Handle | undefined>(s.get(hash)), () => undefined)
+
+/** Reads `file` as the linked image `hash`, filling its layers with it when it changed, and keeps `handle` for the next visit. */
+async function readLink(editor: Editor, hash: string, file: File, handle: Handle | null) {
+  const bytes = new Uint8Array(await file.arrayBuffer())
+  const to = editor.registerImage(bytes)
+  linked.push(bytes)
+  if (to !== hash) editor.apply({ type: 'relink', image: hash, to, name: file.name })
+  if (handle) await result((await store('links')).put(handle, to))
+}
+
+/** Reads the missing linked image `hash` from its file if Satz may, or else from a file to choose. */
+export async function relink(editor: Editor, hash: string) {
+  const failed = (e: Error) => e.name !== 'AbortError' && editor.fail(`Could not read the image: ${e.message}.`)
+  if (!pickers.showOpenFilePicker) return pick('.png,.jpg,.jpeg', false, ([file]) => file && readLink(editor, hash, file, null).catch(failed))
+  try {
+    const kept = await link(hash)
+    const file = kept && (await kept.requestPermission({ mode: 'read' })) === 'granted' && (await kept.getFile().catch(() => null))
+    if (file) return await readLink(editor, hash, file, kept)
+    const [handle] = await pickers.showOpenFilePicker({ types: IMAGES })
+    await readLink(editor, hash, await handle.getFile(), handle)
+  } catch (e) {
+    failed(e as Error)
+  }
+}
+
+/** Whether placed images can link to their files, which takes File System Access. */
+export const canLink = !!pickers.showOpenFilePicker

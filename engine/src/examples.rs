@@ -188,7 +188,7 @@ impl Build {
     /// Places the photograph into [x, y, w, h] mm, showing the part of it that
     /// `transform` maps into the layer's unit box.
     fn photo(&mut self, parent: &str, frame: [f64; 4], transform: [f32; 6]) -> String {
-        let hash = self.0.add_image(PHOTO).unwrap().hash;
+        let hash = self.0.add_image(PHOTO, None).unwrap().hash;
         let id = self.one(Command::PlaceImage {
             parent: parent.into(),
             image: hash.clone(),

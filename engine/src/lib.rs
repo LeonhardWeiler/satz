@@ -473,10 +473,24 @@ impl Engine {
     }
 
     /// Adds a PNG or JPEG file to the document's images and returns its hash and
-    /// size in pixels, for the command `placeImage`.
+    /// size in pixels, for the command `placeImage`; as a link to the file `link` when given.
     #[wasm_bindgen(js_name = addImage)]
-    pub fn add_image(&mut self, bytes: &[u8]) -> Result<JsValue, JsError> {
-        let info = self.doc.add_image(bytes).map_err(|e| JsError::new(&e))?;
+    pub fn add_image(&mut self, bytes: &[u8], link: Option<String>) -> Result<JsValue, JsError> {
+        let info = self
+            .doc
+            .add_image(bytes, link)
+            .map_err(|e| JsError::new(&e))?;
+        Ok(serde_wasm_bindgen::to_value(&info)?)
+    }
+
+    /// Reads the file of a linked image for this session and returns its hash and size in
+    /// pixels, for the command `relink` when it differs from the linked one.
+    #[wasm_bindgen(js_name = registerImage)]
+    pub fn register_image(&mut self, bytes: &[u8]) -> Result<JsValue, JsError> {
+        let info = self
+            .doc
+            .register_image(bytes)
+            .map_err(|e| JsError::new(&e))?;
         Ok(serde_wasm_bindgen::to_value(&info)?)
     }
 

@@ -12,6 +12,7 @@ const PLATES = [['Cyan', 'c'], ['Magenta', 'm'], ['Yellow', 'y'], ['Black', 'k']
 
 const problem = (i: Issue, editor: Editor) =>
   i.problem === 'missingFont' ? `Missing font ${i.font}`
+  : i.problem === 'missingImage' ? `Missing image ${editor.snapshot.links[i.image] ?? ''}`
   : i.problem === 'overset' ? `Overset text · ${count(words(editor, i.layer), 'word')} left`
   : i.problem === 'shortOfBleed' ? 'Short of the bleed'
   : i.problem === 'lowPpi' ? `Image at ${Math.round(i.ppi)} ppi`
@@ -21,7 +22,7 @@ const problem = (i: Issue, editor: Editor) =>
   : i.problem === 'missingGlyph' ? `The font lacks ${JSON.stringify(i.character)}`
   : 'RGB color'
 
-export const isError = (i: Issue) => ['overset', 'missingFont', 'missingGlyph', 'shortOfBleed', 'ink'].includes(i.problem)
+export const isError = (i: Issue) => ['overset', 'missingFont', 'missingImage', 'missingGlyph', 'shortOfBleed', 'ink'].includes(i.problem)
 const options = (values: number[], unit: string, zero: string, v: number) =>
   Object.fromEntries([...new Set([0, ...values, v])].map((n) => [String(n), n ? `${n} ${unit}` : zero]))
 const count = (n: number, what: string) => `${n} ${what}${n === 1 ? '' : 's'}`

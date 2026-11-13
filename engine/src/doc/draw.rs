@@ -49,6 +49,8 @@ pub struct Snapshot {
     /// Opaque images in the PDF are JPEGs of this quality unless it is 0.
     pub jpeg_quality: u8,
     pub date_format: DateFormat,
+    /// Places images as links to their files.
+    pub link_images: bool,
     #[serde(flatten)]
     pub palette: Palette,
     /// The fonts text can be set in, the bundled one first.
@@ -56,6 +58,8 @@ pub struct Snapshot {
     pub missing_fonts: Vec<MissingFont>,
     /// The colors of each image by its hash.
     pub images: BTreeMap<String, image::Space>,
+    /// The file each linked image links to, by its hash.
+    pub links: BTreeMap<String, String>,
     pub preflight: Vec<Issue>,
     pub can_undo: bool,
     pub can_redo: bool,
@@ -93,6 +97,10 @@ pub enum Problem {
     ShortOfBleed,
     /// Is colored in RGB in a CMYK document.
     Rgb,
+    /// Is filled with the image `image`, whose file is missing.
+    MissingImage {
+        image: String,
+    },
     /// Is filled with an image at fewer pixels per inch than print needs.
     LowPpi {
         ppi: f64,
@@ -338,13 +346,19 @@ pub(super) fn reach(n: &Node) -> [f64; 4] {
 /// on a sheet with the same trim, height and bleed.
 pub(super) fn preflight(snap: &Snapshot, old: Option<&Snapshot>) -> Vec<Issue> {
     let old = old.filter(|o| {
-        (&o.palette, &o.missing_fonts, o.color_mode, o.ink_limit)
-            == (
-                &snap.palette,
-                &snap.missing_fonts,
-                snap.color_mode,
-                snap.ink_limit,
-            )
+        (
+            &o.palette,
+            &o.missing_fonts,
+            &o.images,
+            o.color_mode,
+            o.ink_limit,
+        ) == (
+            &snap.palette,
+            &snap.missing_fonts,
+            &snap.images,
+            snap.color_mode,
+            snap.ink_limit,
+        )
     });
     let was: HashMap<&str, (&Rc<Page>, [f64; 2])> = old
         .map(|o| {
@@ -552,6 +566,12 @@ pub(super) fn visit(
         if ink > snap.ink_limit + 0.5 {
             problems.push(Problem::Ink { ink });
         }
+    }
+    let missing = paints().filter_map(|f| f.image.as_ref());
+    for image in missing.filter(|h| !snap.images.contains_key(*h)) {
+        problems.push(Problem::MissingImage {
+            image: image.clone(),
+        });
     }
     if let Some(ppi) = n.ppi.filter(|&ppi| ppi < PRINT_PPI - 0.5) {
         problems.push(Problem::LowPpi { ppi });
@@ -957,6 +977,8 @@ impl Doc {
             image_ppi: self.setting("imagePpi", 0.0),
             jpeg_quality: self.setting("jpegQuality", 0),
             date_format: self.setting("dateFormat", DateFormat::default()),
+            link_images: self.setting("linkImages", false),
+            links: self.image_links(),
             palette: (*palette).clone(),
             can_undo: self.undo.can_undo(),
             can_redo: self.undo.can_redo(),
@@ -1095,6 +1117,12 @@ impl Doc {
                     "jpg"
                 };
                 files.push((format!("{title}/Images/{hash}.{ext}"), bytes.to_vec()));
+            }
+        }
+        for (hash, name) in self.image_links() {
+            if let Some(id) = image::id(&hash) {
+                let name = name.replace(['/', '\\'], "-");
+                files.push((format!("{title}/Images/{name}"), image::bytes(id)));
             }
         }
         Ok(crate::zip::zip(&files, date))

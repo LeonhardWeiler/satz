@@ -296,13 +296,19 @@ export class Editor {
     this.change(() => this.engine.removeFont(hash))
   }
 
-  /** Adds a PNG or JPEG file to the images to place, at 300 ppi or smaller to fit the current page. */
-  loadImage(bytes: Uint8Array<ArrayBuffer>, name: string) {
-    const { hash, width, height } = this.change(() => this.engine.addImage(bytes) as { hash: string; width: number; height: number })
+  /** Adds a PNG or JPEG file to the images to place, at 300 ppi or smaller to fit the current page, as a link to it when `link` is set; its hash. */
+  loadImage(bytes: Uint8Array<ArrayBuffer>, name: string, link = false) {
+    const { hash, width, height } = this.change(() => this.engine.addImage(bytes, link ? name : undefined) as { hash: string; width: number; height: number })
     const [w, h] = [width, height].map((px) => (px * 72) / 300)
     const fit = Math.min(1, this.page.width / w, this.page.height / h)
     this.setTool('move')
     this.set({ placing: [...this.placing, { hash, name, w: w * fit, h: h * fit, url: URL.createObjectURL(new Blob([bytes])) }] })
+    return hash
+  }
+
+  /** Reads the file of a linked image for this session; its hash. */
+  registerImage(bytes: Uint8Array) {
+    return this.change(() => this.engine.registerImage(bytes) as { hash: string }).hash
   }
 
   /** The engine's snapshot, with the pages, masters, layers and stories it left out as they were. */

@@ -454,6 +454,9 @@ impl Doc {
         if let Some(q) = s.jpeg_quality {
             m.insert("jpegQuality", q as i64).map_err(err)?;
         }
+        if let Some(on) = s.link_images {
+            m.insert("linkImages", on).map_err(err)?;
+        }
         if let Some(f) = s.date_format {
             m.insert("dateFormat", loro(f)?).map_err(err)?;
         }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Engine } from './engine/engine'
 import type { Editor } from './editor'
-import { ask, begin, findGrantedFonts, open, openProject, projects, removeProject, show, type Project } from './file'
+import { ask, begin, findGranted, open, openProject, projects, removeProject, show, type Project } from './file'
 import { Icon } from './icons'
 import booklet from '../../examples/booklet.satz?url'
 import poster from '../../examples/poster.satz?url'
@@ -62,7 +62,7 @@ export function Home({ editor, onNew, children }: { editor: Editor; onNew: () =>
         const r = await fetch(url)
         if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
         await begin(editor, new Uint8Array(await r.arrayBuffer()), { name, handle: null })
-        findGrantedFonts(editor)
+        findGranted(editor)
       } else {
         const e = Engine.sample()
         await begin(editor, e.save())

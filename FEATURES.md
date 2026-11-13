@@ -39,6 +39,7 @@
 ## Images
 
 - Place at their ppi, crop in the frame, fit, fill or cover, adjust brightness, contrast and saturation
+- Embedded in the document or, per document, linked to their files (Chromium): read again on the next visit, followed when the file changes, relinked when gone, embedded on demand
 
 ## Text
 

@@ -104,7 +104,7 @@ fn build(name: &str, sheets: Vec<Sheet>) -> Res<Vec<u8>> {
             match item {
                 Item::Shape(s) => shape(&mut d, &frame, s)?,
                 Item::Image(bytes, [x, y, w, h], crop) => {
-                    let Ok(info) = d.add_image(&bytes) else {
+                    let Ok(info) = d.add_image(&bytes, None) else {
                         continue;
                     };
                     let id = d

@@ -5,7 +5,7 @@ import canvaskitWasm from 'canvaskit-wasm/bin/canvaskit.wasm?url'
 import init, { Engine } from './engine/engine'
 import { App } from './App'
 import { Editor } from './editor'
-import { findGrantedFonts, openProject, show, storedFonts } from './file'
+import { findGranted, openProject, show, storedFonts } from './file'
 import './index.css'
 
 if (import.meta.env.PROD) navigator.serviceWorker?.register(`${import.meta.env.BASE_URL}sw.js`)
@@ -65,7 +65,7 @@ if (!document.createElement('canvas').getContext('webgl2')) {
     const trapped = (e: unknown) => e instanceof WebAssembly.RuntimeError && stop()
     window.addEventListener('error', (e) => trapped(e.error))
     window.addEventListener('unhandledrejection', (e) => trapped(e.reason))
-    findGrantedFonts(editor)
+    findGranted(editor)
   } catch (e) {
     console.error(e)
     notice('Satz could not start', 'Loading the engine failed. Check your connection and reload the page.', true)

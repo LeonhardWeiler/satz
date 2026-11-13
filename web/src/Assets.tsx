@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
 import { Section } from './controls'
 import { useEditor, type Editor } from './editor'
-import { addFonts, canFindFonts, findFonts, readLocalFonts, removeFont, useLocalFonts } from './file'
+import { addFonts, canFindFonts, findFonts, readLocalFonts, relink, removeFont, useLocalFonts } from './file'
 import { Icon } from './icons'
 import { TextStyles } from './Text'
 import { Variables } from './Variables'
@@ -53,8 +53,38 @@ export function Assets({ editor }: { editor: Editor }) {
           </button>
         )}
       </Section>
+      <LinkedImages editor={editor} />
       <Variables editor={editor} />
       <TextStyles editor={editor} />
     </div>
+  )
+}
+
+/** The images placed as links to their files, those not read with a button to read them again, and one that embeds the read ones. */
+function LinkedImages({ editor }: { editor: Editor }) {
+  const { links, images } = useEditor(editor, (e) => e.snapshot)
+  const missing = Object.keys(links).filter((h) => !(h in images))
+  const read = Object.keys(links).filter((h) => !missing.includes(h))
+  if (!Object.keys(links).length) return null
+  return (
+    <Section title="Linked images">
+      <ul className="fonts">
+        {Object.entries(links).map(([hash, name]) => (
+          <li key={hash} className={missing.includes(hash) ? 'missing' : undefined} title={missing.includes(hash) ? 'Missing: the layers it fills show empty' : undefined}>
+            <span>{name}</span>
+            {missing.includes(hash) && (
+              <button type="button" className="icon-button" aria-label={`Relink ${name}`} title="Relink" onClick={() => relink(editor, hash)}>
+                <Icon name="folder" />
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+      {read.length > 0 && (
+        <button type="button" className="button" onClick={() => editor.apply({ type: 'embed', images: read })}>
+          Embed linked images
+        </button>
+      )}
+    </Section>
   )
 }

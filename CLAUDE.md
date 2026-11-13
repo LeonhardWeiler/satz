@@ -69,3 +69,7 @@ Node 22, pnpm, MuPDF (`mutool`, for the PDF tests) and
 - A table is a frame with a `table` (column widths, least row heights); its cells are text
   layers with a `cell` ([column, row, columns, rows]). `lay_out_table` places them, rows
   growing to the text of unthreaded cells; `reframe` scales the table.
+- An image of the `images` map is its file or, linked, a map `{link: name}`; this browser
+  keeps its file's handle by hash. `Doc::register_image` reads a link's file for the
+  session (the export worker gets the read files too), `relink` puts another read image in
+  its place and `embed` keeps its file in the document.

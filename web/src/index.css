@@ -1619,7 +1619,7 @@ input[type='range']:focus-visible::-moz-range-thumb {
   min-height: 24px;
 }
 
-.fonts li:not(:hover, :focus-within) button {
+.fonts li:not(:hover, :focus-within, .missing) button {
   visibility: hidden;
 }
 

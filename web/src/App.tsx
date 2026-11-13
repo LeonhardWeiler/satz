@@ -8,7 +8,7 @@ import { CLIP, useEditor, type Editor } from './editor'
 import { Settings } from './SettingsDialog'
 import { Find } from './Find'
 import { settings } from './settings'
-import { autosave, download, drop, exportFile, flush, open, placeImages, save, show } from './file'
+import { autosave, download, drop, exportFile, flush, open, placeImages, save, show, type Handle } from './file'
 import { Icon } from './icons'
 import { handleKey } from './keys'
 import { Layers } from './Layers'
@@ -190,7 +190,8 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     const onDrop = (e: DragEvent) => {
       if (!files(e)) return
       e.preventDefault()
-      drop(editor, [...e.dataTransfer!.files])
+      const items = [...e.dataTransfer!.items].filter((i) => i.kind === 'file') as (DataTransferItem & { getAsFileSystemHandle?(): Promise<Handle | null> })[]
+      drop(editor, [...e.dataTransfer!.files], items.map((i) => i.getAsFileSystemHandle?.() ?? Promise.resolve(null)))
     }
     window.addEventListener('dragover', over)
     window.addEventListener('drop', onDrop)

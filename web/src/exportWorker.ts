@@ -25,11 +25,12 @@ function pageOf(e: Engine, id: string, ppi: number) {
   return page
 }
 
-onmessage = async ({ data: { doc, fonts, preview, out } }: MessageEvent<{ doc: Uint8Array | null; fonts: Uint8Array[]; preview?: Preview; out?: Out }>) => {
+onmessage = async ({ data: { doc, fonts, images, preview, out } }: MessageEvent<{ doc: Uint8Array | null; fonts: Uint8Array[]; images: Uint8Array[]; preview?: Preview; out?: Out }>) => {
   try {
     const e = await engine
     for (const bytes of fonts) if (bytes.length) e.addFont(bytes)
     if (doc) e.sync(doc)
+    for (const bytes of images) e.registerImage(bytes)
     const now = new Date()
     e.setToday(now.getFullYear(), now.getMonth() + 1, now.getDate())
     const date = now.toISOString().slice(0, 19) + 'Z'

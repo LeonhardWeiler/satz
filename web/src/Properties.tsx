@@ -6,7 +6,7 @@ import { ContextMenu } from './ContextMenu'
 import { bounds, ends, MM, scopeOf, useEditor, type Editor } from './editor'
 import { Icon, KindIcon } from './icons'
 import { FORMATS, ORIENTATIONS, formatOf } from './Start'
-import { pickProfile } from './file'
+import { canLink, pickProfile } from './file'
 import { length, setSettings, useSettings } from './settings'
 import type { Bindable as Prop, Blend, Constraint, Command, DateFormat, Grid, LineStyle, Node, Page, Props, Section as Numbers, Anchoring, TextNode, Wrap } from './model'
 import { isOpen, radiusOf, rounded } from './model'
@@ -539,12 +539,13 @@ function textBelow(editor: Editor, n: Node) {
 
 /** Facing pages and, unless `pagesOnly`, color mode and, in CMYK, the profile of the document, and how dates show. */
 function DocumentSection({ editor, pagesOnly }: { editor: Editor; pagesOnly: boolean }) {
-  const { facingPages, colorMode, profile, dateFormat } = useEditor(editor, (e) => e.snapshot)
+  const { facingPages, colorMode, profile, dateFormat, linkImages } = useEditor(editor, (e) => e.snapshot)
   const color = <Select label="Color mode" prefix="Color" value={colorMode} options={MODES} onChange={(colorMode) => editor.apply({ type: 'setDocument', colorMode })} />
   return (
     <section className="section" aria-label="Document">
       <div className="section-body">
         <Check label="Facing pages" value={facingPages} set={(facingPages) => editor.apply({ type: 'setDocument', facingPages })} />
+        {!pagesOnly && canLink && <Check label="Link placed images" value={linkImages} set={(linkImages) => editor.apply({ type: 'setDocument', linkImages })} />}
         {pagesOnly ? null : colorMode === 'rgb' ? (
           color
         ) : (

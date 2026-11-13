@@ -138,9 +138,10 @@ impl Doc {
             .get_value()
             .into_map()
             .unwrap_or_default();
-        for v in images.values() {
-            if let LoroValue::Binary(b) = v {
-                self.add_image(b)?;
+        for (h, v) in images.iter() {
+            match v {
+                LoroValue::Binary(b) => self.add_image(b, None).map(|_| ())?,
+                v => self.keep_image(h, v.clone())?,
             }
         }
         self.clipboard = d

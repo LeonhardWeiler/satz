@@ -40,10 +40,6 @@ Done; numbers and the items measured and not done in `AGENT/performance.md`.
 
 ## Later
 
-- [ ] Linked images: per document, chosen at creation, embed or link. Linking uses File System
-  Access (Chromium) with handles in IndexedDB, so links need a click per session and are missing
-  on other computers; Firefox shows the option disabled with a hint. Preflight reports missing
-  links with relink.
 - [ ] Variable font axes as in Figma. krilla 0.8.2 exports them (`Font::new_variable` instances
   the subset) and harfrust shapes them; CanvasKit 0.42 has no variation binding, so the canvas
   draws such glyphs as paths from skrifa at the font's location, cached per font, location and
