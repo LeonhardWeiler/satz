@@ -2,6 +2,7 @@ import { align, ALIGNS, BOOLEANS, combinable, combine } from './align'
 import type { Editor } from './editor'
 import type { Props } from './model'
 import { settings } from './settings'
+import { TABLE_ACTIONS } from './cells'
 import { keyOf } from './keys'
 import { DATE, insert, MAC, PAGE_NUMBER } from './textEdit'
 
@@ -146,6 +147,7 @@ export const ACTIONS: Action[] = [
   { title: 'Auto fit', keys: 'Ctrl Alt C', group: 'Text' },
   { title: 'Insert page number', keys: 'Ctrl Alt Shift N', group: 'Text', run: (editor) => editor.editing && insert(editor, PAGE_NUMBER) },
   { title: 'Insert date', keys: '', group: 'Text', run: (editor) => editor.editing && insert(editor, DATE) },
+  ...TABLE_ACTIONS,
   { title: 'Move tool', keys: 'V', group: 'Tools' },
   { title: 'Frame tool', keys: 'F', group: 'Tools' },
   { title: 'Rectangle tool', keys: 'R', group: 'Tools' },
@@ -162,12 +164,13 @@ export const ACTIONS: Action[] = [
 ]
 
 /** The context menu leaves these out instead of greying them out. */
-export const ONLY_WHEN_ABLE = new Set(['Reset to master', ...BOOLEANS.map((b) => b[1])])
+export const ONLY_WHEN_ABLE = new Set(['Reset to master', 'Table', ...BOOLEANS.map((b) => b[1])])
 
 /** The titles of the actions the context menu offers with and without a selection, `null` between groups. */
 export const MENU = {
-  selected: ['Cut', 'Copy', 'Paste', 'Duplicate', null, 'Group', 'Ungroup', 'Add auto layout', 'Transform', null, 'Bring to front', 'Send to back', 'Reset to master', null, 'Delete'],
+  selected: ['Cut', 'Copy', 'Paste', 'Duplicate', null, 'Group', 'Ungroup', 'Add auto layout', 'Transform', 'Table', null, 'Bring to front', 'Send to back', 'Reset to master', null, 'Delete'],
   transform: ['Use as mask', 'Flatten', 'Flip horizontal', 'Flip vertical', 'Tidy up', ...BOOLEANS.map((b) => b[1])],
+  table: TABLE_ACTIONS.map((a) => a.title),
   none: ['Paste', 'Select all', null, 'Undo', 'Redo', null, 'Zoom to fit', 'Show or hide rulers', 'Show or hide left panel', 'Show or hide right panel', 'Add page', 'Page overview', null, 'Command palette', 'Keyboard shortcuts', 'Settings'],
 }
 

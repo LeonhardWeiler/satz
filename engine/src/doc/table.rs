@@ -361,6 +361,7 @@ impl Doc {
 
 #[cfg(test)]
 mod tests {
+    use super::super::draw::address;
     use super::super::tests::*;
     use super::*;
 
@@ -391,6 +392,17 @@ mod tests {
         let g = grid(&d, &id);
         assert_eq!(g.len(), 9);
         assert_eq!(g[4].0, [1, 1, 1, 1]);
+        let names: Vec<_> = children(&page(&d).children[0])
+            .iter()
+            .map(|c| c.name.clone())
+            .collect();
+        assert!(
+            ["A1", "B1", "C1", "A2", "B2", "C2", "A3", "B3", "C3"]
+                .iter()
+                .all(|n| names.contains(&n.to_string())),
+            "{names:?}"
+        );
+        assert_eq!(address(27, 9), "AB10");
         assert_eq!(g[4].1, [110.0, 40.0, 100.0, 30.0]);
 
         let a = cell(&d, &id, [0, 0]);

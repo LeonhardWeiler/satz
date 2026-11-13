@@ -1,4 +1,4 @@
-import { Fragment, useId, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { Fragment, useId, useRef, useState, type ComponentProps, type KeyboardEvent, type MouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { keyName } from './commands'
 import { MAC } from './textEdit'
@@ -266,6 +266,19 @@ export function Select<T extends string>({
           />,
           host,
         )}
+    </>
+  )
+}
+
+/** An icon button that opens the menu of `items` under it. */
+export function MenuButton({ icon, title, items }: { icon: IconName; title: string; items: ComponentProps<typeof ContextMenu>['items'] }) {
+  const [at, setAt] = useState<DOMRect | null>(null)
+  return (
+    <>
+      <button type="button" className="icon-button" title={title} aria-label={title} aria-haspopup="menu" aria-expanded={!!at} onClick={(e) => setAt(e.currentTarget.getBoundingClientRect())}>
+        <Icon name={icon} />
+      </button>
+      {at && createPortal(<ContextMenu anchor={() => at} side="bottom" label={title} onClose={() => setAt(null)} items={items} />, document.body)}
     </>
   )
 }

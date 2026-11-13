@@ -15,6 +15,7 @@ import { curved, nearest as nearestSegment, remove, shift, smooth, split, type A
 import { handleTextKey, insert, range, select, textOf, wordAt } from './textEdit'
 import { MasterBanner } from './Switcher'
 import { Keys } from './controls'
+import { selectedCells } from './cells'
 
 const DRAG = 3
 const HIT = 6
@@ -546,7 +547,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         found,
         accent: (accent ||= getComputedStyle(canvas).getPropertyValue('--select')),
         pasteboard: !editor.preflight,
-        selection: editor.selection.length > 1 || ed || drag?.kind === 'marquee' ? editor.selected().map(outline) : [],
+        selection: [...(editor.selection.length > 1 || ed || drag?.kind === 'marquee' ? editor.selected() : []), ...selectedCells(editor)].map(outline),
         editing: !!ed,
         hover: image && cursor ? { x: cursor.x - image.w / 2, y: cursor.y - image.h / 2, w: image.w, h: image.h } : over && outline(over),
         marquee,

@@ -50,7 +50,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   const [starting, setStarting] = useState(false)
   const [dialog, setDialog] = useState<'palette' | 'help' | 'settings' | 'history' | null>(null)
   const [finding, setFinding] = useState(false)
-  const [menu, setMenu] = useState<{ x: number; y: number; transform?: boolean } | null>(null)
+  const [menu, setMenu] = useState<{ x: number; y: number; sub?: 'transform' | 'table' } | null>(null)
   const [renaming, setRenaming] = useState(false)
   const [tab, setTab] = useState<'Layers' | 'Assets'>('Layers')
   const selected = useEditor(editor, (e) => e.selection.length > 0)
@@ -327,10 +327,10 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           anchor={() => new DOMRect(menu.x, menu.y)}
           label="Actions"
           onClose={() => setMenu(null)}
-          items={MENU[menu.transform ? 'transform' : selected ? 'selected' : 'none']
-            .filter((t) => !t || !ONLY_WHEN_ABLE.has(t) || ACTIONS.find((a) => a.title === t)!.can!(editor))
+          items={MENU[menu.sub ?? (selected ? 'selected' : 'none')]
+            .filter((t) => !t || !ONLY_WHEN_ABLE.has(t) || (t === 'Table' ? MENU.table : [t]).some((t) => ACTIONS.find((a) => a.title === t)!.can!(editor)))
             .map((title) => {
-            if (title === 'Transform') return [title, () => setTimeout(() => setMenu({ ...menu, transform: true })), true, undefined, '›']
+            if (title === 'Transform' || title === 'Table') return [title, () => setTimeout(() => setMenu({ ...menu, sub: title.toLowerCase() as 'transform' | 'table' })), true, undefined, '›']
             const a = title && ACTIONS.find((a) => a.title === title)!
             const shows = title && SHOWS[title]
             if (a && shows) return [shows[0], () => hide(shows[1]), true, !hidden[shows[1]], keysOf(a)]

@@ -1,7 +1,7 @@
 import type { Editor } from './editor'
 import { keyOf } from './keys'
 import type { Span, TextNode, TextProps, Typeface } from './model'
-import { tab } from './Table'
+import { tab } from './cells'
 import { eachOf } from './Text'
 import type { TextAlign, TextDecoration } from './types'
 

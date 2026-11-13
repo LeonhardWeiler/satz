@@ -300,6 +300,26 @@ fn untitled(kind: &Kind, style: &Style) -> String {
     }
 }
 
+/// The address of the cell in column `c` and row `r`, A1 as in a spreadsheet.
+pub(super) fn address(mut c: usize, r: usize) -> String {
+    let mut s = String::new();
+    loop {
+        s.insert(0, (b'A' + (c % 26) as u8) as char);
+        if c < 26 {
+            return format!("{s}{}", r + 1);
+        }
+        c = c / 26 - 1;
+    }
+}
+
+/// The name of a text layer that has none, its cell's address when it is an empty cell.
+fn text_or_cell_name(lead: &str, tf: &TextFrame, cell: Option<[usize; 4]>) -> String {
+    match cell {
+        Some([c, r, ..]) if lead.is_empty() => address(c, r),
+        _ => text_name(lead, tf),
+    }
+}
+
 /// The name of a text layer that has none and whose text starts with `lead`, its
 /// markers as `tf` shows them.
 fn text_name(lead: &str, tf: &TextFrame) -> String {
@@ -1435,7 +1455,7 @@ impl Doc {
                 *overset = f.overset;
                 *placed = f.placed.clone();
                 if self.meta(id).get("name").is_none() {
-                    untitled_text = Some(text_name(f.lead(), frame));
+                    untitled_text = Some(text_or_cell_name(f.lead(), frame, n.cell));
                 }
             }
             Kind::Group { children } | Kind::Frame { children, .. } => {
@@ -1522,8 +1542,9 @@ impl Doc {
             })),
         };
         let style: Style = from_loro(v.clone()).unwrap_or_default();
+        let cell: Option<[usize; 4]> = field(&v, CELL);
         let name = field(&v, "name").unwrap_or_else(|| match flows.get(&id) {
-            Some(f) => text_name(f.lead(), &self.text_frame_of(id)),
+            Some(f) => text_or_cell_name(f.lead(), &self.text_frame_of(id), cell),
             None => untitled(&kind, &style),
         });
         let [x, y, w, h] = self.bounds(id);
@@ -1590,7 +1611,7 @@ impl Doc {
             wrap: field(&v, "wrap").unwrap_or_default(),
             anchored: field(&v, ANCHORED),
             table: self.table(id),
-            cell: field(&v, CELL),
+            cell,
             wrap_offset_x: field(&v, "wrapOffsetX").unwrap_or(0.0),
             wrap_offset_y: field(&v, "wrapOffsetY").unwrap_or(0.0),
             ppi: style

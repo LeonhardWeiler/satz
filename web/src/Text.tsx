@@ -633,30 +633,35 @@ export function TextFrameSection({ editor, nodes, set }: { editor: Editor; nodes
   const columned = nodes.every((n) => n.columns > 1)
   const used = nodes.some((n) => n.columns > 1 || INSETS.some((p) => n[p]) || !!(n.baselineGrid || n.baselineStart || n.minHeight || n.maxLines || n.trim || n.roundBaselines))
   const [shown, moreButton] = useMore('Frame options', 'Inset, columns and baseline grid', used)
+  const cell = nodes.every((n) => n.cell)
+  const inset = <Sides what="inset" values={insets} each={each} set={(v) => set(Object.fromEntries(INSETS.flatMap((p, i) => (v[i] === null ? [] : [[p, v[i]]]))))} />
   return (
     <Section
-      title="Text frame"
+      title={cell ? 'Cell' : 'Text frame'}
       actions={
         <>
-          {shown && toggle}
-          {moreButton}
+          {(shown || cell) && toggle}
+          {!cell && moreButton}
         </>
       }
     >
       <div className="grid">
-        <Segmented
-          label="Resizing"
-          value={resizing}
-          options={RESIZING}
-          disabled={(v) => nodes.some((n) => (v === 'autoWidth' && !!(n.prev || n.next)) || (v === 'autoHeight' && !!n.next))}
-          onChange={(mode) => editor.resize(nodes, mode)}
-        />
+        {!cell && (
+          <Segmented
+            label="Resizing"
+            value={resizing}
+            options={RESIZING}
+            disabled={(v) => nodes.some((n) => (v === 'autoWidth' && !!(n.prev || n.next)) || (v === 'autoHeight' && !!n.next))}
+            onChange={(mode) => editor.resize(nodes, mode)}
+          />
+        )}
         <Segmented label="Vertical align" value={same((n) => n.verticalAlign)} options={VERTICAL} onChange={(verticalAlign) => set({ verticalAlign })} />
+        {cell && inset}
       </div>
-      {shown && (
+      {shown && !cell && (
         <>
           <div className="grid">
-            <Sides what="inset" values={insets} each={each} set={(v) => set(Object.fromEntries(INSETS.flatMap((p, i) => (v[i] === null ? [] : [[p, v[i]]]))))} />
+            {inset}
             <Field label={<Icon name="columns" />} title="Columns" unit="" int min={1} max={20} reset={1} value={columns} onCommit={(columns) => set({ columns })} />
             {columned && <Field label="Gutter" title="Gutter" unit="length" value={same((n) => n.gutter)} onCommit={(gutter) => set({ gutter })} />}
           </div>

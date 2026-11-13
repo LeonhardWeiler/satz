@@ -1,11 +1,9 @@
 import { Fragment, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
 import { ColorPicker } from './ColorPicker'
 import { colorText, css, neutral, withAlpha, type ColorMode } from './color'
-import { Field, RowActions, Section, Segmented, Select } from './controls'
+import { Field, MenuButton, RowActions, Section, Segmented, Select } from './controls'
 import { Icon } from './icons'
 import { useEditor, type Editor } from './editor'
-import { ContextMenu } from './ContextMenu'
 import { Dialog } from './Popover'
 import type { Effect, Fill, Scope, Snapshot } from './model'
 
@@ -371,7 +369,6 @@ function fitOf(p: Fill) {
 /** Crop, fit and the brightness, contrast and saturation of the image `p` of the layer `id`. */
 function ImageTools({ editor, id, paint: p, set }: { editor: Editor; id: string; paint: Fill; set: (p: Fill) => void }) {
   const cropping = useEditor(editor, (e) => e.cropping)
-  const [fitAt, setFitAt] = useState<DOMRect | null>(null)
   const [adjustAt, setAdjustAt] = useState<Element | null>(null)
   const adjust = p.adjust ?? [0, 0, 0]
   const change = (i: number, v: number) => set({ ...p, adjust: adjust.with(i, v / 100) as Fill['adjust'] })
@@ -380,23 +377,10 @@ function ImageTools({ editor, id, paint: p, set }: { editor: Editor; id: string;
       <button type="button" className="icon-button" title="Crop" aria-pressed={cropping === id} onClick={() => editor.set({ cropping: cropping === id ? null : id })}>
         <Icon name="crop" />
       </button>
-      <button type="button" className="icon-button" title="Fit image" aria-haspopup="menu" onClick={(e) => setFitAt(e.currentTarget.getBoundingClientRect())}>
-        <Icon name="fit" />
-      </button>
+      <MenuButton icon="fit" title="Fit image" items={FITS.map(([fit, name]) => [name, () => editor.apply({ type: 'fitImage', id, fit }), true, fit === fitOf(p)])} />
       <button type="button" className="icon-button" title="Adjust image" aria-haspopup="dialog" aria-expanded={!!adjustAt} onClick={(e) => setAdjustAt(e.currentTarget)}>
         <Icon name="adjust" />
       </button>
-      {fitAt &&
-        createPortal(
-          <ContextMenu
-            anchor={() => fitAt}
-            side="bottom"
-            label="Fit image"
-            onClose={() => setFitAt(null)}
-            items={FITS.map(([fit, name]) => [name, () => editor.apply({ type: 'fitImage', id, fit }), true, fit === fitOf(p)])}
-          />,
-          document.body,
-        )}
       {adjustAt && (
         <Dialog label="Adjust image" at={adjustAt} onClose={() => setAdjustAt(null)}>
           <div className="adjust">

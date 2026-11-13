@@ -156,6 +156,8 @@ export function Properties({ editor }: { editor: Editor }) {
   }
 
   const texts = nodes.length > 0 && nodes.every((n) => n.kind === 'text')
+  const cells = texts && nodes.every((n) => n.kind === 'text' && !!n.cell)
+  const table = nodes.some((n) => n.kind === 'frame' && !!n.table)
   const fill = nodes.length > 0 && nodes.every((n) => n.kind !== 'group') && (
     <PaintList
       editor={editor}
@@ -181,8 +183,8 @@ export function Properties({ editor }: { editor: Editor }) {
       onPointerDown={editor.gesture}
     >
       <header className="panel-header">
-        {one ? <KindIcon node={one} /> : <Icon name={nodes.length ? 'group' : isPage ? 'doc' : 'master'} />}
-        <h2>{one && cropping === one.id ? 'Crop' : one ? one.name : nodes.length ? `${nodes.length} layers` : overview ? 'Pages' : isPage ? 'Document' : page.name}</h2>
+        {one ? <KindIcon node={one} /> : <Icon name={cells ? 'table' : nodes.length ? 'group' : isPage ? 'doc' : 'master'} />}
+        <h2>{one && cropping === one.id ? 'Crop' : one ? one.name : nodes.length ? `${nodes.length} ${cells ? 'cells' : 'layers'}` : overview ? 'Pages' : isPage ? 'Document' : page.name}</h2>
         {one && cropping === one.id && <button type="button" className="button" onClick={() => editor.set({ cropping: null })}>Done</button>}
         {one?.overrideOf && (
           <>
@@ -287,7 +289,7 @@ export function Properties({ editor }: { editor: Editor }) {
         </Section>
       )}
       {!box && <GridSection editor={editor} sheets={sheets} all={isPage && targets.length === 1 ? snapshot.pages : []} />}
-      {box && (
+      {box && !cells && (
         <Section title="Layout">
           {!nodes.every((n) => flows(editor, n)) && (
             <AlignBar editor={editor}>
@@ -347,7 +349,7 @@ export function Properties({ editor }: { editor: Editor }) {
                 />
               </>
             )}
-            {sided && (
+            {sided && !table && (
               bindable(
                 'radius',
                 'Corner radius',
@@ -363,7 +365,7 @@ export function Properties({ editor }: { editor: Editor }) {
               )
             )}
           </div>
-          {one?.kind === 'frame' && <Check label="Clip content" value={one.clip} set={(clip) => set({ clip })} />}
+          {one?.kind === 'frame' && !table && <Check label="Clip content" value={one.clip} set={(clip) => set({ clip })} />}
           {one && <Sizing editor={editor} node={one} set={set} />}
           {one && parent?.kind === 'frame' && parent.direction !== 'none' && (
             <label className="check">
@@ -411,8 +413,8 @@ export function Properties({ editor }: { editor: Editor }) {
       {texts && <TextSection editor={editor} nodes={nodes as TextNode[]} />}
       {texts && fill}
       {texts && <TextFrameSection editor={editor} nodes={nodes as TextNode[]} set={set} />}
-      {texts && one && <ContentsSection editor={editor} node={one as TextNode} />}
-      {one?.kind === 'frame' && <AutoLayout editor={editor} node={one} set={set} />}
+      {texts && one && !cells && <ContentsSection editor={editor} node={one as TextNode} />}
+      {one?.kind === 'frame' && !table && <AutoLayout editor={editor} node={one} set={set} />}
       {box && (
         <Section
           title="Layer"
