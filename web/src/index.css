@@ -407,7 +407,7 @@ button {
 }
 
 [aria-selected='true'] > .layer {
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  background: var(--selected);
   color: var(--text);
 }
 
