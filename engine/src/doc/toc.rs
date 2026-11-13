@@ -11,7 +11,7 @@ impl Doc {
     /// forget the table.
     pub(super) fn toc(&self, id: String, styles: Vec<String>) -> Res<Vec<String>> {
         let n = self.story(self.node(&id)?);
-        let t = self.own_text(n)?;
+        self.own_text(n)?;
         let m = self.meta(n);
         if styles.is_empty() {
             m.delete(TOC).map_err(err)?;
@@ -20,15 +20,6 @@ impl Doc {
         for s in &styles {
             self.find::<TextStyle>("textStyles", s)?;
         }
-        let entries = self.entries(n, &styles);
-        let tf = self.text_frame_of(n);
-        let at = (self.bounds(n)[2] - tf.inset_left - tf.inset_right).max(0.0);
-        let text: Vec<_> = entries
-            .iter()
-            .map(|(_, e, page)| format!("{e}\t{page}"))
-            .collect();
-        t.update(&text.join("\n"), UpdateOptions::default())
-            .map_err(|e| format!("{e:?}"))?;
         m.insert(TOC, loro(&styles)?).map_err(err)?;
         let fit = Sizing {
             horizontal: Size::Fixed,
@@ -37,6 +28,54 @@ impl Doc {
         if self.next_of(n).is_none() && self.layout(n).sizing != fit {
             m.insert(SIZING, loro(fit)?).map_err(err)?;
         }
+        self.fill(n, &styles, true)?;
+        Ok(vec![])
+    }
+
+    /// Fills the tables of contents whose entries or width changed; true if one did.
+    pub(super) fn refresh_tocs(&self) -> Res<bool> {
+        let tocs: Vec<_> = (self.heads().into_iter())
+            .map(|n| (n, self.text_frame_of(n).toc))
+            .filter(|(_, s)| !s.is_empty())
+            .collect();
+        if tocs.is_empty() {
+            return Ok(false);
+        }
+        self.flows.replace(Some(Rc::new(self.flow_all(None))));
+        let mut changed = false;
+        for (n, styles) in tocs {
+            changed |= self.fill(n, &styles, false)?;
+        }
+        self.flows.take();
+        Ok(changed)
+    }
+
+    /// Writes the entries of `styles` into the story `n` unless it holds them already
+    /// and `force` is false; true if it wrote.
+    fn fill(&self, n: TreeID, styles: &[String], force: bool) -> Res<bool> {
+        let t = self.own_text(n)?;
+        let entries = self.entries(n, styles);
+        let tf = self.text_frame_of(n);
+        let at = (self.bounds(n)[2] - tf.inset_left - tf.inset_right).max(0.0);
+        let text: Vec<_> = entries
+            .iter()
+            .map(|(_, e, page)| format!("{e}\t{page}"))
+            .collect();
+        let joined = text.join("\n");
+        let flows = self.flows();
+        let kept = flows.get(&n).is_some_and(|f| {
+            f.story.text == joined
+                && (joined.is_empty()
+                    || f.story
+                        .spans
+                        .iter()
+                        .all(|s| s.attrs.tabs.first().is_some_and(|t| t.at == at)))
+        });
+        if kept && !force {
+            return Ok(false);
+        }
+        t.update(&joined, UpdateOptions::default())
+            .map_err(|e| format!("{e:?}"))?;
         let mut start = 0;
         for ((level, ..), line) in entries.iter().zip(&text) {
             let end = start + line.encode_utf16().count();
@@ -55,7 +94,7 @@ impl Doc {
             )?;
             start = end + 1;
         }
-        Ok(vec![])
+        Ok(true)
     }
 
     /// The paragraphs in `styles` of the stories other than `toc`, in the order of the
@@ -167,8 +206,17 @@ mod tests {
             index: 0,
         })
         .unwrap();
+        assert_eq!(toc_of(&d).0, "Second\t1\nIntro\t2\nDetail\t2");
         run(&mut d, &[&h1]).unwrap();
         assert_eq!(toc_of(&d).0, "Second\t1\nIntro\t2");
+        set_text(&mut d, &b, "First");
+        assert_eq!(toc_of(&d).0, "First\t1\nIntro\t2");
+        d.apply(Command::Undo).unwrap();
+        assert_eq!(toc_of(&d).0, "Second\t1\nIntro\t2");
+        set_frame(&mut d, &toc, [0.0, 0.0, 150.0, h]);
+        let s = d.flows()[&d.node(&toc).unwrap()].story.spans.clone();
+        assert!(s.iter().all(|s| s.attrs.tabs[0].at == 150.0));
+        assert_eq!(d.bounds(d.node(&toc).unwrap())[3], h);
         assert!(run(&mut d, &[&"x".to_string()]).is_err());
         run(&mut d, &[]).unwrap();
         assert_eq!(toc_of(&d), ("Second\t1\nIntro\t2".into(), vec![]));

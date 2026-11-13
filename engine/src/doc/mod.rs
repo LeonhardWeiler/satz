@@ -2017,7 +2017,8 @@ impl Doc {
             let heads = reach
                 .as_ref()
                 .map_or_else(|| self.heads(), |r| r.heads.clone());
-            if self.place_anchored(&heads)? && rounds < 8 {
+            let moved = self.place_anchored(&heads)?;
+            if (moved | (!history && self.refresh_tocs()?)) && rounds < 8 {
                 rounds += 1;
                 done.clear();
             }

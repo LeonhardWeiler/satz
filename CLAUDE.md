@@ -84,3 +84,5 @@ Node 22, pnpm, MuPDF (`mutool`, for the PDF tests) and
 - A text style's `grep` (pattern, style) sets what the pattern matches in the paragraphs
   in that style in the other style, unless the text names a style of its own; `spans` marks
   the matches `grep`, so `text_style` stays the paragraph's for the table of contents.
+- A table of contents (a story with `toc` styles) fills itself again in `Doc::finish` when its
+  entries, page numbers or width change; the `Toc` command writes it in any case.
