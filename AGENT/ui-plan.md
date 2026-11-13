@@ -6,7 +6,8 @@ Zustand; Light und Dark unterscheiden sich nur in Tokens.
 
 ## Offen
 
-Runde 2 (Pixel-Diff s0→s1, Audit): nichts offen.
+Runde 2 (Pixel-Diff s0→s1, Audit): nichts offen. Gepusht als 64472db, `./check` 264 e2e
+grün, CI und Deploy grün, ausgeliefertes Bundle geprüft (2026-11-13).
 
 ## Umgesetzt
 
