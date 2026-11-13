@@ -1,20 +1,35 @@
 # UI-Plan: Audit 2 (2026-11)
 
-Grundlage: Shot-Suite `web/shots` (90 Tests, Light und Dark, 2× DPR) gegen `web/dist`.
-Erledigte Punkte werden gelöscht; was umgesetzt wurde, steht am Ende.
+Grundlage: Shot-Suite `web/shots` (90 Tests, Light und Dark, 2× DPR, dazu 900 px Breite)
+gegen `web/dist`. 5 Runden, deployt und geprüft am 2026-11-13.
 
 ## Leitidee
 
 Ein Baustein je Aufgabe, ein Wert je Entscheidung. Jede Steuerung kommt aus
 `controls.tsx`, jede Größe aus den Skalen in `design.test.ts`, jede Farbe aus einem
-Token in `:root`. Gleiche Aufgabe sieht überall gleich aus (Segmented ist Segmented,
-Feld ist Feld), Zustände (hover, pressed, selected, disabled, focus) haben je genau
-eine Regel. Light und Dark teilen alle Regeln und unterscheiden sich nur in Tokens.
+Token in `:root`. Gleiche Aufgabe sieht überall gleich aus, Zustände (hover, pressed,
+selected, disabled, focus) haben je genau eine Regel. Light und Dark teilen alle Regeln
+und unterscheiden sich nur in Tokens.
 
 ## Offen
 
-Nach 5 Runden keine offenen Befunde. Prüfung je Runde: volle Shot-Suite (90 Tests) in
-Light und Dark, dazu 900 px Fensterbreite.
+Keine Befunde.
+
+## Umgesetzt
+
+- Zustände: `--dim` ist der einzige Disabled-Wert, eine Regel dimmt jede deaktivierte
+  Steuerung; Tabs und Segmented teilen Fläche, Auswahl und Hover.
+- Panel: Layout auf einem 2-Spalten-Raster, Keep-Ratio als Icon im Kopf; Felder ohne
+  `disabled` (Drop-Cap-Zeichen erst ab 1 Zeile); Einzüge in der Reihenfolge Left, Right,
+  Before, After, First line; kurze Labels („Inner“), voller Name im Tooltip.
+- Felder: Namensfelder (Swatch, Variable, Modus, Tab-Leader, GREP, Präfix) sitzen in
+  `.field` mit 4 px Abstand zum Label wie jedes `Field`.
+- Dialoge: Settings fokussiert Suche bzw. aktuelle Seite; Bleed steht bei den Rändern im
+  Neues-Dokument-Dialog; Titel der Versionshistorie mittig im Kopf.
+- Menüs und Listen: Auswahl per Häkchen statt fett; Swatch-Löschen ist `.icon-button`.
+- Pflege: doppelte und tote CSS-Regeln entfernt (`index.css` −170 Zeilen);
+  `AGENT/design.md` beschreibt das CSS; Shots für schmales Fenster, Versionshistorie und
+  Textstile im Assets-Tab.
 
 ## Bewusst nicht
 
