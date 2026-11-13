@@ -124,7 +124,7 @@ test('the fit menu sizes the frame to its image', async ({ page }) => {
   await expect(height).toHaveValue('25.4')
   await page.getByRole('region', { name: 'Fill' }).getByTitle('Fit image').click()
   await expect(page.getByRole('menuitemradio', { name: 'Frame to image' })).toHaveAttribute('aria-checked', 'true')
-  await expect(page.getByRole('region', { name: 'Fill' })).toContainText('RGB → CMYK')
+  await expect(page.getByRole('region', { name: 'Fill' }).getByTitle(/RGB, converted to CMYK/)).toBeVisible()
 })
 
 test('a layer that keeps its aspect ratio changes its height with its width', async ({ page }) => {

@@ -14,7 +14,7 @@ test('copied layers pasted into a text anchor at the caret and can be released',
   await page.keyboard.press('Control+v')
   await expect(suns).toHaveCount(2)
   await page.keyboard.type('X')
-  await expect(layers.getByRole('button', { name: /^￼XSatz sets type/ })).toBeVisible()
+  await expect(layers.getByRole('button', { name: /^XSatz sets type/ })).toBeVisible()
   await page.keyboard.press('Escape')
 
   const anchoring = panel.getByRole('radiogroup', { name: 'Anchoring' })
