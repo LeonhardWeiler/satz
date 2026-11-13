@@ -225,7 +225,7 @@ export function ModeSelects({ editor, id, own, inherited }: { editor: Editor; id
         <Select
           key={c.id}
           label={many ? `${c.name} mode` : 'Mode'}
-          prefix={many ? c.name : 'Mode'}
+          prefix={many ? `${c.name} mode` : 'Variable mode'}
           wide
           value={c.modes.some((m) => m.id === own[c.id]) ? own[c.id] : ''}
           options={options}

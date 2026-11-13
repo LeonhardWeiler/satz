@@ -121,7 +121,7 @@ test('a fill bound to a color variable follows the mode of its frame and page', 
 
   await layers.getByRole('button', { name: 'Frame', exact: true }).click()
   const frameMode = panel.getByRole('combobox', { name: 'Mode', exact: true })
-  await expect(frameMode).toHaveText('ModeAuto (Mode 2)')
+  await expect(frameMode).toHaveText('Variable modeAuto (Mode 2)')
   await choose(frameMode, 'Mode 1')
   await expectColors(blue, red)
 })
