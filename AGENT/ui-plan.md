@@ -6,8 +6,7 @@ Zustand; Light und Dark unterscheiden sich nur in Tokens.
 
 ## Offen
 
-Runde 2 (Pixel-Diff s0→s1, Audit): nichts offen. Gepusht als 64472db, `./check` 264 e2e
-grün, CI und Deploy grün, ausgeliefertes Bundle geprüft (2026-11-13).
+Runde 3 (Zustände: hover, pressed, disabled, Bewegung): nichts offen.
 
 ## Umgesetzt
 
@@ -18,6 +17,11 @@ grün, CI und Deploy grün, ausgeliefertes Bundle geprüft (2026-11-13).
 - Find: andere Treffer schwächer (0.4), der aktuelle hebt sich ab; Stilfilter „Any“.
 - Neues Dokument: Höhe folgt dem Inhalt (max. 640 px), Feld „Name“ statt „Preset“.
 - `design.md`: veraltete Regel zur Einheiten-Endung gestrichen.
+- Ebenen: eine ausgewählte Zeile nutzt `--selected` wie jede Liste.
+- Übergänge: eine Regel für Hover und Druck (Hintergrund, Rand, Schatten, Farbe,
+  Deckkraft, Skalierung) auch für Primary, Feld und Swatch; Primary drückt sich wie jeder
+  Button.
+- Disabled: Werkzeuge dimmen, eine deaktivierte Checkbox dimmt mit ihrem Label.
 
 ## Bewusst nicht
 
@@ -34,5 +38,6 @@ grün, CI und Deploy grün, ausgeliefertes Bundle geprüft (2026-11-13).
 - Audit-Kantenversatz bei verschieden breiten Nachbarn (24 vs. 28 px) ist kein Fehler;
   die bündige Kante zählt.
 - Chips in Listen haben ihre Innenkante, auch schwarze sind im Dark Mode sichtbar.
-- Shot „28 exporting“ zeigt einen Rest-Kasten; er stammt vom Zuschnitt in `shot()`, der
+- Shots „28 exporting“ und „06 export as JPEG“ zeigen Kachelreste; sie stammen vom
+  Clip-Screenshot in `shot()` während das Canvas neu zeichnet, der
   volle Screenshot ist sauber.
