@@ -14,7 +14,20 @@ und unterscheiden sich nur in Tokens.
 
 ## Offen
 
-Keine Befunde.
+Neue Features (Shots `12 Features`, `web/shots/features.spec.ts`):
+
+1. Tabelle auf dem Canvas: eine leere Tabelle zeigt keine Zellen, nur den Auswahlrahmen.
+2. Tabellen-Sektion: bis zu 8 Textbuttons mit ungleicher Breite im Raster; W/H doppeln
+   die Layout-Labels. Ziel: Zeilen/Spalten als Kopf-Aktionen (+, ⋯-Menü und
+   Kontextmenü), Felder „Column“/„Row“.
+3. Tabelle als Frame: Clip content, Radius und Auto layout erscheinen, wirken aber nicht.
+4. Zellen: Kopf „2 layers“ mit Gruppen-Icon, Layout zeigt Verteilen, X/Y/W/H und Drehung;
+   Text frame zeigt Spalten, Grundlinienraster und Zeilen, die in Zellen nicht passen.
+5. Ebenen einer Tabelle: 9× „Text“ ohne Zeile/Spalte.
+6. GREP-Zeile: „Find“ klebt am Muster, das Feld sitzt nicht auf dem 2-Spalten-Raster.
+7. Inhaltsverzeichnis: Stil-Liste ohne Überschrift, steht zwischen Text frame und Layer.
+8. Anker: im Shot erscheint die Anchoring-Gruppe nicht, und der Textrahmen wird nach
+   dem Einfügen auto width (559 mm); prüfen, ob Shot-Ablauf oder Fehler.
 
 ## Umgesetzt
 
