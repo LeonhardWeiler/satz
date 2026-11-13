@@ -365,7 +365,6 @@ button {
   color: var(--bg);
   font-weight: 600;
   cursor: pointer;
-  transition: opacity var(--fast) var(--ease);
 }
 
 .primary:hover {
@@ -609,7 +608,6 @@ textarea {
   padding-right: 8px;
   border-radius: 6px;
   background: var(--input);
-  transition: box-shadow var(--fast) var(--ease);
 }
 
 .field:not(:has(.field-label, .field-step)) {
@@ -2003,6 +2001,9 @@ kbd {
   font-size: 12px;
 }
 
+.primary,
+.field,
+.swatch,
 .tool,
 .icon-button,
 .button,
@@ -2010,9 +2011,12 @@ kbd {
 .layer,
 .menu-item,
 input[type='checkbox'] {
-  transition: background-color var(--fast) var(--ease), color var(--fast) var(--ease), transform var(--fast) var(--ease);
+  transition-property: background-color, border-color, box-shadow, color, opacity, transform;
+  transition-duration: var(--fast);
+  transition-timing-function: var(--ease);
 }
 
+.primary:active,
 .tool:active,
 .icon-button:active,
 .button:active,
