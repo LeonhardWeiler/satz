@@ -23,7 +23,7 @@ const turnOf = (n: Node): number | null => {
   const turns = n.children.map(turnOf)
   return turns.every((t) => t === turns[0]) ? turns[0] : null
 }
-const WRAPS: Record<Wrap, string> = { none: 'None', around: 'Wrap around', jump: 'Jump over' }
+const WRAPS: Record<Wrap, string> = { none: 'None', around: 'Around', jump: 'Jump' }
 const ANCHORINGS = [['inline', 'Inline'], ['custom', 'Custom']] as const satisfies readonly (readonly [Anchoring, string])[]
 const BLENDS: Record<Blend, string> = {
   normal: 'Normal', darken: 'Darken', multiply: 'Multiply', colorBurn: 'Color burn',

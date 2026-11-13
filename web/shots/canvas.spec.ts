@@ -196,7 +196,7 @@ test('grids, guides, wrap', async ({ page }) => {
   await select(page, 'Blurred tile')
   await props(page).getByRole('region', { name: 'Layer', exact: true }).getByRole('button', { name: 'Layer options' }).click()
   await props(page).getByRole('combobox', { name: 'Text wrap' }).click()
-  await page.getByRole('menu').getByRole('menuitemradio', { name: 'Wrap around' }).click()
+  await page.getByRole('menu').getByRole('menuitemradio', { name: 'Around' }).click()
   await props(page).getByRole('textbox', { name: /^Y\b/ }).first().fill('100')
   await page.keyboard.press('Enter')
   await rest(page)
