@@ -998,7 +998,7 @@ input[type='checkbox']:indeterminate::before {
 
 .picker {
   display: grid;
-  gap: 12px;
+  gap: 8px;
   box-sizing: border-box;
   width: 240px;
   padding: 0 12px 12px;
@@ -1102,7 +1102,7 @@ input[type='checkbox']:indeterminate::before {
   align-items: center;
   justify-content: space-between;
   height: 40px;
-  margin-bottom: -12px;
+  margin-bottom: -8px;
 }
 
 .picker-header h2 {
@@ -1358,6 +1358,7 @@ input[type='range']:focus-visible::-moz-range-thumb {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 4px;
   min-height: 24px;
 }
 
@@ -1367,8 +1368,8 @@ input[type='range']:focus-visible::-moz-range-thumb {
   justify-content: center;
   gap: 8px;
   justify-self: start;
-  height: 24px;
-  padding: 0 8px;
+  height: 28px;
+  padding: 0 12px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--input);
@@ -3201,10 +3202,6 @@ dialog::backdrop {
   gap: 8px;
 }
 
-.settings-tools .button {
-  height: 28px;
-}
-
 .settings-measure {
   padding: 16px 0;
   overflow-x: auto;
@@ -3478,7 +3475,6 @@ dialog::backdrop {
 
 .find-acts .button {
   justify-self: stretch;
-  height: 28px;
 }
 
 .find-acts:has(.find-count) {
@@ -3574,12 +3570,6 @@ dialog::backdrop {
   border: 0;
 }
 
-.home-new .button,
-.start-footer .button,
-.ask .button {
-  height: 28px;
-  padding: 0 12px;
-}
 
 .home-main {
   overflow: auto;
