@@ -39,8 +39,8 @@ fails vitest.
   name, preview and the edit action.
 - Popovers close on Escape and a click outside; they carry no close button. Modal
   dialogs keep one.
-- Row actions (show, remove) appear on hover or focus of their row; a hidden item keeps
-  its crossed eye visible. Icon-only segmented controls carry no prefix.
+- Row actions (show, remove) are always shown in paint rows; layer rows show lock and eye
+  on hover, a hidden or locked layer keeps its icon. Icon-only segmented controls carry no prefix.
 - An OpenType variant of a value joins the select of that value (small caps in Case,
   superscript glyphs in Position) instead of a checkbox beside it.
 - An action that a menu already offers has no button beside that menu (New text style
@@ -73,12 +73,18 @@ fails vitest.
   (panel and popover titles, the palette field), 16 (dialog titles), 24 (the projects
   page title). Weights 400 and 600 only. Previews of
   document content (glyphs, font specimens) use their own size; they are content.
-- Space: 2, 4, 8, 12, 16, 24, 32 for padding, margin and gap. Panel inset 16,
-  field gap 8, dialog inset 24, page inset 32. Negative margins only as the negative
+- Space: 2, 4, 8, 12, 16, 24, 32 for padding, margin and gap. Panel content edge 12,
+  field gap 8, icon button gap 4, popover gap 8, dialog inset 24, page inset 32. Negative margins only as the negative
   of a scale value, to line text up with its neighbours. Tree indents are 16 per level.
 - Radius: 4 (chips, keycaps, swatches, badges, colour areas), 6 (controls, rows, buttons, tooltips),
   12 (popovers, menus, bars, cards, dialogs), 999 px (counters), 50% (dots and knobs).
-- Control height 28; icon buttons 28 in panels, 24 inside fields and rows.
+- Control height 28 (fields, selects, segmented, buttons, colour chips); icon buttons 24,
+  centred in 28 rows.
+- Edges: every box in a panel (field, select, tabs, rows, icon buttons) sits on the 12 px
+  content edge, left and right; no optical overhang. Text inside a box starts 8 in.
+- `web/shots/audit.spec.ts` measures edges, heights, text insets, fonts and gaps of every
+  panel, popover and dialog into `audit.txt` beside the shots
+  (`FULL=1 pnpm exec playwright test -c shots/playwright.config.ts --project=light shots/audit.spec.ts`).
 - Colour roles, defined once in `:root` per theme: `--bg` panels, `--canvas` behind
   the pages, `--raised` popovers and cards, `--input` fields, `--hover`, `--selected`,
   `--border` separators and resting outlines, `--edge` hover outlines and floating surfaces,
@@ -105,13 +111,12 @@ fails vitest.
 - Selected: `--selected` background, text in `--text`, the same for rows, tabs and
   segmented controls; accent only for the focus ring, the current page and checked controls.
 - Buttons: radius 6, 12 type. Primary: 28 high, accent fill, `--bg` text in weight 600,
-  at most one per dialog or bar, last in its row. Secondary (`.button`): 24 high in
-  panels and rows, 28 in bars and dialogs, `--input` fill, outlined as a control. Icon
+  at most one per dialog or bar, last in its row. Secondary (`.button`): 28 high, `--input` fill, outlined as a control. Icon
   buttons have no fill until hover. Destructive actions use `--bad` text, never a red
   fill.
 - Shortcuts: filled keycap chips in dialogs, the palette and tooltips, mouse actions too ("Ctrl" + "click"); plain `--muted` text in menus. Buttons carry no keycap; Enter on a primary button is implied.
 - Default values (Auto, None, All, No style) in `--text`; only Mixed and search hints in `--muted`.
-- Swatches: 16 px squares, radius 4, 1 px inset ring; stroke swatches are the same square as a ring.
+- Swatches: 16 px squares in lists, 28 px chips in paint rows, radius 4, 1 px inset ring; stroke swatches are the same square as a ring.
 - Paint rows: the swatch and one value field (Opacity for solid, Angle for linear, Tint for a swatch). The paint type and gradient stops live in the picker; stops are markers on a gradient bar, a click on the bar adds one.
 - Icons: 16 px outline, 1.5 stroke, no filled glyphs.
 - Fields: label inside on the left in `--muted`, value in `--text`, a unit other than the document unit in `--muted` on the right; steppers show the unit after the value, before the plus.

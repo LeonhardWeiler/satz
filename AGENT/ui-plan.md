@@ -1,7 +1,8 @@
 # UI-Plan: Audit 2 (2026-11)
 
 Grundlage: Shot-Suite `web/shots` (90 Tests, Light und Dark, 2× DPR, dazu 900 px Breite)
-gegen `web/dist`. 5 Runden, deployt und geprüft am 2026-11-13.
+gegen `web/dist`, dazu das Mess-Audit `web/shots/audit.spec.ts` (Kanten, Höhen,
+Text-Einzüge, Schriften, Abstände). 6 Runden.
 
 ## Leitidee
 
@@ -16,6 +17,14 @@ und unterscheiden sich nur in Tokens.
 Keine Befunde.
 
 ## Umgesetzt
+
+- Messrunde (6): jede Box im Panel sitzt auf der 12-px-Inhaltskante, links und rechts
+  (Tabs, Baum, Zeilen, Icon-Buttons im Kopf); Felder, Selects, Buttons und Farbchips
+  28 px, Icon-Buttons 24 px mittig in 28-px-Zeilen; Abstände 8 zwischen Steuerungen,
+  4 zwischen Icon-Buttons, 8 in Popovers; Preflight- und Properties-Kopf gleich hoch;
+  Zeilenaktionen immer sichtbar; Ebenen-Lock/Auge, Stil- und Zeilen-Löschen sind
+  `.icon-button`; Master-Vorschauen so breit wie „New master“; schmales Fenster:
+  linkes Panel 200 px, Inhalt passt mit Einzug.
 
 - Zustände: `--dim` ist der einzige Disabled-Wert, eine Regel dimmt jede deaktivierte
   Steuerung; Tabs und Segmented teilen Fläche, Auswahl und Hover.
