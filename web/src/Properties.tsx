@@ -24,7 +24,7 @@ const turnOf = (n: Node): number | null => {
   return turns.every((t) => t === turns[0]) ? turns[0] : null
 }
 const WRAPS: Record<Wrap, string> = { none: 'None', around: 'Wrap around', jump: 'Jump over' }
-const ANCHORINGS = [['inline', 'In the line'], ['custom', 'Custom']] as const satisfies readonly (readonly [Anchoring, string])[]
+const ANCHORINGS = [['inline', 'Inline'], ['custom', 'Custom']] as const satisfies readonly (readonly [Anchoring, string])[]
 const BLENDS: Record<Blend, string> = {
   normal: 'Normal', darken: 'Darken', multiply: 'Multiply', colorBurn: 'Color burn',
   lighten: 'Lighten', screen: 'Screen', colorDodge: 'Color dodge',
@@ -430,9 +430,9 @@ export function Properties({ editor }: { editor: Editor }) {
             <Select label="Blend mode" prefix="Blend" value={same((n) => n.blend)} options={BLENDS} breaks={BLEND_GROUPS} onChange={(blend) => set({ blend })} />
             {one?.anchored && (
               <>
-                <Segmented label="Anchoring" prefix="Anchored" text value={one.anchored} options={ANCHORINGS} onChange={(anchored) => set({ anchored })} />
+                <Segmented label="Anchoring" text value={one.anchored} options={ANCHORINGS} onChange={(anchored) => set({ anchored })} />
                 <button type="button" className="button" onClick={() => editor.apply({ type: 'unanchor', id: one.id })}>
-                  Release
+                  Release anchor
                 </button>
               </>
             )}

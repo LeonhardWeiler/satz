@@ -606,11 +606,12 @@ function GrepStyles({ editor, style }: { editor: Editor; style: TextStyle }) {
       {!first && <p className="pf-note">Add another text style to set what a pattern matches in it.</p>}
       {style.grep.map((g, i) => (
         <div key={i} className="row">
-          <label className="field">
-            <span className="field-label">Find</span>
-            <NameInput label={`GREP pattern ${i + 1}`} value={g.pattern} onCommit={(pattern) => put(i, { pattern })} />
-          </label>
-          <Select label={`GREP text style ${i + 1}`} value={g.style} options={others} onChange={(s) => put(i, { style: s })} />
+          <div className="grid">
+            <div className="field">
+              <NameInput label={`GREP pattern ${i + 1}`} value={g.pattern} onCommit={(pattern) => put(i, { pattern })} />
+            </div>
+            <Select label={`GREP text style ${i + 1}`} value={g.style} options={others} onChange={(s) => put(i, { style: s })} />
+          </div>
           <button type="button" className="icon-button" aria-label={`Remove GREP style ${i + 1}`} title="Remove GREP style" onClick={() => set(style.grep.toSpliced(i, 1))}>
             <Icon name="minus" />
           </button>
@@ -723,10 +724,14 @@ export function ContentsSection({ editor, node }: { editor: Editor; node: TextNo
         )
       }
     >
-      {toc.length > 0 &&
-        styles.map((s) => (
-          <Check key={s.id} label={s.name} value={toc.includes(s.id)} set={(on) => run(styles.filter((x) => (x.id === s.id ? on : toc.includes(x.id))).map((x) => x.id))} />
-        ))}
+      {toc.length > 0 && (
+        <>
+          <Group title="Listed text styles" />
+          {styles.map((s) => (
+            <Check key={s.id} label={s.name} value={toc.includes(s.id)} set={(on) => run(styles.filter((x) => (x.id === s.id ? on : toc.includes(x.id))).map((x) => x.id))} />
+          ))}
+        </>
+      )}
     </Section>
   )
 }

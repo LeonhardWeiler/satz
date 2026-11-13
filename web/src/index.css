@@ -832,6 +832,7 @@ input[type='checkbox']:indeterminate::before {
 }
 
 .row > .field,
+.row > .grid,
 .row > .select,
 .row > .specimen {
   flex: 1;
@@ -2923,7 +2924,7 @@ input[type='checkbox']:active {
   margin-left: -4px;
 }
 
-.text-style .name-input {
+.text-style > .row > .name-input {
   margin-left: -8px;
   font-weight: 600;
 }
