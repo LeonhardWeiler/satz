@@ -448,7 +448,7 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
                         {m && (
                           <>
                             {' · '}
-                            <b title={`Master ${m.name}`}>{m.name}</b>
+                            <b title={`Master ${m.name}`}>{prefix(m.name)}</b>
                           </>
                         )}
                       </span>
