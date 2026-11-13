@@ -341,8 +341,14 @@ button {
   outline-offset: -1.5px;
 }
 
-[data-pointer] :focus-visible {
+[data-pointer] :focus-visible,
+.layer-name:focus-visible {
   outline: none;
+}
+
+:root:not([data-pointer]) .layer:has(> .layer-name:focus-visible) {
+  outline: 1.5px solid var(--accent);
+  outline-offset: -1.5px;
 }
 
 .primary {

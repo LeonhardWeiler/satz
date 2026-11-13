@@ -92,6 +92,9 @@ test('layers', async ({ page }) => {
   await layers(page).locator('.layer-name').filter({ hasText: /^Arrow$/ }).dblclick()
   await shot(page, L, '04 layer rename', 'Layer being renamed', ['left'])
   await page.keyboard.press('Escape')
+  await layers(page).locator('.layer-name').filter({ hasText: /^Arrow$/ }).focus()
+  await page.keyboard.press('ArrowDown')
+  await shot(page, L, '05b keyboard focus', 'Keyboard focus on a layer row', ['left'])
   const from = (await layers(page).locator('.layer-name').filter({ hasText: /^Star$/ }).boundingBox())!
   const to = (await layers(page).locator('.layer-name').filter({ hasText: /^Frame$/ }).boundingBox())!
   await page.mouse.move(from.x + 10, from.y + 5)
