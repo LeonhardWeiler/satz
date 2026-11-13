@@ -72,6 +72,15 @@
   box-sizing: border-box;
 }
 
+b,
+strong {
+  font-weight: 600;
+}
+
+small {
+  font-size: 11px;
+}
+
 ::selection {
   background: color-mix(in srgb, var(--accent) 40%, transparent);
 }
@@ -267,7 +276,7 @@ body,
   align-items: center;
   gap: 8px;
   height: 34px;
-  padding: 0 4px 0 12px;
+  padding: 0 12px;
   color: var(--text);
   flex: none;
 }
@@ -277,7 +286,7 @@ body,
   color: var(--muted);
 }
 
-.properties > .panel-header {
+:is(.properties, .preflight) > .panel-header {
   height: 40px;
   border-bottom: 1px solid var(--border);
 }
@@ -369,7 +378,7 @@ button {
 }
 
 .tree {
-  padding: 8px;
+  padding: 8px 12px;
   overflow: auto;
   flex: 1;
   overscroll-behavior: contain;
@@ -533,7 +542,7 @@ textarea {
 }
 
 .section-header .icon-button:last-child {
-  margin-right: 8px;
+  margin-right: 12px;
 }
 
 .section-body {
@@ -787,12 +796,6 @@ input[type='checkbox']:indeterminate::before {
   opacity: var(--dim);
 }
 
-@media (hover: hover) {
-  .row:not(:hover, :focus-within) > .row-action:not([data-off]) {
-    opacity: 0;
-  }
-}
-
 .row {
   display: flex;
   align-items: center;
@@ -849,8 +852,8 @@ input[type='checkbox']:indeterminate::before {
   flex: none;
   display: grid;
   box-sizing: border-box;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   padding: 4px;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -944,8 +947,8 @@ input[type='checkbox']:indeterminate::before {
 
 .swatch-delete {
   position: absolute;
-  top: 3px;
-  right: 3px;
+  top: 2px;
+  right: 0;
   visibility: hidden;
 }
 
@@ -975,7 +978,7 @@ input[type='checkbox']:indeterminate::before {
 }
 
 .bound-name {
-  padding: 0 4px;
+  padding: 0 8px;
 }
 
 .empty {
@@ -1749,7 +1752,7 @@ input[type='range']:focus-visible::-moz-range-thumb {
 
 .tabs {
   flex: none;
-  margin: 8px;
+  margin: 8px 12px;
 }
 
 .picker > .tabs {
@@ -2011,22 +2014,6 @@ input[type='checkbox']:active {
   min-height: 0;
 }
 
-.pf-head {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 8px;
-  height: 40px;
-  padding: 0 8px 0 16px;
-  border-bottom: 1px solid var(--border);
-}
-
-.pf-head h2 {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-}
-
 .pf-sum {
   flex: 1;
   color: var(--muted);
@@ -2068,7 +2055,6 @@ input[type='checkbox']:active {
 
 .iss strong {
   color: var(--text);
-  font-weight: 600;
 }
 
 .iss.error svg {
@@ -2091,7 +2077,6 @@ input[type='checkbox']:active {
 
 .iss-m small {
   color: var(--muted);
-  font-size: 11px;
 }
 
 .iss-w {
@@ -2298,11 +2283,6 @@ input[type='checkbox']:active {
 
 .var-mode:has(> .swatch) {
   grid-template-columns: minmax(0, 1fr) auto auto;
-}
-
-.var-mode > .swatch {
-  width: 28px;
-  height: 28px;
 }
 
 .var-editor .row > .button {
@@ -2537,7 +2517,7 @@ input[type='checkbox']:active {
   grid-area: details;
   align-content: start;
   gap: 8px;
-  padding: 16px;
+  padding: 16px 24px 24px;
   overflow: auto;
   border-left: 1px solid var(--border);
 }
@@ -2899,7 +2879,6 @@ input[type='checkbox']:active {
 
 .kv strong {
   color: var(--text);
-  font-weight: 600;
 }
 
 .text-style {
@@ -3067,12 +3046,10 @@ dialog::backdrop {
 
 .pal-t b {
   color: var(--text);
-  font-weight: 600;
 }
 
 .pal-it small {
   color: var(--muted);
-  font-size: 11px;
 }
 
 .pal-it .chip {
@@ -3172,7 +3149,7 @@ dialog::backdrop {
   align-items: center;
   justify-content: space-between;
   margin: 0 -24px;
-  padding: 12px 12px 12px 24px;
+  padding: 12px 24px;
   background: var(--raised);
 }
 
@@ -3506,11 +3483,15 @@ dialog::backdrop {
 
 .find-acts:has(.find-count) {
   grid-template-columns: 1fr;
-  grid-auto-columns: 28px;
+  grid-auto-columns: 24px;
 }
 
 .find-options {
   gap: 12px;
+}
+
+.find-options > .select {
+  margin-left: auto;
 }
 
 .find .field:has([aria-invalid='true']) {
@@ -3664,7 +3645,6 @@ dialog::backdrop {
 
 .home-card small {
   color: var(--muted);
-  font-size: 11px;
 }
 
 .home-thumb {

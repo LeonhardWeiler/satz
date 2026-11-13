@@ -549,7 +549,7 @@ function StyleRow({ editor, style }: { editor: Editor; style: TextStyle }) {
         {open && <TypeOptions editor={editor} spans={[style]} set={(p) => editor.apply({ type: 'setTextStyle', id: style.id, ...p })} each={(key, f) => editor.apply({ type: 'setTextStyle', id: style.id, [key]: f(style[key]) })} />}
         <button
           type="button"
-          className="icon-button row-action"
+          className="icon-button"
           aria-label={`Delete text style ${style.name}`}
           title="Delete text style"
           onClick={() => editor.apply({ type: 'deleteTextStyle', id: style.id })}

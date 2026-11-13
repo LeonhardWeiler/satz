@@ -141,7 +141,7 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
 
   return (
     <section className="preflight" aria-label="Preflight">
-      <header className="pf-head">
+      <header className="panel-header">
         <h2>Preflight</h2>
         <span className="pf-sum">{issues.length > 0 && `${count(errors, 'error')}, ${count(issues.length - errors, 'warning')}`}</span>
         <button type="button" className="icon-button" aria-label="Close preflight (Esc)" title="Close preflight (Esc)" onClick={() => editor.togglePreflight()}>
