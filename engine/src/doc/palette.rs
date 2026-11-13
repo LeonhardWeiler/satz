@@ -24,7 +24,7 @@ pub(super) fn check_value(v: &Value) -> Res<()> {
         Value::Color(Color::Variable { .. }) => Err("a variable cannot hold a variable".into()),
         Value::Color(c) => c.check(),
         Value::Number(n) if !n.is_finite() => Err("numbers must be finite".into()),
-        Value::Number(_) | Value::Font(_) => Ok(()),
+        Value::Number(_) | Value::Font(_) | Value::Boolean(_) => Ok(()),
     }
 }
 
@@ -541,11 +541,10 @@ impl Doc {
         if let Some(v) = &variable {
             let (_, var) = self.find::<Variable>("variables", v)?;
             let font = prop == "font";
-            if !var
-                .values
-                .values()
-                .all(|v| matches!(v, Value::Font(_)) == font && !matches!(v, Value::Color(_)))
-            {
+            if !var.values.values().all(|v| {
+                matches!(v, Value::Font(_)) == font
+                    && matches!(v, Value::Number(_) | Value::Font(_))
+            }) {
                 return Err("a variable binds to a property of its type".into());
             }
         }

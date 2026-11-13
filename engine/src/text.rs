@@ -525,6 +525,11 @@ pub struct Attrs {
     /// The width and height that layer takes in the line.
     #[serde(skip)]
     pub object_size: [f64; 2],
+    /// The id of a boolean variable; the text shows where it is true.
+    pub condition: String,
+    /// The condition is false in the mode of the text.
+    #[serde(skip)]
+    pub hidden: bool,
 }
 
 impl Attrs {
@@ -580,6 +585,8 @@ impl Default for Attrs {
             shading: None,
             object: String::new(),
             object_size: [0.0; 2],
+            condition: String::new(),
+            hidden: false,
         }
     }
 }
@@ -1105,9 +1112,107 @@ pub fn set(
 ) -> (Placed, Option<usize>) {
     let (inner, cw) = columns(frame, tf);
     let room = (inner[3] + 0.01) * tf.columns.max(1) as f32;
-    let (placed, starts) = wrapped(text, spans, from, tf, room, inner, cw);
-    let rest = starts.get(placed.placed).copied();
-    (placed, rest)
+    let Some(s) = Shown::of(text, spans) else {
+        let (placed, starts) = wrapped(text, spans, from, tf, room, inner, cw);
+        let rest = starts.get(placed.placed).copied();
+        return (placed, rest);
+    };
+    let (placed, starts) = wrapped(&s.text, &s.spans, s.shown(from), tf, room, inner, cw);
+    let rest = starts.get(placed.placed).map(|&b| s.original(b));
+    (s.placed(placed), rest)
+}
+
+/// The text of the spans that are not hidden, those spans, and for each the index it
+/// has in all spans with the byte it starts at in all the text and in this one.
+struct Shown {
+    text: String,
+    spans: Vec<Span>,
+    at: Vec<(usize, usize, usize)>,
+}
+
+impl Shown {
+    /// `None` when no span of `spans` is hidden.
+    fn of(text: &str, spans: &[Span]) -> Option<Shown> {
+        if !spans.iter().any(|s| s.attrs.hidden) {
+            return None;
+        }
+        let mut s = Shown {
+            text: String::new(),
+            spans: Vec::new(),
+            at: Vec::new(),
+        };
+        let (mut byte, mut chars) = (0, text.chars());
+        for (i, span) in spans.iter().enumerate() {
+            let (start, mut n) = (byte, 0);
+            while n < span.len {
+                let Some(c) = chars.next() else { break };
+                n += c.len_utf16();
+                byte += c.len_utf8();
+            }
+            if !span.attrs.hidden {
+                s.at.push((i, start, s.text.len()));
+                s.text.push_str(&text[start..byte]);
+                s.spans.push(span.clone());
+            }
+        }
+        if s.spans.is_empty() {
+            s.at.push((0, 0, 0));
+            s.spans.push(Span {
+                len: 0,
+                ..spans[0].clone()
+            });
+        }
+        Some(s)
+    }
+
+    /// The byte of the shown text at the byte `b` of all the text.
+    fn shown(&self, b: usize) -> usize {
+        let i = self.at.partition_point(|a| a.1 <= b).max(1) - 1;
+        let end = self.at.get(i + 1).map_or(self.text.len(), |a| a.2);
+        (self.at[i].2 + b.saturating_sub(self.at[i].1)).min(end)
+    }
+
+    /// The byte of all the text at the byte `b` of the shown text.
+    fn original(&self, b: usize) -> usize {
+        let (_, o, s) = self.at[self.at.partition_point(|a| a.2 <= b).max(1) - 1];
+        o + b - s
+    }
+
+    /// `p`, placed from the shown text, for all of it; a line's stop where hidden text
+    /// starts stands before it too.
+    fn placed(&self, p: Placed) -> Placed {
+        let lines = p.lines.into_iter().map(|l| {
+            l.into_iter()
+                .map(|g| Glyph {
+                    cluster: self.original(g.cluster),
+                    span: self.at[g.span].0,
+                    ..g
+                })
+                .collect()
+        });
+        let geometry = p.geometry.into_iter().map(|l| Line {
+            start: self.original(l.start),
+            end: self.original(l.end),
+            stops: (l.stops.iter())
+                .flat_map(|&(b, x)| {
+                    let i = self.at.partition_point(|a| a.2 <= b).max(1) - 1;
+                    let before = (i > 0 && self.at[i].2 == b)
+                        .then(|| self.at[i - 1].1 + b - self.at[i - 1].2)
+                        .filter(|&e| e != self.at[i].1);
+                    before
+                        .into_iter()
+                        .chain([self.original(b)])
+                        .map(move |b| (b, x))
+                })
+                .collect(),
+            ..l
+        });
+        Placed {
+            lines: lines.collect(),
+            geometry: geometry.collect(),
+            ..p
+        }
+    }
 }
 
 /// The text from the byte `from` broken into lines and placed in `inner`, with the
@@ -1144,6 +1249,9 @@ pub fn measure(
     w: Option<f32>,
     from: usize,
 ) -> [f32; 2] {
+    if let Some(s) = Shown::of(text, spans) {
+        return measure(&s.text, &s.spans, tf, w, s.shown(from));
+    }
     let (h_in, v_in) = (
         (tf.inset_left + tf.inset_right) as f32,
         (tf.inset_top + tf.inset_bottom) as f32,

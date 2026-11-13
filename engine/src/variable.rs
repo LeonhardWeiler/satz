@@ -29,6 +29,7 @@ pub enum Value {
     Number(f64),
     /// `None` is the bundled font.
     Font(Option<Typeface>),
+    Boolean(bool),
 }
 
 /// `values` holds one value per mode of its collection, all of one kind.
@@ -88,6 +89,7 @@ impl Value {
             (Value::Color(_), Value::Color(_))
                 | (Value::Number(_), Value::Number(_))
                 | (Value::Font(_), Value::Font(_))
+                | (Value::Boolean(_), Value::Boolean(_))
         )
     }
 }

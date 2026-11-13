@@ -3,16 +3,16 @@ import { createPortal } from 'react-dom'
 import { Chip, ColorPicker } from './ColorPicker'
 import { ContextMenu } from './ContextMenu'
 import { neutral } from './color'
-import { Field, FontSelect, NameInput, nextName, Section, Select } from './controls'
+import { Check, Field, FontSelect, NameInput, nextName, Section, Select } from './controls'
 import { MM, scopeOf, useEditor, type Editor } from './editor'
 import { Icon } from './icons'
 import type { Bindable as Prop, Modes, Typeface, Value } from './model'
 import { docked, Popover } from './Popover'
 
-type Kind = 'color' | 'number' | 'font'
-const KINDS: Record<Kind, string> = { color: 'Color', number: 'Number', font: 'Font' }
-const KIND_ICONS = { color: 'drop', number: 'hash', font: 'text' } as const
-const kindOf = (v: Value): Kind => ('color' in v ? 'color' : 'number' in v ? 'number' : 'font')
+type Kind = 'color' | 'number' | 'font' | 'boolean'
+const KINDS: Record<Kind, string> = { color: 'Color', number: 'Number', font: 'Font', boolean: 'Boolean' }
+const KIND_ICONS = { color: 'drop', number: 'hash', font: 'text', boolean: 'check' } as const
+export const kindOf = (v: Value): Kind => ('color' in v ? 'color' : 'number' in v ? 'number' : 'boolean' in v ? 'boolean' : 'font')
 
 /** The document's variables: the plus makes one, a click edits it in a popover; like swatches, a right click or double click renames. */
 export function Variables({ editor }: { editor: Editor }) {
@@ -28,7 +28,7 @@ export function Variables({ editor }: { editor: Editor }) {
   const add = (kind: Kind) =>
     editor.batch(() => {
       const collection = collections[0]?.id ?? editor.apply({ type: 'addCollection', name: 'Variables' })[0]
-      const value: Value = kind === 'color' ? { color: neutral('black', colorMode) } : kind === 'number' ? { number: 0 } : { font: null }
+      const value: Value = kind === 'color' ? { color: neutral('black', colorMode) } : kind === 'number' ? { number: 0 } : kind === 'boolean' ? { boolean: true } : { font: null }
       const name = nextName(KINDS[kind], variables.map((v) => v.name))
       setOpen(editor.apply({ type: 'addVariable', collection, name, value })[0] ?? null)
     })
@@ -49,7 +49,7 @@ export function Variables({ editor }: { editor: Editor }) {
       if (copy) for (const m of modes) editor.apply({ type: 'setVariable', id: copy, mode: m.id, value: v.values[m.id] })
     })
   const preview = (v: Value) =>
-    'color' in v ? <Chip color={v.color} scope={scope} /> : 'number' in v ? <span>{v.number}</span> : <span>{v.font?.name ?? fonts[0].name}</span>
+    'color' in v ? <Chip color={v.color} scope={scope} /> : 'number' in v ? <span>{v.number}</span> : 'boolean' in v ? <span>{v.boolean ? 'True' : 'False'}</span> : <span>{v.font?.name ?? fonts[0].name}</span>
 
   return (
     <Section title="Variables" onAdd={(e) => setMenu(e.currentTarget.getBoundingClientRect())}>
@@ -174,6 +174,8 @@ function VariableEditor({ editor, id, fonts, onClose }: { editor: Editor; id: st
               <ColorPicker label={label} color={value.color} mode={snapshot.colorMode} scope={scope} editor={editor} onChange={(color) => set({ color })} />
             ) : 'number' in value ? (
               <Field label="" title={label} unit="" min={-Infinity} value={value.number} onCommit={(number) => set({ number })} />
+            ) : 'boolean' in value ? (
+              <Check label={label} value={value.boolean} set={(boolean) => set({ boolean })} />
             ) : (
               <FontSelect label={label} faces={fonts} value={(value.font ?? fonts[0]).hash} compact onChange={(font) => set({ font })} />
             )}

@@ -1,5 +1,5 @@
 import { type Locator, type Page } from '@playwright/test'
-import { expect, test, addVariable, assets, colors, open, screen, choose } from './util'
+import { expect, test, addVariable, assets, colors, open, pixels, screen, choose } from './util'
 
 const near = ([r, g, b]: number[], [R, G, B]: number[]) => Math.max(Math.abs(r - R), Math.abs(g - G), Math.abs(b - B)) <= 24
 
@@ -166,4 +166,33 @@ test('a variable is renamed, duplicated and deleted like a swatch', async ({ pag
   await panel.getByRole('button', { name: /^Gap 1/ }).hover()
   await panel.getByRole('button', { name: 'Delete Gap 1' }).click()
   await expect(panel.getByRole('button', { name: /^Gap/ })).toHaveCount(1)
+})
+
+test('text with a boolean variable as its condition is shown only in the modes where it is true', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  const edit = await addVariable(page, 'Boolean')
+  await edit.getByRole('button', { name: 'Add mode' }).click()
+  const shown = edit.getByRole('checkbox', { name: 'Boolean 1 in Mode 2' })
+  await expect(shown).toBeChecked()
+  await shown.uncheck()
+  await expect(shown).not.toBeChecked()
+  await page.keyboard.press('Escape')
+  await expect(edit).toBeHidden()
+
+  await page.getByRole('tab', { name: 'Layers' }).click()
+  const layer = page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ })
+  await layer.click()
+  const condition = panel.getByRole('combobox', { name: 'Condition' })
+  await choose(condition, 'Boolean 1')
+  const [[x0, y0], [x1, y1]] = [await screen(page, 15, 95), await screen(page, 133, 125)]
+  const ink = async () => (await pixels(page, x0, y0, x1 - x0, y1 - y0)).filter(([r, g, b]) => r + g + b < 384).length
+  expect(await ink()).toBeGreaterThan(50)
+  await page.keyboard.press('Escape')
+  await choose(panel.getByRole('combobox', { name: 'Mode', exact: true }), 'Mode 2')
+  await expect.poll(ink).toBe(0)
+  await layer.click()
+  await expect(condition).toHaveText(/Boolean 1/)
+  await choose(condition, 'Always')
+  await expect.poll(ink).toBeGreaterThan(50)
 })

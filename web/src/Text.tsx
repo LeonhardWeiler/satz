@@ -11,7 +11,7 @@ import { Dialog } from './Popover'
 import { MAX_LENGTH, length } from './settings'
 import { DATE, PAGE_NUMBER, insert, range } from './textEdit'
 import { STYLED, type Attrs, type Props, type Span, type Styled, type Tab, type TextNode, type TextProps, type TextStyle, type Typeface } from './model'
-import { Bindable } from './Variables'
+import { Bindable, kindOf } from './Variables'
 import namesUrl from './unicode-names.txt?url'
 
 export const ALIGNS = [
@@ -437,6 +437,7 @@ export function Font({ editor, id, fonts, set }: { editor: Editor; id?: string; 
 /** Text style, type and alignment of text layers. */
 export function TextSection({ editor, nodes }: { editor: Editor; nodes: TextNode[] }) {
   const stories = useEditor(editor, (e) => e.snapshot.stories)
+  const variables = useEditor(editor, (e) => e.snapshot.variables)
   const one = nodes.length === 1 ? nodes[0] : undefined
   const edited = useEditor(editor, (e) => (one && e.editing?.id === one.id && e.editing.anchor !== e.editing.focus ? e.editing : null))
   const r = edited && range(edited)
@@ -453,6 +454,8 @@ export function TextSection({ editor, nodes }: { editor: Editor; nodes: TextNode
   const shading = same((a) => JSON.stringify(a.shading))
   const langs: Record<string, string> = { ...LANGS }
   if (lang === null) langs.mixed = 'Mixed'
+  const conditions: Record<string, string> = { '': 'Always' }
+  for (const v of variables) if (kindOf(Object.values(v.values)[0]) === 'boolean') conditions[v.id] = v.name
 
   return (
     <Section
@@ -515,6 +518,9 @@ export function TextSection({ editor, nodes }: { editor: Editor; nodes: TextNode
         })}
       </div>
       <Segmented label="Text align" value={align} options={ALIGNS} onChange={(textAlign) => format({ textAlign })} />
+      {Object.keys(conditions).length > 1 && (
+        <Select label="Condition" prefix="Shown" value={same((a) => a.condition)} options={conditions} wide onChange={(condition) => format({ condition })} />
+      )}
     </Section>
   )
 }

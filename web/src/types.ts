@@ -9,15 +9,27 @@ export type Cap = "none" | "round" | "square";
 export type Collection = { id: string, name: string, modes: Array<Mode>, };
 export type Color = number | { cmyk: Array<number>, alpha: number, } | { swatch: string, tint: number, alpha: number, } | { variable: string, alpha: number, };
 export type ColorMode = "rgb" | "cmyk";
-export type Command = { "type": "create", parent: string, kind: NewKind, x: number, y: number, w: number, h: number, } | { "type": "placeImage", parent: string, image: string, name: string, x: number, y: number, w: number, h: number, } | { "type": "setFrame", id: string, x: number, y: number, w: number, h: number, crop?: boolean, } | { "type": "setText", id: string, text: string, } | { "type": "editText", id: string, range: [number, number], text: string, } | { "type": "format", id: string, range?: [number, number] | null, size?: number | null, lineHeight?: number | null, letterSpacing?: number | null, paragraphSpacing?: number | null, fill?: Color | null, textStyle?: string | null, textAlign?: TextAlign | null, hyphenate?: boolean | null, lang?: Lang | null, font?: Typeface | null, paragraphIndent?: number | null, indentLeft?: number | null, indentRight?: number | null, spaceBefore?: number | null, textCase?: TextCase | null, textDecoration?: TextDecoration | null, features?: Array<string> | null, axes?: { [key in string]: number } | null, position?: Position | null, baselineShift?: number | null, dropLines?: number | null, dropChars?: number | null, keepLines?: number | null, keepTogether?: boolean | null, keepNext?: boolean | null, tabs?: Array<Tab> | null, list?: List | null, 
+export type Command = { "type": "create", parent: string, kind: NewKind, x: number, y: number, w: number, h: number, } | { "type": "placeImage", parent: string, image: string, name: string, x: number, y: number, w: number, h: number, } | { "type": "setFrame", id: string, x: number, y: number, w: number, h: number, crop?: boolean, } | { "type": "setText", id: string, text: string, } | { "type": "editText", id: string, range: [number, number], text: string, } | { "type": "format", id: string, range?: [number, number] | null, size?: number | null, lineHeight?: number | null, letterSpacing?: number | null, paragraphSpacing?: number | null, fill?: Color | null, textStyle?: string | null, textAlign?: TextAlign | null, hyphenate?: boolean | null, lang?: Lang | null, font?: Typeface | null, paragraphIndent?: number | null, indentLeft?: number | null, indentRight?: number | null, spaceBefore?: number | null, textCase?: TextCase | null, textDecoration?: TextDecoration | null, features?: Array<string> | null, axes?: { [key in string]: number } | null, 
+/**
+ * A boolean variable; empty shows the text always.
+ */
+condition?: string | null, position?: Position | null, baselineShift?: number | null, dropLines?: number | null, dropChars?: number | null, keepLines?: number | null, keepTogether?: boolean | null, keepNext?: boolean | null, tabs?: Array<Tab> | null, list?: List | null, 
 /**
  * `Some(None)` takes the shading off.
  */
-shading?: Color | null | null, } | { "type": "scaleText", id: string, by: number, } | { "type": "addTextStyle", name: string, size?: number | null, lineHeight?: number | null, letterSpacing?: number | null, paragraphSpacing?: number | null, fill?: Color | null, textStyle?: string | null, textAlign?: TextAlign | null, hyphenate?: boolean | null, lang?: Lang | null, font?: Typeface | null, paragraphIndent?: number | null, indentLeft?: number | null, indentRight?: number | null, spaceBefore?: number | null, textCase?: TextCase | null, textDecoration?: TextDecoration | null, features?: Array<string> | null, axes?: { [key in string]: number } | null, position?: Position | null, baselineShift?: number | null, dropLines?: number | null, dropChars?: number | null, keepLines?: number | null, keepTogether?: boolean | null, keepNext?: boolean | null, tabs?: Array<Tab> | null, list?: List | null, 
+shading?: Color | null | null, } | { "type": "scaleText", id: string, by: number, } | { "type": "addTextStyle", name: string, size?: number | null, lineHeight?: number | null, letterSpacing?: number | null, paragraphSpacing?: number | null, fill?: Color | null, textStyle?: string | null, textAlign?: TextAlign | null, hyphenate?: boolean | null, lang?: Lang | null, font?: Typeface | null, paragraphIndent?: number | null, indentLeft?: number | null, indentRight?: number | null, spaceBefore?: number | null, textCase?: TextCase | null, textDecoration?: TextDecoration | null, features?: Array<string> | null, axes?: { [key in string]: number } | null, 
+/**
+ * A boolean variable; empty shows the text always.
+ */
+condition?: string | null, position?: Position | null, baselineShift?: number | null, dropLines?: number | null, dropChars?: number | null, keepLines?: number | null, keepTogether?: boolean | null, keepNext?: boolean | null, tabs?: Array<Tab> | null, list?: List | null, 
 /**
  * `Some(None)` takes the shading off.
  */
-shading?: Color | null | null, } | { "type": "setTextStyle", id: string, name?: string | null, size?: number | null, lineHeight?: number | null, letterSpacing?: number | null, paragraphSpacing?: number | null, fill?: Color | null, textStyle?: string | null, textAlign?: TextAlign | null, hyphenate?: boolean | null, lang?: Lang | null, font?: Typeface | null, paragraphIndent?: number | null, indentLeft?: number | null, indentRight?: number | null, spaceBefore?: number | null, textCase?: TextCase | null, textDecoration?: TextDecoration | null, features?: Array<string> | null, axes?: { [key in string]: number } | null, position?: Position | null, baselineShift?: number | null, dropLines?: number | null, dropChars?: number | null, keepLines?: number | null, keepTogether?: boolean | null, keepNext?: boolean | null, tabs?: Array<Tab> | null, list?: List | null, 
+shading?: Color | null | null, } | { "type": "setTextStyle", id: string, name?: string | null, size?: number | null, lineHeight?: number | null, letterSpacing?: number | null, paragraphSpacing?: number | null, fill?: Color | null, textStyle?: string | null, textAlign?: TextAlign | null, hyphenate?: boolean | null, lang?: Lang | null, font?: Typeface | null, paragraphIndent?: number | null, indentLeft?: number | null, indentRight?: number | null, spaceBefore?: number | null, textCase?: TextCase | null, textDecoration?: TextDecoration | null, features?: Array<string> | null, axes?: { [key in string]: number } | null, 
+/**
+ * A boolean variable; empty shows the text always.
+ */
+condition?: string | null, position?: Position | null, baselineShift?: number | null, dropLines?: number | null, dropChars?: number | null, keepLines?: number | null, keepTogether?: boolean | null, keepNext?: boolean | null, tabs?: Array<Tab> | null, list?: List | null, 
 /**
  * `Some(None)` takes the shading off.
  */
@@ -274,7 +286,11 @@ shading: Color | null,
 /**
  * The id of the layer an object replacement character in this span stands for.
  */
-object: string, };
+object: string, 
+/**
+ * The id of a boolean variable; the text shows where it is true.
+ */
+condition: string, };
 export type Story = { text: string, spans: Array<Span>, };
 export type Style = { fills: Array<Fill>, strokes: Array<Fill>, strokeWeight: number, strokeAlign: Align, 
 /**
@@ -342,9 +358,13 @@ shading: Color | null,
 /**
  * The id of the layer an object replacement character in this span stands for.
  */
-object: string, };
+object: string, 
+/**
+ * The id of a boolean variable; the text shows where it is true.
+ */
+condition: string, };
 export type Typeface = { name: string, family: string, style: string, hash: string, };
-export type Value = { "color": Color } | { "number": number } | { "font": Typeface | null };
+export type Value = { "color": Color } | { "number": number } | { "font": Typeface | null } | { "boolean": boolean };
 export type Variable = { id: string, collection: string, name: string, values: { [key in string]: Value }, };
 export type VerticalAlign = "top" | "center" | "bottom";
 export type Wrap = "none" | "around" | "jump";

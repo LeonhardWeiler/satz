@@ -681,6 +681,8 @@ pub struct TextProps {
     pub text_decoration: Option<TextDecoration>,
     pub features: Option<Vec<String>>,
     pub axes: Option<BTreeMap<String, f64>>,
+    /// A boolean variable; empty shows the text always.
+    pub condition: Option<String>,
     pub position: Option<Position>,
     pub baseline_shift: Option<f64>,
     pub drop_lines: Option<u32>,
@@ -935,7 +937,8 @@ const BINDABLE: [&str; 12] = [
 ];
 
 /// The keys of a text layer that belong to its story and move with it.
-const STORY: [&str; 30] = [
+const STORY: [&str; 31] = [
+    "condition",
     "toc",
     "shading",
     "size",

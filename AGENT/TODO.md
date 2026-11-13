@@ -40,7 +40,6 @@ Done; numbers and the items measured and not done in `AGENT/performance.md`.
 
 ## Later
 
-- [ ] Conditional text with variables.
 - [ ] Version history from the Loro history: browse and restore earlier states.
 - [ ] GREP styles.
 - [ ] Colour wheel in the picker for harmonies (analogous, complementary, …).

@@ -76,3 +76,5 @@ Node 22, pnpm, MuPDF (`mutool`, for the PDF tests) and
 - A span's `axes` set its variable font at a location; `text::font_of` gives the run a
   `VARIED` font id, which the canvas draws as outlines from `Engine::outline` and krilla
   instances in the PDF.
+- A span's `condition` names a boolean variable; where it is false in the text's mode the
+  span is `hidden` and `text::set` lays out the rest (`Shown`), mapping bytes back.

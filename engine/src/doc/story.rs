@@ -1073,6 +1073,12 @@ impl Doc {
         if let Some(s) = props.text_style.as_deref().filter(|s| !s.is_empty()) {
             self.find::<TextStyle>("textStyles", s)?;
         }
+        if let Some(c) = props.condition.as_deref().filter(|c| !c.is_empty()) {
+            let (_, v) = self.find::<Variable>("variables", c)?;
+            if !v.values.values().all(|v| matches!(v, Value::Boolean(_))) {
+                return Err("a condition is a boolean variable".into());
+            }
+        }
         let serde_json::Value::Object(set) = serde_json::to_value(&props).map_err(err)? else {
             return Err("props are not a map".into());
         };
@@ -1628,6 +1634,40 @@ mod tests {
         )
         .unwrap();
         assert!(page(&d).children[1].bindings.is_empty());
+    }
+
+    #[test]
+    fn conditional_text_is_set_only_in_the_modes_where_its_variable_is_true() {
+        let (mut d, p) = empty();
+        let t = text(&mut d, "Hi there you");
+        let (c, _) = collection(&mut d, "Edition");
+        let short = d
+            .apply(Command::AddMode {
+                collection: c.clone(),
+                name: "Short".into(),
+            })
+            .unwrap()
+            .remove(0);
+        let long = variable(&mut d, &c, "Long", Value::Boolean(true)).unwrap();
+        set_value(&mut d, &long, &short, Value::Boolean(false)).unwrap();
+        let n = variable(&mut d, &c, "Size", Value::Number(9.0)).unwrap();
+        let when = |v: &str| TextProps {
+            condition: Some(v.into()),
+            ..TextProps::default()
+        };
+        assert!(format(&mut d, &t, Some([3, 9]), when(&n)).is_err());
+        assert!(format(&mut d, &t, Some([3, 9]), when("nope")).is_err());
+        format(&mut d, &t, Some([3, 9]), when(&long)).unwrap();
+        let x = |d: &Doc, i| d.caret(&t, i).unwrap()[0];
+        let full = x(&d, 12);
+        assert!(x(&d, 9) > x(&d, 3));
+        use_mode(&mut d, &p, &c, Some(&short));
+        assert!(x(&d, 12) < full);
+        assert!(close(x(&d, 9), x(&d, 3)));
+        assert_eq!(d.text_index(&t, x(&d, 12) + 1.0, 25.0).unwrap(), 12);
+        assert_eq!(page(&d).children[0].name, "Hi there you");
+        format(&mut d, &t, None, when("")).unwrap();
+        assert!(close(x(&d, 12), full));
     }
 
     #[test]

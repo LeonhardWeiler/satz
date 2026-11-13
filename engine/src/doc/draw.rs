@@ -1621,6 +1621,7 @@ impl Doc {
             if !a.object.is_empty() {
                 a.object_size = self.object_size(&a.object);
             }
+            a.hidden = s.value(&a.condition) == Some(&Value::Boolean(false));
             a
         };
         let mut known: HashMap<String, Attrs> = HashMap::new();
