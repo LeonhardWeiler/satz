@@ -2518,7 +2518,7 @@ input[type='checkbox']:active {
   display: grid;
   grid-template: 'head head' auto 'presets details' minmax(0, 1fr) 'foot foot' auto / minmax(0, 1fr) 272px;
   width: min(960px, 94vw);
-  height: min(640px, 90vh);
+  max-height: min(640px, 90vh);
   padding: 0;
   overflow: hidden;
   border: 1px solid var(--edge);

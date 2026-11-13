@@ -168,7 +168,7 @@ export function Start({ editor, onClose }: { editor: Editor; onClose: () => void
       <section className="start-details" aria-label="Preset details">
         <div className="start-name">
           <label className="field">
-            <span className="field-label">Preset</span>
+            <span className="field-label">Name</span>
             <input aria-label="Preset name" autoComplete="off" value={name} onFocus={(e) => e.currentTarget.select()} onChange={(e) => setName(e.currentTarget.value)} />
           </label>
           <button type="button" className="icon-button" aria-label="Save preset" title="Save preset" onClick={save}>
