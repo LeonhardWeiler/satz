@@ -63,6 +63,9 @@ test('image', async ({ page }) => {
   await rest(page)
   await shot(page, '04 Canvas', '40 crop mode', 'Image crop mode', [page.getByLabel('Page canvas')], 0)
   await both(page, '21', 'image in crop mode')
+  await page.keyboard.press('Escape')
+  await sec(page, 'Layout').getByRole('button', { name: 'Keep aspect ratio' }).click()
+  await part(page, '23', 'keep aspect ratio', 'Layout')
 })
 
 const sec = (page, name: string) => page.getByRole('complementary', { name: 'Properties' }).getByRole('region', { name, exact: true })

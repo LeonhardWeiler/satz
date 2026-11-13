@@ -135,6 +135,7 @@ export function Properties({ editor }: { editor: Editor }) {
       field
     )
   const set = (props: Props) => each((n) => ({ type: 'set', id: n.id, ...props }))
+  const linked = same((n) => n.keepRatio)
   const wrapped = nodes.some((n) => n.wrap !== 'none')
   const [layerMore, layerButton] = useMore('Layer options', 'Text wrap', wrapped)
   const canWrap = wrapped || [...editor.nodes.values()].some((e) => e.page?.id === page.id && e.node.kind === 'text' && !selection.includes(e.node.id))
@@ -287,23 +288,7 @@ export function Properties({ editor }: { editor: Editor }) {
       )}
       {!box && <GridSection editor={editor} sheets={sheets} all={isPage && targets.length === 1 ? snapshot.pages : []} />}
       {box && (
-        <Section
-          title="Layout"
-          actions={
-            !line && (
-              <button
-                type="button"
-                className="icon-button"
-                aria-label="Keep aspect ratio"
-                title="Keep aspect ratio"
-                aria-pressed={same((n) => n.keepRatio) ?? 'mixed'}
-                onClick={() => set({ keepRatio: !same((n) => n.keepRatio) })}
-              >
-                <Icon name={same((n) => n.keepRatio) ? 'ratio' : 'unlink'} />
-              </button>
-            )
-          }
-        >
+        <Section title="Layout">
           {!nodes.every((n) => flows(editor, n)) && (
             <AlignBar editor={editor}>
               {row && (
@@ -327,8 +312,20 @@ export function Properties({ editor }: { editor: Editor }) {
               </>
             ) : (
               <>
-                {bindable('w', 'W', 'W', <Field label="W" value={box.w} unit="length" onCommit={frame('w')} />)}
-                {bindable('h', 'H', 'H', <Field label="H" value={box.h} unit="length" onCommit={frame('h')} />)}
+                <div className={linked ? 'ratio linked' : 'ratio'}>
+                  {bindable('w', 'W', 'W', <Field label="W" value={box.w} unit="length" onCommit={frame('w')} />)}
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label="Keep aspect ratio"
+                    title="Keep aspect ratio"
+                    aria-pressed={linked ?? 'mixed'}
+                    onClick={() => set({ keepRatio: !linked })}
+                  >
+                    <Icon name={linked ? 'ratio' : 'unlink'} size={12} />
+                  </button>
+                  {bindable('h', 'H', 'H', <Field label="H" value={box.h} unit="length" onCommit={frame('h')} />)}
+                </div>
                 <Field
                   label={<Icon name="angle" />}
                   title="Rotation"

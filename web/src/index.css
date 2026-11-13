@@ -553,6 +553,48 @@ textarea {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.ratio {
+  position: relative;
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+}
+
+.ratio::before,
+.ratio > .icon-button {
+  position: absolute;
+  left: 50%;
+  height: 28px;
+  translate: -50%;
+}
+
+.ratio.linked::before {
+  width: 8px;
+  background: var(--input);
+  content: '';
+}
+
+.ratio > .icon-button {
+  width: 16px;
+}
+
+.ratio > .icon-button:hover,
+.ratio > .icon-button[aria-pressed='true'] {
+  background: none;
+}
+
+.ratio.linked > :first-child,
+.ratio.linked > :first-child .field {
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+}
+
+.ratio.linked > :last-child,
+.ratio.linked > :last-child .field {
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+}
+
 .field {
   display: flex;
   align-items: center;
