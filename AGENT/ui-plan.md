@@ -2,7 +2,7 @@
 
 Grundlage: Shot-Suite `web/shots` (90 Tests, Light und Dark, 2× DPR, dazu 900 px Breite)
 gegen `web/dist`, dazu das Mess-Audit `web/shots/audit.spec.ts` (Kanten, Höhen,
-Text-Einzüge, Schriften, Abstände). 6 Runden.
+Text-Einzüge, Schriften, Abstände). 6 Runden, deployt und geprüft am 2026-11-13.
 
 ## Leitidee
 

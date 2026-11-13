@@ -41,23 +41,26 @@
 <body>
 <main>
 <h1>Satz – project health report</h1>
-<p class="meta">10 November 2026 · branch <code>main</code> · <code>54658c6</code></p>
+<p class="meta">13 November 2026 · branch <code>main</code> · <code>4babde3</code></p>
 
 <div class="counters">
   <div class="counter"><b>0</b><span>Critical</span></div>
   <div class="counter"><b>0</b><span>High</span></div>
-  <div class="counter"><b>0</b><span>Medium</span></div>
-  <div class="counter"><b>2</b><span>Low</span></div>
-  <div class="counter"><b>1</b><span>Info</span></div>
-  <div class="counter"><b>3</b><span>Total</span></div>
+  <div class="counter"><b>1</b><span>Medium</span></div>
+  <div class="counter"><b>3</b><span>Low</span></div>
+  <div class="counter"><b>2</b><span>Info</span></div>
+  <div class="counter"><b>6</b><span>Total</span></div>
 </div>
 
 <nav aria-label="Contents">
 <ol>
   <li><a href="#open">Open findings</a>
     <ol>
+      <li><a href="#SEC-1">SEC-1 Saved files carry all deleted content</a></li>
+      <li><a href="#UX-1">UX-1 Versions restored blind</a></li>
       <li><a href="#TEST-1">TEST-1 E2E in Chromium only</a></li>
       <li><a href="#ARCH-2">ARCH-2 Derived sizes in the document</a></li>
+      <li><a href="#PERF-6">PERF-6 Linked image files held twice</a></li>
       <li><a href="#PERF-5">PERF-5 Source Serif downloaded twice</a></li>
     </ol>
   </li>
@@ -68,17 +71,35 @@
 </nav>
 
 <h2 id="open">1. Open findings</h2>
+<article class="card medium" id="SEC-1">
+  <header><span class="id">SEC-1</span><span class="badge medium">medium</span><h3>Saved files carry every deleted text and image</h3></header>
+  <p class="file"><code>engine/src/doc/mod.rs:1493</code> <code>save</code>, <code>updates</code>; <code>engine/src/doc/history.rs</code></p>
+  <p>Since <code>0b614ec</code> <code>save</code> exports <code>ExportMode::Snapshot</code> with the whole Loro history and its timestamps. A <code>.satz</code> file sent to a printer or client therefore holds every deleted text, every removed or relinked embedded image and when each edit was made, and it only grows; layout commits add to it. The fork in <code>save</code> that deletes unused images no longer makes the file smaller, since their insert ops stay in the oplog, so its doc comment is wrong. A fresh export worker gets the same full history through <code>updates</code>.</p>
+  <p class="rec">Keep the history in the autosave, but let saving a file offer, and the package always use, <code>ExportMode::shallow_snapshot(&amp;state_frontiers())</code>; drop the image fork in <code>save</code>. Add a test that a removed image's bytes are not in the trimmed file.</p>
+</article>
+<article class="card low" id="UX-1">
+  <header><span class="id">UX-1</span><span class="badge low">low</span><h3>Versions are restored without a preview</h3></header>
+  <p class="file"><code>web/src/History.tsx</code></p>
+  <p>The version history lists entries by day and <code>hh:mm</code> only, and a click restores at once. Changes of 2 sessions in the same minute look the same, and the user learns what a version holds only by restoring it and undoing.</p>
+  <p class="rec">Show on each entry the page the change touched and how many layers it changed, and preview the version on the canvas before it is restored.</p>
+</article>
 <article class="card low" id="TEST-1">
   <header><span class="id">TEST-1</span><span class="badge low">low</span><h3>E2E runs in Chromium only</h3></header>
   <p class="file"><code>web/playwright.config.ts</code></p>
-  <p>Firefox is a target browser with its own save path (download instead of the file picker) and no Local Font Access, but only a Chromium (SwiftShader) project runs. Blocked: Playwright's Firefox gets no WebGL 2 context headless or under Xvfb, so the app stops at its WebGL check.</p>
+  <p>Firefox is a target browser with its own save path (download instead of the file picker), no Local Font Access and no linked images, but only a Chromium (SwiftShader) project runs. Blocked: Playwright's Firefox gets no WebGL 2 context headless or under Xvfb, so the app stops at its WebGL check.</p>
   <p class="rec">Add a Firefox project for the file, start, offline and webgl specs once its WebGL path runs in CI.</p>
 </article>
 <article class="card low" id="ARCH-2">
   <header><span class="id">ARCH-2</span><span class="badge low">low</span><h3>Derived hug sizes are written into the Loro document</h3></header>
-  <p class="file"><code>engine/src/doc/story.rs</code> <code>fit</code>; <code>engine/src/doc/mod.rs</code> <code>finish</code></p>
-  <p>Text and auto layout sizes are computed in <code>finish</code> and stored with <code>set_frame</code>. They depend on the fonts of this browser, so two peers would write different sizes. Harmless without collaboration.</p>
+  <p class="file"><code>engine/src/doc/story.rs:782</code> <code>fit</code>; <code>engine/src/doc/mod.rs</code> <code>finish</code></p>
+  <p>Text, table and auto layout sizes are computed in <code>finish</code> and stored with <code>set_frame</code>. They depend on the fonts of this browser, so 2 peers would write different sizes, and since files keep their history every layout commit is saved too (see SEC-1).</p>
   <p class="rec">Compute them only for the snapshot once collaboration is built.</p>
+</article>
+<article class="card info" id="PERF-6">
+  <header><span class="id">PERF-6</span><span class="badge info">info</span><h3>Linked image files are held twice for the session</h3></header>
+  <p class="file"><code>web/src/file.ts:471</code> <code>linked</code></p>
+  <p>Every linked image read is pushed to <code>linked</code> for the workers and never dropped, also after a relink or when another project opens, while the engine keeps the same bytes in WASM memory.</p>
+  <p class="rec">Keep them by hash and drop the entries the open document no longer links; measure with a few large photos first.</p>
 </article>
 <article class="card info" id="PERF-5">
   <header><span class="id">PERF-5</span><span class="badge info">info</span><h3>Source Serif 4 is downloaded twice</h3></header>
@@ -108,8 +129,9 @@
   <tr><td>UI</td><td>Design G: fixed top bar, layers and swatches left, properties or preflight right, rulers, no floating panels; Figma behaviour and shortcuts (Ctrl for Cmd), dark and light, English, mm by default.</td></tr>
   <tr><td>Colour</td><td>RGB or CMYK per document plus spot colours (name, CMYK alternate, tint). Switching mode converts every RGB or CMYK colour of nodes, text, swatches, variables and text styles; spots and references stay. Built-in FOGRA51, or an uploaded CMYK profile stored in the document; PSO Coated v3 may not be redistributed.</td></tr>
   <tr><td>Output</td><td>PDF presets screen, PDF/X-4 and PDF/X-1a (X-1a flattens at the raster ppi and needs a CMYK document), page ranges, JPEG downsampling, PNG/JPEG per page, package zip with PDF, fonts and images.</td></tr>
+  <tr><td>Long documents</td><td>Tables of text cells, a table of contents from chosen text styles, anchored objects (inline or custom), conditional text on boolean variables, grep styles and variable font axes per span, all in the engine and drawn the same on canvas and PDF.</td></tr>
   <tr><td>Text weight</td><td>Canvas text is not thickened to match PDF viewers.</td></tr>
-  <tr><td>Hosting</td><td>Static on GitHub Pages, installable and offline through a service worker, no backend. One document autosaved to IndexedDB; <code>.satz</code> files hold its Loro snapshot without history, saved into the same file in Chromium and downloaded in Firefox.</td></tr>
+  <tr><td>Hosting</td><td>Static on GitHub Pages, installable and offline through a service worker, no backend. One document autosaved to IndexedDB; <code>.satz</code> files hold its Loro snapshot with history (a version per 60 s of a session, restored as an undoable change), saved into the same file in Chromium and downloaded in Firefox. Placed PNG and JPEG files can stay linked through File System Access.</td></tr>
   <tr><td>Fonts</td><td>A font library per browser in IndexedDB, not in the document; text refers to a font by name and hash. A missing font falls back to the bundled Source Serif 4 and is pink on the canvas only. TTF, OTF, WOFF and WOFF2, and the fonts of this computer through Local Font Access.</td></tr>
   <tr><td>Browsers</td><td>Chromium and Firefox; Safari best effort.</td></tr>
   <tr><td>Scope</td><td>M1 excludes components, realtime collaboration, Figma import, font helper, i18n.</td></tr>
