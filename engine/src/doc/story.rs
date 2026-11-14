@@ -16,7 +16,7 @@ pub(super) struct Flow {
     pub(super) rest: Option<usize>,
     pub(super) prev: Option<TreeID>,
     pub(super) next: Option<TreeID>,
-    pub(super) overset: bool,
+    pub(super) overset: Option<usize>,
     pub(super) placed: Rc<text::Placed>,
 }
 
@@ -972,7 +972,10 @@ impl Doc {
                     rest: *next,
                     prev: i.checked_sub(1).map(|j| frames[j].0),
                     next: frames.get(i + 1).map(|n| n.0),
-                    overset: i + 1 == frames.len() && next.is_some(),
+                    overset: (i + 1 == frames.len())
+                        .then_some(*next)
+                        .flatten()
+                        .map(|n| story.text[n..].split_whitespace().count()),
                     placed: placed.clone(),
                 };
                 if !was.is_some_and(|w| w.shows(&flow)) {

@@ -3716,7 +3716,7 @@ mod tests {
                     end,
                     prev.clone(),
                     next.clone(),
-                    *overset,
+                    overset.is_some(),
                 )
             }
             k => panic!("not text: {k:?}"),

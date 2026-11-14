@@ -91,7 +91,10 @@ pub struct Issue {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "problem", rename_all = "camelCase")]
 pub enum Problem {
-    Overset,
+    /// Has `words` that do not fit its thread.
+    Overset {
+        words: usize,
+    },
     MissingFont {
         font: String,
     },
@@ -259,7 +262,7 @@ pub struct Node {
 pub enum Kind {
     Shape(Shape),
     /// `content` is the part of the story of the thread, whose first frame is `story`,
-    /// that the layer sets, `overset` when it is the last frame and text is left.
+    /// that the layer sets, `overset` by the words left when it is the last frame and text is left.
     Text {
         #[serde(skip)]
         content: Rc<Story>,
@@ -268,7 +271,7 @@ pub enum Kind {
         story: String,
         prev: Option<String>,
         next: Option<String>,
-        overset: bool,
+        overset: Option<usize>,
         #[serde(skip)]
         placed: Rc<text::Placed>,
     },
@@ -516,8 +519,8 @@ pub(super) fn visit(
             ..
         } => {
             colors.extend(frame.column_rule.as_ref().map(|r| &r.color));
-            if *overset {
-                problems.push(Problem::Overset);
+            if let Some(words) = *overset {
+                problems.push(Problem::Overset { words });
             }
             let head = TreeID::try_from(story.as_str())
                 .ok()
@@ -1528,7 +1531,7 @@ impl Doc {
                         story: id.to_string(),
                         prev: None,
                         next: None,
-                        overset: false,
+                        overset: None,
                         placed: Rc::new(placed),
                     }
                 }
@@ -2294,11 +2297,15 @@ mod tests {
         let font = Problem::MissingFont {
             font: "Gone Sans".into(),
         };
+        let words = SAMPLE[d.frame_range(&t).unwrap()[1]..]
+            .split_whitespace()
+            .count();
+        assert!(words > 0);
         assert_eq!(
             problems(&d),
             [
                 (short.clone(), Problem::ShortOfBleed),
-                (t.clone(), Problem::Overset),
+                (t.clone(), Problem::Overset { words }),
                 (t.clone(), font),
             ]
         );

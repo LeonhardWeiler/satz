@@ -48,7 +48,7 @@ export type Grep = { pattern: string, style: string, };
 export type Grid = { kind: GridKind, count: number, gutter: number, margin: number, size: number, };
 export type GridKind = "columns" | "rows" | "grid";
 export type Guides = { x: Array<number>, y: Array<number>, };
-export type Issue = { page: string, layer: string, name: string, } & ({ "problem": "overset" } | { "problem": "missingFont", font: string, } | { "problem": "shortOfBleed" } | { "problem": "rgb" } | { "problem": "missingImage", image: string, } | { "problem": "lowPpi", ppi: number, } | { "problem": "gamut" } | { "problem": "ink", ink: number, } | { "problem": "missingGlyph", character: string, } | { "problem": "nearTrim", distance: number, });
+export type Issue = { page: string, layer: string, name: string, } & ({ "problem": "overset", words: number, } | { "problem": "missingFont", font: string, } | { "problem": "shortOfBleed" } | { "problem": "rgb" } | { "problem": "missingImage", image: string, } | { "problem": "lowPpi", ppi: number, } | { "problem": "gamut" } | { "problem": "ink", ink: number, } | { "problem": "missingGlyph", character: string, } | { "problem": "nearTrim", distance: number, });
 export type Join = "miter" | "round" | "bevel";
 export type Lang = "en" | "de" | "fr" | "it" | "es" | "nl";
 export type Layout = { direction: Direction, gap: number, paddingTop: number, paddingRight: number, paddingBottom: number, paddingLeft: number, alignMain: MainAlign, alignCross: Align3, sizing: Sizing, 
@@ -128,7 +128,7 @@ strokeSides: Array<number>, join: Join, cap: Cap, lineStyle: LineStyle, arrowSta
 /**
  * Left out of its parent's auto layout.
  */
-absolute: boolean, } & ({ "kind": "shape" } & Shape | { "kind": "text", story: string, prev: string | null, next: string | null, overset: boolean, insetTop: number, insetRight: number, insetBottom: number, insetLeft: number, columns: number, gutter: number, verticalAlign: VerticalAlign, baselineGrid: number, baselineStart: number, 
+absolute: boolean, } & ({ "kind": "shape" } & Shape | { "kind": "text", story: string, prev: string | null, next: string | null, overset: number | null, insetTop: number, insetRight: number, insetBottom: number, insetLeft: number, columns: number, gutter: number, verticalAlign: VerticalAlign, baselineGrid: number, baselineStart: number, 
 /**
  * Lines the text is cut after, the last ending in an ellipsis; 0 is off.
  */

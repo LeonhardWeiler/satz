@@ -13,7 +13,7 @@ const PLATES = [['Cyan', 'c'], ['Magenta', 'm'], ['Yellow', 'y'], ['Black', 'k']
 const problem = (i: Issue, editor: Editor) =>
   i.problem === 'missingFont' ? `Missing font ${i.font}`
   : i.problem === 'missingImage' ? `Missing image ${editor.snapshot.links[i.image] ?? ''}`
-  : i.problem === 'overset' ? `Overset text · ${count(words(editor, i.layer), 'word')} left`
+  : i.problem === 'overset' ? `Overset text · ${count(i.words, 'word')} left`
   : i.problem === 'shortOfBleed' ? 'Short of the bleed'
   : i.problem === 'lowPpi' ? `Image at ${Math.round(i.ppi)} ppi`
   : i.problem === 'gamut' ? 'Color outside the gamut'
@@ -26,10 +26,6 @@ export const isError = (i: Issue) => ['overset', 'missingFont', 'missingImage', 
 const options = (values: number[], unit: string, zero: string, v: number) =>
   Object.fromEntries([...new Set([0, ...values, v])].map((n) => [String(n), n ? `${n} ${unit}` : zero]))
 const count = (n: number, what: string) => `${n} ${what}${n === 1 ? '' : 's'}`
-const words = (editor: Editor, id: string) => {
-  const n = editor.nodes.get(id)?.node
-  return n?.kind === 'text' ? editor.oversetWords(n) : 0
-}
 
 /** Keeps the inks of the shown pages from the worker in `editor.previewed` while mounted, between drags. */
 function usePreview(editor: Editor, on: boolean) {

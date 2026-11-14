@@ -436,7 +436,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         if (!n || n.hidden) continue
         const b = covered(n)
         if (n.overrideOf) tags += `<rect class="label override" x="${X(b.x)}" y="${Y(b.y + b.h) + 8}" width="62" height="18" rx="4"/><text x="${X(b.x) + 31}" y="${Y(b.y + b.h) + 17}">Override</text>`
-        const words = n.kind === 'text' ? editor.oversetWords(n) : 0
+        const words = n.kind === 'text' ? n.overset : null
         if (words) {
           const t = `+${words} word${words === 1 ? '' : 's'}`
           const w = t.length * 6.2 + 10
@@ -494,7 +494,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       return {
         ports: [
           ...(p.in ? [{ ...p.in, state: n.prev ? 'threaded' : 'open' }] : []),
-          { ...p.out, state: n.overset ? 'overset' : n.next ? 'threaded' : 'open' },
+          { ...p.out, state: n.overset != null ? 'overset' : n.next ? 'threaded' : 'open' },
         ] as const,
         threads: lines,
         ...(link && { hover: placed(link) }),
@@ -1272,7 +1272,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           if (scale !== 1 && n.kind === 'text') editor.apply({ type: 'scaleText', id: n.id, by: scale })
           editor.apply({ type: 'setFrame', id: n.id, ...f, x: f.x - editor.dx(n.id), crop: e.ctrlKey || e.metaKey || editor.cropping === n.id })
           const t = editor.nodes.get(n.id)?.node
-          if ((h === 'e' || h === 'w') && t?.kind === 'text' && t.overset && !t.next && t.sizing.vertical === 'fixed') {
+          if ((h === 'e' || h === 'w') && t?.kind === 'text' && t.overset != null && !t.next && t.sizing.vertical === 'fixed') {
             editor.apply({ type: 'set', id: n.id, sizing: { ...t.sizing, vertical: 'hug' } })
           }
         })
