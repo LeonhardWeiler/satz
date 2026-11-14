@@ -107,6 +107,7 @@ test('export saves every page at once, and the preflight opens from its shortcut
   await page.keyboard.press('Escape')
   const region = await preflight(page)
   await expect(region).toBeVisible()
+  await expect(region.locator(':focus')).toHaveCount(1)
   await expect.poll(async () => (await page.locator('.right').boundingBox())?.width).toBe(300)
   await page.keyboard.press('Escape')
   await expect(region).toHaveCount(0)

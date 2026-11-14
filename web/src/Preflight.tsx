@@ -1,6 +1,6 @@
-import { useEffect, useState, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { press } from './commands'
-import { Field, Section, Select, useMore } from './controls'
+import { FOCUSABLE, Field, Section, Select, useMore } from './controls'
 import { useEditor, type Editor } from './editor'
 import { length, useSettings } from './settings'
 import { preview } from './file'
@@ -98,6 +98,8 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
   const [range, setRange] = useState('')
   const issues = useEditor(editor, (e) => e.snapshot.preflight)
   const pages = useEditor(editor, (e) => e.snapshot.pages)
+  const panel = useRef<HTMLElement>(null)
+  useEffect(() => [...panel.current!.querySelectorAll<HTMLElement>(FOCUSABLE)].find((e) => !e.closest('.panel-header'))?.focus(), [])
   const masters = useEditor(editor, (e) => e.snapshot.masters)
   const profile = useEditor(editor, (e) => e.snapshot.profile) ?? 'FOGRA51'
   const selection = useEditor(editor, (e) => e.selection)
@@ -137,7 +139,7 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
   const highest = previewed?.highest ?? 0
 
   return (
-    <section className="preflight" aria-label="Preflight">
+    <section ref={panel} className="preflight" aria-label="Preflight">
       <header className="panel-header">
         <h2>Preflight</h2>
         <span className="pf-sum">{issues.length > 0 && `${count(errors, 'error')}, ${count(issues.length - errors, 'warning')}`}</span>
