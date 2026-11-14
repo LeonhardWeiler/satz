@@ -130,7 +130,8 @@ export const STORY =
 export async function port(page: Page, [x0, y0, x1, y1]: number[], out: boolean, i?: number) {
   const [l, t] = await screen(page, x0, y0, i)
   const [r, b] = await screen(page, x1, y1, i)
-  return (out ? [r, b - 16] : [l, t + 16]) as [number, number]
+  const inset = Math.min(24, (b - t) / 4)
+  return (out ? [r, b - inset] : [l, t + inset]) as [number, number]
 }
 
 /** Adds a page and draws a fixed text frame from (x0, y0) to (x1, y1) in mm on it. */

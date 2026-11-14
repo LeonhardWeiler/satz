@@ -4,7 +4,7 @@ import { HANDLE, type Box, type View } from './renderer'
 /** Distance in px from an edge of the selection box within which the edge is grabbed. */
 const EDGE = 4
 /** Distance in px of a text frame's in- and out-port from its top and bottom corner. */
-const PORT_INSET = 16
+const PORT_INSET = 24
 const PORT = 10
 /** Distance in px beyond a corner of the selection box within which it is turned. */
 const TURN = 16
@@ -97,10 +97,11 @@ export function radiusHandles(view: View, box: Box, radii: number[]) {
 
 /**
  * The in- and out-port in screen space of a text frame placed on its spread, as in
- * InDesign: on its left edge below the top and its right edge above the bottom.
+ * InDesign: on its left edge below the top and its right edge above the bottom, at most a
+ * quarter of the height in.
  */
 export function portsOf(view: View, n: Box) {
-  const inset = Math.min(PORT_INSET / view.zoom, n.h / 2)
+  const inset = Math.min(PORT_INSET / view.zoom, n.h / 4)
   const c = { x: n.x + n.w / 2, y: n.y + n.h / 2 }
   const at = (x: number, y: number) => screen(view, spin({ x, y }, n.rotation ?? 0, c))
   return { in: at(n.x, n.y + inset), out: at(n.x + n.w, n.y + n.h - inset) }
