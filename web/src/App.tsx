@@ -165,7 +165,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       else if (isTyping(e) || (e.target as Element).closest?.('.menu')) return
       else if (e.shiftKey && !mod && !e.altKey && e.code === 'KeyR') hide('rulers')
       else if (e.shiftKey && !mod && !e.altKey && e.code === 'KeyW') {
-        if (!hidden.ui) editor.say(<><Keys keys="Shift W" /> shows the interface again</>)
+        editor.say(hidden.ui ? '' : <><Keys keys="Shift W" /> shows the interface again</>)
         hide('ui')
       } else if (e.key === '.' && !mod) editor.toggleOverview()
       else if (e.key === '?' && !mod) setDialog('help')

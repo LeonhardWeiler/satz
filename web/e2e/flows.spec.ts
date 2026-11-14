@@ -131,3 +131,13 @@ test('a narrow window hides the panels and keeps the choice of a wide one', asyn
   await expect(props).not.toBeInViewport()
   await expect(page.getByRole('tree', { name: 'Layers' })).toBeInViewport()
 })
+
+test('shift w hides the interface with a notice that goes when it shows again', async ({ page }) => {
+  await open(page)
+  await page.keyboard.press('Escape')
+  const status = page.locator('.status')
+  await page.keyboard.press('Shift+W')
+  await expect(status).toContainText('shows the interface again')
+  await page.keyboard.press('Shift+W')
+  await expect(status).toBeEmpty()
+})
