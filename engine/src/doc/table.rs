@@ -100,9 +100,16 @@ impl Doc {
         Ok(())
     }
 
-    /// A new empty cell at `at` in `table` that looks like the cell `like`.
+    /// A new empty cell at `at` in `table` that looks like the cell `like`, after the
+    /// cells before it in reading order.
     fn new_cell(&self, table: TreeID, at: Cell, like: TreeID) -> Res<()> {
-        let n = self.new_node(table, None)?;
+        let t = self.table(table).ok_or("no table")?;
+        let before: Vec<_> = (self.cells(table, &t).into_iter())
+            .filter(|(_, c)| (c[1], c[0]) < (at[1], at[0]))
+            .map(|(c, _)| c)
+            .collect();
+        let i = (self.children(table).iter()).rposition(|c| before.contains(c));
+        let n = self.new_node(table, Some(i.map_or(0, |i| i + 1)))?;
         let m = self.meta(n);
         let from = self.meta(like);
         for (k, v) in from.get_value().into_map().ok().into_iter().flat_map(|m| {
@@ -427,6 +434,11 @@ mod tests {
         assert_eq!(g.len(), 16);
         assert_eq!(d.bounds(d.node(&id).unwrap())[2], 400.0);
         assert!(g.iter().all(|c| c.1[2] == 100.0 && c.0[2..] == [1, 1]));
+        let n = d.node(&id).unwrap();
+        let order: Vec<_> = (d.cells(n, &d.table(n).unwrap()).into_iter())
+            .map(|(_, c)| (c[1], c[0]))
+            .collect();
+        assert!(order.is_sorted(), "{order:?}");
         assert!(insert(&mut d, false, 9).is_err());
 
         let b = cell(&d, &id, [1, 1]);
