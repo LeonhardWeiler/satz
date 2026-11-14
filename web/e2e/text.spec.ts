@@ -498,7 +498,7 @@ test('type shortcuts set the size, alignment, style and decoration of the select
   await page.keyboard.press('Control+Alt+j')
   await expect(panel.getByRole('radio', { name: 'Justify' })).toBeChecked()
   await page.keyboard.press('Control+b')
-  await expect(page.getByText('No Source Serif 4 Bold in this document')).toBeVisible()
+  await expect(panel.getByRole('combobox', { name: 'Font style' })).toHaveText('Bold')
   const decoration = page.getByRole('dialog', { name: 'Type options' }).getByRole('combobox', { name: 'Decoration' })
   await page.keyboard.press('Control+Shift+x')
   await panel.getByRole('button', { name: 'Type options' }).click()

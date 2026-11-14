@@ -483,6 +483,12 @@ impl Engine {
         text::fonts_added()
     }
 
+    /// The number of bundled fonts, the first ids, which cannot be removed.
+    #[wasm_bindgen(js_name = fontsBundled)]
+    pub fn fonts_bundled(&self) -> usize {
+        text::BUNDLED
+    }
+
     /// Adds a PNG or JPEG file to the document's images and returns its hash and
     /// size in pixels, for the command `placeImage`; as a link to the file `link` when given.
     #[wasm_bindgen(js_name = addImage)]

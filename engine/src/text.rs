@@ -17,6 +17,14 @@ use std::rc::Rc;
 use std::thread::LocalKey;
 
 pub const FONT: &[u8] = include_bytes!("../fonts/SourceSerif4-Regular.ttf");
+/// The other faces of the bundled family, bundled after it.
+const FAMILY: [&[u8]; 3] = [
+    include_bytes!("../fonts/SourceSerif4-Bold.ttf"),
+    include_bytes!("../fonts/SourceSerif4-It.ttf"),
+    include_bytes!("../fonts/SourceSerif4-BoldIt.ttf"),
+];
+/// The number of bundled fonts, the first ids.
+pub const BUNDLED: usize = 1 + FAMILY.len();
 /// Marks the font of a glyph run whose own font is missing, drawn in the bundled one.
 pub const MISSING: u32 = 1 << 31;
 /// Marks the font of a glyph run set at a location of its axes, by its index in `INSTANCES`.
@@ -35,9 +43,9 @@ pub struct Typeface {
 }
 
 thread_local! {
-    /// The fonts text can be set in by id, the bundled one first.
+    /// The fonts text can be set in by id, the bundled family first.
     static FONTS: RefCell<Vec<(Typeface, Rc<[u8]>)>> =
-        RefCell::new(vec![(typeface(FONT).unwrap(), FONT.into())]);
+        RefCell::new([FONT].iter().chain(&FAMILY).map(|b| (typeface(b).unwrap(), Rc::from(*b))).collect());
     /// The fonts at a location of their axes: the font and the axes off their default.
     static INSTANCES: RefCell<Vec<(u32, Location)>> = RefCell::default();
 }
@@ -274,7 +282,7 @@ pub fn missing_glyph(text: &str, spans: &[Span]) -> Option<char> {
 /// Removes the added font `hash`; its id stays, with no bytes.
 pub fn remove_font(hash: &str) {
     FONTS.with_borrow_mut(|f| {
-        for (_, b) in f.iter_mut().skip(1).filter(|(t, _)| t.hash == hash) {
+        for (_, b) in f.iter_mut().skip(BUNDLED).filter(|(t, _)| t.hash == hash) {
             *b = Rc::from([]);
         }
     });
@@ -2310,6 +2318,8 @@ mod tests {
             (f.family.as_str(), f.style.as_str()),
             ("Source Serif 4", "Regular")
         );
+        let styles: Vec<_> = fonts().into_iter().map(|f| f.style).collect();
+        assert_eq!(styles, ["Regular", "Bold", "Italic", "Bold Italic"]);
     }
 
     const H: u16 = 9;

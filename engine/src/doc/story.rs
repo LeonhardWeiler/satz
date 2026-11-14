@@ -2570,10 +2570,10 @@ mod tests {
         format(&mut d, &t, Some([0, 5]), in_font(face.clone())).unwrap();
         d.remove_font(&face.hash).unwrap();
         assert_eq!(d.snapshot().missing_fonts[0].font, face);
-        assert_eq!(d.snapshot().fonts.len(), 1);
+        assert_eq!(d.snapshot().fonts.len(), 4);
         d.add_font(MONO).unwrap();
         assert!(d.snapshot().missing_fonts.is_empty());
-        assert_eq!(text::fonts_added(), 3);
+        assert_eq!(text::fonts_added(), 6);
     }
 
     #[test]

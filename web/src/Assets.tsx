@@ -31,14 +31,15 @@ export function Assets({ editor }: { editor: Editor }) {
             document.body,
           )}
         <ul className="fonts">
-          {fonts.map((f, i) => (
+          <li>
+            <span className="swatch-name">{fonts[0].family}</span>
+          </li>
+          {fonts.slice(editor.engine.fontsBundled()).map((f) => (
             <li key={f.hash}>
               <span className="swatch-name" title={f.name}>{f.name}</span>
-              {i > 0 && (
-                <button type="button" className="icon-button" aria-label={`Remove ${f.name}`} title="Remove font" onClick={() => removeFont(editor, f.hash).catch(() => {})}>
-                  <Icon name="minus" />
-                </button>
-              )}
+              <button type="button" className="icon-button" aria-label={`Remove ${f.name}`} title="Remove font" onClick={() => removeFont(editor, f.hash).catch(() => {})}>
+                <Icon name="minus" />
+              </button>
             </li>
           ))}
           {missingFonts.map(({ font }) => (

@@ -192,7 +192,7 @@ export function download(bytes: Uint8Array, name: string, type: string) {
 
 /** A worker with the fonts it was sent, the bundled one from the start, the linked image files it was sent, the version and version vector of the document it has and its last job, which the next waits for. */
 type Job = { worker?: Worker; fonts: number; images: number; version: string; seen: Uint8Array; queue: Promise<unknown> }
-const fresh = () => ({ fonts: 1, images: 0, version: '', seen: new Uint8Array(), queue: Promise.resolve() })
+const fresh = () => ({ fonts: 0, images: 0, version: '', seen: new Uint8Array(), queue: Promise.resolve() })
 const exporter: Job = fresh()
 const previewer: Job = fresh()
 
