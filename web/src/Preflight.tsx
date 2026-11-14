@@ -69,25 +69,26 @@ const PRESETS: Record<Preset, string> = { x4: 'PDF/X-4, print', x1a: 'PDF/X-1a, 
 const PRINT = { cropMarks: true, includeBleed: true, imagePpi: 0, jpegQuality: 0 }
 const OUTPUT: Record<Preset, Partial<typeof PRINT>> = { x4: PRINT, x1a: PRINT, screen: { imagePpi: 150, jpegQuality: 90 } }
 
-/** The indices of the pages that `text` names by the numbers they show or their place, all for an empty text, null when one is not there. */
-function pagesOf(text: string, labels: string[]) {
+/** The indices of the pages that `text` names by the numbers they show or their place, all for an empty text, or why it names none. */
+function pagesOf(text: string, labels: string[]): number[] | string {
   if (!text.trim()) return [...labels.keys()]
   const at = (s: string) => {
     const i = labels.findIndex((l) => l.toLowerCase() === s.trim().toLowerCase())
-    return i >= 0 ? i : /^\s*\d+\s*$/.test(s) && +s >= 1 && +s <= labels.length ? +s - 1 : -1
+    return i >= 0 ? i : /^\s*\d+\s*$/.test(s) ? +s - 1 : NaN
   }
   const span = (part: string): [number, number] | null => {
-    if (at(part) >= 0) return [at(part), at(part)]
+    if (!isNaN(at(part))) return [at(part), at(part)]
     for (const m of part.matchAll(/[-–]/g)) {
       const [a, b] = [at(part.slice(0, m.index)), at(part.slice(m.index + 1))]
-      if (a >= 0 && b >= a) return [a, b]
+      if (b >= a) return [a, b]
     }
     return null
   }
   const out = new Set<number>()
   for (const part of text.split(',')) {
     const r = span(part)
-    if (!r) return null
+    if (!r) return 'Write pages as in 1-3, 5'
+    if (r[0] < 0 || r[1] >= labels.length) return labels.length > 1 ? `Only pages ${labels[0]}–${labels.at(-1)}` : `Only page ${labels[0]}`
     for (let i = r[0]; i <= r[1]; i++) out.add(i)
   }
   return [...out].sort((x, y) => x - y)
@@ -252,7 +253,7 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
               <input
                 name="pages"
                 aria-label="Pages to export"
-                aria-invalid={chosen === null}
+                aria-invalid={typeof chosen === 'string'}
                 autoComplete="off"
                 placeholder="All"
                 value={range}
@@ -263,8 +264,8 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
               <Field label="Resolution" title="Resolution" unit="ppi" min={72} max={1200} reset={300} value={rasterPpi} onCommit={(rasterPpi) => editor.apply({ type: 'setDocument', rasterPpi })} />
             )}
           </div>
-          {chosen === null && <p className="pf-error">{labels.length > 1 ? `Pages ${labels[0]}–${labels.at(-1)}, e.g. 1-3, 5` : `Only page ${labels[0]}`}</p>}
-          <button type="button" className={errors ? 'button pf-go bad' : 'primary pf-go'} disabled={exporting || chosen === null} onClick={() => chosen && onExport(format, chosen)}>
+          {typeof chosen === 'string' && <p className="pf-error">{chosen}</p>}
+          <button type="button" className={errors ? 'button pf-go bad' : 'primary pf-go'} disabled={exporting || typeof chosen === 'string'} onClick={() => typeof chosen !== 'string' && onExport(format, chosen)}>
             {!exporting && errors > 0 && <Icon name="warn" />}
             {exporting ? 'Exporting…' : errors ? `Export with ${count(errors, 'error')}` : 'Export'}
           </button>
