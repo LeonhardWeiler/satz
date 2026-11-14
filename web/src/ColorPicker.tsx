@@ -47,13 +47,13 @@ export function Chip({ color, scope }: { color: Color; scope: Scope }) {
 
 export const NO_SCOPE: Scope = { swatches: [], collections: [], variables: [], modes: {} }
 
-/** A swatch color's CMYK values in %, or RGB. */
-export const ink = (c: Color) => (typeof c === 'object' && 'cmyk' in c ? c.cmyk.map((v, i) => 'CMYK'[i] + Math.round(v * 100)).filter((s) => !/^.0$/.test(s)).join(' ') || 'K0' : 'RGB')
+/** A swatch color's CMYK values in %, or RGB in a CMYK document. */
+export const ink = (c: Color, mode: ColorMode) => (typeof c === 'object' && 'cmyk' in c ? c.cmyk.map((v, i) => 'CMYK'[i] + Math.round(v * 100)).filter((s) => !/^.0$/.test(s)).join(' ') || 'K0' : mode === 'cmyk' ? 'RGB' : '')
 
 export function SwatchOption({ swatch, mode, selected, onPick }: { swatch: Swatch; mode: ColorMode; selected: boolean; onPick: () => void }) {
-  const values = ink(swatch.color)
+  const values = ink(swatch.color, mode)
   const kind = swatch.spot ? 'Spot color' : 'Process color'
-  const warn = values === 'RGB' && mode === 'cmyk'
+  const warn = values === 'RGB'
   const inks = warn ? 'RGB only, converted to CMYK when printed' : colorText(swatch.color, NO_SCOPE)
   return (
     <button type="button" role="option" aria-selected={selected} className="swatch-option" title={`${swatch.name} · ${kind} · ${inks}`} onClick={onPick}>

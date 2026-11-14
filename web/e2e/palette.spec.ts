@@ -101,7 +101,7 @@ test('a swatch fills the selection from the palette and says so when nothing is 
   const swatches = page.getByRole('region', { name: 'Swatches' })
   await swatches.getByRole('button', { name: 'Add swatch' }).click()
   await page.keyboard.press('Escape')
-  await expect(swatches.getByRole('option', { name: /Swatch 1/ }).locator('.swatch-ink')).toHaveAttribute('data-ink', /^(RGB|\d+ \d+ \d+ \d+)$/)
+  await expect(swatches.getByRole('option', { name: /Swatch 1/ }).locator('.swatch-ink')).toHaveAttribute('data-ink', '')
 
   await run(page, 'fill with swatch 1', /Fill with Swatch 1/)
   await expect(page.locator('.status')).toHaveText('Select a layer first')

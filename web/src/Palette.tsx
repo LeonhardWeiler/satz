@@ -23,7 +23,7 @@ function match(query: string, text: string): [number, number[]] {
 const flat = (nodes: Node[]): Node[] => nodes.flatMap((n) => [n, ...('children' in n ? flat(n.children) : [])])
 
 function items(editor: Editor): Item[] {
-  const { pages, swatches, textStyles } = editor.snapshot
+  const { pages, swatches, textStyles, colorMode } = editor.snapshot
   return [
     ...ACTIONS.filter((a) => !ONLY_WHEN_ABLE.has(a.title) || able(editor, a)).map((a) => ({ group: 'Commands', title: a.title, keys: keysOf(a), off: !able(editor, a), run: () => (a.run ? a.run(editor) : press(a.keys)) })),
     ...pages.flatMap((p, i) =>
@@ -51,7 +51,7 @@ function items(editor: Editor): Item[] {
     ...swatches.map((s) => ({
       group: 'Swatches',
       title: `Fill with ${s.name}`,
-      hint: ink(s.color),
+      hint: ink(s.color, colorMode),
       icon: <Chip color={s.color} scope={NO_SCOPE} />,
       run: () => fillWith(editor, s.id) || editor.fail('Select a layer first'),
     })),
