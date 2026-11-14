@@ -253,8 +253,8 @@ test('undo finishes an open pen path and waits for a drag to end', async ({ page
 
   await page.keyboard.press('p')
   await page.mouse.click(...(await screen(page, 30, 86)))
-  await page.mouse.click(...(await screen(page, 60, 88)))
   await expect(page.locator('.status')).toHaveText(/Enter finishes/)
+  await page.mouse.click(...(await screen(page, 60, 88)))
   await page.keyboard.press('Control+z')
   await expect(page.locator('.status')).toBeEmpty()
   await page.mouse.click(...(await screen(page, 90, 86)))

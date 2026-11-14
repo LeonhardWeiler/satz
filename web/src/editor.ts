@@ -235,12 +235,13 @@ export class Editor {
     return this.snapshot.masters.find((m) => m.id === page.master)
   }
 
-  /** Applies `cmd`; a command the engine rejects shows in the status bar and returns nothing, a trap throws. */
+  /** Applies `cmd`, clearing the status; a command the engine rejects shows in the status bar and returns nothing, a trap throws. */
   apply(cmd: Command): string[] {
     if (cmd.type === 'undo' || cmd.type === 'redo') {
       this.typing = false
       this.groups = 0
     }
+    if (this.status) this.say('')
     try {
       const out = this.change(() => this.engine.apply(rounded(cmd, 'id' in cmd ? this.nodes.get(cmd.id)?.node : undefined)))
       const notes = this.engine.notes()

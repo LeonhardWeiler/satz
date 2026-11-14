@@ -82,6 +82,7 @@ test('delete removes the selected pages with a toast, and undo restores them', a
   await expect(option(page, 1)).toHaveAttribute('aria-selected', 'true')
   await page.locator('.status').getByRole('button', { name: 'Undo' }).click()
   await expect(pages).toHaveCount(3)
+  await expect(page.locator('.status')).toHaveText('')
   await page.getByRole('listbox', { name: 'Pages' }).focus()
   await page.keyboard.press('Delete')
   await page.keyboard.press('Delete')

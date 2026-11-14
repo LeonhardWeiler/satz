@@ -139,6 +139,7 @@ fails vitest.
   at most one per dialog or bar, last in its row. Secondary (`.button`): 28 high, `--input` fill, outlined as a control. Icon
   buttons have no fill until hover. Destructive actions use `--bad` text, never a red
   fill.
+- Status bar notices, errors too, clear after 5 s or with the next command.
 - Shortcuts: filled keycap chips in dialogs, the palette and tooltips, mouse actions too ("Ctrl" + "click"); plain `--muted` text in menus. Buttons carry no keycap; Enter on a primary button is implied.
 - Default values (Auto, None, All, No style) in `--text`; only Mixed and search hints in `--muted`.
 - Swatches: 16 px squares in lists, 28 px chips in paint rows, radius 4, 1 px inset ring; stroke swatches are the same square as a ring.
