@@ -21,12 +21,13 @@ fails vitest.
 - The top bar is stable: opening a panel or the preflight never adds or removes its
   buttons; Export always stays. Placeholders for an unknown value are an en dash (–).
 - A title that does not fit ends in an ellipsis and carries the full name as its tooltip.
-- The page switcher shows its arrows and the page count even for a single spread; in a short bar
-  it drops its buttons from the end, so the tools and Export never clip.
+- The page switcher shows its arrows and the page count even for a single spread; it shows whole
+  or not at all, by its own space, so the tools and Export never clip.
 - The top bar shows the zoom in percent; a click opens the zoom menu. Zoom stays within
   2 %–6400 %, Ctrl + and Ctrl - zoom around the selection when there is one.
 - A window below 1000 px hides both panels at first; Alt 1 and Alt 2 show them there
-  without changing the choice for wide windows. A fitted page fits again on resize.
+  without changing the choice for wide windows, and the top bar spans the whole width above
+  them. A fitted page fits again on resize.
 - Rare settings of a section sit behind the ⋯ button in its header, whose tooltip names
   what it holds ("Text wrap", "Section numbering"); it stays open while one of them is set. Rare actions (arrange, flip, flatten, booleans) live in the panel's
   ⋯ menu and the palette, not in icon rows.

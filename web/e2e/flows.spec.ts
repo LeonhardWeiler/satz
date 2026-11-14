@@ -79,8 +79,15 @@ test('the overview lists masters beside vertical spreads, assigns a master and r
 test('the top bar keeps every tool and Export inside it at any width', async ({ page }) => {
   await open(page)
   const bar = page.locator('header.bar')
-  for (const width of [880, 1000, 1240, 1280, 1400]) {
+  for (const width of [880, 760, 880, 1000, 1240, 1280, 1400]) {
     await page.setViewportSize({ width, height: 700 })
+    if (width === 760) for (const k of ['Alt+1', 'Alt+2']) await page.keyboard.press(k)
+    if (width === 760) await expect(page.getByRole('complementary', { name: 'Properties' })).toBeInViewport({ ratio: 1 })
+    const whole = await page.evaluate(() => {
+      const [m, s] = ['.bar-mid', '.switcher'].map((q) => document.querySelector(q)!.getBoundingClientRect())
+      return s.top >= m.bottom || (s.left >= m.left && s.right <= m.right)
+    })
+    expect(whole).toBe(true)
     const [b, tools, exp] = await Promise.all([bar, page.getByRole('toolbar', { name: 'Tools' }), bar.getByRole('button', { name: 'Export', exact: true })].map((l) => l.boundingBox()))
     expect(tools!.x).toBeGreaterThanOrEqual(b!.x)
     expect(exp!.x + exp!.width).toBeLessThanOrEqual(b!.x + b!.width)

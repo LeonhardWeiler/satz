@@ -114,6 +114,10 @@ body,
 }
 
 @media (max-width: 999px) {
+  .app {
+    grid-template-areas: 'bar bar bar' 'left stage right';
+  }
+
   .app.no-left-narrow {
     --l: 0px;
   }
@@ -133,7 +137,6 @@ body,
   grid-area: bar;
   display: grid;
   grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr);
-  justify-content: unsafe end;
   align-items: center;
   container: bar / inline-size;
   min-width: 0;
@@ -1870,14 +1873,24 @@ input[type='range']:focus-visible::-moz-range-thumb {
   vertical-align: -1px;
 }
 
-.switcher {
+.bar-mid {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
+  height: 28px;
+  overflow: clip;
+}
+
+.bar-mid::before {
+  content: '';
+  height: 28px;
+}
+
+.switcher {
+  display: flex;
   align-items: center;
   gap: 2px;
-  height: 28px;
   margin: 0 8px;
-  overflow: hidden;
 }
 
 .switcher-at {
@@ -3400,17 +3413,8 @@ dialog::backdrop {
 @container bar (max-width: 700px) {
   .bar-side > .toggle,
   .bar-side > .sep,
-  .palette-button,
-  .switcher > .icon-button {
+  .palette-button {
     display: none;
-  }
-
-  .switcher {
-    margin: 0;
-  }
-
-  .switcher-at {
-    min-width: 0;
   }
 }
 

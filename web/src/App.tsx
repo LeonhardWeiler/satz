@@ -299,7 +299,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           )}
           {!overview && <Toolbar editor={editor} onPlaceImage={() => placeImages(editor)} />}
         </div>
-        {overview ? <span /> : <Switcher editor={editor} />}
+        <div className="bar-mid">{!overview && <Switcher editor={editor} />}</div>
         <div className="bar-side end">
           <button
             type="button"
