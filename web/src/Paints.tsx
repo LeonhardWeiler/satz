@@ -376,7 +376,7 @@ function EffectRow({ effect: e, mode, scope, set, onRemove }: { effect: Effect; 
 const FITS = [
   ['cover', 'Fill frame'],
   ['contain', 'Fit in frame'],
-  ['frame', 'Frame to image'],
+  ['frame', 'Fit frame'],
 ] as const
 type Fit = (typeof FITS)[number][0]
 const ADJUST = ['Brightness', 'Contrast', 'Saturation']

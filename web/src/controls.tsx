@@ -329,7 +329,7 @@ export function FontSelect({
     )
   return (
     <div className="grid">
-      <Select label={label} value={face ? family(face) : null} options={families} breaks={onAdd && last ? [last] : []} search onChange={pick} />
+      <Select label={label} value={face ? family(face) : null} options={families} breaks={onAdd && last ? [last] : []} search wide onChange={pick} />
       <Select
         label={`${label} style`}
         value={face?.hash ?? null}

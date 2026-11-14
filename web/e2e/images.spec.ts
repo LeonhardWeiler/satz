@@ -120,9 +120,9 @@ test('the fit menu sizes the frame to its image', async ({ page }) => {
   await height.fill('50.8')
   await height.press('Enter')
   const fill = page.getByRole('region', { name: 'Fill' })
-  await choose(fill.getByRole('combobox', { name: 'Image fit' }), 'Frame to image')
+  await choose(fill.getByRole('combobox', { name: 'Image fit' }), 'Fit frame')
   await expect(height).toHaveValue('25.4')
-  await expect(fill.getByRole('combobox', { name: 'Image fit' })).toHaveText('Frame to image')
+  await expect(fill.getByRole('combobox', { name: 'Image fit' })).toHaveText('Fit frame')
   await expect(fill.getByTitle(/RGB, converted to CMYK/)).toHaveText('300 ppi')
 })
 
