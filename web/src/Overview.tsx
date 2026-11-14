@@ -356,7 +356,12 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   return (
     <section className="overview" aria-label="Page overview" style={{ gridTemplateColumns: `${wide}px 1fr` }} onPointerDown={editor.gesture}>
       <div className="ov-col" onPointerDown={(e) => marquee(e, masterIds, masterList.current)}>
-        <h2>Masters</h2>
+        <header className="ov-head">
+          <h2>Masters</h2>
+          <button type="button" className="icon-button" aria-label="New master" title="New master" onClick={() => addMaster(selected.at(-1) ?? current)}>
+            <Icon name="plus" />
+          </button>
+        </header>
         <div
           ref={masterList}
           className="ov-row"
@@ -405,16 +410,15 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
               )}
             </div>
           ))}
-          <button type="button" className="ov-add" onClick={() => addMaster(selected.at(-1) ?? current)}>
-            <Icon name="plus" />
-            New master
-          </button>
         </div>
       </div>
       <div ref={scroller} className="ov-main" onPointerDown={(e) => marquee(e, ids, list.current)}>
         <header className="ov-head">
           <h2>Pages</h2>
           <Field label="Columns" unit="" int min={0} max={12} zero="Auto" value={columns} onCommit={(v) => resize({ columns: v })} />
+          <button type="button" className="icon-button" aria-label="Add page" title="Add page" onClick={() => show(editor.apply({ type: 'addPage', after: selected.filter((id) => ids.includes(id)).at(-1) ?? ids.at(-1) })[0])}>
+            <Icon name="plus" />
+          </button>
         </header>
         <div className="ov-col">
           <div

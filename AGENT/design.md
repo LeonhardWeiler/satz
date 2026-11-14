@@ -78,6 +78,7 @@ fails vitest.
 - Short controls of one section share a grid row before a new row starts (Columns and
   vertical align).
 - The page overview hides the drawing tools and the spread navigation; neither acts there.
+  Its left panel shows the layers of the one selected page or master, read only, or nothing.
 - A section title does not repeat the label of the button it holds (Output, not Export
   above an Export button).
 - Every panel section uses one 2-column grid (X Y, W H, rotation radius); keep aspect
@@ -151,7 +152,7 @@ fails vitest.
 - Dialogs: 24 inset, title 16 in weight 600, actions at the bottom with the primary last
   on the right.
 - Empty states: a whole empty view shows an icon, one sentence and the action that fills it; an empty panel section is a row like the others, its title on the left and its + on the right.
-- One entry per action: adding a page lives in the pages panel header, not again as a slot; a button label does not repeat the value chosen beside it (Export, not Export PNG); a rare arrangement such as Tidy up sits in the ⋯ menu.
+- One entry per action: adding a page or a master lives in the + of its overview header, not again as a slot; a button label does not repeat the value chosen beside it (Export, not Export PNG); a rare arrangement such as Tidy up sits in the ⋯ menu.
 - Copy: sentence case everywhere, no trailing period on labels, US spelling, numbers
   as digits.
 

@@ -2711,6 +2711,10 @@ input[type='checkbox']:active {
   padding: 24px 24px 8px;
 }
 
+.ov-col > .ov-head {
+  padding: 0;
+}
+
 .ov-head h2 {
   flex: 1;
 }
@@ -2856,33 +2860,6 @@ input[type='checkbox']:active {
 }
 
 .ov-item[data-current] .ov-cap {
-  color: var(--text);
-}
-
-.ov-add {
-  display: grid;
-  place-items: center;
-  align-content: center;
-  gap: 4px;
-  width: 90px;
-  height: 110px;
-  border: 1px dashed var(--edge);
-  border-radius: 6px;
-  background: none;
-  color: var(--muted);
-  font: inherit;
-  cursor: pointer;
-}
-
-.ov-row > .ov-add {
-  grid-auto-flow: column;
-  align-self: stretch;
-  width: auto;
-  height: 40px;
-}
-
-.ov-add:hover {
-  border-color: var(--muted);
   color: var(--text);
 }
 

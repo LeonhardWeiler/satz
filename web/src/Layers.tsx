@@ -17,7 +17,9 @@ export function Layers({ editor }: { editor: Editor }) {
   const selection = useEditor(editor, (e) => e.selection)
   const renaming = useEditor(editor, (e) => e.renaming)
   const all = useEditor(editor, (e) => e.snapshot.pages)
-  const pages = useSettings().layers === 'spread' ? editor.spread : [page]
+  const spread = useSettings().layers === 'spread'
+  const looked = useEditor(editor, (e) => e.overview && (e.overview.length === 1 ? [...e.snapshot.pages, ...e.snapshot.masters].find((p) => p.id === e.overview![0]) : undefined))
+  const pages = looked !== null ? (looked ? [looked] : []) : spread ? editor.spread : [page]
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
   const [drop, setDrop] = useState<Drop | null>(null)
   const [dragging, setDragging] = useState<string[]>([])
@@ -43,7 +45,7 @@ export function Layers({ editor }: { editor: Editor }) {
 
   const shown = (nodes: Node[], flow = false): Node[] =>
     inOrder(nodes, flow).flatMap((n) => [n, ...('children' in n && !collapsed.has(n.id) ? shown(n.children, flows(n)) : [])])
-  const stop = pages.flatMap((p) => shown(p.children)).find((n) => selection.includes(n.id))?.id ?? pages[0].children.at(-1)?.id
+  const stop = pages.flatMap((p) => shown(p.children)).find((n) => selection.includes(n.id))?.id ?? pages[0]?.children.at(-1)?.id
 
   const onKey = (e: KeyboardEvent<HTMLUListElement>) => {
     const items = [...e.currentTarget.querySelectorAll('.layer-name')]
@@ -214,8 +216,8 @@ export function Layers({ editor }: { editor: Editor }) {
     })
 
   return (
-    <nav className="panel layers" aria-label="Layers">
-      {pages.every((p) => !p.children.length) && <p className="empty layers-empty">No layers yet. Draw one with the toolbar.</p>}
+    <nav className="panel layers" aria-label="Layers" inert={looked !== null}>
+      {looked === null && pages.every((p) => !p.children.length) && <p className="empty layers-empty">No layers yet. Draw one with the toolbar.</p>}
       <ul
         role="tree"
         aria-label="Layers"
