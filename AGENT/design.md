@@ -137,7 +137,7 @@ fails vitest.
 - Shortcuts: filled keycap chips in dialogs, the palette and tooltips, mouse actions too ("Ctrl" + "click"); plain `--muted` text in menus. Buttons carry no keycap; Enter on a primary button is implied.
 - Default values (Auto, None, All, No style) in `--text`; only Mixed and search hints in `--muted`.
 - Swatches: 16 px squares in lists, 28 px chips in paint rows, radius 4, 1 px inset ring; stroke swatches are the same square as a ring.
-- Paint rows: the swatch and one value field (Opacity for solid, Angle for linear, Tint for a swatch). The paint type and gradient stops live in the picker; stops are markers on a gradient bar, a click on the bar adds one.
+- Paint rows have one shape: chip, main field, value field, eye, minus. Solid: its hex (CMYK in CMYK documents) as text and Opacity; swatch: its name and Tint (spot) or Opacity; variable: its name and Opacity; gradient: a type select and Angle (linear); image: a fit select and ppi, the colour space in the tooltip. Gradient stops live in the picker, crop and adjust in the image chip's popover; stops are markers on a gradient bar, a click on the bar adds one.
 - Icons: 16 px outline, 1.5 stroke, no filled glyphs.
 - Fields: label inside on the left in `--muted`, value in `--text`, a unit other than the document unit in `--muted` on the right; steppers show the unit after the value, before the plus.
 - Labels: geometry fields take a letter (X, Y, W, H, R), type metrics an icon, every other field a word; one quantity has one label everywhere (Opacity). A select shows a prefix only when its value alone does not name the property (None, Keep, 300 ppi); values that name themselves (RGB, PDF/X-4, FOGRA51, Normal, a dash) carry none.

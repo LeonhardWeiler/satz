@@ -74,12 +74,20 @@ test('hex, saturation, hue and alpha change the fill', async ({ page }) => {
   await expect(picker.getByRole('textbox', { name: 'Hex' })).toHaveValue('#FF0000')
 
   await picker.getByRole('slider', { name: 'Opacity' }).fill('40')
-  await expect(panel.getByTitle('Fill value')).toHaveText('#FF0000 · 40 %')
+  const value = panel.getByRole('textbox', { name: 'Fill value' })
+  await expect(value).toHaveValue('#FF0000')
+  await expect(panel.getByRole('textbox', { name: 'Fill opacity in %' })).toHaveValue('40')
 
   await page.mouse.click(10, 10)
   await expect(picker).toBeHidden()
   await page.keyboard.press('Control+z')
-  await expect(panel.getByTitle('Fill value')).toHaveText(/^#[0-9A-F]{6}$/)
+  await expect(value).toHaveValue(/^#[0-9A-F]{6}$/)
+  await value.fill('0f0')
+  await value.press('Enter')
+  await expect(value).toHaveValue('#00FF00')
+  await value.fill('green')
+  await value.press('Enter')
+  await expect(value).toHaveValue('#00FF00')
 })
 
 test('the picker copies cmyk as text and takes it pasted in common notations', async ({ page, context }) => {
@@ -181,7 +189,7 @@ test('a spot swatch is made in the swatches panel, bound in the picker, tinted a
   await swatches.getByRole('option', { name: 'HKS 43' }).hover()
   await swatches.getByRole('button', { name: 'Delete HKS 43' }).click()
   await expect(swatches.getByRole('option')).toHaveCount(0)
-  await expect(panel.getByTitle('Fill value')).toBeVisible()
+  await expect(panel.getByRole('textbox', { name: 'Fill value' })).toBeVisible()
   const [r2, , b2] = (await pixels(page, x, y, 1, 1))[0]
   expect(b2 - r2).toBeGreaterThan(100)
 })

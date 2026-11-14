@@ -14,6 +14,5 @@ it('reads cmyk in the usual notations and writes one of them', () => {
 it('writes a process color as hex or cmyk and its opacity below 100 %', () => {
   const scope = {} as Scope
   expect(colorText(0x1a2b3cff, scope)).toBe('#1A2B3C')
-  expect(colorText(0xff000066, scope)).toBe('#FF0000 · 40 %')
   expect(colorText({ cmyk: [0, 0.5, 1, 0.25], alpha: 1 }, scope)).toBe('C0 M50 Y100 K25')
 })

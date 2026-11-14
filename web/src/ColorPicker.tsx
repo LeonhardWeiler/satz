@@ -18,6 +18,7 @@ import {
   fromHsv,
   fromRgb,
   parseCmyk,
+  parseHex,
   resolve,
   rgb as screen,
   toHsv,
@@ -239,9 +240,8 @@ export function Picker({
     set([h, clamp(s + move[0]), clamp(v + move[1])])
   }
   const commitHex = (text: string) => {
-    const t = text.replace(/^#/, '')
-    const full = t.length === 3 ? [...t].map((c) => c + c).join('') : t
-    if (/^[0-9a-f]{6}$/i.test(full)) set(toHsv(parseInt(full, 16)))
+    const v = parseHex(text)
+    if (v !== null) set(toHsv(v))
   }
 
   return (

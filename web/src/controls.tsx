@@ -172,7 +172,7 @@ export function Field({
 }
 
 /** A text input that commits a changed, non-empty value on blur or Enter. */
-export function NameInput({ label, value, autoFocus, blank, onCommit }: { label: string; value: string; autoFocus?: boolean; blank?: boolean; onCommit: (v: string) => void }) {
+export function NameInput({ label, value, autoFocus, blank, onCommit }: { label: string; value: string; autoFocus?: boolean; blank?: boolean; onCommit: (v: string) => unknown }) {
   return (
     <input
       key={value}
@@ -186,8 +186,7 @@ export function NameInput({ label, value, autoFocus, blank, onCommit }: { label:
       defaultValue={value}
       onBlur={(e) => {
         const v = e.currentTarget.value.trim()
-        if ((v || blank) && v !== value) onCommit(v)
-        else e.currentTarget.value = value
+        if (!((v || blank) && v !== value && onCommit(v) !== false)) e.currentTarget.value = value
       }}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === 'Escape') {

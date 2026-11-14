@@ -803,6 +803,7 @@ input[type='checkbox']:indeterminate::before {
 }
 
 .row > .field,
+.row > .name-input,
 .row > .grid,
 .row > .select,
 .row > .specimen {
@@ -865,10 +866,13 @@ input[type='checkbox']:indeterminate::before {
   place-items: center;
   padding: 0;
   color: var(--muted);
+}
+
+span.swatch.static {
   cursor: default;
 }
 
-.swatch.static:hover {
+span.swatch.static:hover {
   border-color: var(--border);
 }
 

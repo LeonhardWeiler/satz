@@ -27,12 +27,10 @@ export function css(c: Color, scope: Scope) {
   return `#${rgb(p, scope).toString(16).padStart(6, '0')}${Math.round(alpha(p) * 2.55).toString(16).padStart(2, '0')}`
 }
 
-/** `c` as hex or CMYK percentages, and its opacity when below 100 %. */
+/** `c` as hex or CMYK percentages. */
 export function colorText(c: Color, scope: Scope) {
   const p = resolve(c, scope)
-  const a = Math.round(alpha(p))
-  const text = typeof p === 'number' ? `#${(p >>> 8).toString(16).padStart(6, '0').toUpperCase()}` : p.cmyk.map((v, i) => `${'CMYK'[i]}${Math.round(v * 100)}`).join(' ')
-  return a < 100 ? `${text} · ${a} %` : text
+  return typeof p === 'number' ? `#${(p >>> 8).toString(16).padStart(6, '0').toUpperCase()}` : p.cmyk.map((v, i) => `${'CMYK'[i]}${Math.round(v * 100)}`).join(' ')
 }
 
 /** `rgb` in the document's mode, with the alpha of `like`. */
@@ -72,4 +70,19 @@ export function parseCmyk(text: string): number[] | null {
     return m && (!m[1] || m[1].toUpperCase() === 'CMYK'[i]) && Number(m[2]) <= 100 ? Number(m[2]) / 100 : NaN
   })
   return values.length === 4 && values.every((v) => v >= 0) ? values : null
+}
+
+/** 0xRRGGBB from "#RGB" or "#RRGGBB", the # optional; null for anything else. */
+export function parseHex(text: string) {
+  const t = text.trim().replace(/^#/, '')
+  const full = t.length === 3 ? [...t].map((c) => c + c).join('') : t
+  return /^[0-9a-f]{6}$/i.test(full) ? parseInt(full, 16) : null
+}
+
+/** A hex or, in CMYK documents, CMYK typed in, with the alpha of `like`; null for anything else. */
+export function parseColor(text: string, like: Color, mode: ColorMode): Color | null {
+  const cmyk = mode === 'cmyk' ? parseCmyk(text) : null
+  if (cmyk) return { cmyk, alpha: alpha(like) / 100 }
+  const hex = parseHex(text)
+  return hex === null ? null : fromRgb(hex, like, mode)
 }

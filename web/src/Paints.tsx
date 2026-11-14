@@ -1,13 +1,14 @@
 import { Fragment, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { ColorPicker } from './ColorPicker'
-import { colorText, css, neutral, withAlpha, type ColorMode } from './color'
-import { Field, MenuButton, RowActions, Section, Segmented, Select } from './controls'
+import { alpha, colorText, css, neutral, parseColor, withAlpha, type ColorMode } from './color'
+import { Field, NameInput, RowActions, Section, Segmented, Select } from './controls'
 import { Icon } from './icons'
-import { useEditor, type Editor } from './editor'
+import type { Editor } from './editor'
 import { Dialog } from './Popover'
 import type { Effect, Fill, Scope, Snapshot } from './model'
 
 const TYPES = [['solid', 'Solid'], ['linear', 'Linear'], ['radial', 'Radial']] as const
+type Type = (typeof TYPES)[number][0]
 const EFFECTS = { dropShadow: 'Drop shadow', blur: 'Layer blur' } as const
 const RADIAL = [0.5, 0, 0, 0.5, 0.5, 0.5]
 const shadow = (mode: ColorMode): Effect => ({
@@ -146,6 +147,7 @@ function PaintRow({
   onRemove: () => void
 }) {
   const [at, setAt] = useState(0)
+  const [imageAt, setImageAt] = useState<Element | null>(null)
   const k = Math.min(at, p.stops.length - 1)
   const solid = p.type === 'solid'
   const c = p.color
@@ -153,13 +155,56 @@ function PaintRow({
   const swatch = bound && scope.swatches.find((s) => s.id === bound.swatch)
   const boundVar = solid && typeof c === 'object' && 'variable' in c ? c : null
   const variable = boundVar && scope.variables.find((v) => v.id === boundVar.variable)
+  const named = (text: string, tip = text, icon?: ReactNode) => (
+    <span className="bound-name" title={tip}>
+      {icon}
+      {text}
+    </span>
+  )
+  const opacity = (
+    <Field label="Opacity" title={`${title} opacity`} unit="%" max={100} value={Math.round(alpha(c))} onCommit={(v) => set({ ...p, color: withAlpha(c, v) })} />
+  )
+  const typed = (text: string) => {
+    const n = parseColor(text, c, mode)
+    if (n) set({ ...p, color: n })
+    return !!n
+  }
+  const space = p.type === 'image' ? images[p.image!] : ''
+  const fits = { ...Object.fromEntries(FITS), custom: 'Custom' } as Record<Fit | 'custom', string>
+  const [main, value] =
+    p.type === 'image'
+      ? [
+          <Select
+            label="Image fit"
+            value={fitOf(p) ?? 'custom'}
+            options={fits}
+            disabled={image ? ['custom'] : (Object.keys(fits) as (Fit | 'custom')[])}
+            onChange={(fit) => fit !== 'custom' && editor.apply({ type: 'fitImage', id: image!, fit })}
+          />,
+          named(ppi === undefined ? '–' : `${Math.round(ppi)} ppi`, space === (mode === 'cmyk' ? 'RGB' : 'CMYK') ? `${space}, converted to ${mode.toUpperCase()}` : space),
+        ]
+      : bound
+        ? [
+            named(swatch ? swatch.name : 'Missing swatch'),
+            swatch?.spot ? (
+              <Field label="Tint" title={`${title} tint`} unit="%" max={100} value={bound.tint * 100} onCommit={(v) => set({ ...p, color: { ...bound, tint: v / 100 } })} />
+            ) : (
+              opacity
+            ),
+          ]
+        : boundVar
+          ? [named(variable ? variable.name : 'Missing variable', undefined, <Icon name="drop" size={12} />), opacity]
+          : solid
+            ? [<NameInput label={`${title} value`} value={colorText(c, scope)} onCommit={typed} />, opacity]
+            : [
+                <Select label={`${title} type`} value={p.type as Type} options={Object.fromEntries(TYPES) as Record<Type, string>} onChange={(t) => set(retype(p, t))} />,
+                p.type === 'linear' && (
+                  <Field label="Angle" title={`${title} angle`} unit="°" min={-Infinity} reset={0} value={angle(p.transform)} onCommit={(v) => set({ ...p, transform: linear(v) })} />
+                ),
+              ]
   return (
     <div className="row">
-      {p.type === 'image' ? (
-        <span className="swatch static">
-          <Icon name="image" />
-        </span>
-      ) : (
+      {p.type !== 'image' ? (
         <ColorPicker
           label={`${title} color`}
           color={solid ? p.color : p.stops[k].color}
@@ -172,49 +217,21 @@ function PaintRow({
           <Segmented label={`${title} type`} value={p.type} options={TYPES} onChange={(t) => set(retype(p, t))} />
           {!solid && <Stops paint={p} at={k} scope={scope} select={setAt} set={set} />}
         </ColorPicker>
-      )}
-      {p.type === 'image' ? (
-        <span className="bound-name" title={imageText(ppi, images[p.image!], mode).title}>
-          {imageText(ppi, images[p.image!], mode).shown}
-        </span>
-      ) : bound ? (
-        <>
-          <span className="bound-name" title={swatch ? swatch.name : 'Missing swatch'}>
-            {swatch ? swatch.name : 'Missing swatch'}
-          </span>
-          <Field
-            label={swatch?.spot ? 'Tint' : 'Opacity'}
-            title={`${title} ${swatch?.spot ? 'tint' : 'opacity'}`}
-            unit="%"
-            max={100}
-            value={swatch?.spot ? bound.tint * 100 : bound.alpha * 100}
-            onCommit={(v) => {
-              const x = v / 100
-              set({ ...p, color: swatch?.spot ? { ...bound, tint: x } : { ...bound, alpha: x } })
-            }}
-          />
-        </>
-      ) : boundVar ? (
-        <span className="bound-name" title={variable ? variable.name : 'Missing variable'}>
-          <Icon name="drop" size={12} />
-          {variable ? variable.name : 'Missing variable'}
-        </span>
-      ) : solid ? (
-        <span className="bound-name" title={`${title} value`}>{colorText(p.color, scope)}</span>
-      ) : p.type === 'linear' ? (
-        <Field label="Angle" title={`${title} angle`} unit="°" min={-Infinity} reset={0} value={angle(p.transform)} onCommit={(v) => set({ ...p, transform: linear(v) })} />
+      ) : image ? (
+        <button type="button" className="swatch static" aria-label="Image settings" title="Image settings" aria-haspopup="dialog" aria-expanded={!!imageAt} onClick={(e) => setImageAt(e.currentTarget)}>
+          <Icon name="image" />
+        </button>
       ) : (
-        <span className="bound-name">Radial</span>
+        <span className="swatch static">
+          <Icon name="image" />
+        </span>
       )}
-      {p.type === 'image' && image && <ImageTools editor={editor} id={image} paint={p} set={set} />}
+      {main}
+      {value}
+      {imageAt && image && <ImageTools editor={editor} id={image} paint={p} set={set} at={imageAt} onClose={() => setImageAt(null)} />}
       <RowActions what={title.toLowerCase()} visible={p.visible} onToggle={() => set({ ...p, visible: !p.visible })} onRemove={onRemove} />
     </div>
   )
-}
-
-const imageText = (ppi: number | undefined, space: string, mode: ColorMode) => {
-  const shown = `${ppi === undefined ? 'Image' : `${Math.round(ppi)} ppi`} · ${space}`
-  return { shown, title: space === (mode === 'cmyk' ? 'RGB' : 'CMYK') ? `${shown}, converted to ${mode.toUpperCase()}` : shown }
 }
 
 /** A gradient bar with a marker per stop: a click on the bar adds a stop, a marker drags or takes arrow keys, Delete removes it. */
@@ -356,6 +373,7 @@ const FITS = [
   ['contain', 'Fit in frame'],
   ['frame', 'Frame to image'],
 ] as const
+type Fit = (typeof FITS)[number][0]
 const ADJUST = ['Brightness', 'Contrast', 'Saturation']
 
 const near = (a: number, b: number) => Math.abs(a - b) < 1e-4
@@ -368,37 +386,36 @@ function fitOf(p: Fill) {
   return near(lo, 1) && near(hi, 1) ? 'frame' : near(lo, 1) ? 'cover' : near(hi, 1) ? 'contain' : undefined
 }
 
-/** Crop, fit and the brightness, contrast and saturation of the image `p` of the layer `id`. */
-function ImageTools({ editor, id, paint: p, set }: { editor: Editor; id: string; paint: Fill; set: (p: Fill) => void }) {
-  const cropping = useEditor(editor, (e) => e.cropping)
-  const [adjustAt, setAdjustAt] = useState<Element | null>(null)
+/** The crop and brightness, contrast and saturation of the image `p` of the layer `id`. */
+function ImageTools({ editor, id, paint: p, set, at, onClose }: { editor: Editor; id: string; paint: Fill; set: (p: Fill) => void; at: Element; onClose: () => void }) {
   const adjust = p.adjust ?? [0, 0, 0]
   const change = (i: number, v: number) => set({ ...p, adjust: adjust.with(i, v / 100) as Fill['adjust'] })
   return (
-    <>
-      <button type="button" className="icon-button" title="Crop" aria-pressed={cropping === id} onClick={() => editor.set({ cropping: cropping === id ? null : id })}>
-        <Icon name="crop" />
-      </button>
-      <MenuButton icon="fit" title="Fit image" items={FITS.map(([fit, name]) => [name, () => editor.apply({ type: 'fitImage', id, fit }), true, fit === fitOf(p)])} />
-      <button type="button" className="icon-button" title="Adjust image" aria-haspopup="dialog" aria-expanded={!!adjustAt} onClick={(e) => setAdjustAt(e.currentTarget)}>
-        <Icon name="adjust" />
-      </button>
-      {adjustAt && (
-        <Dialog label="Adjust image" at={adjustAt} onClose={() => setAdjustAt(null)}>
-          <div className="adjust">
-            {ADJUST.map((name, i) => (
-              <Fragment key={name}>
-                <span>{name}</span>
-                <input type="range" aria-label={name} min={-100} max={100} value={Math.round(adjust[i] * 100)} style={{ '--a': `${50 + Math.min(0, adjust[i]) * 50}%`, '--b': `${50 + Math.max(0, adjust[i]) * 50}%` } as CSSProperties} onChange={(e) => change(i, Number(e.currentTarget.value))} />
-                <Field label="" title={name} unit="%" min={-100} max={100} reset={0} value={Math.round(adjust[i] * 100)} onCommit={(v) => change(i, v)} />
-              </Fragment>
-            ))}
-            <button type="button" className="button" disabled={adjust.every((v) => !v)} onClick={() => set({ ...p, adjust: [0, 0, 0] })}>
-              Reset
-            </button>
-          </div>
-        </Dialog>
-      )}
-    </>
+    <Dialog label="Image settings" at={at} onClose={onClose}>
+      <div className="row">
+        <button
+          type="button"
+          className="button"
+          onClick={() => {
+            editor.set({ cropping: id })
+            onClose()
+          }}
+        >
+          Crop
+        </button>
+      </div>
+      <div className="adjust">
+        {ADJUST.map((name, i) => (
+          <Fragment key={name}>
+            <span>{name}</span>
+            <input type="range" aria-label={name} min={-100} max={100} value={Math.round(adjust[i] * 100)} style={{ '--a': `${50 + Math.min(0, adjust[i]) * 50}%`, '--b': `${50 + Math.max(0, adjust[i]) * 50}%` } as CSSProperties} onChange={(e) => change(i, Number(e.currentTarget.value))} />
+            <Field label="" title={name} unit="%" min={-100} max={100} reset={0} value={Math.round(adjust[i] * 100)} onCommit={(v) => change(i, v)} />
+          </Fragment>
+        ))}
+        <button type="button" className="button" disabled={adjust.every((v) => !v)} onClick={() => set({ ...p, adjust: [0, 0, 0] })}>
+          Reset
+        </button>
+      </div>
+    </Dialog>
   )
 }
