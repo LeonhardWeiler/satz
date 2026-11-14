@@ -178,7 +178,7 @@ export function Properties({ editor }: { editor: Editor }) {
     </PaintList>
   )
 
-  const heading = one && cropping === one.id ? 'Crop' : one ? one.name : nodes.length ? `${nodes.length} ${cells ? 'cells' : 'layers'}` : overview ? 'Pages' : isPage ? 'Document' : page.name
+  const heading = one && cropping === one.id ? 'Crop' : one ? one.name : nodes.length ? `${nodes.length} ${cells ? 'cells' : 'layers'}` : overview ? 'Pages' : 'Document'
   return (
     <aside
       className="panel properties"
@@ -186,7 +186,7 @@ export function Properties({ editor }: { editor: Editor }) {
       onPointerDown={editor.gesture}
     >
       <header className="panel-header">
-        {one ? <KindIcon node={one} /> : <Icon name={cells ? 'table' : nodes.length ? 'layers' : isPage ? 'doc' : 'master'} />}
+        {one ? <KindIcon node={one} /> : <Icon name={cells ? 'table' : nodes.length ? 'layers' : 'doc'} />}
         <h2 title={heading}>{heading}</h2>
         {one && cropping === one.id && <button type="button" className="button" onClick={() => editor.set({ cropping: null })}>Done</button>}
         {one?.overrideOf && (
