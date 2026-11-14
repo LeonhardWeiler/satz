@@ -1924,7 +1924,9 @@ mod tests {
                 .collect::<Vec<_>>()
         };
         let before = fills(&d);
+        let path = d.path_of(&r).unwrap();
         d.apply(Command::Flatten { id: r.clone() }).unwrap();
+        assert_eq!(d.path_of(&r).unwrap(), path);
         assert!(matches!(
             page(&d).children[0].kind,
             Kind::Shape(Shape::Path { .. })

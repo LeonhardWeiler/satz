@@ -302,6 +302,12 @@ impl Engine {
         Ok(self.doc.turn_of(id).map_err(|e| JsError::new(&e))?.to_vec())
     }
 
+    /// The outline of the shape `id` as a display list path, as flattening makes it.
+    #[wasm_bindgen(js_name = pathOf)]
+    pub fn path_of(&self, id: &str) -> Result<Vec<f32>, JsError> {
+        self.doc.path_of(id).map_err(|e| JsError::new(&e))
+    }
+
     /// Whether the text frame `to` can join the thread after `from`.
     #[wasm_bindgen(js_name = canThread)]
     pub fn can_thread(&self, from: &str, to: &str) -> bool {

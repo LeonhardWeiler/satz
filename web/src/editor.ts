@@ -360,7 +360,7 @@ export class Editor {
       timed('index', start)
       this.selection = this.selection.filter((id) => this.nodes.has(id))
       const v = this.vector && this.nodes.get(this.vector.id)?.node
-      if (v && !(v.kind === 'shape' && v.shape === 'path')) this.vector = null
+      if (v && v.kind !== 'shape') this.vector = null
       const n = this.editing && this.nodes.get(this.editing.id)?.node
       if (this.editing) {
         const len = n?.kind === 'text' ? this.storyOf(n).text.length : -1
@@ -556,23 +556,16 @@ export class Editor {
     this.showPage(pages.find((p) => p.id === this.back)?.id ?? pages[0].id)
   }
 
-  /** Edits the points of the shape `id`, which becomes a path. */
+  /** Edits the points of the shape `id`, which becomes a path when one changes. */
   editPath(id: string) {
-    const n = this.nodes.get(id)?.node
-    if (n?.kind !== 'shape') return
-    if (n.shape !== 'path' || n.rotation) this.apply({ type: 'flatten', id })
+    if (this.nodes.get(id)?.node.kind !== 'shape') return
     this.set({ selection: [id], vector: { id, mode: 'move', at: [] } })
   }
 
   /** The knots of the path being edited, in the space of its page. */
   knots(): Contour[] {
     const n = this.vector && this.nodes.get(this.vector.id)?.node
-    if (n?.kind !== 'shape' || n.shape !== 'path') return []
-    const [x, y] = [(u: number) => n.x + u * n.w, (v: number) => n.y + v * n.h]
-    return contours(n.path).map(({ knots, closed }) => ({
-      closed,
-      knots: knots.map((k) => ({ x: x(k.x), y: y(k.y), ix: x(k.ix), iy: y(k.iy), ox: x(k.ox), oy: y(k.oy) })),
-    }))
+    return n?.kind === 'shape' ? contours(this.engine.pathOf(n.id)) : []
   }
 
   /** Gives the path being edited the knots `cs` and picks `at`; without knots the path goes. */
@@ -580,9 +573,17 @@ export class Editor {
     const v = this.vector!
     if (!cs.length) this.apply({ type: 'delete', ids: [v.id] })
     else {
-      this.apply({ type: 'setPath', id: v.id, path: toPath(cs) })
+      this.changePath({ type: 'setPath', id: v.id, path: toPath(cs) })
       this.set({ vector: { ...v, at } })
     }
+  }
+
+  /** Applies `cmd` to the shape being edited, which becomes a path first, in one undo step. */
+  changePath(cmd: Command) {
+    this.batch(() => {
+      this.apply({ type: 'flatten', id: this.vector!.id })
+      this.apply(cmd)
+    })
   }
 
   setTool(tool: Tool) {

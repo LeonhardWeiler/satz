@@ -13,7 +13,7 @@ const lerp = (a: Point, b: Point, t: number) => ({ x: a.x + (b.x - a.x) * t, y: 
 const isLine = (a: Knot, b: Knot) => a.ox === a.x && a.oy === a.y && b.ix === b.x && b.iy === b.y
 
 /** The contours of the display-list path `path`. */
-export function contours(path: number[]): Contour[] {
+export function contours(path: ArrayLike<number>): Contour[] {
   const out: Contour[] = []
   let knots: Knot[] = []
   for (let i = 0; i < path.length; ) {

@@ -2809,6 +2809,11 @@ impl Doc {
         Ok(vec![])
     }
 
+    /// The outline of the shape or text `id` in its parent's space, as `Flatten` makes it.
+    pub fn path_of(&self, id: &str) -> Res<Vec<f32>> {
+        self.outline_of(self.layer(id)?)
+    }
+
     fn fit_image(&self, id: String, fit: Fit) -> Res<Vec<String>> {
         let id = self.layer(&id)?;
         let mut fills: Vec<Fill> = self.json(id, "fills");

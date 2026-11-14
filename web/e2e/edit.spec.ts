@@ -205,8 +205,13 @@ test('enter edits the points of a shape, moving, adding and deleting them', asyn
   const tools = page.getByRole('toolbar', { name: 'Path tools' })
   await page.keyboard.press('r')
   await drag(page, await screen(page, 20, 20), await screen(page, 60, 60))
+  const layers = page.getByRole('tree', { name: 'Layers' })
+  await page.keyboard.press('Enter')
+  await page.keyboard.press('Escape')
+  await expect(layers.getByRole('treeitem', { selected: true })).toHaveAccessibleName(/^Rectangle/)
   await page.keyboard.press('Enter')
   await expect(tools.getByRole('button', { name: 'Move point' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(layers.getByRole('treeitem', { selected: true })).toHaveAccessibleName(/^Rectangle/)
   await drag(page, await screen(page, 60, 60), await screen(page, 80, 60))
   await expect(props.getByRole('textbox', { name: 'W in mm' })).toHaveValue('60')
 

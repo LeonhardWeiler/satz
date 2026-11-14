@@ -937,7 +937,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           return
         }
         if (v.mode === 'fill') {
-          editor.apply({ type: 'fillArea', id: v.id, x: q.x, y: q.y })
+          editor.changePath({ type: 'fillArea', id: v.id, x: q.x, y: q.y })
           drag = null
           return
         }
