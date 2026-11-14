@@ -307,7 +307,7 @@ export function Properties({ editor }: { editor: Editor }) {
             <AlignBar editor={editor}>
               {row && (
                 <Field
-                  label={<Icon name={row.axis === 'x' ? 'distributeX' : 'distributeY'} />}
+                  label="Gap"
                   title={row.axis === 'x' ? 'Horizontal spacing' : 'Vertical spacing'}
                   unit="length"
                   value={row.gaps.every((g) => Math.abs(g - row.gaps[0]) < 1e-6) ? row.gaps[0] : null}
