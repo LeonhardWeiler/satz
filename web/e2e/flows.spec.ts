@@ -104,7 +104,7 @@ test('f6 and shift f6 cycle the focus through the bar, the panels and the canvas
   await open(page)
   await page.keyboard.press('Escape')
   const inside = (s: string) => page.evaluate((s) => !!document.activeElement?.closest(s), s)
-  for (const s of ['.bar', '.left', '.canvas', '.right', '.bar']) {
+  for (const s of ['.bar', '.left [role=tab][aria-selected=true], .left [role=tree]', '.canvas', '.right', '.bar']) {
     await page.keyboard.press('F6')
     expect(await inside(s)).toBe(true)
   }

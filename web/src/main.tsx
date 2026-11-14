@@ -12,7 +12,7 @@ if (import.meta.env.PROD) navigator.serviceWorker?.register(`${import.meta.env.B
 
 const root = createRoot(document.getElementById('root')!)
 addEventListener('pointerdown', () => document.documentElement.toggleAttribute('data-pointer', true), true)
-addEventListener('keydown', () => document.documentElement.removeAttribute('data-pointer'), true)
+addEventListener('keydown', (e) => (e.key === 'Tab' || e.key === 'F6') && document.documentElement.removeAttribute('data-pointer'), true)
 
 const notice = (title: string, text: string, reload = false) =>
   root.render(

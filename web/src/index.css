@@ -376,7 +376,7 @@ button {
   opacity: 0.86;
 }
 
-.primary:focus-visible {
+:is(.primary, .mark, input[type='checkbox']):focus-visible {
   outline-offset: 2px;
 }
 

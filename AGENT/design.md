@@ -122,7 +122,8 @@ fails vitest.
   border and one of 2 shadows: `--shadow-pop` (menus, popovers, tooltips, bars over the
   canvas) and `--shadow-dialog` (dialogs, palette).
 - Lines: 1 px. Separators and control outlines at rest `--border`; control outlines on
-  hover, floating surfaces and separators on them `--edge`; focus ring 2 px `--accent`, inset.
+  hover, floating surfaces and separators on them `--edge`; focus ring 2 px `--accent`, inset; 2 px outside on
+  accent-filled and small controls (primary, the logo, checkboxes), where an inset ring would vanish.
 - Motion: `--fast` (120 ms) for hover, press and colour changes, `--open` (160 ms) for
   popovers, dialogs and toasts, always with `--ease`; nothing longer except progress
   bars and the error shake. Pressed controls scale to 0.93. `prefers-reduced-motion`

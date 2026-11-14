@@ -130,13 +130,15 @@ test('several selected layers show and set the box around them', async ({ page }
   expect(sun2.w).toBeCloseTo(sun.w * 2, 0)
   expect(tri2.w).toBeCloseTo(tri.w * 2, 0)
 })
-test('focus moved after a click shows no ring until a key is pressed', async ({ page }) => {
+test('focus moved after a click shows no ring until tab or f6 is pressed', async ({ page }) => {
   await open(page)
   await page.keyboard.press('Escape')
   const add = page.getByRole('complementary', { name: 'Properties' }).getByRole('button', { name: 'Add layout grid' })
   await add.click()
   await page.getByRole('menu').getByRole('menuitem').first().click()
   await expect(add).toBeFocused()
+  await expect(add).toHaveCSS('outline-style', 'none')
+  await page.keyboard.press('r')
   await expect(add).toHaveCSS('outline-style', 'none')
   await page.keyboard.press('Shift+Tab')
   await page.keyboard.press('Tab')

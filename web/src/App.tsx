@@ -29,6 +29,7 @@ const NARROW = '(max-width: 999px)'
 
 const REGIONS = ['.bar', '.left', '.canvas', '.right']
 const FOCUSABLE = 'button:enabled, input:enabled, select:enabled, textarea:enabled, a[href], [tabindex]:not([tabindex="-1"])'
+const ENTRIES = ['[role=tree] [tabindex="0"]', '[role=tab][aria-selected=true]', FOCUSABLE]
 
 function cycleFocus(back: boolean) {
   const at = REGIONS.findIndex((s) => document.activeElement?.closest(s))
@@ -36,7 +37,7 @@ function cycleFocus(back: boolean) {
   for (let i = 1; i <= REGIONS.length; i++) {
     const r = document.querySelector<HTMLElement>(REGIONS[(from + (back ? -i : i) + REGIONS.length) % REGIONS.length])
     if (!r || r.closest('[inert]') || !r.checkVisibility()) continue
-    const f = r.matches('canvas') ? r : [...r.querySelectorAll<HTMLElement>(FOCUSABLE)].find((e) => e.checkVisibility())
+    const f = r.matches('canvas') ? r : ENTRIES.flatMap((s) => [...r.querySelectorAll<HTMLElement>(s)]).find((e) => e.checkVisibility())
     if (f) return f.focus()
   }
 }
