@@ -142,9 +142,11 @@ export function Properties({ editor }: { editor: Editor }) {
   const open = nodes.length > 0 && nodes.every(isOpen)
   const [sectionMore, sectionButton] = useMore('Page options', 'Section numbering', page.section !== null)
   const [joinMore, joinButton] = useMore('Stroke options', open ? 'Cap and join' : 'Align and join', nodes.some((n) => n.join !== 'miter' || (open && n.cap !== 'none')))
-  const stroked = nodes.length > 0 && nodes.every((n) => n.kind !== 'group')
+  const painted = nodes.some((n) => n.kind !== 'group')
+  const paint = (props: Props) => each((n) => (n.kind === 'group' ? undefined : { type: 'set', id: n.id, ...props }))
   const sided = nodes.length > 0 && nodes.every(rounded)
-  const strokes = stroked ? sameList((n) => n.strokes) : null
+  const plain = painted && nodes.every((n) => n.kind !== 'group')
+  const strokes = plain ? sameList((n) => n.strokes) : null
   const line = one && ends(one)
   const length = line && Math.hypot(line[1].x - line[0].x, line[1].y - line[0].y)
   const angle = line && (Math.atan2(line[0].y - line[1].y, line[1].x - line[0].x) * 180) / Math.PI
@@ -158,24 +160,26 @@ export function Properties({ editor }: { editor: Editor }) {
   const texts = nodes.length > 0 && nodes.every((n) => n.kind === 'text')
   const cells = texts && nodes.every((n) => n.kind === 'text' && !!n.cell)
   const table = nodes.some((n) => n.kind === 'frame' && !!n.table)
-  const fill = nodes.length > 0 && nodes.every((n) => n.kind !== 'group') && (
+  const fills = plain ? sameList((n) => n.fills) : null
+  const fill = painted && (
     <PaintList
       editor={editor}
       title={texts ? 'Text color' : 'Fill'}
-      paints={sameList((n) => n.fills)}
+      paints={fills}
       ppi={one?.ppi}
       image={one?.id}
       images={snapshot.images}
       added={solid(neutral(texts ? 'black' : 'gray', mode))}
       mode={mode}
       scope={scope}
-      onChange={(fills) => set({ fills })}>
-      {mode === 'cmyk' && !!sameList((n) => n.fills)?.length && (
+      onChange={(fills) => paint({ fills })}>
+      {mode === 'cmyk' && !!fills?.length && (
         <Check label="Overprint fill" value={same((n) => n.overprintFill)} set={(overprintFill) => set({ overprintFill })} />
       )}
     </PaintList>
   )
 
+  const heading = one && cropping === one.id ? 'Crop' : one ? one.name : nodes.length ? `${nodes.length} ${cells ? 'cells' : 'layers'}` : overview ? 'Pages' : isPage ? 'Document' : page.name
   return (
     <aside
       className="panel properties"
@@ -183,8 +187,8 @@ export function Properties({ editor }: { editor: Editor }) {
       onPointerDown={editor.gesture}
     >
       <header className="panel-header">
-        {one ? <KindIcon node={one} /> : <Icon name={cells ? 'table' : nodes.length ? 'group' : isPage ? 'doc' : 'master'} />}
-        <h2>{one && cropping === one.id ? 'Crop' : one ? one.name : nodes.length ? `${nodes.length} ${cells ? 'cells' : 'layers'}` : overview ? 'Pages' : isPage ? 'Document' : page.name}</h2>
+        {one ? <KindIcon node={one} /> : <Icon name={cells ? 'table' : nodes.length ? 'layers' : isPage ? 'doc' : 'master'} />}
+        <h2 title={heading}>{heading}</h2>
         {one && cropping === one.id && <button type="button" className="button" onClick={() => editor.set({ cropping: null })}>Done</button>}
         {one?.overrideOf && (
           <>
@@ -460,7 +464,7 @@ export function Properties({ editor }: { editor: Editor }) {
         </Section>
       )}
       {!texts && fill}
-      {stroked && (
+      {painted && (
         <PaintList
           editor={editor}
           title="Stroke"
@@ -478,7 +482,7 @@ export function Properties({ editor }: { editor: Editor }) {
               </>
             )
           }
-          paints={strokes} added={solid(neutral('black', mode))} mode={mode} scope={scope} onChange={(strokes) => set({ strokes })}>
+          paints={strokes} added={solid(neutral('black', mode))} mode={mode} scope={scope} onChange={(strokes) => paint({ strokes })}>
           {!!strokes?.length && (
             <div className="grid">
               {bindable(

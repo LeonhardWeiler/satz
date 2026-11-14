@@ -207,7 +207,7 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
             </div>
             <div className="kv">
               <span>Under pointer</span>
-              <strong title={pointerInk === null ? 'Point at a color' : undefined}>{pointerInk === null ? '—' : `${pointerInk} %`}</strong>
+              <strong title={pointerInk === null ? 'Point at a color' : undefined}>{pointerInk === null ? '–' : `${pointerInk} %`}</strong>
             </div>
           </Section>
           </>

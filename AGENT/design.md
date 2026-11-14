@@ -13,15 +13,20 @@ fails vitest.
 - Show what is used, hide what is rare behind a section, a tab or a menu; never a
   second copy of the same control.
 - Calm motion: short fades and a slight press, nothing moves on its own.
-- A control appears only where it acts: the align bar only for several layers, the
-  wrap offset only with a wrap, the preflight counter only with issues, the progress
-  bar only while exporting, a setting where it takes effect (raster resolution in
-  Export).
+- A control appears only where it acts: the wrap offset only with a wrap, the preflight
+  counter only with issues, the progress bar only while exporting, a setting where it
+  takes effect (raster resolution in Export).
+- Every layer aligns easily: the align bar shows for any selection outside an auto
+  layout, several layers align to their bounds, a single layer to its parent frame or page.
+- The top bar is stable: opening a panel or the preflight never adds or removes its
+  buttons; Export always stays. Placeholders for an unknown value are an en dash (–).
+- A title that does not fit ends in an ellipsis and carries the full name as its tooltip.
+- The page switcher shows its arrows and the page count even for a single spread.
 - Rare settings of a section sit behind the ⋯ button in its header, whose tooltip names
   what it holds ("Text wrap", "Section numbering"); it stays open while one of them is set. Rare actions (arrange, flip, flatten, booleans) live in the panel's
   ⋯ menu and the palette, not in icon rows.
-- Empty sections collapse to their title row; mixed values say "Mixed", the
-  explanation goes into the tooltip.
+- Empty sections collapse to their title row; mixed values say "Mixed" (a group in a
+  selection mixes its Fill and Stroke), the explanation goes into the tooltip.
 - Long option lists are grouped under short group titles, never one flat list.
 - One entry point per action per screen: a dialog does not repeat a button of the
   screen behind it.
@@ -46,7 +51,7 @@ fails vitest.
 - An action that a menu already offers has no button beside that menu (New text style
   lives in the text style menu).
 - A setting that cannot take effect is hidden: Gutter with 1 column, Text wrap on a page
-  without text, the spread arrows and the page count of a single spread.
+  without text.
 - Groups inside a popover part by spacing and their heading, not by rules.
 - Keep aspect ratio sits between W and H; while it is on, a bridge joins the 2 fields.
 - A section's actions on its subject (insert rows, merge cells) sit in header menus

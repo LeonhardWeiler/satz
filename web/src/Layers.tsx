@@ -216,7 +216,7 @@ export function Layers({ editor }: { editor: Editor }) {
 
   return (
     <nav className="panel layers" aria-label="Layers">
-      {pages.every((p) => !p.children.length) && <p className="empty layers-empty">No layers yet. Draw one with the tools above.</p>}
+      {pages.every((p) => !p.children.length) && <p className="empty layers-empty">No layers yet. Draw one with the toolbar.</p>}
       <ul
         role="tree"
         aria-label="Layers"

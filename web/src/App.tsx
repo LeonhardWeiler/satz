@@ -304,11 +304,9 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
             <Icon name={issues.length ? 'warn' : 'ok'} />
             {issues.length > 0 && (errors || issues.length)}
           </button>
-          {!preflight && (
-            <button type="button" className="primary" title={errors ? 'Export: shows the errors first (Ctrl+Shift+E)' : 'Export every page (Ctrl+Shift+E)'} onClick={quickExport}>
-              Export
-            </button>
-          )}
+          <button type="button" className="primary" title={errors ? 'Export: shows the errors first (Ctrl+Shift+E)' : 'Export every page (Ctrl+Shift+E)'} onClick={quickExport}>
+            Export
+          </button>
         </div>
       </header>
       <Canvas ck={ck} editor={editor} />
