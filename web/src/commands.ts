@@ -6,7 +6,7 @@ import { TABLE_ACTIONS } from './cells'
 import { keyOf } from './keys'
 import { DATE, insert, MAC, PAGE_NUMBER } from './textEdit'
 
-/** A command by its title, shortcut and group; one without `run` runs by pressing its shortcut, one whose `can` fails is greyed out in the context menu. */
+/** A command by its title, shortcut and group; one without `run` runs by pressing its shortcut, one whose `can` fails is greyed out in the context menu and the palette. */
 export type Action = { title: string; keys: string; group: string; run?: (editor: Editor) => void; can?: (editor: Editor) => boolean }
 
 const pageOrLast = (editor: Editor) =>
@@ -84,7 +84,7 @@ export const ACTIONS: Action[] = [
   { title: 'Paste', keys: 'Ctrl V', group: 'Edit' },
   { title: 'Duplicate', keys: 'Ctrl D', group: 'Edit' },
   { title: 'Delete', keys: 'Del', group: 'Edit' },
-  { title: 'Select all', keys: 'Ctrl A', group: 'Edit' },
+  { title: 'Select all', keys: 'Ctrl A', group: 'Edit', can: (editor) => editor.page.children.length > 0 },
   { title: 'Select none', keys: '', group: 'Edit', run: (editor) => editor.set({ selection: [] }) },
   { title: 'Group', keys: 'Ctrl G', group: 'Arrange' },
   { title: 'Frame selection', keys: 'Ctrl Alt G', group: 'Arrange' },
@@ -126,7 +126,7 @@ export const ACTIONS: Action[] = [
     run: (editor) => editor.apply({ type: 'resetToMaster', ids: editor.selected().flatMap((n) => (n.overrideOf ? [n.id] : [])) }),
   },
   ...BOOLEANS.map(([op, title, , keys]): Action => ({ title, keys: keys.replaceAll('+', ' '), group: 'Arrange', run: (editor) => combine(editor, op), can: combinable })),
-  ...ALIGNS.map(([how, title, , keys]): Action => ({ title, keys: keys.replaceAll('+', ' '), group: 'Align', run: (editor) => align(editor, how), can: how === 'tidy' ? (editor) => editor.selection.length > 1 : undefined })),
+  ...ALIGNS.map(([how, title, , keys]): Action => ({ title, keys: keys.replaceAll('+', ' '), group: 'Align', run: (editor) => align(editor, how), can: (editor) => editor.selection.length >= (how === 'tidy' ? 2 : how.startsWith('distribute') ? 3 : 1) })),
   {
     title: 'Color mode CMYK or RGB',
     keys: '',
@@ -163,8 +163,11 @@ export const ACTIONS: Action[] = [
   { title: 'Settings', keys: 'Ctrl ,', group: 'View' },
 ]
 
-/** The context menu leaves these out instead of greying them out. */
+/** The context menu and the palette leave these out instead of greying them out. */
 export const ONLY_WHEN_ABLE = new Set(['Reset to master', 'Table', ...BOOLEANS.map((b) => b[1])])
+
+/** Whether `a` acts now; menus grey out the others, or leave them out when `ONLY_WHEN_ABLE` names them. */
+export const able = (editor: Editor, a: Action) => a.can?.(editor) ?? true
 
 /** The titles of the actions the context menu offers with and without a selection, `null` between groups. */
 export const MENU = {

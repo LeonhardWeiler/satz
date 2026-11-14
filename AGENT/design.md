@@ -140,7 +140,9 @@ fails vitest.
   sentence case, no capitals.
 - Menus: 28 high items, 8 inset, radius 6 inside a radius 12 menu with 4 padding; the
   chosen item carries a check, not a heavier weight;
-  separators are 1 px `--edge` with 4 space around.
+  separators are 1 px `--edge` with 4 space around. A command that cannot act is greyed
+  out in the context menu and the palette (there after the others); rare ones (booleans,
+  Reset to master) are left out instead.
 - Popovers open beside their trigger and fit 640 px of height; longer content is split into sections or tabs.
 - Dialogs: 24 inset, title 16 in weight 600, actions at the bottom with the primary last
   on the right.

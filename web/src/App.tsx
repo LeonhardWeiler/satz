@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { CanvasKit } from 'canvaskit-wasm'
 import { Canvas, isTyping } from './Canvas'
 import { Edge, Keys, NameInput } from './controls'
-import { ACTIONS, addPage, comboOf, keysOf, MENU, ONLY_WHEN_ABLE, press } from './commands'
+import { able, ACTIONS, addPage, comboOf, keysOf, MENU, ONLY_WHEN_ABLE, press } from './commands'
 import { ContextMenu } from './ContextMenu'
 import { CLIP, useEditor, type Editor } from './editor'
 import { Settings } from './SettingsDialog'
@@ -329,13 +329,13 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           label="Actions"
           onClose={() => setMenu(null)}
           items={MENU[menu.sub ?? (selected ? 'selected' : 'none')]
-            .filter((t) => !t || !ONLY_WHEN_ABLE.has(t) || (t === 'Table' ? MENU.table : [t]).some((t) => ACTIONS.find((a) => a.title === t)!.can!(editor)))
+            .filter((t) => !t || !ONLY_WHEN_ABLE.has(t) || (t === 'Table' ? MENU.table : [t]).some((t) => able(editor, ACTIONS.find((a) => a.title === t)!)))
             .map((title) => {
             if (title === 'Transform' || title === 'Table') return [title, () => setTimeout(() => setMenu({ ...menu, sub: title.toLowerCase() as 'transform' | 'table' })), true, undefined, '›']
             const a = title && ACTIONS.find((a) => a.title === title)!
             const shows = title && SHOWS[title]
             if (a && shows) return [shows[0], () => hide(shows[1]), true, !hidden[shows[1]], keysOf(a)]
-            return a ? [a.title, () => (a.run ? a.run(editor) : press(a.keys)), a.can?.(editor) ?? true, undefined, keysOf(a)] : null
+            return a ? [a.title, () => (a.run ? a.run(editor) : press(a.keys)), able(editor, a), undefined, keysOf(a)] : null
           })}
         />
       )}

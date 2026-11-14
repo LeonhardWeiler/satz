@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { ACTIONS, keysOf, press } from './commands'
+import { able, ACTIONS, keysOf, ONLY_WHEN_ABLE, press } from './commands'
 import { Chip, ink, NO_SCOPE } from './ColorPicker'
 import type { Editor } from './editor'
 import { Keys } from './controls'
 import { Icon, KindIcon } from './icons'
 import type { Fill, Node } from './model'
 
-type Item = { group: string; title: string; keys?: string; hint?: string; icon?: ReactNode; run: () => void }
+type Item = { group: string; title: string; keys?: string; hint?: string; icon?: ReactNode; off?: boolean; run: () => void }
 
 /** How well `query` matches `text`: 3 at its start or a word's, 2 inside, 1 as letters in order, 0 not; and the matched letters. */
 function match(query: string, text: string): [number, number[]] {
@@ -24,7 +24,7 @@ const flat = (nodes: Node[]): Node[] => nodes.flatMap((n) => [n, ...('children' 
 function items(editor: Editor): Item[] {
   const { pages, swatches, textStyles } = editor.snapshot
   return [
-    ...ACTIONS.map((a) => ({ group: 'Commands', title: a.title, keys: keysOf(a), run: () => (a.run ? a.run(editor) : press(a.keys)) })),
+    ...ACTIONS.filter((a) => !ONLY_WHEN_ABLE.has(a.title) || able(editor, a)).map((a) => ({ group: 'Commands', title: a.title, keys: keysOf(a), off: !able(editor, a), run: () => (a.run ? a.run(editor) : press(a.keys)) })),
     ...pages.flatMap((p, i) =>
       flat(p.children).map((n) => ({
         group: 'Layers',
@@ -97,11 +97,11 @@ export function Palette({ editor, onClose }: { editor: Editor; onClose: () => vo
   const ranked = all
     .map((x) => ({ ...x, m: match(query, x.title) }))
     .filter((x) => x.m[0])
-    .sort((a, b) => b.m[0] - a.m[0])
+    .sort((a, b) => Number(!!a.off) - Number(!!b.off) || b.m[0] - a.m[0])
   const groups = [...new Set(ranked.map((x) => x.group))]
   const shown = query ? ranked.sort((a, b) => groups.indexOf(a.group) - groups.indexOf(b.group)).slice(0, 40) : ranked.filter((x) => x.group === 'Commands').slice(0, 9)
   const run = (x?: Item) => {
-    if (!x) return
+    if (!x || x.off) return
     ref.current!.close()
     x.run()
   }
@@ -141,7 +141,7 @@ export function Palette({ editor, onClose }: { editor: Editor; onClose: () => vo
         {shown.map((x, i) => (
           <div key={`${x.group}${i}`} role="presentation">
             {x.group !== shown[i - 1]?.group && <div className="pal-g">{x.group}</div>}
-            <button type="button" tabIndex={-1} className="pal-it" role="option" aria-selected={i === at} onClick={() => run(x)}>
+            <button type="button" tabIndex={-1} className="pal-it" role="option" aria-selected={i === at} disabled={x.off} onClick={() => run(x)}>
               {x.icon}
               <span className="pal-t">{[...x.title].map((c, k) => (x.m[1].includes(k) ? <b key={k}>{c}</b> : c))}</span>
               {x.keys ? <Keys keys={x.keys} /> : x.hint && <small>{x.hint}</small>}

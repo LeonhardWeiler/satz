@@ -70,6 +70,18 @@ test('the arrow keys pick a result and a click runs it', async ({ page }) => {
   await expect(page.getByRole('region', { name: 'Page overview' })).toBeVisible()
 })
 
+test('commands that cannot act are greyed out after the others, and booleans are left out', async ({ page }) => {
+  await open(page)
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Control+k')
+  const search = palette(page).getByRole('textbox', { name: 'Search' })
+  await search.fill('align')
+  await expect(palette(page).getByRole('option', { name: /^Align left/ })).toBeDisabled()
+  await expect(palette(page).getByRole('option').first()).toBeEnabled()
+  await search.fill('union')
+  await expect(palette(page).getByRole('option', { name: /^Union/ })).toHaveCount(0)
+})
+
 test('a swatch fills the selection from the palette and says so when nothing is selected', async ({ page }) => {
   await open(page)
   await assets(page)
