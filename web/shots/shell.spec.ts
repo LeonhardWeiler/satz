@@ -220,8 +220,10 @@ test('dialogs more', async ({ page }) => {
 
 test('narrow window', async ({ page }) => {
   await start(page, { w: 900, h: 800 })
+  await page.keyboard.press('Alt+1')
   await select(page, 'Star')
-  await shot(page, A, '50 narrow window', 'The editor at 900 × 800 with a selection')
+  await page.keyboard.press('Alt+1')
+  await shot(page, A, '50 narrow window', 'The editor at 900 × 800 with a selection, panels hidden')
   await page.keyboard.press('Control+,')
   await shot(page, D, '50 settings, narrow', 'Settings at 900 × 800')
 })
