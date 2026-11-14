@@ -116,6 +116,11 @@ test('f6 and shift f6 cycle the focus through the bar, the panels and the canvas
   await page.keyboard.press('F6')
   await page.keyboard.press('Shift+F6')
   expect(await inside('.canvas')).toBe(true)
+  await page.keyboard.press('.')
+  for (const s of ['.bar', '.left', '.overview', '.bar']) {
+    await page.keyboard.press('F6')
+    expect(await inside(s)).toBe(true)
+  }
 })
 
 test('a narrow window hides the panels and keeps the choice of a wide one', async ({ page }) => {

@@ -27,17 +27,18 @@ import { Tooltip } from './Tooltip'
 
 const NARROW = '(max-width: 999px)'
 
-const REGIONS = ['.bar', '.left', '.canvas', '.right']
+const REGIONS = ['.bar', '.left', '.overview, .canvas', '.right']
 const FOCUSABLE = 'button:enabled, input:enabled, select:enabled, textarea:enabled, a[href], [tabindex]:not([tabindex="-1"])'
 const ENTRIES = ['[role=tree] [tabindex="0"]', '[role=tab][aria-selected=true]', FOCUSABLE]
+const reachable = (e: HTMLElement) => !e.closest('[inert]') && e.checkVisibility()
 
 function cycleFocus(back: boolean) {
   const at = REGIONS.findIndex((s) => document.activeElement?.closest(s))
   const from = at < 0 ? (back ? 0 : REGIONS.length - 1) : at
   for (let i = 1; i <= REGIONS.length; i++) {
-    const r = document.querySelector<HTMLElement>(REGIONS[(from + (back ? -i : i) + REGIONS.length) % REGIONS.length])
-    if (!r || r.closest('[inert]') || !r.checkVisibility()) continue
-    const f = r.matches('canvas') ? r : ENTRIES.flatMap((s) => [...r.querySelectorAll<HTMLElement>(s)]).find((e) => e.checkVisibility())
+    const r = [...document.querySelectorAll<HTMLElement>(REGIONS[(from + (back ? -i : i) + REGIONS.length) % REGIONS.length])].find(reachable)
+    if (!r) continue
+    const f = r.matches('canvas') ? r : ENTRIES.flatMap((s) => [...r.querySelectorAll<HTMLElement>(s)]).find(reachable)
     if (f) return f.focus()
   }
 }

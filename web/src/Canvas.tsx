@@ -185,6 +185,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   const ghost = useRef<HTMLImageElement>(null)
   const [composing, setComposing] = useState(false)
   const editing = useEditor(editor, (e) => e.editing !== null)
+  const overview = useEditor(editor, (e) => e.overview !== null)
 
   useEffect(() => {
     // A modal dialog that closes focuses the text input while it is still inert, which then takes no typing.
@@ -1506,7 +1507,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   }, [ck, editor])
 
   return (
-    <div className="stage">
+    <div className="stage" inert={overview}>
       <div className="ruler-corner" />
       <canvas ref={rulerX} className="ruler ruler-x" aria-hidden="true" />
       <canvas ref={rulerY} className="ruler ruler-y" aria-hidden="true" />

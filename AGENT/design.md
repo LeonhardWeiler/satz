@@ -69,7 +69,7 @@ fails vitest.
   (Ctrl B, I, U, Shift X, Alt L/T/R/J, Shift . and ,); single letters only pick tools;
   rename is F2 only. Enter and Shift Enter on a layer row act as on the canvas (edit a path or
   text, go into a container, up to its parent). F6 and Shift F6 move the focus through the top bar,
-  the left panel, the canvas and the right panel, skipping hidden ones.
+  the left panel, the canvas or the page overview and the right panel, skipping hidden ones.
 - Fields in the document unit show no unit suffix; only a value in another unit names it.
 - One control type per setting everywhere: an on/off setting is a checkbox (Facing
   pages), not a two-item segmented control.
