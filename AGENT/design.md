@@ -66,7 +66,8 @@ fails vitest.
 - Shortcuts: text format keys work on the edited range and on selected text layers
   (Ctrl B, I, U, Shift X, Alt L/T/R/J, Shift . and ,); single letters only pick tools;
   rename is F2 only. Enter and Shift Enter on a layer row act as on the canvas (edit a path or
-  text, go into a container, up to its parent).
+  text, go into a container, up to its parent). F6 and Shift F6 move the focus through the top bar,
+  the left panel, the canvas and the right panel, skipping hidden ones.
 - Fields in the document unit show no unit suffix; only a value in another unit names it.
 - One control type per setting everywhere: an on/off setting is a checkbox (Facing
   pages), not a two-item segmented control.
@@ -120,7 +121,7 @@ fails vitest.
   border and one of 2 shadows: `--shadow-pop` (menus, popovers, tooltips, bars over the
   canvas) and `--shadow-dialog` (dialogs, palette).
 - Lines: 1 px. Separators and control outlines at rest `--border`; control outlines on
-  hover, floating surfaces and separators on them `--edge`; focus ring 1.5 px `--accent`.
+  hover, floating surfaces and separators on them `--edge`; focus ring 2 px `--accent`, inset.
 - Motion: `--fast` (120 ms) for hover, press and colour changes, `--open` (160 ms) for
   popovers, dialogs and toasts, always with `--ease`; nothing longer except progress
   bars and the error shake. Pressed controls scale to 0.93. `prefers-reduced-motion`

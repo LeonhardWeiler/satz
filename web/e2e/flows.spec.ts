@@ -97,6 +97,24 @@ test('the zoom in the top bar opens the zoom menu', async ({ page }) => {
   await expect(zoom).toHaveText('6400%')
 })
 
+test('f6 and shift f6 cycle the focus through the bar, the panels and the canvas', async ({ page }) => {
+  await open(page)
+  await page.keyboard.press('Escape')
+  const inside = (s: string) => page.evaluate((s) => !!document.activeElement?.closest(s), s)
+  for (const s of ['.bar', '.left', '.canvas', '.right', '.bar']) {
+    await page.keyboard.press('F6')
+    expect(await inside(s)).toBe(true)
+  }
+  await page.keyboard.press('Shift+F6')
+  expect(await inside('.right')).toBe(true)
+  const ring = await page.evaluate(() => getComputedStyle(document.activeElement!).outlineWidth)
+  expect(ring).toBe('2px')
+  await page.keyboard.press('Alt+2')
+  await page.keyboard.press('F6')
+  await page.keyboard.press('Shift+F6')
+  expect(await inside('.canvas')).toBe(true)
+})
+
 test('a narrow window hides the panels and keeps the choice of a wide one', async ({ page }) => {
   await open(page)
   const props = page.getByRole('complementary', { name: 'Properties' })

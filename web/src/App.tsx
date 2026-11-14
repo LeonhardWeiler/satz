@@ -26,6 +26,21 @@ import { Toolbar } from './Toolbar'
 import { Tooltip } from './Tooltip'
 
 const NARROW = '(max-width: 999px)'
+
+const REGIONS = ['.bar', '.left', '.canvas', '.right']
+const FOCUSABLE = 'button:enabled, input:enabled, select:enabled, textarea:enabled, a[href], [tabindex]:not([tabindex="-1"])'
+
+function cycleFocus(back: boolean) {
+  const at = REGIONS.findIndex((s) => document.activeElement?.closest(s))
+  const from = at < 0 ? (back ? 0 : REGIONS.length - 1) : at
+  for (let i = 1; i <= REGIONS.length; i++) {
+    const r = document.querySelector<HTMLElement>(REGIONS[(from + (back ? -i : i) + REGIONS.length) % REGIONS.length])
+    if (!r || r.closest('[inert]') || !r.checkVisibility()) continue
+    const f = r.matches('canvas') ? r : [...r.querySelectorAll<HTMLElement>(FOCUSABLE)].find((e) => e.checkVisibility())
+    if (f) return f.focus()
+  }
+}
+
 const SHOWS: Record<string, [label: string, panel: 'rulers' | 'left' | 'right']> = {
   'Show or hide rulers': ['Rulers', 'rulers'],
   'Show or hide left panel': ['Left panel', 'left'],
@@ -132,7 +147,8 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     const onKey = (e: KeyboardEvent) => {
       const mod = e.ctrlKey || e.metaKey
       if (e.defaultPrevented || document.querySelector('dialog:modal')) return
-      if (e.altKey && !mod && e.code === 'Digit1') hide('left')
+      if (e.key === 'F6' && !mod && !e.altKey) cycleFocus(e.shiftKey)
+      else if (e.altKey && !mod && e.code === 'Digit1') hide('left')
       else if (e.altKey && !mod && e.code === 'Digit2') hide('right')
       else if (mod && e.shiftKey && e.code === 'KeyE') quickExport()
       else if (mod && e.altKey && e.code === 'KeyY') editor.togglePreflight()
