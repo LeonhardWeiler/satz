@@ -149,7 +149,8 @@ fails vitest.
   separators are 1 px `--edge` with 4 space around. A command that cannot act is greyed
   out in the context menu and the palette (there after the others); rare ones (booleans,
   Reset to master) are left out instead.
-- Popovers open beside their trigger and fit 640 px of height; longer content is split into sections or tabs.
+- Popovers open beside their trigger and fit 640 px of height; longer content is split into sections or tabs,
+  and a smaller window scrolls them. A dialog docked over the canvas moves the selection out from under it.
 - Dialogs: 24 inset, title 16 in weight 600, actions at the bottom with the primary last
   on the right.
 - Empty states: a whole empty view shows an icon, one sentence and the action that fills it; an empty panel section is a row like the others, its title on the left and its + on the right.

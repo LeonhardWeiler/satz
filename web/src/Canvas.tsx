@@ -1426,6 +1426,19 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       e.preventDefault()
     }
 
+    /** Moves the view so that the selection clears `r`, a dialog over the canvas, as far as the canvas has room. */
+    const clear = (e: Event) => {
+      const r = (e as CustomEvent<DOMRect>).detail
+      const c = canvas.getBoundingClientRect()
+      const sel = editor.selection.length ? bounds(editor.selected().map(placed)) : undefined
+      if (!sel || r.left <= c.left) return
+      const [x0, y0] = [c.left + view.x + sel.x * view.zoom, c.top + view.y + sel.y * view.zoom]
+      const [x1, y1] = [x0 + sel.w * view.zoom, y0 + sel.h * view.zoom]
+      if (x1 <= r.left || x0 >= r.right || y1 <= r.top || y0 >= r.bottom) return
+      const dx = Math.max(r.left - 16 - x1, c.left + 16 - x0)
+      if (dx < 0) glide({ ...view, x: view.x + dx })
+    }
+
     const offSettings = subscribeSettings(redraw)
     const offPointer = editor.subscribePointer(redraw)
     const unsubscribe = editor.subscribe(() => {
@@ -1451,6 +1464,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     canvas.addEventListener('dblclick', onDoubleClick)
     canvas.addEventListener('click', onClick)
     window.addEventListener('keydown', onKey)
+    window.addEventListener('cover', clear)
     window.addEventListener('keyup', onKey)
     const restyle = () => {
       accent = ''
@@ -1483,6 +1497,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       canvas.removeEventListener('dblclick', onDoubleClick)
       canvas.removeEventListener('click', onClick)
       window.removeEventListener('keydown', onKey)
+      window.removeEventListener('cover', clear)
       window.removeEventListener('keyup', onKey)
       renderer.delete()
       surface?.delete()

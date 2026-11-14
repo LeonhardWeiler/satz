@@ -512,3 +512,15 @@ test('type shortcuts set the size, alignment, style and decoration of the select
   await panel.getByRole('button', { name: 'Type options' }).click()
   await expect(decoration).toHaveText(/Underline$/)
 })
+
+test('the type options fit a small window and the canvas moves the text out from under them', async ({ page }) => {
+  await open(page)
+  await page.setViewportSize({ width: 1280, height: 720 })
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
+  const [x, y] = await screen(page, 120, 100)
+  const before = await pixels(page, x - 20, y - 20, 40, 40)
+  await page.getByRole('complementary', { name: 'Properties' }).getByRole('button', { name: 'Type options' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Type options' })
+  await expect(dialog).toBeInViewport({ ratio: 1 })
+  await expect.poll(() => pixels(page, x - 20, y - 20, 40, 40)).not.toEqual(before)
+})

@@ -67,11 +67,14 @@ export const docked =
     return new DOMRect(panel.x, b.y, panel.width, b.height)
   }
 
-/** A dialog docked beside the panel of `at` that closes on Escape or a click outside. */
+/** A dialog docked beside the panel of `at` that closes on Escape or a click outside; the canvas moves the selection out from under it. */
 export function Dialog({ label, at, className, onClose, children }: { label: string; at: Element; className?: string; onClose: () => void; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => void dispatchEvent(new CustomEvent('cover', { detail: ref.current!.getBoundingClientRect() })), [])
   return createPortal(
     <div className="menu-backdrop" onPointerDown={onClose}>
       <Popover
+        ref={ref}
         anchor={docked(at)}
         side="left"
         className={`picker ${className ?? 'options'}`}
