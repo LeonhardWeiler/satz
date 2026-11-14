@@ -43,6 +43,7 @@ test('a new master is shown empty and is renamed by a double click', async ({ pa
   await expect(page.getByRole('tree', { name: 'Layers' }).getByRole('treeitem')).toHaveCount(0)
   const pages = await overview(page)
   await expect(pages.getByRole('option', { name: 'A-Master', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(pages.getByTitle('A-Master', { exact: true })).toHaveText('A-Master')
   await pages.getByTitle('A-Master', { exact: true }).dblclick()
   await pages.getByRole('textbox', { name: 'Master name' }).fill('Body')
   await pages.getByRole('textbox', { name: 'Master name' }).press('Enter')
