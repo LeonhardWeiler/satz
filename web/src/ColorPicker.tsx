@@ -71,7 +71,7 @@ export function SwatchOption({ swatch, mode, selected, onPick }: { swatch: Swatc
   )
 }
 
-/** A swatch button that opens the picker; `editor` adds the swatches tab, `chip` replaces the colour chip, `children` sit above the colour. */
+/** A swatch button that opens the picker; `editor` adds the actions that make swatches, `chip` replaces the colour chip, `children` sit above the colour. */
 export function ColorPicker({ chip, children, ...props }: Props & { editor?: Editor; chip?: ReactNode; children?: ReactNode }) {
   const [open, setOpen] = useState<Element | null>(null)
   const button = useRef<HTMLButtonElement>(null)
@@ -287,7 +287,7 @@ export function Picker({
       </header>
       {children}
       <div role="tablist" className="tabs">
-        {(editor ? (['custom', 'harmony', 'swatches'] as const) : (['custom', 'harmony'] as const)).map((t) => (
+        {(editor || scope.swatches.length + colors.length ? (['custom', 'harmony', 'swatches'] as const) : (['custom', 'harmony'] as const)).map((t) => (
           <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
             {TABS[t]}
           </button>

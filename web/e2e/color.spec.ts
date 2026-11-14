@@ -169,6 +169,13 @@ test('a spot swatch is made in the swatches panel, bound in the picker, tinted a
   await expect(swatches.getByRole('option', { name: 'HKS 43' })).toHaveAttribute('title', /Spot color/)
 
   await page.getByRole('tab', { name: 'Layers' }).click()
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Sun' }).click()
+  await panel.getByRole('button', { name: 'Shadow color' }).click()
+  const shadow = page.getByRole('dialog', { name: 'Shadow color' })
+  await shadow.getByRole('tab', { name: 'Swatches' }).click()
+  await expect(shadow.getByRole('option', { name: 'HKS 43' })).toBeVisible()
+  await expect(shadow.getByRole('button', { name: 'Add to swatches' })).toHaveCount(0)
+  await page.keyboard.press('Escape')
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).last().click()
   await panel.getByRole('button', { name: 'Fill color' }).click()
   const picker = page.getByRole('dialog', { name: 'Fill color' })
