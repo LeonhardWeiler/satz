@@ -132,12 +132,13 @@ body,
 .bar {
   grid-area: bar;
   display: grid;
-  grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr);
+  grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr);
+  justify-content: unsafe end;
   align-items: center;
   container: bar / inline-size;
   min-width: 0;
   padding: 0 8px;
-  overflow: hidden;
+  overflow: clip;
   border-bottom: 1px solid var(--border);
 }
 
@@ -1867,9 +1868,12 @@ input[type='range']:focus-visible::-moz-range-thumb {
 
 .switcher {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 2px;
+  height: 28px;
   margin: 0 8px;
+  overflow: hidden;
 }
 
 .switcher-at {

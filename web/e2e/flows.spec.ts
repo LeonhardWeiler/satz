@@ -76,13 +76,16 @@ test('the overview lists masters beside vertical spreads, assigns a master and r
   }
 })
 
-test('at 880 px the top bar fits with every button', async ({ page }) => {
+test('the top bar keeps every tool and Export inside it at any width', async ({ page }) => {
   await open(page)
-  await page.setViewportSize({ width: 880, height: 700 })
   const bar = page.locator('header.bar')
-  await expect.poll(() => bar.evaluate((b) => b.scrollWidth - b.clientWidth)).toBe(0)
+  for (const width of [880, 1000, 1240, 1280, 1400]) {
+    await page.setViewportSize({ width, height: 700 })
+    const [b, tools, exp] = await Promise.all([bar, page.getByRole('toolbar', { name: 'Tools' }), bar.getByRole('button', { name: 'Export', exact: true })].map((l) => l.boundingBox()))
+    expect(tools!.x).toBeGreaterThanOrEqual(b!.x)
+    expect(exp!.x + exp!.width).toBeLessThanOrEqual(b!.x + b!.width)
+  }
   await expect.poll(() => page.getByRole('toolbar', { name: 'Tools' }).evaluate((t) => t.scrollWidth - t.clientWidth)).toBe(0)
-  await expect(bar.getByRole('button', { name: 'Export', exact: true })).toBeInViewport({ ratio: 1 })
 })
 
 test('the zoom in the top bar opens the zoom menu', async ({ page }) => {
