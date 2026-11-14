@@ -14,14 +14,14 @@ export const ORIENTATIONS = [
 ] as const
 const MODES: Record<ColorMode, string> = { cmyk: 'CMYK', rgb: 'RGB' }
 export const ColorModeSelect = ({ value, onChange }: { value: ColorMode; onChange: (mode: ColorMode) => void }) => (
-  <Select label="Color mode" prefix="Color" value={value} options={MODES} onChange={onChange} />
+  <Select label="Color mode" value={value} options={MODES} onChange={onChange} />
 )
 type Spacing = Pick<Grid, 'count' | 'gutter' | 'margin'>
-/** The count of `what` (Columns or Rows), the gutter between more than 1 of them and the margin. */
-export function GridFields({ what, g, set }: { what: string; g: Spacing; set: (g: Partial<Spacing>) => void }) {
+/** The count of `what` (Columns or Rows), unlabelled when `named` above, the gutter between more than 1 of them and the margin. */
+export function GridFields({ what, named, g, set }: { what: string; named?: boolean; g: Spacing; set: (g: Partial<Spacing>) => void }) {
   return (
     <>
-      <Field label={what} title={`Number of ${what.toLowerCase()}`} unit="" int min={1} max={100} value={g.count} onCommit={(count) => set({ count })} />
+      <Field label={named ? '' : what} title={`Number of ${what.toLowerCase()}`} unit="" int min={1} max={100} value={g.count} onCommit={(count) => set({ count })} />
       {g.count > 1 && <Field label="Gutter" title="Gutter" unit="length" value={g.gutter} onCommit={(gutter) => set({ gutter })} />}
       <Field label="Margin" title="Margin" unit="length" value={g.margin} onCommit={(margin) => set({ margin: Math.max(0, margin) })} />
     </>

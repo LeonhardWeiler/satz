@@ -640,7 +640,7 @@ function GridSection({ editor, sheets, all }: { editor: Editor; sheets: Page[]; 
                   {g.kind === 'grid' ? (
                     <Field label="Size" title="Cell size" unit="length" min={1} value={g.size} onCommit={(size) => set({ size })} />
                   ) : (
-                    <GridFields what={GRIDS[g.kind]} g={g} set={set} />
+                    <GridFields what={GRIDS[g.kind]} named g={g} set={set} />
                   )}
                 </div>
               </li>
