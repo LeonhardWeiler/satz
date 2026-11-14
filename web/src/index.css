@@ -808,6 +808,10 @@ input[type='checkbox']:indeterminate::before {
   min-width: 0;
 }
 
+.paint-row > :not(.swatch) + :is(.field, .bound-name) {
+  flex: 0 0 70px;
+}
+
 .stops {
   display: grid;
   gap: 8px;

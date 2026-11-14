@@ -162,7 +162,7 @@ function PaintRow({
     </span>
   )
   const opacity = (
-    <Field label="Opacity" title={`${title} opacity`} unit="%" max={100} value={Math.round(alpha(c))} onCommit={(v) => set({ ...p, color: withAlpha(c, v) })} />
+    <Field label={<Icon name="opacity" />} title={`${title} opacity`} unit="%" max={100} value={Math.round(alpha(c))} onCommit={(v) => set({ ...p, color: withAlpha(c, v) })} />
   )
   const typed = (text: string) => {
     const n = parseColor(text, c, mode)
@@ -195,15 +195,20 @@ function PaintRow({
         : boundVar
           ? [named(variable ? variable.name : 'Missing variable', undefined, <Icon name="drop" size={12} />), opacity]
           : solid
-            ? [<NameInput label={`${title} value`} value={colorText(c, scope)} onCommit={typed} />, opacity]
+            ? [
+                <label className="field">
+                  <NameInput label={`${title} value`} value={colorText(c, scope)} onCommit={typed} />
+                </label>,
+                opacity,
+              ]
             : [
-                <Select label={`${title} type`} value={p.type as Type} options={Object.fromEntries(TYPES) as Record<Type, string>} onChange={(t) => set(retype(p, t))} />,
+                named(Object.fromEntries(TYPES)[p.type as Type]),
                 p.type === 'linear' && (
-                  <Field label="Angle" title={`${title} angle`} unit="°" min={-Infinity} reset={0} value={angle(p.transform)} onCommit={(v) => set({ ...p, transform: linear(v) })} />
+                  <Field label={<Icon name="angle" />} title={`${title} angle`} unit="°" min={-Infinity} reset={0} value={angle(p.transform)} onCommit={(v) => set({ ...p, transform: linear(v) })} />
                 ),
               ]
   return (
-    <div className="row">
+    <div className="row paint-row">
       {p.type !== 'image' ? (
         <ColorPicker
           label={`${title} color`}
