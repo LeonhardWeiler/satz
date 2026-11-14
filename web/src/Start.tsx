@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Engine } from './engine/engine'
 import { MM, type Editor } from './editor'
 import { begin, discard, open } from './file'
-import { Field, nextName, Segmented, Select } from './controls'
+import { Field, Segmented, Select } from './controls'
 import { length, setSettings, useSettings, type DocPreset } from './settings'
 import { Icon } from './icons'
 import type { Page } from './types'
@@ -69,7 +69,7 @@ export function Start({ editor, onClose }: { editor: Editor; onClose: () => void
   const saved = useSettings().docPresets
   const [doc, setDoc] = useState(A5)
   const [preset, setPreset] = useState<string | null>(null)
-  const [name, setName] = useState(() => nextName('Preset', saved.map((p) => p.name)))
+  const [name, setName] = useState('')
   useEffect(() => {
     ref.current!.showModal()
     ref.current!.querySelector<HTMLElement>('[role=radio][aria-checked=true]')?.focus()
@@ -103,7 +103,7 @@ export function Start({ editor, onClose }: { editor: Editor; onClose: () => void
     onClose()
   }
   const save = () => {
-    const n = name.trim() || nextName('Preset', saved.map((p) => p.name))
+    const n = name.trim() || format
     setSettings({ docPresets: [...saved.filter((p) => p.name !== n), { ...doc, name: n }] })
     setName(n)
     setPreset(n)
@@ -181,7 +181,7 @@ export function Start({ editor, onClose }: { editor: Editor; onClose: () => void
         <div className="start-name">
           <label className="field">
             <span className="field-label">Preset</span>
-            <input aria-label="Preset name" autoComplete="off" value={name} onFocus={(e) => e.currentTarget.select()} onChange={(e) => setName(e.currentTarget.value)} />
+            <input aria-label="Preset name" autoComplete="off" placeholder={format} value={name} onFocus={(e) => e.currentTarget.select()} onChange={(e) => setName(e.currentTarget.value)} />
           </label>
           <button type="button" className="icon-button" aria-label="Save preset" title="Save preset" onClick={save}>
             <Icon name="plus" />

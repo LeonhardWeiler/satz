@@ -92,7 +92,7 @@ test('a custom size, color mode, bleed and columns go into the document', async 
   await expect(panel.getByRole('textbox', { name: 'Columns' })).toHaveValue('3')
 })
 
-test('a new document preset is saved, picked after a reload and deleted', async ({ page }) => {
+test('a new document preset is saved, picked after a reload and deleted, and named after its format', async ({ page }) => {
   await open(page)
   await page.keyboard.press('Control+Alt+n')
   const dialog = start(page)
@@ -112,6 +112,10 @@ test('a new document preset is saved, picked after a reload and deleted', async 
   await expect(dialog.getByRole('button', { name: 'Create' })).toHaveAttribute('title', 'A4, 12 pages')
   await saved.getByRole('button', { name: 'Delete preset Report' }).click()
   await expect(saved).toHaveCount(0)
+  await expect(dialog.getByRole('textbox', { name: 'Preset name' })).toHaveAttribute('placeholder', 'A4')
+  await dialog.getByRole('textbox', { name: 'Preset name' }).fill('')
+  await dialog.getByRole('button', { name: 'Save preset' }).click()
+  await expect(saved.getByRole('radio', { name: /^A4/ })).toBeVisible()
 })
 
 test('escape returns to the document and new keeps the changes in their project', async ({ page }) => {
