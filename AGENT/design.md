@@ -65,7 +65,8 @@ fails vitest.
   it: no Layout, frame options or auto layout; empty cells are named by address (A1).
 - Shortcuts: text format keys work on the edited range and on selected text layers
   (Ctrl B, I, U, Shift X, Alt L/T/R/J, Shift . and ,); single letters only pick tools;
-  rename is F2 only.
+  rename is F2 only. Enter and Shift Enter on a layer row act as on the canvas (edit a path or
+  text, go into a container, up to its parent).
 - Fields in the document unit show no unit suffix; only a value in another unit names it.
 - One control type per setting everywhere: an on/off setting is a checkbox (Facing
   pages), not a two-item segmented control.

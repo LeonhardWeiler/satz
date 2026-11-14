@@ -87,17 +87,8 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
   else if (mod && (key === 'c' || key === 'x') && !e.isTrusted) {
     navigator.clipboard?.writeText(editor.copy(ids)).catch(() => {})
     if (key === 'x') editor.apply({ type: 'delete', ids })
-  } else if (e.key === 'Enter' && e.shiftKey && !mod) {
-    if (one?.parent && editor.selected().every((n) => editor.nodes.get(n.id)?.parent === one.parent)) {
-      editor.set({ selection: [one.parent.id] })
-    }
-  } else if (e.key === 'Enter' && !mod && one?.node.kind === 'shape' && ids.length === 1) editor.editPath(one.node.id)
-  else if (e.key === 'Enter' && !mod && one?.node.kind === 'text' && ids.length === 1) {
-    editor.set({ editing: { id: one.node.id, anchor: 0, focus: editor.storyOf(one.node).text.length } })
-  } else if (e.key === 'Enter' && !mod) {
-    const kids = editor.selected().flatMap((n) => ('children' in n ? n.children.map((c) => c.id) : []))
-    if (kids.length) editor.set({ selection: kids })
-  } else if (mod && key === 'd') editor.duplicate(ids)
+  } else if (e.key === 'Enter' && !mod) enter(editor, e.shiftKey)
+  else if (mod && key === 'd') editor.duplicate(ids)
   else if (mod && key === 'g' && e.shiftKey) editor.set({ selection: editor.apply({ type: 'ungroup', ids }) })
   else if (mod && key === 'g') editor.set({ selection: editor.apply({ type: 'group', ids, frame: e.altKey }) })
   else if (e.key === 'F2') editor.set({ renaming: ids[0] })
@@ -130,4 +121,18 @@ export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
     })
   } else return false
   return true
+}
+
+/** Enter on the selection: a lone path or text is edited, containers give their children; `up` selects the parent instead. */
+export function enter(editor: Editor, up: boolean) {
+  const ids = editor.selection
+  const one = editor.nodes.get(ids[0])
+  if (up) {
+    if (one?.parent && editor.selected().every((n) => editor.nodes.get(n.id)?.parent === one.parent)) editor.set({ selection: [one.parent.id] })
+  } else if (one?.node.kind === 'shape' && ids.length === 1) editor.editPath(one.node.id)
+  else if (one?.node.kind === 'text' && ids.length === 1) editor.set({ editing: { id: one.node.id, anchor: 0, focus: editor.storyOf(one.node).text.length } })
+  else {
+    const kids = editor.selected().flatMap((n) => ('children' in n ? n.children.map((c) => c.id) : []))
+    if (kids.length) editor.set({ selection: kids })
+  }
 }

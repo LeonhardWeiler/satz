@@ -1,6 +1,7 @@
 import { useState, type DragEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { roam } from './controls'
 import { useEditor, type Editor } from './editor'
+import { enter } from './keys'
 import { Icon, KindIcon } from './icons'
 import type { Node } from './model'
 import { span } from './select'
@@ -49,15 +50,13 @@ export function Layers({ editor }: { editor: Editor }) {
     const item = (e.target as HTMLElement).closest<HTMLElement>('[role=treeitem]')
     if (roam(e, items) || !item || !items.includes(e.target as Element)) return
     const id = item.dataset.id!
-    const entry = editor.nodes.get(id)
     const open = item.getAttribute('aria-expanded')
     const focus = (el: Element | null | undefined) => (el as HTMLElement | null)?.focus()
     if (e.key === 'Enter' || e.key === 'F2') e.stopPropagation()
     if (e.key === 'F2') editor.set({ renaming: id })
-    else if (e.key === 'Enter' && e.shiftKey && entry?.parent) editor.set({ selection: [entry.parent.id] })
-    else if (e.key === 'Enter' && selection.includes(id) && entry && 'children' in entry.node && entry.node.children.length) {
-      editor.set({ selection: entry.node.children.map((c) => c.id) })
-    } else if (e.key === 'ArrowRight' && open === 'false') toggle(item.dataset.id!)
+    else if (e.key === 'Enter' && !selection.includes(id)) editor.set({ selection: [id] })
+    else if (e.key === 'Enter') enter(editor, e.shiftKey)
+    else if (e.key === 'ArrowRight' && open === 'false') toggle(item.dataset.id!)
     else if (e.key === 'ArrowRight' && open === 'true') focus(item.querySelector('[role=group] .layer-name'))
     else if (e.key === 'ArrowLeft' && open === 'true') toggle(item.dataset.id!)
     else if (e.key === 'ArrowLeft') focus(item.parentElement?.closest('[role=treeitem]')?.querySelector('.layer-name'))

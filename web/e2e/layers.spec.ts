@@ -151,6 +151,12 @@ test('the keyboard walks the layers: tab siblings, enter children, shift enter p
   await layers(page).getByRole('button', { name: 'Sun' }).focus()
   await page.keyboard.press('Shift+Enter')
   await expect(layers(page).getByRole('treeitem', { name: 'Forms' })).toHaveAttribute('aria-selected', 'true')
+
+  await layers(page).getByRole('button', { name: /^Satz sets type/ }).focus()
+  await page.keyboard.press('Enter')
+  await page.keyboard.press('Enter')
+  await page.keyboard.type('Hi')
+  await expect(layers(page).getByRole('button', { name: 'Hi', exact: true })).toBeVisible()
 })
 
 test('dragging a layer row reorders it among its siblings and drops it into a group', async ({ page }) => {
