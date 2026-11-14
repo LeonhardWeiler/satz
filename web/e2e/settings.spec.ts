@@ -101,5 +101,5 @@ test('zoom to 100% shows the page at the size measured against a reference in th
   expect((await dialog.locator('.measure').boundingBox())!.width).toBeCloseTo(630, 0)
   await page.keyboard.press('Escape')
   await page.keyboard.press('Control+0')
-  await expect(page.getByRole('status', { name: 'Zoom' })).toHaveText('100%')
+  await expect(page.getByRole('button', { name: 'Zoom' })).toHaveText('100%')
 })

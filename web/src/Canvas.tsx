@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { CanvasKit, Surface } from 'canvaskit-wasm'
 import { CLIP, MM, bounds, ends, insertion, timed, useEditor, type Editor, type Point, type Tool } from './editor'
 import type { Container, NewKind, Node, Page, TextNode } from './model'
@@ -164,6 +164,17 @@ function drawRuler(c: HTMLCanvasElement, horizontal: boolean, origin: number, sc
 
 /** Half a blink period of the caret in ms. */
 const BLINK = 530
+/** The zoom of 100 %, where a mm of the page is a mm of the screen. */
+const ONE = () => settings.screenMm / MM
+
+let zoomed = 0
+const zoomers = new Set<() => void>()
+const onZoom = (f: () => void) => {
+  zoomers.add(f)
+  return () => void zoomers.delete(f)
+}
+/** The canvas zoom in percent. */
+export const useZoom = () => Math.round((useSyncExternalStore(onZoom, () => zoomed) / ONE()) * 100)
 
 export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   const ref = useRef<HTMLCanvasElement>(null)
@@ -172,7 +183,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   const area = useRef<HTMLTextAreaElement>(null)
   const marks = useRef<SVGSVGElement>(null)
   const ghost = useRef<HTMLImageElement>(null)
-  const [zoom, setZoom] = useState(0)
   const [composing, setComposing] = useState(false)
   const editing = useEditor(editor, (e) => e.editing !== null)
 
@@ -199,7 +209,8 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     const gl = ck.MakeWebGLContext(ck.GetWebGLContext(canvas))!
     let surface: Surface | null = null
     let frame = 0
-    let fitted = false
+    let fitted = true
+    let windowSize = ''
     let space = false
     let drag: Drag | null = null
     let hover: string | undefined
@@ -590,16 +601,21 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     }
     const show = (to: View) => {
       Object.assign(view, to)
-      setZoom(view.zoom)
+      fitted = false
+      zoomed = view.zoom
+      zoomers.forEach((f) => f())
       redraw()
     }
     /** The view at `zoom` that keeps the point `px`, `py` where it is. */
     const around = (px: number, py: number, zoom: number): View => {
-      zoom = Math.min(256, Math.max(0.02, zoom))
+      zoom = Math.min(64 * ONE(), Math.max(0.02 * ONE(), zoom))
       return { x: px - ((px - view.x) * zoom) / view.zoom, y: py - ((py - view.y) * zoom) / view.zoom, zoom }
     }
     const zoomAt = (px: number, py: number, zoom: number) => show(around(px, py, zoom))
-    const fit = (sheets = editor.sheets) => show(fitView(sheets, canvas.clientWidth, canvas.clientHeight))
+    const fit = () => {
+      show(fitView(editor.sheets, canvas.clientWidth, canvas.clientHeight))
+      fitted = true
+    }
     let anim = 0
     let target: View | undefined
     /** Moves the view to `to` in 180 ms, scaling about the point both views share; any input ends the move at `to`. */
@@ -744,10 +760,9 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       canvas.height = box ? box.blockSize : Math.round(entry.contentRect.height * devicePixelRatio)
       surface?.delete()
       surface = ck.MakeOnScreenGLSurface(gl, canvas.width, canvas.height, ck.ColorSpace.SRGB)
-      if (!fitted) {
-        fitted = true
-        fit()
-      }
+      const size = `${innerWidth}x${innerHeight}`
+      if (fitted && size !== windowSize) fit()
+      windowSize = size
       rulers.delete(rulerX.current!)
       rulers.delete(rulerY.current!)
       paint()
@@ -1398,13 +1413,14 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const cy = canvas.clientHeight / 2
       const mod = e.ctrlKey || e.metaKey
       const sel = editor.selection.length ? bounds(editor.selected().map(placed)) : undefined
+      const at: [number, number] = sel ? [view.x + (sel.x + sel.w / 2) * view.zoom, view.y + (sel.y + sel.h / 2) * view.zoom] : [cx, cy]
       if (e.shiftKey && e.code === 'Digit1') glide(fitView(editor.sheets, canvas.clientWidth, canvas.clientHeight))
       else if (e.shiftKey && e.code === 'Digit2' && sel) {
-        const zoom = Math.min(256, (canvas.clientWidth - 240) / Math.max(sel.w, 1), (canvas.clientHeight - 240) / Math.max(sel.h, 1))
+        const zoom = Math.min(64 * ONE(), (canvas.clientWidth - 240) / Math.max(sel.w, 1), (canvas.clientHeight - 240) / Math.max(sel.h, 1))
         glide({ x: cx - (sel.x + sel.w / 2) * zoom, y: cy - (sel.y + sel.h / 2) * zoom, zoom })
-      } else if ((e.shiftKey || mod) && e.code === 'Digit0') glide(around(cx, cy, settings.screenMm / MM))
-      else if (mod && (e.key === '=' || e.key === '+')) zoomAt(cx, cy, view.zoom * 1.25)
-      else if (mod && e.key === '-') zoomAt(cx, cy, view.zoom / 1.25)
+      } else if ((e.shiftKey || mod) && e.code === 'Digit0') glide(around(cx, cy, ONE()))
+      else if (mod && (e.key === '=' || e.key === '+')) zoomAt(...at, view.zoom * 1.25)
+      else if (mod && e.key === '-') zoomAt(...at, view.zoom / 1.25)
       else return
       track()
       e.preventDefault()
@@ -1534,9 +1550,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
             }}
           />
         )}
-        <output className="sr-only" aria-label="Zoom">
-          {Math.round(((zoom * MM) / settings.screenMm) * 100)}%
-        </output>
         <MasterBanner editor={editor} />
       </div>
     </div>

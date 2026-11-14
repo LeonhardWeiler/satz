@@ -35,7 +35,7 @@ export const ACTIONS: Action[] = [
   { title: 'Show or hide layout grids', keys: 'Shift G', group: 'View' },
   { title: 'Show or hide rulers', keys: 'Shift R', group: 'View' },
   { title: 'Zoom to fit', keys: 'Shift 1', group: 'View' },
-  { title: 'Zoom to selection', keys: 'Shift 2', group: 'View' },
+  { title: 'Zoom to selection', keys: 'Shift 2', group: 'View', can: (editor) => editor.selection.length > 0 },
   { title: 'Zoom to 100%', keys: 'Ctrl 0', group: 'View' },
   { title: 'Zoom in', keys: 'Ctrl +', group: 'View' },
   { title: 'Zoom out', keys: 'Ctrl -', group: 'View' },
@@ -174,6 +174,7 @@ export const MENU = {
   selected: ['Cut', 'Copy', 'Paste', 'Duplicate', null, 'Group', 'Ungroup', 'Add auto layout', 'Transform', 'Table', null, 'Bring to front', 'Send to back', 'Reset to master', null, 'Rename', 'Hide', 'Lock', null, 'Delete'],
   transform: ['Use as mask', 'Flatten', 'Flip horizontal', 'Flip vertical', 'Tidy up', ...BOOLEANS.map((b) => b[1])],
   table: TABLE_ACTIONS.map((a) => a.title),
+  zoom: ['Zoom to fit', 'Zoom to 100%', 'Zoom to selection', null, 'Zoom in', 'Zoom out'],
   none: ['Paste', 'Select all', null, 'Undo', 'Redo', null, 'Zoom to fit', 'Show or hide rulers', 'Show or hide left panel', 'Show or hide right panel', 'Add page', 'Page overview', null, 'Command palette', 'Keyboard shortcuts', 'Settings'],
 }
 

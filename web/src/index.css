@@ -103,12 +103,24 @@ body,
   grid-template-areas: 'left bar right' 'left stage right';
 }
 
-.app.no-left {
-  --l: 0px;
+@media (min-width: 1000px) {
+  .app.no-left {
+    --l: 0px;
+  }
+
+  .app.no-right {
+    --r: 0px;
+  }
 }
 
-.app.no-right {
-  --r: 0px;
+@media (max-width: 999px) {
+  .app.no-left-narrow {
+    --l: 0px;
+  }
+
+  .app.no-right-narrow {
+    --r: 0px;
+  }
 }
 
 .app.no-ui {

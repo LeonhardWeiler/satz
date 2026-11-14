@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CanvasKit } from 'canvaskit-wasm'
-import { Canvas, isTyping } from './Canvas'
+import { Canvas, isTyping, useZoom } from './Canvas'
 import { Edge, Keys, NameInput } from './controls'
 import { able, ACTIONS, addPage, comboOf, keysOf, MENU, ONLY_WHEN_ABLE, press } from './commands'
 import { ContextMenu } from './ContextMenu'
@@ -25,6 +25,7 @@ import { Switcher } from './Switcher'
 import { Toolbar } from './Toolbar'
 import { Tooltip } from './Tooltip'
 
+const NARROW = '(max-width: 999px)'
 const SHOWS: Record<string, [label: string, panel: 'rulers' | 'left' | 'right']> = {
   'Show or hide rulers': ['Rulers', 'rulers'],
   'Show or hide left panel': ['Left panel', 'left'],
@@ -50,13 +51,23 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   const [starting, setStarting] = useState(false)
   const [dialog, setDialog] = useState<'palette' | 'help' | 'settings' | 'history' | null>(null)
   const [finding, setFinding] = useState(false)
-  const [menu, setMenu] = useState<{ x: number; y: number; sub?: 'transform' | 'table' } | null>(null)
+  const [menu, setMenu] = useState<{ x: number; y: number; sub?: 'transform' | 'table' | 'zoom' } | null>(null)
+  const zoom = useZoom()
   const [renaming, setRenaming] = useState(false)
   const [tab, setTab] = useState<'Layers' | 'Assets'>('Layers')
   const selected = useEditor(editor, (e) => e.selection.length > 0)
   const picked = useEditor(editor, (e) => e.selection.join())
-  const [hidden, setHidden] = useState({ left: false, right: false, ui: false, rulers: false })
-  const hide = (panel: keyof typeof hidden) => setHidden((h) => ({ ...h, [panel]: !h[panel] }))
+  const [hidden, setHidden] = useState({ left: false, right: false, leftNarrow: true, rightNarrow: true, ui: false, rulers: false })
+  const [narrow, setNarrow] = useState(() => matchMedia(NARROW).matches)
+  useEffect(() => {
+    const m = matchMedia(NARROW)
+    const f = () => setNarrow(m.matches)
+    m.addEventListener('change', f)
+    return () => m.removeEventListener('change', f)
+  }, [])
+  /** The state of a panel in this window width: a narrow window keeps its own, hidden at first. */
+  const side = (panel: 'left' | 'right' | 'ui' | 'rulers') => (narrow && (panel === 'left' || panel === 'right') ? (`${panel}Narrow` as const) : panel)
+  const hide = (panel: Parameters<typeof side>[0]) => setHidden((h) => ({ ...h, [side(panel)]: !h[side(panel)] }))
 
   const exportAs = (format: Format, pages: number[]) => {
     if (exporting) return
@@ -83,7 +94,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   const quickExport = () => {
     if (!editor.snapshot.preflight.some(isError)) return exportAs(lastFormat.current, editor.snapshot.pages.map((_, i) => i))
     if (!editor.preflight) editor.togglePreflight()
-    setHidden((h) => ({ ...h, right: false, ui: false }))
+    setHidden((h) => ({ ...h, [side('right')]: false, ui: false }))
     requestAnimationFrame(() => document.querySelector<HTMLElement>('.pf-go')?.focus())
   }
   const saveFile = (as: boolean) => {
@@ -203,7 +214,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     }
   }, [editor, say])
 
-  const off = (panel: 'left' | 'right') => hidden.ui || hidden[panel]
+  const off = (panel: 'left' | 'right') => hidden.ui || hidden[side(panel)]
   const bar = (
     <p
       className={statusError ? 'status error' : 'status'}
@@ -227,7 +238,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   )
 
   return (
-    <main className={`app${off('left') ? ' no-left' : ''}${off('right') ? ' no-right' : ''}${hidden.ui ? ' no-ui' : ''}${hidden.rulers ? ' no-rulers' : ''}`}>
+    <main className={['app', ...Object.entries(hidden).filter(([, on]) => on).map(([k]) => `no-${k.replace('Narrow', '-narrow')}`)].join(' ')}>
       <div className="left" inert={off('left')}>
         <Edge side="left" />
         <div className="brand" title="Double-click to rename" onDoubleClick={() => setRenaming(true)} onBlur={() => setRenaming(false)}>
@@ -272,6 +283,20 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         </div>
         {overview ? <span /> : <Switcher editor={editor} />}
         <div className="bar-side end">
+          <button
+            type="button"
+            className="tool zoom"
+            aria-label="Zoom"
+            title="Zoom"
+            aria-haspopup="menu"
+            aria-expanded={menu?.sub === 'zoom'}
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect()
+              setMenu({ x: r.left, y: r.bottom, sub: 'zoom' })
+            }}
+          >
+            {zoom}%
+          </button>
           <button type="button" className="tool palette-button" aria-label="Command palette" title="Search commands, layers and pages (Ctrl+K)" onClick={() => setDialog('palette')}>
             <Icon name="search" />
           </button>
@@ -334,7 +359,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
             if (title === 'Transform' || title === 'Table') return [title, () => setTimeout(() => setMenu({ ...menu, sub: title.toLowerCase() as 'transform' | 'table' })), true, undefined, '›']
             const a = title && ACTIONS.find((a) => a.title === title)!
             const shows = title && SHOWS[title]
-            if (a && shows) return [shows[0], () => hide(shows[1]), true, !hidden[shows[1]], keysOf(a)]
+            if (a && shows) return [shows[0], () => hide(shows[1]), true, !hidden[side(shows[1])], keysOf(a)]
             return a ? [a.title, () => (a.run ? a.run(editor) : press(a.keys)), able(editor, a), undefined, keysOf(a)] : null
           })}
         />
