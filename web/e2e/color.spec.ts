@@ -227,7 +227,7 @@ test('arrow keys in the saturation area do not move the layer', async ({ page })
   await expect(x).toHaveValue(before)
 })
 
-test('a new swatch never repeats the name of an existing one', async ({ page }) => {
+test('a new swatch never repeats the name of an existing one and an rgb document gives rgb swatches no warning', async ({ page }) => {
   await open(page)
   await assets(page)
   const swatches = page.getByRole('region', { name: 'Swatches' })
@@ -241,6 +241,7 @@ test('a new swatch never repeats the name of an existing one', async ({ page }) 
   await swatches.getByRole('button', { name: 'Delete Swatch 1' }).click()
   await add()
   await expect(swatches.getByRole('option')).toHaveText(['Swatch 2', 'Swatch 3'])
+  await expect(swatches.locator('.swatch-warn')).toHaveCount(0)
 
   const menu = page.getByRole('menu', { name: 'Swatch' })
   await swatches.getByRole('option', { name: 'Swatch 2' }).click({ button: 'right' })

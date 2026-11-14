@@ -70,7 +70,7 @@ export function Swatches({ editor }: { editor: Editor }) {
                 <NameInput label="Swatch name" value={s.name} autoFocus onCommit={(name) => editor.apply({ type: 'setSwatch', id: s.id, name })} />
               </div>
             ) : (
-              <SwatchOption swatch={s} selected={s.id === editing} onPick={() => setEditing(s.id)} />
+              <SwatchOption swatch={s} mode={mode} selected={s.id === editing} onPick={() => setEditing(s.id)} />
             )}
             {renaming !== s.id && (
               <button

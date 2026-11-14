@@ -50,16 +50,17 @@ export const NO_SCOPE: Scope = { swatches: [], collections: [], variables: [], m
 /** A swatch color's CMYK values in %, or RGB. */
 export const ink = (c: Color) => (typeof c === 'object' && 'cmyk' in c ? c.cmyk.map((v, i) => 'CMYK'[i] + Math.round(v * 100)).filter((s) => !/^.0$/.test(s)).join(' ') || 'K0' : 'RGB')
 
-export function SwatchOption({ swatch, selected, onPick }: { swatch: Swatch; selected: boolean; onPick: () => void }) {
+export function SwatchOption({ swatch, mode, selected, onPick }: { swatch: Swatch; mode: ColorMode; selected: boolean; onPick: () => void }) {
   const values = ink(swatch.color)
   const kind = swatch.spot ? 'Spot color' : 'Process color'
-  const inks = values === 'RGB' ? 'RGB only, converted to CMYK when printed' : colorText(swatch.color, NO_SCOPE)
+  const warn = values === 'RGB' && mode === 'cmyk'
+  const inks = warn ? 'RGB only, converted to CMYK when printed' : colorText(swatch.color, NO_SCOPE)
   return (
     <button type="button" role="option" aria-selected={selected} className="swatch-option" title={`${swatch.name} · ${kind} · ${inks}`} onClick={onPick}>
       <Chip color={swatch.color} scope={NO_SCOPE} />
       <span className="swatch-name">{swatch.name}</span>
       <span className="swatch-ink" data-ink={values} />
-      {values === 'RGB' ? (
+      {warn ? (
         <span className="swatch-warn">
           <Icon name="warn" />
         </span>
@@ -348,6 +349,7 @@ export function Picker({
             <SwatchOption
               key={sw.id}
               swatch={sw}
+              mode={mode}
               selected={sw.id === bound}
               onPick={() => {
                 onChange({ swatch: sw.id, tint: 1, alpha: 1 })
