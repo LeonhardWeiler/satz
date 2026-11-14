@@ -98,7 +98,7 @@ body,
 
 .app {
   display: grid;
-  grid-template-columns: var(--l, var(--left-size, 240px)) minmax(0, 1fr) var(--r, var(--right-size, 284px));
+  grid-template-columns: var(--l, var(--left-size, 240px)) minmax(0, 1fr) var(--r, var(--right-size, 300px));
   grid-template-rows: 40px minmax(0, 1fr);
   grid-template-areas: 'left bar right' 'left stage right';
 }
@@ -812,7 +812,8 @@ input[type='checkbox']:indeterminate::before {
 }
 
 .paint-row > :not(.swatch) + :is(.field, .bound-name) {
-  flex: 0 0 70px;
+  flex: none;
+  min-width: 70px;
 }
 
 .stops {
@@ -3396,7 +3397,7 @@ dialog::backdrop {
 @media (max-width: 1100px) {
   .app {
     --l: 200px;
-    --r: 248px;
+    --r: 264px;
   }
 
   .tool {

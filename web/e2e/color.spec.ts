@@ -110,6 +110,13 @@ test('the picker copies cmyk as text and takes it pasted in common notations', a
   await picker.focus()
   await page.keyboard.press('Control+c')
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('C:0 M:40 Y:0 K:10')
+
+  await page.keyboard.press('Escape')
+  const value = panel.getByRole('textbox', { name: 'Fill value' })
+  await value.fill('C100 M100 Y100 K100')
+  await value.press('Enter')
+  await expect(value).toHaveValue('100 100 100 100')
+  expect(await value.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true)
 })
 
 test('a cmyk document shows and takes cmyk values in the picker', async ({ page }) => {
@@ -191,6 +198,7 @@ test('a spot swatch is made in the swatches panel, bound in the picker, tinted a
   expect(near((await pixels(page, x, y, 1, 1))[0], [255, 255, 255])).toBe(true)
   await panel.getByRole('textbox', { name: 'Fill tint' }).fill('100')
   await panel.getByRole('textbox', { name: 'Fill tint' }).press('Enter')
+  expect(await panel.getByRole('textbox', { name: 'Fill tint' }).evaluate((e) => [e, e.closest('.field')!].every((e) => e.scrollWidth <= e.clientWidth))).toBe(true)
 
   await assets(page)
   await swatches.getByRole('option', { name: 'HKS 43' }).hover()

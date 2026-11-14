@@ -27,10 +27,10 @@ export function css(c: Color, scope: Scope) {
   return `#${rgb(p, scope).toString(16).padStart(6, '0')}${Math.round(alpha(p) * 2.55).toString(16).padStart(2, '0')}`
 }
 
-/** `c` as hex or CMYK percentages. */
+/** `c` as hex or its CMYK percentages, "100 73 2 0". */
 export function colorText(c: Color, scope: Scope) {
   const p = resolve(c, scope)
-  return typeof p === 'number' ? `#${(p >>> 8).toString(16).padStart(6, '0').toUpperCase()}` : p.cmyk.map((v, i) => `${'CMYK'[i]}${Math.round(v * 100)}`).join(' ')
+  return typeof p === 'number' ? `#${(p >>> 8).toString(16).padStart(6, '0').toUpperCase()}` : p.cmyk.map((v) => Math.round(v * 100)).join(' ')
 }
 
 /** `rgb` in the document's mode, with the alpha of `like`. */

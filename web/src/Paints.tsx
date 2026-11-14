@@ -196,7 +196,7 @@ function PaintRow({
           ? [named(variable ? variable.name : 'Missing variable', undefined, <Icon name="drop" size={12} />), opacity]
           : solid
             ? [
-                <label className="field">
+                <label className="field" title={mode === 'cmyk' ? 'C M Y K' : undefined}>
                   <NameInput label={`${title} value`} value={colorText(c, scope)} onCommit={typed} />
                 </label>,
                 opacity,
