@@ -369,12 +369,17 @@ impl Style {
                 ]);
             }
         }
-        if self.stroke_sides.len() == 4 && closed(path) {
-            ops.extend(self.sides(path, frame, s));
-        } else {
-            ops.extend(self.stroke(path, frame, s));
-        }
+        ops.extend(self.edges(path, frame, s));
         ops
+    }
+
+    /// The strokes along `path`, each side at its own weight when it is closed and has sides.
+    pub fn edges(&self, path: &[f32], frame: [f32; 4], s: &Scope) -> Vec<Op> {
+        if self.stroke_sides.len() == 4 && closed(path) {
+            self.sides(path, frame, s)
+        } else {
+            self.stroke(path, frame, s)
+        }
     }
 
     /// The strokes of each side of `frame` at its own weight, clipped to `path` when inside.

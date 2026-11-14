@@ -739,18 +739,19 @@ pub(super) fn draw(n: &Node, ops: &mut Vec<Op>, pal: &Palette) {
             frame: tf,
             placed,
             ..
-        } => item(
-            ops,
-            text::draw(
-                &content.text,
-                &content.spans,
-                &n.style,
-                frame,
-                tf,
-                s,
-                placed,
-            ),
-        ),
+        } => {
+            let cell = n.cell.map(|_| Style {
+                strokes: Vec::new(),
+                ..n.style.clone()
+            });
+            let style = cell.as_ref().unwrap_or(&n.style);
+            let mut body = text::draw(&content.text, &content.spans, style, frame, tf, s, placed);
+            if cell.is_some() {
+                let [x, y, w, h] = frame;
+                body.extend(n.style.edges(&rect(x, y, w, h), frame, s));
+            }
+            item(ops, body)
+        }
         Kind::Group { children } => draw_all(children, ops, pal),
         Kind::Frame { clip, children, .. } => {
             let r = &n.outline;

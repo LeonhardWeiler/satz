@@ -491,4 +491,24 @@ mod tests {
         }
         assert_eq!(grid(&d, &id).len(), 9);
     }
+
+    #[test]
+    fn cells_stroke_their_edges_not_their_glyphs() {
+        let (mut d, p) = empty();
+        let id = create(&mut d, &p, NewKind::Table, [10.0, 10.0, 300.0, 90.0]);
+        let a = cell(&d, &id, [0, 0]);
+        set_text(&mut d, &a, "text");
+        let strokes: Vec<_> = page_ops(&d)
+            .into_iter()
+            .filter_map(|o| match o {
+                Op::StrokePath { path, .. } => Some(path),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(strokes.len(), 9);
+        assert!(
+            strokes.contains(&rect(10.0, 10.0, 100.0, 30.0)),
+            "{strokes:?}"
+        );
+    }
 }
