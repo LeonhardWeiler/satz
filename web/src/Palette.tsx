@@ -4,6 +4,7 @@ import { Chip, ink, NO_SCOPE } from './ColorPicker'
 import type { Editor } from './editor'
 import { Keys } from './controls'
 import { Icon, KindIcon } from './icons'
+import { sizeOf } from './Text'
 import type { Fill, Node } from './model'
 
 type Item = { group: string; title: string; keys?: string; hint?: string; icon?: ReactNode; off?: boolean; run: () => void }
@@ -57,7 +58,7 @@ function items(editor: Editor): Item[] {
     ...textStyles.map((s) => ({
       group: 'Text styles',
       title: `Style ${s.name}`,
-      hint: `${s.size}/${s.lineHeight || 'auto'}`,
+      hint: sizeOf(s),
       icon: <Icon name="text" />,
       run: () => {
         const texts = editor.selected().filter((n) => n.kind === 'text')

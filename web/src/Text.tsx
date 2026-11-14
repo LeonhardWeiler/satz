@@ -57,6 +57,7 @@ const FIGURES: [string, string, [string, string][]][] = [
 
 /** The text style's name set at its size, within what a panel row takes. */
 const specimen = (s?: TextStyle) => (s ? { fontSize: Math.min(Math.max(s.size * 0.95, 9), 18), fontFamily: 'var(--doc-font)' } : undefined)
+export const sizeOf = (s: TextStyle) => `${s.size}/${s.lineHeight || 'Auto'} pt`
 
 /** The value all spans share, or null. */
 export function sameOf<A, T>(spans: A[], get: (a: A) => T): T | null {
@@ -98,7 +99,7 @@ export function Specimen({ editor, spans, format }: { editor: Editor; spans: Att
         onClick={(e) => setMenu(e.currentTarget.getBoundingClientRect())}
       >
         <span style={specimen(current)}>{style === null ? 'Mixed' : current ? `${current.name}${changed ? '*' : ''}` : 'No style'}</span>
-        {current && <span className="specimen-size">{`${current.size}/${current.lineHeight || 'Auto'} pt`}</span>}
+        {current && <span className="specimen-size">{sizeOf(current)}</span>}
         <Icon name="chevron" />
       </button>
       {menu &&
@@ -585,7 +586,7 @@ function StyleRow({ editor, style }: { editor: Editor; style: TextStyle }) {
           <Icon name="minus" />
         </button>
       </div>
-      {!open && <small className="text-style-sum">{`${style.font?.family ?? 'Source Serif 4'} ${style.font?.style ?? 'Regular'} · ${style.size}/${style.lineHeight || 'auto'} pt`}</small>}
+      {!open && <small className="text-style-sum">{`${style.font?.family ?? 'Source Serif 4'} ${style.font?.style ?? 'Regular'} · ${sizeOf(style)}`}</small>}
       {open && (
         <>
           <Font editor={editor} id={style.id} fonts={[style.font]} set={(font) => editor.apply({ type: 'setTextStyle', id: style.id, font })} />
