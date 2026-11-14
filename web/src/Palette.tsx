@@ -9,7 +9,7 @@ import type { Fill, Node } from './model'
 
 type Item = { group: string; title: string; keys?: string; hint?: string; icon?: ReactNode; off?: boolean; run: () => void }
 
-/** How well `query` matches `text`: 3 at its start or a word's, 2 inside, 1 as letters in order, 0 not; and the matched letters. */
+/** How well `query` matches `text`: 3 at its start or a word's, 2 inside, 1 as letters in order (3 or more), 0 not; and the matched letters. */
 function match(query: string, text: string): [number, number[]] {
   const q = query.toLowerCase()
   const s = text.toLowerCase()
@@ -17,7 +17,7 @@ function match(query: string, text: string): [number, number[]] {
   if (at >= 0) return [at === 0 || s[at - 1] === ' ' ? 3 : 2, [...q].map((_, k) => at + k)]
   const hits: number[] = []
   for (let k = 0; k < s.length && hits.length < q.length; k++) if (s[k] === q[hits.length]) hits.push(k)
-  return [hits.length === q.length ? 1 : 0, hits]
+  return [hits.length === q.length && q.length > 2 ? 1 : 0, hits]
 }
 
 const flat = (nodes: Node[]): Node[] => nodes.flatMap((n) => [n, ...('children' in n ? flat(n.children) : [])])
