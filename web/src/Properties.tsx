@@ -427,7 +427,7 @@ export function Properties({ editor }: { editor: Editor }) {
               'Opacity',
               <Field label={<Icon name="opacity" />} title="Opacity" unit="%" digits={1} max={100} value={same((n) => n.opacity * 100)} onCommit={(v) => set({ opacity: v / 100 })} />,
             )}
-            <Select label="Blend mode" prefix="Blend" value={same((n) => n.blend)} options={BLENDS} breaks={BLEND_GROUPS} onChange={(blend) => set({ blend })} />
+            <Select label="Blend mode" value={same((n) => n.blend)} options={BLENDS} breaks={BLEND_GROUPS} onChange={(blend) => set({ blend })} />
             {one?.anchored && (
               <>
                 <Segmented label="Anchoring" text value={one.anchored} options={ANCHORINGS} onChange={(anchored) => set({ anchored })} />
@@ -556,7 +556,6 @@ function DocumentSection({ editor, pagesOnly }: { editor: Editor; pagesOnly: boo
             {color}
             <Select<string>
               label="Profile"
-              prefix="Profile"
               value={profile === null ? 'fogra' : 'own'}
               options={{ fogra: 'FOGRA51', ...(profile !== null && { own: profile || 'Uploaded' }), upload: 'Upload ICC…' }}
               breaks={[profile === null ? 'fogra' : 'own']}
