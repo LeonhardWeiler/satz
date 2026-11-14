@@ -237,12 +237,6 @@ const ICONS = {
   letterSpacing: <path d="m3 3 2.25 6.5L7.5 3M8.5 9.5 10.75 3 13 9.5M9.2 7.5h3.1M2.5 12.5h11M4 11l-1.5 1.5L4 14M12 11l1.5 1.5L12 14" />,
   paragraphSpacing: <path d="M2.5 2.5h11M2.5 5h7M2.5 11h11M2.5 13.5h7M12 6.5v3" />,
   more: <path d="M3.5 8h.01M8 8h.01M12.5 8h.01" strokeWidth="2.5" />,
-  columns: (
-    <>
-      <rect x="2.5" y="3" width="4.5" height="10" rx="1" />
-      <rect x="9" y="3" width="4.5" height="10" rx="1" />
-    </>
-  ),
   omega: <path d="M3 13h3v-1.6a4.5 4.5 0 1 1 4 0V13h3" />,
   warn: <path d="M7.1 3.1a1 1 0 0 1 1.8 0l5.2 9.4a1 1 0 0 1-.9 1.5H2.8a1 1 0 0 1-.9-1.5zM8 6.5v3M8 11.3v.2" />,
   error: (

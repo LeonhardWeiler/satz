@@ -692,7 +692,7 @@ export function TextFrameSection({ editor, nodes, set }: { editor: Editor; nodes
         <>
           <div className="grid">
             {inset}
-            <Field label={<Icon name="columns" />} title="Columns" unit="" int min={1} max={20} reset={1} value={columns} onCommit={(columns) => set({ columns })} />
+            <Field label="Columns" title="Columns" unit="" int min={1} max={20} reset={1} value={columns} onCommit={(columns) => set({ columns })} />
             {columned && <Field label="Gutter" title="Gutter" unit="length" value={same((n) => n.gutter)} onCommit={(gutter) => set({ gutter })} />}
           </div>
           {columned && (
