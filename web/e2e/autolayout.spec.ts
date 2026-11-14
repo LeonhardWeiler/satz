@@ -154,3 +154,14 @@ test('a hugging frame turns fixed with a note when its only child fills it', asy
   await expect(panel.getByRole('combobox', { name: 'Width sizing' })).toHaveText(/Fixed$/)
   await expect(panel.getByRole('textbox', { name: 'W in mm' })).toHaveValue(w)
 })
+
+test('an add button that gives way to what it adds hands the focus to its first control', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Frame', exact: true }).click()
+  await panel.getByRole('button', { name: 'Add auto layout' }).click()
+  const section = panel.getByRole('region', { name: 'Auto layout' })
+  await expect(section.locator(':focus')).toHaveCount(1)
+  await page.keyboard.press('Tab')
+  await expect(panel.locator(':focus')).toHaveCount(1)
+})

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CanvasKit } from 'canvaskit-wasm'
 import { Canvas, isTyping, useZoom } from './Canvas'
-import { Edge, Keys, NameInput } from './controls'
+import { Edge, FOCUSABLE, Keys, NameInput } from './controls'
 import { able, ACTIONS, addPage, comboOf, keysOf, MENU, ONLY_WHEN_ABLE, press } from './commands'
 import { ContextMenu } from './ContextMenu'
 import { CLIP, useEditor, type Editor } from './editor'
@@ -28,7 +28,6 @@ import { Tooltip } from './Tooltip'
 const NARROW = '(max-width: 999px)'
 
 const REGIONS = ['.bar', '.left', '.overview, .canvas', '.right']
-const FOCUSABLE = 'button:enabled, input:enabled, select:enabled, textarea:enabled, a[href], [tabindex]:not([tabindex="-1"])'
 const ENTRIES = ['[role=tree] [tabindex="0"]', '[role=tab][aria-selected=true]', FOCUSABLE]
 const reachable = (e: HTMLElement) => !e.closest('[inert]') && e.checkVisibility()
 

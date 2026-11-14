@@ -8,6 +8,8 @@ import { Icon, type IconName } from './icons'
 import type { Typeface } from './model'
 import { MAX_LENGTH, UNITS, useSettings } from './settings'
 
+export const FOCUSABLE = 'button:enabled, input:enabled, select:enabled, textarea:enabled, a[href], [tabindex]:not([tabindex="-1"])'
+
 /** Moves the focus from the event's target to the item before or after it for the keys `back` and `forth`. */
 export function roam(e: KeyboardEvent, items: Element[], back = ['ArrowUp'], forth = ['ArrowDown']) {
   const i = items.indexOf(e.target as Element)
@@ -359,7 +361,17 @@ export function Section({
         <h3>{title}</h3>
         {actions}
         {onAdd && (
-          <button type="button" className="icon-button" aria-label={add} title={add} onClick={onAdd}>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label={add}
+            title={add}
+            onClick={(e) => {
+              const body = e.currentTarget.closest('section')!.querySelector('.section-body')!
+              onAdd(e)
+              requestAnimationFrame(() => document.activeElement === document.body && body.querySelector<HTMLElement>(FOCUSABLE)?.focus())
+            }}
+          >
             <Icon name="plus" />
           </button>
         )}
