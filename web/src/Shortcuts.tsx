@@ -30,6 +30,7 @@ const GESTURES: Record<string, [string, string][]> = {
   ],
   Layers: [
     ['↑ ↓', 'Select the previous or next layer'],
+    ['Shift ↑ ↓', 'Add the previous or next layer to the selection'],
     ['← →', 'Close or open a group'],
     ['Enter', 'Select the children'],
     ['Shift Enter', 'Select the parent'],

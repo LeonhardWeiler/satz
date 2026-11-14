@@ -50,7 +50,12 @@ export function Layers({ editor }: { editor: Editor }) {
   const onKey = (e: KeyboardEvent<HTMLUListElement>) => {
     const items = [...e.currentTarget.querySelectorAll('.layer-name')]
     const item = (e.target as HTMLElement).closest<HTMLElement>('[role=treeitem]')
-    if (roam(e, items) || !item || !items.includes(e.target as Element)) return
+    if (roam(e, items)) {
+      const to = document.activeElement?.closest<HTMLElement>('[role=treeitem]')
+      if (e.shiftKey && to && to !== item) select(to.dataset.id!, e)
+      return
+    }
+    if (!item || !items.includes(e.target as Element)) return
     const id = item.dataset.id!
     const open = item.getAttribute('aria-expanded')
     const focus = (el: Element | null | undefined) => (el as HTMLElement | null)?.focus()

@@ -190,3 +190,18 @@ test('shift click fills up to a layer or drops those after it, ctrl click adds o
   await kids.nth(1).click({ modifiers: ['Shift'] })
   await expect(selected).toHaveCount(2)
 })
+
+test('shift and the arrow keys fill the selection up to the next layer or drop the last', async ({ page }) => {
+  await open(page)
+  const kids = layers(page).getByRole('treeitem', { name: 'Shapes' }).getByRole('group').locator('.layer-name')
+  const selected = layers(page).getByRole('treeitem', { selected: true })
+  await kids.first().click()
+  await page.keyboard.press('Shift+ArrowDown')
+  await page.keyboard.press('Shift+ArrowDown')
+  await expect(selected).toHaveCount(3)
+  await expect(kids.nth(2)).toBeFocused()
+  await page.keyboard.press('Shift+ArrowUp')
+  await expect(selected).toHaveCount(2)
+  await page.keyboard.press('ArrowDown')
+  await expect(selected).toHaveCount(2)
+})
