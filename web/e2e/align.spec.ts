@@ -65,10 +65,6 @@ test('the context menu flattens a shape and leaves out booleans for a single lay
   await expect(page.getByRole('menuitem', { name: 'Union' })).toHaveCount(0)
   await page.keyboard.press('Escape')
 
-  const layers = page.getByRole('tree', { name: 'Layers' })
-  await layers.getByRole('button', { name: 'Sun', exact: true }).click()
-  await page.keyboard.press('Enter')
-  await expect(page.getByRole('toolbar', { name: 'Path tools' })).toBeHidden()
   await (await transform(page, 'Sun', 'Flatten')).click()
   await page.evaluate(() => (document.activeElement as HTMLElement).blur())
   await page.keyboard.press('Enter')

@@ -33,14 +33,20 @@ export const ALIGNS: [Align, string, IconName, string][] = [
   ['tidy', 'Tidy up', 'tidy', 'Ctrl+Alt+Shift+T'],
 ]
 
+/** The frame that `id` sits in, through its groups, or undefined on the page. */
+const frameOf = (editor: Editor, id?: string) => {
+  let parent = id ? editor.nodes.get(id)?.parent : undefined
+  while (parent?.kind === 'group') parent = editor.nodes.get(parent.id)?.parent
+  return parent?.kind === 'frame' ? parent : undefined
+}
+
 /**
- * Aligns `layers` to their bounds, or a single layer to its parent frame or page;
+ * Aligns `layers` to their bounds, or a single layer to the frame or page it sits in;
  * distributes and tidies three and two layers or more.
  */
 export function align(editor: Editor, how: Align, layers = editor.selected()) {
   const nodes = layers.filter((n) => !n.locked)
-  const parent = nodes.length > 0 && editor.nodes.get(nodes[0].id)?.parent
-  const to = nodes.length > 1 ? bounds(nodes) : parent && parent.kind === 'frame' ? parent : { x: 0, y: 0, w: editor.page.width, h: editor.page.height }
+  const to = nodes.length > 1 ? bounds(nodes) : frameOf(editor, nodes[0]?.id) ?? { x: 0, y: 0, w: editor.page.width, h: editor.page.height }
   const moves = new Map<Node, [number, number]>()
   const sorted = (x: 'x' | 'y', w: 'w' | 'h') => [...nodes].sort((a, b) => a[x] + a[w] / 2 - b[x] - b[w] / 2)
   const spread = (x: 'x' | 'y', w: 'w' | 'h') => {
@@ -123,7 +129,7 @@ export function AlignBar({ editor, inside, children }: { editor: Editor; inside?
       type="button"
       className="icon-button"
       aria-label={title}
-      title={inside ? `${title} inside the group` : n > 1 ? `${title} (${key})` : `${title} to the ${editor.nodes.get(editor.selection[0])?.parent?.kind === 'frame' ? 'frame' : 'page'} (${key})`}
+      title={inside ? `${title} inside the group` : n > 1 ? `${title} (${key})` : `${title} to the ${frameOf(editor, editor.selection[0]) ? 'frame' : 'page'} (${key})`}
       onClick={() => align(editor, how, inside)}
     >
       <Icon name={icon} />

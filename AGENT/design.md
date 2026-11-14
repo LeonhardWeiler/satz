@@ -17,7 +17,7 @@ fails vitest.
   counter only with issues, the progress bar only while exporting, a setting where it
   takes effect (raster resolution in Export).
 - Every layer aligns easily: the align bar shows for any selection outside an auto
-  layout, several layers align to their bounds, a single layer to its parent frame or page.
+  layout, several layers align to their bounds, a single layer to the frame or page it sits in.
 - The top bar is stable: opening a panel or the preflight never adds or removes its
   buttons; Export always stays. Placeholders for an unknown value are an en dash (–).
 - A title that does not fit ends in an ellipsis and carries the full name as its tooltip.
