@@ -432,15 +432,29 @@ test('a layer dragged to the edge of the canvas moves on as the canvas scrolls',
   await page.mouse.up()
 })
 
-test('hiding the panels, the interface or the rulers leaves the page where it is on screen', async ({ page }) => {
+test('hiding a panel fits a fitted page again and leaves a zoomed one where it is on screen', async ({ page }) => {
   await open(page)
-  const [x, y] = await screen(page, 23, 37)
-  const sun = () => pixels(page, x - 20, y - 20, 40, 40)
-  const before = await sun()
+  const sun = async (at?: readonly [number, number]) => {
+    const [x, y] = at ?? (await screen(page, 23, 37))
+    return pixels(page, x - 20, y - 20, 40, 40)
+  }
+  for (const key of ['Alt+1', 'Alt+2']) {
+    await page.keyboard.press(key)
+    await page.waitForTimeout(100)
+    const shown = await sun()
+    await page.keyboard.press('Shift+1')
+    await page.waitForTimeout(100)
+    expect(await sun(), `fitted ${key}`).toEqual(shown)
+  }
+  for (const key of ['Alt+1', 'Alt+2']) await page.keyboard.press(key)
+  await page.keyboard.press('Control+=')
+  await page.waitForTimeout(300)
+  const at = await screen(page, 23, 37)
+  const before = await sun(at)
   for (const key of ['Alt+1', 'Alt+2', 'Shift+R', 'Shift+W']) {
     await page.keyboard.press(key)
     await page.waitForTimeout(100)
-    expect(await sun(), key).toEqual(before)
+    expect((await sun(at)).every((p, i) => near(p, before[i])), key).toBe(true)
   }
 })
 

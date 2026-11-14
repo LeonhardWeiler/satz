@@ -27,7 +27,7 @@ fails vitest.
   2 %–6400 %, Ctrl + and Ctrl - zoom around the selection when there is one.
 - A window below 1000 px hides both panels at first; Alt 1 and Alt 2 show them there
   without changing the choice for wide windows, and the top bar spans the whole width above
-  them. A fitted page fits again on resize.
+  them. A fitted page fits again when the window or a panel changes size or shows; a zoomed one stays where it is on screen.
 - Rare settings of a section sit behind the ⋯ button in its header, whose tooltip names
   what it holds ("Text wrap", "Section numbering"); it stays open while one of them is set. Rare actions (arrange, flip, flatten, booleans) live in the panel's
   ⋯ menu and the palette, not in icon rows.

@@ -211,7 +211,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     let surface: Surface | null = null
     let frame = 0
     let fitted = true
-    let windowSize = ''
     let space = false
     let drag: Drag | null = null
     let hover: string | undefined
@@ -619,13 +618,15 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     }
     let anim = 0
     let target: View | undefined
-    /** Moves the view to `to` in 180 ms, scaling about the point both views share; any input ends the move at `to`. */
-    const glide = (to: View) => {
+    let fits = false
+    /** Moves the view to `to` in 180 ms, scaling about the point both views share; any input ends the move at `to`, which stays fitted on resize if `fitting`. */
+    const glide = (to: View, fitting = false) => {
       settle()
-      if (matchMedia('(prefers-reduced-motion: reduce)').matches) return show(to)
+      target = to
+      fits = fitting
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) return settle()
       const from = { ...view }
       const start = performance.now()
-      target = to
       const step = (t: number) => {
         const k = Math.min(1, (t - start) / 180)
         const e = 1 - (1 - k) ** 3
@@ -633,13 +634,16 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         const f = to.zoom === from.zoom ? e : (zoom - from.zoom) / (to.zoom - from.zoom)
         show({ x: from.x + (to.x - from.x) * f, y: from.y + (to.y - from.y) * f, zoom })
         if (k < 1) anim = requestAnimationFrame(step)
-        else target = undefined
+        else settle()
       }
       anim = requestAnimationFrame(step)
     }
     const settle = () => {
       cancelAnimationFrame(anim)
-      if (target) show(target)
+      if (target) {
+        show(target)
+        fitted = fits
+      }
       target = undefined
     }
 
@@ -761,9 +765,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       canvas.height = box ? box.blockSize : Math.round(entry.contentRect.height * devicePixelRatio)
       surface?.delete()
       surface = ck.MakeOnScreenGLSurface(gl, canvas.width, canvas.height, ck.ColorSpace.SRGB)
-      const size = `${innerWidth}x${innerHeight}`
-      if (fitted && size !== windowSize) fit()
-      windowSize = size
+      if (fitted) fit()
       rulers.delete(rulerX.current!)
       rulers.delete(rulerY.current!)
       paint()
@@ -1415,7 +1417,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const mod = e.ctrlKey || e.metaKey
       const sel = editor.selection.length ? bounds(editor.selected().map(placed)) : undefined
       const at: [number, number] = sel ? [view.x + (sel.x + sel.w / 2) * view.zoom, view.y + (sel.y + sel.h / 2) * view.zoom] : [cx, cy]
-      if (e.shiftKey && e.code === 'Digit1') glide(fitView(editor.sheets, canvas.clientWidth, canvas.clientHeight))
+      if (e.shiftKey && e.code === 'Digit1') glide(fitView(editor.sheets, canvas.clientWidth, canvas.clientHeight), true)
       else if (e.shiftKey && e.code === 'Digit2' && sel) {
         const zoom = Math.min(64 * ONE(), (canvas.clientWidth - 240) / Math.max(sel.w, 1), (canvas.clientHeight - 240) / Math.max(sel.h, 1))
         glide({ x: cx - (sel.x + sel.w / 2) * zoom, y: cy - (sel.y + sel.h / 2) * zoom, zoom })
