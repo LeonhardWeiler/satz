@@ -34,7 +34,8 @@ fails vitest.
   selection mixes its Fill and Stroke), the explanation goes into the tooltip.
 - Long option lists are grouped under short group titles, never one flat list.
 - One entry point per action per screen: a dialog does not repeat a button of the
-  screen behind it.
+  screen behind it. A setting in a dialog and in a panel is one shared control (the colour
+  mode select, the grid fields: Columns or Rows, a Gutter from 2 on, Margin).
 - Properties live only in the right panel. The mask toggle, flatten, tidy up and booleans live in
   the context menu's Transform submenu and the command palette. The left panel has 2 tabs: Layers and
   Assets (swatches, fonts, variables, text styles), the swatches follow right below their content;

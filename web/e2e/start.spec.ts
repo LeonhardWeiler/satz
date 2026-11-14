@@ -1,5 +1,5 @@
 import { type Page } from '@playwright/test'
-import { expect, test, autosaved, open, pageCount } from './util'
+import { expect, test, autosaved, choose, open, pageCount } from './util'
 
 const start = (page: Page) => page.getByRole('dialog', { name: 'New document' })
 const home = (page: Page) => page.getByRole('dialog', { name: 'Projects' })
@@ -75,7 +75,7 @@ test('a custom size, color mode, bleed and columns go into the document', async 
     await dialog.getByRole('textbox', { name }).fill(v)
     await dialog.getByRole('textbox', { name }).press('Tab')
   }
-  await dialog.getByRole('radio', { name: 'RGB' }).click()
+  await choose(dialog.getByRole('combobox', { name: 'Color mode' }), 'RGB')
   await fill('Bleed', '5')
   await fill('Columns', '3')
   await fill('Width', '100')

@@ -2,19 +2,31 @@ import { useEffect, useRef, useState } from 'react'
 import { Engine } from './engine/engine'
 import { MM, type Editor } from './editor'
 import { begin, discard, open } from './file'
-import { Field, nextName, Segmented } from './controls'
+import { Field, nextName, Segmented, Select } from './controls'
 import { length, setSettings, useSettings, type DocPreset } from './settings'
 import { Icon } from './icons'
 import type { Page } from './types'
+import type { ColorMode, Grid } from './model'
 
 export const ORIENTATIONS = [
   ['portrait', 'Portrait', 'portrait'],
   ['landscape', 'Landscape', 'landscape'],
 ] as const
-const MODES = [
-  ['cmyk', 'CMYK'],
-  ['rgb', 'RGB'],
-] as const
+const MODES: Record<ColorMode, string> = { cmyk: 'CMYK', rgb: 'RGB' }
+export const ColorModeSelect = ({ value, onChange }: { value: ColorMode; onChange: (mode: ColorMode) => void }) => (
+  <Select label="Color mode" prefix="Color" value={value} options={MODES} onChange={onChange} />
+)
+type Spacing = Pick<Grid, 'count' | 'gutter' | 'margin'>
+/** The count of `what` (Columns or Rows), the gutter between more than 1 of them and the margin. */
+export function GridFields({ what, g, set }: { what: string; g: Spacing; set: (g: Partial<Spacing>) => void }) {
+  return (
+    <>
+      <Field label={what} title={`Number of ${what.toLowerCase()}`} unit="" int min={1} max={100} value={g.count} onCommit={(count) => set({ count })} />
+      {g.count > 1 && <Field label="Gutter" title="Gutter" unit="length" value={g.gutter} onCommit={(gutter) => set({ gutter })} />}
+      <Field label="Margin" title="Margin" unit="length" value={g.margin} onCommit={(margin) => set({ margin: Math.max(0, margin) })} />
+    </>
+  )
+}
 export const FORMATS: [string, number, number][] = [
   ['A2', 420, 594],
   ['A3', 297, 420],
@@ -187,12 +199,10 @@ export function Start({ editor, onClose }: { editor: Editor; onClose: () => void
           Facing pages
         </label>
         <h3>Color</h3>
-        <Segmented label="Color mode" value={doc.mode} options={MODES} text onChange={(mode) => set({ mode })} />
-        <h3>Margins, columns and bleed</h3>
+        <ColorModeSelect value={doc.mode} onChange={(mode) => set({ mode })} />
+        <h3>Columns, margins and bleed</h3>
         <div className="grid">
-          <Field label="Margin" title="Margin" value={doc.margin} unit="length" onCommit={(margin) => set({ margin })} />
-          <Field label="Columns" title="Columns" value={doc.columns} unit="" int min={1} max={24} onCommit={(v) => set({ columns: Math.round(v) })} />
-          <Field label="Gutter" title="Gutter" value={doc.gutter} unit="length" onCommit={(gutter) => set({ gutter })} />
+          <GridFields what="Columns" g={{ count: doc.columns, gutter: doc.gutter, margin: doc.margin }} set={({ count: columns = doc.columns, ...g }) => set({ ...g, columns })} />
           <Field label="Bleed" title="Bleed" value={doc.bleed} unit="length" max={100 * MM} onCommit={(bleed) => set({ bleed })} />
         </div>
       </section>

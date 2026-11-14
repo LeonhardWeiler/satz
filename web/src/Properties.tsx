@@ -1,11 +1,11 @@
-import { neutral, solid, type ColorMode } from './color'
+import { neutral, solid } from './color'
 import { Check, Field, Group, NameInput, Section, Segmented, Select, SIDE_ICONS, SIDE_NAMES, SidesToggle, useMore } from './controls'
 import { useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
 import { bounds, ends, MM, scopeOf, useEditor, type Editor } from './editor'
 import { Icon, KindIcon } from './icons'
-import { FORMATS, ORIENTATIONS, formatOf } from './Start'
+import { ColorModeSelect, FORMATS, GridFields, ORIENTATIONS, formatOf } from './Start'
 import { canLink, pickProfile } from './file'
 import { length, setSettings, useSettings } from './settings'
 import type { Bindable as Prop, Blend, Constraint, Command, DateFormat, Grid, LineStyle, Node, Page, Props, Section as Numbers, Anchoring, TextNode, Wrap } from './model'
@@ -73,7 +73,6 @@ const CAPS = [
   ['round', 'Round cap', 'capRound'],
   ['square', 'Square cap', 'capSquare'],
 ] as const
-const MODES: Record<ColorMode, string> = { rgb: 'RGB', cmyk: 'CMYK' }
 const DATES: Record<DateFormat, string> = { english: 'November 9, 2026', german: '9. November 2026', us: '11/09/2026', dotted: '09.11.2026', iso: '2026-11-09' }
 const NUMBERINGS = { arabic: '1, 2, 3', upperRoman: 'I, II, III', lowerRoman: 'i, ii, iii' }
 const HORIZONTAL: Record<Constraint, string> = { min: 'Left', max: 'Right', stretch: 'Left & right', center: 'Center', scale: 'Scale' }
@@ -544,7 +543,7 @@ function textBelow(editor: Editor, n: Node) {
 /** Facing pages and, unless `pagesOnly`, color mode and, in CMYK, the profile of the document, and how dates show. */
 function DocumentSection({ editor, pagesOnly }: { editor: Editor; pagesOnly: boolean }) {
   const { facingPages, colorMode, profile, dateFormat, linkImages } = useEditor(editor, (e) => e.snapshot)
-  const color = <Select label="Color mode" prefix="Color" value={colorMode} options={MODES} onChange={(colorMode) => editor.apply({ type: 'setDocument', colorMode })} />
+  const color = <ColorModeSelect value={colorMode} onChange={(colorMode) => editor.apply({ type: 'setDocument', colorMode })} />
   return (
     <section className="section" aria-label="Document">
       <div className="section-body">
@@ -641,11 +640,7 @@ function GridSection({ editor, sheets, all }: { editor: Editor; sheets: Page[]; 
                   {g.kind === 'grid' ? (
                     <Field label="Size" title="Cell size" unit="length" min={1} value={g.size} onCommit={(size) => set({ size })} />
                   ) : (
-                    <>
-                      <Field label="Count" title={`Number of ${GRIDS[g.kind].toLowerCase()}`} unit="" int min={1} max={100} value={g.count} onCommit={(count) => set({ count })} />
-                      {g.count > 1 && <Field label="Gutter" title="Gutter" unit="length" value={g.gutter} onCommit={(gutter) => set({ gutter })} />}
-                      <Field label="Margin" title="Margin" unit="length" value={g.margin} onCommit={(margin) => set({ margin: Math.max(0, margin) })} />
-                    </>
+                    <GridFields what={GRIDS[g.kind]} g={g} set={set} />
                   )}
                 </div>
               </li>
