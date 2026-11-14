@@ -5,7 +5,7 @@ import { Icon } from './icons'
 import type { Version } from './model'
 
 const day = (t: number) => new Date(t * 1000).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-const time = (t: number) => new Date(t * 1000).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+const time = (t: number) => new Date(t * 1000).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' })
 
 /** Ctrl Alt Z: the versions of the document's history by day; choosing one restores it. */
 export function History({ editor, onClose }: { editor: Editor; onClose: () => void }) {
