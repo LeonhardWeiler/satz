@@ -57,7 +57,6 @@ fails vitest.
 - A setting that cannot take effect is hidden: Gutter with 1 column, Text wrap on a page
   without text.
 - Groups inside a popover part by spacing and their heading, not by rules.
-- Keep aspect ratio sits between W and H; while it is on, a bridge joins the 2 fields.
 - A section's actions on its subject (insert rows, merge cells) sit in header menus
   (`MenuButton`: + for adding, ⋯ for the rest), the same actions in the context menu
   and the palette; no rows of text buttons.

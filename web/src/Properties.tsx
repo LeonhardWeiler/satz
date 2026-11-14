@@ -294,7 +294,16 @@ export function Properties({ editor }: { editor: Editor }) {
       )}
       {!box && <GridSection editor={editor} sheets={sheets} all={isPage && targets.length === 1 ? snapshot.pages : []} />}
       {box && !cells && (
-        <Section title="Layout">
+        <Section
+          title="Layout"
+          actions={
+            !line && (
+              <button type="button" className="icon-button" aria-label="Keep aspect ratio" title="Keep aspect ratio" aria-pressed={linked ?? 'mixed'} onClick={() => set({ keepRatio: !linked })}>
+                <Icon name={linked ? 'ratio' : 'unlink'} />
+              </button>
+            )
+          }
+        >
           {!nodes.every((n) => flows(editor, n)) && (
             <AlignBar editor={editor}>
               {row && (
@@ -318,20 +327,8 @@ export function Properties({ editor }: { editor: Editor }) {
               </>
             ) : (
               <>
-                <div className={linked ? 'ratio linked' : 'ratio'}>
-                  {bindable('w', 'W', 'W', <Field label="W" value={box.w} unit="length" onCommit={frame('w')} />)}
-                  <button
-                    type="button"
-                    className="icon-button"
-                    aria-label="Keep aspect ratio"
-                    title="Keep aspect ratio"
-                    aria-pressed={linked ?? 'mixed'}
-                    onClick={() => set({ keepRatio: !linked })}
-                  >
-                    <Icon name={linked ? 'ratio' : 'unlink'} size={12} />
-                  </button>
-                  {bindable('h', 'H', 'H', <Field label="H" value={box.h} unit="length" onCommit={frame('h')} />)}
-                </div>
+                {bindable('w', 'W', 'W', <Field label="W" value={box.w} unit="length" onCommit={frame('w')} />)}
+                {bindable('h', 'H', 'H', <Field label="H" value={box.h} unit="length" onCommit={frame('h')} />)}
                 <Field
                   label={<Icon name="angle" />}
                   title="Rotation"
@@ -645,8 +642,8 @@ function GridSection({ editor, sheets, all }: { editor: Editor; sheets: Page[]; 
                     <Field label="Size" title="Cell size" unit="length" min={1} value={g.size} onCommit={(size) => set({ size })} />
                   ) : (
                     <>
-                      <Field label={GRIDS[g.kind]} title={GRIDS[g.kind]} unit="" int min={1} max={100} value={g.count} onCommit={(count) => set({ count })} />
-                      <Field label="Gutter" title="Gutter" unit="length" value={g.gutter} onCommit={(gutter) => set({ gutter })} />
+                      <Field label="Count" title={`Number of ${GRIDS[g.kind].toLowerCase()}`} unit="" int min={1} max={100} value={g.count} onCommit={(count) => set({ count })} />
+                      {g.count > 1 && <Field label="Gutter" title="Gutter" unit="length" value={g.gutter} onCommit={(gutter) => set({ gutter })} />}
                       <Field label="Margin" title="Margin" unit="length" value={g.margin} onCommit={(margin) => set({ margin: Math.max(0, margin) })} />
                     </>
                   )}

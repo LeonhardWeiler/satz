@@ -294,7 +294,7 @@ export class Renderer {
         for (const [spans, across] of [[x, s.height], [y, s.width]] as const) {
           for (const [a, b, m = 0] of spans) {
             const r = spans === x ? ck.XYWHRect(a, m, b - a, across - 2 * m) : ck.XYWHRect(s.x + m, a, across - 2 * m, b - a)
-            paint.setColor(ck.Color(...GRID, a === b ? 0.3 : 0.12))
+            paint.setColor(ck.Color(...GRID, a === b ? 0.2 : 0.06))
             paint.setStyle(a === b ? ck.PaintStyle.Stroke : ck.PaintStyle.Fill)
             if (a === b) canvas.drawLine(r[0], r[1], r[2], r[3], paint)
             else canvas.drawRect(r, paint)

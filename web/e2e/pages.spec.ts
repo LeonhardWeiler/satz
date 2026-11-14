@@ -101,7 +101,7 @@ test('with facing pages the page overview shows spreads from a first right page,
 test('layout grids show on the page, hide with shift g, apply to all pages and come from presets', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
-  const count = panel.getByRole('textbox', { name: 'Columns' })
+  const count = panel.getByRole('textbox', { name: 'Number of columns' })
   const at = async (x: number, y: number) => (await colors(page, [await screen(page, x, y)]))[0]
   await addPage(page)
   await panel.getByRole('button', { name: 'Add layout grid' }).click()
@@ -122,7 +122,7 @@ test('layout grids show on the page, hide with shift g, apply to all pages and c
   await panel.getByRole('button', { name: 'Add layout grid' }).click()
   await page.getByRole('menuitem', { name: '3 × 3 modules' }).click()
   await expect(count).toHaveValue('3')
-  await expect(panel.getByRole('textbox', { name: 'Rows' })).toHaveValue('3')
+  await expect(panel.getByRole('textbox', { name: 'Number of rows' })).toHaveValue('3')
 })
 
 test('layout grids are saved as a preset, added again after a reload and deleted', async ({ page }) => {
@@ -132,8 +132,8 @@ test('layout grids are saved as a preset, added again after a reload and deleted
   const name = '7 columns, 5 mm gutter, 15 mm margin'
   await add.click()
   await page.getByRole('menuitem', { name: '2 columns', exact: true }).click()
-  await panel.getByRole('textbox', { name: 'Columns' }).fill('7')
-  await panel.getByRole('textbox', { name: 'Columns' }).press('Enter')
+  await panel.getByRole('textbox', { name: 'Number of columns' }).fill('7')
+  await panel.getByRole('textbox', { name: 'Number of columns' }).press('Enter')
   await add.click()
   await page.getByRole('menuitem', { name: 'Save grids as preset' }).click()
   await panel.getByRole('button', { name: 'Remove grid' }).click()
@@ -141,7 +141,7 @@ test('layout grids are saved as a preset, added again after a reload and deleted
   await page.keyboard.press('Escape')
   await add.click()
   await page.getByRole('menuitem', { name }).click()
-  await expect(panel.getByRole('textbox', { name: 'Columns' })).toHaveValue('7')
+  await expect(panel.getByRole('textbox', { name: 'Number of columns' })).toHaveValue('7')
   await add.click()
   await page.getByRole('menuitem', { name: 'Delete preset' }).click()
   await page.getByRole('menu', { name: 'Delete preset' }).getByRole('menuitem', { name }).click()
