@@ -37,7 +37,7 @@ test('the text style specimen opens a menu of the styles set at their size, mark
   await panel.getByTitle('Text style', { exact: true }).first().click()
   await page.getByRole('menuitem', { name: 'New text style' }).click()
   await page.mouse.move(0, 0)
-  const specimen = panel.getByTitle('Text style', { exact: true })
+  const specimen = panel.getByRole('button', { name: 'Text style', exact: true })
   await expect(specimen).toContainText('Text style 1')
   await specimen.click()
   await expect(page.getByRole('menuitemradio', { name: 'Text style 1' })).toBeFocused()

@@ -95,6 +95,7 @@ export function Specimen({ editor, spans, format }: { editor: Editor; spans: Att
         type="button"
         className={`specimen${style === '' ? ' none' : ''}`}
         title="Text style"
+        aria-label="Text style"
         aria-haspopup="menu"
         onClick={(e) => setMenu(e.currentTarget.getBoundingClientRect())}
       >
