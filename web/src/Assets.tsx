@@ -33,7 +33,7 @@ export function Assets({ editor }: { editor: Editor }) {
         <ul className="fonts">
           {fonts.map((f, i) => (
             <li key={f.hash}>
-              <span>{f.name}</span>
+              <span className="swatch-name" title={f.name}>{f.name}</span>
               {i > 0 && (
                 <button type="button" className="icon-button" aria-label={`Remove ${f.name}`} title="Remove font" onClick={() => removeFont(editor, f.hash).catch(() => {})}>
                   <Icon name="minus" />
@@ -71,7 +71,7 @@ function LinkedImages({ editor }: { editor: Editor }) {
       <ul className="fonts">
         {Object.entries(links).map(([hash, name]) => (
           <li key={hash} className={missing.includes(hash) ? 'missing' : undefined} title={missing.includes(hash) ? 'Missing: the layers it fills show empty' : undefined}>
-            <span>{name}</span>
+            <span className="swatch-name" title={name}>{name}</span>
             {missing.includes(hash) && (
               <button type="button" className="icon-button" aria-label={`Relink ${name}`} title="Relink" onClick={() => relink(editor, hash)}>
                 <Icon name="folder" />
