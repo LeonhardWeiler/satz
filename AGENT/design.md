@@ -150,7 +150,8 @@ fails vitest.
   chosen item carries a check, not a heavier weight;
   separators are 1 px `--edge` with 4 space around. A command that cannot act is greyed
   out in the context menu and the palette (there after the others); rare ones (booleans,
-  Reset to master) are left out instead.
+  Reset to master) are left out instead. Arrange commands need a selection, text commands
+  text in it or a text edit, unless a command says more.
 - Popovers open beside their trigger and fit 640 px of height; longer content is split into sections or tabs,
   and a smaller window scrolls them. A dialog docked over the canvas moves the selection out from under it.
 - Dialogs: 24 inset, title 16 in weight 600, actions at the bottom with the primary last

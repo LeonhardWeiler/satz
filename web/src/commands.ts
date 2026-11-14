@@ -6,7 +6,7 @@ import { TABLE_ACTIONS } from './cells'
 import { keyOf } from './keys'
 import { DATE, insert, MAC, PAGE_NUMBER } from './textEdit'
 
-/** A command by its title, shortcut and group; one without `run` runs by pressing its shortcut, one whose `can` fails is greyed out in the context menu and the palette. */
+/** A command by its title, shortcut and group; one without `run` runs by pressing its shortcut, one whose `can` (by default its group's) fails is greyed out in the context menu and the palette. */
 export type Action = { title: string; keys: string; group: string; run?: (editor: Editor) => void; can?: (editor: Editor) => boolean }
 
 const pageOrLast = (editor: Editor) =>
@@ -107,6 +107,7 @@ export const ACTIONS: Action[] = [
     title: 'Copy style',
     keys: '',
     group: 'Edit',
+    can: (editor) => editor.selection.length > 0,
     run: (editor) => {
       const n = editor.selected()[0] as Props
       copied = Object.fromEntries(STYLE.filter((k) => k in n).map((k) => [k, n[k]]))
@@ -147,8 +148,8 @@ export const ACTIONS: Action[] = [
   { title: 'Decrease font size', keys: 'Ctrl Shift ,', group: 'Text' },
   { title: 'Auto height', keys: 'Ctrl Alt H', group: 'Text' },
   { title: 'Auto fit', keys: 'Ctrl Alt C', group: 'Text' },
-  { title: 'Insert page number', keys: 'Ctrl Alt Shift N', group: 'Text', run: (editor) => editor.editing && insert(editor, PAGE_NUMBER) },
-  { title: 'Insert date', keys: '', group: 'Text', run: (editor) => editor.editing && insert(editor, DATE) },
+  { title: 'Insert page number', keys: 'Ctrl Alt Shift N', group: 'Text', run: (editor) => insert(editor, PAGE_NUMBER), can: (editor) => !!editor.editing },
+  { title: 'Insert date', keys: '', group: 'Text', run: (editor) => insert(editor, DATE), can: (editor) => !!editor.editing },
   ...TABLE_ACTIONS,
   { title: 'Move tool', keys: 'V', group: 'Tools' },
   { title: 'Frame tool', keys: 'F', group: 'Tools' },
@@ -168,8 +169,14 @@ export const ACTIONS: Action[] = [
 /** The context menu and the palette leave these out instead of greying them out. */
 export const ONLY_WHEN_ABLE = new Set(['Reset to master', 'Table', ...BOOLEANS.map((b) => b[1])])
 
+/** When the actions of a group act, unless an action names its own `can`. */
+const GROUP_CAN: Record<string, (editor: Editor) => boolean> = {
+  Arrange: (editor) => editor.selection.length > 0,
+  Text: (editor) => !!editor.editing || editor.selected().some((n) => n.kind === 'text'),
+}
+
 /** Whether `a` acts now; menus grey out the others, or leave them out when `ONLY_WHEN_ABLE` names them. */
-export const able = (editor: Editor, a: Action) => a.can?.(editor) ?? true
+export const able = (editor: Editor, a: Action) => (a.can ?? GROUP_CAN[a.group])?.(editor) ?? true
 
 /** The titles of the actions the context menu offers with and without a selection, `null` between groups. */
 export const MENU = {
