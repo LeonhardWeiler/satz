@@ -174,6 +174,7 @@ test('an autosave the browser refuses says so', async ({ page }) => {
 
 test('an export worker that breaks says the export failed', async ({ page }) => {
   await page.route(/exportWorker[^/]*\.js$/, (r) => r.fulfill({ contentType: 'text/javascript', body: "onmessage = () => { throw new Error('trap') }" }))
+  await open(page)
   await (await exportButton(page)).click()
   await expect(page.getByText(/^Could not export the PDF: .*trap/)).toBeVisible()
 })

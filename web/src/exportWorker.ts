@@ -1,8 +1,9 @@
-import init, { Engine, zip, type Inks } from './engine/engine'
+import init, { Engine, zip, type Inks } from './engine-io/engine_io'
 import type { Snapshot } from './model'
 
 export type Preview = { pages: string[]; ppi: number; on: number; limit: number; over: boolean; gamut: boolean }
 export type Out = { pages: number[]; title: string } & ({ type: 'application/pdf' | 'application/zip' } | { type: 'image/png' | 'image/jpeg'; ppi: number })
+export type Source = { bytes: Uint8Array; name: string }
 export type Sheet = { page: string; width: number; height: number; image: Uint8Array; coverage: Float32Array }
 export type Previewed = { ppi: number; sheets: Sheet[]; spots: string[]; max: number[]; highest: number }
 
@@ -22,7 +23,7 @@ function pageOf(e: Engine, id: string, ppi: number) {
   return page
 }
 
-onmessage = async ({ data: { doc, fonts, images, preview, out } }: MessageEvent<{ doc: Uint8Array | null; fonts: Uint8Array[]; images: Uint8Array[]; preview?: Preview; out?: Out }>) => {
+onmessage = async ({ data: { doc, fonts, images, preview, out, source } }: MessageEvent<{ doc: Uint8Array | null; fonts: Uint8Array[]; images: Uint8Array[]; preview?: Preview; out?: Out; source?: Source }>) => {
   try {
     const e = await engine
     for (const bytes of fonts) if (bytes.length) e.addFont(bytes)
@@ -31,6 +32,10 @@ onmessage = async ({ data: { doc, fonts, images, preview, out } }: MessageEvent<
     const now = new Date()
     e.setToday(now.getFullYear(), now.getMonth() + 1, now.getDate())
     const date = now.toISOString().slice(0, 19) + 'Z'
+    if (source) {
+      const file = Engine.importFile(source.bytes, source.name)
+      return postMessage({ file }, { transfer: [file.buffer] })
+    }
     if (out && !('ppi' in out)) {
       const chosen = Uint32Array.from(out.pages)
       const file = out.type === 'application/pdf' ? e.pdf(out.title, date, chosen) : e.package(out.title, date, chosen)

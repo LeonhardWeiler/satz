@@ -1,8 +1,8 @@
 import { useSyncExternalStore } from 'react'
-import { Engine, typeface } from './engine/engine'
+import { typeface } from './engine/engine'
 import { UNTITLED, type Editor } from './editor'
 import type { Typeface } from './model'
-import type { Out, Preview, Previewed } from './exportWorker'
+import type { Out, Preview, Previewed, Source } from './exportWorker'
 
 export type Handle = FileSystemFileHandle & {
   queryPermission(o: { mode: 'read' }): Promise<PermissionState>
@@ -193,9 +193,13 @@ export async function removeFont(editor: Editor, hash: string) {
   await result((await store('fonts')).delete(hash))
 }
 
-function run<T>(job: Job, editor: Editor, preview?: Preview, out?: Out) {
+const spawn = () => new Worker(new URL('./exportWorker.ts', import.meta.url), { type: 'module' })
+
+export const warm = () => void (exporter.worker ??= spawn())
+
+function run<T>(job: Job, editor: Editor, task: { preview?: Preview; out?: Out; source?: Source }) {
   const next = job.queue.then(() => {
-    const w = (job.worker ??= new Worker(new URL('./exportWorker.ts', import.meta.url), { type: 'module' }))
+    const w = (job.worker ??= spawn())
     const n = editor.engine.fontsAdded()
     const fonts = Array.from({ length: n - job.fonts }, (_, i) => editor.engine.font(job.fonts + i))
     const version = editor.engine.version()
@@ -219,16 +223,18 @@ function run<T>(job: Job, editor: Editor, preview?: Preview, out?: Out) {
         reset(job)
         fail(new Error(e.message))
       }
-      w.postMessage({ doc, fonts, images, preview, out },[...(doc ? [doc.buffer] : []), ...fonts.map((f) => f.buffer)])
+      w.postMessage({ doc, fonts, images, ...task }, [...(doc ? [doc.buffer] : []), ...fonts.map((f) => f.buffer)])
     })
   })
   job.queue = next.catch(() => {})
   return next
 }
 
-export const exportFile = (editor: Editor, out: Out) => run<{ file: Uint8Array }>(exporter, editor, undefined, out).then((r) => r.file)
+export const exportFile = (editor: Editor, out: Out) => run<{ file: Uint8Array }>(exporter, editor, { out }).then((r) => r.file)
 
-export const preview = (editor: Editor, p: Preview) => run<Previewed>(previewer, editor, p)
+const importFile = (editor: Editor, bytes: Uint8Array, name: string) => run<{ file: Uint8Array }>(exporter, editor, { source: { bytes, name } }).then((r) => r.file)
+
+export const preview = (editor: Editor, p: Preview) => run<Previewed>(previewer, editor, { preview: p })
 
 export async function save(editor: Editor, as: boolean) {
   const bytes = editor.engine.save()
@@ -272,7 +278,7 @@ async function load(editor: Editor, file: File, handle: Handle | null) {
   if (!(await discard(editor))) return
   try {
     const bytes = new Uint8Array(await file.arrayBuffer())
-    if (imports(file.name)) await begin(editor, Engine.importFile(bytes, file.name), { name: file.name.replace(/\.\w+$/, '.satz'), handle: null })
+    if (imports(file.name)) await begin(editor, await importFile(editor, bytes, file.name), { name: file.name.replace(/\.\w+$/, '.satz'), handle: null })
     else await begin(editor, bytes, { name: file.name, handle })
   } catch (e) {
     return editor.fail(`Could not open ${file.name}: ${(e as Error).message}. Choose a .satz file saved by Satz, an SVG, a PDF or a Figma file.`)
@@ -320,7 +326,7 @@ async function placeImage(editor: Editor, file: File, handle: Handle | null = nu
       return await result((await store('links')).put(handle, hash))
     }
     if (!imports(file.name)) return void editor.loadImage(bytes, file.name)
-    editor.engine.takeClip(Engine.importFile(bytes, file.name))
+    editor.engine.takeClip(await importFile(editor, bytes, file.name))
     editor.set({ clip: null })
     editor.paste()
   } catch (e) {

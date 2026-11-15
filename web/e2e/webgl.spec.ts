@@ -42,11 +42,13 @@ test('a trap in the engine stops Satz with a notice whose button reloads it', { 
   await expect(page.getByLabel('Page canvas')).toBeVisible()
 })
 
-test('each wasm file is preloaded and fetched once', async ({ page }) => {
+test('each wasm file is fetched once and all but the full engine are preloaded', async ({ page }) => {
   const wasm: string[] = []
   page.on('request', (r) => r.url().endsWith('.wasm') && wasm.push(r.url()))
+  const full = page.waitForRequest(/engine_io_bg-[\w-]+\.wasm$/)
   await open(page)
+  await full
   const preloaded = await page.$$eval('link[rel=preload][as=fetch]', (links) => links.map((l) => (l as HTMLLinkElement).href))
-  expect(preloaded.sort()).toEqual(wasm.sort())
-  expect(wasm).toHaveLength(2)
+  expect(preloaded.sort()).toEqual(wasm.filter((u) => !u.includes('engine_io_bg')).sort())
+  expect(wasm).toHaveLength(3)
 })

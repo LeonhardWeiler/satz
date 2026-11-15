@@ -6,11 +6,9 @@ import init, { Engine } from './engine/engine'
 import { App } from './App'
 import { restorePanels } from './controls'
 import { Editor } from './editor'
-import { findGranted, openProject, show, storedFonts } from './file'
+import { findGranted, openProject, show, storedFonts, warm } from './file'
 import { followTheme } from './settings'
 import './index.css'
-
-if (import.meta.env.PROD) navigator.serviceWorker?.register(`${import.meta.env.BASE_URL}sw.js`)
 
 followTheme()
 restorePanels()
@@ -66,6 +64,8 @@ if (!document.createElement('canvas').getContext('webgl2')) {
         <App ck={ck} editor={editor} />
       </StrictMode>,
     )
+    warm()
+    if (import.meta.env.PROD) navigator.serviceWorker?.register(`${import.meta.env.BASE_URL}sw.js`)
     const trapped = (e: unknown) => e instanceof WebAssembly.RuntimeError && stop()
     window.addEventListener('error', (e) => trapped(e.error))
     window.addEventListener('unhandledrejection', (e) => trapped(e.reason))

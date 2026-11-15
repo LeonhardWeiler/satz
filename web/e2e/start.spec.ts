@@ -142,3 +142,12 @@ test('ctrl+o on the start screen opens the file it asks for', async ({ page }) =
   await (await chooser).setFiles(`${import.meta.dirname}/../../examples/poster.satz`)
   await expect(page).toHaveTitle('poster.satz - Satz')
 })
+
+test('the full engine loads after the lean engine and canvaskit, without a click', async ({ page }) => {
+  const seen = new Set<string>()
+  page.on('requestfinished', (r) => /(engine_bg|canvaskit)-[\w-]+\.wasm$/.test(r.url()) && seen.add(r.url()))
+  const full = page.waitForRequest(/engine_io_bg-[\w-]+\.wasm$/).then(() => seen.size)
+  await page.goto('')
+  await expect(home(page).getByRole('heading', { name: 'Examples' })).toBeVisible()
+  expect(await full).toBe(2)
+})
