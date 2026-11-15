@@ -8,19 +8,14 @@ use tiny_skia::{
     SpreadMode, Stroke, Transform,
 };
 
-/// The pixels of an image by id, for drawing it the given width and height in pixels.
 pub type Images<'a> = &'a dyn Fn(u32, [f32; 2]) -> Option<Rc<Pixmap>>;
 
-/// The most pixels a raster has, 256 MB.
 const MAX_PIXELS: f32 = (1 << 26) as f32;
 
-/// `ppi`, lowered so that `w` × `h` pt fit in `MAX_PIXELS`.
 pub fn fit(w: f32, h: f32, ppi: f32) -> f32 {
     ppi.min((MAX_PIXELS / (w * h)).sqrt() * 72.0)
 }
 
-/// Renders `ops` into a pixmap that covers `rect` in pt at `ppi`, lowered by `fit`.
-/// `images` gives the pixels of an image by its id.
 pub fn rasterize(ops: &[Op], [x, y, w, h]: [f32; 4], ppi: f32, images: Images) -> Option<Pixmap> {
     let scale = fit(w, h, ppi) / 72.0;
     let mut px = Pixmap::new(
@@ -32,7 +27,6 @@ pub fn rasterize(ops: &[Op], [x, y, w, h]: [f32; 4], ppi: f32, images: Images) -
     Some(px)
 }
 
-/// Content bounds of `ops` in pt, generous for strokes and glyphs.
 pub fn extent(ops: &[Op]) -> Option<[f32; 4]> {
     let mut b = [
         f32::INFINITY,
@@ -102,7 +96,6 @@ pub fn extent(ops: &[Op]) -> Option<[f32; 4]> {
     (b[0] <= b[2]).then(|| [b[0], b[1], b[2] - b[0], b[3] - b[1]])
 }
 
-/// Gaussian blur of premultiplied pixels, approximated by three box blurs.
 pub fn blur(px: &mut Pixmap, sigma: f32) {
     if sigma <= 0.0 {
         return;
@@ -125,7 +118,6 @@ pub fn blur(px: &mut Pixmap, sigma: f32) {
     }
 }
 
-/// Box blur of each row or column over 2r+1 pixels, those outside the edges counting as 0.
 fn box_blur(src: &[u8], dst: &mut [u8], w: usize, h: usize, r: usize, horizontal: bool) {
     let n = 2 * r + 1;
     let most = 255 * n.min(if horizontal { w } else { h });
@@ -203,7 +195,6 @@ fn means(s: [u32; 4], mean: &[u8]) -> [u8; 4] {
     ]
 }
 
-/// Replaces the color of every pixel with `color`, keeping coverage.
 pub fn tint(px: &mut Pixmap, color: [f32; 4]) {
     let by_coverage: Vec<[u8; 4]> = (0..=255)
         .map(|v| {
@@ -521,7 +512,6 @@ mod tests {
         assert_eq!(alpha(&px, 1, 1), 0);
     }
 
-    /// box_blur as it was before it ran over whole pixels and rows.
     fn box_blur_per_channel(
         src: &[u8],
         dst: &mut [u8],

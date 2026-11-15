@@ -1,13 +1,8 @@
 use super::*;
 
-/// The key of a linked image's file name in its entry of the `images` map; an
-/// embedded image's entry is its file.
 const LINK: &str = "link";
 
 impl Doc {
-    /// Adds a PNG or JPEG file that `image::register` takes to the images of the document,
-    /// for `PlaceImage`, as a link to the file `link` when given; undo does not take it
-    /// out again.
     pub fn add_image(&mut self, bytes: &[u8], link: Option<String>) -> Res<ImageInfo> {
         let bytes = LoroBinaryValue::from(image::upright(bytes).unwrap_or_else(|| bytes.to_vec()));
         let info = image::register(bytes.clone())?;
@@ -19,7 +14,6 @@ impl Doc {
         Ok(info)
     }
 
-    /// Adds the image `hash` as `v` unless the document has it.
     pub(super) fn keep_image(&mut self, hash: &str, v: LoroValue) -> Res<()> {
         let images = self.doc.get_map("images");
         if images.get(hash).is_none() {
@@ -32,8 +26,6 @@ impl Doc {
         Ok(())
     }
 
-    /// Reads the file of a linked image for this session, which shows the layers it
-    /// fills; `Command::Relink` fills those of another image with it.
     pub fn register_image(&mut self, bytes: &[u8]) -> Res<ImageInfo> {
         let bytes = image::upright(bytes).unwrap_or_else(|| bytes.to_vec());
         let info = image::register(bytes.into())?;
@@ -43,7 +35,6 @@ impl Doc {
         Ok(info)
     }
 
-    /// The file name of each linked image by its hash.
     pub(super) fn image_links(&self) -> BTreeMap<String, String> {
         let images = self.doc.get_map("images").get_value().into_map();
         images
@@ -59,8 +50,6 @@ impl Doc {
             .collect()
     }
 
-    /// Fills the layers filled with the linked image `image` with the read image `to` in
-    /// its place, linked to the file `name` unless the document embeds it.
     pub(super) fn relink_image(&self, image: String, to: String, name: String) -> Res<Vec<String>> {
         let images = self.doc.get_map("images");
         if !self.image_links().contains_key(&image) {
@@ -105,7 +94,6 @@ impl Doc {
         Ok(vec![])
     }
 
-    /// Keeps the files of the read linked images `hashes` in the document.
     pub(super) fn embed(&self, hashes: Vec<String>) -> Res<Vec<String>> {
         let links = self.image_links();
         let mut files = Vec::new();
@@ -124,7 +112,6 @@ impl Doc {
     }
 }
 
-/// The entry of an image linked to the file `name`.
 fn linked(name: String) -> LoroValue {
     LoroValue::from(HashMap::from([(LINK.to_string(), LoroValue::from(name))]))
 }

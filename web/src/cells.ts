@@ -4,14 +4,11 @@ import type { Container, Node, TextNode } from './model'
 
 type Cell = TextNode & { cell: [number, number, number, number] }
 
-/** The cells of the table `t`, row by row. */
 const cellsOf = (t: Container) =>
   t.children.filter((c): c is Cell => c.kind === 'text' && !!c.cell).toSorted((a, b) => a.cell[1] - b.cell[1] || a.cell[0] - b.cell[0])
 
-/** The table that `n` is or is a cell of. */
 const holder = (editor: Editor, n: Node) => (n.kind === 'frame' && n.table ? n : n.kind === 'text' && n.cell ? editor.nodes.get(n.id)?.parent : undefined)
 
-/** The table that `nodes` are or are cells of, and the cells among them. */
 function tableOf(editor: Editor, nodes: Node[]) {
   const tables = new Set(nodes.map((n) => holder(editor, n)))
   const [t] = tables
@@ -19,11 +16,9 @@ function tableOf(editor: Editor, nodes: Node[]) {
   return { t, table: t.table, cells: nodes.filter((n): n is Cell => n.kind === 'text' && !!n.cell) }
 }
 
-/** The cells of the tables that the selected layers are or are in. */
 export const selectedCells = (editor: Editor) =>
   [...new Set(editor.selected().map((n) => holder(editor, n)))].flatMap((t) => (t?.table ? cellsOf(t) : []))
 
-/** Edits the cell after or, with `back`, before the cell `id`; past the last one it adds a row. */
 export function tab(editor: Editor, id: string, back: boolean) {
   const t = editor.nodes.get(id)?.parent
   const n = editor.nodes.get(id)?.node
@@ -36,7 +31,6 @@ export function tab(editor: Editor, id: string, back: boolean) {
   if (to) editor.set({ selection: [to.id], editing: { id: to.id, anchor: 0, focus: editor.storyOf(to).text.length } })
 }
 
-/** The table of the selected layers, their cells and the columns and rows they span, all of them for the table itself. */
 export function spanOf(editor: Editor, nodes: Node[]) {
   const of = tableOf(editor, nodes)
   if (!of) return undefined
@@ -69,7 +63,6 @@ const remove = (column: boolean) => (editor: Editor, s: Span) =>
   })
 export const picked = (s: Span) => s.cells.length > 0
 
-/** What the table section's menus and the context menu do to the selected cells or table. */
 export const TABLE_ACTIONS = [
   act('Insert row above', insert(false, (s) => s.r0)),
   act('Insert row below', insert(false, (s) => s.r1)),

@@ -28,8 +28,6 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
-/// `s` as a splice into `o`: `text` in place of the `cut` UTF-16 units at `at`, and
-/// `spans` in place of the `spansCut` spans at `spansAt`.
 fn splice(o: &doc::Story, s: &doc::Story) -> serde_json::Result<serde_json::Value> {
     let (a, b) = (o.text.as_bytes(), s.text.as_bytes());
     let mut p = a.iter().zip(b).take_while(|(x, y)| x == y).count();
@@ -64,23 +62,18 @@ fn splice(o: &doc::Story, s: &doc::Story) -> serde_json::Result<serde_json::Valu
     }))
 }
 
-/// The display list of a page or master, its version, and the page and master it was
-/// drawn from.
 type Drawn = (u32, Vec<u32>, [Option<Rc<doc::Page>>; 2]);
 
 #[wasm_bindgen]
 #[derive(Default)]
 pub struct Engine {
     doc: Doc,
-    /// The plates of each page and the version of the display list they were made of.
     plates: HashMap<(String, bool), (u32, Vec<u32>)>,
     overlay: Vec<u32>,
     lists: HashMap<String, Drawn>,
-    /// The snapshot that `lists` were checked against, and the ids checked.
     seen: Option<Rc<Snapshot>>,
     fresh: HashSet<String>,
     versions: u32,
-    /// The snapshot that `changes` returned last.
     sent: Option<Rc<Snapshot>>,
 }
 
@@ -92,7 +85,6 @@ impl Engine {
         Engine::default()
     }
 
-    /// The document Satz shows on its first start.
     pub fn sample() -> Engine {
         Engine {
             doc: Doc::sample(),
@@ -100,7 +92,6 @@ impl Engine {
         }
     }
 
-    /// An empty document of `pages` pages `w` × `h` pt.
     pub fn blank(w: f64, h: f64, pages: usize, facing: bool) -> Engine {
         Engine {
             doc: Doc::blank(w, h, pages, facing, ColorMode::Cmyk),
@@ -113,7 +104,6 @@ impl Engine {
         self.doc.apply(cmd).map_err(|e| JsError::new(&e))
     }
 
-    /// What the last command changed beyond what it was asked to.
     pub fn notes(&self) -> Vec<String> {
         self.doc.notes()
     }
@@ -122,10 +112,6 @@ impl Engine {
         Ok(serde_json::to_string(&*self.doc.snapshot())?)
     }
 
-    /// The snapshot with each page, master, top layer and story that the last call
-    /// returned unchanged left out: a page, master or layer as its id, a story not at
-    /// all, a removed story as `null`, and a changed story as a splice of its last
-    /// text and spans.
     pub fn changes(&mut self) -> Result<String, JsError> {
         let snap = self.doc.snapshot();
         let old = self.sent.replace(snap.clone());
@@ -195,7 +181,6 @@ impl Engine {
         Ok(out.to_string())
     }
 
-    /// The UTF-16 range of its story that the text layer `id` sets.
     #[wasm_bindgen(js_name = frameRange)]
     pub fn frame_range(&self, id: &str) -> Result<Vec<usize>, JsError> {
         Ok(self
@@ -205,32 +190,25 @@ impl Engine {
             .to_vec())
     }
 
-    /// Path from the topmost page child down to the deepest node at (x, y) in pt.
-    /// `tolerance` in pt widens the hit area of outlines, e.g. for thin lines.
     pub fn hit(&self, page: &str, x: f64, y: f64, tolerance: f64) -> Vec<String> {
         self.doc.hit(page, x, y, tolerance)
     }
 
-    /// The layer of the page's master at (x, y) in pt that the page shows.
     #[wasm_bindgen(js_name = masterHit)]
     pub fn master_hit(&self, page: &str, x: f64, y: f64, tolerance: f64) -> Option<String> {
         self.doc.master_hit(page, x, y, tolerance)
     }
 
-    /// The view is invalid after the next call into the engine.
     #[wasm_bindgen(js_name = displayList)]
     pub fn display_list(&mut self, page: &str) -> Uint32Array {
         unsafe { Uint32Array::view(&self.drawn(page).1) }
     }
 
-    /// The version of the display list of the page `page`, which changes only with it.
     #[wasm_bindgen(js_name = listVersion)]
     pub fn list_version(&mut self, page: &str) -> u32 {
         self.drawn(page).0
     }
 
-    /// The display list of the page `id` as its inverted C, M and Y plate, or its K
-    /// plate; the view is invalid after the next call into the engine.
     pub fn plate(&mut self, page: &str, k: bool) -> Uint32Array {
         let version = self.drawn(page).0;
         let key = (page.to_string(), k);
@@ -241,8 +219,6 @@ impl Engine {
         unsafe { Uint32Array::view(&self.plates[&key].1) }
     }
 
-    /// The image to decode for the image `id` of display lists and [k, m, o] that
-    /// adjust it, or nothing when the canvas takes `image(id)` as it is.
     #[wasm_bindgen(js_name = imageSource)]
     pub fn image_source(&self, id: u32) -> Vec<f64> {
         image::source(id).map_or(Vec::new(), |(source, f)| {
@@ -253,9 +229,6 @@ impl Engine {
         })
     }
 
-    /// CMYK of RGB on a grid of 33 steps per channel as RGBA pixels, R across and B
-    /// down within a tile, G across between tiles; C, M and Y in the upper half, K
-    /// in the lower one.
     pub fn separation(&self) -> Vec<u8> {
         const N: usize = 33;
         let v = |i: usize| ((i * 255 + (N - 1) / 2) / (N - 1)) as u8;
@@ -271,8 +244,6 @@ impl Engine {
         cmy.chain(k).collect()
     }
 
-    /// Screen colors of CMYK on a grid of 17 steps per ink as RGBA pixels, C across
-    /// and Y down within a tile, M across and K down between tiles.
     pub fn lut(&self) -> Vec<u8> {
         const N: usize = 17;
         let v = |i: usize| ((i * 255 + (N - 1) / 2) / (N - 1)) as u8;
@@ -288,7 +259,6 @@ impl Engine {
             .collect()
     }
 
-    /// [x, top, bottom] in pt of a caret before the UTF-16 `index` of the text `id`.
     pub fn caret(&self, id: &str, index: u32) -> Result<Vec<f64>, JsError> {
         Ok(self
             .doc
@@ -297,24 +267,20 @@ impl Engine {
             .to_vec())
     }
 
-    /// The transform [a b c d e f] that turns the layer `id` on its page.
     pub fn turn(&self, id: &str) -> Result<Vec<f32>, JsError> {
         Ok(self.doc.turn_of(id).map_err(|e| JsError::new(&e))?.to_vec())
     }
 
-    /// The outline of the shape `id` as a display list path, as flattening makes it.
     #[wasm_bindgen(js_name = pathOf)]
     pub fn path_of(&self, id: &str) -> Result<Vec<f32>, JsError> {
         self.doc.path_of(id).map_err(|e| JsError::new(&e))
     }
 
-    /// Whether the text frame `to` can join the thread after `from`.
     #[wasm_bindgen(js_name = canThread)]
     pub fn can_thread(&self, from: &str, to: &str) -> bool {
         self.doc.threadable(from, to).is_ok()
     }
 
-    /// The frame of the thread of the text `id` that holds the UTF-16 `index`.
     #[wasm_bindgen(js_name = textFrame)]
     pub fn text_frame(&self, id: &str, index: u32) -> Result<String, JsError> {
         self.doc
@@ -322,7 +288,6 @@ impl Engine {
             .map_err(|e| JsError::new(&e))
     }
 
-    /// The UTF-16 index of the character boundary of the text `id` nearest (x, y) in pt.
     #[wasm_bindgen(js_name = textIndex)]
     pub fn text_index(&self, id: &str, x: f64, y: f64) -> Result<u32, JsError> {
         let i = self
@@ -332,16 +297,12 @@ impl Engine {
         Ok(i as u32)
     }
 
-    /// UTF-16 start and end of the line of the text `id` that holds `index`.
     #[wasm_bindgen(js_name = textLine)]
     pub fn text_line(&self, id: &str, index: u32) -> Result<Vec<u32>, JsError> {
         let l = self.doc.text_line(id, index as usize);
         Ok(l.map_err(|e| JsError::new(&e))?.map(|i| i as u32).to_vec())
     }
 
-    /// Display list of the selection from `anchor` to `focus` in the text `id` on the
-    /// page `page`, or of a caret `caret_width` pt wide. The view is invalid after the
-    /// next call.
     #[wasm_bindgen(js_name = textOverlay)]
     pub fn text_overlay(
         &mut self,
@@ -359,30 +320,24 @@ impl Engine {
         Ok(unsafe { Uint32Array::view(&self.overlay) })
     }
 
-    /// The inks of the page `page` as it prints at `ppi`.
     pub fn inks(&self, page: &str, ppi: f32) -> Option<inks::Inks> {
         self.doc.inks(page, ppi)
     }
 
-    /// A hash of the page `page` as it prints; its inks change only with it.
     pub fn printed(&self, page: &str) -> Option<u64> {
         self.doc.printed(page)
     }
 
-    /// The page `page` as a PNG at `ppi`.
     pub fn png(&self, page: &str, ppi: f32) -> Option<Vec<u8>> {
         self.doc.png(page, ppi)
     }
 
-    /// The pages at `indices` as a PDF titled `title`, made at `date` in ISO 8601 UTC.
     pub fn pdf(&self, title: &str, date: &str, indices: &[u32]) -> Result<Vec<u8>, JsError> {
         self.doc
             .pdf(title, date, indices)
             .map_err(|e| JsError::new(&e))
     }
 
-    /// A ZIP for the printer: the document, the PDF of the pages at `indices`, its
-    /// fonts and its images.
     pub fn package(&self, title: &str, date: &str, indices: &[u32]) -> Result<Vec<u8>, JsError> {
         self.doc
             .package(title, date, indices)
@@ -394,7 +349,6 @@ impl Engine {
         self.doc.set_profile(icc).map_err(|e| JsError::new(&e))
     }
 
-    /// Makes date markers show the day `d` of the month `m` of the year `y`.
     #[wasm_bindgen(js_name = setToday)]
     pub fn set_today(&mut self, y: u32, m: u32, d: u32) -> Result<(), JsError> {
         self.doc.set_today(y, m, d).map_err(|e| JsError::new(&e))
@@ -404,30 +358,25 @@ impl Engine {
         self.doc.save()
     }
 
-    /// The copied layers for `takeClip` in another engine.
     pub fn clip(&self) -> Vec<u8> {
         self.doc.clip_out()
     }
 
-    /// Makes the layers of another engine's `clip` the ones `paste` pastes.
     #[wasm_bindgen(js_name = takeClip)]
     pub fn take_clip(&mut self, bytes: &[u8]) -> Result<(), JsError> {
         self.doc.take_clip(bytes).map_err(|e| JsError::new(&e))
     }
 
-    /// The SVG, PDF or Figma file `name` as a document.
     #[wasm_bindgen(js_name = importFile)]
     pub fn import_file(bytes: &[u8], name: &str) -> Result<Vec<u8>, JsError> {
         import::import(bytes, name).map_err(|e| JsError::new(&e))
     }
 
-    /// Replaces the document; on an error it stays as it was.
     pub fn load(&mut self, bytes: &[u8]) -> Result<(), JsError> {
         self.doc = Doc::load(bytes).map_err(|e| JsError::new(&e))?;
         Ok(())
     }
 
-    /// The versions of the document's history, the newest first.
     pub fn versions(&self) -> Result<JsValue, JsError> {
         Ok(serde_wasm_bindgen::to_value(&self.doc.versions())?)
     }
@@ -437,17 +386,14 @@ impl Engine {
         self.doc.version_vector()
     }
 
-    /// What another engine needs to `sync` from the version vector `since` on.
     pub fn updates(&self, since: &[u8]) -> Vec<u8> {
         self.doc.updates(since)
     }
 
-    /// Takes in what `updates` of another engine gave.
     pub fn sync(&mut self, bytes: &[u8]) -> Result<(), JsError> {
         self.doc.sync(bytes).map_err(|e| JsError::new(&e))
     }
 
-    /// Changes whenever the document does.
     pub fn version(&self) -> String {
         self.doc.version()
     }
@@ -456,47 +402,37 @@ impl Engine {
         Uint8Array::from(&text::font_bytes(id)[..])
     }
 
-    /// The outlines of the glyphs of a glyph run as a display list path, for the fonts
-    /// at a location of their axes, which the canvas cannot set.
     pub fn outline(&self, font: u32, size: f32, glyphs: &[u16], positions: &[f32]) -> Vec<f32> {
         text::outline(font, size, glyphs, positions)
     }
 
-    /// The id of the font `hash`, the bundled one for none, and its characters as
-    /// code points.
     pub fn characters(&self, hash: Option<String>) -> Result<JsValue, JsError> {
         Ok(serde_wasm_bindgen::to_value(&text::characters(
             hash.as_deref(),
         ))?)
     }
 
-    /// Adds a TrueType, OpenType, WOFF or WOFF2 font and returns its name and hash.
     #[wasm_bindgen(js_name = addFont)]
     pub fn add_font(&mut self, bytes: &[u8]) -> Result<JsValue, JsError> {
         let face = self.doc.add_font(bytes).map_err(|e| JsError::new(&e))?;
         Ok(serde_wasm_bindgen::to_value(&face)?)
     }
 
-    /// Removes the added font `hash`.
     #[wasm_bindgen(js_name = removeFont)]
     pub fn remove_font(&mut self, hash: &str) -> Result<(), JsError> {
         self.doc.remove_font(hash).map_err(|e| JsError::new(&e))
     }
 
-    /// The number of font ids, removed ones included.
     #[wasm_bindgen(js_name = fontsAdded)]
     pub fn fonts_added(&self) -> usize {
         text::fonts_added()
     }
 
-    /// The number of bundled fonts, the first ids, which cannot be removed.
     #[wasm_bindgen(js_name = fontsBundled)]
     pub fn fonts_bundled(&self) -> usize {
         text::BUNDLED
     }
 
-    /// Adds a PNG or JPEG file to the document's images and returns its hash and
-    /// size in pixels, for the command `placeImage`; as a link to the file `link` when given.
     #[wasm_bindgen(js_name = addImage)]
     pub fn add_image(&mut self, bytes: &[u8], link: Option<String>) -> Result<JsValue, JsError> {
         let info = self
@@ -506,8 +442,6 @@ impl Engine {
         Ok(serde_wasm_bindgen::to_value(&info)?)
     }
 
-    /// Reads the file of a linked image for this session and returns its hash and size in
-    /// pixels, for the command `relink` when it differs from the linked one.
     #[wasm_bindgen(js_name = registerImage)]
     pub fn register_image(&mut self, bytes: &[u8]) -> Result<JsValue, JsError> {
         let info = self
@@ -517,7 +451,6 @@ impl Engine {
         Ok(serde_wasm_bindgen::to_value(&info)?)
     }
 
-    /// The file of the image `id` of display lists.
     pub fn image(&self, id: u32) -> Uint8Array {
         Uint8Array::from(&image::bytes(id)[..])
     }
@@ -562,7 +495,6 @@ impl Engine {
     }
 }
 
-/// FNV-1a hash of `bytes` in hex, which names fonts and images by their content.
 pub(crate) fn content_hash(bytes: &[u8]) -> String {
     let hash = bytes.iter().fold(0xcbf29ce484222325u64, |h, &b| {
         (h ^ b as u64).wrapping_mul(0x100000001b3)
@@ -570,14 +502,12 @@ pub(crate) fn content_hash(bytes: &[u8]) -> String {
     format!("{hash:016x}")
 }
 
-/// The name and hash of the font `bytes`.
 #[wasm_bindgen]
 pub fn typeface(bytes: &[u8]) -> Result<JsValue, JsError> {
     let face = text::typeface(bytes).map_err(|e| JsError::new(&e))?;
     Ok(serde_wasm_bindgen::to_value(&face)?)
 }
 
-/// A ZIP of the files `data` named `names`, dated `date` in ISO 8601 UTC.
 #[wasm_bindgen]
 pub fn zip(names: Vec<String>, data: Vec<Uint8Array>, date: &str) -> Vec<u8> {
     let files: Vec<_> = names
@@ -587,26 +517,22 @@ pub fn zip(names: Vec<String>, data: Vec<Uint8Array>, date: &str) -> Vec<u8> {
     zip::zip(&files, date)
 }
 
-/// The letters that the page numbers of the master `name` show.
 #[wasm_bindgen]
 pub fn prefix(name: &str) -> String {
     doc::prefix(name)
 }
 
-/// Screen preview of a CMYK color as 0xRRGGBB.
 #[wasm_bindgen]
 pub fn preview(c: f32, m: f32, y: f32, k: f32) -> u32 {
     let [r, g, b] = color::to_rgb([c, m, y, k]).map(|v| (v * 255.0).round() as u32);
     r << 16 | g << 8 | b
 }
 
-/// CMYK of the 0xRRGGBB color `rgb` in the document's print condition.
 #[wasm_bindgen(js_name = toCmyk)]
 pub fn to_cmyk(rgb: u32) -> Vec<f32> {
     color::separate(rgb).to_vec()
 }
 
-/// `"black"`, `"white"` or `"gray"` in the color mode `mode`.
 #[wasm_bindgen]
 pub fn neutral(name: &str, mode: JsValue) -> Result<JsValue, JsError> {
     let mode = serde_wasm_bindgen::from_value(mode)?;
@@ -618,8 +544,6 @@ pub fn neutral(name: &str, mode: JsValue) -> Result<JsValue, JsError> {
     Ok(serde_wasm_bindgen::to_value(&color)?)
 }
 
-/// `color` with swatches and variables replaced by what they stand for in `scope`,
-/// a palette with `modes`.
 #[wasm_bindgen]
 pub fn resolve(color: JsValue, scope: JsValue) -> Result<JsValue, JsError> {
     #[derive(serde::Deserialize)]
@@ -639,7 +563,6 @@ pub fn resolve(color: JsValue, scope: JsValue) -> Result<JsValue, JsError> {
     Ok(color.resolve(&scope).serialize(&ser)?)
 }
 
-/// Writes `data` to `path` under `web/src` with `SATZ_WRITE_FIXTURES` set and fails when it differs.
 #[cfg(test)]
 fn fixture(path: &str, data: &[u8]) {
     let path = format!("{}/../web/src/{path}", env!("CARGO_MANIFEST_DIR"));

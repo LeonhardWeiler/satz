@@ -9,7 +9,6 @@ import type { Fill, Node } from './model'
 
 type Item = { group: string; title: string; keys?: string; hint?: string; icon?: ReactNode; off?: boolean; run: () => void }
 
-/** How well `query` matches `text`: 3 at its start or a word's, 2 inside, 1 as letters in order (3 or more), 0 not; and the matched letters. */
 function match(query: string, text: string): [number, number[]] {
   const q = query.toLowerCase()
   const s = text.toLowerCase()
@@ -71,7 +70,6 @@ function items(editor: Editor): Item[] {
   ]
 }
 
-/** Fills the selection with the swatch `id`; false when nothing is selected. */
 function fillWith(editor: Editor, id: string) {
   const nodes = editor.selected()
   if (!nodes.length) return false
@@ -82,7 +80,6 @@ function fillWith(editor: Editor, id: string) {
   return true
 }
 
-/** Ctrl K: finds and runs commands, layers, pages, swatches and text styles. */
 export function Palette({ editor, onClose }: { editor: Editor; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null)
   const [query, setQuery] = useState('')

@@ -3,7 +3,6 @@ import { writeFileSync } from 'node:fs'
 import { test, expect, open, screen, drawn, showPage } from './util'
 import type { Page } from '@playwright/test'
 
-// PERF=1 ./check e2e e2e/perf.spec.ts after `cargo test --release -p engine heavy_documents -- --ignored`.
 test.skip(!process.env.PERF, 'a benchmark, run with PERF=1')
 test.setTimeout(600_000)
 test.describe.configure({ mode: 'serial' })
@@ -11,7 +10,6 @@ test.use({ trace: 'off' })
 
 const DIR = join(import.meta.dirname, '../../target/perf')
 
-/** Median ms of `runs` calls of `f` until the canvas has drawn, in total and per phase the app times; with PROFILE=name a CPU profile of them in target/perf. */
 async function ms(page: Page, name: string, runs: number, f: (i: number) => Promise<void>) {
   const cdp = process.env.PROFILE === name ? await page.context().newCDPSession(page) : null
   if (cdp) {

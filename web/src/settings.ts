@@ -2,25 +2,19 @@ import { useSyncExternalStore } from 'react'
 import { MM } from './editor'
 import type { ColorMode, Grid } from './types'
 
-/** Points per length unit. */
 export const UNITS = { mm: MM, cm: 10 * MM, in: 72, pt: 1 } as const
 export type Unit = keyof typeof UNITS
-/** The largest length in pt, as in the engine. */
 export const MAX_LENGTH = 20000 * MM
 
 const KEY = 'satz.settings'
 const DEFAULTS = {
   unit: 'mm' as Unit,
   theme: 'system' as 'system' | 'light' | 'dark',
-  /** CSS px in 1 mm of this screen, for Zoom to 100%. */
   screenMm: 96 / 25.4,
   layers: 'page' as 'page' | 'spread',
   keys: {} as Record<string, string>,
-  /** The width of the masters in the page overview, its page height and columns of spreads, 0 to fill the width, all in px. */
   overview: { masters: 170, pages: 200, columns: 0 },
-  /** New document presets, lengths in pt. */
   docPresets: [] as DocPreset[],
-  /** Layout grid presets, lengths in pt. */
   gridPresets: [] as { name: string; grids: Grid[] }[],
 }
 export type DocPreset = { name: string; w: number; h: number; pages: number; facing: boolean; mode: ColorMode; margin: number; columns: number; gutter: number; bleed: number }
@@ -34,7 +28,6 @@ const stored = (): Partial<Settings> => {
   }
 }
 
-/** The settings of this browser, kept in local storage. */
 export let settings: Settings = { ...DEFAULTS, ...stored() }
 const listeners = new Set<() => void>()
 
@@ -57,5 +50,4 @@ listeners.add(theme)
 
 export const useSettings = () => useSyncExternalStore(subscribeSettings, () => settings)
 
-/** `pt` in the length unit, rounded to `digits`, with the unit. */
 export const length = (pt: number, digits = 1) => `${Math.round((pt / UNITS[settings.unit]) * 10 ** digits) / 10 ** digits} ${settings.unit}`

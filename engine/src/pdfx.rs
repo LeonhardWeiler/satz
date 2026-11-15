@@ -1,17 +1,9 @@
-//! PDF/X on top of krilla, which has no PDF/X support: an incremental update
-//! adds the OutputIntent of the CMYK profile, the XMP metadata and the Info dictionary, and
-//! for `rgb` gives every page an sRGB transparency group, so that the page
-//! blends in RGB as the canvas does. Graphics states with the opacity `OVERPRINT`
-//! become opaque and overprint.
-
 use crate::pdf::Preset;
 
 const PAGE: &[u8] = b" 0 obj\n<</Type/Page/";
 const STATE: &[u8] = b" 0 obj\n<</Type/ExtGState";
 pub const OVERPRINT: f32 = 0.99987;
 
-/// `pdf` as `preset` titled `title`, made at `date` in ISO 8601 UTC, as
-/// `2026-09-28T12:00:00Z`.
 pub fn pdfx(mut pdf: Vec<u8>, preset: Preset, rgb: bool, title: &str, date: &str) -> Vec<u8> {
     let tail = String::from_utf8_lossy(&pdf[pdf.len().saturating_sub(1024)..]).into_owned();
     let trailer = &tail[tail.rfind("trailer").expect("krilla writes a trailer")..];
@@ -180,7 +172,6 @@ xmlns:pdfxid=\"http://www.npes.org/pdfx/ns/id/\">\
     pdf
 }
 
-/// The number and the start of the body of each object in `pdf` that `head` finds.
 fn starts(pdf: &[u8], head: &[u8]) -> Vec<(usize, usize)> {
     pdf.windows(head.len())
         .enumerate()
@@ -196,7 +187,6 @@ fn starts(pdf: &[u8], head: &[u8]) -> Vec<(usize, usize)> {
         .collect()
 }
 
-/// The dictionary of the object `n` in `pdf` without its closing `>>`.
 fn dict(pdf: &[u8], n: usize) -> String {
     let start = format!("\n{n} 0 obj\n");
     body(
@@ -205,7 +195,6 @@ fn dict(pdf: &[u8], n: usize) -> String {
     )
 }
 
-/// The dictionary of the object whose body starts at `at`, without its closing `>>`.
 fn body(pdf: &[u8], at: usize) -> String {
     let body = &pdf[at..];
     let body = &body[..find(body, b"endobj").unwrap()];

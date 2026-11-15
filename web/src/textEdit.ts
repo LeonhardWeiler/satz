@@ -5,12 +5,9 @@ import { tab } from './cells'
 import { eachOf } from './Text'
 import type { TextAlign, TextDecoration } from './types'
 
-/** Stands for the number of the page a text is on, as InDesign's Current Page Number. */
 export const PAGE_NUMBER = '\u0018'
-/** Stands for the date the document is exported on, as InDesign's Output Date. */
 export const DATE = '\u0019'
 
-/** The text layer being edited in its frame; `anchor` and `focus` are UTF-16 indices. */
 export type Editing = { id: string; anchor: number; focus: number }
 
 const words = new Intl.Segmenter(undefined, { granularity: 'word' })
@@ -26,7 +23,6 @@ export function range(e: Editing): [number, number] {
   return [Math.min(e.anchor, e.focus), Math.max(e.anchor, e.focus)]
 }
 
-/** The grapheme boundary before `i`, or the start of the word before it. */
 function before(text: string, i: number, word: boolean) {
   if (word) {
     let at = 0
@@ -36,7 +32,6 @@ function before(text: string, i: number, word: boolean) {
   return i > 0 ? graphemes.segment(text).containing(i - 1)!.index : 0
 }
 
-/** The grapheme boundary after `i`, or the end of the word after it. */
 function after(text: string, i: number, word: boolean) {
   if (word) {
     for (const s of words.segment(text)) if (s.isWordLike && s.index + s.segment.length > i) return s.index + s.segment.length
@@ -46,13 +41,11 @@ function after(text: string, i: number, word: boolean) {
   return s ? s.index + s.segment.length : text.length
 }
 
-/** The word around `i`, for a double-click. */
 export function wordAt(text: string, i: number): [number, number] {
   for (const s of words.segment(text)) if (s.index <= i && i < s.index + s.segment.length) return [s.index, s.index + s.segment.length]
   return [i, i]
 }
 
-/** Replaces the selection with `text` inside the typing undo step and puts the caret after it. */
 export function insert(editor: Editor, text: string) {
   const e = editor.editing
   if (!e) return
@@ -76,10 +69,8 @@ export function select(editor: Editor, anchor: number, focus: number) {
 const LOREM =
   'lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat'.split(' ')
 
-/** `n` words of lorem ipsum as a sentence. */
 const lorem = (n: number) => `L${Array.from({ length: n }, (_, i) => LOREM[i % LOREM.length]).join(' ').slice(1)}.`
 
-/** Moves the caret to `to`, or the focus when `extend`. */
 function move(editor: Editor, to: number, extend: boolean) {
   const e = editor.editing!
   select(editor, extend ? e.anchor : to, to)
@@ -88,13 +79,11 @@ function move(editor: Editor, to: number, extend: boolean) {
 const ALIGN: Record<string, TextAlign> = { l: 'left', t: 'center', r: 'right', j: 'justify' }
 const DECORATION: Record<string, TextDecoration> = { u: 'underline', x: 'strikethrough' }
 
-/** The runs of `spans` that reach into `r`. */
 export function within(spans: Span[], r: [number, number]) {
   let at = 0
   return spans.filter((s) => (at += s.len) > r[0] && at - s.len < r[1])
 }
 
-/** The style of the family of `f` that is or is not bold or italic as `key` (b or i) toggles it. */
 function face(fonts: Typeface[], f: Typeface, key: string) {
   const bold = /bold|black|heavy/i.test(f.style) !== (key === 'b')
   const italic = /italic|oblique/i.test(f.style) !== (key === 'i')
@@ -102,7 +91,6 @@ function face(fonts: Typeface[], f: Typeface, key: string) {
   return [fonts.find((o) => o.family === f.family && o.style.toLowerCase() === style.toLowerCase()), `${f.family} ${style}`] as const
 }
 
-/** Figma's type shortcuts on the selection of the text being edited, or else on the selected text layers. Returns true when handled. */
 export function formatKey(editor: Editor, e: KeyboardEvent): boolean {
   if (!(e.ctrlKey || e.metaKey)) return false
   const key = keyOf(e)
@@ -132,7 +120,6 @@ export function formatKey(editor: Editor, e: KeyboardEvent): boolean {
   return true
 }
 
-/** Keys of a text layer being edited, Figma's with Ctrl for Cmd. Returns true when handled. */
 export function handleTextKey(editor: Editor, e: KeyboardEvent): boolean {
   const ed = editor.editing
   if (!ed) return false
@@ -155,7 +142,6 @@ export function handleTextKey(editor: Editor, e: KeyboardEvent): boolean {
     const [x, top, bottom] = engine.caret(ed.id, focus)
     let to = engine.textIndex(ed.id, x, up ? top - 0.5 : bottom + 0.5)
     if (engine.textLine(ed.id, to)[0] === engine.textLine(ed.id, focus)[0]) {
-      // Past the first or last line of a frame the caret goes on in the frame before or after.
       const n = editor.nodes.get(ed.id)?.node
       const frame = n?.kind === 'text' ? n : undefined
       const [start, end] = frame ? engine.frameRange(frame.id) : [0, 0]

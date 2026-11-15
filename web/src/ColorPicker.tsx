@@ -40,14 +40,12 @@ const INK_COLORS = ['#00a0e3', '#e5007e', '#ffed00', '#1d1d1b']
 
 type Props = { label: string; color: Color; mode: ColorMode; scope: Scope; onChange: (c: Color) => void }
 
-/** Color chip with a transparency checkerboard. */
 export function Chip({ color, scope }: { color: Color; scope: Scope }) {
   return <span className="chip" style={{ '--color': css(color, scope) } as CSSProperties} />
 }
 
 export const NO_SCOPE: Scope = { swatches: [], collections: [], variables: [], modes: {} }
 
-/** A swatch color's CMYK values in %, or RGB in a CMYK document. */
 export const ink = (c: Color, mode: ColorMode) => (typeof c === 'object' && 'cmyk' in c ? c.cmyk.map((v, i) => 'CMYK'[i] + Math.round(v * 100)).filter((s) => !/^.0$/.test(s)).join(' ') || 'K0' : mode === 'cmyk' ? 'RGB' : '')
 
 export function SwatchOption({ swatch, mode, selected, onPick }: { swatch: Swatch; mode: ColorMode; selected: boolean; onPick: () => void }) {
@@ -71,7 +69,6 @@ export function SwatchOption({ swatch, mode, selected, onPick }: { swatch: Swatc
   )
 }
 
-/** A swatch button that opens the picker; `editor` adds the actions that make swatches, `chip` replaces the colour chip, `children` sit above the colour. */
 export function ColorPicker({ chip, children, ...props }: Props & { editor?: Editor; chip?: ReactNode; children?: ReactNode }) {
   const [open, setOpen] = useState<Element | null>(null)
   const button = useRef<HTMLButtonElement>(null)
@@ -117,10 +114,8 @@ type Harmony = keyof typeof HARMONIES
 const TABS = { custom: 'Custom', harmony: 'Harmony', swatches: 'Swatches' }
 const HARMONY_NAMES: Record<Harmony, string> = { complementary: 'Complementary', analogous: 'Analogous', triadic: 'Triadic', split: 'Split complementary', square: 'Square' }
 
-/** The colours of `rule` around the hue of `hsv`, at its saturation and brightness. */
 const harmony = ([h, s, v]: Hsv, rule: Harmony) => HARMONIES[rule].map((o): Hsv => [(h + o + 360) % 360, s, v])
 
-/** Hue around and saturation out from the centre, with the colours of `rule` marked; only the colour itself moves. */
 function Wheel({ hsv, rule, set }: { hsv: Hsv; rule: Harmony; set: (hsv: Hsv) => void }) {
   const [h, s, v] = hsv
   const pick = (e: PointerEvent<HTMLDivElement>) => {

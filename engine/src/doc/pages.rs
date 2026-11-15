@@ -1,6 +1,5 @@
 use super::*;
 
-/// Where a page sits on its spread; see `Doc::places`.
 pub(super) struct Place {
     pub(super) id: TreeID,
     pub(super) spread: usize,
@@ -8,7 +7,6 @@ pub(super) struct Place {
     pub(super) x: f64,
 }
 
-/// Ruler guides of a page: vertical ones at `x` from its left edge, horizontal ones at `y` from its top.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Guides {
@@ -16,9 +14,6 @@ pub struct Guides {
     pub y: Vec<f64>,
 }
 
-/// A layout grid of a page: `count` columns or rows between margins of `margin`
-/// and gutters of `gutter`, or square cells of `size`, in pt. The canvas shows it;
-/// the PDF leaves it out.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -30,7 +25,6 @@ pub struct Grid {
     pub size: f64,
 }
 
-/// Page numbers from a page on: `start` on it, counted in `style` after `prefix`.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -50,21 +44,15 @@ pub enum Numbering {
     LowerRoman,
 }
 
-/// How date markers show the date.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum DateFormat {
-    /// November 9, 2026
     #[default]
     English,
-    /// 9. November 2026
     German,
-    /// 11/09/2026
     Us,
-    /// 09.11.2026
     Dotted,
-    /// 2026-11-09
     Iso,
 }
 
@@ -142,7 +130,6 @@ fn check_page(width: Option<f64>, height: Option<f64>, bleed: Option<f64>) -> Re
     within(bleed, 0.0, MAX_BLEED, "bleed")
 }
 
-/// What a page or master holds besides its layers, as it is checked in a file.
 #[derive(Deserialize)]
 pub(super) struct Sheet {
     width: Option<f64>,
@@ -162,7 +149,6 @@ impl Sheet {
 }
 
 impl Section {
-    /// The page number `n` of the section.
     pub(super) fn label(&self, mut n: u32) -> String {
         if self.style == Numbering::Arabic {
             return format!("{}{n}", self.prefix);
@@ -205,7 +191,6 @@ pub enum GridKind {
     Grid,
 }
 
-/// The indices of the pages of each spread among `n` pages, as `Snapshot::spreads`.
 pub(super) fn spreads(n: usize, facing: bool) -> Vec<Vec<usize>> {
     match facing {
         false => (0..n).map(|i| vec![i]).collect(),
@@ -217,8 +202,6 @@ pub(super) fn spreads(n: usize, facing: bool) -> Vec<Vec<usize>> {
 }
 
 impl Doc {
-    /// Where each page sits: its spread, its side and the x of its left edge on the
-    /// spread, whose spine is at 0.
     pub(super) fn places(&self) -> Vec<Place> {
         let pages = self.pages();
         let facing = self.facing_pages();
@@ -247,8 +230,6 @@ impl Doc {
         out
     }
 
-    /// Makes each master a spread with a copy of its layers on its left page, which
-    /// the left pages that override a layer override instead.
     pub(super) fn split_masters(&self) -> Res<()> {
         let lefts = self.left_pages();
         for m in self.masters() {
@@ -270,8 +251,6 @@ impl Doc {
         Ok(())
     }
 
-    /// Makes each master one page again without the copies of its layers and the
-    /// layers wholly left of its spine; left pages that override one of its copies override the original again.
     pub(super) fn join_masters(&self) -> Res<()> {
         let lefts = self.left_pages();
         for m in self.masters() {
@@ -298,8 +277,6 @@ impl Doc {
             .collect()
     }
 
-    /// Makes the pages among `pages` that use the master `m` and override its layer
-    /// `from` override `to` instead.
     pub(super) fn relink(&self, pages: &[TreeID], m: TreeID, from: TreeID, to: TreeID) -> Res<()> {
         let (from, to) = (from.to_string(), to.to_string());
         for &p in pages.iter().filter(|&&p| self.master_of(p) == Some(m)) {
@@ -328,7 +305,6 @@ impl Doc {
         value(&self.doc.get_map("document"), "facingPages") == Some(LoroValue::Bool(true))
     }
 
-    /// The pages in order.
     pub(super) fn pages(&self) -> Vec<TreeID> {
         let roots = self.tree.roots().into_iter();
         roots
@@ -351,7 +327,6 @@ impl Doc {
         self.root_of_kind(id, NodeKind::Master)
     }
 
-    /// A page or a master.
     pub(super) fn sheet(&self, id: &str) -> Res<TreeID> {
         self.page(id).or_else(|_| self.master(id))
     }
@@ -364,13 +339,11 @@ impl Doc {
         }
     }
 
-    /// The master the page `p` uses, if it is still there.
     pub(super) fn master_of(&self, p: TreeID) -> Option<TreeID> {
         let v = value(&self.meta(p), MASTER)?;
         self.master(&v.into_string().ok()?).ok()
     }
 
-    /// Makes the layers of page `p` that override its master's plain page layers.
     pub(super) fn leave_master(&self, p: TreeID) -> Res<()> {
         for c in self.children(p) {
             if self.override_of(c).is_some() {
@@ -380,7 +353,6 @@ impl Doc {
         self.meta(p).delete(DETACHED).map_err(err)
     }
 
-    /// The master layer that the page layer `id` overrides.
     pub(super) fn override_of(&self, id: TreeID) -> Option<String> {
         value(&self.meta(id), OVERRIDE_OF)
             .and_then(|v| v.into_string().ok())
@@ -581,7 +553,6 @@ impl Doc {
         Ok(vec![])
     }
 
-    /// The section of the page `p` if it starts one.
     pub(super) fn section(&self, p: TreeID) -> Option<Section> {
         serde_json::from_value(serde_json::to_value(value(&self.meta(p), SECTION)?).ok()?).ok()
     }
@@ -781,7 +752,6 @@ impl Doc {
                 self.meta(p).delete(DETACHED).map_err(err)?;
                 continue;
             }
-            // Gone with its page earlier in the list.
             let Ok(c) = self.node(&id) else { continue };
             let of = self.override_of(c).unwrap_or_default();
             let p = self.root(c);

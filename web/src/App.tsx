@@ -82,7 +82,6 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     m.addEventListener('change', f)
     return () => m.removeEventListener('change', f)
   }, [])
-  /** The state of a panel in this window width: a narrow window keeps its own, hidden at first. */
   const side = (panel: 'left' | 'right' | 'ui' | 'rulers') => (narrow && (panel === 'left' || panel === 'right') ? (`${panel}Narrow` as const) : panel)
   const hide = (panel: Parameters<typeof side>[0]) => setHidden((h) => ({ ...h, [side(panel)]: !h[side(panel)] }))
 
@@ -107,7 +106,6 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       )
       .finally(() => setExporting(false))
   }
-  /** Exports every page in the last format, or opens the preflight at its export button when it has errors. */
   const quickExport = () => {
     if (!editor.snapshot.preflight.some(isError)) return exportAs(lastFormat.current, editor.snapshot.pages.map((_, i) => i))
     if (!editor.preflight) editor.togglePreflight()

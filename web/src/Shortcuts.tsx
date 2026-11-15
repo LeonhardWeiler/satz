@@ -58,7 +58,6 @@ const mark = (text: string, q: string) => {
   return at < 0 ? text : [text.slice(0, at), <mark key="m">{text.slice(at, at + q.length)}</mark>, text.slice(at + q.length)]
 }
 
-/** Gives `a` the shortcut `keys`, or its default for null; a command that had them takes the old keys of `a`. */
 const assign = (a: Action, keys: string | null) => {
   const old = keysOf(a)
   const other = ACTIONS.find((b) => b !== a && b.group && keysOf(b) === (keys ?? a.keys))
@@ -70,7 +69,6 @@ const assign = (a: Action, keys: string | null) => {
   return other ? `${other.title} takes ${old}` : null
 }
 
-/** Every shortcut by where it works; a click on the keys of a command records new ones. */
 export function Shortcuts() {
   const [query, setQuery] = useState('')
   const [recording, setRecording] = useState<string | null>(null)

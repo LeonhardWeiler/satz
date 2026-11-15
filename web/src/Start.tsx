@@ -17,7 +17,6 @@ export const ColorModeSelect = ({ value, onChange }: { value: ColorMode; onChang
   <Select label="Color mode" value={value} options={MODES} onChange={onChange} />
 )
 type Spacing = Pick<Grid, 'count' | 'gutter' | 'margin'>
-/** The count of `what` (Columns or Rows), unlabelled when `named` above, the gutter between more than 1 of them and the margin. */
 export function GridFields({ what, named, g, set }: { what: string; named?: boolean; g: Spacing; set: (g: Partial<Spacing>) => void }) {
   return (
     <>
@@ -43,7 +42,6 @@ export const FORMATS: [string, number, number][] = [
   ['Tabloid', 279.4, 431.8],
 ]
 const near = (a: number, b: number) => Math.abs(a - b) < 0.5
-/** The name of the format of a `w` by `h` pt page in either orientation, or Custom. */
 export const formatOf = (w: number, h: number) =>
   FORMATS.find(([, a, b]) => near(Math.min(w, h), a * MM) && near(Math.max(w, h), b * MM))?.[0] ?? 'Custom'
 

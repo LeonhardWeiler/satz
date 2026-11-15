@@ -3,7 +3,6 @@ import { Keys, roam } from './controls'
 import { Icon } from './icons'
 import { Popover, type Anchor } from './Popover'
 
-/** A menu beside `anchor` that closes on a pick, Escape or a click elsewhere; an item with a fourth value is a radio item, a fifth its shortcut or `›` for a submenu, `null` a separator; a letter moves to the next item it starts, or with `search` filters the items. */
 export function ContextMenu({
   anchor,
   side = 'right',

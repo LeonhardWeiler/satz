@@ -16,7 +16,6 @@ const rect = (id: string): Node => ({ ...base(id), kind: 'shape', shape: 'rect',
 const group = (id: string, children: Node[]): Node => ({ ...base(id), kind: 'group', children })
 const frame = (id: string, children: Node[]): Node => ({ ...base(id), kind: 'frame', clip: true, radius: 0, corners: [], children })
 
-// page: frame f [ group g [ a, b ] ], group h [ group i [ c ] ]
 const tree = [frame('f', [group('g', [rect('a'), rect('b')])]), group('h', [group('i', [rect('c')])])]
 
 test('a click selects the outermost group, passing through frames', () => {

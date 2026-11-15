@@ -1,6 +1,5 @@
 use super::*;
 
-/// Replaces the colors in `v` that `f` maps to another color.
 pub(super) fn map_colors(v: &mut serde_json::Value, f: &impl Fn(&Color) -> Option<Color>) -> bool {
     match v {
         serde_json::Value::Object(o) => o.iter_mut().fold(false, |d, (k, v)| {
@@ -33,7 +32,6 @@ fn json(v: &impl Serialize) -> String {
 }
 
 impl Doc {
-    /// The modes `id` resolves variables in, its own and inherited.
     pub(super) fn active_modes(&self, id: TreeID) -> Modes {
         let mut chain = vec![id];
         while let Some(p) = self
@@ -50,7 +48,6 @@ impl Doc {
         modes
     }
 
-    /// Writes the values of bound variables into `id` and its subtree.
     pub(super) fn settle(&self, id: TreeID, inherited: &Modes, palette: &Palette) -> Res<()> {
         let mut modes = inherited.clone();
         modes.extend(self.modes(id));
@@ -101,7 +98,6 @@ impl Doc {
         Ok(())
     }
 
-    /// Calls `f` for every node, including deleted ones, with its active modes.
     pub(super) fn each(&self, mut f: impl FnMut(TreeID, &Modes) -> Res<()>) -> Res<()> {
         let mut stack: Vec<_> = self
             .tree
@@ -117,7 +113,6 @@ impl Doc {
         Ok(())
     }
 
-    /// Replaces the colors of every node that `f` maps to another color.
     pub(super) fn recolor(&self, f: impl Fn(&Color, &Scope) -> Option<Color>) -> Res<()> {
         let palette = self.palette();
         self.each(|id, modes| {
@@ -164,7 +159,6 @@ impl Doc {
         })
     }
 
-    /// Turns every process color into `mode`; spot colors stay CMYK.
     pub(super) fn convert(&self, mode: ColorMode) -> Res<()> {
         self.recolor(|c, _| c.convert(mode))?;
         for name in ["swatches", "variables", "textStyles"] {
@@ -205,7 +199,6 @@ impl Doc {
         self.doc.get_list("variables").delete(i, 1).map_err(err)
     }
 
-    /// Drops the modes chosen on any node for which `f(collection, mode)` holds.
     pub(super) fn forget_modes(&self, f: impl Fn(&str, &str) -> bool) -> Res<()> {
         self.each(|n, _| {
             let mut modes = self.modes(n);
@@ -238,8 +231,6 @@ impl Doc {
         self.list("swatches")
     }
 
-    /// Counts the layers that name a swatch, variable or text style that differs from
-    /// the last snapshot's as changed; other changes of the collections change everything.
     pub(super) fn repaint(&self, new: &Palette) {
         let Some(old) = self.painted.borrow().clone() else {
             return;

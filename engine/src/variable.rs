@@ -3,7 +3,6 @@ use crate::text::{TextStyle, Typeface};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-/// Chosen mode per collection; collections not listed use their first mode.
 pub type Modes = BTreeMap<String, String>;
 
 #[cfg_attr(test, derive(ts_rs::TS))]
@@ -27,12 +26,10 @@ pub struct Collection {
 pub enum Value {
     Color(Color),
     Number(f64),
-    /// `None` is the bundled font.
     Font(Option<Typeface>),
     Boolean(bool),
 }
 
-/// `values` holds one value per mode of its collection, all of one kind.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Variable {
@@ -42,7 +39,6 @@ pub struct Variable {
     pub values: BTreeMap<String, Value>,
 }
 
-/// What colors, bound numbers and styled text refer to.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -53,7 +49,6 @@ pub struct Palette {
     pub text_styles: Vec<TextStyle>,
 }
 
-/// A palette seen from a node with its modes.
 #[derive(Clone, Copy)]
 pub struct Scope<'a> {
     pub palette: &'a Palette,

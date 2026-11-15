@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Builds FOGRA51.icc from the ICC registry's FOGRA51 characterization data.
-# The black generation approximates PSO Coated v3 (TAC 300 %, max. K 96 %).
 set -euo pipefail
 cd "$(dirname "$0")"
 tmp=$(mktemp -d)

@@ -105,7 +105,6 @@ test('a fill bound to a color variable follows the mode of its frame and page', 
   await bind(rects.last())
   await bind(rects.first())
   await expect(panel.getByText('Color 1')).toBeVisible()
-  /** Colors of the top rectangle and of the one in the frame, from one screenshot. */
   const shown = async () => colors(page, [await screen(page, 74, 7), await screen(page, 100, 185)])
   const expectColors = async (top: number[], inFrame: number[]) => {
     const [a, b] = await shown()

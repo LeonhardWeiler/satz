@@ -1,26 +1,20 @@
 import type { Point } from './editor'
 import { HANDLE, type Box, type View } from './renderer'
 
-/** Distance in px from an edge of the selection box within which the edge is grabbed. */
 const EDGE = 4
-/** Distance in px of a text frame's in- and out-port from its top and bottom corner. */
 const PORT_INSET = 24
 const PORT = 10
-/** Distance in px beyond a corner of the selection box within which it is turned. */
 const TURN = 16
-/** Least distance in px of a corner radius handle from its corner; below 4 times it they hide. */
 const RADIUS = 12
 
 const screen = (view: View, p: Point) => ({ x: view.x + p.x * view.zoom, y: view.y + p.y * view.zoom })
 
-/** `p` turned `degrees` counterclockwise around `c`, as the engine turns layers. */
 export function spin(p: Point, degrees: number, c: Point = { x: 0, y: 0 }): Point {
   const [s, k] = [Math.sin((degrees * Math.PI) / 180), Math.cos((degrees * Math.PI) / 180)]
   const [x, y] = [p.x - c.x, p.y - c.y]
   return { x: c.x + k * x + s * y, y: c.y - s * x + k * y }
 }
 
-/** The upright box around the turned box `b`. */
 export function upright(b: Box): Box {
   const c = { x: b.x + b.w / 2, y: b.y + b.h / 2 }
   const ps = [[0, 0], [b.w, 0], [b.w, b.h], [0, b.h]].map(([u, v]) => spin({ x: b.x + u, y: b.y + v }, b.rotation ?? 0, c))
@@ -28,11 +22,6 @@ export function upright(b: Box): Box {
   return rect({ x: Math.min(...xs), y: Math.min(...ys) }, { x: Math.max(...xs), y: Math.max(...ys) })
 }
 
-/**
- * What the screen point (x, y) grabs of the selection handles: `end0` or `end1` of a
- * line, a corner such as `nw` or an edge such as `e` of the box, `rotate` and the corner
- * just outside a corner, such as `rotatene`, or nothing. Radius handles are in the unturned space of the box.
- */
 export function handleAt(view: View, x: number, y: number, { box, line, radii, gaps }: { box?: Box; line?: [Point, Point]; radii?: Point[]; gaps?: Gap[] }) {
   const g = gaps?.findIndex((p) => Math.hypot(p.x - x, p.y - y) <= HANDLE) ?? -1
   if (g >= 0) return `gap${gaps![g].axis}${g}`
@@ -71,10 +60,8 @@ export function handleAt(view: View, x: number, y: number, { box, line, radii, g
   return undefined
 }
 
-/** A handle in screen space in the middle of the gap between two layers of a row along `axis`. */
 export type Gap = Point & { axis: 'x' | 'y' }
 
-/** The gap handles in screen space of a row of `boxes` along `axis`. */
 export function gapHandles(view: View, axis: 'x' | 'y', boxes: Box[]): Gap[] {
   const [x, w, y, h] = axis === 'x' ? (['x', 'w', 'y', 'h'] as const) : (['y', 'h', 'x', 'w'] as const)
   return boxes.slice(1).map((b, i) => {
@@ -84,7 +71,6 @@ export function gapHandles(view: View, axis: 'x' | 'y', boxes: Box[]): Gap[] {
   })
 }
 
-/** The corner radius handles in screen space of `box` with `radii`, from the top left clockwise. */
 export function radiusHandles(view: View, box: Box, radii: number[]) {
   const [w, h] = [box.w * view.zoom, box.h * view.zoom]
   if (Math.min(w, h) < 4 * RADIUS) return []
@@ -95,11 +81,6 @@ export function radiusHandles(view: View, box: Box, radii: number[]) {
   })
 }
 
-/**
- * The in- and out-port in screen space of a text frame placed on its spread, as in
- * InDesign: on its left edge below the top and its right edge above the bottom, at most a
- * quarter of the height in.
- */
 export function portsOf(view: View, n: Box) {
   const inset = Math.min(PORT_INSET / view.zoom, n.h / 4)
   const c = { x: n.x + n.w / 2, y: n.y + n.h / 2 }
@@ -107,7 +88,6 @@ export function portsOf(view: View, n: Box) {
   return { in: at(n.x, n.y + inset), out: at(n.x + n.w, n.y + n.h - inset) }
 }
 
-/** The port of `ports` at the screen point (x, y). */
 export function portAt(ports: { in?: Point; out: Point }, x: number, y: number) {
   const near = (q?: Point) => !!q && Math.abs(q.x - x) <= PORT / 2 + 1 && Math.abs(q.y - y) <= PORT / 2 + 1
   return near(ports.out) ? ('out' as const) : near(ports.in) ? ('in' as const) : undefined
@@ -117,11 +97,6 @@ export function rect(a: Point, b: Point): Box {
   return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(a.x - b.x), h: Math.abs(a.y - b.y) }
 }
 
-/**
- * The boxes of `frames` in the selection box `box` after its `handle` was dragged by
- * `d`: Alt resizes about the centre, Shift keeps the proportions. Everything is in the
- * space of the spread.
- */
 export function resized(box: Box, handle: string, d: Point, keys: { altKey: boolean; shiftKey: boolean }, frames: Box[]) {
   let l = box.x + (handle.includes('w') ? d.x : 0)
   let r = box.x + box.w + (handle.includes('e') ? d.x : 0)

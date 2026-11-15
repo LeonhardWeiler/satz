@@ -8,7 +8,6 @@ const overset = async (page: Page, at: readonly [number, number]) =>
   (await pixels(page, at[0] - 4, at[1] - 4, 9, 9)).some(([r, g, b]) => r > 200 && g < 110 && b < 110)
 const title = (page: Page) => page.getByRole('tree', { name: 'Layers' }).locator('[aria-selected=true] .layer-name').first()
 
-/** Page 2 with the story in frame A, more than fits. */
 async function story(page: Page) {
   await open(page)
   await frameOnNewPage(page, A)
@@ -17,7 +16,6 @@ async function story(page: Page) {
   await expect(title(page)).toHaveText('Lorem ipsum dolor sit amet, consetetur…')
 }
 
-/** The story threaded from frame A into frame B on page 2, which is selected; returns B's title. */
 async function threaded(page: Page) {
   await story(page)
   await page.mouse.click(...(await port(page, A, true)))
@@ -26,7 +24,6 @@ async function threaded(page: Page) {
   return (await title(page).textContent())!
 }
 
-/** Also frame A on page 3, beside page 2 in their spread, threaded on from frame B; returns its title. */
 async function acrossPages(page: Page) {
   const second = await threaded(page)
   await frameOnNewPage(page, A)

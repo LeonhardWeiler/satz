@@ -2,7 +2,6 @@ import { readFileSync } from 'node:fs'
 import { type Page } from '@playwright/test'
 import { expect, test, addPage, assets, autosaved, choose, open, pageCount } from './util'
 
-/** Pickers that hand out files of the origin private file system and count how often they asked. */
 async function pickers(page: Page) {
   await page.addInitScript(() => {
     const dir = () => navigator.storage.getDirectory()

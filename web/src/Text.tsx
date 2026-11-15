@@ -32,7 +32,6 @@ const RESIZING = [
   ['fixedSize', 'Fixed size', 'fixedSize'],
 ] as const
 const LANGS = { en: 'English', de: 'German', fr: 'French', it: 'Italian', es: 'Spanish', nl: 'Dutch' } as const
-/** Styled numbers: title, label, unit, least value and the text shown for 0. */
 const METRICS: ['size' | 'lineHeight', string, IconName, string, number, number, string?][] = [
   ['size', 'Font size', 'fontSize', 'pt', 0.1, 5000],
   ['lineHeight', 'Line height', 'lineHeight', 'pt', 0, MAX_LENGTH, 'Auto'],
@@ -44,28 +43,23 @@ const LISTS = { none: 'None', bullet: 'Bullets', number: 'Numbers' } as const
 const POSITIONS = { normal: 'Normal', superscript: 'Superscript', subscript: 'Subscript' } as const
 const CASE_TAGS = { smcp: 'Small caps', 'smcp c2sc': 'All small caps', c2sc: 'Capitals to small caps' }
 const POSITION_TAGS = { sups: 'Superscript glyphs', subs: 'Subscript glyphs' }
-/** OpenType features by group: tag, title and whether fonts apply it unless turned off. */
 const FEATURES: [string, [string, string, boolean?][]][] = [
   ['Ligatures & kerning', [['kern', 'Kerning', true], ['liga', 'Ligatures', true], ['dlig', 'Discretionary ligatures']]],
   ['Numbers & forms', [['frac', 'Fractions'], ['zero', 'Slashed zero'], ['ordn', 'Ordinals'], ['case', 'Case-sensitive forms']]],
 ]
-/** Features of which one at most applies: title, a sample and the tags with their titles. */
 const FIGURES: [string, string, [string, string][]][] = [
   ['Figures', 'Figures', [['lnum', 'Lining'], ['onum', 'Oldstyle']]],
   ['Figure spacing', 'Width', [['pnum', 'Proportional'], ['tnum', 'Tabular']]],
 ]
 
-/** The text style's name set at its size, within what a panel row takes. */
 const specimen = (s?: TextStyle) => (s ? { fontSize: Math.min(Math.max(s.size * 0.95, 9), 18), fontFamily: 'var(--doc-font)' } : undefined)
 export const sizeOf = (s: TextStyle) => `${s.size}/${s.lineHeight || 'Auto'} pt`
 
-/** The value all spans share, or null. */
 export function sameOf<A, T>(spans: A[], get: (a: A) => T): T | null {
   const values = spans.map(get)
   return values.every((v) => v === values[0]) ? values[0] : null
 }
 
-/** A button with the text style's name set at its size that opens a menu of the styles, and creates one from the text. */
 export function Specimen({ editor, spans, format }: { editor: Editor; spans: Attrs[]; format: (p: TextProps) => void }) {
   const styles = useEditor(editor, (e) => e.snapshot.textStyles)
   const style = sameOf(spans, (a) => a.textStyle)
@@ -136,7 +130,6 @@ export function Specimen({ editor, spans, format }: { editor: Editor; spans: Att
   )
 }
 
-/** Changes the OpenType features or the axes of each run of `spans` in `r`, or of all of them, by `f`. */
 export const eachOf = (editor: Editor, id: string, spans: Span[], r: [number, number] | null): Each => (key, f) => {
   const [a, b] = r ?? [0, Infinity]
   let at = 0
@@ -152,10 +145,8 @@ export const eachOf = (editor: Editor, id: string, spans: Span[], r: [number, nu
   })
 }
 
-/** Changes the features or the axes of text by `f`. */
 type Each = <K extends 'features' | 'axes' | 'size'>(key: K, f: (old: Attrs[K]) => Attrs[K]) => void
 
-/** The type options any of `spans` sets away from their default. */
 const typeOptionsUsed = (spans: Pick<Attrs, Styled>[]) =>
   (
     [
@@ -174,7 +165,6 @@ const typeOptionsUsed = (spans: Pick<Attrs, Styled>[]) =>
     .filter(([, on]) => spans.some(on))
     .map(([name]) => name)
 
-/** A button that opens the case, decoration, indent, OpenType features and font axes of `spans`. */
 export function TypeOptions({ editor, spans, set, each, paragraph }: { editor: Editor; spans: Pick<Attrs, Styled>[]; set: (p: TextProps) => void; each: Each; paragraph?: ReactNode }) {
   const [at, setAt] = useState<Element | null>(null)
   const [chosen, setTab] = useState<'Character' | 'Paragraph' | 'Tabs' | 'Variable'>('Character')
@@ -294,7 +284,6 @@ export function TypeOptions({ editor, spans, set, each, paragraph }: { editor: E
 
 const TAB_ALIGNS: Record<Tab['align'], string> = { left: 'Left', center: 'Center', right: 'Right', decimal: 'Decimal' }
 
-/** The tab stops of `tabs`, as JSON or null when mixed, each with its alignment and leader. */
 function TabStops({ tabs, set }: { tabs: string | null; set: (tabs: Tab[]) => void }) {
   const list: Tab[] = tabs === null ? [] : JSON.parse(tabs)
   const put = (i: number, t: Partial<Tab>) => set(list.with(i, { ...list[i], ...t }).sort((a, b) => a.at - b.at))
@@ -347,7 +336,6 @@ const CHARACTERS = [
   ['Multiplication', '\u00d7'],
 ] as const
 
-/** Inserts the page number, the date or a character that keyboards lack into the edited text, or at the end of `node`. */
 function Characters({ editor, node, font }: { editor: Editor; node: TextNode; font?: string }) {
   const [at, setAt] = useState<Element | null>(null)
   const [all, setAll] = useState<Element | null>(null)
@@ -364,7 +352,6 @@ function Characters({ editor, node, font }: { editor: Editor; node: TextNode; fo
         aria-label="Insert character"
         title="Insert character"
         aria-haspopup="menu"
-        // Keeps the focus in the edited text.
         onMouseDown={(e) => e.preventDefault()}
         onClick={(e) => setAt(e.currentTarget)}
       >
@@ -396,14 +383,12 @@ function Characters({ editor, node, font }: { editor: Editor; node: TextNode; fo
 const faces = new Set<number>()
 
 let names: Promise<Map<number, string>> | undefined
-/** The Unicode names by code point, fetched once. */
 const loadNames = () =>
   (names ??= fetch(namesUrl)
     .then((r) => r.text())
     .then((t) => new Map(t.split('\n').filter(Boolean).map((l) => [parseInt(l, 16), l.slice(l.indexOf(' ') + 1)])))
     .catch(() => new Map()))
 
-/** All characters of the font `font`, found by name, code point or themselves, and inserted on click. */
 function Glyphs({ editor, font, at, put, onClose }: { editor: Editor; font?: string; at: Element; put: (c: string) => void; onClose: () => void }) {
   const [query, setQuery] = useState('')
   const [hover, setHover] = useState('')
@@ -436,7 +421,6 @@ function Glyphs({ editor, font, at, put, onClose }: { editor: Editor; font?: str
   )
 }
 
-/** Family and style of `fonts`, null for the bundled one, bindable to a font variable on `id` if given. */
 export function Font({ editor, id, fonts, set }: { editor: Editor; id?: string; fonts: (Typeface | null)[]; set: (f: Typeface) => void }) {
   const added = useEditor(editor, (e) => e.snapshot.fonts)
   const missing = useEditor(editor, (e) => e.snapshot.missingFonts).map((m) => m.font)
@@ -465,7 +449,6 @@ export function Font({ editor, id, fonts, set }: { editor: Editor; id?: string; 
   )
 }
 
-/** Text style, type and alignment of text layers. */
 export function TextSection({ editor, nodes }: { editor: Editor; nodes: TextNode[] }) {
   const stories = useEditor(editor, (e) => e.snapshot.stories)
   const variables = useEditor(editor, (e) => e.snapshot.variables)
@@ -475,7 +458,6 @@ export function TextSection({ editor, nodes }: { editor: Editor; nodes: TextNode
   const all = nodes.map((n) => stories[n.story]?.spans ?? [])
   const spans = r ? within(all[0], r) : all.flat()
   const same = <T,>(get: (a: Attrs) => T) => sameOf(spans, get)
-  /** Formats the selection of the text being edited, or else all of it. */
   const format = (props: TextProps) => editor.batch(() => nodes.forEach((n) => editor.apply({ type: 'format', id: n.id, range: r, ...props })))
   const each: Each = (key, f) => editor.batch(() => nodes.forEach((n, i) => eachOf(editor, n.id, all[i], r)(key, f)))
   const align = same((a) => a.textAlign)
@@ -555,7 +537,6 @@ export function TextSection({ editor, nodes }: { editor: Editor; nodes: TextNode
   )
 }
 
-/** The document's text styles with their values, each bindable to a variable. */
 export function TextStyles({ editor }: { editor: Editor }) {
   const styles = useEditor(editor, (e) => e.snapshot.textStyles)
   return (
@@ -615,7 +596,6 @@ function StyleRow({ editor, style }: { editor: Editor; style: TextStyle }) {
   )
 }
 
-/** The GREP styles of `style`: what each regular expression matches in its paragraphs takes another text style. */
 function GrepStyles({ editor, style }: { editor: Editor; style: TextStyle }) {
   const styles = useEditor(editor, (e) => e.snapshot.textStyles)
   const others = Object.fromEntries(styles.filter((s) => s.id !== style.id).map((s) => [s.id, s.name]))
@@ -652,7 +632,6 @@ function GrepStyles({ editor, style }: { editor: Editor; style: TextStyle }) {
   )
 }
 
-/** Resizing, insets, columns, vertical alignment and baseline grid of text layers. */
 export function TextFrameSection({ editor, nodes, set }: { editor: Editor; nodes: TextNode[]; set: (p: Props) => void }) {
   const same = <T,>(get: (n: TextNode) => T) => sameOf(nodes, get)
   const resizing = same((n) => (n.sizing.horizontal === 'hug' ? 'autoWidth' : n.sizing.vertical === 'hug' ? 'autoHeight' : 'fixedSize'))
@@ -722,7 +701,6 @@ export function TextFrameSection({ editor, nodes, set }: { editor: Editor; nodes
   )
 }
 
-/** A check that turns a color on or off, and the color's picker while it is on; `undefined` is mixed. */
 function ColorCheck({ editor, node, label, color, set, children }: { editor: Editor; node: TextNode; label: string; color: Color | null | undefined; set: (c: Color | null) => void; children?: ReactNode }) {
   const snapshot = useEditor(editor, (e) => e.snapshot)
   return (
@@ -734,7 +712,6 @@ function ColorCheck({ editor, node, label, color, set, children }: { editor: Edi
   )
 }
 
-/** The table of contents a text layer holds: the text styles whose paragraphs it lists, one level each. */
 export function ContentsSection({ editor, node }: { editor: Editor; node: TextNode }) {
   const styles = useEditor(editor, (e) => e.snapshot.textStyles)
   const toc = node.toc

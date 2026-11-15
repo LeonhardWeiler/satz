@@ -1,6 +1,3 @@
-//! The example poster and booklet in `examples/`. `SATZ_WRITE_EXAMPLES=1 cargo test
-//! examples` writes them again after the format or the examples changed.
-
 use crate::color::{Color, ColorMode, to_cmyk};
 use crate::display_list::Op;
 use crate::doc::{Command, Doc, NewKind, Problem, Props, TextProps};
@@ -13,7 +10,6 @@ const MM: f64 = 72.0 / 25.4;
 const PHOTO: &[u8] = include_bytes!("../../examples/earthrise.jpg");
 const DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../examples");
 
-/// The headings of the booklet and the pages they are on.
 const CONTENTS: [(&str, usize); 5] = [
     ("The flight", 3),
     ("The photograph", 3),
@@ -47,7 +43,6 @@ fn cmyk(c: f32, m: f32, y: f32, k: f32, alpha: f32) -> Color {
     }
 }
 
-/// The black of the photograph once it is separated, so that it meets its background without an edge.
 fn photo_black(alpha: f32) -> Color {
     let [c, m, y, k] = to_cmyk([0.0; 3]);
     cmyk(c, m, y, k, alpha)
@@ -69,7 +64,6 @@ fn gradient(kind: FillKind, transform: [f32; 6], stops: Vec<(f32, Color)>) -> Op
     }])
 }
 
-/// An auto layout frame without fills.
 fn auto(direction: Direction, align_main: MainAlign, gap: f64, name: &str) -> Props {
     Props {
         fills: Some(vec![]),
@@ -80,8 +74,6 @@ fn auto(direction: Direction, align_main: MainAlign, gap: f64, name: &str) -> Pr
     }
 }
 
-/// Sizing for an auto layout frame that hugs its children's height; set it once
-/// they are there, since a frame with nothing to hug keeps its size.
 fn hug(horizontal: Size) -> Props {
     Props {
         sizing: Some(Sizing {
@@ -102,7 +94,6 @@ fn named(name: &str) -> Props {
 struct Build(Doc);
 
 impl Build {
-    /// An empty CMYK document with one page `w` × `h` mm.
     fn new(w: f64, h: f64, facing: bool) -> (Build, String) {
         let d = Doc::blank(w * MM, h * MM, 1, facing, ColorMode::Cmyk);
         let page = d.build_snapshot().pages[0].id.clone();
@@ -117,7 +108,6 @@ impl Build {
         self.run(cmd).remove(0)
     }
 
-    /// Adds a layer at [x, y, w, h] in mm.
     fn add(&mut self, parent: &str, kind: NewKind, [x, y, w, h]: [f64; 4], props: Props) -> String {
         let id = self.one(Command::Create {
             parent: parent.into(),
@@ -149,8 +139,6 @@ impl Build {
         });
     }
 
-    /// Adds a text layer [x, y, w, h] mm of a fixed size, auto height when `h` is 0,
-    /// or auto width when `w` is 0 too.
     fn text(
         &mut self,
         parent: &str,
@@ -185,8 +173,6 @@ impl Build {
         id
     }
 
-    /// Places the photograph into [x, y, w, h] mm, showing the part of it that
-    /// `transform` maps into the layer's unit box.
     fn photo(&mut self, parent: &str, frame: [f64; 4], transform: [f32; 6]) -> String {
         let hash = self.0.add_image(PHOTO, None).unwrap().hash;
         let id = self.one(Command::PlaceImage {
@@ -726,9 +712,6 @@ fn the_saved_examples_load_as_they_were_built() {
     }
 }
 
-/// A booklet of `n` A4 pages on a master, each with 100 layers: shapes, labels, a
-/// group, an auto layout frame, the photograph and a frame of one story threaded
-/// through all pages.
 pub(crate) fn heavy(n: usize) -> Doc {
     let (w, h) = (210.0, 297.0);
     let (mut b, first) = Build::new(w, h, true);
@@ -853,8 +836,6 @@ It was the first time a Saturn V rocket carried a crew, and the first time peopl
 beyond the orbit of the Earth. Frank Borman, James Lovell and William Anders were on their \
 way to the Moon, a journey of almost three days.";
 
-/// `cargo test --release -p engine heavy_documents -- --ignored` writes
-/// `target/perf/heavy-{1,8,32}.satz` for the browser benchmark `web/e2e/perf.spec.ts`.
 #[test]
 #[ignore]
 fn heavy_documents() {

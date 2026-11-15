@@ -14,7 +14,6 @@ const KINDS: Record<Kind, string> = { color: 'Color', number: 'Number', font: 'F
 const KIND_ICONS = { color: 'drop', number: 'hash', font: 'text', boolean: 'check' } as const
 export const kindOf = (v: Value): Kind => ('color' in v ? 'color' : 'number' in v ? 'number' : 'boolean' in v ? 'boolean' : 'font')
 
-/** The document's variables: the plus makes one, a click edits it in a popover; like swatches, a right click or double click renames. */
 export function Variables({ editor }: { editor: Editor }) {
   const snapshot = useEditor(editor, (e) => e.snapshot)
   const [menu, setMenu] = useState<DOMRect | null>(null)
@@ -120,7 +119,6 @@ export function Variables({ editor }: { editor: Editor }) {
   )
 }
 
-/** Name and value per mode of the variable `id`, beside its row. */
 function VariableEditor({ editor, id, fonts, onClose }: { editor: Editor; id: string; fonts: Typeface[]; onClose: () => void }) {
   const snapshot = useEditor(editor, (e) => e.snapshot)
   const ref = useRef<HTMLDivElement>(null)
@@ -212,7 +210,6 @@ function VariableEditor({ editor, id, fonts, onClose }: { editor: Editor; id: st
   )
 }
 
-/** A mode select per collection with several modes for the page or layer `id`. */
 export function ModeSelects({ editor, id, own, inherited }: { editor: Editor; id: string; own: Modes; inherited: Modes }) {
   const collections = useEditor(editor, (e) => e.snapshot.collections)
   return collections
@@ -235,7 +232,6 @@ export function ModeSelects({ editor, id, own, inherited }: { editor: Editor; id
     })
 }
 
-/** Wraps the field `children` of `prop` on layer `id` with a button that binds a number or font variable to it. */
 export function Bindable({
   editor,
   id,

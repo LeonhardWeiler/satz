@@ -15,7 +15,6 @@ pub enum BooleanOp {
     Exclude,
 }
 
-/// The subpaths of `path`, open ones left open.
 fn subpaths(path: &[f32]) -> Vec<BezPath> {
     let at = |p: &[f32], i: usize| Point::new(p[i].into(), p[i + 1].into());
     let mut out: Vec<BezPath> = Vec::new();
@@ -38,7 +37,6 @@ fn is_closed(b: &BezPath) -> bool {
     matches!(b.elements().last(), Some(PathEl::ClosePath))
 }
 
-/// `path` with every subpath closed.
 fn bez(path: &[f32]) -> BezPath {
     subpaths(path)
         .into_iter()
@@ -82,7 +80,6 @@ fn flat<'a>(c: impl Iterator<Item = &'a Contour>) -> BezPath {
     c.flat_map(|c| c.path.elements().to_vec()).collect()
 }
 
-/// A winding number that every line raises, so that a line run there and back stays.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 struct Lines(u32);
 
@@ -109,8 +106,6 @@ impl WindingNumber for Lines {
     }
 }
 
-/// The boundaries of the faces that the lines of `path` cut the plane into, crossings
-/// included; each comes with a point just inside its face.
 fn faces(path: &[f32]) -> Res<Vec<(BezPath, Point)>> {
     let subs: Vec<BezPath> = subpaths(path)
         .into_iter()
@@ -130,8 +125,6 @@ fn faces(path: &[f32]) -> Res<Vec<(BezPath, Point)>> {
         let (first, last) = (s.clone().next(), s.last());
         first.zip(last).map(|(f, l)| (f, l.end()))
     };
-    // The sweep joins points that nearly meet with segments too short to have a
-    // direction; their ends count as one point.
     let mut same = HashMap::new();
     let key = |same: &HashMap<_, _>, p: Point| {
         let mut k = (p.x.to_bits(), p.y.to_bits());
@@ -196,7 +189,6 @@ fn faces(path: &[f32]) -> Res<Vec<(BezPath, Point)>> {
     Ok(faces)
 }
 
-/// The area that the lines of `faces` enclose around `at`, with its holes.
 fn area(faces: &[(BezPath, Point)], at: Point) -> Res<BezPath> {
     let up = |b: &BezPath| {
         if b.area() < 0.0 {
@@ -223,7 +215,6 @@ fn area(faces: &[(BezPath, Point)], at: Point) -> Res<BezPath> {
     Ok(out)
 }
 
-/// The areas of `path` around the points `at` that lie in one.
 pub(super) fn areas(lines: &[f32], at: &[f32]) -> Res<Vec<f32>> {
     let faces = faces(lines)?;
     let mut out = Vec::new();
@@ -235,8 +226,6 @@ pub(super) fn areas(lines: &[f32], at: &[f32]) -> Res<Vec<f32>> {
     Ok(out)
 }
 
-/// The points `seeds` moved from the lines `old` to `new`: each into the area of
-/// `new` that overlaps its area most, or left where it is.
 pub(super) fn follow(old: &[f32], new: &[f32], seeds: &[f32]) -> Vec<f32> {
     let (Ok(was), Ok(now)) = (faces(old), faces(new)) else {
         return seeds.to_vec();
@@ -271,7 +260,6 @@ pub(super) fn follow(old: &[f32], new: &[f32], seeds: &[f32]) -> Vec<f32> {
 }
 
 impl Doc {
-    /// The lines of the path `id` in its frame, unturned.
     pub(super) fn lines_of(&self, id: TreeID) -> Res<Vec<f32>> {
         let unturn = geom::invert(geom::rotation(
             num(&self.meta(id), "rotation"),
@@ -282,8 +270,6 @@ impl Doc {
         }))
     }
 
-    /// Fills the area of the path `id` around [x, y] in its parent's space, or empties it
-    /// when it is filled.
     pub(super) fn fill_area(&self, id: String, x: f64, y: f64) -> Res<Vec<String>> {
         let id = self.layer(&id)?;
         let m = self.meta(id);

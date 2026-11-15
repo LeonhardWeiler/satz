@@ -6,7 +6,6 @@ export type Anchor = () => DOMRect
 const GAP = 8
 const MARGIN = 8
 
-/** Start of a `size` long box beside [lo, hi], before or `after` it, flipped when it does not fit. */
 function flip(lo: number, hi: number, size: number, room: number, after: boolean) {
   const before = lo - GAP - size
   const fitsBefore = before >= MARGIN
@@ -16,7 +15,6 @@ function flip(lo: number, hi: number, size: number, room: number, after: boolean
 
 const shift = (v: number, size: number, room: number) => Math.max(MARGIN, Math.min(v, room - MARGIN - size))
 
-/** Floats beside `anchor` on `side`, flipped to the other side and shifted to stay inside the window; above or below it starts at its left edge or ends at its right one. */
 export function Popover({
   anchor,
   side,
@@ -58,7 +56,6 @@ export function Popover({
   return <div ref={ref} {...props} className={`popover ${props.className ?? ''}`} />
 }
 
-/** The row of `el` stretched across its panel, so that a popover on its side docks to the panel's edge. */
 export const docked =
   (el: Element): Anchor =>
   () => {
@@ -67,7 +64,6 @@ export const docked =
     return new DOMRect(panel.x, b.y, panel.width, b.height)
   }
 
-/** A dialog docked beside the panel of `at` that closes on Escape or a click outside; the canvas moves the selection out from under it. */
 export function Dialog({ label, at, className, onClose, children }: { label: string; at: Element; className?: string; onClose: () => void; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => void dispatchEvent(new CustomEvent('cover', { detail: ref.current!.getBoundingClientRect() })), [])

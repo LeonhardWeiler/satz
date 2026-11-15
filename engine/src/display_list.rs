@@ -24,8 +24,6 @@ pub enum Op {
         paint: Paint,
         path: Vec<f32>,
     },
-    /// `text` is what the glyphs stand for, glyph `i` for `text[ranges[i]]`; only
-    /// the PDF uses it.
     GlyphRun {
         font: u32,
         size: f32,
@@ -37,8 +35,6 @@ pub enum Op {
         #[serde(skip)]
         ranges: Vec<std::ops::Range<usize>>,
     },
-    /// The image `image` of `image::id`, whose unit square `transform` maps into
-    /// page space.
     Image {
         image: u32,
         transform: [f32; 6],
@@ -55,7 +51,6 @@ pub enum Op {
         join: u32,
         path: Vec<f32>,
     },
-    /// Blur and shadow blurs are Gaussian sigmas in pt.
     PushLayer {
         opacity: f32,
         #[serde(serialize_with = "number")]
@@ -64,23 +59,18 @@ pub enum Op {
         shadows: Vec<Shadow>,
     },
     PopLayer,
-    /// The ops up to `PopTransform` are drawn through `transform` [a b c d e f].
     PushTransform {
         transform: [f32; 6],
     },
     PopTransform,
-    /// The ops up to `EndMask` are an alpha mask for the ops up to `PopMask`.
     BeginMask,
     EndMask,
     PopMask,
 }
 
-/// Gradients map their unit space into page space with `transform` [a b c d e f]:
-/// linear runs from (0, 0) to (1, 0), radial is the unit circle around (0, 0).
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum Paint {
-    /// `color` is the screen color, `ink` how it prints.
     Solid {
         color: [f32; 4],
         #[serde(skip)]
@@ -103,8 +93,6 @@ pub enum Paint {
 }
 
 impl Paint {
-    /// Whether the paint leaves the inks it does not use under it as they are;
-    /// only opaque paints do.
     pub fn overprints(&self) -> bool {
         match self {
             Paint::Solid {
@@ -155,7 +143,6 @@ pub fn rect(x: f32, y: f32, w: f32, h: f32) -> Vec<f32> {
     ]
 }
 
-/// `ops` moved by (dx, dy).
 pub fn shift(mut ops: Vec<Op>, dx: f32, dy: f32) -> Vec<Op> {
     if dx == 0.0 && dy == 0.0 {
         return ops;
@@ -235,8 +222,6 @@ fn paint(out: &mut Vec<u32>, p: &Paint) {
     }
 }
 
-/// Index of the op that closes the one opened at `at`.
-/// `EndMask` closes `BeginMask` and opens up to `PopMask`.
 pub fn close(ops: &[Op], at: usize) -> usize {
     let mut depth = 1;
     for (i, op) in ops.iter().enumerate().skip(at + 1) {
@@ -266,7 +251,6 @@ pub fn close(ops: &[Op], at: usize) -> usize {
     ops.len()
 }
 
-/// Writes the hash of the words since the innermost open item or layer into the word before them.
 fn seal(out: &mut [u32], open: &mut Vec<usize>) {
     let start = open.pop().expect("close without open");
     out[start - 1] = out[start..]
@@ -373,7 +357,6 @@ pub fn encode(ops: &[Op]) -> Vec<u32> {
     out
 }
 
-/// `ops` with every color replaced by `f(color, ink, overprints)`.
 pub fn recolor(ops: &[Op], f: &impl Fn(&[f32; 4], &Ink, bool) -> [f32; 4]) -> Vec<Op> {
     ops.iter()
         .map(|op| {

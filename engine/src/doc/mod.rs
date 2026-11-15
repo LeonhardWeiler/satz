@@ -58,7 +58,6 @@ use story::*;
 pub use table::Table;
 use table::*;
 
-/// The settings of the document that `Command::SetDocument` changes; `None` keeps one.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -66,18 +65,14 @@ use table::*;
 pub struct Settings {
     pub raster_ppi: Option<f64>,
     pub color_mode: Option<ColorMode>,
-    /// Pairs the pages into spreads, as in InDesign.
     pub facing_pages: Option<bool>,
     pub ink_limit: Option<f64>,
     pub preset: Option<Preset>,
     pub crop_marks: Option<bool>,
     pub include_bleed: Option<bool>,
-    /// 0 keeps the images as they are.
     pub image_ppi: Option<f64>,
-    /// 0 keeps the images lossless.
     pub jpeg_quality: Option<u8>,
     pub date_format: Option<DateFormat>,
-    /// Places images as links to their files.
     pub link_images: Option<bool>,
 }
 
@@ -99,8 +94,6 @@ pub enum Command {
         w: f64,
         h: f64,
     },
-    /// Places the image `image`, added with `Doc::add_image`, on top of `parent` as
-    /// a rectangle [x, y, w, h] filled with it; returns its id.
     PlaceImage {
         parent: String,
         image: String,
@@ -110,8 +103,6 @@ pub enum Command {
         w: f64,
         h: f64,
     },
-    /// Moves and resizes a layer; a frame's children follow their constraints and
-    /// image fills stretch, unless `crop` leaves both where they are.
     SetFrame {
         id: String,
         x: f64,
@@ -126,34 +117,26 @@ pub enum Command {
         id: String,
         text: String,
     },
-    /// Replaces a range of the text in UTF-16 code units; inserted text takes the
-    /// attributes of the character before it.
     EditText {
         id: String,
         range: [usize; 2],
         text: String,
     },
-    /// Sets text attributes on a range in UTF-16 code units, or on the whole text.
-    /// Paragraph attributes cover the whole paragraphs the range touches; setting a
-    /// styled attribute detaches the text style there.
     Format {
         id: String,
         range: Option<[usize; 2]>,
         #[serde(flatten)]
         props: TextProps,
     },
-    /// Scales the sizes and spacing in pt of the story of a text layer by `by`.
     ScaleText {
         id: String,
         by: f64,
     },
-    /// Adds a text style with the styled attributes of `props`.
     AddTextStyle {
         name: String,
         #[serde(flatten)]
         props: TextProps,
     },
-    /// Sets a text style; `grep` replaces its GREP styles.
     SetTextStyle {
         id: String,
         name: Option<String>,
@@ -161,52 +144,37 @@ pub enum Command {
         #[serde(flatten)]
         props: TextProps,
     },
-    /// Removes a text style and the GREP styles that set it; text using it keeps its values.
     DeleteTextStyle {
         id: String,
     },
-    /// Fills the story of the text layer `id` with a table of contents of the
-    /// paragraphs in the text styles `styles`, one level each, with their page
-    /// numbers; running it again updates it, and no styles forget it.
     Toc {
         id: String,
         styles: Vec<String>,
     },
-    /// Anchors the layer `id` inline before the UTF-16 index `at` of the story of the
-    /// text layer `text`: an object replacement character stands for it there, and it
-    /// moves with that character, onto the page of the frame that sets it.
     Anchor {
         id: String,
         text: String,
         at: usize,
     },
-    /// Frees the anchored layer `id` and removes its character.
     Unanchor {
         id: String,
     },
-    /// Adds a row or, with `column`, a column before index `at` of the table of `id`,
-    /// the table or one of its cells, like the one before it.
     TableInsert {
         id: String,
         column: bool,
         at: usize,
     },
-    /// Removes the row or, with `column`, the column `at` of the table of `id` and
-    /// the cells only in it.
     TableDelete {
         id: String,
         column: bool,
         at: usize,
     },
-    /// Merges the cells `ids`, a rectangle of one table, into the first.
     MergeCells {
         ids: Vec<String>,
     },
-    /// Splits the merged cell `id` into one cell per column and row.
     SplitCell {
         id: String,
     },
-    /// Sets the column widths and least row heights of the table of `id`.
     SizeTable {
         id: String,
         columns: Vec<f64>,
@@ -217,34 +185,25 @@ pub enum Command {
         #[serde(flatten)]
         props: Props,
     },
-    /// Sets a path shape's outline from points in page space.
     SetPath {
         id: String,
         path: Vec<f32>,
     },
-    /// Scales the image fills of `id` to cover or to fit in its box, or sizes the box
-    /// to the topmost image.
     FitImage {
         id: String,
         fit: Fit,
     },
-    /// Mirrors a layer and its content left to right, or top to bottom when `vertical`.
     Flip {
         id: String,
         vertical: bool,
     },
-    /// Turns a shape into a path along its outline.
     Flatten {
         id: String,
     },
-    /// Turns the bottommost of the shapes `ids` into a path along their outlines
-    /// combined by `op`, and deletes the others.
     Boolean {
         ids: Vec<String>,
         op: BooleanOp,
     },
-    /// Puts a path filled like the shape `id` below it, in the area that its closed
-    /// subpaths bound around the page point (`x`, `y`); returns its id.
     FillArea {
         id: String,
         x: f64,
@@ -260,13 +219,9 @@ pub enum Command {
     Ungroup {
         ids: Vec<String>,
     },
-    /// Toggles one layer's mask flag, or wraps several layers in a mask group
-    /// whose lowest layer masks the others.
     Mask {
         ids: Vec<String>,
     },
-    /// Adds auto layout to one frame, or wraps layers in a new auto layout frame;
-    /// direction, gap and padding follow the current arrangement.
     AutoLayout {
         ids: Vec<String>,
     },
@@ -286,40 +241,29 @@ pub enum Command {
         ids: Vec<String>,
     },
     SetDocument(Settings),
-    /// Fills the layers filled with the linked image `image` with `to` in its place, read with
-    /// `Doc::register_image`, linked to the file `name` unless the document embeds it.
     Relink {
         image: String,
         to: String,
         name: String,
     },
-    /// Keeps the files of the read linked images `images` in the document.
     Embed {
         images: Vec<String>,
     },
-    /// Pastes above the topmost of `above`, or else into the parent the layers were
-    /// copied from when that is on `page`, or else onto `page`.
     Paste {
         above: Vec<String>,
         #[serde(default)]
         page: Option<String>,
     },
-    /// Adds an empty page after `after`, or at the end, of the size of that page or
-    /// the last one; returns its id.
     AddPage {
         after: Option<String>,
     },
-    /// Starts a section of page numbers at the page `id`, or ends it with `None`.
     SetSection {
         id: String,
         section: Option<Section>,
     },
-    /// Adds a copy of a page with copies of its layers after it; returns its id.
     DuplicatePage {
         id: String,
     },
-    /// Sets the trim size and bleed of a page in pt; with `scale` its layers scale
-    /// with its size and their text with the square root of its area.
     SetPage {
         id: String,
         width: Option<f64>,
@@ -329,28 +273,21 @@ pub enum Command {
         #[cfg_attr(test, ts(as = "Option<bool>", optional))]
         scale: bool,
     },
-    /// Sets the layout grids of a page or master.
     SetGrids {
         id: String,
         grids: Vec<Grid>,
     },
-    /// Sets the ruler guides of a page or master.
     SetGuides {
         id: String,
         guides: Guides,
     },
-    /// Removes a page other than the last.
     DeletePage {
         id: String,
     },
-    /// Moves the pages or the masters `ids` to follow each other at `index` among
-    /// the other pages or masters.
     MovePages {
         ids: Vec<String>,
         index: usize,
     },
-    /// Adds a master of the size of the page `like` or the first page, named with
-    /// the next free letter; with `layers` it copies what `like` shows. Returns its id.
     AddMaster {
         like: Option<String>,
         #[serde(default)]
@@ -361,40 +298,28 @@ pub enum Command {
         id: String,
         name: String,
     },
-    /// Removes a master; its pages keep their own layers.
     DeleteMaster {
         id: String,
     },
-    /// Draws the master under the layers of a page, or none.
     UseMaster {
         page: String,
         master: Option<String>,
     },
-    /// Copies a layer of a page's master onto the page, below its own layers, and
-    /// hides the master's on that page; returns the copy.
     Override {
         page: String,
         id: String,
     },
-    /// Removes overriding copies, or all of a page's, and shows the master layers
-    /// they stood for again.
     ResetToMaster {
         ids: Vec<String>,
     },
-    /// Threads the text layer `to` after `from`, before the frame that followed it:
-    /// the story of `from` flows on in `to`, whose own text ends the story as a
-    /// paragraph. Frames with a next frame are fixed, the last may be auto height.
     Thread {
         from: String,
         to: String,
     },
-    /// Threads the text layer `to` before `id`: the story flows through `to` first,
-    /// and a story that started in `id` moves into `to`.
     ThreadBefore {
         id: String,
         to: String,
     },
-    /// Breaks the thread after a text layer; its story stays with the frames before.
     Unthread {
         id: String,
     },
@@ -409,11 +334,9 @@ pub enum Command {
         color: Option<Color>,
         spot: Option<bool>,
     },
-    /// Removes a swatch; what uses it keeps the color it stood for.
     DeleteSwatch {
         id: String,
     },
-    /// Adds a collection with one mode; returns both ids.
     AddCollection {
         name: String,
     },
@@ -421,7 +344,6 @@ pub enum Command {
         id: String,
         name: String,
     },
-    /// Removes a collection and its variables.
     DeleteCollection {
         id: String,
     },
@@ -430,48 +352,38 @@ pub enum Command {
         id: String,
         name: String,
     },
-    /// Removes a mode other than the last; layers using it fall back to the first.
     DeleteMode {
         collection: String,
         id: String,
     },
-    /// Removes a variable; what uses it keeps the value it had.
     DeleteVariable {
         id: String,
     },
-    /// Adds a mode whose values start as those of the first mode.
     AddMode {
         collection: String,
         name: String,
     },
-    /// Adds a variable with `value` in every mode of its collection.
     AddVariable {
         collection: String,
         name: String,
         value: Value,
     },
-    /// Renames a variable or sets its value in `mode`, by default the first.
     SetVariable {
         id: String,
         name: Option<String>,
         mode: Option<String>,
         value: Option<Value>,
     },
-    /// Binds a number property of a layer or text style to a number variable, or
-    /// unbinds it; see `BINDABLE` and `text::STYLED`.
     Bind {
         id: String,
         prop: String,
         variable: Option<String>,
     },
-    /// Chooses the mode of a collection for a page or layer and what it contains;
-    /// `None` inherits it.
     UseMode {
         id: String,
         collection: String,
         mode: Option<String>,
     },
-    /// Makes the document what it was at a version of `Doc::versions`.
     Restore {
         peer: String,
         counter: i32,
@@ -557,13 +469,9 @@ pub struct Props {
     pub anchored: Option<Anchoring>,
 }
 
-/// The largest length in pt: 20 m.
 const MAX_LENGTH: f64 = 20000.0 * MM;
-/// The largest page side in pt, the limit of PDF: 200 in.
 const MAX_PAGE: f64 = 14400.0;
-/// The largest bleed in pt: 100 mm.
 const MAX_BLEED: f64 = 100.0 * MM;
-/// The largest text size in pt.
 const MAX_TEXT: f64 = 5000.0;
 
 fn within(v: Option<f64>, lo: f64, hi: f64, what: &str) -> Res<()> {
@@ -665,7 +573,6 @@ impl Props {
     }
 }
 
-/// See `text::Attrs`.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -689,7 +596,6 @@ pub struct TextProps {
     pub text_decoration: Option<TextDecoration>,
     pub features: Option<Vec<String>>,
     pub axes: Option<BTreeMap<String, f64>>,
-    /// A boolean variable; empty shows the text always.
     pub condition: Option<String>,
     pub position: Option<Position>,
     pub baseline_shift: Option<f64>,
@@ -700,7 +606,6 @@ pub struct TextProps {
     pub keep_next: Option<bool>,
     pub tabs: Option<Vec<text::Tab>>,
     pub list: Option<text::List>,
-    /// `Some(None)` takes the shading off.
     #[serde(
         default,
         deserialize_with = "some",
@@ -799,7 +704,6 @@ pub enum NewKind {
     Path,
     Text,
     Frame,
-    /// A frame of 3 by 3 text cells.
     Table,
 }
 
@@ -813,12 +717,10 @@ pub enum Order {
     Back,
 }
 
-/// What a node of the tree is; stored under `KIND`.
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum NodeKind {
     Page,
     Master,
-    /// The root that deleted nodes move under.
     Trash,
     Group,
     Frame,
@@ -854,54 +756,32 @@ pub struct Doc {
     doc: LoroDoc,
     tree: LoroTree,
     undo: UndoManager,
-    /// Whether an undo group that `BeginUndoGroup` began is open.
     grouped: bool,
-    /// Empty nodes in the trash that `new_node` takes, `None` until counted again.
     spares: RefCell<Option<Vec<TreeID>>>,
     clipboard: Vec<(Clip, Option<TreeID>)>,
-    /// The flows through all text layers and the snapshot, from the end of the last
-    /// command on.
     flows: RefCell<Option<Rc<HashMap<TreeID, Flow>>>>,
     snapshot: RefCell<Option<Rc<Snapshot>>>,
-    /// The last snapshot a command built, whose issues the pages it shares with the
-    /// next one keep.
     checked: RefCell<Option<Rc<Snapshot>>>,
-    /// The palette while `finish` builds the flows and the snapshot.
     palette: RefCell<Option<Rc<Palette>>>,
-    /// The number of each page.
     numbers: RefCell<Option<HashMap<TreeID, String>>>,
-    /// The text layer each text layer follows in its thread.
     prevs: RefCell<Option<Rc<HashMap<TreeID, TreeID>>>>,
-    /// Each story as last set, by its first frame.
     sets: RefCell<HashMap<TreeID, Set>>,
-    /// The size each hugging text layer last measured.
     fits: RefCell<HashMap<TreeID, Measured>>,
-    /// The shown layers of each page and master in order and whether text wraps
-    /// around them, until `purge` drops those a change reaches.
     shown: RefCell<HashMap<TreeID, Shown>>,
-    /// The text frame of each text layer without its number, and its page.
     frames: RefCell<HashMap<TreeID, (TreeID, TextFrame)>>,
-    /// The nodes changed since the last snapshot, `None` for everything.
     changed: Arc<Mutex<Option<HashSet<TreeID>>>>,
-    /// The palette of the last snapshot.
     painted: RefCell<Option<Rc<Palette>>>,
     _changes: Subscription,
     sheets: RefCell<Sheets>,
-    /// The text layers whose flow the last setting with a reach changed.
     reflowed: RefCell<Option<HashSet<TreeID>>>,
-    /// The version of the last change other than text set again for a new font.
     version: String,
-    /// What the last command changed beyond what it was asked to.
     notes: RefCell<Vec<String>>,
-    /// The message of the commits of the running command.
     message: Cell<Option<&'static str>>,
-    /// The date that date markers show, [year, month, day].
     today: Cell<[u32; 3]>,
 }
 
 type Res<T> = Result<T, String>;
 
-/// The local date in the browser, a fixed one in the tests.
 fn today() -> [u32; 3] {
     if cfg!(target_arch = "wasm32") {
         let now = js_sys::Date::new_0();
@@ -911,26 +791,18 @@ fn today() -> [u32; 3] {
     }
 }
 
-/// The flows and the pages and masters by id of the last snapshot.
 type Sheets = (Rc<HashMap<TreeID, Flow>>, HashMap<TreeID, Rc<Page>>);
 
 const MM: f64 = 72.0 / 25.4;
 
-/// Pixels per inch that images need to print sharp.
 const PRINT_PPI: f64 = 300.0;
 
-/// The origin of commits that add images, which undo leaves alone: the bytes stay
-/// for whatever uses them now or after an undo.
 const IMAGE_ORIGIN: &str = "image";
 
-/// The origin of commits that set text again for a font added, which undo leaves alone.
 const LAYOUT_ORIGIN: &str = "layout";
 
-/// How many spare nodes `refill` keeps for new layers.
 const SPARES: usize = 64;
 
-/// Properties a variable can bind to: a font variable to `font`, a number variable
-/// to the others; lengths count in mm, opacity in %, text size in pt.
 const BINDABLE: [&str; 12] = [
     "font",
     "size",
@@ -946,7 +818,6 @@ const BINDABLE: [&str; 12] = [
     "paddingLeft",
 ];
 
-/// The keys of a text layer that belong to its story and move with it.
 const STORY: [&str; 31] = [
     "condition",
     "toc",
@@ -981,10 +852,6 @@ const STORY: [&str; 31] = [
     "font",
 ];
 
-/// Keys of a node that give its kind or link it to other nodes: a text layer to the
-/// next frame of its thread, a page to its master and the master layers it
-/// overrides, a page layer to the master layer it overrides, and a layer on the
-/// left page of a master spread to the one on the right it was copied from.
 const KIND: &str = "kind";
 const NEXT: &str = "next";
 const TOC: &str = "toc";
@@ -995,12 +862,10 @@ const GUIDES: &str = "guides";
 const SECTION: &str = "section";
 const OVERRIDE_OF: &str = "overrideOf";
 const LEFT_OF: &str = "leftOf";
-/// Keys of a node whose values are JSON of their own.
 const MODES: &str = "modes";
 const BINDINGS: &str = "bindings";
 const CONSTRAINTS: &str = "constraints";
 const SIZING: &str = "sizing";
-/// The UI's accent, #38aee0, at 30 %.
 const SELECTION: [f32; 4] = [0.22, 0.68, 0.88, 0.3];
 
 const WHITE: u32 = 0xffffffff;
@@ -1019,7 +884,6 @@ fn undo_manager(doc: &LoroDoc) -> UndoManager {
     undo
 }
 
-/// Start and size on one axis of a child at `c` in a parent that moves from `p` to `n`.
 fn constrain(
     k: Constraint,
     [c0, cs]: [f64; 2],
@@ -1036,7 +900,6 @@ fn constrain(
     }
 }
 
-/// Adds the nodes that `d` changes to `nodes`; false when it changes more than nodes.
 fn touched(d: &ContainerDiff, nodes: &mut HashSet<TreeID>) -> bool {
     if let Diff::Tree(t) = &d.diff {
         return t.diff.iter().all(|i| {
@@ -1130,7 +993,6 @@ fn from_loro<T: DeserializeOwned>(v: LoroValue) -> Option<T> {
     T::deserialize(De(v)).ok()
 }
 
-/// A `LoroValue` read as serde reads the JSON it stands for.
 struct De(LoroValue);
 
 impl IntoDeserializer<'_, DeError> for De {
@@ -1251,7 +1113,6 @@ impl Doc {
         }
     }
 
-    /// An empty document of `pages` pages `w` × `h` pt with 3 mm bleed.
     pub fn blank(w: f64, h: f64, pages: usize, facing: bool, mode: ColorMode) -> Doc {
         let mut d = Doc::with(LoroDoc::new());
         let page = d.tree.create(None).unwrap();
@@ -1275,7 +1136,6 @@ impl Doc {
         d
     }
 
-    /// The document Satz shows on its first start.
     pub fn sample() -> Doc {
         let mut d = Doc::default();
         let page = d.build_snapshot().pages[0].id.clone();
@@ -1488,8 +1348,6 @@ impl Doc {
         d
     }
 
-    /// The document for `load` with its history, its latest state without the images
-    /// that only the trash or undo still use.
     pub fn save(&self) -> Vec<u8> {
         let used = self.used_images();
         let images = self.doc.get_map("images");
@@ -1511,7 +1369,6 @@ impl Doc {
         doc.export(ExportMode::Snapshot).expect("export")
     }
 
-    /// The images that the layers outside the trash fill with.
     fn used_images(&self) -> HashSet<String> {
         let mut ids = Vec::new();
         for r in self.tree.roots() {
@@ -1534,7 +1391,6 @@ impl Doc {
         used
     }
 
-    /// Makes `icc` the CMYK profile of the document, or FOGRA51 for `None`.
     pub fn set_profile(&mut self, icc: Option<Vec<u8>>) -> Res<()> {
         if let Some(icc) = &icc {
             color::check_profile(icc)?;
@@ -1551,7 +1407,6 @@ impl Doc {
         Ok(())
     }
 
-    /// The image `hash` of the document.
     fn image(&self, hash: &str) -> Res<ImageInfo> {
         match self.doc.get_map("images").get(hash) {
             Some(_) => image::info(hash).ok_or_else(|| format!("image {hash} does not decode")),
@@ -1582,8 +1437,6 @@ impl Doc {
         Ok(d)
     }
 
-    /// Registers the embedded images of the document that `image` does not know and
-    /// forgets the others but the linked ones read.
     fn register_images(&self) -> Res<()> {
         let mut hashes = vec![];
         let images = self.doc.get_map("images").get_value().into_map();
@@ -1600,13 +1453,10 @@ impl Doc {
         Ok(())
     }
 
-    /// The version vector of the document, for `updates`.
     pub fn version_vector(&self) -> Vec<u8> {
         self.doc.oplog_vv().encode()
     }
 
-    /// The changes since the version vector `since` for `sync`, or the document when it
-    /// has not got that far.
     pub fn updates(&self, since: &[u8]) -> Vec<u8> {
         let since = VersionVector::decode(since).ok();
         since
@@ -1615,7 +1465,6 @@ impl Doc {
             .unwrap_or_else(|| (self.doc).export(ExportMode::Snapshot).expect("export"))
     }
 
-    /// Takes in what `updates` gave: loads a document, imports changes.
     pub fn sync(&mut self, bytes: &[u8]) -> Res<()> {
         let meta = LoroDoc::decode_import_blob_meta(bytes, false).map_err(err)?;
         if meta.mode.is_snapshot() {
@@ -1630,7 +1479,6 @@ impl Doc {
         Ok(())
     }
 
-    /// Runs the checks of the commands over every node and text style of an opened file.
     fn check_file(&self) -> Res<()> {
         let json = |v: LoroValue| serde_json::to_value(v).map_err(err);
         let text =
@@ -1702,13 +1550,10 @@ impl Doc {
         Ok(out)
     }
 
-    /// What the last command changed beyond what it was asked to, for the status bar.
     pub fn notes(&self) -> Vec<String> {
         self.notes.take()
     }
 
-    /// Carries out a command; it checks everything before it writes, so that one that
-    /// fails leaves the document as it was.
     fn run(&mut self, cmd: Command) -> Res<Vec<String>> {
         match cmd {
             Command::Create {
@@ -1872,7 +1717,6 @@ impl Doc {
         }
     }
 
-    /// Adds a layer of the kind `kind` with Figma's defaults on top of `parent`.
     fn create(&self, parent: &str, kind: NewKind, frame: [f64; 4]) -> Res<TreeID> {
         let p = self.container(parent)?;
         check_frame(frame)?;
@@ -1967,7 +1811,6 @@ impl Doc {
         Ok(id)
     }
 
-    /// Commits the pending ops with the message of the running command.
     fn commit(&self) {
         if let Some(m) = self.message.get() {
             self.doc.set_next_commit_message(m);
@@ -2062,8 +1905,6 @@ impl Doc {
         from_loro(self.meta(id).get_deep_value()).unwrap_or_default()
     }
 
-    /// Fits hugging text and lays out the auto layout frames in `id`'s subtree,
-    /// innermost first.
     fn lay_out(&self, id: TreeID) -> Res<()> {
         let kids = self.children(id);
         for &c in &kids {
@@ -2086,8 +1927,6 @@ impl Doc {
             .into_iter()
             .filter(|&c| !self.layout(c).absolute)
             .collect();
-        // With nothing of a size of its own to hug, a frame keeps its size instead
-        // of shrinking to its padding.
         let mut fixed = Vec::new();
         for (a, side) in [(true, "width"), (false, "height")] {
             if l.size(a) == Size::Hug && flow.iter().all(|&c| self.layout(c).size(a) == Size::Fill)
@@ -2138,8 +1977,6 @@ impl Doc {
         };
         let hug = [horizontal, !horizontal].map(|a| l.size(a) == Size::Hug);
         let apart = |a: [f64; 4], b: [f64; 4]| a.iter().zip(b).any(|(a, b)| (a - b).abs() > 1e-9);
-        // A child whose size follows the one it gets, like text that fills the width
-        // and hugs its height, sends the frame round again.
         for _ in 0..4 {
             let old = self.bounds(id);
             let [[m0, ms], [c0, cs]] = axes(old);
@@ -2178,14 +2015,12 @@ impl Doc {
         self.json(id, CONSTRAINTS)
     }
 
-    /// The value of the key `key` of `id`, or its default when it is missing.
     fn json<T: DeserializeOwned + Default>(&self, id: TreeID, key: &str) -> T {
         value(&self.meta(id), key)
             .and_then(|v| serde_json::from_value(serde_json::to_value(v).ok()?).ok())
             .unwrap_or_default()
     }
 
-    /// The entries of the list `name`, each stored as a map.
     fn list<T: DeserializeOwned>(&self, name: &str) -> Vec<T> {
         from_loro(self.doc.get_list(name).get_deep_value()).unwrap_or_default()
     }
@@ -2199,7 +2034,6 @@ impl Doc {
         Ok((i, serde_json::from_value(all[i].clone()).map_err(err)?))
     }
 
-    /// Writes `v` over entry `i` of the list `name`, or appends it.
     fn put(&self, name: &str, i: Option<usize>, v: impl Serialize) -> Res<()> {
         let list = self.doc.get_list(name);
         let m = match i {
@@ -2245,7 +2079,6 @@ impl Doc {
         self.setting("colorMode", ColorMode::Rgb)
     }
 
-    /// The document setting `key`, or `default` when it is not set.
     fn setting<T: DeserializeOwned>(&self, key: &str, default: T) -> T {
         value(&self.doc.get_map("document"), key)
             .and_then(|v| serde_json::from_value(serde_json::to_value(v).ok()?).ok())
@@ -2325,8 +2158,6 @@ impl Doc {
         Ok(())
     }
 
-    /// The least [w, h] of `id`: 0.01 mm for a box, which would vanish at 0, but 0 for a
-    /// path, whose bounds follow its points, and for a side of a text that hugs it.
     fn least_size(&self, id: TreeID) -> [f64; 2] {
         let least = 0.01 * MM;
         match self.kind(id) {
@@ -2342,8 +2173,6 @@ impl Doc {
         }
     }
 
-    /// Moves `ids` under `to` from `index` on, where they keep the place and the angle
-    /// they show on the spread.
     fn reparent(&self, ids: &[TreeID], to: TreeID, index: usize) -> Res<()> {
         let places = self.places();
         let place = |n: TreeID| places.iter().find(|q| q.id == self.root(n));
@@ -2391,8 +2220,6 @@ impl Doc {
                 self.meta(id).insert("rotation", r).map_err(err)?;
             }
         }
-        // A group turns around the centre of its children, which moved: its children
-        // move so that they show where they did.
         for (g, [x, y, w, h]) in groups {
             let r = num(&self.meta(g), "rotation");
             let [nx, ny, nw, nh] = self.bounds(g);
@@ -2415,7 +2242,6 @@ impl Doc {
         n
     }
 
-    /// The sum of the rotations of `id` and its ancestors.
     fn angle(&self, mut id: TreeID) -> f64 {
         let mut a = num(&self.meta(id), "rotation");
         while let Some(TreeParentId::Node(p)) = self.tree.parent(id) {
@@ -2425,7 +2251,6 @@ impl Doc {
         a
     }
 
-    /// Wraps `ids`, in document order, in a group or frame at the place of the topmost.
     fn group(&self, ids: &[TreeID], frame: bool) -> Res<TreeID> {
         let top = *ids.last().ok_or("nothing to group")?;
         let parent = self.tree.parent(top).ok_or("no parent")?;
@@ -2470,8 +2295,6 @@ impl Doc {
         Ok(())
     }
 
-    /// Deleted nodes leave their threads and move under a trash root so that undo
-    /// restores them with their id.
     fn remove(&self, id: TreeID) -> Res<()> {
         self.unlink_all(id)?;
         let trash = self.trash()?;
@@ -2490,7 +2313,6 @@ impl Doc {
         Ok(t)
     }
 
-    /// Keeps empty nodes in the trash, created outside the undo history, for `new_node`.
     fn refill(&self) -> Res<()> {
         let mut spares = self.spares.borrow_mut();
         if spares.is_none() {
@@ -2524,8 +2346,6 @@ impl Doc {
             .find(|&r| self.kind(r) == Some(NodeKind::Trash))
     }
 
-    /// A new node under `parent` at `index` or last: a spare from the trash, so that
-    /// undo moves it back there and redo brings it out again with its id.
     fn new_node(&self, parent: impl Into<TreeParentId>, index: Option<usize>) -> Res<TreeID> {
         let parent = parent.into();
         let i = index.unwrap_or_else(|| self.tree.children_num(parent).unwrap_or(0));
@@ -2536,7 +2356,6 @@ impl Doc {
         .map_err(err)
     }
 
-    /// The transform that turns `id` and its content by its rotation and its ancestors'.
     pub(super) fn turn(&self, mut id: TreeID) -> [f64; 6] {
         let mut m = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0];
         loop {
@@ -2555,7 +2374,6 @@ impl Doc {
         Ok(self.turn(self.node(id)?).map(|v| v as f32))
     }
 
-    /// The page or other root that `id` is on.
     fn root(&self, mut id: TreeID) -> TreeID {
         while let Some(TreeParentId::Node(p)) = self.tree.parent(id) {
             id = p;
@@ -2578,7 +2396,6 @@ impl Doc {
         Err(format!("no node {id}"))
     }
 
-    /// A node that is not a page or master.
     fn layer(&self, id: &str) -> Res<TreeID> {
         let n = self.node(id)?;
         match self.tree.parent(n) {
@@ -2587,7 +2404,6 @@ impl Doc {
         }
     }
 
-    /// A node that holds layers.
     fn container(&self, id: &str) -> Res<TreeID> {
         let n = self.node(id)?;
         match self.kind(n) {
@@ -2600,7 +2416,6 @@ impl Doc {
         ids.iter().map(|id| self.layer(id)).collect()
     }
 
-    /// `ids` in tree order, without those inside another of them.
     fn sorted(&self, ids: &[String]) -> Res<Vec<TreeID>> {
         let ids = self.nodes(ids)?;
         let mut out = Vec::new();
@@ -2748,8 +2563,6 @@ impl Doc {
             }
         }
         let set = serde_json::to_value(&props).map_err(err)?;
-        // Text that hugs its width hugs its height: choosing hug for the width
-        // makes it auto width, a fixed height makes it fixed.
         if let Some(s) = props.sizing.as_mut().filter(|s| {
             self.kind(id) == Some(NodeKind::Text)
                 && s.horizontal == Size::Hug
@@ -2809,7 +2622,6 @@ impl Doc {
         Ok(vec![])
     }
 
-    /// The outline of the shape or text `id` in its parent's space, as `Flatten` makes it.
     pub fn path_of(&self, id: &str) -> Res<Vec<f32>> {
         self.outline_of(self.layer(id)?)
     }
@@ -2859,7 +2671,6 @@ impl Doc {
         Ok(vec![])
     }
 
-    /// Mirrors `id` and its content across the line `x = at`, or `y = at` when `vertical`.
     fn mirror(&self, id: TreeID, at: f64, vertical: bool) -> Res<()> {
         let m = self.meta(id);
         let unit = if vertical {
@@ -2961,7 +2772,6 @@ impl Doc {
         Ok(())
     }
 
-    /// The outline of the shape or text layer `id` in its parent's space.
     fn outline_of(&self, id: TreeID) -> Res<Vec<f32>> {
         let frame = self.bounds(id).map(|v| v as f32);
         let path = match self.kind(id) {
@@ -2982,7 +2792,6 @@ impl Doc {
         Ok(path)
     }
 
-    /// Makes the layer `id` a path shape along `path` in its parent's space.
     fn make_path(&self, id: TreeID, path: &[f32]) -> Res<()> {
         let m = self.meta(id);
         if self.kind(id) == Some(NodeKind::Text) {
@@ -3009,7 +2818,6 @@ impl Doc {
         self.set_frame(id, bounds(path).map(f64::from))
     }
 
-    /// The outlines of the glyphs that the unthreaded text layer `id` sets in `frame`.
     fn glyphs(&self, id: &str, frame: [f32; 4]) -> Res<Vec<f32>> {
         fn find<'a>(nodes: &'a [Rc<Node>], id: &str) -> Option<&'a Node> {
             nodes.iter().find_map(|n| match &n.kind {
@@ -3252,7 +3060,6 @@ mod tests {
         .remove(0)
     }
 
-    /// Every page of `d` as a PDF.
     pub(super) fn pdf(d: &Doc) -> Vec<u8> {
         let all: Vec<u32> = (0..d.snapshot().pages.len() as u32).collect();
         d.pdf("Satz", "2026-09-28T12:00:00Z", &all).unwrap()
@@ -3507,7 +3314,6 @@ mod tests {
             .unwrap()
     }
 
-    /// Auto line height of the bundled font at 12 pt.
     pub(super) const LEADING: f64 = 16.45;
 
     pub(super) fn close(a: f64, b: f64) -> bool {
@@ -3592,7 +3398,6 @@ mod tests {
         .unwrap();
     }
 
-    /// The least and greatest x of each path filled in `ops`.
     pub(super) fn filled_x(ops: &[Op]) -> Vec<[f32; 2]> {
         ops.iter()
             .filter_map(|o| match o {
@@ -3633,7 +3438,6 @@ mod tests {
             .collect()
     }
 
-    /// The x range of each clip pushed in `ops`.
     pub(super) fn clips_x(ops: &[Op]) -> Vec<[f32; 2]> {
         let clips = ops.iter().filter_map(|o| match o {
             Op::PushClip { path, .. } => Some(Op::FillPath {
@@ -3649,8 +3453,6 @@ mod tests {
         filled_x(&clips.collect::<Vec<_>>())
     }
 
-    /// A master 100 pt wide with a layer on its left and one on its right page, used by
-    /// a right page 1 and a left page 2 of its width.
     pub(super) fn master_spread() -> (Doc, [String; 5]) {
         let (mut d, p1) = empty();
         let p2 = add_page(&mut d, None);
@@ -3666,7 +3468,6 @@ mod tests {
         (d, [p1, p2, m, left, right])
     }
 
-    /// The text of the glyph runs of `ops`.
     pub(super) fn run_texts(ops: &[Op]) -> Vec<String> {
         ops.iter()
             .filter_map(|o| match o {
@@ -3676,7 +3477,6 @@ mod tests {
             .collect()
     }
 
-    /// A fixed text frame on `page` at `frame`.
     pub(super) fn fixed_text(d: &mut Doc, page: &str, frame: [f64; 4]) -> String {
         let t = create(d, page, NewKind::Text, [frame[0], frame[1], 0.0, 0.0]);
         set_frame(d, &t, frame);
@@ -3690,7 +3490,6 @@ mod tests {
         })
     }
 
-    /// The story, start, end, previous and next frame, and overset of a text layer.
     pub(super) fn flow(
         d: &Doc,
         id: &str,
@@ -3728,8 +3527,6 @@ mod tests {
         }
     }
 
-    /// Page 1 with frame `a` of two lines holding "Hi\nHi\nHi\nHi", threaded into the
-    /// large frame `b` on page 2: (doc, page 1, page 2, a, b).
     pub(super) fn two_pages() -> (Doc, String, String, String, String) {
         let (mut d, p1) = empty();
         let p2 = add_page(&mut d, None);
@@ -3740,16 +3537,12 @@ mod tests {
         (d, p1, p2, a, b)
     }
 
-    /// The M1 booklet: 8 facing A5 pages on a master spread with a page number at the
-    /// outer foot of each side, one story of 41 k characters threaded through a frame
-    /// on every page, colored by a variable that each page shows in a mode of its own.
     pub(super) struct Booklet {
         d: Doc,
         pages: Vec<String>,
         master: String,
         frames: Vec<String>,
         story: String,
-        /// The story's color on each page.
         inks: Vec<[f32; 4]>,
     }
 
@@ -3868,7 +3661,6 @@ mod tests {
         (id, hash)
     }
 
-    /// The text layers of the pages and masters with the UTF-16 length of their story.
     fn texts(d: &Doc) -> Vec<(String, usize)> {
         fn walk(nodes: &[Rc<Node>], out: &mut Vec<(String, usize)>) {
             for n in nodes {
@@ -3889,8 +3681,6 @@ mod tests {
         out
     }
 
-    /// `n` random commands that change text and what sets it, on two threaded pages
-    /// with a master, a text style and a size variable in 2 modes; `check` after each.
     pub(super) fn random_commands(seed: u64, n: usize, check: impl Fn(&Doc)) {
         let (mut d, p1, p2, a, _) = two_pages();
         let master = add_master(&mut d);
@@ -4184,7 +3974,6 @@ mod tests {
         assert_eq!(ids(&page(&d).children), [b, a, c]);
     }
 
-    /// Where the centre of `id` shows on its page, and the angle it shows at.
     fn placed(d: &Doc, id: &str) -> [f64; 3] {
         let n = d.node(id).unwrap();
         let [x, y, w, h] = d.bounds(n);
@@ -5802,10 +5591,6 @@ mod tests {
         d.visit::<Palette>();
         d.visit::<history::Version>();
         let ts: String = d.1.values().map(|v| format!("export {v}\n")).collect();
-        crate::fixture(
-            "types.ts",
-            format!("// SATZ_WRITE_FIXTURES=1 cargo test fixture writes this file.\n{ts}")
-                .as_bytes(),
-        );
+        crate::fixture("types.ts", ts.as_bytes());
     }
 }

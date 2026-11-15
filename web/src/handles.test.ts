@@ -2,7 +2,6 @@ import { expect, test } from 'vitest'
 import { handleAt, portAt, portsOf, radiusHandles, resized } from './handles'
 
 const view = { x: 100, y: 50, zoom: 2 }
-/** A box across the spine of a spread: from x -20 on the left page to 30 on the right. */
 const box = { x: -20, y: 10, w: 50, h: 40 }
 
 test('corners win over edges, edges are grabbed a little outside, the middle is not', () => {

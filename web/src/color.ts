@@ -5,11 +5,9 @@ export type { Color, ColorMode } from './types'
 export type Process = number | { cmyk: number[]; alpha: number }
 export type Hsv = [h: number, s: number, v: number]
 
-/** The process color a swatch or variable stands for. */
 export const resolve = (c: Color, scope: Scope): Process =>
   typeof c === 'object' && !('cmyk' in c) ? engineResolve(c, scope) : c
 
-/** Screen color as 0xRRGGBB. */
 export function rgb(c: Color, scope: Scope) {
   const p = resolve(c, scope)
   return typeof p === 'number' ? p >>> 8 : preview(p.cmyk[0], p.cmyk[1], p.cmyk[2], p.cmyk[3])
@@ -27,13 +25,11 @@ export function css(c: Color, scope: Scope) {
   return `#${rgb(p, scope).toString(16).padStart(6, '0')}${Math.round(alpha(p) * 2.55).toString(16).padStart(2, '0')}`
 }
 
-/** `c` as hex or its CMYK percentages, "100 73 2 0". */
 export function colorText(c: Color, scope: Scope) {
   const p = resolve(c, scope)
   return typeof p === 'number' ? `#${(p >>> 8).toString(16).padStart(6, '0').toUpperCase()}` : p.cmyk.map((v) => Math.round(v * 100)).join(' ')
 }
 
-/** `rgb` in the document's mode, with the alpha of `like`. */
 export function fromRgb(rgb: number, like: Color, mode: ColorMode): Color {
   if (mode === 'rgb') return withAlpha(((rgb << 8) | 0xff) >>> 0, alpha(like))
   return { cmyk: [...toCmyk(rgb)].map((v) => Math.round(v * 100) / 100), alpha: alpha(like) / 100 }
@@ -59,10 +55,8 @@ export const solid = (color: Color): Fill => ({ type: 'solid', color, stops: [],
 
 export const neutral = (name: 'black' | 'white' | 'gray', mode: ColorMode) => engineNeutral(name, mode) as Color
 
-/** CMYK in % as "C:20 M:40 Y:0 K:10". */
 export const cmykText = (cmyk: number[]) => cmyk.map((v, i) => `${'CMYK'[i]}:${Math.round(v * 1000) / 10}`).join(' ')
 
-/** CMYK 0..1 from four values in %, e.g. "20, 40, 0, 10", "C20 M40 Y0 K10" or "20% 40% 0% 10%"; null for anything else. */
 export function parseCmyk(text: string): number[] | null {
   const parts = text.trim().replace(/:\s*/g, '').split(/\s*[\s,/]\s*/)
   const values = parts.map((p, i) => {
@@ -72,14 +66,12 @@ export function parseCmyk(text: string): number[] | null {
   return values.length === 4 && values.every((v) => v >= 0) ? values : null
 }
 
-/** 0xRRGGBB from "#RGB" or "#RRGGBB", the # optional; null for anything else. */
 export function parseHex(text: string) {
   const t = text.trim().replace(/^#/, '')
   const full = t.length === 3 ? [...t].map((c) => c + c).join('') : t
   return /^[0-9a-f]{6}$/i.test(full) ? parseInt(full, 16) : null
 }
 
-/** A hex or, in CMYK documents, CMYK typed in, with the alpha of `like`; null for anything else. */
 export function parseColor(text: string, like: Color, mode: ColorMode): Color | null {
   const cmyk = mode === 'cmyk' ? parseCmyk(text) : null
   if (cmyk) return { cmyk, alpha: alpha(like) / 100 }

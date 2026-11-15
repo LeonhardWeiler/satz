@@ -3,7 +3,6 @@ import { type FileChooser, type Page } from '@playwright/test'
 import { expect, test, addPage, autosaved, drawn, exportButton, open, pageCount, screen } from './util'
 
 
-/** Saves the document as Firefox does, by a download, and returns the file. */
 async function save(page: Page, name = 'Untitled.satz') {
   const download = page.waitForEvent('download')
   await page.keyboard.press('Control+s')

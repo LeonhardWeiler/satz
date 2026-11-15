@@ -5,7 +5,6 @@ import { fitView, type Sheet } from '../src/renderer'
 
 export const MM = 72 / 25.4
 
-/** Fails a test that logs an error in the browser console, unless it expects errors with `test.info().annotations.push({ type: 'errors' })`. */
 export const test = base.extend<{ console: void }>({
   console: [
     async ({ page }, use, info) => {
@@ -20,9 +19,7 @@ export const test = base.extend<{ console: void }>({
 })
 export { expect }
 
-/** Opens the app with a canvas of `width` − 496 × 1100 px; a spread fits at the zoom of a single page at 2000. */
 export async function open(page: Page, width = 1400) {
-  // Playwright turns on catching file choosers without waiting; a chooser opened right after may still get past it.
   page.on('filechooser', () => {})
   await page.setViewportSize({ width: width + 48, height: 1160 })
   await page.goto('')
@@ -31,11 +28,6 @@ export async function open(page: Page, width = 1400) {
   await expect(page.getByLabel('Zoom')).not.toHaveText('0%')
 }
 
-/**
- * Screen position of a point in mm on page `i` of the fitted spread the canvas shows,
- * by default the right or only one.
- */
-/** Picks `option` in the custom select `select`. */
 export async function choose(select: Locator, option: string) {
   await select.click()
   await select.page().getByRole('menu', { name: (await select.getAttribute('aria-label'))! }).getByRole('menuitemradio', { name: option, exact: true }).click()
@@ -57,7 +49,6 @@ export async function drag(page: Page, from: readonly [number, number], to: read
   await page.mouse.up()
 }
 
-/** Waits until the autosave holds a document, by default one with unsaved changes. */
 export async function autosaved(page: Page, dirty = true) {
   const stored = () =>
     page.evaluate(
@@ -77,14 +68,12 @@ export async function autosaved(page: Page, dirty = true) {
   await expect.poll(stored).toBe(true)
 }
 
-/** A PNG file `name` of `width` × `height` pixels colored `rgb(x, y)`. */
 export function png(name: string, width: number, height: number, rgb: (x: number, y: number) => number[]) {
   const out = new PNG({ width, height })
   for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) out.data.set([...rgb(x, y), 255], (y * width + x) * 4)
   return { name, mimeType: 'image/png', buffer: PNG.sync.write(out) }
 }
 
-/** Places the image `file` with the toolbar's Place image, centred on the page point `at` in mm. */
 export async function place(page: Page, file: { name: string; mimeType: string; buffer: Buffer }, at = [74, 105]) {
   const chooser = page.waitForEvent('filechooser')
   await page.getByRole('button', { name: 'Place image' }).click()
@@ -93,7 +82,6 @@ export async function place(page: Page, file: { name: string; mimeType: string; 
   await page.mouse.click(x, y)
 }
 
-/** Waits until the canvas has drawn the frame it has asked for, if any, and the images it decodes. */
 export async function drawn(page: Page) {
   const frames = () => page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
   await frames()
@@ -103,7 +91,6 @@ export async function drawn(page: Page) {
   }
 }
 
-/** RGB pixels of the screen area [x, y, w, h] once the canvas has drawn. */
 export async function pixels(page: Page, x: number, y: number, w: number, h: number) {
   await drawn(page)
   const png = PNG.sync.read(await page.screenshot({ clip: { x, y, width: w, height: h } }))
@@ -112,7 +99,6 @@ export async function pixels(page: Page, x: number, y: number, w: number, h: num
   return out
 }
 
-/** RGB pixels at screen points, from one screenshot once the canvas has drawn. */
 export async function colors(page: Page, points: (readonly [number, number])[]) {
   await drawn(page)
   const png = PNG.sync.read(await page.screenshot())
@@ -126,7 +112,6 @@ export const STORY =
   'Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore ' +
   'et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum.'
 
-/** Screen position of the out-port of a text frame from (x0, y0) to (x1, y1) in mm, or its in-port, on page `i` of the spread. */
 export async function port(page: Page, [x0, y0, x1, y1]: number[], out: boolean, i?: number) {
   const [l, t] = await screen(page, x0, y0, i)
   const [r, b] = await screen(page, x1, y1, i)
@@ -134,56 +119,46 @@ export async function port(page: Page, [x0, y0, x1, y1]: number[], out: boolean,
   return (out ? [r, b - inset] : [l, t + inset]) as [number, number]
 }
 
-/** Adds a page and draws a fixed text frame from (x0, y0) to (x1, y1) in mm on it. */
 export async function frameOnNewPage(page: Page, box: number[]) {
   await addPage(page)
   await page.keyboard.press('t')
   await drag(page, await screen(page, box[0], box[1]), await screen(page, box[2], box[3]))
 }
 
-/** Whether the color `p` is within 24 of `q` in each channel. */
 export const near = ([r, g, b]: number[], [R, G, B]: number[]) => Math.max(Math.abs(r - R), Math.abs(g - G), Math.abs(b - B)) <= 24
 
-/** The page overview, opened by its button in the top bar if it is closed. */
 export async function overview(page: Page) {
   const o = page.getByRole('region', { name: 'Page overview' })
   if (!(await o.count())) await page.getByRole('button', { name: 'Page overview' }).click()
   return o
 }
 
-/** Page `n` in the page overview, which must be open. */
 export const option = (page: Page, n: number) =>
   page.getByRole('region', { name: 'Page overview' }).getByRole('option', { name: `Page ${n}`, exact: true })
 
-/** The button of page `n` in the spread switcher, pressed while the page is current. */
 export const current = (page: Page, n: number) =>
   page.getByRole('navigation', { name: 'Spreads' }).getByRole('button', { name: `Page ${n}`, exact: true })
 
 
-/** Shows page `n` by a click in the page overview, which closes it. */
 export async function showPage(page: Page, n: number) {
   await (await overview(page)).getByRole('option', { name: `Page ${n}`, exact: true }).click()
   await expect(page.getByRole('region', { name: 'Page overview' })).toHaveCount(0)
 }
 
-/** Adds a master in the page overview, which shows it. */
 export async function addMaster(page: Page) {
   await (await overview(page)).getByRole('button', { name: 'New master' }).click()
   await expect(page.getByRole('region', { name: 'Page overview' })).toHaveCount(0)
 }
 
-/** The number of pages the page overview lists; closes it again. */
 export async function pageCount(page: Page, n: number) {
   await expect((await overview(page)).getByRole('listbox', { name: 'Pages' }).getByRole('option')).toHaveCount(n)
   await page.keyboard.press('.')
 }
 
-/** The export button of the preflight; fits the narrower canvas again. */
 export async function exportButton(page: Page) {
   return (await preflight(page)).locator('.pf-go')
 }
 
-/** The preflight, opened with Ctrl Alt Y if it is closed; fits the narrower canvas again. */
 export async function preflight(page: Page) {
   const region = page.getByRole('region', { name: 'Preflight' })
   if (!(await region.count())) {
@@ -193,7 +168,6 @@ export async function preflight(page: Page) {
   return region
 }
 
-/** Opens the file `name` from examples/. */
 export async function openExample(page: Page, name: string) {
   await page.addInitScript(() => delete (window as { showOpenFilePicker?: unknown }).showOpenFilePicker)
   await open(page, 2000)
@@ -204,7 +178,6 @@ export async function openExample(page: Page, name: string) {
   await page.mouse.move(1, 1)
 }
 
-/** Makes a variable of `kind` with the plus of the variables section in the assets tab and returns its popover. */
 export async function addVariable(page: Page, kind: 'Color' | 'Number' | 'Font' | 'Boolean') {
   const panel = await assets(page)
   await panel.getByRole('button', { name: 'Add variable' }).click()
@@ -214,13 +187,11 @@ export async function addVariable(page: Page, kind: 'Color' | 'Number' | 'Font' 
   return edit
 }
 
-/** Adds a page at the end and shows it, from the spreads bar or, on a master, with the shortcut. */
 export async function addPage(page: Page) {
   const add = page.getByRole('navigation', { name: 'Spreads' }).getByRole('button', { name: 'Add page' })
   await ((await add.count()) ? add.click() : page.keyboard.press('Control+Alt+KeyP'))
 }
 
-/** Shows the assets tab of the left panel and returns it. */
 export async function assets(page: Page) {
   await page.getByRole('tab', { name: 'Assets' }).click()
   return page.getByRole('tabpanel', { name: 'Assets' })

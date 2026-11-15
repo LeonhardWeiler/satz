@@ -31,9 +31,6 @@ pub enum Align3 {
     End,
 }
 
-/// Hug only applies to auto layout frames and text, fill only inside auto layout
-/// frames. On text, hugging both sides is Figma's auto width, hugging the height
-/// auto height.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -52,7 +49,6 @@ pub struct Sizing {
     pub vertical: Size,
 }
 
-/// Figma auto layout of a frame and how a layer sits in one.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -66,12 +62,10 @@ pub struct Layout {
     pub align_main: MainAlign,
     pub align_cross: Align3,
     pub sizing: Sizing,
-    /// Left out of its parent's auto layout.
     pub absolute: bool,
 }
 
 impl Layout {
-    /// Main axis first: (horizontal, [padding before, after] per axis).
     pub fn axes(&self) -> Option<(bool, [[f64; 2]; 2])> {
         let h = [self.padding_left, self.padding_right];
         let v = [self.padding_top, self.padding_bottom];
@@ -91,9 +85,6 @@ impl Layout {
     }
 }
 
-/// Places `children`, each [start, size] along the main and cross axis, in a frame
-/// of `size` along both axes; returns the frame's size and the children's boxes.
-/// `fill` and `hug` tell per axis which children fill and whether the frame hugs.
 pub fn arrange(
     l: &Layout,
     pad: [[f64; 2]; 2],

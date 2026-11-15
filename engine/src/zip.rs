@@ -1,5 +1,3 @@
-/// A ZIP archive of `files`, PNG and JPEG images stored and the rest deflated, dated `date` in ISO 8601 as
-/// `2026-09-28T12:00:00Z`.
 pub fn zip(files: &[(String, Vec<u8>)], date: &str) -> Vec<u8> {
     let n = |a: usize, b: usize| date.get(a..b).and_then(|s| s.parse().ok()).unwrap_or(0u16);
     let day = ((n(0, 4).max(1980) - 1980) << 9) | (n(5, 7) << 5) | n(8, 10);
@@ -43,7 +41,6 @@ pub fn zip(files: &[(String, Vec<u8>)], date: &str) -> Vec<u8> {
     out
 }
 
-/// The files of `zip` as `zip` writes them, each checked against its CRC.
 #[cfg(test)]
 pub fn unzip(zip: &[u8]) -> Vec<(String, Vec<u8>)> {
     let u16_at = |i: usize| u16::from_le_bytes([zip[i], zip[i + 1]]) as usize;

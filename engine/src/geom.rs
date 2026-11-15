@@ -9,12 +9,9 @@ pub enum Shape {
     Rect {
         #[serde(default)]
         radius: f32,
-        /// Top left, top right, bottom right and bottom left; empty for `radius` at each.
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         corners: Vec<f32>,
     },
-    /// An arc from `start` degrees clockwise from the right over `sweep` of the full turn,
-    /// hollowed to `inner` of its radius.
     Ellipse {
         #[serde(default)]
         start: f32,
@@ -32,7 +29,6 @@ pub enum Shape {
     },
     Path {
         path: Vec<f32>,
-        /// A move into each area that the fills paint; empty for the whole path.
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         areas: Vec<f32>,
     },
@@ -45,14 +41,12 @@ fn one() -> f32 {
 }
 const FLATNESS: usize = 16;
 
-/// The transform [a b c d e f] that turns `frame` by `degrees` counterclockwise around its centre.
 pub fn rotation(degrees: f64, [x, y, w, h]: [f64; 4]) -> [f64; 6] {
     let (s, c) = degrees.to_radians().sin_cos();
     let (cx, cy) = (x + w / 2.0, y + h / 2.0);
     [c, -s, s, c, cx - c * cx - s * cy, cy + s * cx - c * cy]
 }
 
-/// The transform that applies `n`, then `m`.
 pub fn then([a, b, c, d, e, f]: [f64; 6], m: [f64; 6]) -> [f64; 6] {
     let [p, q, r, s, t, u] = m;
     [
@@ -65,7 +59,6 @@ pub fn then([a, b, c, d, e, f]: [f64; 6], m: [f64; 6]) -> [f64; 6] {
     ]
 }
 
-/// The transform that undoes `m`.
 pub fn invert([a, b, c, d, e, f]: [f64; 6]) -> [f64; 6] {
     let det = a * d - b * c;
     let [a, b, c, d] = [d / det, -b / det, -c / det, a / det];
@@ -167,7 +160,6 @@ pub fn outline(shape: &Shape, [x, y, w, h]: [f32; 4]) -> Vec<f32> {
     }
 }
 
-/// Cubics along the ellipse `[cx, cy, rx, ry]` from the angle `a0` to `a1`, opened by `verb`.
 fn arc(path: &mut Vec<f32>, [cx, cy, rx, ry]: [f32; 4], a0: f32, a1: f32, verb: f32) {
     let n = ((a1 - a0).abs() / FRAC_PI_2).ceil().max(1.0);
     let d = (a1 - a0) / n;
@@ -187,7 +179,6 @@ fn arc(path: &mut Vec<f32>, [cx, cy, rx, ry]: [f32; 4], a0: f32, a1: f32, verb: 
     }
 }
 
-/// Points on a circle from the top, clockwise, scaled so their bounds fill the frame.
 fn polygon(n: u32, radius: impl Fn(u32) -> f32, frame: [f32; 4]) -> Vec<f32> {
     let mut path = Vec::new();
     for i in 0..n {
@@ -199,7 +190,6 @@ fn polygon(n: u32, radius: impl Fn(u32) -> f32, frame: [f32; 4]) -> Vec<f32> {
     fit(&path, frame)
 }
 
-/// Maps a path from its own bounds into `frame`.
 pub fn fit(path: &[f32], [x, y, w, h]: [f32; 4]) -> Vec<f32> {
     let [l, t, bw, bh] = bounds(path);
     let scale = |v: f32, s: f32| if s > 0.0 { v / s } else { 0.0 };
@@ -224,7 +214,6 @@ pub fn bounds(path: &[f32]) -> [f32; 4] {
     [b[0], b[1], b[2] - b[0], b[3] - b[1]]
 }
 
-/// The verbs of `path` with their coordinates, up to the first malformed one.
 pub fn segments(path: &[f32]) -> impl Iterator<Item = (f32, &[f32])> {
     let mut i = 0;
     std::iter::from_fn(move || {
@@ -241,12 +230,10 @@ pub fn segments(path: &[f32]) -> impl Iterator<Item = (f32, &[f32])> {
     })
 }
 
-/// Whether a subpath of `path` is closed.
 pub fn closed(path: &[f32]) -> bool {
     segments(path).any(|(v, _)| v == CLOSE)
 }
 
-/// Whether `path` is well formed: finite points, each subpath opened by a move.
 pub fn valid(path: &[f32]) -> bool {
     let mut len = 0;
     for (k, (v, p)) in segments(path).enumerate() {
@@ -258,7 +245,6 @@ pub fn valid(path: &[f32]) -> bool {
     len == path.len()
 }
 
-/// Applies `f` to every point of a path.
 pub fn map(path: &[f32], f: impl Fn([f32; 2]) -> [f32; 2]) -> Vec<f32> {
     let mut out = Vec::with_capacity(path.len());
     for (v, p) in segments(path) {
@@ -270,7 +256,6 @@ pub fn map(path: &[f32], f: impl Fn([f32; 2]) -> [f32; 2]) -> Vec<f32> {
     out
 }
 
-/// Subpaths as polylines, cubics split into straight segments.
 pub fn flatten(path: &[f32]) -> Vec<Vec<[f32; 2]>> {
     let mut out: Vec<Vec<[f32; 2]>> = Vec::new();
     for (v, c) in segments(path) {
@@ -306,7 +291,6 @@ pub fn flatten(path: &[f32]) -> Vec<Vec<[f32; 2]>> {
 
 const ARROW: f32 = 5.0;
 
-/// Open V at the start or end of the first subpath, sized by the stroke weight.
 pub fn arrow(path: &[f32], end: bool, weight: f32) -> Vec<f32> {
     let Some(sub) = flatten(path).into_iter().next().filter(|s| s.len() > 1) else {
         return Vec::new();
@@ -336,7 +320,6 @@ pub fn arrow(path: &[f32], end: bool, weight: f32) -> Vec<f32> {
     ]
 }
 
-/// How a stroke runs along its path.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -351,8 +334,6 @@ pub enum LineStyle {
 
 const MAX_REPEATS: f32 = 10000.0;
 
-/// `path` as the dashes, dots, wave or zigzag of `style`, sized by the stroke
-/// weight; each subpath fits a whole number of repeats, at most `MAX_REPEATS`.
 pub fn pattern(path: &[f32], style: LineStyle, weight: f32) -> Vec<f32> {
     let w = weight.max(0.5);
     let (period, on) = match style {
@@ -442,7 +423,6 @@ pub fn near(path: &[f32], x: f32, y: f32, tolerance: f32) -> bool {
     })
 }
 
-/// Nonzero winding; open subpaths count as closed, like a fill.
 pub fn contains(path: &[f32], x: f32, y: f32) -> bool {
     let mut winding = 0;
     for sub in flatten(path) {

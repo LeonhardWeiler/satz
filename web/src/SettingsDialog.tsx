@@ -8,7 +8,6 @@ const UNITS: Record<Unit, string> = { mm: 'Millimeters', cm: 'Centimeters', in: 
 const PAGES = { general: ['General', 'settings'], screen: ['Screen size', 'fit'], shortcuts: ['Keyboard shortcuts', 'help'] } satisfies Record<string, [string, IconName]>
 export type SettingsPage = keyof typeof PAGES
 
-/** Things of a known size to hold against the screen: name, how, width and height in mm, corner radius in mm. */
 const REFERENCES: Record<string, [string, string, number, number?, number?]> = {
   card: ['Bank card', 'Hold a bank or ID card against the outline', 85.6, 53.98, 3.18],
   cm: ['1 cm', 'Hold a ruler against the bar and match 1 cm', 10],
@@ -29,7 +28,6 @@ function Row({ title, note, children }: { title: string; note?: string; children
   )
 }
 
-/** Ctrl+,: the settings of this browser, with the keyboard shortcuts on their own page. */
 export function Settings({ page: first = 'general', onClose }: { page?: SettingsPage; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null)
   const [page, setPage] = useState(first)

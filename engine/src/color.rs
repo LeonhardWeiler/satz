@@ -9,7 +9,6 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
 
-/// The print condition of CMYK documents; see `icc/build`.
 const FOGRA51: &[u8] = include_bytes!("../icc/FOGRA51.icc");
 
 #[cfg_attr(test, derive(ts_rs::TS))]
@@ -21,10 +20,6 @@ pub enum ColorMode {
     Cmyk,
 }
 
-/// Switching the document's mode converts process colors into it.
-/// RGB is 0xRRGGBBAA; CMYK components, tint and alpha are 0..=1.
-/// The tint of a swatch only applies to spot colors; alpha multiplies what a
-/// swatch or variable holds.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -46,7 +41,6 @@ pub enum Color {
     },
 }
 
-/// How a color prints: as RGB, as CMYK, or as a tint of a spot color.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub enum Ink {
     #[default]
@@ -60,7 +54,6 @@ pub enum Ink {
 }
 
 impl Ink {
-    /// The process color this prints as; `rgba` is its screen color.
     pub fn cmyk(&self, rgba: &[f32; 4]) -> [f32; 4] {
         match self {
             Ink::Rgb => to_cmyk([rgba[0], rgba[1], rgba[2]]),
@@ -70,7 +63,6 @@ impl Ink {
     }
 }
 
-/// A spot color's `color` is its CMYK alternate.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Swatch {
@@ -112,7 +104,6 @@ impl Color {
             .ok_or_else(|| "color values must be in 0..=1".into())
     }
 
-    /// Black, white and light gray in the document's mode.
     pub fn black(mode: ColorMode) -> Color {
         Color::of(mode, 0x000000ff, 1.0)
     }
@@ -135,8 +126,6 @@ impl Color {
         }
     }
 
-    /// `self` as a process color of `mode`, or `None` if it is one or names a
-    /// swatch or variable.
     pub fn convert(&self, mode: ColorMode) -> Option<Color> {
         match (self, mode) {
             (Color::Rgb(c), ColorMode::Cmyk) => Some(Color::Cmyk {
@@ -153,7 +142,6 @@ impl Color {
         }
     }
 
-    /// `self` with its alpha multiplied by `a`.
     fn fade(&self, a: f32) -> Color {
         match self.clone() {
             Color::Rgb(c) => Color::Rgb(c & !0xff | ((c & 0xff) as f32 * a).round() as u32),
@@ -177,7 +165,6 @@ impl Color {
         }
     }
 
-    /// The color a variable holds in the scope's modes; missing variables are transparent.
     pub fn bind(&self, s: &Scope) -> Color {
         let Color::Variable { variable, alpha } = self else {
             return self.clone();
@@ -188,7 +175,6 @@ impl Color {
         }
     }
 
-    /// The process color a swatch or variable stands for; missing swatches are transparent.
     pub fn resolve(&self, s: &Scope) -> Color {
         match self.bind(s) {
             Color::Swatch {
@@ -234,7 +220,6 @@ impl Color {
         }
     }
 
-    /// Screen color; CMYK is previewed through FOGRA51.
     pub fn rgba(&self, s: &Scope) -> [f32; 4] {
         match self.resolve(s) {
             Color::Rgb(c) => c.to_be_bytes().map(|v| v as f32 / 255.0),
@@ -254,7 +239,6 @@ fn options() -> TransformOptions {
     }
 }
 
-/// The CMYK profile of the document and its transforms to and from sRGB.
 struct Cms {
     icc: Vec<u8>,
     name: String,
@@ -262,8 +246,6 @@ struct Cms {
     from_srgb: Arc<TransformF32Executor>,
     separate: Arc<Transform8BitExecutor>,
     preview: Arc<Transform8BitExecutor>,
-    /// Black point compensation, as PDF viewers apply it: the darkest color the
-    /// profile prints shows as screen black.
     lut: [[u8; 256]; 3],
     black: [f32; 3],
     rgb: RefCell<HashMap<[u32; 4], [f32; 3]>>,
@@ -341,19 +323,15 @@ fn cms() -> Rc<Cms> {
     CMS.with(|c| c.borrow().clone())
 }
 
-/// Checks that `icc` is a CMYK profile that converts colors.
 pub fn check_profile(icc: &[u8]) -> Result<(), String> {
     Cms::new(icc).map(|_| ())
 }
 
-/// The name of the CMYK profile in use, `None` for FOGRA51.
 pub fn profile_name() -> Option<String> {
     let c = cms();
     (c.icc != FOGRA51).then(|| c.name.clone())
 }
 
-/// Makes `icc`, or FOGRA51 for `None`, the CMYK profile of the colors that follow;
-/// true when it changed.
 pub fn use_profile(icc: Option<&[u8]>) -> bool {
     let icc = icc.unwrap_or(FOGRA51);
     let Some(c) = (cms().icc != icc).then(|| Cms::new(icc).ok()).flatten() else {
@@ -363,13 +341,11 @@ pub fn use_profile(icc: Option<&[u8]>) -> bool {
     true
 }
 
-/// The CMYK profile in use: its bytes, its name, and whether it is the built-in FOGRA51.
 pub fn profile() -> (Vec<u8>, String, bool) {
     let c = cms();
     (c.icc.clone(), c.name.clone(), c.icc == FOGRA51)
 }
 
-/// CMYK of the color 0xRRGGBB; black, white and gray take their pure K.
 pub fn separate(rgb: u32) -> [f32; 4] {
     let rgba = Color::Rgb(rgb << 8 | 0xff);
     for neutral in [Color::black, Color::white, Color::gray] {
@@ -382,7 +358,6 @@ pub fn separate(rgb: u32) -> [f32; 4] {
     to_cmyk([16, 8, 0].map(|s| (rgb >> s & 0xff) as f32 / 255.0))
 }
 
-/// Screen color of `cmyk`, black point compensated.
 pub fn to_rgb(cmyk: [f32; 4]) -> [f32; 3] {
     let c = cms();
     *(c.rgb.borrow_mut().entry(cmyk.map(f32::to_bits)))
@@ -409,18 +384,15 @@ fn gamma(v: f32) -> f32 {
     }
 }
 
-/// The color `rgb` prints visibly different in the CMYK profile.
 pub fn out_of_gamut(rgb: [f32; 3]) -> bool {
     apart(rgb, to_rgb(to_cmyk(rgb)))
 }
 
-/// The sRGB colors `a` and `b` differ in chroma by more than 10 in CIELAB.
 pub fn apart(a: [f32; 3], b: [f32; 3]) -> bool {
     let (a, b) = (chroma(a), chroma(b));
     (a[0] - b[0]).hypot(a[1] - b[1]) > 10.0
 }
 
-/// a* and b* of the sRGB color `rgb` in CIELAB under D65.
 fn chroma(rgb: [f32; 3]) -> [f32; 2] {
     let [r, g, b] = rgb.map(linear);
     let xyz = [
@@ -438,7 +410,6 @@ fn chroma(rgb: [f32; 3]) -> [f32; 2] {
     [500.0 * (xyz[0] - xyz[1]), 200.0 * (xyz[1] - xyz[2])]
 }
 
-/// CMYK bytes of the RGBA bytes `rgba`, whose alpha is left out.
 pub fn separate_pixels(rgba: &[u8]) -> Vec<u8> {
     let rgb: Vec<u8> = rgba.chunks(4).flat_map(|p| [p[0], p[1], p[2]]).collect();
     let mut cmyk = vec![0; rgb.len() / 3 * 4];
@@ -446,7 +417,6 @@ pub fn separate_pixels(rgba: &[u8]) -> Vec<u8> {
     cmyk
 }
 
-/// Screen RGB bytes of the CMYK bytes `cmyk`, compensated as `to_rgb` is.
 pub fn preview_pixels(cmyk: &[u8]) -> Vec<u8> {
     let c = cms();
     let mut rgb = vec![0; cmyk.len() / 4 * 3];

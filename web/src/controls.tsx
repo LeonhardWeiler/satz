@@ -10,7 +10,6 @@ import { MAX_LENGTH, UNITS, useSettings } from './settings'
 
 export const FOCUSABLE = 'button:enabled, input:enabled, select:enabled, textarea:enabled, a[href], [tabindex]:not([tabindex="-1"])'
 
-/** Moves the focus from the event's target to the item before or after it for the keys `back` and `forth`. */
 export function roam(e: KeyboardEvent, items: Element[], back = ['ArrowUp'], forth = ['ArrowDown']) {
   const i = items.indexOf(e.target as Element)
   const d = back.includes(e.key) ? -1 : forth.includes(e.key) ? 1 : 0
@@ -22,11 +21,6 @@ export function roam(e: KeyboardEvent, items: Element[], back = ['ArrowUp'], for
 
 const round = (v: number, digits: number) => Math.round(v * 10 ** digits) / 10 ** digits
 
-/**
- * A number input that takes expressions with units. ↑/↓ step it, Shift by 10 and Alt by 0.1;
- * dragging its label scrubs it and double-clicking it sets `reset`; invalid input shakes and keeps the
- * value. Values stay within `min` and `max`, in `unit`.
- */
 export function Field({
   label,
   value,
@@ -42,22 +36,15 @@ export function Field({
   title: name = typeof label === 'string' ? label : undefined,
 }: {
   label: ReactNode
-  /** In pt for lengths, shown in `unit`. */
   value: number | null
-  /** "length" for the length unit of the settings. */
   unit: string
   onCommit?: (v: number) => void
   readOnly?: boolean
-  /** Shown for 0 and accepted as input for it, e.g. "Auto". */
   zero?: string
-  /** Whole numbers with − and + buttons. */
   int?: boolean
-  /** The decimals shown and taken. */
   digits?: number
-  /** In pt for lengths. */
   min?: number
   max?: number
-  /** The default value, in pt for lengths. */
   reset?: number
   title?: string
 }) {
@@ -175,7 +162,6 @@ export function Field({
   )
 }
 
-/** A text input that commits a changed, non-empty value on blur or Enter. */
 export function NameInput({ label, value, autoFocus, blank, onCommit }: { label: string; value: string; autoFocus?: boolean; blank?: boolean; onCommit: (v: string) => unknown }) {
   return (
     <input
@@ -203,11 +189,9 @@ export function NameInput({ label, value, autoFocus, blank, onCommit }: { label:
   )
 }
 
-/** The next free `prefix n` among `names`. */
 export const nextName = (prefix: string, names: string[]) =>
   `${prefix} ${Math.max(0, ...names.map((n) => (n.startsWith(`${prefix} `) ? Number(n.slice(prefix.length + 1)) || 0 : 0))) + 1}`
 
-/** A button that shows the option of `value`, or Mixed for null, and picks another from a menu. */
 export function Select<T extends string>({
   label,
   value,
@@ -223,12 +207,9 @@ export function Select<T extends string>({
   value: T | null
   options: Record<T, ReactNode>
   disabled?: T[]
-  /** Options followed by a separator. */
   breaks?: T[]
-  /** Shown before the value, like a field's label. */
   prefix?: ReactNode
   search?: boolean
-  /** Spans all columns of its grid. */
   wide?: boolean
   onChange: (v: T) => void
 }) {
@@ -273,7 +254,6 @@ export function Select<T extends string>({
   )
 }
 
-/** An icon button that opens the menu of `items` under it. */
 export function MenuButton({ icon, title, items }: { icon: IconName; title: string; items: ComponentProps<typeof ContextMenu>['items'] }) {
   const [at, setAt] = useState<DOMRect | null>(null)
   return (
@@ -286,7 +266,6 @@ export function MenuButton({ icon, title, items }: { icon: IconName; title: stri
   )
 }
 
-/** Family and style of the font `value`, a hash of `faces`, or Mixed for null; the missing ones are listed but not picked. */
 const ADD = '\0add'
 
 export function FontSelect({
@@ -303,7 +282,6 @@ export function FontSelect({
   missing?: string[]
   value: string | null
   compact?: boolean
-  /** Adds an "Add font…" entry at the end of the families. */
   onAdd?: () => void
   onChange: (f: Typeface) => void
 }) {
@@ -383,7 +361,6 @@ export function Section({
   )
 }
 
-/** Eye and minus buttons at the end of a fill, stroke or effect row. */
 export function RowActions({
   what,
   visible,
@@ -414,7 +391,6 @@ export function RowActions({
   )
 }
 
-/** Icon buttons of which one is checked: value, title and icon of each. */
 export function Segmented<T extends string>({
   label,
   value,
@@ -449,7 +425,6 @@ const sizes: Record<string, number> = JSON.parse(localStorage.getItem(SIZES) ?? 
 let grab = 0
 for (const [side, v] of Object.entries(sizes)) document.documentElement.style.setProperty(`--${side}-size`, `${v}px`)
 
-/** The inner edge of a side panel or the top edge of the swatches, dragged to set its size. */
 export function Edge({ side }: { side: 'left' | 'right' | 'swatches' }) {
   const tall = side === 'swatches'
   const at = (e: ReactPointerEvent<HTMLElement>) => (side === 'left' ? e.clientX : tall ? innerHeight - e.clientY : innerWidth - e.clientX)
@@ -479,7 +454,6 @@ export function Edge({ side }: { side: 'left' | 'right' | 'swatches' }) {
   )
 }
 
-/** A checkbox that shows `null`, a mixed value, as indeterminate. */
 export function Check({ label, value, set }: { label: string; value: boolean | null; set: (v: boolean) => void }) {
   return (
     <label className="check">
@@ -498,7 +472,6 @@ export function Check({ label, value, set }: { label: string; value: boolean | n
 
 const KEYCAP = /^(Ctrl|Alt|Shift|Space|Enter|Esc|Tab|Del|Backspace|Home|End|PgUp|PgDn|F\d+|[^a-z])$/
 
-/** The shortcut `keys` as one keycap per chord, the words of a gesture in it as text. */
 export function Keys({ keys }: { keys: string }) {
   const parts: [cap: boolean, text: string][] = []
   let mod = false
@@ -516,14 +489,12 @@ export function Keys({ keys }: { keys: string }) {
 export const SIDE_NAMES = ['Top', 'Right', 'Bottom', 'Left']
 export const SIDE_ICONS: IconName[] = ['sideTop', 'sideRight', 'sideBottom', 'sideLeft']
 
-/** Whether the sides of `what` of the layer `id` show one field each, kept for `opened`, and the button in the section header that switches it. */
 export function useSides(what: string, id: string, values: (number | null)[], opened?: boolean): [boolean, ReactNode] {
   const [shown, setShown] = useState<{ id: string; each: boolean } | null>(null)
   const each = (shown?.id === id ? shown.each : values.some((v) => v !== values[0])) || !!opened
   return [each, <SidesToggle what={what} pressed={each} disabled={opened} onClick={() => setShown({ id, each: !each })} />]
 }
 
-/** Lengths of the four sides, top first, as one field for all or, `each`, one field per side; `wrap` wraps those. */
 export function Sides({
   what,
   values,
@@ -555,7 +526,6 @@ export function Sides({
   ))
 }
 
-/** The button that shows one field per side of `what`. */
 export function SidesToggle({ what, pressed, disabled, onClick }: { what: string; pressed: boolean | null; disabled?: boolean; onClick: () => void }) {
   const title = `${what[0].toUpperCase()}${what.slice(1)} of each side`
   return (
@@ -565,7 +535,6 @@ export function SidesToggle({ what, pressed, disabled, onClick }: { what: string
   )
 }
 
-/** A titled group of options in a section. */
 export function Group({ title, action, children }: { title: string; action?: ReactNode; children?: ReactNode }) {
   return (
     <div role="group" aria-label={title} className="options-group">
@@ -578,7 +547,6 @@ export function Group({ title, action, children }: { title: string; action?: Rea
   )
 }
 
-/** Whether a section shows its rarer settings `title`, always when `used`, and the `…` button for its header that shows them. */
 export function useMore(label: string, title: string, used: boolean): [boolean, ReactNode] {
   const [open, setOpen] = useState(false)
   return [

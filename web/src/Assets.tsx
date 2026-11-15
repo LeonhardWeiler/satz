@@ -61,7 +61,6 @@ export function Assets({ editor }: { editor: Editor }) {
   )
 }
 
-/** The images placed as links to their files, those not read with a button to read them again, and one that embeds the read ones. */
 function LinkedImages({ editor }: { editor: Editor }) {
   const { links, images } = useEditor(editor, (e) => e.snapshot)
   const missing = Object.keys(links).filter((h) => !(h in images))

@@ -17,13 +17,11 @@ const DIRECTIONS = [
   ['vertical', 'Vertical layout', 'arrowDown'],
 ] as const
 
-/** `node` is laid out by the auto layout of its parent. */
 export function flows(editor: Editor, node: Node) {
   const parent = editor.nodes.get(node.id)?.parent
   return parent?.kind === 'frame' && parent.direction !== 'none' && !node.absolute
 }
 
-/** Width and height sizing of `node`: hug for auto layout frames and text in one, fill in one. */
 export function Sizing({ editor, node, set }: { editor: Editor; node: Node; set: (p: Props) => void }) {
   const fills = flows(editor, node)
   const hugs = (node.kind === 'frame' && node.direction !== 'none') || (node.kind === 'text' && fills)
@@ -42,7 +40,6 @@ export function Sizing({ editor, node, set }: { editor: Editor; node: Node; set:
   return <Group title="Resizing">{selects}</Group>
 }
 
-/** Direction, alignment, gap and padding of an auto layout frame, or a button that adds one. */
 export function AutoLayout({ editor, node, set }: { editor: Editor; node: Node & Layout; set: (p: Props) => void }) {
   const padding = PADDING.map((p) => node[p])
   const [each, toggle] = useSides('padding', node.id, padding, PADDING.some((p) => node.bindings[p]))

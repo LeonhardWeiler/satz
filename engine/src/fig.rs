@@ -1,5 +1,3 @@
-//! Figma files: the kiwi message in `canvas.fig` of the zip, read into JSON.
-
 use crate::color::Color;
 use crate::display_list::{CLOSE, CUBIC, LINE, MOVE};
 use crate::geom::bounds;
@@ -13,7 +11,6 @@ type Files = Vec<(String, Vec<u8>)>;
 
 const BAD: &str = "not a Figma file";
 
-/// The files in the zip `z` by name, each inflated.
 fn unzip(z: &[u8]) -> Res<Files> {
     let u16_at = |i: usize| {
         z.get(i..i + 2)
@@ -187,7 +184,6 @@ fn value(k: &mut Kiwi, types: &[Type], ty: i64, array: bool) -> Res<Value> {
     })
 }
 
-/// The segments after the header: each a little endian length and raw deflate or zstd data.
 fn segments(b: &[u8]) -> Res<Vec<Vec<u8>>> {
     let mut at = 12;
     let mut out = Vec::new();
@@ -207,7 +203,6 @@ fn segments(b: &[u8]) -> Res<Vec<Vec<u8>>> {
     Ok(out)
 }
 
-/// The message of the Figma file `bytes` and the images of its zip by hash.
 fn read(bytes: &[u8]) -> Res<(Value, Files)> {
     let (canvas, images) = if bytes.starts_with(b"PK") {
         let mut files = unzip(bytes)?;
@@ -274,7 +269,6 @@ fn color(c: &Value, opacity: f32) -> Color {
     rgba([ch("r", 1.0), ch("g", 1.0), ch("b", 1.0), ch("a", opacity)])
 }
 
-/// `SCREAMING_SNAKE` to the camel case of Satz's names.
 fn blend(v: &Value) -> Blend {
     let words: Vec<String> = v
         .as_str()
@@ -307,7 +301,6 @@ fn id(guid: &Value) -> String {
 }
 
 impl Fig<'_> {
-    /// The path of blob `i`, a byte of command and its little endian points, through `t`.
     fn path(&self, i: &Value, t: [f32; 6]) -> Vec<f32> {
         let Some(b) = i.as_u64().and_then(|i| self.blobs.get(i as usize)) else {
             return vec![];
@@ -470,7 +463,6 @@ impl Fig<'_> {
     }
 }
 
-/// A page for each frame on the canvases of the Figma file `bytes`, and one for what lies beside them.
 pub fn sheets(file: &[u8]) -> Res<Vec<Sheet>> {
     let (msg, images) = read(file)?;
     let all = msg["nodeChanges"].as_array().ok_or(BAD)?;

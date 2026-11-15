@@ -1,7 +1,5 @@
-/** A pen point in pt; (hx, hy) is its outgoing handle, the incoming one is mirrored. */
 export type Anchor = { x: number; y: number; hx: number; hy: number }
 
-/** Display-list path commands through the anchors. */
 export function penPath(anchors: Anchor[], closed: boolean): number[] {
   if (!anchors.length) return []
   const path = [0, anchors[0].x, anchors[0].y]

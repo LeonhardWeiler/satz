@@ -1,15 +1,12 @@
 import init, { Engine, zip, type Inks } from './engine/engine'
 import type { Snapshot } from './model'
 
-/** What the preflight shows of the pages `pages` and of the whole document. */
 export type Preview = { pages: string[]; ppi: number; on: number; limit: number; over: boolean; gamut: boolean }
-/** The pages at `pages` as one PDF titled `title`, or each as an image at `ppi`. */
 export type Out = { pages: number[]; title: string } & ({ type: 'application/pdf' | 'application/zip' } | { type: 'image/png' | 'image/jpeg'; ppi: number })
 export type Sheet = { page: string; width: number; height: number; image: Uint8Array; coverage: Float32Array }
 export type Previewed = { ppi: number; sheets: Sheet[]; spots: string[]; max: number[]; highest: number }
 
 const engine = init().then(() => new Engine())
-/** What a page adds to the document's stats at `ppi`, while it prints as `key`; `inks` only while it is shown. */
 type Page = { key: bigint; ppi: number; inks?: Inks; names: string[]; max: number[]; ink: number }
 const pages = new Map<string, Page>()
 

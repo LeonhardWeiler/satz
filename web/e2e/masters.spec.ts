@@ -9,11 +9,9 @@ const gray = ([r, g, b]: number[]) => [r, g, b].every((c) => Math.abs(c - 0xd9) 
 
 const title = (page: Page) => page.getByRole('complementary', { name: 'Properties' }).getByRole('heading', { level: 2 })
 const rects = (page: Page) => page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true })
-/** Where the master rectangle shows on page 1, and a point on the page beside it. */
 const inside = (page: Page) => screen(page, 40, 202)
 const outside = (page: Page) => screen(page, 80, 202)
 
-/** A master with a rectangle at the foot of its right page, applied to page 1. */
 async function applied(page: Page) {
   await open(page)
   await addMaster(page)
@@ -26,7 +24,6 @@ async function applied(page: Page) {
   await page.keyboard.press('.')
 }
 
-/** `applied`, with the master rectangle overridden on page 1 by ctrl+shift+click. */
 async function overridden(page: Page) {
   await applied(page)
   await page.keyboard.down('Control')
@@ -127,7 +124,6 @@ test('a page shows the prefix of its master as its page numbers do, in any scrip
   await expect((await overview(page)).getByTitle('Master ÄB-Master', { exact: true })).toHaveText('ÄB')
 })
 
-/** A master spread with a rectangle at the outer foot of each page, applied to pages 2 and 3. */
 async function sides(page: Page) {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })

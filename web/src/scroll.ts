@@ -2,16 +2,11 @@ const ZONE = 24
 const RATE = 16
 const MAX = 1500
 
-/** The speed in px/s for `at` px against the edges `lo` and `hi`, starting `ZONE` px inside them. */
 const speed = (at: number, lo: number, hi: number) => {
   const d = at < lo + ZONE ? at - lo - ZONE : at > hi - ZONE ? at - hi + ZONE : 0
   return Math.sign(d) * Math.min(MAX, Math.abs(d) * RATE)
 }
 
-/**
- * Scrolls while a drag holds the pointer near or past the edges of `box`, faster the farther out, by whole px
- * passed to `scroll`. `move` gives it the pointer, `stop` ends it.
- */
 export function edgeScroll(box: () => DOMRect, scroll: (dx: number, dy: number) => void) {
   let at = { x: 0, y: 0 }
   let frame = 0

@@ -13,7 +13,6 @@ pub struct Style {
     pub strokes: Vec<Fill>,
     pub stroke_weight: f32,
     pub stroke_align: Align,
-    /// The stroke weights of the top, right, bottom and left side, or none for `stroke_weight` all round.
     pub stroke_sides: Vec<f32>,
     pub join: Join,
     pub cap: Cap,
@@ -53,8 +52,6 @@ impl Default for Style {
     }
 }
 
-/// How a frame's child follows the frame on resize: pinned to the start (left,
-/// top), the end, both, the centre, or scaled.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -75,10 +72,6 @@ pub struct Constraints {
     pub vertical: Constraint,
 }
 
-/// A fill or stroke paint. Gradients map their unit space, and images the unit
-/// square they fill, into the node's unit box with `transform` [a b c d e f]; see
-/// `display_list::Paint`. `image` is the hash of an image fill's file, and
-/// `adjust` its brightness, contrast and saturation in -1..=1.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -119,7 +112,6 @@ impl Fill {
         }
     }
 
-    /// A fill with the image `hash` stretched over the node's box.
     pub fn image(hash: &str) -> Fill {
         Fill {
             kind: FillKind::Image,
@@ -128,14 +120,11 @@ impl Fill {
         }
     }
 
-    /// `transform` in page space for a node with the box `frame`.
     fn place(&self, [x, y, w, h]: [f32; 4]) -> [f32; 6] {
         let [a, b, c, d, e, f] = self.transform;
         [w * a, h * b, w * c, h * d, x + w * e, y + h * f]
     }
 
-    /// Pixels per inch of an image fill on a node `w` × `h` pt, along the image's
-    /// coarser axis.
     pub fn ppi(&self, w: f64, h: f64) -> Option<f64> {
         let info = image::info(self.image.as_deref()?)?;
         let [a, b, c, d, ..] = self.transform.map(f64::from);
@@ -163,7 +152,6 @@ pub enum FillKind {
     Image,
 }
 
-/// `radius` is the Figma blur radius, twice the Gaussian sigma.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -226,7 +214,6 @@ pub enum Cap {
     Square,
 }
 
-/// In the order of the display list's blend numbers.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -295,7 +282,6 @@ impl Blend {
     }
 }
 
-/// The paint of a color or gradient fill.
 fn paint(f: &Fill, frame: [f32; 4], s: &Scope, overprint: bool) -> Option<Paint> {
     let transform = f.place(frame);
     let mut stops: Vec<_> = f
@@ -328,7 +314,6 @@ fn paint(f: &Fill, frame: [f32; 4], s: &Scope, overprint: bool) -> Option<Paint>
     })
 }
 
-/// The paints of the visible color and gradient fills among `fills`.
 pub fn paints<'a>(
     fills: &'a [Fill],
     frame: [f32; 4],
@@ -342,7 +327,6 @@ pub fn paints<'a>(
 }
 
 impl Style {
-    /// Fill ops for `fill` and stroke ops for `path`; closed paths honour the stroke alignment.
     pub fn shape(&self, fill: &[f32], path: &[f32], frame: [f32; 4], s: &Scope) -> Vec<Op> {
         let mut ops = Vec::new();
         for f in self.fills.iter().filter(|f| f.visible) {
@@ -373,7 +357,6 @@ impl Style {
         ops
     }
 
-    /// The strokes along `path`, each side at its own weight when it is closed and has sides.
     pub fn edges(&self, path: &[f32], frame: [f32; 4], s: &Scope) -> Vec<Op> {
         if self.stroke_sides.len() == 4 && closed(path) {
             self.sides(path, frame, s)
@@ -382,7 +365,6 @@ impl Style {
         }
     }
 
-    /// The strokes of each side of `frame` at its own weight, clipped to `path` when inside.
     fn sides(&self, path: &[f32], [x, y, w, h]: [f32; 4], s: &Scope) -> Vec<Op> {
         let [t, r, b, l] = [0, 1, 2, 3].map(|i| self.stroke_sides[i]);
         let k = match self.stroke_align {
@@ -414,7 +396,6 @@ impl Style {
         ops
     }
 
-    /// The strokes along `path`, aligned when it is closed and with arrows when open.
     pub fn stroke(&self, path: &[f32], frame: [f32; 4], s: &Scope) -> Vec<Op> {
         let mut ops = Vec::new();
         let closed = closed(path);
@@ -457,7 +438,6 @@ impl Style {
         ops
     }
 
-    /// The layer that wraps a node's ops, if it needs one.
     pub fn layer(&self, s: &Scope) -> Option<Op> {
         let effects = || self.effects.iter().filter(|e| e.visible);
         let blur = effects()

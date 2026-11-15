@@ -17,7 +17,6 @@ import { ContentsSection, sameOf, TextFrameSection, TextSection } from './Text'
 import { Bindable, ModeSelects } from './Variables'
 import { TableSection } from './Table'
 
-/** The rotation of `n`, for a group that of all its layers, or null if they differ. */
 const turnOf = (n: Node): number | null => {
   if (n.kind !== 'group') return n.rotation
   const turns = n.children.map(turnOf)
@@ -540,7 +539,6 @@ function textBelow(editor: Editor, n: Node) {
   return false
 }
 
-/** Facing pages and, unless `pagesOnly`, color mode and, in CMYK, the profile of the document, and how dates show. */
 function DocumentSection({ editor, pagesOnly }: { editor: Editor; pagesOnly: boolean }) {
   const { facingPages, colorMode, profile, dateFormat, linkImages } = useEditor(editor, (e) => e.snapshot)
   const color = <ColorModeSelect value={colorMode} onChange={(colorMode) => editor.apply({ type: 'setDocument', colorMode })} />
@@ -571,7 +569,6 @@ function DocumentSection({ editor, pagesOnly }: { editor: Editor; pagesOnly: boo
 
 const GRIDS: Record<Grid['kind'], string> = { columns: 'Columns', rows: 'Rows', grid: 'Grid' }
 
-/** The layout grids of `sheets`, and a button that gives them to `all` when they differ. */
 function GridSection({ editor, sheets, all }: { editor: Editor; sheets: Page[]; all: Page[] }) {
   const key = (p: Page) => JSON.stringify(p.grids)
   const grids = sameOf(sheets, key) === null ? null : sheets[0].grids
@@ -662,7 +659,6 @@ const GRID_PRESETS: [string, [Grid['kind'], number][]][] = [
   ['5 mm grid', [['grid', 1]]],
 ]
 
-/** A name for `grids` like "3 columns, 5 mm gutter, 15 mm margin". */
 const describe = (grids: Grid[]) =>
   grids
     .map((g) => (g.kind === 'grid' ? `${length(g.size)} grid` : `${g.count} ${g.count === 1 ? g.kind.slice(0, -1) : g.kind}, ${length(g.gutter)} gutter, ${length(g.margin)} margin`))
@@ -670,7 +666,6 @@ const describe = (grids: Grid[]) =>
 
 type PageProps = (p: Page) => Partial<Pick<Page, 'width' | 'height' | 'bleed'>> & { scale?: boolean }
 
-/** A format and orientation picker for `sheets`. */
 function FormatRow({ sheets, each }: { sheets: Page[]; each: (props: PageProps) => void }) {
   const w = sameOf(sheets, (p) => p.width)
   const h = sameOf(sheets, (p) => p.height)

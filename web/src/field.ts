@@ -1,10 +1,5 @@
-/** Millimetres per unit that expressions may name. */
 const UNIT: Record<string, number> = { mm: 1, cm: 10, pt: 25.4 / 72, in: 25.4 }
 
-/**
- * The value of `src` in `unit`: + − × / and brackets over numbers, each optionally in
- * mm, cm, pt or in; a leading +, × or / applies to `cur`. Null if `src` is not such an expression.
- */
 export function evalExpr(src: string, cur: number, unit: string): number | null {
   let s = src.trim().replace(/,/g, '.').replace(/[×x]/g, '*').replace(/−/g, '-').replace(/\s+/g, '')
   if (/^[+*/]/.test(s)) s = cur + s
@@ -36,5 +31,4 @@ export function evalExpr(src: string, cur: number, unit: string): number | null 
   return i === toks.length && Number.isFinite(v) ? v : null
 }
 
-/** The step of an arrow key or a label drag: 10 with Shift, 0.1 with Alt unless `int`, else 1. */
 export const step = (e: { shiftKey: boolean; altKey: boolean }, int?: boolean) => (e.shiftKey ? 10 : e.altKey && !int ? 0.1 : 1)

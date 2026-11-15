@@ -10,17 +10,14 @@ export const BOOLEANS: [BooleanOp, string, IconName, string][] = [
   ['exclude', 'Exclude', 'exclude', 'Ctrl+Alt+X'],
 ]
 
-/** Whether the selection is two shapes or more, which booleans combine. */
 export const combinable = (editor: Editor) => editor.selection.length > 1 && editor.selected().every((n) => n.kind === 'shape')
 
-/** Combines the selected shapes into the bottommost by `op`. */
 export function combine(editor: Editor, op: BooleanOp) {
   if (combinable(editor)) editor.set({ selection: editor.apply({ type: 'boolean', ids: editor.selection, op }) })
 }
 
 export type Align = 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom' | 'distributeX' | 'distributeY' | 'tidy'
 
-/** Title, icon and Alt shortcut of each alignment. */
 export const ALIGNS: [Align, string, IconName, string][] = [
   ['left', 'Align left', 'alignLeftEdges', 'Alt+A'],
   ['center', 'Align horizontal centers', 'alignCenters', 'Alt+H'],
@@ -33,17 +30,12 @@ export const ALIGNS: [Align, string, IconName, string][] = [
   ['tidy', 'Tidy up', 'tidy', 'Ctrl+Alt+Shift+T'],
 ]
 
-/** The frame that `id` sits in, through its groups, or undefined on the page. */
 const frameOf = (editor: Editor, id?: string) => {
   let parent = id ? editor.nodes.get(id)?.parent : undefined
   while (parent?.kind === 'group') parent = editor.nodes.get(parent.id)?.parent
   return parent?.kind === 'frame' ? parent : undefined
 }
 
-/**
- * Aligns `layers` to their bounds, or a single layer to the frame or page it sits in;
- * distributes and tidies three and two layers or more.
- */
 export function align(editor: Editor, how: Align, layers = editor.selected()) {
   const nodes = layers.filter((n) => !n.locked)
   const to = nodes.length > 1 ? bounds(nodes) : frameOf(editor, nodes[0]?.id) ?? { x: 0, y: 0, w: editor.page.width, h: editor.page.height }
@@ -88,10 +80,8 @@ export function align(editor: Editor, how: Align, layers = editor.selected()) {
   })
 }
 
-/** Layers that follow each other along `axis` without overlapping, each beside the next, and the gaps between them. */
 export type Row = { axis: 'x' | 'y'; nodes: Node[]; gaps: number[] }
 
-/** The selected layers as a row, or null when they are not one or an auto layout places them. */
 export function rowOf(editor: Editor): Row | null {
   const nodes = editor.selected()
   const parents = new Set(nodes.map((n) => editor.nodes.get(n.id)?.parent))
@@ -105,7 +95,6 @@ export function rowOf(editor: Editor): Row | null {
   return null
 }
 
-/** Moves the layers of `row` after its first so that `gap` lies between each and the next. */
 export function setGap(editor: Editor, { axis, nodes }: Row, gap: number) {
   const w = axis === 'x' ? 'w' : 'h'
   let at = nodes[0][axis]
@@ -117,10 +106,6 @@ export function setGap(editor: Editor, { axis, nodes }: Row, gap: number) {
   })
 }
 
-/**
- * A button for each alignment of the selection, of several layers to their bounds and of one to its parent, or of the
- * layers `inside` a group; below them distribute and tidy for three layers or more, and `children`.
- */
 export function AlignBar({ editor, inside, children }: { editor: Editor; inside?: Node[]; children?: ReactNode }) {
   const n = inside?.length ?? editor.selection.length
   const button = ([how, title, icon, key]: (typeof ALIGNS)[number]) => (

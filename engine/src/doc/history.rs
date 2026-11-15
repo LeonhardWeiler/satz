@@ -1,11 +1,8 @@
 use super::*;
 use loro::{Frontiers, ID};
 
-/// The message of the change that `Restore` makes.
 const RESTORED: &str = "restore";
 
-/// The document as one change of its history left it: the change's peer and last
-/// counter, when it started in Unix seconds and whether it restored an earlier one.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -14,12 +11,10 @@ pub struct Version {
     pub counter: i32,
     pub time: f64,
     pub restored: bool,
-    /// The operations of the change.
     pub edits: u32,
 }
 
 impl Doc {
-    /// The versions of the history, the newest first.
     pub fn versions(&self) -> Vec<Version> {
         let since = self.doc.shallow_since_vv();
         let mut changes = Vec::new();
@@ -46,8 +41,6 @@ impl Doc {
             .collect()
     }
 
-    /// Makes the document what it was at the version `peer`, `counter` in a change of
-    /// its own, which undo takes back.
     pub(super) fn restore(&self, peer: String, counter: i32) -> Res<Vec<String>> {
         let id = ID::new(peer.parse().map_err(err)?, counter);
         if !self.doc.oplog_vv().includes_id(id)

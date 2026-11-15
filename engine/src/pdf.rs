@@ -29,10 +29,8 @@ use tiny_skia::Pixmap;
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Preset {
-    /// RGB as the canvas shows it, the trim box only.
     Screen,
     X4,
-    /// CMYK and spots only, transparency flattened at the raster ppi.
     X1a,
 }
 
@@ -42,20 +40,15 @@ const MARK_OFFSET: f32 = 3.0 * MM;
 const MARK_LENGTH: f32 = 5.0 * MM;
 const MARK_WIDTH: f32 = 0.25;
 
-/// How a document exports to PDF.
 pub struct Export<'a> {
     pub preset: Preset,
     pub crop_marks: bool,
     pub bleed: bool,
-    /// Shadows, blurs and, for PDF/X-1a, transparency are rasterized at `ppi`.
     pub ppi: f32,
-    /// Images shrink to no less than `image_ppi` unless it is 0.
     pub image_ppi: f32,
-    /// Opaque images are JPEGs of this quality, 1 to 100, unless it is 0.
     pub jpeg_quality: u8,
     pub mode: ColorMode,
     pub title: &'a str,
-    /// ISO 8601 in UTC, as `2026-09-28T12:00:00Z`.
     pub date: &'a str,
 }
 
@@ -152,7 +145,6 @@ pub fn pdf(pages: &[Vec<Op>], x: &Export) -> Result<Vec<u8>, String> {
     })
 }
 
-/// `ops` without what is transparent, and the areas that it covers.
 fn flatten(ops: &[Op]) -> (Vec<Op>, Vec<[f32; 4]>) {
     let translucent = |p: &Paint| match p {
         Paint::Solid { color, .. } => color[3] < 1.0,
@@ -216,18 +208,14 @@ fn flatten(ops: &[Op]) -> (Vec<Op>, Vec<[f32; 4]>) {
 }
 
 struct Env<'a> {
-    /// The fonts of the glyph runs by id, made once used.
     fonts: &'a RefCell<HashMap<u32, Font>>,
     ppi: f32,
-    /// Images and rasterized effects are CMYK.
     cmyk: bool,
     preset: Preset,
-    /// Images are drawn as the canvas shows them in a CMYK document.
     proof: bool,
     page: [f32; 4],
     image_ppi: f32,
     jpeg_quality: u8,
-    /// Rasterized groups by their ops and area, so that a master's are made once.
     rasters: &'a RefCell<HashMap<String, Option<Image>>>,
 }
 
@@ -406,8 +394,6 @@ fn draw(s: &mut Surface, env: &Env, ops: &[Op]) {
     }
 }
 
-/// Draws `ops` as an image, blurred by `sigma` pt, moved by `offset` and,
-/// for shadows, tinted with the shadow's color. CMYK documents get CMYK images.
 fn raster(
     s: &mut Surface,
     env: &Env,
@@ -455,7 +441,6 @@ fn raster(
     }
 }
 
-/// Draws `ops` over `area` as one opaque CMYK image, as they print on white paper.
 fn paper(s: &mut Surface, env: &Env, ops: &[Op], area: [f32; 4]) {
     let Some([x, y, w, h]) = within(env.page, area) else {
         return;
@@ -475,7 +460,6 @@ fn paper(s: &mut Surface, env: &Env, ops: &[Op], area: [f32; 4]) {
     }
 }
 
-/// The image `make` rasterizes from `ops` with `params`, made once per export.
 fn cached(
     env: &Env,
     ops: &[Op],
@@ -491,7 +475,6 @@ fn cached(
     image
 }
 
-/// The part of `area` on `page`, both as [x, y, w, h].
 fn within(page: [f32; 4], [x, y, w, h]: [f32; 4]) -> Option<[f32; 4]> {
     let (l, t) = (x.max(page[0]), y.max(page[1]));
     let (r, b) = (
@@ -501,7 +484,6 @@ fn within(page: [f32; 4], [x, y, w, h]: [f32; 4]) -> Option<[f32; 4]> {
     (l < r && t < b).then_some([l, t, r - l, b - t])
 }
 
-/// Draws `image`, rasterized at `ppi`, with its top left at (`x`, `y`).
 fn place(s: &mut Surface, image: Image, x: f32, y: f32, ppi: f32) {
     let scale = 72.0 / ppi;
     let (pw, ph) = image.size();
@@ -513,7 +495,6 @@ fn place(s: &mut Surface, image: Image, x: f32, y: f32, ppi: f32) {
     s.pop();
 }
 
-/// `ops` over `rect` at `ppi`, tinted with `tint_with` and blurred by `sigma` pt.
 fn plane(
     ops: &[Op],
     rect: [f32; 4],
@@ -530,9 +511,6 @@ fn plane(
     Some(px)
 }
 
-/// `ops` over `rect` at `ppi` in CMYK, drawn plate by plate, tinted with the color
-/// of `shadow` and blurred by `sigma` pt. With `paper` each plate is drawn as white
-/// less its ink, so that it blends as ink does on paper.
 fn separate(
     ops: &[Op],
     rect: [f32; 4],
@@ -638,7 +616,6 @@ fn opacity(rgba: &[f32; 4]) -> NormalizedF32 {
     NormalizedF32::new(rgba[3].clamp(0.0, 1.0)).unwrap()
 }
 
-/// The stops' inks, or all of them as CMYK when they do not share one color space.
 fn inks(stops: &[ListStop]) -> Vec<Ink> {
     let shared = stops.windows(2).all(|w| match (&w[0].ink, &w[1].ink) {
         (Ink::Rgb, Ink::Rgb) | (Ink::Cmyk(_), Ink::Cmyk(_)) => true,
@@ -661,7 +638,6 @@ fn inks(stops: &[ListStop]) -> Vec<Ink> {
         .collect()
 }
 
-/// The paint of `p` and its opacity, which marks an overprinting paint for `pdfx`.
 fn convert(p: &Paint, preset: Preset) -> (krilla::paint::Paint, NormalizedF32) {
     let over = preset != Preset::Screen && p.overprints();
     let marked = |o| match over {
@@ -1081,8 +1057,6 @@ mod tests {
         assert!(p.red() < 20 && p.green() > 200 && p.blue() > 200, "{p:?}");
     }
 
-    /// `pdf` with its streams decompressed by MuPDF, which must read it without
-    /// repairs, and its whitespace collapsed to single spaces.
     fn clean(pdf: &[u8]) -> String {
         static RUN: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
         let run = RUN.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -1110,7 +1084,6 @@ mod tests {
         text
     }
 
-    /// A CMYK page with an RGB fill, a translucent fill, a shadow and an image.
     fn busy() -> Vec<Op> {
         let mut ops = shadowed();
         ops.extend(red_image().into_iter().skip(1));

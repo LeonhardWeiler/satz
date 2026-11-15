@@ -1,13 +1,9 @@
 use super::*;
 
-/// The mark on an object replacement character that names the layer it stands for.
 pub(super) const OBJECT: &str = "object";
-/// How an anchored layer follows its character, and where that was when it last moved.
 pub(super) const ANCHORED: &str = "anchored";
 const ANCHOR_AT: &str = "anchorAt";
 
-/// How an anchored layer follows its character: in the line, which makes room for
-/// it, or at its own place, moving as the character moves.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -17,8 +13,6 @@ pub enum Anchoring {
 }
 
 impl Doc {
-    /// Anchors the layer `id` inline before the UTF-16 index `at` of the story of the
-    /// text layer `text`, and moves it just above that layer.
     pub(super) fn anchor(&self, id: String, text: String, at: usize) -> Res<Vec<String>> {
         let (o, f) = (self.layer(&id)?, self.node(&text)?);
         let t = self.text(f)?;
@@ -43,7 +37,6 @@ impl Doc {
         Ok(vec![])
     }
 
-    /// Makes the anchored layer `id` free again and removes its character.
     pub(super) fn unanchor(&self, id: String) -> Res<Vec<String>> {
         let o = self.layer(&id)?;
         let m = self.meta(o);
@@ -61,9 +54,6 @@ impl Doc {
         Ok(vec![])
     }
 
-    /// Makes the characters in the texts of the copies `pasted` stand for the copies
-    /// `copies` of their layers and drops those of layers not copied; copies that no
-    /// character stands for are free.
     pub(super) fn reanchor(
         &self,
         pasted: impl Iterator<Item = TreeID> + Clone,
@@ -92,8 +82,6 @@ impl Doc {
         Ok(())
     }
 
-    /// The width and height that the layer `id` takes in a line when it is anchored
-    /// inline.
     pub(super) fn object_size(&self, id: &str) -> [f64; 2] {
         let Ok(o) = self.node(id) else {
             return [0.0; 2];
@@ -107,9 +95,6 @@ impl Doc {
         }
     }
 
-    /// Moves the layers anchored in the stories `heads` with their characters, onto
-    /// the page of the frame that sets each: inline ones onto the baseline, others
-    /// by as much as their character moved. Whether any layer moved.
     pub(super) fn place_anchored(&self, heads: &HashSet<TreeID>) -> Res<bool> {
         let mut moved = false;
         for &head in heads {
@@ -161,8 +146,6 @@ impl Doc {
     }
 }
 
-/// The UTF-16 index of each object replacement character in `t` that names a layer,
-/// with that layer's id.
 fn anchors(t: &LoroText) -> Vec<(usize, String)> {
     let mut out = Vec::new();
     let mut at = 0;
@@ -199,7 +182,6 @@ mod tests {
         [x, y]
     }
 
-    /// The x of each glyph of the first line of `id` and its baseline.
     fn line(d: &Doc, id: &str) -> (Vec<f32>, f32) {
         let flows = d.flows();
         let l = &flows[&d.node(id).unwrap()].placed.lines[0];

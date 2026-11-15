@@ -15,7 +15,6 @@ async function exported(page: Page) {
   return execFileSync('mutool', ['draw', '-F', 'trace', '-o', '-', pdf]).toString().match(/<fill_path/g)?.length ?? 0
 }
 
-/** Draws a rectangle short of the bleed at the top of the page and returns a point inside it. */
 async function drawn(page: Page) {
   await page.keyboard.press('r')
   await drag(page, await screen(page, 20, -1), await screen(page, 40, 20))

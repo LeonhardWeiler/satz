@@ -1,7 +1,6 @@
 use super::*;
 
 pub(super) struct Clip {
-    /// The copied layer, so that copies of threaded frames thread among themselves.
     pub(super) id: TreeID,
     pub(super) meta: LoroValue,
     pub(super) text: Vec<TextDelta>,
@@ -55,9 +54,6 @@ impl Doc {
         Ok(new)
     }
 
-    /// Threads the copies of `pasted`, clips with the layer pasted from each, as their
-    /// originals are threaded among them. A copy that follows another copy leaves the
-    /// story, which each clip holds whole, to the first copy of its thread.
     pub(super) fn rethread<C: std::borrow::Borrow<Clip>>(&self, pasted: &[(C, TreeID)]) -> Res<()> {
         let mut pairs = Vec::new();
         for (clip, copy) in pasted {
@@ -77,7 +73,6 @@ impl Doc {
         self.reanchor(pairs.iter().map(|p| p.1), &copies)
     }
 
-    /// Each layer copied into `clip` with its copy under `copy` and the layer it threads to.
     pub(super) fn pair_up(
         &self,
         clip: &Clip,
@@ -94,8 +89,6 @@ impl Doc {
         }
     }
 
-    /// The copied layers as a document of one page with the images they use and their
-    /// swatches and variables resolved, for `take_clip` in another document.
     pub fn clip_out(&self) -> Vec<u8> {
         let d = Doc::with(LoroDoc::new());
         let page = d.tree.create(None).unwrap();
@@ -124,8 +117,6 @@ impl Doc {
         d.save()
     }
 
-    /// Makes the layers of a `clip_out` of another document the clipboard, in this
-    /// document's colour mode and with their images added.
     pub fn take_clip(&mut self, bytes: &[u8]) -> Res<()> {
         let doc = LoroDoc::new();
         doc.import(bytes).map_err(|_| "not copied layers")?;

@@ -1,15 +1,10 @@
 use super::*;
 
-/// The grid of a table frame, whose text layers with a `CELL` are its cells.
 pub(super) const TABLE: &str = "table";
-/// Where a cell sits in its table: column, row, and the columns and rows it spans.
 pub(super) const CELL: &str = "cell";
 const PADDING: f64 = 4.0;
 const COLUMN: f64 = 60.0;
 
-/// The column widths and least row heights in pt of a table; a row grows to its
-/// cells' text, and the table scales its columns to its width and its rows to a
-/// height above theirs.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct Table {
@@ -43,7 +38,6 @@ impl Doc {
         from_loro(value(&self.meta(id), TABLE)?).filter(Table::sound)
     }
 
-    /// The cells of the table `id` with where they sit, clamped to its grid.
     fn cells(&self, id: TreeID, t: &Table) -> Vec<(TreeID, Cell)> {
         let (nc, nr) = (t.columns.len(), t.rows.len());
         self.children(id)
@@ -68,7 +62,6 @@ impl Doc {
         self.meta(id).insert(CELL, loro(c)?).map_err(err)
     }
 
-    /// Makes the new frame `id` a table of 3 by 3 empty cells filling it.
     pub(super) fn fill_table(&self, id: TreeID) -> Res<()> {
         let [x, y, w, h] = self.bounds(id);
         let t = Table {
@@ -100,8 +93,6 @@ impl Doc {
         Ok(())
     }
 
-    /// A new empty cell at `at` in `table` that looks like the cell `like`, after the
-    /// cells before it in reading order.
     fn new_cell(&self, table: TreeID, at: Cell, like: TreeID) -> Res<()> {
         let t = self.table(table).ok_or("no table")?;
         let before: Vec<_> = (self.cells(table, &t).into_iter())
@@ -127,7 +118,6 @@ impl Doc {
         self.put_cell(n, at)
     }
 
-    /// The table `id` or the table of the cell `id`.
     fn table_of(&self, id: &str) -> Res<(TreeID, Table)> {
         let mut n = self.layer(id)?;
         if self.table(n).is_none() && value(&self.meta(n), CELL).is_some() {
@@ -140,8 +130,6 @@ impl Doc {
         Ok((n, self.table(n).ok_or(format!("{id} is not in a table"))?))
     }
 
-    /// Adds a row or, with `column`, a column before index `at` of the table of `id`
-    /// (the table or one of its cells), sized and styled like its neighbour.
     pub(super) fn table_insert(&self, id: String, column: bool, at: usize) -> Res<Vec<String>> {
         let (n, old) = self.table_of(&id)?;
         let mut t = old.clone();
@@ -185,8 +173,6 @@ impl Doc {
         Ok(vec![])
     }
 
-    /// Removes the row or, with `column`, the column `at` of the table of `id`, and
-    /// the cells only in it.
     pub(super) fn table_delete(&self, id: String, column: bool, at: usize) -> Res<Vec<String>> {
         let (n, old) = self.table_of(&id)?;
         let mut t = old.clone();
@@ -215,8 +201,6 @@ impl Doc {
         self.put_table(n, &t).map(|()| vec![])
     }
 
-    /// Merges the cells `ids`, which make a rectangle of one table, into the first,
-    /// which takes their text one paragraph after another.
     pub(super) fn merge_cells(&self, ids: Vec<String>) -> Res<Vec<String>> {
         let (n, t) = self.table_of(ids.first().ok_or("no cells")?)?;
         let cells = self.cells(n, &t);
@@ -271,8 +255,6 @@ impl Doc {
         Ok(vec![keep.to_string()])
     }
 
-    /// Splits the merged cell `id` into one cell per column and row it spans; the
-    /// first keeps its text.
     pub(super) fn split_cell(&self, id: String) -> Res<Vec<String>> {
         let (n, t) = self.table_of(&id)?;
         let c = self.layer(&id)?;
@@ -295,8 +277,6 @@ impl Doc {
         Ok(vec![])
     }
 
-    /// Sets the column widths and least row heights of the table `id`, as many as it
-    /// has.
     pub(super) fn size_table(&self, id: String, t: Table) -> Res<Vec<String>> {
         let (n, old) = self.table_of(&id)?;
         if t.columns.len() != old.columns.len() || t.rows.len() != old.rows.len() {
@@ -308,9 +288,6 @@ impl Doc {
         self.put_table(n, &t).map(|()| vec![])
     }
 
-    /// The heights of the rows of the table `id`: at least their least height, and
-    /// enough for the text of their cells, a cell spanning rows growing the last and a
-    /// threaded cell not at all.
     fn row_heights(&self, id: TreeID, t: &Table) -> Res<Vec<f64>> {
         let xs = ends(&t.columns);
         let mut cells = self.cells(id, t);
@@ -329,7 +306,6 @@ impl Doc {
         Ok(rows)
     }
 
-    /// Scales the columns of the table `id` to the width `w` and its rows to `h`.
     pub(super) fn scale_table(&self, id: TreeID, w: f64, h: f64) -> Res<()> {
         let Some(mut t) = self.table(id) else {
             return Ok(());
@@ -347,7 +323,6 @@ impl Doc {
         self.meta(id).insert(TABLE, loro(&t)?).map_err(err)
     }
 
-    /// Sets the frames of the cells of the table `id` and the table's size.
     pub(super) fn lay_out_table(&self, id: TreeID, t: Table) -> Res<()> {
         let [x, y, ..] = self.bounds(id);
         let (xs, ys) = (ends(&t.columns), ends(&self.row_heights(id, &t)?));
@@ -372,7 +347,6 @@ mod tests {
     use super::super::tests::*;
     use super::*;
 
-    /// The cells of the table `id`, in reading order, with their frames and text.
     fn grid(d: &Doc, id: &str) -> Vec<(Cell, [f64; 4], String)> {
         let n = d.node(id).unwrap();
         let t = d.table(n).unwrap();

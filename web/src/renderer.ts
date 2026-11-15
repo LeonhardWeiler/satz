@@ -5,54 +5,35 @@ import type { Grid, Guides } from './model'
 import { gridSpans } from './snap'
 import { toPath, type At, type Contour } from './vector'
 
-/** Marks the font of a glyph run whose own font is missing, drawn in the bundled one. */
 const MISSING = 2 ** 31
 const VARIED = 2 ** 30
-/** Marks an image id as the C, M and Y or K plate, as `image::CMY` and `image::K` do. */
 const [PLATE_CMY, PLATE_K] = [2 ** 30, 2 ** 29]
 
 type Cache = Map<number, { hash: number; picture: SkPicture; images: Set<number> }>
 
 export type View = { x: number; y: number; zoom: number }
-/** A box turned `rotation` degrees counterclockwise around its centre. */
 export type Box = { x: number; y: number; w: number; h: number; rotation?: number }
 type Line = [{ x: number; y: number }, { x: number; y: number }]
 export type Overlay = {
-  /** The color of the selection chrome, the theme's `--select`. */
   accent: string
-  /** Layers beyond the bleed are drawn too. */
   pasteboard?: boolean
-  /** Boxes, or the ends of lines. */
   selection: (Box | Line)[]
-  /** The selection is a text frame being edited, outlined 4 px outside. */
   editing?: boolean
   hover?: Box | Line
   marquee?: Box
   handles?: Box
-  /** Corner radius handles in screen space. */
   radii?: { x: number; y: number }[]
-  /** Handles in screen space between the layers of a row, dragged to change their gap. */
   gaps?: { x: number; y: number; axis: 'x' | 'y' }[]
-  /** Ends of a selected line, shown instead of box handles. */
   ends?: { x: number; y: number }[]
-  /** Where dragged layers land in an auto layout frame. */
   insert?: [{ x: number; y: number }, { x: number; y: number }]
   pen?: { anchors: { x: number; y: number; hx: number; hy: number }[]; cursor?: { x: number; y: number } } | null
-  /** Display lists of the caret or selection in the text being edited, each in the space of a page at `x`. */
   text?: { ops: Uint32Array; x: number }[]
-  /** Display lists of the matches of find and replace, drawn fainter. */
   found?: { ops: Uint32Array; x: number }[]
-  /** Ports of a text frame in screen space: threaded, holding overset text, or open to thread on. */
   ports?: readonly { x: number; y: number; state: 'threaded' | 'overset' | 'open' }[]
-  /** The knots of the path being edited and the one picked. */
   vector?: { contours: Contour[]; at: At[]; hover?: At }
-  /** The frame being cropped and its whole image, in the frame's unturned space. */
   crop?: { frame: Box; image: Box }
-  /** Show the layout grids and guides of the pages. */
   grids?: boolean
-  /** The picked guide: a vertical one at `x` or a horizontal one at `y`. */
   guide?: { x: number } | { y: number }
-  /** Lines in screen space from each frame of a thread to the next. */
   threads?: [{ x: number; y: number }, { x: number; y: number }][]
 }
 
@@ -60,15 +41,11 @@ const FIT_PADDING = 64
 const IMAGE_BYTES = 256 * 2 ** 20
 export const HANDLE = 8
 const PORT = 10
-/** Path verbs of CanvasKit's path commands. */
 const [MOVE, LINE, CLOSE] = [0, 1, 5]
 
-/** A page on the canvas: its trim size and bleed, and the x of its left edge on its spread. */
 export type Sheet = { x: number; width: number; height: number; bleed: number; grids?: Grid[]; guides?: Guides }
-/** RGBA pixels drawn over the page with its bleed, `rect` in the space of the page. */
 export type Inked = { width: number; height: number; image: Uint8Array; rect: Box }
 
-/** The view that fits the pages of a spread, aligned at the top, into `width` × `height` px. */
 export function fitView(sheets: Sheet[], width: number, height: number): View {
   const left = Math.min(...sheets.map((s) => s.x))
   const w = Math.max(...sheets.map((s) => s.x + s.width)) - left
@@ -89,7 +66,6 @@ const BLENDS = [
   'SrcOver', 'Multiply', 'Screen', 'Overlay', 'Darken', 'Lighten', 'ColorDodge', 'ColorBurn',
   'HardLight', 'SoftLight', 'Difference', 'Exclusion', 'Hue', 'Saturation', 'Color', 'Luminosity',
 ] as const
-/** Shows the inverted C, M and Y plate `cmy` and K plate `k` as their inks print on paper, through the screen colors `lut` of a grid of `n` steps per ink; `on` keeps or drops each ink. */
 const INKS = `
 uniform shader cmy;
 uniform shader k;
@@ -110,10 +86,6 @@ half4 main(float2 p) {
     black - b);
   return half4(s.rgb * a.a, a.a);
 }`
-/**
- * Shows `image` adjusted by [k, m, o] as `Engine.imageSource` gives them, as it is for `plate` 0, or separated
- * through the CMYK `separation` of a grid of `n` steps per channel as the inverted C, M and Y plate 1 or the K plate 2.
- */
 const IMAGE = `
 uniform shader image;
 uniform shader separation;
@@ -143,10 +115,8 @@ const CAPS = ['Butt', 'Round', 'Square'] as const
 const JOINS = ['Miter', 'Round', 'Bevel'] as const
 
 export class Renderer {
-  /** Item pictures by item id, and pictures of layers with shadows by layer hash, for the page and for its C, M and Y and its K plate. */
   private caches = [0, 1, 2].map(() => ({ pictures: new Map(), layers: new Map() }) as { pictures: Cache; layers: Cache })
   private cache = this.caches[0]
-  /** The plates, the shader that shows them and its screen colors, made on first use. */
   private plates: Surface[] = []
   private inksEffect?: RuntimeEffect
   private lut?: Image
@@ -155,32 +125,20 @@ export class Renderer {
   private profile = ''
   private typefaces = new Map<number, Typeface>()
   private fonts = new Map<string, Font>()
-  /** Decoded images by the id `source` decodes, least recently shown first; `null` while decoding or when the file does not decode. */
   private images = new Map<number, Image | null>()
-  /** Images being decoded. */
   decoding = 0
-  /** `Engine.imageSource` by display-list id. */
   private sources = new Map<number, Float64Array>()
-  /** Images of the inks over pages by their pixels. */
   private inks = new Map<Uint8Array, Image>()
-  /** Items, layers and images drawn since the last `sweep`. */
   private live = new Set<number>()
   private shown = new Set<number>()
-  /** The images of each picture being recorded, innermost last. */
   private recording: Set<number>[] = []
-  /** Some page was recorded since the last `sweep`. */
   private recorded = false
-  /** The pages as `drawScene` last drew them, and what of. */
   private scene?: { surface: Surface; key: unknown[] }
-  /** The decoded display list of each page and plate, with its version. */
   private lists = new Map<string, { version: number; ops: Op[] }>()
-  /** The union of the bleed boxes of the sheets `key` names. */
   private bleed?: { key: string; path: Path }
-  /** Paint for display-list content; `chrome` draws the page, guides and overlay. */
   private paint: Paint
   private chrome: Paint
 
-  /** Images wider or taller than `maxImage` px are kept shrunk to it; `loaded` runs when an image has decoded. */
   constructor(
     private ck: CanvasKit,
     private engine: Engine,
@@ -192,13 +150,6 @@ export class Renderer {
     this.chrome = this.paint.copy()
   }
 
-  /**
-   * Draws the display list of each page of `lists` at its x on the spread, over the
-   * pages `sheets`, clipped to their bleed together: a layer across the spine shows on
-   * both pages, and the bleed runs around the spread's outer edges, with their `inks`
-   * over them; `cmyk` pages blend their inks as they print, of C, M, Y and K those whose bit is set in `on`.
-   * With an `overlay` the pages are drawn again only when their display lists, inks or the view change.
-   */
   draw(canvas: Canvas, lists: { id: string; x: number; inks?: Inked }[], sheets: Sheet[], view: View, dpr: number, overlay: Overlay | null, cmyk = false, on = 15) {
     const { ck, chrome: paint } = this
     canvas.clear(ck.TRANSPARENT)
@@ -349,7 +300,6 @@ export class Renderer {
     if (overlay) this.drawOverlay(canvas, view, dpr, overlay)
   }
 
-  /** Forgets the pictures that no `draw` since the last sweep used, and the least recently shown images beyond `IMAGE_BYTES`. */
   sweep() {
     if (!this.recorded) return
     this.recorded = false
@@ -386,7 +336,6 @@ export class Renderer {
     return s
   }
 
-  /** Decodes the image `id` of the engine off the main thread, shrunk to `maxImage`. */
   private decode(id: number) {
     const { ck, images } = this
     images.set(id, null)
@@ -415,7 +364,6 @@ export class Renderer {
       .then(done, () => done(null))
   }
 
-  /** Draws what `content` draws through a surface that keeps it while the pages, the view and the size of `canvas` stay. */
   private drawScene(canvas: Canvas, lists: { id: string; x: number; inks?: Inked }[], sheets: Sheet[], view: View, dpr: number, cmyk: boolean, on: number, content: (c: Canvas) => void) {
     const { ck } = this
     const [, , width, height] = canvas.getDeviceClipBounds()
@@ -438,7 +386,6 @@ export class Renderer {
     image.delete()
   }
 
-  /** Draws the plates 1 and 2 that `draw` draws, each on a surface of its own, as their inks print. */
   private drawPlates(canvas: Canvas, on: number, draw: (c: Canvas, plate: number) => void) {
     const { ck } = this
     const [, , width, height] = canvas.getDeviceClipBounds()
@@ -498,7 +445,6 @@ export class Renderer {
       paint.setColor(accent)
       canvas.drawRect(h, paint)
     }
-    /** Draws `draw` turned as `b` is. */
     const turned = (b: Box, draw: () => void) => {
       canvas.save()
       if (b.rotation) canvas.rotate(-b.rotation, ...at(b.x + b.w / 2, b.y + b.h / 2))
@@ -724,7 +670,6 @@ export class Renderer {
     }
   }
 
-  /** The picture cached under `key`, recorded again when `hash` changes. */
   private cached(cache: Cache, key: number, hash: number, record: () => SkPicture) {
     let entry = cache.get(key)
     if (entry?.hash !== hash) {
@@ -817,7 +762,6 @@ export class Renderer {
     canvas.restore()
   }
 
-  /** Sets fill style and paint; returns the shader to delete after drawing and detaching. */
   private setPaint(p: Fill) {
     const { ck, paint } = this
     paint.setStyle(ck.PaintStyle.Fill)
@@ -858,7 +802,6 @@ export class Renderer {
     return font
   }
 
-  /** Forgets what shows through the CMYK profile when it is no longer `name`. */
   reprofile(name: string) {
     if (name === this.profile) return
     this.profile = name
@@ -869,7 +812,6 @@ export class Renderer {
     this.clear()
   }
 
-  /** Forgets the pictures of all items and layers, and the pages last drawn. */
   private clear() {
     this.scene?.surface.delete()
     this.scene = undefined

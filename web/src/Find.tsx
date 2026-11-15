@@ -6,7 +6,6 @@ import { Icon } from './icons'
 
 type Match = Editor['found'][number]
 
-/** Every match of `find` in the stories in page order, in whole words or case if asked, in text of the text style `style` if given. */
 function matches(snapshot: Snapshot, find: string, matchCase: boolean, words: boolean, style: string): Match[] {
   if (!find) return []
   const escaped = find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -28,7 +27,6 @@ function matches(snapshot: Snapshot, find: string, matchCase: boolean, words: bo
   })
 }
 
-/** Ctrl+F: finds text in every story and replaces it. */
 export function Find({ editor, onClose }: { editor: Editor; onClose: () => void }) {
   const input = useRef<HTMLInputElement>(null)
   const [find, setFind] = useState('')

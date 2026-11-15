@@ -19,17 +19,14 @@ import { selectedCells } from './cells'
 
 const DRAG = 3
 const HIT = 6
-/** Distance in px within which layers snap. */
 const SNAP = 5
 const EDGE = 20000 * MM
 const TURN = 'M6 18a12 12 0 0 1 12-12M3 15l3 3 3-3M15 3l3 3-3 3'
 const ARROW = 'M4 12h16M7 9l-3 3 3 3M17 9l3 3-3 3'
-/** Degrees counterclockwise of the arrow of each resize handle and of the turn arrow at each corner. */
 const RESIZE: Record<string, number> = { e: 0, ne: 45, n: 90, nw: 135, w: 180, sw: 225, s: 270, se: 315 }
 const TURNS: Record<string, number> = { nw: 0, sw: 90, se: 180, ne: 270 }
 const NATIVE = ['ew-resize', 'nesw-resize', 'ns-resize', 'nwse-resize']
 
-/** The cursor over the handle `handle` of a selection turned `turn` degrees counterclockwise. */
 function cursorOf(handle: string, turn: number) {
   const svg = (path: string, degrees: number, fallback: string) =>
     `url("data:image/svg+xml,${encodeURIComponent(
@@ -43,16 +40,13 @@ function cursorOf(handle: string, turn: number) {
   const k = Math.round(a / 45)
   return Math.abs(a - k * 45) < 1 ? NATIVE[k % 4] : svg(ARROW, a, NATIVE[k % 4])
 }
-/** Size in mm of a layer made with a click; a clicked text is auto width, a dragged one fixed. */
 const DEFAULT_SIZE: Record<Exclude<Tool, 'move' | 'pen' | 'eyedropper'>, [number, number]> = {
   rect: [30, 30], ellipse: [30, 30], polygon: [30, 30], star: [30, 30], frame: [30, 30], text: [0, 0], table: [90, 30],
   line: [30, 0],
 }
 
-/** How far the visible stroke of `n` reaches beyond its frame. */
 const outset = (n: Node) =>
   n.kind === 'text' || !n.strokes.some((s) => s.visible) ? 0 : n.strokeAlign === 'outside' ? n.strokeWeight : n.strokeAlign === 'center' ? n.strokeWeight / 2 : 0
-/** `b` with its centre turned by `by` degrees about the origin. */
 const spun = <T extends Box>(b: T, by: number): T => {
   const c = spin({ x: b.x + b.w / 2, y: b.y + b.h / 2 }, by)
   return { ...b, x: c.x - b.w / 2, y: c.y - b.h / 2 }
@@ -60,7 +54,6 @@ const spun = <T extends Box>(b: T, by: number): T => {
 const grow = <T extends Box>(b: T, m: number): T => ({ ...b, x: b.x - m, y: b.y - m, w: b.w + 2 * m, h: b.h + 2 * m })
 
 type Pointer = { offsetX: number; offsetY: number; ctrlKey: boolean }
-/** What a drag snaps to and the layers it measures to. */
 type Snaps = { lines: Lines; others: Box[] }
 type Drag =
   | { kind: 'pan'; last: Point }
@@ -79,7 +72,6 @@ type Drag =
   | { kind: 'image'; start: Point; node: Node; turn: number }
   | { kind: 'guide'; axis: 'x' | 'y'; id: string; dx: number; index: number; grouped: boolean }
 
-/** Degrees counterclockwise of `p` around `c`. */
 function angle(c: Point, p: Point) {
   return (Math.atan2(c.y - p.y, p.x - c.x) * 180) / Math.PI
 }
@@ -98,10 +90,6 @@ const RULER = 20
 
 const rulers = new WeakMap<HTMLCanvasElement, { w: number; h: number; color: string; magenta: string; key?: string }>()
 
-/**
- * Draws a ruler whose 0 is at `origin` px, at `scale` px per unit, with the span
- * `extent` in px shaded and a mark at each of `guides` in px.
- */
 function drawRuler(c: HTMLCanvasElement, horizontal: boolean, origin: number, scale: number, extent?: [number, number], guides: number[] = []) {
   let r = rulers.get(c)
   if (!r) {
@@ -162,9 +150,7 @@ function drawRuler(c: HTMLCanvasElement, horizontal: boolean, origin: number, sc
   g.fill()
 }
 
-/** Half a blink period of the caret in ms. */
 const BLINK = 530
-/** The zoom of 100 %, where a mm of the page is a mm of the screen. */
 const ONE = () => settings.screenMm / MM
 
 let zoomed = 0
@@ -173,7 +159,6 @@ const onZoom = (f: () => void) => {
   zoomers.add(f)
   return () => void zoomers.delete(f)
 }
-/** The canvas zoom in percent. */
 export const useZoom = () => Math.round((useSyncExternalStore(onZoom, () => zoomed) / ONE()) * 100)
 
 export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
@@ -188,7 +173,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   const overview = useEditor(editor, (e) => e.overview !== null)
 
   useEffect(() => {
-    // A modal dialog that closes focuses the text input while it is still inert, which then takes no typing.
     const refocus = () => {
       const a = area.current
       if (a && document.activeElement === a) {
@@ -204,7 +188,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     const canvas = ref.current!
     const renderer = new Renderer(ck, editor.engine, () => redraw())
     const view: View = { x: 0, y: 0, zoom: 1 }
-    /** The view of each spread left for another, as Figma keeps it for pages. */
     const spreadKey = () => `${editor.spread.map((p) => p.id).join()}/${editor.sheets.map((s) => `${s.width}x${s.height}`).join()}`
     let shown = spreadKey()
     const gl = ck.MakeWebGLContext(ck.GetWebGLContext(canvas))!
@@ -218,7 +201,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     let accent = ''
     let markup = ''
     let cursor: Point | undefined
-    /** Last pointer position and Ctrl state over the canvas, for hover and cursor. */
     let pointer: Pointer | undefined
     let port: 'in' | 'out' | undefined
     let alt = false
@@ -226,7 +208,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     let measures: Measure[] = []
     let caretOn = true
     let blink: ReturnType<typeof setInterval> | undefined
-    /** Shows the caret and blinks it from now on, so that it stays while typing. */
     const wake = () => {
       caretOn = true
       clearInterval(blink)
@@ -236,7 +217,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       }, BLINK)
     }
     wake()
-    /** The last move of a drag, moved again as the view scrolls under it. */
     let held: PointerEvent | undefined
     const edge = edgeScroll(
       () => canvas.getBoundingClientRect(),
@@ -248,25 +228,20 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       },
     )
 
-    /** A point in the space of the spread, whose spine is at x 0. */
     const toDoc = (e: { offsetX: number; offsetY: number }): Point => ({
       x: (e.offsetX - view.x) / view.zoom,
       y: (e.offsetY - view.y) / view.zoom,
     })
-    /** A layer where it sits on the spread. */
     const placed = <T extends Node>(n: T): T => ({ ...n, x: n.x + editor.dx(n.id) })
-    /** `n` at the upright box it covers on the spread. */
     const covered = (n: Node): Node => {
       const [x, y, w, h] = n.bounds
       return { ...n, x: x + editor.dx(n.id), y, w, h }
     }
-    /** The index in the text `id` nearest `p`. */
     const textAt = (id: string, p: Point) => {
       const q = editor.local(id, p)
       return editor.engine.textIndex(id, q.x, q.y)
     }
     const flowing = (c?: Node): c is Container => c?.kind === 'frame' && c.direction !== 'none'
-    /** The deepest auto layout frame under `p` that is not one of the layers `ids` or inside them. */
     const flowAt = (p: Point, ids: string[]) => {
       let found: Container | undefined
       for (const e of editor.nodes.values()) {
@@ -279,12 +254,10 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       }
       return found
     }
-    /** The page of `pages` under `p`, or the nearest. */
     const pageAt = (p: Point, pages = editor.spread) => {
       const away = (q: Page) => Math.max(q.x - p.x, p.x - q.x - q.width, 0)
       return pages.reduce((a, b) => (away(b) < away(a) ? b : a))
     }
-    /** The ruler guide within reach of `p`. */
     const guideAt = (p: Point) => {
       if (!editor.grids || editor.preflight) return undefined
       for (const s of editor.sheets) {
@@ -294,7 +267,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         }
       }
     }
-    /** Starts to drag a new guide out of a ruler. */
     const fromRuler = (axis: 'x' | 'y') => (e: PointerEvent) => {
       if (e.button !== 0) return
       editor.set({ grids: true })
@@ -304,9 +276,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     }
     const downX = fromRuler('y')
     const downY = fromRuler('x')
-    /** The text frame under `p`, innermost first. */
     const textUnder = (p: Point) => hit(p).path.findLast((id) => editor.nodes.get(id)?.node.kind === 'text')
-    /** The path of layers at `p` on the topmost page of the spread that has one there. */
     const hit = (p: Point) => {
       for (const page of [...editor.spread].reverse()) {
         const path = editor.engine.hit(page.id, p.x - page.x, p.y, HIT / view.zoom)
@@ -314,13 +284,11 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       }
       return { page: pageAt(p), path: [] as string[] }
     }
-    /** The inks of the page `p` from the preflight, over its bleed. */
     const inkedOf = (p: Page) => {
       const v = editor.previewed
       const s = v?.sheets.find((s) => s.page === p.id)
       return s && { ...s, rect: { x: -p.bleed, y: -p.bleed, w: p.width + 2 * p.bleed, h: p.height + 2 * p.bleed } }
     }
-    /** The ink coverage in % of the preflight at `p`. */
     const inkAt = (p: Point) => {
       const page = pageAt(p)
       const s = inkedOf(page)
@@ -328,16 +296,10 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const [x, y] = [p.x - page.x - s.rect.x, p.y - s.rect.y].map((v) => Math.floor((v / s.rect.w) * s.width))
       return x >= 0 && y >= 0 && x < s.width && y < s.height ? Math.round(s.coverage[y * s.width + x]) : null
     }
-    /** The layer that a click at `p` picks. */
     const pickAt = (p: Point, mode: 'click' | 'double' | 'deep') => {
       const { page, path } = hit(p)
       return pick(page.children, path, editor.selection, mode)
     }
-    /**
-     * The out-port in screen space of a single selected text frame that can thread, as in
-     * InDesign, on its right edge above the bottom, and its in-port below the top of the
-     * left edge if a frame threads into it.
-     */
     const ports = () => {
       const [n] = editor.selected()
       if (editor.tool !== 'move' || editor.selection.length !== 1 || editor.editing || n?.kind !== 'text') return undefined
@@ -345,7 +307,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const p = portsOf(view, editor.shown(n))
       return { node: n, out: p.out, in: n.prev || n.next ? p.in : undefined }
     }
-    /** Threads the text frame `to` after or before the loaded one; whether it could. */
     const threadWith = (t: { id: string; before: boolean }, to: string) => {
       const ok = editor.engine.canThread(t.id, to)
       editor.apply(t.before ? { type: 'threadBefore', id: t.id, to } : { type: 'thread', from: t.id, to })
@@ -361,7 +322,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const u = b && upright(b)
       return !!(p && u && p.x >= u.x && p.x <= u.x + u.w && p.y >= u.y && p.y <= u.y + u.h)
     }
-    /** Box handles of the selection, or the ends of a single selected line. */
     const handles = () => {
       const nodes = editor.selected().map(placed)
       if ((editor.tool !== 'move' && drag?.kind !== 'draw') || !nodes.length || editor.editing || editor.vector) return {}
@@ -378,19 +338,16 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       }
     }
 
-    /** The turn of `nodes` as shown and their own, when they are one layer or all turn alike on unturned parents. */
     const turnOf = (nodes: Node[]) => {
       const turns = nodes.map((n) => editor.shown(n).rotation!)
       const near = (a: number) => Math.abs(a - turns[0]) < 1e-6
       return nodes.length === 1 || nodes.every((n, i) => near(turns[i]) && near(n.rotation)) ? [turns[0], nodes[0].rotation] : [0, 0]
     }
-    /** The selection box of `nodes`, turned with them. */
     const boxOf = (nodes: Node[]): Box => {
       if (nodes.length === 1) return editor.shown(nodes[0])
       const [turn, own] = turnOf(nodes)
       return { ...spun(bounds(nodes.map((n) => spun(placed(n), -own))), own), rotation: turn }
     }
-    /** What the layers `ids` snap to: the pages of the spread and the visible layers beside them. */
     const snapsNow = (ids = editor.selection, sheets = editor.sheets): Snaps => {
       const top = (id: string) => {
         let e = editor.nodes.get(id)
@@ -403,13 +360,11 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const others = [...new Map([...tops, ...siblings].map((n) => [n.id, n])).values()].filter((n) => !n.hidden && !skip.has(n.id))
       return { lines: targets(sheets, others, editor.grids), others }
     }
-    /** `p` moved onto what it snaps to, unless `off`, with the guides through it. */
     const snapPoint = (p: Point, snaps: Snaps | undefined, off: boolean) => {
       if (!snaps || off) return { p, guides: [] }
       const q = { x: p.x + snap([p.x], snaps.lines.x, SNAP / view.zoom), y: p.y + snap([p.y], snaps.lines.y, SNAP / view.zoom) }
       return { p: q, guides: guides({ ...q, w: 0, h: 0 }, snaps.lines, [q.x], [q.y]) }
     }
-    /** The centre of the image being placed at `p`, moved onto what it snaps to unless `off`, with the guides through it. */
     const placeAt = (p: Point, off: boolean) => {
       const { w, h } = editor.placing[0]
       const { lines } = snapsNow([])
@@ -479,7 +434,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const at = g ? s?.guides[g.axis][g.index] : undefined
       return g && s && at !== undefined ? (g.axis === 'x' ? { x: s.x + at } : { y: at }) : undefined
     }
-    /** Ports of the selected text frame; over a port, the lines of its thread on this spread and the frame the port links to. */
     const threadOverlay = () => {
       const p = drag ? undefined : ports()
       if (!p) return {}
@@ -606,7 +560,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       zoomers.forEach((f) => f())
       redraw()
     }
-    /** The view at `zoom` that keeps the point `px`, `py` where it is. */
     const around = (px: number, py: number, zoom: number): View => {
       zoom = Math.min(64 * ONE(), Math.max(0.02 * ONE(), zoom))
       return { x: px - ((px - view.x) * zoom) / view.zoom, y: py - ((py - view.y) * zoom) / view.zoom, zoom }
@@ -619,7 +572,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     let anim = 0
     let target: View | undefined
     let fits = false
-    /** Moves the view to `to` in 180 ms, scaling about the point both views share; any input ends the move at `to`, which stays fitted on resize if `fitting`. */
     const glide = (to: View, fitting = false) => {
       settle()
       target = to
@@ -647,13 +599,11 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       target = undefined
     }
 
-    /** Whether a click at `p` with the pen closes its path on the first anchor. */
     const closes = (p: Point) => {
       const pen = editor.pen
       const first = pen?.anchors[0]
       return !!first && pen.anchors.length > 1 && Math.hypot(first.x - p.x + editor.dx(pen.id), first.y - p.y) * view.zoom <= HANDLE
     }
-    /** The whole image of `n` placed in the frame box `b`. */
     const imageBox = (n: Node, { x, y, w, h }: Box): Box | undefined => {
       const f = n.fills.find((f) => f.type === 'image')
       if (!f) return undefined
@@ -661,14 +611,12 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const [x0, y0] = [x + w * (tx + Math.min(0, a) + Math.min(0, c)), y + h * (ty + Math.min(0, b) + Math.min(0, d))]
       return { x: x0, y: y0, w: w * (Math.abs(a) + Math.abs(c)), h: h * (Math.abs(b) + Math.abs(d)) }
     }
-    /** The frame being cropped and its whole image. */
     const crop = () => {
       const n = editor.cropping ? editor.selected()[0] : undefined
       const frame = n && editor.shown(n)
       const image = frame && imageBox(n, frame)
       return image && { frame, image }
     }
-    /** The knots of the path being edited on the spread, and the one picked. */
     const vector = () => {
       const v = editor.vector
       if (!v) return undefined
@@ -676,7 +624,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const contours = editor.knots().map((c) => ({ ...c, knots: c.knots.map((k) => ({ ...k, x: k.x + dx, ix: k.ix + dx, ox: k.ox + dx })) }))
       return { contours, at: v.at, hover: pointer && !drag ? knotUnder(toDoc(pointer)) : undefined }
     }
-    /** The knot of the path being edited under `p`. */
     const knotUnder = (p: Point) => {
       const v = editor.vector
       if (!v) return undefined
@@ -687,7 +634,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       }))
       return hit
     }
-    /** The centres of several selected layers, or of the layers in a selected group or auto layout; one dragged onto another swaps their places. */
     const swaps = () => {
       if (editor.tool !== 'move' || editor.editing || editor.vector) return []
       const one = editor.selection.length === 1 && editor.selected()[0]
@@ -699,7 +645,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         return { id: n.id, box: b, x: b.x + b.w / 2, y: b.y + b.h / 2 }
       })
     }
-    /** A selected layer under `p` that a mask hides there. */
     const maskedAt = (p: Point) =>
       editor.selected().find((n) => {
         const { parent, page } = editor.nodes.get(n.id)!
@@ -707,7 +652,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         const b = upright(editor.shown(n))
         return nodes.slice(nodes.indexOf(n) + 1).some((m) => m.mask && !m.hidden) && p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h
       })?.id
-    /** Swaps the places of the layers `a` and `b`, in the order of an auto layout frame they share. */
     const swap = (a: string, b: string) => {
       const [p, q] = [editor.nodes.get(a)!, editor.nodes.get(b)!]
       const flow = p.parent === q.parent && p.parent?.kind === 'frame' && p.parent.direction !== 'none' ? p.parent : undefined
@@ -790,7 +734,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       }
       track()
     }
-    /** The frame of the edited text's thread on this page that `p` is inside. */
     const inEdited = (p: Point) => {
       const n = editor.editing && editor.nodes.get(editor.editing.id)?.node
       if (n?.kind !== 'text') return undefined
@@ -800,7 +743,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       }
       return inside(n) ? n : [...editor.nodes.values()].map((e) => e.node).find(inside)
     }
-    /** The frame or page under `p` that a new layer goes into, and how far its page sits right of the spine. */
     const parentAt = (p: Point) => {
       const h = hit(p)
       const frame = h.path.findLast((id) => editor.nodes.get(id)?.node.kind === 'frame')
@@ -812,7 +754,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const [id] = editor.apply({ type: 'create', parent, kind, x: p.x - dx, y: p.y, w: 0, h: 0 })
       return { id, dx }
     }
-    /** Starts to draw with `drag.tool`, which a click beside the pages leaves undone. */
     const draw = (drag: Extract<Drag, { kind: 'draw' }>) => {
       editor.beginGroup()
       Object.assign(drag, create(drag.tool, drag.start))
@@ -863,7 +804,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         return
       }
       if (editor.threading) {
-        // A loaded port threads with the text frame clicked, or a new one drawn.
         const from = editor.threading
         if (portUnder(e)) return
         const to = textUnder(p)
@@ -888,7 +828,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           editor.say(<><Keys keys="Enter" /> finishes · click the start point closes</>)
           return
         }
-        // Anchors are in the space of the path's page.
         const anchor = { x: p.x - editor.dx(pen.id), y: p.y, hx: 0, hy: 0 }
         if (closes(p)) {
           drag = null
@@ -980,7 +919,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         }
         editor.set({ vector: null })
       }
-      // Ctrl+Shift+click on a master layer that no page layer covers overrides it, as in InDesign.
       const under = pageAt(p)
       const master = (e.ctrlKey || e.metaKey) && e.shiftKey && !hit(p).path.length
         ? editor.engine.masterHit(under.id, p.x - under.x, p.y, HIT / view.zoom)
@@ -1320,7 +1258,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       if (drag?.kind === 'move' && drag.flow && drag.to) {
         editor.apply({ type: 'move', ids: drag.frames.map((n) => n.id), parent: drag.flow.id, index: drag.to.index })
       } else if (drag?.kind === 'move' && drag.active) {
-        // A layer dragged across the spine goes to the page its centre is on.
         const moves = new Map<Page, string[]>()
         for (const { id } of drag.frames) {
           const entry = editor.nodes.get(id)
@@ -1352,7 +1289,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       if (editor.tool !== 'move' || editor.vector) return
       const port = portUnder(e)
       if (port) {
-        // Double-clicking a port breaks the thread there.
         const id = port.side === 'out' ? port.node.id : port.node.prev
         if (id && (port.side === 'in' || port.node.next)) editor.apply({ type: 'unthread', id })
         editor.set({ threading: null })
@@ -1379,7 +1315,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       } else if (n && n.kind === 'shape' && editor.selection.includes(id)) editor.editPath(id)
       else if (id) editor.set({ selection: [id] })
     }
-    /** A triple click in the edited text selects all of it. */
     const onClick = (e: MouseEvent) => {
       const edited = e.detail >= 3 && editor.tool === 'move' ? inEdited(toDoc(e)) : undefined
       if (edited) select(editor, 0, editor.storyOf(edited).text.length)
@@ -1429,7 +1364,6 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       e.preventDefault()
     }
 
-    /** Moves the view so that the selection clears `r`, a dialog over the canvas, as far as the canvas has room. */
     const clear = (e: Event) => {
       const r = (e as CustomEvent<DOMRect>).detail
       const c = canvas.getBoundingClientRect()

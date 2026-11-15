@@ -32,7 +32,6 @@ export async function example(page: Page, name: string, size: { w?: number; h?: 
   await rest(page)
 }
 
-/** Moves the pointer where it shows no tooltip and no hover. */
 export async function rest(page: Page) {
   const v = page.viewportSize()!
   await page.mouse.move(v.width - 60, v.height - 4)
@@ -42,7 +41,6 @@ export const layers = (page: Page) => page.getByRole('tree', { name: 'Layers' })
 export const props = (page: Page) => page.getByRole('complementary', { name: 'Properties' })
 export const section = (page: Page, name: string) => props(page).getByRole('region', { name, exact: true })
 
-/** Opens `trigger`, saves it with the menu or popover it opens, closes it with Escape. */
 export async function opened(page: Page, cat: string, name: string, caption: string, trigger: Locator, popup: Locator = page.getByRole('menu').last(), extra: Target[] = []) {
   await trigger.click()
   await expect(popup).toBeVisible()
@@ -76,7 +74,6 @@ async function rectOf(page: Page, t: Target): Promise<Rect | null> {
   return t.boundingBox()
 }
 
-/** Saves a screenshot of the whole window or of the union of `targets`, padded by `pad`, as `<cat>/<nn> <name>.png`. */
 export async function shot(page: Page, cat: string, name: string, caption: string, targets: Target[] = [], pad = 12) {
   await drawn(page)
   await page.waitForTimeout(150)
@@ -98,7 +95,6 @@ export async function shot(page: Page, cat: string, name: string, caption: strin
   appendFileSync(join(out, 'manifest.jsonl'), JSON.stringify({ cat, name, caption, file }) + '\n')
 }
 
-/** The Variables section of the Assets tab, which it opens. */
 export async function variables(page: Page) {
   await page.getByRole('tab', { name: 'Assets' }).click()
   return page.locator('.left').getByRole('region', { name: 'Variables', exact: true })

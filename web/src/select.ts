@@ -1,6 +1,5 @@
 import type { Container, Node, Page } from './model'
 
-/** A layer, the layer it is in, and the page it is on. */
 export type Entry = { node: Node; parent?: Container; page?: Page }
 
 export function index(nodes: Node[], parent?: Container, out = new Map<string, Entry>(), page?: Page) {
@@ -25,10 +24,6 @@ export function pick(nodes: Node[], path: string[], selection: string[], mode: '
   return path[i]
 }
 
-/**
- * `selection` after a shift click on `id` of `list`: before or after the selected ones of `list` it adds those up to `id`,
- * among them it drops those after `id`. Null when `selection` holds none of `list`.
- */
 export function span(list: string[], selection: string[], id: string) {
   const at = selection.map((s) => list.indexOf(s)).filter((i) => i >= 0)
   const c = list.indexOf(id)

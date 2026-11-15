@@ -16,8 +16,6 @@ const LINE_PENALTY: f64 = 10.0;
 const INF_BAD: f64 = 1e10;
 const OVERFULL: f64 = 1e24;
 
-/// The best breaks of `items` into lines, each its end and its adjustment ratio. Line
-/// `i` is `widths[i]` wide, lines past the end of `widths` as wide as its last.
 pub fn break_lines(items: &[Item], widths: &[f32]) -> Vec<(usize, f32)> {
     let mut sum = vec![[0.0f64; 3]; items.len() + 1];
     for (k, it) in items.iter().enumerate() {
@@ -33,9 +31,7 @@ pub fn break_lines(items: &[Item], widths: &[f32]) -> Vec<(usize, f32)> {
         sum[k + 1] = [0, 1, 2].map(|c| sum[k][c] + d[c] as f64);
     }
     let last = widths.len() - 1;
-    // Each break: its item, the break before it and the ratio of the line it ends.
     let mut nodes: Vec<(usize, Option<usize>, f32)> = Vec::new();
-    // Breaks a line may start after: the node, its demerits and the line that starts.
     let mut starts: Vec<(Option<usize>, f64, usize)> = vec![(None, 0.0, 0)];
     for j in 0..items.len() {
         let (extra, cost) = match items[j] {

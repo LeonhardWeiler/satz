@@ -1,8 +1,5 @@
 use super::*;
 
-/// The pages and masters of a snapshot, the layers that changes since reach with
-/// those above them, those of them that changed or hold a changed one, and the layers
-/// changed.
 pub(super) struct Kept {
     sheets: HashMap<TreeID, Rc<Page>>,
     dirty: HashSet<TreeID>,
@@ -10,7 +7,6 @@ pub(super) struct Kept {
     changed: HashSet<TreeID>,
 }
 
-/// Layers in order and whether text wraps around them.
 pub(super) type Shown = Rc<Vec<(TreeID, bool)>>;
 
 fn by_id<S: serde::Serializer>(m: &BTreeMap<TreeID, Rc<Story>>, s: S) -> Result<S::Ok, S::Error> {
@@ -24,51 +20,34 @@ pub struct Snapshot {
     pub pages: Vec<Rc<Page>>,
     pub masters: Vec<Rc<Page>>,
     pub facing_pages: bool,
-    /// The ids of the pages of each spread from left to right: with facing pages the
-    /// first page alone on the right, then pairs; else each page alone.
     pub spreads: Vec<Vec<String>>,
-    /// The number each page shows, as its section counts it.
     pub labels: Vec<String>,
-    /// The story of each thread by its first frame.
     #[serde(serialize_with = "by_id")]
     #[cfg_attr(test, ts(type = "Record<string, Story>"))]
     pub stories: BTreeMap<TreeID, Rc<Story>>,
-    /// Resolution at which the PDF rasterizes shadows and blurs.
     pub raster_ppi: f64,
     pub color_mode: ColorMode,
-    /// The name of the uploaded CMYK profile, `None` for FOGRA51.
     pub profile: Option<String>,
-    /// The highest total of inks in % that preflight allows.
     pub ink_limit: f64,
-    /// How the PDF exports; an RGB document exports PDF/X-4 in place of PDF/X-1a.
     pub preset: Preset,
     pub crop_marks: bool,
     pub include_bleed: bool,
-    /// Images in the PDF shrink to no less than this unless it is 0.
     pub image_ppi: f64,
-    /// Opaque images in the PDF are JPEGs of this quality unless it is 0.
     pub jpeg_quality: u8,
     pub date_format: DateFormat,
-    /// Places images as links to their files.
     pub link_images: bool,
     #[serde(flatten)]
     pub palette: Palette,
-    /// The fonts text can be set in, the bundled one first.
     pub fonts: Vec<Typeface>,
-    /// The axes of each variable font by its hash.
     pub axes: BTreeMap<String, Vec<text::Axis>>,
     pub missing_fonts: Vec<MissingFont>,
-    /// The colors of each image by its hash.
     pub images: BTreeMap<String, image::Space>,
-    /// The file each linked image links to, by its hash.
     pub links: BTreeMap<String, String>,
     pub preflight: Vec<Issue>,
     pub can_undo: bool,
     pub can_redo: bool,
 }
 
-/// A font that text is set in but that is not there, and the stories by their first
-/// frame that use it.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct MissingFont {
@@ -76,7 +55,6 @@ pub struct MissingFont {
     pub stories: Vec<String>,
 }
 
-/// Something about the layer `layer` on the page or master `page` that may print wrong.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Issue {
@@ -91,46 +69,20 @@ pub struct Issue {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "problem", rename_all = "camelCase")]
 pub enum Problem {
-    /// Has `words` that do not fit its thread.
-    Overset {
-        words: usize,
-    },
-    MissingFont {
-        font: String,
-    },
-    /// Reaches the trim edge but not the edge of the bleed.
+    Overset { words: usize },
+    MissingFont { font: String },
     ShortOfBleed,
-    /// Is colored in RGB in a CMYK document.
     Rgb,
-    /// Is filled with the image `image`, whose file is missing.
-    MissingImage {
-        image: String,
-    },
-    /// Is filled with an image at fewer pixels per inch than print needs.
-    LowPpi {
-        ppi: f64,
-    },
-    /// Has an RGB color that prints visibly different in a CMYK document.
+    MissingImage { image: String },
+    LowPpi { ppi: f64 },
     Gamut,
-    /// Has a color whose inks add up to `ink` %, above the document's limit.
-    Ink {
-        ink: f64,
-    },
-    /// Ends `distance` pt inside the trim, closer than `SAFE`.
-    /// Has `character`, which its font lacks.
-    MissingGlyph {
-        character: String,
-    },
-    NearTrim {
-        distance: f64,
-    },
+    Ink { ink: f64 },
+    MissingGlyph { character: String },
+    NearTrim { distance: f64 },
 }
 
-/// How far inside the trim a layer should stay, 3 mm.
 const SAFE: f64 = 3.0 * 72.0 / 25.4;
 
-/// A page or a master; `name` is a master's, `master` the one a page uses and
-/// `detached` its master layers it overrides.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, PartialEq, Serialize)]
 pub struct Page {
@@ -139,9 +91,7 @@ pub struct Page {
     pub width: f64,
     pub height: f64,
     pub bleed: f64,
-    /// The side of its spread a page is on with facing pages.
     pub side: Option<Side>,
-    /// Where the page's left edge sits on its spread, whose spine is at 0.
     pub x: f64,
     pub master: Option<String>,
     pub detached: Vec<String>,
@@ -153,7 +103,6 @@ pub struct Page {
 }
 
 impl Page {
-    /// The page without its layers.
     pub fn head(&self) -> Page {
         Page {
             id: self.id.clone(),
@@ -174,7 +123,6 @@ impl Page {
     }
 }
 
-/// The text of a thread and its runs of equal attributes.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, PartialEq, Serialize)]
 pub struct Story {
@@ -200,49 +148,32 @@ pub struct Node {
     pub y: f64,
     pub w: f64,
     pub h: f64,
-    /// The upright box on the page that the layer and what it does not clip cover,
-    /// turned by its rotation and its ancestors'.
     pub bounds: [f64; 4],
-    /// Modes chosen on this layer.
     pub modes: Modes,
-    /// Modes this layer's variables resolve in, its own and inherited.
     pub active_modes: Modes,
-    /// Number variables by property.
     pub bindings: BTreeMap<String, String>,
-    /// The master layer this page layer overrides.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg_attr(test, ts(optional))]
     pub override_of: Option<String>,
-    /// Effective pixels per inch of the coarsest visible image fill.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg_attr(test, ts(optional))]
     pub ppi: Option<f64>,
-    /// Not drawn, exported, hit or preflighted, with its children.
     pub hidden: bool,
-    /// Not hit on the canvas, with its children.
     pub locked: bool,
-    /// Its width and height change together.
     pub keep_ratio: bool,
-    /// Degrees counterclockwise around the centre, with its children.
     pub rotation: f64,
-    /// How the text of the text layers under it flows around it, `wrap_offset_x` pt away
-    /// beside it and `wrap_offset_y` pt above and below.
     pub wrap: Wrap,
     pub wrap_offset_x: f64,
     pub wrap_offset_y: f64,
-    /// How it follows the character of a story it is anchored at.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg_attr(test, ts(optional))]
     pub anchored: Option<Anchoring>,
-    /// The grid of a table.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg_attr(test, ts(optional))]
     pub table: Option<Table>,
-    /// Where a cell of a table sits: column, row, and the columns and rows it spans.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg_attr(test, ts(optional))]
     pub cell: Option<[usize; 4]>,
-    /// The outline of a shape or frame and, when its fills cover less, what they cover.
     #[serde(skip)]
     pub outline: Vec<f32>,
     #[serde(skip)]
@@ -261,8 +192,6 @@ pub struct Node {
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Kind {
     Shape(Shape),
-    /// `content` is the part of the story of the thread, whose first frame is `story`,
-    /// that the layer sets, `overset` by the words left when it is the last frame and text is left.
     Text {
         #[serde(skip)]
         content: Rc<Story>,
@@ -287,7 +216,6 @@ pub enum Kind {
     },
 }
 
-/// The name of a layer that has none.
 fn untitled(kind: &Kind, style: &Style) -> String {
     match kind {
         Kind::Shape(Shape::Rect { .. }) => "Rectangle".into(),
@@ -303,7 +231,6 @@ fn untitled(kind: &Kind, style: &Style) -> String {
     }
 }
 
-/// The address of the cell in column `c` and row `r`, A1 as in a spreadsheet.
 pub(super) fn address(mut c: usize, r: usize) -> String {
     let mut s = String::new();
     loop {
@@ -315,7 +242,6 @@ pub(super) fn address(mut c: usize, r: usize) -> String {
     }
 }
 
-/// The name of a text layer that has none, its cell's address when it is an empty cell.
 fn text_or_cell_name(lead: &str, tf: &TextFrame, cell: Option<[usize; 4]>) -> String {
     match cell {
         Some([c, r, ..]) if lead.is_empty() => address(c, r),
@@ -323,8 +249,6 @@ fn text_or_cell_name(lead: &str, tf: &TextFrame, cell: Option<[usize; 4]>) -> St
     }
 }
 
-/// The name of a text layer that has none and whose text starts with `lead`, its
-/// markers as `tf` shows them.
 fn text_name(lead: &str, tf: &TextFrame) -> String {
     let mut t = String::new();
     for c in lead
@@ -357,7 +281,6 @@ pub(super) fn master_dx(m: &Page, p: &Page) -> f64 {
     }
 }
 
-/// The box of a layer with its strokes and effects: what it can draw into.
 pub(super) fn reach(n: &Node) -> [f64; 4] {
     let s = &n.style;
     let weight = s
@@ -371,9 +294,6 @@ pub(super) fn reach(n: &Node) -> [f64; 4] {
     [n.x - m, n.y - m, n.w + 2.0 * m, n.h + 2.0 * m]
 }
 
-/// The issues of every layer, page by page and then master by master; a sheet that
-/// `old` shares with `snap` keeps its issues there, and so does a top layer as it was
-/// on a sheet with the same trim, height and bleed.
 pub(super) fn preflight(snap: &Snapshot, old: Option<&Snapshot>) -> Vec<Issue> {
     let old = old.filter(|o| {
         (
@@ -439,7 +359,6 @@ pub(super) fn preflight(snap: &Snapshot, old: Option<&Snapshot>) -> Vec<Issue> {
     out
 }
 
-/// The layer `id` in `nodes`, looked for at `i` first.
 pub fn same_layer<'a>(nodes: &'a [Rc<Node>], i: usize, id: &str) -> Option<&'a Rc<Node>> {
     (nodes.get(i).filter(|n| n.id == id)).or_else(|| nodes.iter().find(|n| n.id == id))
 }
@@ -453,8 +372,6 @@ fn layers<'a>(n: &'a Node, out: &mut HashSet<&'a str>) {
     }
 }
 
-/// The pages and then the masters of `snap` with the trim their top layers are
-/// checked against.
 fn trims(snap: &Snapshot) -> Vec<(&Rc<Page>, [f64; 2])> {
     let spread: HashMap<&str, &Vec<String>> = snap
         .spreads
@@ -482,8 +399,6 @@ fn trims(snap: &Snapshot) -> Vec<(&Rc<Page>, [f64; 2])> {
     pages.chain(masters).collect()
 }
 
-/// Adds the issues of the layer `n` on `p` and its children to `out`; a top layer
-/// is checked against the bleed of the trim from `x0` to `x1`, which leaves out a spine.
 pub(super) fn visit(
     n: &Node,
     p: &Page,
@@ -617,8 +532,6 @@ pub(super) fn visit(
     }
 }
 
-/// Sets the page number of the text layers among `nodes` to `number` and fits the
-/// hugging sides of each to it, as `Doc::fit` does.
 pub(super) fn renumber(nodes: &mut [Rc<Node>], number: &str, flows: &HashMap<TreeID, Flow>) {
     for n in nodes {
         let n = Rc::make_mut(n);
@@ -662,8 +575,6 @@ pub(super) fn renumber(nodes: &mut [Rc<Node>], number: &str, flows: &HashMap<Tre
     }
 }
 
-/// The letters a master's page numbers show: the prefix of "A-Master", or the first
-/// letter, as the pages panel shows it.
 pub fn prefix(name: &str) -> String {
     let head: String = name
         .chars()
@@ -779,9 +690,6 @@ pub(super) fn draw(n: &Node, ops: &mut Vec<Op>, pal: &Palette) {
     }
 }
 
-/// Like `draw_all`, a node is only hit inside every mask above it among its siblings; masks
-/// are hit last.
-/// Locked layers are skipped unless `locks` is false, as for masks.
 pub(super) fn hit(
     nodes: &[Rc<Node>],
     x: f64,
@@ -835,7 +743,6 @@ pub(super) fn hit(
 }
 
 impl Doc {
-    /// The snapshot kept since the last command.
     pub fn snapshot(&self) -> Rc<Snapshot> {
         match &*self.snapshot.borrow() {
             Some(s) => s.clone(),
@@ -857,8 +764,6 @@ impl Doc {
         snap
     }
 
-    /// The pages and masters of the last snapshot and what of them the changes since
-    /// reach, `None` for all.
     fn kept_sheets(&self, flows: &HashMap<TreeID, Flow>) -> Option<Kept> {
         let reflowed = self.reflowed.take();
         if self.doc.get_pending_txn_len() > 0 {
@@ -895,8 +800,6 @@ impl Doc {
         })
     }
 
-    /// The snapshot with the pages, masters and their top layers in `kept` that no
-    /// change reaches as they are.
     fn snapshot_of(&self, flows: &HashMap<TreeID, Flow>, kept: Option<&Kept>) -> Snapshot {
         let palette = self.palette();
         let places = self.places();
@@ -1024,7 +927,6 @@ impl Doc {
         snap
     }
 
-    /// The display list of the page `id` for the canvas, empty when there is none.
     pub fn render(&self, id: &str) -> Vec<Op> {
         let snap = self.snapshot();
         let sheets = || snap.pages.iter().chain(&snap.masters);
@@ -1036,8 +938,6 @@ impl Doc {
         ops
     }
 
-    /// The display list of the page `id` as one plate of its print, C, M and Y or K
-    /// in all three, inverted to RGB so that the canvas blends its inks on paper.
     pub fn plate(&self, id: &str, k: bool) -> Vec<Op> {
         let mut ops = recolor(&self.render(id), &|c, ink, _| {
             let [cyan, m, y, black] = ink.cmyk(c);
@@ -1052,14 +952,12 @@ impl Doc {
         ops
     }
 
-    /// The inks of the page `id` as it prints at `ppi`.
     pub fn inks(&self, id: &str, ppi: f32) -> Option<Inks> {
         let snap = self.snapshot();
         let p = snap.pages.iter().find(|p| p.id == id)?;
         Inks::new(&self.print(&snap, p), ppi)
     }
 
-    /// A hash of the page `id` as it prints; its inks change only with it.
     pub fn printed(&self, id: &str) -> Option<u64> {
         let snap = self.snapshot();
         let p = snap.pages.iter().find(|p| p.id == id)?;
@@ -1068,7 +966,6 @@ impl Doc {
         Some(std::hash::Hasher::finish(&h))
     }
 
-    /// The page `id` as a PNG of its trim box at `ppi`, on white paper.
     pub fn png(&self, id: &str, ppi: f32) -> Option<Vec<u8>> {
         let snap = self.snapshot();
         let p = snap.pages.iter().find(|p| p.id == id)?;
@@ -1083,8 +980,6 @@ impl Doc {
         crate::image::encode(px.data(), (px.width(), px.height()))
     }
 
-    /// The pages at `indices` as a PDF titled `title`, made at `date` in ISO 8601 UTC,
-    /// every page from one snapshot.
     pub fn pdf(&self, title: &str, date: &str, indices: &[u32]) -> Res<Vec<u8>> {
         let snap = self.snapshot();
         let pages: Vec<_> = indices
@@ -1108,8 +1003,6 @@ impl Doc {
         )
     }
 
-    /// A ZIP for the printer of a folder `title` with the document, the PDF of the
-    /// pages at `indices`, the fonts its text is set in and its images.
     pub fn package(&self, title: &str, date: &str, indices: &[u32]) -> Res<Vec<u8>> {
         let saved = self.save();
         let doc = LoroDoc::new();
@@ -1160,8 +1053,6 @@ impl Doc {
         Ok(crate::zip::zip(&files, date))
     }
 
-    /// The display list of the page `p` as it prints: with the layers of the other
-    /// page of its spread, so that one across the spine prints on both.
     pub(super) fn print(&self, snap: &Snapshot, p: &Page) -> Vec<Op> {
         let mut ops = vec![page_op(p)];
         let spread = snap.spreads.iter().find(|s| s.contains(&p.id));
@@ -1178,9 +1069,6 @@ impl Doc {
         ops
     }
 
-    /// The master layers a page shows and its own layers, those that reach into
-    /// `window` when there is one. A page of a spread shows its side of the master
-    /// spread up to the spine.
     pub(super) fn draw_sheet(
         &self,
         snap: &Snapshot,
@@ -1223,7 +1111,6 @@ impl Doc {
                 ops.push(Op::PopClip);
             }
         }
-        // A mask masks the layers below it, so layers go only all together then.
         match window {
             Some(r) if !p.children.iter().any(|n| n.style.mask) => {
                 for n in p.children.iter().filter(|n| into(n, 0.0, r)) {
@@ -1234,7 +1121,6 @@ impl Doc {
         }
     }
 
-    /// The layers of the master `m` that the page `p` shows, in its modes.
     pub(super) fn master_layers(&self, m: &Page, p: &Page) -> Vec<Rc<Node>> {
         let palette = self.palette();
         let mut modes = m.modes.clone();
@@ -1255,8 +1141,6 @@ impl Doc {
         layers
     }
 
-    /// How the text layer `n` sets its text, with the number of the page it is on and
-    /// the layers above it on the page it wraps around.
     pub(super) fn text_frame_of(&self, n: TreeID) -> TextFrame {
         let root = self.root(n);
         let kept = self.doc.get_pending_txn_len() == 0;
@@ -1291,8 +1175,6 @@ impl Doc {
         }
     }
 
-    /// Drops the kept shown layers and text frames of the pages and masters that the
-    /// changes since the last snapshot reach.
     pub(super) fn purge(&self) {
         let Some(nodes) = self.changed.lock().unwrap().clone() else {
             self.shown.take();
@@ -1306,8 +1188,6 @@ impl Doc {
             .retain(|_, (r, _)| !roots.contains(r));
     }
 
-    /// The areas of the shown layers above the text layer `n` that its text wraps
-    /// around, in its frame from its top left; auto width text wraps around none.
     fn wrap_of(&self, n: TreeID) -> Vec<([f32; 4], bool)> {
         if self.layout(n).sizing.horizontal == Size::Hug {
             return Vec::new();
@@ -1350,8 +1230,6 @@ impl Doc {
             .collect()
     }
 
-    /// The shown layers of the page or master `root` in order and whether text wraps
-    /// around them, kept until a change reaches `root`.
     fn shown(&self, root: TreeID) -> Shown {
         fn walk(d: &Doc, id: TreeID, out: &mut Vec<(TreeID, bool)>) {
             let m = d.meta(id);
@@ -1380,8 +1258,6 @@ impl Doc {
         out
     }
 
-    /// What a page number on the page or master `root` shows: the page's number, or
-    /// the master's prefix.
     pub(super) fn number(&self, root: TreeID) -> String {
         if self.numbers.borrow().is_none() {
             let mut out = HashMap::new();
@@ -1406,7 +1282,6 @@ impl Doc {
         }
     }
 
-    /// The layer of the master of the page `page` at (x, y) that the page shows.
     pub fn master_hit(&self, page: &str, x: f64, y: f64, tolerance: f64) -> Option<String> {
         let snap = self.snapshot();
         let p = snap.pages.iter().find(|p| p.id == page)?;
@@ -1441,7 +1316,6 @@ impl Doc {
         path
     }
 
-    /// Sets the text layers in `n` as `flows` place them, or None if one is not in a thread.
     fn reflow(&self, n: &mut Node, flows: &HashMap<TreeID, Flow>) -> Option<()> {
         let mut untitled_text = None;
         match &mut n.kind {
@@ -1635,9 +1509,6 @@ impl Doc {
         }
     }
 
-    /// The text of `id` in runs of equal attributes: the layer's, under those of its
-    /// text style or the one its GREP style sets there, under the marks; paragraph
-    /// attributes from each paragraph's start.
     pub(super) fn spans(&self, id: TreeID, node: &serde_json::Value, s: &Scope) -> Vec<Span> {
         let resolve = |marks: serde_json::Map<String, serde_json::Value>| -> Attrs {
             let mut m = node.as_object().cloned().unwrap_or_default();
@@ -1732,8 +1603,6 @@ impl Doc {
 
 type Marks = serde_json::Map<String, serde_json::Value>;
 
-/// The pieces of a paragraph in the text style `style`, cut where the patterns of its
-/// `grep` match and set there in their styles, unless a piece names another style.
 fn matched(
     para: &[(String, Marks)],
     style: &str,

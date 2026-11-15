@@ -1,17 +1,13 @@
 import type { Node } from './model'
 import type { Box, Sheet } from './renderer'
 
-/** A line to snap to at `at` on its axis, spanning `from` to `to` on the other. */
 export type Line = { at: number; from: number; to: number }
 export type Lines = { x: Line[]; y: Line[] }
-/** A guide along x = `at` or y = `at`, from `from` to `to` on the other axis. */
 export type Guide = { axis: 'x' | 'y'; at: number; from: number; to: number }
-/** A distance from (x1, y1) to (x2, y2); a dashed one only leads to what is measured. */
 export type Measure = { x1: number; y1: number; x2: number; y2: number; length: number; dashed?: boolean; arrow?: string }
 
 const EPSILON = 1e-6
 
-/** The columns and rows of the layout grids of `s` as spans on their axis in the space of the spread; the lines of a grid span nothing. */
 export function gridSpans(s: Sheet) {
   const x: [number, number, number?][] = []
   const y: [number, number, number?][] = []
@@ -31,11 +27,6 @@ export function gridSpans(s: Sheet) {
   return { x, y }
 }
 
-/**
- * What layers snap to on a spread: edges and centres of the pages and of `nodes`, the outer bleed edges, of text
- * frames also their insets, column edges and baseline grid unless turned, and with `grids` the layout grids.
- * Everything is in the space of the spread.
- */
 export function targets(sheets: Sheet[], nodes: Node[], grids = false): Lines {
   const x: Line[] = []
   const y: Line[] = []
@@ -80,7 +71,6 @@ export function targets(sheets: Sheet[], nodes: Node[], grids = false): Lines {
   return { x, y }
 }
 
-/** The offset that moves the nearest of `values` onto one of `lines` within `tolerance`, or 0. */
 export function snap(values: number[], lines: Line[], tolerance: number) {
   let best = 0
   let away = tolerance + EPSILON
@@ -93,7 +83,6 @@ export function snap(values: number[], lines: Line[], tolerance: number) {
   return best
 }
 
-/** Guides through each of `xs` and `ys` that lies on one of `lines`, spanning the line and `box`. */
 export function guides(box: Box, lines: Lines, xs: number[], ys: number[]): Guide[] {
   const out: Guide[] = []
   const along = (axis: 'x' | 'y', values: number[], list: Line[], from: number, to: number) => {
@@ -107,7 +96,6 @@ export function guides(box: Box, lines: Lines, xs: number[], ys: number[]): Guid
   return out
 }
 
-/** The `n` of `others` nearest to `box` that do not overlap it. */
 export function nearest(box: Box, others: Box[], n = 2) {
   return others
     .map((o) => {
@@ -121,11 +109,6 @@ export function nearest(box: Box, others: Box[], n = 2) {
     .map((e) => e.o)
 }
 
-/**
- * The distances between `a` and `b`: when one is inside the other, from each side of the inner
- * one to the nearest of `others` on that side or else to the outer one; else across the gap on
- * each axis they are apart on.
- */
 export function measure(a: Box, b: Box, others: Box[] = []): Measure[] {
   const out: Measure[] = []
   const h = (x1: number, x2: number, y: number) => {
@@ -180,10 +163,6 @@ export function measure(a: Box, b: Box, others: Box[] = []): Measure[] {
   return out
 }
 
-/**
- * On `axis`, the layers of `others` in the row or column of `box` before and after it, and the
- * gaps between neighbouring others in that row or column that `box` does not lie in.
- */
 function row(box: Box, others: Box[], axis: 'x' | 'y') {
   const [p, s, q, t] = axis === 'x' ? (['x', 'w', 'y', 'h'] as const) : (['y', 'h', 'x', 'w'] as const)
   const end = (o: Box) => o[p] + o[s]
@@ -198,7 +177,6 @@ function row(box: Box, others: Box[], axis: 'x' | 'y') {
   return { p, s, end, before, after, gaps }
 }
 
-/** Starts of `box` on `axis` that leave it as far from a neighbour as two others in its row or column are apart, or midway between its neighbours. */
 export function spacings(box: Box, others: Box[], axis: 'x' | 'y') {
   const { s, end, before, after, gaps } = row(box, others, axis)
   const out = gaps.flatMap((g) => [...(before ? [end(before) + g.d] : []), ...(after ? [after[axis] - g.d - box[s]] : [])])
@@ -206,7 +184,6 @@ export function spacings(box: Box, others: Box[], axis: 'x' | 'y') {
   return out
 }
 
-/** The distances on `axis` from `box` to its neighbours that equal the other one or a gap between others in its row or column, with those gaps. */
 export function equals(box: Box, others: Box[], axis: 'x' | 'y'): Measure[] {
   const { p, end, before, after, gaps } = row(box, others, axis)
   const near = [before && { m: before, n: box, d: box[p] - end(before) }, after && { m: box, n: after, d: after[p] - end(box) }]

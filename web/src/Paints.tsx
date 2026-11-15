@@ -16,7 +16,6 @@ const shadow = (mode: ColorMode): Effect => ({
 })
 const blur = (mode: ColorMode): Effect => ({ ...shadow(mode), type: 'blur', y: 0 })
 
-/** Linear gradient across the unit box through its centre, 0° left to right, 90° top to bottom. */
 function linear(degrees: number) {
   const a = (degrees * Math.PI) / 180
   const [dx, dy] = [Math.cos(a), Math.sin(a)]
@@ -61,15 +60,12 @@ export function PaintList({
 }: {
   editor: Editor
   title: 'Fill' | 'Text color' | 'Stroke'
-  /** Null when the selected layers differ. */
   paints: Fill[] | null
   mode: ColorMode
   scope: Scope
   added: Fill
-  /** Effective pixels per inch of the coarsest image among `paints`. */
   ppi?: number
   images?: Snapshot['images']
-  /** The layer whose image paints get crop, fit and adjust. */
   image?: string
   onChange: (paints: Fill[]) => void
   actions?: ReactNode
@@ -239,7 +235,6 @@ function PaintRow({
   )
 }
 
-/** A gradient bar with a marker per stop: a click on the bar adds a stop, a marker drags or takes arrow keys, Delete removes it. */
 function Stops({ paint: p, at, scope, select, set }: { paint: Fill; at: number; scope: Scope; select: (k: number) => void; set: (p: Fill) => void }) {
   const bar = useRef<HTMLDivElement>(null)
   const where = (x: number) => {
@@ -309,7 +304,6 @@ export function EffectList({
   scope,
   onChange,
 }: {
-  /** Null when the selected layers differ. */
   effects: Effect[] | null
   mode: ColorMode
   scope: Scope
@@ -336,7 +330,6 @@ export function EffectList({
   )
 }
 
-/** An effect's colour, type and visibility, and a button that opens its offset and blur. */
 function EffectRow({ effect: e, mode, scope, set, onRemove }: { effect: Effect; mode: ColorMode; scope: Scope; set: (e: Partial<Effect>) => void; onRemove: () => void }) {
   const [at, setAt] = useState<Element | null>(null)
   const shadowed = e.type === 'dropShadow'
@@ -383,7 +376,6 @@ const ADJUST = ['Brightness', 'Contrast', 'Saturation']
 
 const near = (a: number, b: number) => Math.abs(a - b) < 1e-4
 
-/** How `fitImage` placed the image `p`, `frame` first when the frame has the image's aspect ratio. */
 function fitOf(p: Fill) {
   const t = p.transform
   if (!near(t[1], 0) || !near(t[2], 0) || !near(t[4], (1 - t[0]) / 2) || !near(t[5], (1 - t[3]) / 2)) return undefined
@@ -391,7 +383,6 @@ function fitOf(p: Fill) {
   return near(lo, 1) && near(hi, 1) ? 'frame' : near(lo, 1) ? 'cover' : near(hi, 1) ? 'contain' : undefined
 }
 
-/** The crop and brightness, contrast and saturation of the image `p` of the layer `id`. */
 function ImageTools({ editor, id, paint: p, set, at, onClose }: { editor: Editor; id: string; paint: Fill; set: (p: Fill) => void; at: Element; onClose: () => void }) {
   const adjust = p.adjust ?? [0, 0, 0]
   const change = (i: number, v: number) => set({ ...p, adjust: adjust.with(i, v / 100) as Fill['adjust'] })

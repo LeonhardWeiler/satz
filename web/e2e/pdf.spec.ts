@@ -12,8 +12,6 @@ const BLOCK = 4
 const BACKGROUND = [0x0a, 0x0a, 0x0a]
 const MAX_DIFF = 48
 const MAX_SHARE = 0.0005
-// Skia boosts the contrast of light text on a dark ground and blends the edges of CMYK
-// text per plate; MuPDF does neither.
 const MAX_SHARE_DARK = 0.005
 
 function pageBox(xml: string, name: string) {
@@ -22,7 +20,6 @@ function pageBox(xml: string, name: string) {
   return { l, b, r, t }
 }
 
-/** Trim size and bleed of page `n` of `pdf`. */
 function sheet(pdf: string, n: number) {
   const boxes = execFileSync('mutool', ['pages', pdf, String(n)]).toString()
   const bleedBox = pageBox(boxes, 'BleedBox')
@@ -40,10 +37,6 @@ async function exportPdf(page: Page) {
   return pdf
 }
 
-/**
- * Compares the canvas with page `n` of the exported pdf, which the canvas shows in the spread of the pages `spread`;
- * exports it unless given `pdf`.
- */
 async function expectCanvasMatchesPdf(page: Page, n = 1, spread = [n], pdf?: string, maxShare = MAX_SHARE) {
   const canvas = (await page.getByLabel('Page canvas').boundingBox())!
   pdf ??= await exportPdf(page)
@@ -59,7 +52,6 @@ async function expectCanvasMatchesPdf(page: Page, n = 1, spread = [n], pdf?: str
   const w = Math.round((width + 2 * bleed) * view.zoom)
   const h = Math.round((height + 2 * bleed) * view.zoom)
   await drawn(page)
-  // The export may leave a message, such as the preflight warning, over the canvas.
   const shot = PNG.sync.read(await page.screenshot({ clip: { x, y, width: w, height: h }, style: '.status { display: none }' }))
 
   const raster = join(dir, 'satz.png')
@@ -116,7 +108,6 @@ test('a placed image exports as the canvas shows it', async ({ page }) => {
   await open(page)
   await page.keyboard.press('Control+a')
   await page.keyboard.press('Delete')
-  // MuPDF stretches images to whole pixels, so the ramp has no sharp edges and fades into the page's white.
   const fade = (x: number, y: number) => Math.min(1, x / 60, (1199 - x) / 60, y / 60, (599 - y) / 60)
   const ramp = (x: number, y: number) => [x / 5, y / 3, 255 - x / 5].map((c) => 255 + (c - 255) * fade(x, y))
   await place(page, png('ramp.png', 1200, 600, ramp))
@@ -496,7 +487,6 @@ test('the pages of a spread show their sides of a master spread and match the ca
   await expectCanvasMatchesPdf(page, 2, [2, 3])
 })
 
-/** Opens the example `name` from the repo, by the file input that Firefox uses. */
 test('the example poster exports as the canvas shows it', async ({ page }) => {
   await openExample(page, 'poster.satz')
   await expectCanvasMatchesPdf(page, 1, [1], undefined, MAX_SHARE_DARK)

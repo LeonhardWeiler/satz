@@ -17,20 +17,15 @@ use std::rc::Rc;
 use std::thread::LocalKey;
 
 pub const FONT: &[u8] = include_bytes!("../fonts/SourceSerif4-Regular.ttf");
-/// The other faces of the bundled family, bundled after it.
 const FAMILY: [&[u8]; 3] = [
     include_bytes!("../fonts/SourceSerif4-Bold.ttf"),
     include_bytes!("../fonts/SourceSerif4-It.ttf"),
     include_bytes!("../fonts/SourceSerif4-BoldIt.ttf"),
 ];
-/// The number of bundled fonts, the first ids.
 pub const BUNDLED: usize = 1 + FAMILY.len();
-/// Marks the font of a glyph run whose own font is missing, drawn in the bundled one.
 pub const MISSING: u32 = 1 << 31;
-/// Marks the font of a glyph run set at a location of its axes, by its index in `INSTANCES`.
 pub const VARIED: u32 = 1 << 30;
 
-/// A font by its full name, family and style, and a hash of its bytes.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Typeface {
@@ -43,24 +38,17 @@ pub struct Typeface {
 }
 
 thread_local! {
-    /// The fonts text can be set in by id, the bundled family first.
     static FONTS: RefCell<Vec<(Typeface, Rc<[u8]>)>> =
         RefCell::new([FONT].iter().chain(&FAMILY).map(|b| (typeface(b).unwrap(), Rc::from(*b))).collect());
-    /// The fonts at a location of their axes: the font and the axes off their default.
     static INSTANCES: RefCell<Vec<(u32, Location)>> = RefCell::default();
 }
 
-/// Axis tags and their values.
 type Location = Vec<(String, f32)>;
 
-/// A paragraph, what its markers show, and where each span in it starts with its
-/// font, features and case.
 type Shaping = (String, String, Vec<(usize, u32, Vec<String>, TextCase)>);
 
-/// The glyphs of a paragraph: cluster, glyph id, and advance and offsets in em.
 type Shaped = Rc<[(usize, u16, f32, f32, f32)]>;
 
-/// The breaks of a paragraph: the end and adjustment ratio of each line.
 type Breaks = Rc<[(usize, f32)]>;
 
 type Cache<K, V> = RefCell<HashMap<K, V>>;
@@ -68,11 +56,9 @@ type Cache<K, V> = RefCell<HashMap<K, V>>;
 thread_local! {
     static SHAPED: Cache<Shaping, Shaped> = RefCell::default();
     static SYLLABLES: Cache<(String, Lang), Rc<[usize]>> = RefCell::default();
-    /// Keyed by the bits of the line widths and the items.
     static BREAKS: Cache<Vec<u32>, Breaks> = RefCell::default();
 }
 
-/// What `cache` keeps for `key`, else `make()`, kept with up to 4096 others.
 fn kept<K: Eq + Hash, V: Clone>(
     cache: &'static LocalKey<Cache<K, V>>,
     key: K,
@@ -120,7 +106,6 @@ pub fn typeface(bytes: &[u8]) -> Result<Typeface, String> {
     })
 }
 
-/// Adds the font `bytes`, TrueType, OpenType, WOFF or WOFF2, to those text can be set in, unless it is there already.
 pub fn add_font(bytes: &[u8]) -> Result<Typeface, String> {
     let sfnt = match bytes.get(..4) {
         Some(b"wOFF") => wuff::decompress_woff1(bytes),
@@ -141,7 +126,6 @@ pub fn add_font(bytes: &[u8]) -> Result<Typeface, String> {
     Ok(face)
 }
 
-/// The id of the font `face`, or the bundled one's marked `MISSING` when it is not there.
 pub fn font_id(face: &Option<Typeface>) -> u32 {
     let Some(face) = face else { return 0 };
     FONTS
@@ -152,7 +136,6 @@ pub fn font_id(face: &Option<Typeface>) -> u32 {
         .map_or(MISSING, |i| i as u32)
 }
 
-/// The id of the font of `a` at its axes.
 pub fn font_of(a: &Attrs) -> u32 {
     let id = font_id(&a.font);
     if id & MISSING != 0 || a.axes.is_empty() {
@@ -182,7 +165,6 @@ pub fn font_of(a: &Attrs) -> u32 {
     })
 }
 
-/// The font `id` is set in and the location of its axes.
 pub fn located(id: u32) -> (u32, Location) {
     if id & (VARIED | MISSING) != VARIED {
         return (id & !MISSING, Vec::new());
@@ -195,7 +177,6 @@ pub fn font_bytes(id: u32) -> Rc<[u8]> {
     FONTS.with_borrow(|f| f.get(id as usize).unwrap_or(&f[0]).1.clone())
 }
 
-/// An axis of a variable font: its tag, name and range.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Axis {
@@ -206,7 +187,6 @@ pub struct Axis {
     pub max: f32,
 }
 
-/// The axes of each variable font text can be set in by its hash, hidden ones left out.
 pub fn axes() -> BTreeMap<String, Vec<Axis>> {
     FONTS.with_borrow(|fonts| {
         (fonts.iter())
@@ -229,7 +209,6 @@ pub fn axes() -> BTreeMap<String, Vec<Axis>> {
     })
 }
 
-/// The id of the font `hash`, the bundled one for `None`, and its characters.
 pub fn characters(hash: Option<&str>) -> (u32, Vec<u32>) {
     let id = hash
         .and_then(|h| {
@@ -250,8 +229,6 @@ pub fn characters(hash: Option<&str>) -> (u32, Vec<u32>) {
     (id, chars)
 }
 
-/// The first character of `text`, other than white space, that the font of its
-/// span lacks; fonts that are missing themselves do not count.
 pub fn missing_glyph(text: &str, spans: &[Span]) -> Option<char> {
     let mut chars = text.chars();
     spans.iter().find_map(|s| {
@@ -279,7 +256,6 @@ pub fn missing_glyph(text: &str, spans: &[Span]) -> Option<char> {
     })
 }
 
-/// Removes the added font `hash`; its id stays, with no bytes.
 pub fn remove_font(hash: &str) {
     FONTS.with_borrow_mut(|f| {
         for (_, b) in f.iter_mut().skip(BUNDLED).filter(|(t, _)| t.hash == hash) {
@@ -288,12 +264,10 @@ pub fn remove_font(hash: &str) {
     });
 }
 
-/// The number of fonts, which only grows.
 pub fn fonts_added() -> usize {
     FONTS.with_borrow(|f| f.len())
 }
 
-/// The fonts text can be set in.
 pub fn fonts() -> Vec<Typeface> {
     FONTS.with_borrow(|f| {
         f.iter()
@@ -303,7 +277,6 @@ pub fn fonts() -> Vec<Typeface> {
     })
 }
 
-/// The keys of `Attrs` a text style sets.
 pub const STYLED: [&str; 22] = [
     "size",
     "lineHeight",
@@ -328,7 +301,6 @@ pub const STYLED: [&str; 22] = [
     "tabs",
     "list",
 ];
-/// The keys of `Attrs` that hold for a whole paragraph, taken from its first character.
 pub const PARAGRAPH: [&str; 16] = [
     "textAlign",
     "shading",
@@ -348,7 +320,6 @@ pub const PARAGRAPH: [&str; 16] = [
     "list",
 ];
 
-/// TeX's \hyphenpenalty.
 const HYPHEN_COST: f32 = 50.0;
 const FILL: Item = Item::Glue {
     width: 0.0,
@@ -371,8 +342,6 @@ pub enum TextAlign {
     Justify,
 }
 
-/// A tab stop `at` pt from the column's left edge: the text after a tab starts there,
-/// centres or ends on it, or puts its last `.` or `,` there; `leader` repeats over the gap.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Tab {
@@ -391,9 +360,6 @@ pub enum TabAlign {
     Decimal,
 }
 
-/// Sets the width of each tab in `ws`, the widths of items from `x` in a column, to
-/// reach its stop in `stops`, or else the next multiple of 36 pt; `tab` and `point`
-/// tell the tabs and the `.` and `,` apart. Returns each tab with its stop.
 fn tabs<'a>(
     stops: &'a [Tab],
     ws: &mut [f32],
@@ -425,8 +391,6 @@ fn tabs<'a>(
     out
 }
 
-/// A paragraph in a list: a bullet, or a number that counts on from the paragraph
-/// before, hung in front of its lines.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -437,7 +401,6 @@ pub enum List {
     Number,
 }
 
-/// A language that hyphenation knows.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -459,7 +422,6 @@ pub enum TextCase {
     Original,
     Upper,
     Lower,
-    /// Each word's first letter in upper case.
     Title,
 }
 
@@ -473,7 +435,6 @@ pub enum TextDecoration {
     Strikethrough,
 }
 
-/// Superscript and subscript set a character smaller and off its baseline.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -484,11 +445,6 @@ pub enum Position {
     Subscript,
 }
 
-/// What a character looks like. Sizes and spacing are in pt, `letter_spacing` in % of
-/// the size; `line_height` 0 is auto, the font's ascent plus descent. `fill` replaces
-/// the layer's fills; `text_style` "" means none. `features` are OpenType features as
-/// harfrust parses them, e.g. "smcp" or "liga=0". `baseline_shift` raises the
-/// characters off the baseline in pt.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -502,46 +458,34 @@ pub struct Attrs {
     pub text_align: TextAlign,
     pub hyphenate: bool,
     pub lang: Lang,
-    /// `None` is the bundled font.
     pub font: Option<Typeface>,
     pub paragraph_indent: f64,
-    /// The paragraph's lines move in by `indent_left` and `indent_right`, and it starts
-    /// `space_before` below the paragraph before it in its column.
     pub indent_left: f64,
     pub indent_right: f64,
     pub space_before: f64,
     pub text_case: TextCase,
     pub text_decoration: TextDecoration,
     pub features: Vec<String>,
-    /// Values of the font's variation axes by tag, clamped to their range.
     pub axes: BTreeMap<String, f64>,
     pub position: Position,
     pub baseline_shift: f64,
-    /// Lines the first `drop_chars` characters of a paragraph drop over; 0 is off.
     pub drop_lines: u32,
     pub drop_chars: u32,
-    /// Lines at the start and at the end of a paragraph that a column break keeps together.
     pub keep_lines: u32,
     pub keep_together: bool,
     pub keep_next: bool,
     pub tabs: Vec<Tab>,
     pub list: List,
-    /// The color behind the paragraph across its column.
     pub shading: Option<Color>,
-    /// The id of the layer an object replacement character in this span stands for.
     pub object: String,
-    /// The width and height that layer takes in the line.
     #[serde(skip)]
     pub object_size: [f64; 2],
-    /// The id of a boolean variable; the text shows where it is true.
     pub condition: String,
-    /// The condition is false in the mode of the text.
     #[serde(skip)]
     pub hidden: bool,
 }
 
 impl Attrs {
-    /// The size the glyphs are drawn at: superscript and subscript at 58.3 %, as in InDesign.
     fn drawn(&self) -> f32 {
         match self.position {
             Position::Normal => self.size as f32,
@@ -549,7 +493,6 @@ impl Attrs {
         }
     }
 
-    /// How far the glyphs sit above the baseline.
     fn rise(&self) -> f32 {
         let by = match self.position {
             Position::Normal => 0.0,
@@ -599,7 +542,6 @@ impl Default for Attrs {
     }
 }
 
-/// `len` characters in UTF-16 code units that share `attrs`.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Span {
@@ -608,8 +550,6 @@ pub struct Span {
     pub attrs: Attrs,
 }
 
-/// Named values for the `STYLED` attributes of `attrs`; `bindings` holds variables by key
-/// and `grep` sets what its patterns match in its paragraphs in other styles.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -624,7 +564,6 @@ pub struct TextStyle {
     pub grep: Vec<Grep>,
 }
 
-/// A regular expression and the text style of its matches; a later one wins.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Grep {
@@ -633,7 +572,6 @@ pub struct Grep {
 }
 
 impl TextStyle {
-    /// The `STYLED` attributes with bound variables resolved in `scope`.
     pub fn values(&self, scope: &Scope) -> Map<String, serde_json::Value> {
         let own = serde_json::to_value(&self.attrs).unwrap();
         STYLED
@@ -651,7 +589,6 @@ impl TextStyle {
     }
 }
 
-/// Byte offsets in `para` where `lang` allows a hyphen, ascending.
 fn syllables(para: &str, lang: Lang) -> Vec<usize> {
     let lang = match lang {
         Lang::En => hypher::Lang::English,
@@ -699,8 +636,6 @@ pub enum VerticalAlign {
     Bottom,
 }
 
-/// How the text of the text layers under a layer flows around it: beside it, or on
-/// above and below it.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -711,9 +646,6 @@ pub enum Wrap {
     Jump,
 }
 
-/// How a text layer sets its text: insets and gutter in pt, columns of equal width,
-/// and baselines on a grid of `baseline_grid` pt from `baseline_start` below the top
-/// inset; a grid of 0 is off.
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -727,26 +659,16 @@ pub struct TextFrame {
     pub vertical_align: VerticalAlign,
     pub baseline_grid: f64,
     pub baseline_start: f64,
-    /// Lines the text is cut after, the last ending in an ellipsis; 0 is off.
     pub max_lines: u32,
-    /// Trims the frame to the cap height of the first line and the last baseline.
     pub trim: bool,
-    /// Rounds each baseline to whole points below the top inset.
     pub round_baselines: bool,
-    /// The line down the middle of each gutter.
     pub column_rule: Option<Rule>,
-    /// The least height of an auto height frame in pt.
     pub min_height: f64,
-    /// The text styles of the levels of the table of contents the story is.
     pub toc: Vec<String>,
-    /// What a page number marker stands for: the number of the page the text is on.
     #[serde(skip)]
     pub number: String,
-    /// What a date marker stands for.
     #[serde(skip)]
     pub date: String,
-    /// Areas the text keeps out of, [x0, y0, x1, y1] from the frame's top left, and
-    /// whether lines jump over one instead of running beside it.
     #[serde(skip)]
     pub wrap: Vec<([f32; 4], bool)>,
 }
@@ -783,24 +705,18 @@ pub struct Rule {
     pub color: Color,
 }
 
-/// Stands for the number of the page a text is on, as InDesign's Current Page Number.
 pub const PAGE_NUMBER: char = '\u{18}';
 
-/// Stands for the date the document is exported on, as InDesign's Output Date.
 pub const DATE: char = '\u{19}';
 
-/// Stands for the anchored layer that its span names.
 pub const ANCHOR: char = '\u{FFFC}';
 
 impl TextFrame {
-    /// What the marker `c` stands for.
     pub fn marker(&self, c: char) -> &str {
         if c == DATE { &self.date } else { &self.number }
     }
 }
 
-/// A glyph at (x, y) on its baseline, `size` pt, drawn with the attributes of `span`,
-/// for the text from byte `cluster`, or a hyphen inserted there.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Glyph {
     pub id: u16,
@@ -812,8 +728,6 @@ pub struct Glyph {
     pub hyphen: bool,
 }
 
-/// Glyph runs of `text` as `placed` in `frame`; characters without a fill take the
-/// fills of `style`, its strokes go around the glyphs.
 pub fn draw(
     text: &str,
     spans: &[Span],
@@ -936,7 +850,6 @@ pub fn draw(
     ops
 }
 
-/// A rect behind each run of lines of a shaded paragraph in one column.
 fn shading(text: &str, spans: &[Span], placed: &Placed, s: &Scope, overprint: bool) -> Vec<Op> {
     let mut ops = Vec::new();
     let mut i = 0;
@@ -974,7 +887,6 @@ fn shading(text: &str, spans: &[Span], placed: &Placed, s: &Scope, overprint: bo
     ops
 }
 
-/// The outlines of `glyphs` at `positions` in the font `id` as a display list path.
 pub fn outline(id: u32, size: f32, glyphs: &[u16], positions: &[f32]) -> Vec<f32> {
     let bytes = font_bytes(id);
     let Ok(font) = skrifa::FontRef::new(&bytes) else {
@@ -1047,8 +959,6 @@ impl skrifa::outline::OutlinePen for Pen {
     }
 }
 
-/// Top and thickness in em of the line that `decoration` draws in the font `id`, with
-/// the top above the baseline.
 fn decoration(id: u32, decoration: TextDecoration) -> Option<[f32; 2]> {
     let bytes = font_bytes(id);
     let f = FontRef::new(&bytes).ok()?;
@@ -1069,10 +979,6 @@ fn decoration(id: u32, decoration: TextDecoration) -> Option<[f32; 2]> {
     Some([at, thick.max(0.02)])
 }
 
-/// The text that the glyphs `run` of `line` stand for and each glyph's range in it:
-/// up to the next glyph's text or space, so a ligature stands for all its letters.
-/// Spaces have no glyph; PDF readers find them in the gaps. A marker stands for
-/// what `tf` shows for it.
 fn source(
     text: &str,
     line: &[Glyph],
@@ -1107,7 +1013,6 @@ fn source(
     (out, ranges)
 }
 
-/// The lines of `text` from the byte `from` that fit in `frame`, each a list of glyphs.
 #[cfg(test)]
 pub fn lay_out(
     text: &str,
@@ -1119,9 +1024,6 @@ pub fn lay_out(
     set(text, spans, frame, tf, from).0.lines
 }
 
-/// The text from the byte `from` set in `frame`, and the byte where the text that
-/// does not fit starts, for the next frame of a thread. Only about as many lines as
-/// the columns can hold are broken.
 pub fn set(
     text: &str,
     spans: &[Span],
@@ -1141,8 +1043,6 @@ pub fn set(
     (s.placed(placed), rest)
 }
 
-/// The text of the spans that are not hidden, those spans, and for each the index it
-/// has in all spans with the byte it starts at in all the text and in this one.
 struct Shown {
     text: String,
     spans: Vec<Span>,
@@ -1150,7 +1050,6 @@ struct Shown {
 }
 
 impl Shown {
-    /// `None` when no span of `spans` is hidden.
     fn of(text: &str, spans: &[Span]) -> Option<Shown> {
         if !spans.iter().any(|s| s.attrs.hidden) {
             return None;
@@ -1184,21 +1083,17 @@ impl Shown {
         Some(s)
     }
 
-    /// The byte of the shown text at the byte `b` of all the text.
     fn shown(&self, b: usize) -> usize {
         let i = self.at.partition_point(|a| a.1 <= b).max(1) - 1;
         let end = self.at.get(i + 1).map_or(self.text.len(), |a| a.2);
         (self.at[i].2 + b.saturating_sub(self.at[i].1)).min(end)
     }
 
-    /// The byte of all the text at the byte `b` of the shown text.
     fn original(&self, b: usize) -> usize {
         let (_, o, s) = self.at[self.at.partition_point(|a| a.2 <= b).max(1) - 1];
         o + b - s
     }
 
-    /// `p`, placed from the shown text, for all of it; a line's stop where hidden text
-    /// starts stands before it too.
     fn placed(&self, p: Placed) -> Placed {
         let lines = p.lines.into_iter().map(|l| {
             l.into_iter()
@@ -1234,9 +1129,6 @@ impl Shown {
     }
 }
 
-/// The text from the byte `from` broken into lines and placed in `inner`, with the
-/// byte each line starts at. Lines beside the areas of `tf.wrap` are broken again to
-/// the room the areas leave them until the lines stay where they are.
 fn wrapped(
     text: &str,
     spans: &[Span],
@@ -1259,8 +1151,6 @@ fn wrapped(
     }
 }
 
-/// The frame size [w, h] that `text` from the byte `from` needs at the width `w`, or
-/// on unbroken lines: the least height at which every line fits, over all columns.
 pub fn measure(
     text: &str,
     spans: &[Span],
@@ -1297,7 +1187,6 @@ pub fn measure(
         }
     };
     let top = tf.inset_top as f32;
-    // The text placed in columns `ih` high, and whether all of it fits.
     let fit = |ih: f32, columns: u32| {
         let tf = TextFrame {
             columns,
@@ -1334,12 +1223,10 @@ pub fn measure(
     [w, ih.max(0.0) + v_in]
 }
 
-/// `v` rounded up to 0.01, so that a line measured at its natural width fits again.
 fn ceil(v: f32) -> f32 {
     (v * 100.0).ceil() / 100.0
 }
 
-/// The box inside the insets of `frame` and the width of each column in it.
 fn columns([x, y, w, h]: [f32; 4], tf: &TextFrame) -> ([f32; 4], f32) {
     let [top, right, bottom, left] =
         [tf.inset_top, tf.inset_right, tf.inset_bottom, tf.inset_left].map(|v| v as f32);
@@ -1349,7 +1236,6 @@ fn columns([x, y, w, h]: [f32; 4], tf: &TextFrame) -> ([f32; 4], f32) {
     ([x + left, y + top, iw, ih], cw)
 }
 
-/// A font with its shaping tables and metrics.
 struct Face {
     bytes: Rc<[u8]>,
     data: ShaperData,
@@ -1358,7 +1244,6 @@ struct Face {
 }
 
 thread_local! {
-    /// The faces by the address of their bytes and their id.
     static FACES: RefCell<HashMap<(*const u8, u32), Rc<Face>>> = RefCell::default();
 }
 
@@ -1402,7 +1287,6 @@ fn face(id: u32) -> Rc<Face> {
     })
 }
 
-/// Metrics of a font in em, and its hyphen.
 struct Metrics {
     upem: f32,
     cap: f32,
@@ -1413,12 +1297,6 @@ struct Metrics {
     hyphen_adv: f32,
 }
 
-/// A shaped paragraph: its items, their glyphs and clusters, the attributes of its
-/// first character and the byte its first line starts at. Line `i`
-/// starts `left[i]` in, the last for the lines after; `marks` are glyphs beside the
-/// lines, placed from the first baseline, with `stops` for the text they stand for,
-/// and the paragraph takes at least `least` lines, which stay together, as do its
-/// first `head`.
 struct Para {
     items: Vec<Item>,
     glyphs: Vec<Option<Glyph>>,
@@ -1432,11 +1310,6 @@ struct Para {
     head: usize,
 }
 
-/// The lines of `text` from the byte `from`, a line start, broken to the column width
-/// `cw`, or each paragraph on one line when `None`; and the width of the widest
-/// paragraph set on one line. A marker is set as what `tf` shows for it. Paragraphs
-/// stop once their lines need more than `room` in height. Row `i` is moved in by
-/// `insets[i]` from the left and the right.
 fn rows(
     text: &str,
     spans: &[Span],
@@ -1489,8 +1362,6 @@ fn rows(
         (above + a.rise(), below - a.rise())
     };
 
-    // `text` repeated in whole copies over `x..x + w`, on a grid of its width.
-    // `text` shaped in the font of `span`, from x 0 on the baseline, and its width.
     let shape = |text: &str, span: usize, cluster: usize| {
         let (a, k) = (&spans[span].attrs, slot[span]);
         let mut buf = UnicodeBuffer::new();
@@ -1514,7 +1385,6 @@ fn rows(
         }
         (glyphs, x)
     };
-    // `text` repeated in whole copies over `x..x + w`, on a grid of its width.
     let leader = |text: &str, span: usize, cluster: usize, x: f32, w: f32| {
         let (copy, lw) = shape(text, span, cluster);
         let mut glyphs = Vec::new();
@@ -1785,8 +1655,6 @@ fn rows(
         } else {
             Rc::default()
         };
-        // The first characters drop over `drop_lines` lines, their cap height from the
-        // first line's to the last line's baseline.
         let lines = first.drop_lines as usize;
         let dropped = match para.char_indices().nth(first.drop_chars as usize) {
             _ if lines < 2 || from > start => 0,
@@ -1916,8 +1784,6 @@ fn rows(
         items.extend([FILL, FORCE]);
         glyphs.extend([None, None]);
         clusters.extend([start + para.len(); 2]);
-        // A paragraph that an earlier frame began goes on at its first glyph from
-        // `from`, without the space or hyphen it broke at.
         let mut line0 = start;
         if from > start {
             let mut k = clusters.partition_point(|&c| c < from);
@@ -1994,9 +1860,6 @@ fn rows(
     (rows, widest)
 }
 
-/// `rows` placed in columns `cw` wide in the box `[ix, iy, _, ih]` inside the
-/// insets, as many as fit. A row beside an area of `tf.wrap` takes the widest room
-/// the areas leave it, and moves down past them when that is less than 4 lines high.
 fn place(rows: Vec<Row>, [ix, iy, _, ih]: [f32; 4], cw: f32, tf: &TextFrame) -> Placed {
     let (ox, oy) = (ix - tf.inset_left as f32, iy - tf.inset_top as f32);
     let areas: Vec<([f32; 4], bool)> = tf
@@ -2131,8 +1994,6 @@ fn place(rows: Vec<Row>, [ix, iy, _, ih]: [f32; 4], cw: f32, tf: &TextFrame) -> 
     }
 }
 
-/// The lines that fit, how many of the rows that is, and the lowest line bottom.
-/// Each line is moved in by its `insets` from the left and right of its column.
 #[derive(Debug, Default, PartialEq)]
 pub struct Placed {
     pub lines: Vec<Vec<Glyph>>,
@@ -2143,7 +2004,6 @@ pub struct Placed {
 }
 
 impl Placed {
-    /// The same lines for the text moved on by `bytes` and its spans by `spans`.
     pub fn shifted(&self, bytes: isize, spans: isize) -> Placed {
         let at = |v: usize| v.wrapping_add_signed(bytes);
         let lines = self.lines.iter().map(|l| {
@@ -2171,26 +2031,17 @@ impl Placed {
     }
 }
 
-/// A line with glyphs relative to its column's left edge and baseline, the space
-/// it needs above and below the baseline, and the paragraph spacing after it.
 #[derive(Clone)]
 struct Row {
     glyphs: Vec<Glyph>,
     above: f32,
     below: f32,
     after: f32,
-    /// See `Line::stops`, relative to the column.
     stops: Vec<(usize, f32)>,
-    /// A column break after this row moves it on with the next.
     keep: bool,
-    /// The height of its capitals above the baseline.
     cap: f32,
 }
 
-/// A line set in a frame: the bytes `start..end` of the text it holds, the space it
-/// takes from `top` to `bottom`, its column from `left` to `right`, and `stops`, the
-/// byte offsets where its characters start with their x, ascending from `start` and
-/// ending at `end`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Line {
     pub start: usize,
@@ -2202,8 +2053,6 @@ pub struct Line {
     pub stops: Vec<(usize, f32)>,
 }
 
-/// The line holding the byte offset `at`: the first that reaches it, unless the next
-/// line starts right there, as after a hyphen; text past the last line is on it.
 pub fn line_of(lines: &[Line], at: usize) -> usize {
     (0..lines.len())
         .find(|&i| {
@@ -2213,7 +2062,6 @@ pub fn line_of(lines: &[Line], at: usize) -> usize {
         .unwrap_or(lines.len().saturating_sub(1))
 }
 
-/// [x, top, bottom] of a caret before the byte offset `at` of `text`.
 pub fn caret(text: &str, lines: &[Line], at: usize) -> [f32; 3] {
     match lines.get(line_of(lines, at)) {
         Some(l) => [x_at(text, l, at), l.top, l.bottom],
@@ -2221,8 +2069,6 @@ pub fn caret(text: &str, lines: &[Line], at: usize) -> [f32; 3] {
     }
 }
 
-/// The x of a caret before the byte offset `at` of `text` on the line `l`; inside
-/// a ligature the characters share its width.
 pub fn x_at(text: &str, l: &Line, at: usize) -> f32 {
     let at = at.clamp(l.start, l.end);
     let i = l.stops.partition_point(|s| s.0 <= at).max(1) - 1;
@@ -2236,8 +2082,6 @@ pub fn x_at(text: &str, l: &Line, at: usize) -> f32 {
     }
 }
 
-/// The byte offset of the character boundary nearest to (x, y): on the line under
-/// y, or the nearest line, in the column nearest to x.
 pub fn index_at(lines: &[Line], x: f32, y: f32) -> usize {
     let away = |lo: f32, hi: f32, v: f32| (lo - v).max(v - hi).max(0.0);
     let Some(l) = lines.iter().min_by(|a, b| {

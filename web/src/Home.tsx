@@ -20,7 +20,6 @@ const ago = (at: number) => {
   return `Edited ${new Date(at).toLocaleDateString()}`
 }
 
-/** The first page of `e` as a PNG about 240 px on its long side. */
 const firstPage = (e: Engine) => {
   const p = JSON.parse(e.snapshot()).pages[0]
   return e.png(p.id, (240 * 72) / Math.max(p.width, p.height))

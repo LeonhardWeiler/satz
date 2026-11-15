@@ -4,7 +4,6 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 const DELAY = 500
 const MARGIN = 8
 
-/** Shows the `title` of the element under the pointer in place of the browser's tooltip, at once while another was just shown. */
 export function Tooltip() {
   const [tip, setTip] = useState<{ text: string; at: DOMRect } | null>(null)
   const ref = useRef<HTMLDivElement>(null)

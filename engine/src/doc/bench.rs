@@ -1,11 +1,8 @@
-//! `cargo test --release -p engine bench -- --ignored --nocapture`
-
 use super::tests::*;
 use super::*;
 use crate::examples::heavy;
 use std::time::{Duration, Instant};
 
-/// The median time of `runs` calls of `f`.
 fn median(runs: usize, mut f: impl FnMut()) -> Duration {
     let mut t: Vec<Duration> = (0..runs)
         .map(|_| {
@@ -18,7 +15,6 @@ fn median(runs: usize, mut f: impl FnMut()) -> Duration {
     t[runs / 2]
 }
 
-/// `heavy(n)`, its middle page, the first shape and the story frame on it.
 fn heavy_page(n: usize) -> (Doc, String, String, String) {
     let d = heavy(n);
     let s = d.snapshot();
@@ -109,10 +105,6 @@ fn bench() {
     );
 }
 
-/// `PHASE=set_frame|keystroke|json|render|save|load|pdf PAGES=32 cargo test --release -p engine prof -- --ignored --nocapture`
-/// repeats one phase for 5 s. For a profile, build with
-/// `RUSTFLAGS=-Cforce-frame-pointers=yes CARGO_PROFILE_RELEASE_DEBUG=1` and run the test binary
-/// under `perf record --call-graph fp`.
 #[test]
 #[ignore]
 fn prof() {
@@ -163,8 +155,6 @@ fn prof() {
     );
 }
 
-/// `SEED=1 STEPS=2000 cargo test -p engine fuzz -- --ignored --nocapture` applies random
-/// commands to `heavy(2)` and renders, rasterizes, exports and reloads after each one.
 #[test]
 #[ignore]
 fn fuzz() {

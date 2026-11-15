@@ -25,7 +25,6 @@ const pickers = window as {
 
 let db: Promise<IDBDatabase> | undefined
 
-/** The autosaved documents by project id with their updates under [id, n], the projects by id, the added fonts by hash or the files of linked images by hash. */
 async function store(name: 'files' | 'fonts' | 'projects' | 'links') {
   db ??= new Promise((done, fail) => {
     const r = indexedDB.open('satz', 4)
@@ -50,17 +49,14 @@ const result = <T,>(r: IDBRequest<T>) =>
     r.onerror = () => fail(r.error)
   })
 
-/** The keys of the updates autosaved after the document of project `id`. */
 const updates = (id: string) => IDBKeyRange.bound([id, 0], [id, Infinity])
 
-/** The document of project `id` autosaved last and the updates autosaved after it. */
 const stored = async (id: string) => {
   const files = await store('files')
   const [saved, after] = await Promise.all([result<Saved | undefined>(files.get(id)), result<Uint8Array[]>(files.getAll(updates(id)))])
   return saved && { ...saved, updates: after }
 }
 
-/** The projects of this browser, the last edited first; the autosave from before projects is the one under 'doc'. */
 export async function projects() {
   const all = await result<Project[]>((await store('projects')).getAll())
   const old = !all.some((p) => p.id === 'doc') && (await stored('doc'))
@@ -72,7 +68,6 @@ export async function projects() {
   return all.sort((a, b) => b.at - a.at)
 }
 
-/** Deletes the project `id` and its autosaves. */
 export async function removeProject(editor: Editor, id: string) {
   const files = await store('files')
   files.delete(id)
@@ -82,20 +77,16 @@ export async function removeProject(editor: Editor, id: string) {
   if (editor.project === id) editor.project = null
 }
 
-/** The added fonts of this browser. */
 export const storedFonts = async () => result<Uint8Array[]>((await store('fonts')).getAll())
 
-/** Writes what the autosave has not written yet. */
 export let flush = () => Promise.resolve()
 
-/** Shows the project `id`, or the projects for `null`. */
 export function show(editor: Editor, id: string | null) {
   if (id) editor.project = id
   history.replaceState(null, '', id ? `#${id}` : location.pathname + location.search)
   editor.set({ home: !id })
 }
 
-/** Opens the project `id` in place of the document. */
 export async function openProject(editor: Editor, id: string) {
   await flush()
   const saved = await stored(id).catch(() => undefined)
@@ -110,21 +101,17 @@ export async function openProject(editor: Editor, id: string) {
   await findGranted(editor)
 }
 
-/** Opens the document `bytes` as a new project; throws when it is not one. */
 export async function begin(editor: Editor, bytes: Uint8Array, file = UNTITLED) {
   await flush()
   editor.load(bytes, file)
   show(editor, crypto.randomUUID())
 }
 
-/** The first page as a PNG about 240 px on its long side. */
 function thumb(editor: Editor) {
   const p = editor.snapshot.pages[0]
   return editor.engine.png(p.id, (240 * 72) / Math.max(p.width, p.height))
 }
 
-/** Autosaves the document into its project a second after it last changed and when the page is hidden:
- * the whole document when its project, file or `dirty` changed and after 100 updates, else the update since. */
 export function autosave(editor: Editor) {
   const file = () => `${editor.project} ${editor.dirty} ${editor.file.name}`
   const state = () => editor.engine.version() + file()
@@ -190,7 +177,6 @@ export function download(bytes: Uint8Array, name: string, type: string) {
   URL.revokeObjectURL(url)
 }
 
-/** A worker with the fonts it was sent, the bundled one from the start, the linked image files it was sent, the version and version vector of the document it has and its last job, which the next waits for. */
 type Job = { worker?: Worker; fonts: number; images: number; version: string; seen: Uint8Array; queue: Promise<unknown> }
 const fresh = () => ({ fonts: 0, images: 0, version: '', seen: new Uint8Array(), queue: Promise.resolve() })
 const exporter: Job = fresh()
@@ -201,7 +187,6 @@ function reset(job: Job) {
   Object.assign(job, { worker: undefined, ...fresh() })
 }
 
-/** Removes the added font `hash` from the document's fonts, this browser and the workers. */
 export async function removeFont(editor: Editor, hash: string) {
   editor.removeFont(hash)
   reset(exporter)
@@ -209,7 +194,6 @@ export async function removeFont(editor: Editor, hash: string) {
   await result((await store('fonts')).delete(hash))
 }
 
-/** Sends the document to the worker of `job`, as far as it does not have it, to run `preview` or make `out` once its last job is done. */
 function run<T>(job: Job, editor: Editor, preview?: Preview, out?: Out) {
   const next = job.queue.then(() => {
     const w = (job.worker ??= new Worker(new URL('./exportWorker.ts', import.meta.url), { type: 'module' }))
@@ -243,13 +227,10 @@ function run<T>(job: Job, editor: Editor, preview?: Preview, out?: Out) {
   return next
 }
 
-/** The files of `out`, made in a worker. */
 export const exportFile = (editor: Editor, out: Out) => run<{ file: Uint8Array }>(exporter, editor, undefined, out).then((r) => r.file)
 
-/** The inks of pages as the preflight shows them, rasterized in a worker. */
 export const preview = (editor: Editor, p: Preview) => run<Previewed>(previewer, editor, p)
 
-/** Saves into the document's file, renamed to the document's name, or into one the user picks; Firefox downloads it. */
 export async function save(editor: Editor, as: boolean) {
   const bytes = editor.engine.save()
   const version = editor.engine.version()
@@ -269,7 +250,6 @@ export async function save(editor: Editor, as: boolean) {
   editor.saved({ name: handle.name, handle }, version)
 }
 
-/** Asks `question` in a modal dialog; resolves true when `yes` is chosen. */
 export function ask(question: string, yes: string): Promise<boolean> {
   const d = document.createElement('dialog')
   d.className = 'ask'
@@ -286,7 +266,6 @@ export function ask(question: string, yes: string): Promise<boolean> {
   )
 }
 
-/** Whether the document may go: it is autosaved into its project or saved, or the user says so. */
 export const discard = async (editor: Editor) =>
   !editor.dirty || (editor.autosaves && !!editor.project) || ask(`Discard unsaved changes to ${editor.file.name}?`, 'Discard')
 
@@ -302,7 +281,6 @@ async function load(editor: Editor, file: File, handle: Handle | null) {
   await findGranted(editor)
 }
 
-/** Asks for a document, SVG, PDF or Figma file and opens it as a new project. */
 export async function open(editor: Editor) {
   if (!pickers.showOpenFilePicker) return pick('.satz,.svg,.pdf,.fig', false, ([file]) => file && load(editor, file, null))
   try {
@@ -313,7 +291,6 @@ export async function open(editor: Editor) {
   }
 }
 
-/** One file input for every picker, held so that it is not collected before it fires `change`. */
 const input = document.createElement('input')
 input.type = 'file'
 
@@ -340,7 +317,6 @@ async function addFont(editor: Editor, file: File) {
   }
 }
 
-/** Places `file`, a PNG or JPEG one as a link to `handle` when given and the document links images. */
 async function placeImage(editor: Editor, file: File, handle: Handle | null = null) {
   try {
     const bytes = new Uint8Array(await file.arrayBuffer())
@@ -359,13 +335,11 @@ async function placeImage(editor: Editor, file: File, handle: Handle | null = nu
   }
 }
 
-/** Asks for TrueType, OpenType, WOFF and WOFF2 files and adds them to the fonts. */
 export const addFonts = (editor: Editor) =>
   pick('.ttf,.otf,.woff,.woff2', true, async (files) => {
     for (const file of files) await addFont(editor, file)
   })
 
-/** Asks for an ICC profile and makes it the document's CMYK profile. */
 export const pickProfile = (editor: Editor) =>
   pick('.icc,.icm', false, async ([file]) => {
     if (!file) return
@@ -376,7 +350,6 @@ export const pickProfile = (editor: Editor) =>
     }
   })
 
-/** Asks for PNG, JPEG, SVG, PDF and Figma files and places each on the current page, an SVG, PDF or Figma file with its first page's layers and a PNG or JPEG file as a link to it when the document links images and the browser can keep files. */
 export async function placeImages(editor: Editor) {
   if (!editor.snapshot.linkImages || !pickers.showOpenFilePicker)
     return pick('.png,.jpg,.jpeg,.svg,.pdf,.fig', true, async (files) => {
@@ -389,7 +362,6 @@ export async function placeImages(editor: Editor) {
   }
 }
 
-/** Opens a dropped document, places dropped images, SVGs, PDFs and Figma files (opens them on the projects), a PNG or JPEG one as a link to its file of `handles` when the document links images, and adds dropped fonts. */
 export async function drop(editor: Editor, files: File[], handles: Promise<Handle | null>[] = []) {
   for (const [i, file] of files.entries()) {
     const ext = file.name.split('.').pop()!.toLowerCase()
@@ -406,7 +378,6 @@ export const canFindFonts = !!local.queryLocalFonts
 let locals: LocalFont[] = []
 const heard = new Set<() => void>()
 
-/** The fonts of this computer, once read by `readLocalFonts`. */
 export const useLocalFonts = () =>
   useSyncExternalStore(
     (f) => {
@@ -416,7 +387,6 @@ export const useLocalFonts = () =>
     () => locals,
   )
 
-/** Reads the fonts of this computer by Local Font Access; says why it could not. */
 export async function readLocalFonts(editor?: Editor) {
   try {
     locals = await local.queryLocalFonts!()
@@ -430,7 +400,6 @@ export async function readLocalFonts(editor?: Editor) {
 
 if (canFindFonts) navigator.permissions.query({ name: 'local-fonts' as PermissionName }).then((p) => p.state === 'granted' && readLocalFonts(), () => {})
 
-/** Adds the font `f` of this computer. */
 export async function addLocalFont(editor: Editor, f: LocalFont) {
   try {
     return await keep(editor, new Uint8Array(await (await f.blob()).arrayBuffer()))
@@ -440,7 +409,6 @@ export async function addLocalFont(editor: Editor, f: LocalFont) {
   }
 }
 
-/** Adds the missing fonts that this computer has, by Local Font Access. */
 export async function findFonts(editor: Editor) {
   const missing: Typeface[] = editor.snapshot.missingFonts.map((m) => m.font)
   if (!(await readLocalFonts(editor))) return
@@ -454,7 +422,6 @@ export async function findFonts(editor: Editor) {
   editor.say(`Found ${found} of ${missing.length} missing fonts on this computer.${found < missing.length ? ' Add the others with Add font.' : ''}`)
 }
 
-/** Adds the missing fonts that this computer has and reads the missing linked images, if Satz may already read them. */
 export async function findGranted(editor: Editor) {
   const { links, images } = editor.snapshot
   for (const hash of Object.keys(links).filter((h) => !(h in images))) {
@@ -467,13 +434,10 @@ export async function findGranted(editor: Editor) {
   if (p?.state === 'granted') await findFonts(editor)
 }
 
-/** The files of the linked images read in this session, in the order read, for the workers. */
 const linked: Uint8Array[] = []
 
-/** The file of the linked image `hash` as this browser keeps it. */
 const link = (hash: string) => store('links').then((s) => result<Handle | undefined>(s.get(hash)), () => undefined)
 
-/** Reads `file` as the linked image `hash`, filling its layers with it when it changed, and keeps `handle` for the next visit. */
 async function readLink(editor: Editor, hash: string, file: File, handle: Handle | null) {
   const bytes = new Uint8Array(await file.arrayBuffer())
   const to = editor.registerImage(bytes)
@@ -482,7 +446,6 @@ async function readLink(editor: Editor, hash: string, file: File, handle: Handle
   if (handle) await result((await store('links')).put(handle, to))
 }
 
-/** Reads the missing linked image `hash` from its file if Satz may, or else from a file to choose. */
 export async function relink(editor: Editor, hash: string) {
   const failed = (e: Error) => e.name !== 'AbortError' && editor.fail(`Could not read the image: ${e.message}.`)
   if (!pickers.showOpenFilePicker) return pick('.png,.jpg,.jpeg', false, ([file]) => file && readLink(editor, hash, file, null).catch(failed))
@@ -497,5 +460,4 @@ export async function relink(editor: Editor, hash: string) {
   }
 }
 
-/** Whether placed images can link to their files, which takes File System Access. */
 export const canLink = !!pickers.showOpenFilePicker

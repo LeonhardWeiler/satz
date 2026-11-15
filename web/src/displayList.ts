@@ -17,7 +17,6 @@ export type Op = (
       glyphs: Uint16Array
       positions: Float32Array
     }
-  /** The image `image` of `Engine.image`, whose unit square `transform` maps into page space. */
   | { op: 'image'; image: number; transform: Float32Array }
   | { op: 'pushClip'; path: Float32Array; invert: boolean }
   | { op: 'popClip' }
@@ -130,7 +129,6 @@ export function decode(words: Uint32Array): Op[] {
 const OPEN = new Set(['pushClip', 'pushLayer', 'pushTransform', 'beginMask', 'beginItem', 'endMask'])
 const CLOSE = new Set(['popClip', 'popLayer', 'popMask', 'popTransform', 'endItem', 'endMask'])
 
-/** Sets on each op that opens a group the index of the op that closes it; `endMask` closes `beginMask` and opens up to `popMask`. */
 export function link(ops: Op[]) {
   const open: Op[] = []
   ops.forEach((op, i) => {
@@ -141,5 +139,4 @@ export function link(ops: Op[]) {
   return ops
 }
 
-/** Index of the op that closes the one opened at `at`. */
 export const close = (ops: Op[], at: number) => ops[at].end!

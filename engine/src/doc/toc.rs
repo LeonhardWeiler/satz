@@ -1,14 +1,8 @@
 use super::*;
 
-/// The indent in pt of each level of a table of contents.
 const LEVEL: f64 = 12.0;
 
 impl Doc {
-    /// Fills the story of `id` with the paragraphs of the pages in the text styles
-    /// `styles`, one level per style, each followed by a right tab with a dot leader
-    /// and the number of the page it starts on, and keeps `styles` for updating it.
-    /// An unthreaded frame grows to the entries. Empty `styles` keep the text and
-    /// forget the table.
     pub(super) fn toc(&self, id: String, styles: Vec<String>) -> Res<Vec<String>> {
         let n = self.story(self.node(&id)?);
         self.own_text(n)?;
@@ -32,7 +26,6 @@ impl Doc {
         Ok(vec![])
     }
 
-    /// Fills the tables of contents whose entries or width changed; true if one did.
     pub(super) fn refresh_tocs(&self) -> Res<bool> {
         let tocs: Vec<_> = (self.heads().into_iter())
             .map(|n| (n, self.text_frame_of(n).toc))
@@ -50,8 +43,6 @@ impl Doc {
         Ok(changed)
     }
 
-    /// Writes the entries of `styles` into the story `n` unless it holds them already
-    /// and `force` is false; true if it wrote.
     fn fill(&self, n: TreeID, styles: &[String], force: bool) -> Res<bool> {
         let t = self.own_text(n)?;
         let entries = self.entries(n, styles);
@@ -97,8 +88,6 @@ impl Doc {
         Ok(true)
     }
 
-    /// The paragraphs in `styles` of the stories other than `toc`, in the order of the
-    /// pages and from the top of each, with their level and page number.
     fn entries(&self, toc: TreeID, styles: &[String]) -> Vec<(usize, String, String)> {
         let flows = self.flows();
         let mut out = Vec::new();
@@ -139,7 +128,6 @@ impl Doc {
         out
     }
 
-    /// The text layers under `n` that are not hidden.
     fn shown_texts(&self, n: TreeID, out: &mut Vec<TreeID>) {
         for c in self.children(n) {
             if value(&self.meta(c), "hidden") == Some(true.into()) {

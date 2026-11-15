@@ -248,7 +248,6 @@ body,
   cursor: grabbing;
 }
 
-/* Takes keyboard and IME input at the caret; shows only the text being composed. */
 .text-input {
   position: absolute;
   width: 1px;
@@ -694,7 +693,6 @@ textarea {
   .select > span,
   .specimen > span:first-child,
   .field input:not(:focus) {
-    /* A scroll timeline is only active while the text overflows, so only then it fades. */
     animation: fade linear both !important;
     animation-timeline: scroll(self inline) !important;
   }

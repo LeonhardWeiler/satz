@@ -1,8 +1,5 @@
 use super::*;
 
-/// Where the story of a thread, from the frame `head`, flows through a frame: the
-/// bytes `start..end`, which are `content`, as `placed` there relative to them, its
-/// neighbours, and text left over at the end of the thread.
 #[derive(Clone, Debug, PartialEq)]
 pub(super) struct Flow {
     pub(super) head: TreeID,
@@ -10,9 +7,7 @@ pub(super) struct Flow {
     pub(super) content: Rc<Story>,
     pub(super) start: usize,
     pub(super) end: usize,
-    /// `start` and `end` in UTF-16.
     pub(super) units: [usize; 2],
-    /// Where the text left over for the next frame starts.
     pub(super) rest: Option<usize>,
     pub(super) prev: Option<TreeID>,
     pub(super) next: Option<TreeID>,
@@ -21,7 +16,6 @@ pub(super) struct Flow {
 }
 
 impl Flow {
-    /// Whether the layer shows the same as with `b`.
     pub(super) fn shows(&self, b: &Flow) -> bool {
         Rc::ptr_eq(&self.content, &b.content)
             && Rc::ptr_eq(&self.placed, &b.placed)
@@ -30,24 +24,18 @@ impl Flow {
                 == (b.head, b.prev, b.next, b.overset)
     }
 
-    /// The start of the text from this frame on, as much as its name shows.
     pub(super) fn lead(&self) -> &str {
         let t = &self.story.text[self.start..];
         &t[..t.char_indices().nth(41).map_or(t.len(), |(i, _)| i)]
     }
 }
 
-/// What a change reaches.
 pub(super) struct Reach {
-    /// The pages and masters to lay out again.
     pub(super) roots: HashSet<TreeID>,
-    /// The text layers whose flows go, and the stories to set again.
     texts: HashSet<TreeID>,
     pub(super) heads: HashSet<TreeID>,
 }
 
-/// A story set through the frames of its thread, with the bounds and settings of
-/// each frame and the number of fonts it was set with.
 pub(super) struct Set {
     story: Rc<Story>,
     frames: Vec<(TreeID, [f32; 4], TextFrame)>,
@@ -55,7 +43,6 @@ pub(super) struct Set {
     out: Vec<Placing>,
 }
 
-/// The size a hugging text layer measured for its story, frame, width and start.
 pub(super) struct Measured {
     story: Rc<Story>,
     frame: TextFrame,
@@ -64,10 +51,6 @@ pub(super) struct Measured {
     size: [f32; 2],
 }
 
-/// What of the last setting `old` of a story still holds after its text changed
-/// between the bytes `p` and `old.len() - q`, which moved the text after it by
-/// `bytes`; frames from `frames` on are as they were, and the first `same`. `head` holds the byte of the newline before `p` and where the
-/// last `keep_next` before it ends, if the spans up to it are as they were.
 struct Tail<'a> {
     old: &'a Set,
     head: Option<(usize, usize)>,
@@ -135,8 +118,6 @@ impl<'a> Tail<'a> {
         })
     }
 
-    /// The frame `j` as it was if it starts where it did and its paragraphs, with
-    /// those a `keep_next` holds to them, end before the change.
     fn head(&self, j: usize, start: usize) -> Option<&Placing> {
         let (h, kept) = self.head?;
         let p = &self.old.out[j];
@@ -146,8 +127,6 @@ impl<'a> Tail<'a> {
             .then_some(p)
     }
 
-    /// Whether the frame `j`, which now starts at the byte `start`, sets what it set
-    /// before: its paragraph and all after it are as they were.
     fn keeps(&self, j: usize, start: usize, text: &str, spans: &[Span]) -> bool {
         let (o, at) = (&self.old.story, self.old.out[j].1);
         let Some(nl) = o.text[..at].rfind('\n') else {
@@ -167,7 +146,6 @@ impl<'a> Tail<'a> {
             && tail(&o.spans, utf16_of(&o.text, nl)).eq(tail(spans, utf16_of(text, moved(nl))))
     }
 
-    /// The frames from `j` on as they were, moved on with the text.
     fn from(&self, j: usize) -> impl Iterator<Item = Placing> {
         let moved = |v: usize| v.wrapping_add_signed(self.bytes);
         self.old.out[j..]
@@ -178,11 +156,8 @@ impl<'a> Tail<'a> {
     }
 }
 
-/// A frame of a thread, the byte where its text starts, where the text left over for
-/// the next begins, and how its text is placed relative to its start.
 pub(super) type Placing = (TreeID, usize, Option<usize>, Rc<text::Placed>);
 
-/// The index of the span that holds the UTF-16 index `at`.
 pub(super) fn span_at(spans: &[Span], at: usize) -> usize {
     let mut end = 0;
     spans
@@ -194,7 +169,6 @@ pub(super) fn span_at(spans: &[Span], at: usize) -> usize {
         .count()
 }
 
-/// `text::set` from the byte `start`, placed relative to it and its span.
 pub(super) fn set_from(
     text: &str,
     spans: &[Span],
@@ -207,7 +181,6 @@ pub(super) fn set_from(
     (placed.shifted(-(start as isize), -(k as isize)), rest)
 }
 
-/// The bytes `b` of `story`, which are the UTF-16 units `u`.
 fn part(story: &Story, b: Range<usize>, u: [usize; 2]) -> Story {
     let k = span_at(&story.spans, u[0]);
     let mut start: usize = story.spans[..k].iter().map(|s| s.len).sum();
@@ -229,7 +202,6 @@ fn part(story: &Story, b: Range<usize>, u: [usize; 2]) -> Story {
     }
 }
 
-/// The UTF-16 range of the paragraphs that `r` touches in `text`.
 pub(super) fn paragraphs(text: &str, r: &Range<usize>) -> Range<usize> {
     let breaks: Vec<usize> = text
         .encode_utf16()
@@ -252,7 +224,6 @@ pub(super) fn paragraphs(text: &str, r: &Range<usize>) -> Range<usize> {
     start..end
 }
 
-/// The byte offset in `s` of the UTF-16 `index`.
 pub(super) fn byte_of(s: &str, index: usize) -> Res<usize> {
     let mut units = 0;
     for (b, c) in s.char_indices() {
@@ -268,13 +239,10 @@ pub(super) fn byte_of(s: &str, index: usize) -> Res<usize> {
     }
 }
 
-/// The UTF-16 index of the byte offset `byte` in `s`.
 pub(super) fn utf16_of(s: &str, byte: usize) -> usize {
     s[..byte.min(s.len())].encode_utf16().count()
 }
 
-/// `text` with Word's and InDesign's line breaks and CR LF as `\n` and without
-/// other control characters but tabs and markers.
 pub(super) fn clean(text: &str) -> String {
     text.replace("\r\n", "\n")
         .chars()
@@ -288,7 +256,6 @@ pub(super) fn clean(text: &str) -> String {
 }
 
 impl Doc {
-    /// Adds a font to those text can be set in and sets the text again.
     pub fn add_font(&mut self, bytes: &[u8]) -> Res<Typeface> {
         let face = text::add_font(bytes)?;
         self.changed.lock().unwrap().take();
@@ -298,7 +265,6 @@ impl Doc {
         Ok(face)
     }
 
-    /// Removes the added font `hash`; text set in it falls back as a missing font.
     pub fn remove_font(&mut self, hash: &str) -> Res<()> {
         text::remove_font(hash);
         self.sets.take();
@@ -308,7 +274,6 @@ impl Doc {
         self.finish(vec![], false).map(drop)
     }
 
-    /// Makes date markers show the day `d` of the month `m` of the year `y`.
     pub fn set_today(&mut self, y: u32, m: u32, d: u32) -> Res<()> {
         if !(1..=9999).contains(&y) || !(1..=12).contains(&m) || !(1..=31).contains(&d) {
             return Err(format!("no date {y}-{m}-{d}"));
@@ -323,7 +288,6 @@ impl Doc {
         self.finish(vec![], false).map(drop)
     }
 
-    /// The story of the text layer `n` and the lines of it set in its frame.
     pub(super) fn frame_lines(&self, n: TreeID) -> Res<(Rc<Story>, Vec<text::Line>)> {
         let flows = self.flows();
         let f = flows.get(&n).ok_or("not a text node")?;
@@ -333,8 +297,6 @@ impl Doc {
         ))
     }
 
-    /// The story of the thread starting at `head` set through its frames. A story set
-    /// before from the same inputs is taken as it was.
     pub(super) fn flow(&self, head: TreeID) -> Res<(Rc<Story>, Vec<Placing>)> {
         let text = self.own_text(head)?.to_string();
         let v = serde_json::to_value(self.meta(head).get_deep_value()).map_err(err)?;
@@ -401,14 +363,11 @@ impl Doc {
         Ok((story, out))
     }
 
-    /// The UTF-16 range of its story that the text layer `id` sets.
     pub fn frame_range(&self, id: &str) -> Res<[usize; 2]> {
         let flows = self.flows();
         Ok(flows.get(&self.node(id)?).ok_or("not a text node")?.units)
     }
 
-    /// The frame of the thread of `n` that holds the byte `at`: the last one that
-    /// gets text and starts at or before it.
     pub(super) fn holding(&self, n: TreeID, at: usize) -> Res<TreeID> {
         let flows = self.flows();
         let mut f = flows.get(&n).ok_or("not a text node")?.head;
@@ -425,15 +384,12 @@ impl Doc {
         Ok(holder)
     }
 
-    /// The frame of the thread of the text `id` that holds the UTF-16 `index`.
     pub fn text_frame(&self, id: &str, index: usize) -> Res<String> {
         let n = self.node(id)?;
         let t = self.text(n)?.to_string();
         Ok(self.holding(n, byte_of(&t, index)?)?.to_string())
     }
 
-    /// [x, top, bottom] in pt of a caret before the UTF-16 `index` of the text `id`,
-    /// in the frame of its thread that holds it.
     pub fn caret(&self, id: &str, index: usize) -> Res<[f64; 3]> {
         let n = self.node(id)?;
         let t = self.text(n)?.to_string();
@@ -442,7 +398,6 @@ impl Doc {
         Ok(text::caret(&story.text, &lines, at).map(f64::from))
     }
 
-    /// The UTF-16 index of the character boundary in the frame `id` nearest (x, y).
     pub fn text_index(&self, id: &str, x: f64, y: f64) -> Res<usize> {
         let n = self.node(id)?;
         let (story, lines) = self.frame_lines(n)?;
@@ -453,7 +408,6 @@ impl Doc {
         Ok(utf16_of(&story.text, at))
     }
 
-    /// UTF-16 start and end of the line of the text `id` that holds `index`.
     pub fn text_line(&self, id: &str, index: usize) -> Res<[usize; 2]> {
         let n = self.node(id)?;
         let t = self.text(n)?.to_string();
@@ -465,9 +419,6 @@ impl Doc {
         })
     }
 
-    /// The selection from `anchor` to `focus` in the text `id` as highlighted boxes in
-    /// the frames of its thread on `page`, or a caret `caret_width` pt wide where they
-    /// meet.
     pub fn text_overlay(
         &self,
         id: &str,
@@ -532,7 +483,6 @@ impl Doc {
         Ok(ops)
     }
 
-    /// `ops` drawn turned as the layer `id` is.
     fn turned(&self, id: TreeID, ops: Vec<Op>) -> Vec<Op> {
         let transform = self.turn(id).map(|v| v as f32);
         if transform == [1.0, 0.0, 0.0, 1.0, 0.0, 0.0] {
@@ -546,21 +496,18 @@ impl Doc {
         .concat()
     }
 
-    /// The layer's own text, which is its story's unless it follows another frame.
     pub(super) fn own_text(&self, id: TreeID) -> Res<LoroText> {
         container(&self.meta(id), "text")
             .and_then(|c| c.into_text().ok())
             .ok_or_else(|| "not a text node".into())
     }
 
-    /// The text layer that follows `id` in its thread.
     pub(super) fn next_of(&self, id: TreeID) -> Option<TreeID> {
         let v = value(&self.meta(id), NEXT)?.into_string().ok()?;
         let n = self.node(&v).ok()?;
         (self.kind(n) == Some(NodeKind::Text)).then_some(n)
     }
 
-    /// The text layer that `id` follows in its thread.
     pub(super) fn prev_of(&self, id: TreeID) -> Option<TreeID> {
         if let Some(prevs) = &*self.prevs.borrow() {
             return prevs.get(&id).copied();
@@ -571,7 +518,6 @@ impl Doc {
         prev
     }
 
-    /// The text layer each text layer follows in its thread.
     pub(super) fn links(&self) -> HashMap<TreeID, TreeID> {
         let mut prevs = HashMap::new();
         for n in self.texts(&self.tree.roots()) {
@@ -582,8 +528,6 @@ impl Doc {
         prevs
     }
 
-    /// Forgets the links back of the threads unless the changes since the last
-    /// snapshot leave every link that they touch as it was.
     pub(super) fn check_links(&self) {
         let Some(prevs) = self.prevs.borrow().clone() else {
             return;
@@ -605,7 +549,6 @@ impl Doc {
         }
     }
 
-    /// Makes the text layer `to` follow `id` in its thread, or ends the thread at `id`.
     pub(super) fn set_next(&self, id: TreeID, to: Option<TreeID>) -> Res<()> {
         self.prevs.take();
         match to {
@@ -615,7 +558,6 @@ impl Doc {
         .map_err(err)
     }
 
-    /// The first frame of the thread of `id`, which holds the story.
     pub(super) fn story(&self, id: TreeID) -> TreeID {
         let mut head = id;
         let mut seen = vec![id];
@@ -626,7 +568,6 @@ impl Doc {
         head
     }
 
-    /// The frames of the thread from `head` on.
     pub(super) fn thread(&self, head: TreeID) -> Vec<TreeID> {
         let mut out = vec![head];
         while let Some(n) = self
@@ -638,8 +579,6 @@ impl Doc {
         out
     }
 
-    /// Takes the text layers in `id`'s subtree out of their threads, which close up;
-    /// a story whose first frame goes moves on to the next frame.
     pub(super) fn unlink_all(&self, id: TreeID) -> Res<()> {
         let mut all = Vec::new();
         self.walk(id, &mut all);
@@ -660,7 +599,6 @@ impl Doc {
         Ok(())
     }
 
-    /// Copies the story that the text layer `n` holds into `x`.
     fn move_story(&self, n: TreeID, x: TreeID) -> Res<()> {
         let delta = self.own_text(n)?.to_delta();
         let t = self
@@ -688,13 +626,10 @@ impl Doc {
         Ok(())
     }
 
-    /// The story of the text layer `id`, held by the first frame of its thread.
     pub(super) fn text(&self, id: TreeID) -> Res<LoroText> {
         self.own_text(self.story(id))
     }
 
-    /// Replaces the text styles for which `only` holds in `range` of `id`, or in all
-    /// of it, by the values they stand for.
     pub(super) fn detach(
         &self,
         id: TreeID,
@@ -762,8 +697,6 @@ impl Doc {
         self.put("textStyles", i, s)
     }
 
-    /// Sets the hugging sides of a text layer to what its text needs, from where its
-    /// thread's story reaches it.
     pub(super) fn fit(&self, id: TreeID) -> Res<()> {
         let Sizing {
             horizontal,
@@ -784,14 +717,11 @@ impl Doc {
         Ok(())
     }
 
-    /// The height the text of the cell `id` needs at the width `w`.
     pub(super) fn natural(&self, id: TreeID, w: f64) -> Res<f64> {
         let h = self.measured(id, Some(w as f32))?[1];
         Ok(f64::from(h).max(self.text_frame_of(id).min_height))
     }
 
-    /// The size the text of `id` takes from where its thread's story reaches it, at
-    /// the width `fw` or as wide as its lines.
     fn measured(&self, id: TreeID, fw: Option<f32>) -> Res<[f32; 2]> {
         let (story, flows) = self.flow(self.story(id))?;
         let from = flows.iter().find(|f| f.0 == id).map_or(0, |f| f.1);
@@ -825,7 +755,6 @@ impl Doc {
         })
     }
 
-    /// The flows through all text layers, kept since the last command.
     pub(super) fn flows(&self) -> Rc<HashMap<TreeID, Flow>> {
         match &*self.flows.borrow() {
             Some(f) => f.clone(),
@@ -833,7 +762,6 @@ impl Doc {
         }
     }
 
-    /// What the changes since the last snapshot reach, `None` for everything.
     pub(super) fn reach(&self) -> Option<Reach> {
         let nodes = self.changed.lock().unwrap().clone()?;
         let (old, _) = &*self.sheets.borrow();
@@ -878,8 +806,6 @@ impl Doc {
         })
     }
 
-    /// Whether the text layer `n` or a layer it is in changed, or its bounds or text
-    /// frame differ from those its story was set through last.
     fn reflows(&self, n: TreeID, nodes: &HashSet<TreeID>, old: &HashMap<TreeID, Flow>) -> bool {
         let mut a = n;
         while !nodes.contains(&a) {
@@ -901,14 +827,12 @@ impl Doc {
         matches!(self.kind(r), Some(NodeKind::Page | NodeKind::Master))
     }
 
-    /// The first frames of the threads on the pages and masters.
     pub(super) fn heads(&self) -> HashSet<TreeID> {
         (self.texts(&self.tree.roots()).into_iter())
             .filter(|&n| self.prev_of(n).is_none())
             .collect()
     }
 
-    /// The text layers on the pages and masters `roots`.
     fn texts(&self, roots: &[TreeID]) -> Vec<TreeID> {
         let mut all = Vec::new();
         for &r in roots.iter().filter(|&&r| self.is_sheet(r)) {
@@ -918,8 +842,6 @@ impl Doc {
         all
     }
 
-    /// The flows through all text layers; with `reach`, those of the last snapshot
-    /// that it does not reach as they were, and `reflowed` the layers it changed.
     pub(super) fn flow_all(&self, reach: Option<&Reach>) -> HashMap<TreeID, Flow> {
         let mut out = HashMap::new();
         let mut gone = HashMap::new();
@@ -1017,7 +939,6 @@ impl Doc {
         Ok(vec![])
     }
 
-    /// The sizes and spacing of the story of `n` by `by`, for `Format` of each span.
     fn scaled(&self, n: TreeID, by: f64) -> Res<Vec<(Option<[usize; 2]>, TextProps)>> {
         let head = self.story(n);
         self.text(head)?;
@@ -1050,7 +971,6 @@ impl Doc {
         self.scaled(n, by).map(|_| ())
     }
 
-    /// Scales the sizes and spacing in pt of the story of `n` by `by`.
     pub(super) fn scale_text(&self, n: TreeID, by: f64) -> Res<()> {
         for (range, props) in self.scaled(n, by)? {
             self.format(self.story(n).to_string(), range, props)?;
@@ -1206,7 +1126,6 @@ impl Doc {
         Ok(vec![])
     }
 
-    /// The text frames `from` and `to` if `to` can join the thread after `from`.
     pub fn threadable(&self, from: &str, to: &str) -> Res<(TreeID, TreeID)> {
         let (a, b) = (self.node(from)?, self.node(to)?);
         if self.kind(a) != Some(NodeKind::Text) || self.kind(b) != Some(NodeKind::Text) {
@@ -1237,8 +1156,6 @@ impl Doc {
         }
     }
 
-    /// Threads the free text layer `b` after `a`, or before `a` as the first frame of
-    /// its thread, which takes the story.
     fn link(&self, a: TreeID, b: TreeID, head: bool) -> Res<Vec<String>> {
         let own = self.own_text(b)?;
         if own.len_utf16() > 0 {
@@ -1300,7 +1217,6 @@ impl Doc {
     }
 }
 
-/// Sets the `STYLED` attributes of `props` on `s` and unbinds them.
 fn restyle(s: &mut TextStyle, props: TextProps) -> Res<()> {
     props.check()?;
     let mut attrs = serde_json::to_value(&s.attrs).map_err(err)?;

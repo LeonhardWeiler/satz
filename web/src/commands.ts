@@ -6,7 +6,6 @@ import { TABLE_ACTIONS } from './cells'
 import { keyOf } from './keys'
 import { DATE, insert, MAC, PAGE_NUMBER } from './textEdit'
 
-/** A command by its title, shortcut and group; one without `run` runs by pressing its shortcut, one whose `can` (by default its group's) fails is greyed out in the context menu and the palette. */
 export type Action = { title: string; keys: string; group: string; run?: (editor: Editor) => void; can?: (editor: Editor) => boolean }
 
 const pageOrLast = (editor: Editor) =>
@@ -166,19 +165,15 @@ export const ACTIONS: Action[] = [
   { title: 'Settings', keys: 'Ctrl ,', group: 'View' },
 ]
 
-/** The context menu and the palette leave these out instead of greying them out. */
 export const ONLY_WHEN_ABLE = new Set(['Reset to master', 'Table', ...BOOLEANS.map((b) => b[1])])
 
-/** When the actions of a group act, unless an action names its own `can`. */
 const GROUP_CAN: Record<string, (editor: Editor) => boolean> = {
   Arrange: (editor) => editor.selection.length > 0,
   Text: (editor) => !!editor.editing || editor.selected().some((n) => n.kind === 'text'),
 }
 
-/** Whether `a` acts now; menus grey out the others, or leave them out when `ONLY_WHEN_ABLE` names them. */
 export const able = (editor: Editor, a: Action) => (a.can ?? GROUP_CAN[a.group])?.(editor) ?? true
 
-/** The titles of the actions the context menu offers with and without a selection, `null` between groups. */
 export const MENU = {
   selected: ['Cut', 'Copy', 'Paste', 'Duplicate', null, 'Group', 'Ungroup', 'Add auto layout', 'Transform', 'Table', null, 'Bring to front', 'Send to back', 'Reset to master', null, 'Rename', 'Hide', 'Lock', null, 'Delete'],
   transform: ['Use as mask', 'Flatten', 'Flip horizontal', 'Flip vertical', 'Tidy up', ...BOOLEANS.map((b) => b[1])],
@@ -188,7 +183,6 @@ export const MENU = {
 }
 
 const SYMBOLS: Record<string, string> = { Ctrl: '⌘', Alt: '⌥', Shift: '⇧' }
-/** The key `k` as the platform names it: ⌘ ⌥ ⇧ on a Mac. */
 export const keyName = (k: string) => (MAC ? (SYMBOLS[k] ?? k) : k)
 
 const KEYS: Record<string, [key: string, code: string]> = {
@@ -209,10 +203,8 @@ const KEYS: Record<string, [key: string, code: string]> = {
   '-': ['-', 'Minus'],
 }
 
-/** The keys `a` runs on, as the settings remap them. */
 export const keysOf = (a: Action) => settings.keys[a.title] ?? a.keys
 
-/** The shortcut `e` presses as `keys` names it, null for a lone modifier. */
 export function comboOf(e: KeyboardEvent) {
   if (['Control', 'Meta', 'Alt', 'Shift'].includes(e.key)) return null
   const named = Object.entries(KEYS).find(([, [key]]) => key === e.key)?.[0]
@@ -221,7 +213,6 @@ export function comboOf(e: KeyboardEvent) {
   return [e.ctrlKey || e.metaKey ? 'Ctrl' : '', e.altKey ? 'Alt' : '', shift ? 'Shift' : '', key].filter(Boolean).join(' ')
 }
 
-/** Presses the shortcut `keys` on the document as if typed. */
 export function press(keys: string) {
   const parts = keys.split(' ')
   const last = parts.at(-1)!

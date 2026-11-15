@@ -27,7 +27,6 @@ const options = (values: number[], unit: string, zero: string, v: number) =>
   Object.fromEntries([...new Set([0, ...values, v])].map((n) => [String(n), n ? `${n} ${unit}` : zero]))
 const count = (n: number, what: string) => `${n} ${what}${n === 1 ? '' : 's'}`
 
-/** Keeps the inks of the shown pages from the worker in `editor.previewed` while mounted, between drags. */
 function usePreview(editor: Editor, on: boolean) {
   useEffect(() => {
     if (!on) return
@@ -65,7 +64,6 @@ const PRESETS: Record<Preset, string> = { x4: 'PDF/X-4, print', x1a: 'PDF/X-1a, 
 const PRINT = { cropMarks: true, includeBleed: true, imagePpi: 0, jpegQuality: 0 }
 const OUTPUT: Record<Preset, Partial<typeof PRINT>> = { x4: PRINT, x1a: PRINT, screen: { imagePpi: 150, jpegQuality: 90 } }
 
-/** The indices of the pages that `text` names by the numbers they show or their place, all for an empty text, or why it names none. */
 function pagesOf(text: string, labels: string[]): number[] | string {
   if (!text.trim()) return [...labels.keys()]
   const at = (s: string) => {

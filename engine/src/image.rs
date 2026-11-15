@@ -14,7 +14,6 @@ use zune_core::colorspace::ColorSpace;
 use zune_core::options::DecoderOptions;
 use zune_jpeg::JpegDecoder;
 
-/// A PNG or JPEG file by the hash of its bytes, its size in pixels and its colors.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ImageInfo {
     pub hash: String,
@@ -45,18 +44,13 @@ struct Entry {
     info: ImageInfo,
     format: Format,
     bytes: LoroBinaryValue,
-    /// The image and adjustment an adjusted image is made of; its `bytes` are empty.
     source: Option<(Rc<Entry>, [f32; 3])>,
-    /// Decoded on first use by `pixmap` and `cmyk`; `None` when the file does not decode.
     pixels: RefCell<Option<Option<Rc<Pixmap>>>>,
     cmyk: RefCell<Option<Option<Pixels>>>,
-    /// `cmyk` shrunk by the factor `plate` last needed.
     small: RefCell<Option<(u32, Pixels)>>,
-    /// The image for the PDF by proof, CMYK, shrink factor and JPEG quality.
     pdf: RefCell<HashMap<PdfKey, Option<krilla::image::Image>>>,
 }
 
-/// RGB or CMYK pixels and their alpha, 8 bits each, as the PDF takes them.
 #[derive(Hash, Clone)]
 pub struct Pixels {
     pub color: Arc<[u8]>,
@@ -94,20 +88,15 @@ impl CustomImage for Pixels {
     }
 }
 
-/// Mark the id of an image in a display list that shows it as it prints, or as
-/// the inverted C, M and Y or K plate that `Doc::plate` draws.
 pub const PROOF: u32 = 1 << 31;
 pub const CMY: u32 = 1 << 30;
 pub const K: u32 = 1 << 29;
 
 thread_local! {
-    /// The images by id; a dropped image leaves an empty slot, so that ids stay
-    /// valid across documents for the renderer's cache.
     static IMAGES: RefCell<Vec<Option<Rc<Entry>>>> = const { RefCell::new(Vec::new()) };
     static IDS: RefCell<HashMap<String, u32>> = RefCell::new(HashMap::new());
 }
 
-/// Adds `e` and returns its id.
 fn push(e: Entry) -> u32 {
     let hash = e.info.hash.clone();
     let id = IMAGES.with_borrow_mut(|images| {
@@ -136,7 +125,6 @@ fn pdf_image(format: Format, bytes: &LoroBinaryValue) -> Result<krilla::image::I
     }
 }
 
-/// Lends the document's image bytes to the PDF without copying them.
 struct Shared(LoroBinaryValue);
 
 impl AsRef<[u8]> for Shared {
@@ -145,11 +133,8 @@ impl AsRef<[u8]> for Shared {
     }
 }
 
-/// The most pixels of an image that `register` takes.
 const MAX_PIXELS: u64 = 50_000_000;
 
-/// Registers the image `bytes` unless it is there already; fails when they are not
-/// a PNG or JPEG file of at most `MAX_PIXELS`.
 pub fn register(bytes: LoroBinaryValue) -> Result<ImageInfo, String> {
     let hash = content_hash(&bytes);
     if let Some(e) = entry_by_hash(&hash) {
@@ -186,8 +171,6 @@ pub fn register(bytes: LoroBinaryValue) -> Result<ImageInfo, String> {
     Ok(info)
 }
 
-/// The JPEG file `bytes` turned upright when its EXIF orientation is 2 to 8, so
-/// that every output shows it as the camera did; `None` for any other file.
 pub fn upright(bytes: &[u8]) -> Option<Vec<u8>> {
     let mut decoder = JpegDecoder::new(Cursor::new(bytes));
     decoder.decode_headers().ok()?;
@@ -227,7 +210,6 @@ pub fn upright(bytes: &[u8]) -> Option<Vec<u8>> {
     Some(file)
 }
 
-/// The orientation tag in the first IFD of the EXIF data `tiff`.
 fn orientation(tiff: &[u8]) -> Option<u16> {
     let le = tiff.starts_with(b"II");
     let u16_at = |i: usize| {
@@ -253,7 +235,6 @@ fn orientation(tiff: &[u8]) -> Option<u16> {
         .and_then(|e| u16_at(e + 8))
 }
 
-/// The width and height in the header of the PNG or JPEG file `bytes`.
 fn size(bytes: &[u8]) -> Result<(u32, u32), String> {
     let bad = || "not a PNG or JPEG image".to_string();
     match format(bytes)? {
@@ -272,9 +253,6 @@ fn size(bytes: &[u8]) -> Result<(u32, u32), String> {
     }
 }
 
-/// The id of the registered image `hash` with its brightness, contrast and
-/// saturation changed by `adjust`, each in -1..=1. Making one drops the decoded
-/// pixels of the other adjustments of `hash`.
 pub fn adjusted(hash: &str, adjust: [f32; 3]) -> Option<u32> {
     if adjust == [0.0; 3] {
         return id(hash);
@@ -312,7 +290,6 @@ pub fn adjusted(hash: &str, adjust: [f32; 3]) -> Option<u32> {
     }))
 }
 
-/// Drops the decoded pixels of every image but `keep`.
 pub fn forget(keep: &[String]) {
     IMAGES.with_borrow(|images| {
         for e in images
@@ -328,7 +305,6 @@ pub fn forget(keep: &[String]) {
     })
 }
 
-/// Drops every image, with its adjustments, but `keep`.
 pub fn retain(keep: &[String]) {
     IMAGES.with_borrow_mut(|images| {
         for slot in images.iter_mut() {
@@ -379,18 +355,14 @@ fn entry(id: u32) -> Option<Rc<Entry>> {
     IMAGES.with_borrow(|images| images.get((id & !(PROOF | CMY | K)) as usize)?.clone())
 }
 
-/// The id of the registered image `hash` in display lists.
 pub fn id(hash: &str) -> Option<u32> {
     IDS.with_borrow(|ids| ids.get(hash).copied())
 }
 
-/// The size of the registered image `hash` in pixels.
 pub fn info(hash: &str) -> Option<ImageInfo> {
     entry_by_hash(hash).map(|e| e.info.clone())
 }
 
-/// The file of the image `id`, or a PNG of it for a marked id; empty for an
-/// unknown id.
 pub fn bytes(id: u32) -> Vec<u8> {
     if id & (PROOF | CMY | K) == 0 {
         return entry(id).and_then(|e| file(&e)).unwrap_or_default();
@@ -416,7 +388,6 @@ pub fn bytes(id: u32) -> Vec<u8> {
     proof().unwrap_or_default()
 }
 
-/// The PNG or JPEG file of `e`, encoded anew for an adjusted image.
 fn file(e: &Entry) -> Option<Vec<u8>> {
     match e.source {
         Some(_) => {
@@ -438,10 +409,6 @@ pub fn encode(rgba: &[u8], (w, h): (u32, u32)) -> Option<Vec<u8>> {
     Some(out)
 }
 
-/// The image `id` for the PDF, which embeds a file as it is, separates an RGB
-/// image through FOGRA51 for `cmyk`, or shows it as it prints for a `PROOF` id.
-/// It shrinks by a whole factor while it keeps `need` pixels when that is given,
-/// and an opaque one is a JPEG of `quality` (1 to 100) unless that is 0.
 pub fn pdf(
     id: u32,
     cmyk: bool,
@@ -497,7 +464,6 @@ fn build(e: &Entry, id: u32, cmyk: bool, f: u32, quality: u8) -> Option<krilla::
     krilla::image::Image::from_custom(px, true).ok()
 }
 
-/// The pixels of the image `id`, premultiplied, for rasterized effects.
 pub fn pixmap(id: u32) -> Option<Rc<Pixmap>> {
     let e = entry(id)?;
     let mut pixels = e.pixels.borrow_mut();
@@ -517,8 +483,6 @@ pub fn pixmap(id: u32) -> Option<Rc<Pixmap>> {
         .clone()
 }
 
-/// The pixels of the image `id` in CMYK: a CMYK JPEG's own, others separated
-/// through FOGRA51.
 pub fn cmyk(id: u32) -> Option<Pixels> {
     let e = entry(id)?;
     let mut cmyk = e.cmyk.borrow_mut();
@@ -541,14 +505,10 @@ pub fn cmyk(id: u32) -> Option<Pixels> {
     .clone()
 }
 
-/// [k, m, o] of `adjust`, which maps each channel v of a pixel of luma l, all in
-/// 0..=1, to k v - m l + o.
 fn factors([b, c, s]: [f32; 3]) -> [f32; 3] {
     [(1.0 + c) * (1.0 + s), (1.0 + c) * s, b - 0.5 * c]
 }
 
-/// The id of the unadjusted image under the image `id` and the `factors` that
-/// adjust it, for the canvas to adjust and separate it; `None` for a CMYK image.
 pub fn source(id: u32) -> Option<(u32, [f32; 3])> {
     let e = entry(id)?;
     let (root, adjust) = e.source.clone().unwrap_or((e, [0.0; 3]));
@@ -558,7 +518,6 @@ pub fn source(id: u32) -> Option<(u32, [f32; 3])> {
     Some((self::id(&root.info.hash)?, factors(adjust)))
 }
 
-/// The pixels of `e` as RGBA, not premultiplied, and its size.
 fn rgba(e: &Entry) -> Option<(Vec<u8>, u32, u32)> {
     let Some((source, adjust)) = &e.source else {
         return decode(e.format, &e.bytes);
@@ -575,7 +534,6 @@ fn rgba(e: &Entry) -> Option<(Vec<u8>, u32, u32)> {
     Some((rgba, w, h))
 }
 
-/// The pixels of a PNG or JPEG file as RGBA, not premultiplied, and its size.
 fn decode(format: Format, bytes: &[u8]) -> Option<(Vec<u8>, u32, u32)> {
     Some(match format {
         Format::Png => {
@@ -609,8 +567,6 @@ fn decode(format: Format, bytes: &[u8]) -> Option<(Vec<u8>, u32, u32)> {
     })
 }
 
-/// The inks of a CMYK or YCCK JPEG, which store them inverted as Adobe writes them,
-/// and its size.
 fn decode_cmyk(bytes: &[u8]) -> Option<(Vec<u8>, u32, u32)> {
     let mut decoder = JpegDecoder::new(Cursor::new(bytes));
     decoder.decode_headers().ok()?;
@@ -640,8 +596,6 @@ fn decode_cmyk(bytes: &[u8]) -> Option<(Vec<u8>, u32, u32)> {
     Some((color, w as u32, h as u32))
 }
 
-/// The plate of the image `id` with the CMYK channels `pick` takes as RGB,
-/// premultiplied, shrunk by a whole factor to no less than `size` pixels.
 pub fn plate(id: u32, [w, h]: [f32; 2], pick: impl Fn([f32; 4]) -> [f32; 3]) -> Option<Rc<Pixmap>> {
     let c = cmyk(id)?;
     let (cw, ch) = c.size;
@@ -671,7 +625,6 @@ pub fn plate(id: u32, [w, h]: [f32; 2], pick: impl Fn([f32; 4]) -> [f32; 3]) -> 
     Pixmap::from_vec(data, IntSize::from_wh(c.size.0, c.size.1)?).map(Rc::new)
 }
 
-/// `c` with each square of `f` by `f` pixels averaged into one.
 fn shrink(c: &Pixels, f: u32) -> Pixels {
     let (w, h) = (c.size.0 / f, c.size.1 / f);
     let n = f * f;
@@ -704,7 +657,6 @@ fn shrink(c: &Pixels, f: u32) -> Pixels {
 pub mod tests {
     use super::*;
 
-    /// A PNG of `w` × `h` opaque red pixels.
     pub fn png(w: u32, h: u32) -> Vec<u8> {
         let mut out = Vec::new();
         let mut encoder = png::Encoder::new(&mut out, w, h);

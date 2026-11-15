@@ -15,25 +15,18 @@ import { setSettings, settings, useSettings } from './settings'
 type Lists = { id: string; x: number }[]
 type Menu = { id: string; master: boolean; x: number; y: number }
 
-/** The smallest and largest page height in the overview in px. */
 const ZOOM = [80, 480]
 const clamp = (v: number, [lo, hi]: number[]) => Math.round(Math.min(hi, Math.max(lo, v)))
 const resize = (patch: Partial<typeof settings.overview>) => setSettings({ overview: { ...settings.overview, ...patch } })
 
 let painter: ReturnType<typeof makePainter> | undefined
 
-/**
- * Draws pictures of pages with the canvas renderer on the GPU, as many per frame as fit in 8 ms, only when their
- * display lists or size changed. It lives on after the overview closes and keeps the last picture of each spread
- * shown, which a canvas shows until it is drawn again.
- */
 function makePainter(ck: CanvasKit, editor: Editor) {
   let renderer: Renderer | undefined
   let gpu: GrDirectContext | null = null
   let surface: Surface | null = null
   const off = new OffscreenCanvas(1, 1)
   const queue = new Map<HTMLCanvasElement, [Lists, Sheet[]]>()
-  /** Canvases drawn while their images were decoding. */
   const waiting = new Map<HTMLCanvasElement, [Lists, Sheet[]]>()
   const pictures = new Map<string, { bitmap: ImageBitmap; of: string }>()
   const used = new Set<string>()
@@ -112,7 +105,6 @@ function usePaint(ck: CanvasKit, editor: Editor) {
   return p.paint
 }
 
-/** A picture of the pages `sheets` drawn from `lists`, `height` px tall, redrawn when the document changes. */
 function Thumb({ paint, snapshot, lists, sheets, height }: { paint: ReturnType<typeof usePaint>; snapshot: Snapshot; lists: Lists; sheets: Sheet[]; height: number }) {
   const ref = useRef<HTMLCanvasElement>(null)
   const w = Math.max(...sheets.map((s) => s.x + s.width)) - Math.min(...sheets.map((s) => s.x))
@@ -125,7 +117,6 @@ function Thumb({ paint, snapshot, lists, sheets, height }: { paint: ReturnType<t
   return <canvas ref={ref} className="thumb" style={{ width: Math.round((height * w) / h), height }} />
 }
 
-/** Shows the thumbnails of `ids` stacked behind `grabbed` as the drag image, with their count. */
 function ghost(data: DataTransfer, grabbed: HTMLElement, ids: string[]) {
   const deck = document.createElement('div')
   deck.className = 'ov-ghost'
@@ -151,12 +142,6 @@ function ghost(data: DataTransfer, grabbed: HTMLElement, ids: string[]) {
 
 const sheet = (p: Page, x = 0): Sheet => ({ x, width: p.width, height: p.height, bleed: p.bleed })
 
-/**
- * The page overview over the canvas: the masters in a column, the spreads beside them one
- * under another. A click or Enter opens a page or master; Ctrl and Shift click and a band dragged
- * over the empty space select them in their list; the selected ones are dragged or moved with Alt and an arrow key to reorder,
- * deleted with Del and have a context menu.
- */
 export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   const snapshot = useEditor(editor, (e) => e.snapshot)
   const selected = useEditor(editor, (e) => e.overview) ?? []
@@ -205,7 +190,6 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     if (range) return select(range)
     select(mine.includes(id) ? mine.filter((s) => s !== id) : [...mine, id])
   }
-  /** Selects the pages or masters of `all` that a band dragged from the empty space of a list touches, with Ctrl or Shift added to those selected. */
   const marquee = (e: PointerEvent<HTMLElement>, all: string[], box: HTMLElement | null) => {
     if (e.button !== 0 || (e.target as Element).closest('.ov-item, button, input, .ov-head')) return
     e.preventDefault()
@@ -289,7 +273,6 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     e.preventDefault()
   }
 
-  /** A page or master `id` in the overview, `vertical` when its list runs down. */
   const thumb = (id: string, label: string, title: string, vertical: boolean, picture: ReactNode) => (
     <div
       key={id}

@@ -15,19 +15,13 @@ export type Tool = 'move' | 'frame' | 'text' | 'pen' | 'eyedropper' | 'table' | 
 export type Pen = { id: string; anchors: Anchor[] }
 
 export const MM = 72 / 25.4
-/** The clipboard type of copied layers. */
 export const CLIP = 'application/x-satz-layers'
 const FRAMED = ['create', 'placeImage', 'setFrame']
 const GRID: Record<string, number> = { x: 10, y: 10, w: 100, h: 100 }
 const FRACTIONS = ['opacity', 'sweep', 'inner', 'ratio']
 
-/** With `satzPerf` set on the window, the time since `start` as `name` in the performance timeline. */
 export const timed = 'satzPerf' in globalThis ? (name: string, start: number) => void performance.measure(name, { start }) : () => {}
 
-/**
- * Puts x and y on a 0.1 mm grid and w and h on 0.01 mm unless they stay as in `was`, and the
- * fractions of 1 on 4 decimals and the other numbers of `cmd` on 2, except the factor `by`.
- */
 function rounded(cmd: Command, was?: Node): Command {
   const cents = (v: number) => Math.round(v * 100) / 100
   const out: Record<string, unknown> = { ...cmd }
@@ -55,70 +49,38 @@ export class Editor {
   selection: string[] = []
   tool: Tool = 'move'
   renaming: string | null = null
-  /** The layer under the pointer in the layers panel, highlighted on the canvas. */
   hover: string | null = null
-  /** The guide picked on the canvas: the page, its axis and index. */
   guide: { id: string; axis: 'x' | 'y'; index: number } | null = null
-  /** The path being drawn with the pen tool, inside an open undo group. */
   pen: Pen | null = null
-  /** The pointer is down on the canvas, possibly inside a drag's undo group. */
   dragging = false
-  /** Where the pointer is over the canvas, in spread coordinates. */
   pointer: Point | undefined
-  /** The text layer edited in its frame, which is then the selection. */
   editing: Editing | null = null
-  /** Matches of find and replace, marked on the canvas. */
   found: { story: string; at: number; end: number }[] = []
-  /** The text frame whose out-port, or in-port with `before`, was clicked, to thread with the next one clicked. */
   threading: { id: string; before: boolean } | null = null
-  /** Images to place, the first at the next click on the canvas. */
   placing: { hash: string; name: string; w: number; h: number; url: string }[] = []
-  /** The current page or master, shown on the canvas in its spread. */
   pageId: string
-  /** The page shown before the current master, to return to. */
   back: string | null = null
-  /** The pages selected in the page overview, `null` while it is closed. */
   overview: string[] | null = null
-  /** The preflight is open: the pages show as they print, with what `inks` marks over them. */
   preflight = false
-  /** The layout grids of the pages show and layers snap to them. */
   grids = true
-  /** The path being edited on the canvas, what a click on it does and its picked knot. */
   vector: { id: string; mode: 'move' | 'add' | 'delete' | 'fill'; at: At[] } | null = null
-  /** The image whose handles crop it and which a drag moves inside its frame. */
   cropping: string | null = null
-  /** The plates shown (bit 0 for C to 3 for K, then the spots), and whether ink above the limit and colors out of gamut are marked. */
   inks = { on: 2 ** 31 - 1, over: true, gamut: true }
-  /** The inks of the shown pages and of the document, from the worker. */
   previewed: Previewed | null = null
-  /** The ink coverage in % under the pointer while the preflight is open. */
   pointerInk: number | null = null
   file = UNTITLED
-  /** The id of the project the document autosaves into, `null` for none. */
   project: string | null = null
-  /** The projects show in place of the document. */
   home = false
-  /** The document has changed since it was last saved to or opened from its file. */
   dirty = false
-  /** The message in the status bar. */
   status: ReactNode = ''
-  /** The status tells that something went wrong. */
   statusError = false
-  /** A button after the status, like Undo after a deletion. */
   statusAction: { label: string; run: () => void } | null = null
-  /** The number of notices said. */
   said = 0
-  /** Off when the engine trapped or Satz is open in another tab. */
   autosaves = true
-  /** Typing into the edited text is one undo step until the caret moves. */
   private typing = false
-  /** The plain text the last copy of layers put on the clipboard; other text there came from outside. */
   copied: string | null = null
-  /** The copied layers in base64 as the last copy put them on the clipboard; others there came from another document. */
   clip: string | null = null
-  /** The last copies `duplicate` made and where their originals were. */
   private copies: { ids: string[]; from: { x: number; y: number } } | null = null
-  /** How many undo groups are open; the engine holds one for all of them. */
   groups = 0
   private savedAt: string
   private listeners = new Set<() => void>()
@@ -131,7 +93,6 @@ export class Editor {
     this.savedAt = engine.version()
   }
 
-  /** Replaces the document by the one saved in `bytes` and the `updates` after it; an error in `bytes` leaves it as it was. */
   load(bytes: Uint8Array, file = UNTITLED, dirty = false, updates: Uint8Array[] = []) {
     this.engine.load(bytes)
     for (const u of updates) this.engine.sync(u)
@@ -144,7 +105,6 @@ export class Editor {
     this.saved(file, dirty ? '' : this.engine.version())
   }
 
-  /** The document at `version` is in `file`. */
   saved(file: Editor['file'], version: string) {
     this.file = file
     this.savedAt = version
@@ -152,34 +112,26 @@ export class Editor {
     this.emit()
   }
 
-  /** The current page or master. */
   get page() {
     const { pages, masters } = this.snapshot
     return pages.find((p) => p.id === this.pageId) ?? masters.find((p) => p.id === this.pageId) ?? pages[0]
   }
 
-  /** The pages of the current page's spread from left to right, or the current master. */
   get spread(): Page[] {
     const { pages, spreads } = this.snapshot
     const ids = spreads.find((s) => s.includes(this.pageId))
     return ids ? ids.map((id) => pages.find((p) => p.id === id)!) : [this.page]
   }
 
-  /**
-   * The pages the canvas shows: those of the spread, or with facing pages the left and
-   * right page of the current master, which holds the layers of both.
-   */
   get sheets(): Page[] {
     const m = this.master
     return m && this.snapshot.facingPages ? [{ ...m, x: -m.width }, m] : this.spread
   }
 
-  /** How far the page of the layer `id` sits right of the spine on its spread. */
   dx(id: string) {
     return this.nodes.get(id)?.page?.x ?? 0
   }
 
-  /** The box of `n` as it shows on the spread, turned by its rotation and its ancestors'. */
   shown(n: Node): Box {
     const [a, b, c, d, e, f] = this.engine.turn(n.id)
     const [cx, cy] = [n.x + n.w / 2, n.y + n.h / 2]
@@ -187,17 +139,12 @@ export class Editor {
     return { x: x - n.w / 2, y: y - n.h / 2, w: n.w, h: n.h, rotation: (Math.atan2(-b, a) * 180) / Math.PI }
   }
 
-  /** `p` on the spread in the unturned space of the layer `id` on its page. */
   local(id: string, p: Point): Point {
     const [a, b, c, d, e, f] = this.engine.turn(id)
     const [x, y] = [p.x - this.dx(id) - e, p.y - f]
     return { x: a * x + b * y, y: c * x + d * y }
   }
 
-  /**
-   * Turns `nodes` as they were by `degrees` counterclockwise around `c` on the spread:
-   * a group through its layers, a line by its ends.
-   */
   turn(nodes: Node[], degrees: number, c: Point) {
     for (const n of nodes) {
       if (n.kind === 'group') {
@@ -218,26 +165,22 @@ export class Editor {
     }
   }
 
-  /** The layers of the current spread. */
   private index() {
     const out = new Map<string, Entry>()
     for (const p of this.spread) index(p.children, undefined, out, p)
     return out
   }
 
-  /** Makes the page of the selection current when it is all on another page of the spread. */
   private settle() {
     const pages = new Set(this.selection.map((id) => this.nodes.get(id)?.page?.id))
     const [only] = pages
     if (pages.size === 1 && only && only !== this.pageId) this.pageId = only
   }
 
-  /** The master a page draws under its layers. */
   masterOf(page: Page) {
     return this.snapshot.masters.find((m) => m.id === page.master)
   }
 
-  /** Applies `cmd`, clearing the status; a command the engine rejects shows in the status bar and returns nothing, a trap throws. */
   apply(cmd: Command): string[] {
     if (cmd.type === 'undo' || cmd.type === 'redo') {
       this.typing = false
@@ -266,7 +209,6 @@ export class Editor {
 
   fail = (status: ReactNode) => this.say(status, null, true)
 
-  /** Opens an undo group that lasts until `endGroup`; groups opened inside it join it. */
   beginGroup() {
     if (this.groups++ === 0) this.engine.apply({ type: 'beginUndoGroup' })
   }
@@ -275,7 +217,6 @@ export class Editor {
     if (this.groups > 0 && --this.groups === 0) this.engine.apply({ type: 'endUndoGroup' })
   }
 
-  /** Runs `f` as one undo step, or as part of the group already open. */
   batch<T>(f: () => T): T {
     this.beginGroup()
     try {
@@ -285,22 +226,18 @@ export class Editor {
     }
   }
 
-  /** Adds a TrueType or OpenType font, which sets the text in it again. */
   addFont(bytes: Uint8Array): Typeface {
     return this.change(() => this.engine.addFont(bytes))
   }
 
-  /** Makes the ICC profile `icc` the CMYK profile of the document, or FOGRA51 for `null`. */
   setProfile(icc: Uint8Array | null) {
     this.change(() => this.engine.setProfile(icc ?? undefined))
   }
 
-  /** Removes the added font `hash`; text set in it shows as missing. */
   removeFont(hash: string) {
     this.change(() => this.engine.removeFont(hash))
   }
 
-  /** Adds a PNG or JPEG file to the images to place, at 300 ppi or smaller to fit the current page, as a link to it when `link` is set; its hash. */
   loadImage(bytes: Uint8Array<ArrayBuffer>, name: string, link = false) {
     const { hash, width, height } = this.change(() => this.engine.addImage(bytes, link ? name : undefined) as { hash: string; width: number; height: number })
     const [w, h] = [width, height].map((px) => (px * 72) / 300)
@@ -310,12 +247,10 @@ export class Editor {
     return hash
   }
 
-  /** Reads the file of a linked image for this session; its hash. */
   registerImage(bytes: Uint8Array) {
     return this.change(() => this.engine.registerImage(bytes) as { hash: string }).hash
   }
 
-  /** The engine's snapshot, with the pages, masters, layers and stories it left out as they were. */
   private read(): Snapshot {
     const s = JSON.parse(this.engine.changes())
     const old = this.snapshot as Snapshot | undefined
@@ -395,7 +330,6 @@ export class Editor {
     return this.snapshot.stories[n.story]
   }
 
-  /** Resizes the text layers of `nodes` by `mode` where their thread allows; auto fit makes a text of one line auto width and else auto height. */
   resize(nodes: Node[], mode: Resizing | 'autoFit') {
     this.batch(() => {
       for (const n of nodes) {
@@ -408,7 +342,6 @@ export class Editor {
     })
   }
 
-  /** Copies the layers `ids` and returns them as plain text: the text of text layers, the names of the others. */
   copy(ids: string[]) {
     this.apply({ type: 'copy', ids })
     const nodes = ids.map((id) => this.nodes.get(id)!.node)
@@ -417,10 +350,6 @@ export class Editor {
     return this.copied
   }
 
-  /**
-   * Duplicates `ids` and selects the copies. Duplicating the last copies again after
-   * they were moved moves the new copies as far on, unless `step` is false.
-   */
   duplicate(ids: string[], step = true) {
     const at = () => this.nodes.get(ids[0])!.node
     const last = this.copies?.ids.join() === ids.join() && step ? this.copies.from : null
@@ -438,7 +367,6 @@ export class Editor {
     this.set({ selection: copies })
   }
 
-  /** Pastes the copied layers, or those of another document's `clip`, above the selection, centred under the pointer when it is away from where they were, or anchored in place of the selected text when editing. */
   paste(clip = this.clip) {
     if (clip && clip !== this.clip) {
       try {
@@ -469,7 +397,6 @@ export class Editor {
     if (!editing) this.set({ selection: ids })
   }
 
-  /** Replaces the text of the one selected text layer with `text` from outside, or places it as a new text layer amid the current page, at most 80 % of its width wide. */
   pasteText(text: string) {
     const one = this.selection.length === 1 && this.nodes.get(this.selection[0])?.node
     if (one && one.kind === 'text') return void this.apply({ type: 'setText', id: one.id, text })
@@ -485,7 +412,6 @@ export class Editor {
     this.set({ selection: [id] })
   }
 
-  /** The layer `id` on any page or master, and the page it is on. */
   lookup(id: string) {
     for (const page of [...this.snapshot.pages, ...this.snapshot.masters]) {
       const entry = index(page.children, undefined, undefined, page).get(id)
@@ -494,7 +420,6 @@ export class Editor {
     return undefined
   }
 
-  /** Moves the edit into the frame of the thread that holds the caret, and to its page. */
   private follow() {
     const e = this.editing
     if (!e) return
@@ -513,7 +438,6 @@ export class Editor {
     this.selection = [frame]
   }
 
-  /** Shows the page `id` with nothing selected. */
   showPage(id: string) {
     if (id === this.pageId) return
     this.finishPen(false)
@@ -524,7 +448,6 @@ export class Editor {
     this.set({ selection: [] })
   }
 
-  /** Deletes the pages `del`, keeping at least 1, and selects the page after them in the overview. */
   deletePages(del: string[]) {
     const ids = this.snapshot.pages.map((p) => p.id)
     del = del.filter((id) => ids.includes(id))
@@ -539,12 +462,10 @@ export class Editor {
     this.say(`Deleted ${del.length === 1 ? `page ${numbers[0]}` : `${del.length} pages`}`, { label: 'Undo', run: () => this.apply({ type: 'undo' }) })
   }
 
-  /** The current master, if a master is shown. */
   get master() {
     return this.snapshot.masters.find((m) => m.id === this.pageId)
   }
 
-  /** Opens the page overview with the current page selected, or closes it. */
   toggleOverview() {
     this.set({ overview: this.overview ? null : [this.pageId] })
   }
@@ -554,25 +475,21 @@ export class Editor {
     this.set({ preflight: !this.preflight })
   }
 
-  /** Leaves the current master for the page shown before it. */
   exitMaster() {
     const { pages } = this.snapshot
     this.showPage(pages.find((p) => p.id === this.back)?.id ?? pages[0].id)
   }
 
-  /** Edits the points of the shape `id`, which becomes a path when one changes. */
   editPath(id: string) {
     if (this.nodes.get(id)?.node.kind !== 'shape') return
     this.set({ selection: [id], vector: { id, mode: 'move', at: [] } })
   }
 
-  /** The knots of the path being edited, in the space of its page. */
   knots(): Contour[] {
     const n = this.vector && this.nodes.get(this.vector.id)?.node
     return n?.kind === 'shape' ? contours(this.engine.pathOf(n.id)) : []
   }
 
-  /** Gives the path being edited the knots `cs` and picks `at`; without knots the path goes. */
   setKnots(cs: Contour[], at: At[] = []) {
     const v = this.vector!
     if (!cs.length) this.apply({ type: 'delete', ids: [v.id] })
@@ -582,7 +499,6 @@ export class Editor {
     }
   }
 
-  /** Applies `cmd` to the shape being edited, which becomes a path first, in one undo step. */
   changePath(cmd: Command) {
     this.batch(() => {
       this.apply({ type: 'flatten', id: this.vector!.id })
@@ -608,7 +524,6 @@ export class Editor {
     this.endGroup()
   }
 
-  /** Leaves the edited text selected, or removes it when it is empty, as Figma does. */
   stopEditing() {
     const e = this.editing
     if (!e) return
@@ -619,7 +534,6 @@ export class Editor {
     this.emit()
   }
 
-  /** Ends the pen path; a path with fewer than two anchors is removed. */
   finishPen(closed: boolean) {
     const pen = this.pen
     if (!pen) return
@@ -631,7 +545,6 @@ export class Editor {
     this.set({ tool: 'move', selection: pen.anchors.length < 2 ? [] : [pen.id] })
   }
 
-  /** Makes the pointer gesture that starts now one undo step. */
   gesture = () => {
     this.finishPen(false)
     this.endTyping()
@@ -643,7 +556,6 @@ export class Editor {
     return this.selection.flatMap((id) => this.nodes.get(id)?.node ?? [])
   }
 
-  /** Shows what the pointer is over; only the listeners of `subscribePointer` hear of it. */
   point(patch: Partial<Pick<Editor, 'hover' | 'pointerInk'>>) {
     Object.assign(this, patch)
     for (const l of this.pointed) l()
@@ -670,7 +582,6 @@ export function useEditor<T>(editor: Editor, read: (e: Editor) => T): T {
 
 export type Point = { x: number; y: number }
 
-/** Start and end in pt of a line, i.e. a two-point path. */
 export function ends(n: Node): [Point, Point] | undefined {
   if (n.kind !== 'shape' || n.shape !== 'path' || n.path.length !== 6) return undefined
   const [, u0, v0, , u1, v1] = n.path
@@ -688,10 +599,6 @@ export function bounds(nodes: { x: number; y: number; w: number; h: number }[]) 
   return { x, y, w, h }
 }
 
-/**
- * Where layers `ids` dragged to `p` land among the other children of the auto layout
- * frame `parent`: the index for a move and the insertion line.
- */
 export function insertion(parent: Container, ids: string[], p: Point) {
   const horizontal = parent.kind === 'frame' && parent.direction === 'horizontal'
   const others = parent.children.filter((n) => !ids.includes(n.id))

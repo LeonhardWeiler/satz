@@ -2,17 +2,14 @@ import type { Point } from './editor'
 
 const [MOVE, LINE, CUBIC, CLOSE] = [0, 1, 4, 5]
 
-/** A point of a path with the handles of its incoming and outgoing curve; a handle on the point is none. */
 export type Knot = { x: number; y: number; ix: number; iy: number; ox: number; oy: number }
 export type Contour = { knots: Knot[]; closed: boolean }
-/** Knot `i` of contour `c`. */
 export type At = [c: number, i: number]
 
 const knot = (x: number, y: number): Knot => ({ x, y, ix: x, iy: y, ox: x, oy: y })
 const lerp = (a: Point, b: Point, t: number) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t })
 const isLine = (a: Knot, b: Knot) => a.ox === a.x && a.oy === a.y && b.ix === b.x && b.iy === b.y
 
-/** The contours of the display-list path `path`. */
 export function contours(path: ArrayLike<number>): Contour[] {
   const out: Contour[] = []
   let knots: Knot[] = []
@@ -42,7 +39,6 @@ export function contours(path: ArrayLike<number>): Contour[] {
   return out
 }
 
-/** The display-list path of `cs`. */
 export function toPath(cs: Contour[]): number[] {
   const path: number[] = []
   const segment = (a: Knot, b: Knot) => {
@@ -60,7 +56,6 @@ export function toPath(cs: Contour[]): number[] {
   return path
 }
 
-/** The segments of `cs` as the knot each starts at, and the knot it ends at. */
 function segments(cs: Contour[]) {
   return cs.flatMap(({ knots, closed }, c) =>
     knots.flatMap((a, i) => (i + 1 < knots.length || (closed && knots.length > 1) ? [{ at: [c, i] as At, a, b: knots[(i + 1) % knots.length] }] : [])),
@@ -74,7 +69,6 @@ function bezier(a: Knot, b: Knot, t: number) {
   return { p01, p23, p012, p123, p: lerp(p012, p123, t) }
 }
 
-/** The segment of `cs` nearest `p`, by the knot it starts at, where on it and how far away. */
 export function nearest(cs: Contour[], p: Point) {
   let best = { at: [0, 0] as At, t: 0, d: Infinity }
   for (const { at, a, b } of segments(cs)) {
@@ -87,7 +81,6 @@ export function nearest(cs: Contour[], p: Point) {
   return best
 }
 
-/** `cs` with a knot at `t` on the segment after the knot `at`, which is `[c, i + 1]`. */
 export function split(cs: Contour[], [c, i]: At, t: number): Contour[] {
   const out = structuredClone(cs)
   const knots = out[c].knots
@@ -102,17 +95,14 @@ export function split(cs: Contour[], [c, i]: At, t: number): Contour[] {
   return out
 }
 
-/** `cs` without the knots `at`, and without a contour once that has fewer than 2 knots. */
 export function remove(cs: Contour[], at: At[]): Contour[] {
   return cs
     .map((k, c) => ({ ...k, knots: k.knots.filter((_, i) => !at.some((a) => a[0] === c && a[1] === i)) }))
     .filter((k) => k.knots.length > 1)
 }
 
-/** Whether the knot has a handle off its point. */
 export const curved = (k: Knot) => k.ix !== k.x || k.iy !== k.y || k.ox !== k.x || k.oy !== k.y
 
-/** `cs` with the knot `at` smooth, its handles along its neighbours a third of the way to each, or a corner without handles. */
 export function smooth(cs: Contour[], [c, i]: At, on: boolean): Contour[] {
   const out = structuredClone(cs)
   const { knots, closed } = out[c]
@@ -127,7 +117,6 @@ export function smooth(cs: Contour[], [c, i]: At, on: boolean): Contour[] {
   return out
 }
 
-/** `cs` with the knots `at`, or with `part` only their handle, moved by (dx, dy). */
 export function shift(cs: Contour[], at: At[], part: 'point' | 'in' | 'out', dx: number, dy: number): Contour[] {
   const out = structuredClone(cs)
   for (const [c, i] of at) {

@@ -4,7 +4,6 @@ import { Icon } from './icons'
 import { Keys } from './controls'
 import { useSettings } from './settings'
 
-/** Picks the page of the spread whose layers are listed, and moves between spreads; on a master, names it. */
 export function Switcher({ editor }: { editor: Editor }) {
   const snapshot = useEditor(editor, (e) => e.snapshot)
   const current = useEditor(editor, (e) => e.pageId)
@@ -49,7 +48,6 @@ export function Switcher({ editor }: { editor: Editor }) {
   )
 }
 
-/** Over the canvas while a master is edited. */
 export function MasterBanner({ editor }: { editor: Editor }) {
   const snapshot = useEditor(editor, (e) => e.snapshot)
   const current = useEditor(editor, (e) => e.pageId)

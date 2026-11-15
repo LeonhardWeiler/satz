@@ -1,5 +1,3 @@
-//! SVG, PDF and Figma files as Satz documents: a page per sheet with a frame of its layers.
-
 use crate::color::{Color, ColorMode};
 use crate::display_list::{CLOSE, CUBIC, LINE, MOVE};
 use crate::doc::{Command, Doc, NewKind, Props};
@@ -16,7 +14,6 @@ use linesweeper::{BinaryOp, FillRule, binary_op};
 
 type Res<T> = Result<T, String>;
 
-/// A fill in page space: its gradient's transform maps the unit gradient onto the page.
 pub struct Shape {
     pub path: Vec<f32>,
     pub fills: Vec<Fill>,
@@ -30,7 +27,6 @@ pub struct Shape {
 
 pub enum Item {
     Shape(Shape),
-    /// PNG or JPEG bytes in [x, y, w, h].
     Image(Vec<u8>, [f32; 4], [f32; 4]),
 }
 
@@ -41,7 +37,6 @@ pub struct Sheet {
     pub items: Vec<Item>,
 }
 
-/// The file `name` as a document; `Err` when its type is not one Satz imports or it does not read.
 pub fn import(bytes: &[u8], name: &str) -> Res<Vec<u8>> {
     let ext = name.rsplit('.').next().unwrap_or("").to_lowercase();
     let stem = name.strip_suffix(&format!(".{ext}")).unwrap_or(name);
@@ -181,7 +176,6 @@ fn shape(d: &mut Doc, parent: &str, s: Shape) -> Res<()> {
     )
 }
 
-/// `f` with its gradient in the unit box of `frame`, or solid in its first color when `frame` has no area.
 fn unit(mut f: Fill, [x, y, w, h]: [f32; 4]) -> Fill {
     if f.kind == FillKind::Solid {
         return f;
@@ -310,7 +304,6 @@ fn svg_group(g: &usvg::Group, opacity: f32, out: &mut Vec<Item>) {
     }
 }
 
-/// The last point of `path`.
 fn last(path: &[f32]) -> [f32; 2] {
     let n = path.len();
     if n >= 2 {
@@ -406,7 +399,6 @@ fn pdf(bytes: &[u8]) -> Res<Vec<Sheet>> {
     Ok(sheets)
 }
 
-/// Collects what a PDF page draws, in the opacity of the transparency groups around it.
 struct Sink {
     items: Vec<Item>,
     groups: Vec<(f32, BlendMode)>,
@@ -483,7 +475,6 @@ impl Sink {
         BLENDS[mode.unwrap_or_default() as usize]
     }
 
-    /// The bounds of the clips around what is drawn, `None` when there are none.
     fn clip_box(&self) -> Option<Rect> {
         self.clips
             .iter()

@@ -6,9 +6,6 @@ use wasm_bindgen::prelude::*;
 
 const OVER: [u8; 4] = [204, 47, 131, 255];
 
-/// A page as it prints at a preview resolution: the coverage of each ink per pixel,
-/// C, M, Y and K and then each spot color, and the pixels of RGB colors that print
-/// visibly different. The pixels cover the page and its bleed.
 #[wasm_bindgen]
 pub struct Inks {
     width: u32,
@@ -19,7 +16,6 @@ pub struct Inks {
 }
 
 impl Inks {
-    /// The inks of the page `ops` begins with, `ppi` pixels per inch.
     pub fn new(ops: &[Op], ppi: f32) -> Option<Inks> {
         let Some(&Op::Page {
             width,
@@ -114,7 +110,6 @@ impl Inks {
         })
     }
 
-    /// The total coverage of each pixel in percent.
     fn totals(&self) -> impl Iterator<Item = f32> + '_ {
         (0..self.gamut.len()).map(|i| self.plates.iter().map(|p| p[i] as f32).sum::<f32>() / 2.55)
     }
@@ -136,12 +131,10 @@ impl Inks {
         self.height
     }
 
-    /// The names of the spot colors, in the order of their plates after K.
     pub fn spots(&self) -> Vec<String> {
         self.spots.iter().map(|s| s.0.clone()).collect()
     }
 
-    /// The highest coverage of each plate in percent.
     pub fn max(&self) -> Vec<f32> {
         self.plates
             .iter()
@@ -149,14 +142,10 @@ impl Inks {
             .collect()
     }
 
-    /// The total coverage of each pixel in percent, row by row.
     pub fn coverage(&self) -> Vec<f32> {
         self.totals().collect()
     }
 
-    /// RGBA pixels over the page: the plates `on` (bit 0 for C … bit 3 for K, then the
-    /// spots) as they print if a spot is off, magenta where the coverage is above
-    /// `limit` % if `over`, and hatched where a color is out of gamut if `gamut`.
     pub fn image(&self, on: u32, limit: f32, over: bool, gamut: bool) -> Vec<u8> {
         let n = self.gamut.len();
         let spots = (4..self.plates.len()).all(|p| on & 1 << p != 0);
