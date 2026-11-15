@@ -1861,7 +1861,9 @@ impl Doc {
                 .as_ref()
                 .map_or_else(|| self.heads(), |r| r.heads.clone());
             let moved = self.place_anchored(&heads)?;
-            if (moved | (!history && self.refresh_tocs()?)) && rounds < 8 {
+            let changed = moved | (!history && self.refresh_tocs()?);
+            debug_assert!(!changed || rounds < 8, "layout did not settle in 8 rounds");
+            if changed && rounds < 8 {
                 rounds += 1;
                 done.clear();
             }
