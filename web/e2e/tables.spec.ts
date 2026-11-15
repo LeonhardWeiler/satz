@@ -1,6 +1,6 @@
 import { expect, test, addPage, drag, open, screen } from './util'
 
-test('a drawn table takes text cell by cell, grows a row past its end, merges and splits', async ({ page }) => {
+test('a drawn table takes text cell by cell, keeps an empty cell left with Escape, grows a row past its end, merges and splits', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
   const layers = page.getByRole('tree', { name: 'Layers' })
@@ -16,8 +16,12 @@ test('a drawn table takes text cell by cell, grows a row past its end, merges an
   await menu('Insert rows or columns', 'Insert row below')
   await expect(layers.getByRole('button', { name: 'C3', exact: true })).toBeVisible()
 
-  await page.mouse.dblclick(...(await screen(page, 25, 23)))
   const editor = page.getByRole('textbox', { name: 'Text editor' })
+  await page.mouse.dblclick(...(await screen(page, 25, 23)))
+  await expect(editor).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(layers.getByRole('button', { name: 'A1', exact: true })).toBeVisible()
+  await page.mouse.dblclick(...(await screen(page, 25, 23)))
   await expect(editor).toBeFocused()
   await page.keyboard.type('a')
   await page.keyboard.press('Tab')

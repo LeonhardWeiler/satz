@@ -612,7 +612,7 @@ export class Editor {
     this.endTyping()
     this.editing = null
     const n = this.nodes.get(e.id)?.node
-    if (n?.kind === 'text' && !this.storyOf(n).text && !n.prev && !n.next) this.apply({ type: 'delete', ids: [e.id] })
+    if (n?.kind === 'text' && !this.storyOf(n).text && !n.prev && !n.next && !n.cell) this.apply({ type: 'delete', ids: [e.id] })
     this.emit()
   }
 
