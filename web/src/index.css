@@ -341,7 +341,7 @@ button {
 }
 
 :root:not([data-pointer]) .layer:has(> .layer-name:focus-visible) {
-  outline: 1.5px solid var(--accent);
+  outline: 2px solid var(--accent);
   outline-offset: -1.5px;
 }
 
@@ -3206,13 +3206,13 @@ dialog::backdrop {
 }
 
 .measure {
-  border: 1.5px dashed var(--accent);
+  border: 1px dashed var(--accent);
   background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 .measure[data-bar] {
   height: 24px;
-  border-width: 0 1.5px;
+  border-width: 0 1px;
   border-style: solid;
   background: linear-gradient(var(--accent), var(--accent)) center / 100% 1.5px no-repeat;
 }

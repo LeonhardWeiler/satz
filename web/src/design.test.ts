@@ -76,3 +76,41 @@ it('uses every class the stylesheet names', () => {
   const names = new Set(rules.flatMap((r) => [...r.sel.matchAll(/\.([a-z][\w-]*)/g)].map((m) => m[1])))
   expect([...names].filter((c) => !src.includes(c) && !/^(no|plate)-/.test(c))).toEqual([])
 })
+
+it('draws lines 1 px and rings 2 px', () => {
+  expect(bad((r) => /^border(-(top|right|bottom|left))?(-width)?$/.test(r.prop) && !/picker/.test(r.sel) && px(r.value).some((n) => n !== 1))).toEqual([])
+  expect(bad((r) => /^outline(-width)?$/.test(r.prop) && px(r.value).some((n) => n !== 1 && n !== 2))).toEqual([])
+})
+
+it('presses controls to 0.93 and honours reduced motion', () => {
+  expect(bad((r) => r.sel.includes(':active') && r.prop === 'transform' && r.value !== 'scale(0.93)')).toEqual([])
+  expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*\{\s*\*,\s*\*::before,\s*\*::after\s*\{\s*animation: none !important;/)
+})
+
+it('keeps greys neutral and muted text at 4.5:1 on every surface', () => {
+  for (const theme of [':root', ":root[data-theme='light']"]) {
+    const tokens = new Map(rules.filter((r) => r.sel === ':root' || r.sel === theme).map((r) => [r.prop, r.value]))
+    const rgba = (v: string): number[] => {
+      const ref = /^var\((--[\w-]+)\)$/.exec(v)
+      if (ref) return rgba(tokens.get(ref[1])!)
+      if (v === 'transparent') return [0, 0, 0, 0]
+      if (v.startsWith('#')) {
+        const h = v.length === 4 ? [...v.slice(1)].map((c) => c + c).join('') : v.slice(1)
+        return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)).concat(1)
+      }
+      const m = /^color-mix\(in srgb, (.+) (\d+)%, (.+)\)$/.exec(v)!
+      const [a, b, t] = [rgba(m[1]), rgba(m[3]), Number(m[2]) / 100]
+      const alpha = a[3] * t + b[3] * (1 - t)
+      return [0, 1, 2].map((i) => (a[i] * a[3] * t + b[i] * b[3] * (1 - t)) / alpha).concat(alpha)
+    }
+    const over = (top: number[], under: number[]) => [0, 1, 2].map((i) => top[i] * top[3] + under[i] * (1 - top[3]))
+    const lum = (c: number[]) =>
+      c.map((v) => v / 255).map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)).reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0)
+    const ratio = (a: number[], b: number[]) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05)
+    for (const t of ['--bg', '--fg', '--canvas']) expect(new Set(rgba(tokens.get(t)!).slice(0, 3)).size, t).toBe(1)
+    const muted = rgba(tokens.get('--muted')!)
+    for (const base of ['--bg', '--raised'].map((t) => over(rgba(tokens.get(t)!), [0, 0, 0])))
+      for (const s of ['--input', '--hover', '--selected', null])
+        expect(ratio(over(muted, base), s ? over(rgba(tokens.get(s)!), base) : base), `${theme} ${s}`).toBeGreaterThanOrEqual(4.5)
+  }
+})
