@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { press } from './commands'
+import { ui } from './commands'
 import { FOCUSABLE, Field, Section, Select, useMore } from './controls'
 import { useEditor, type Editor } from './editor'
 import { length, useSettings } from './settings'
@@ -123,7 +123,7 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
   const show = (i: Issue) => {
     editor.showPage(i.page)
     editor.set({ selection: [i.layer] })
-    press('Shift 2')
+    ui.fitSelection()
   }
   const set = (patch: Partial<Editor['inks']>) => editor.set({ inks: { ...inks, ...patch } })
   const plate = (bit: number, name: string, cls: string) => (

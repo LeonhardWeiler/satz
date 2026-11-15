@@ -1,123 +1,116 @@
-import { align, ALIGNS, BOOLEANS, combine } from './align'
-import { MM, type Editor, type Tool } from './editor'
-import { formatKey } from './textEdit'
+import { able, ACTIONS, siblings, type Action } from './commands'
+import { MM, type Editor } from './editor'
+import { settings } from './settings'
+import { MAC } from './textEdit'
 import { remove } from './vector'
 
-const TOOLS: Record<string, Tool> = {
-  v: 'move', f: 'frame', r: 'rect', o: 'ellipse', l: 'line', y: 'polygon', s: 'star', p: 'pen', t: 'text', i: 'eyedropper',
-}
 const VECTOR_KEYS: Record<string, 'move' | 'add' | 'delete' | 'fill'> = { v: 'move', p: 'add', '-': 'delete', b: 'fill' }
-const ORDER = { BracketRight: ['forward', 'front'], BracketLeft: ['backward', 'back'] } as const
-const JUMPS: Record<string, (k: number, n: number) => number> = {
-  PageUp: (k) => k - 1,
-  PageDown: (k) => k + 1,
-  Home: () => 0,
-  End: (_, n) => n - 1,
-}
 const ARROWS: Record<string, [number, number]> = {
   ArrowLeft: [-1, 0],
   ArrowRight: [1, 0],
   ArrowUp: [0, -1],
   ArrowDown: [0, 1],
 }
+const KEYS: Record<string, [key: string, code: string]> = {
+  PgDn: ['PageDown', 'PageDown'],
+  PgUp: ['PageUp', 'PageUp'],
+  Home: ['Home', 'Home'],
+  End: ['End', 'End'],
+  Del: ['Delete', 'Delete'],
+  F2: ['F2', 'F2'],
+  F6: ['F6', 'F6'],
+  '.': ['.', 'Period'],
+  ',': [',', 'Comma'],
+  '?': ['?', 'Slash'],
+  '\\': ['\\', 'Backslash'],
+  '[': ['[', 'BracketLeft'],
+  ']': [']', 'BracketRight'],
+  '+': ['+', 'Equal'],
+  '-': ['-', 'Minus'],
+}
+const SYMBOLS: Record<string, string> = { Ctrl: '⌘', Alt: '⌥', Shift: '⇧' }
 
+export const keyName = (k: string) => (MAC ? (SYMBOLS[k] ?? k) : k)
+export const keysOf = (a: Action) => settings.keys[a.title] ?? a.keys
 export const keyOf = (e: KeyboardEvent) => (e.altKey && /^Key[A-Z]$/.test(e.code) ? e.code.slice(3) : e.key).toLowerCase()
 
-const altKey = <T>(list: [T, string, string, string][], e: KeyboardEvent) =>
-  list.find(([, , , k]) => k === `${e.ctrlKey || e.metaKey ? 'Ctrl+' : ''}Alt+${e.shiftKey ? 'Shift+' : ''}${keyOf(e).toUpperCase()}`)?.[0]
+export function isTyping(e: Event) {
+  return e.target instanceof HTMLElement && e.target.closest('input:not([type=checkbox]), textarea, select, [contenteditable]') !== null
+}
 
-export function handleKey(editor: Editor, e: KeyboardEvent): boolean {
-  const mod = e.ctrlKey || e.metaKey
+export function comboOf(e: KeyboardEvent) {
+  if (['Control', 'Meta', 'Alt', 'Shift'].includes(e.key)) return null
+  const named = (i: 0 | 1, v: string) => Object.keys(KEYS).find((k) => KEYS[k][i] === v)
+  const letter = /^[a-z]$/.test(keyOf(e)) && keyOf(e).toUpperCase()
+  const digit = /^Digit\d$/.test(e.code) && e.code.at(-1)!
+  const code = !letter && !digit && !named(0, e.key) && e.key !== 'Backspace' && named(1, e.code)
+  const key = letter || digit || code || (e.key === ' ' ? 'Space' : e.key === 'Backspace' ? 'Del' : (named(0, e.key) ?? e.key))
+  const shift = e.shiftKey && (!!code || key.length > 1 || /^[A-Z\d]$/.test(key))
+  return [e.ctrlKey || e.metaKey ? 'Ctrl' : '', e.altKey ? 'Alt' : '', shift ? 'Shift' : '', key].filter(Boolean).join(' ')
+}
+
+function mode(editor: Editor, e: KeyboardEvent) {
+  const bare = !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey
   const key = keyOf(e)
-  const ids = editor.selection
-  const one = editor.nodes.get(ids[0])
-  const siblings = (one?.parent?.children ?? editor.page.children).map((n) => n.id)
-  const free = e.target === document.body || (e.target as Element).classList?.contains('canvas')
-  const toggle = (prop: 'hidden' | 'locked') => {
-    const on = editor.selected().some((n) => !n[prop])
-    editor.batch(() => {
-      for (const n of editor.selected()) editor.apply({ type: 'set', id: n.id, [prop]: on })
-    })
-  }
-
-  if (editor.dragging) return false
-  if (editor.vector && (e.key === 'Escape' || e.key === 'Enter')) editor.set({ vector: null })
+  const done = e.key === 'Escape' || e.key === 'Enter'
+  if (editor.overview && e.key === 'Escape') editor.set({ overview: null })
+  else if (editor.preflight && e.key === 'Escape') editor.togglePreflight()
+  else if (editor.vector && done) editor.set({ vector: null })
   else if (editor.vector?.at.length && (e.key === 'Delete' || e.key === 'Backspace')) editor.setKnots(remove(editor.knots(), editor.vector.at))
-  else if (editor.vector && !mod && !e.altKey && !e.shiftKey && key in VECTOR_KEYS) editor.set({ vector: { ...editor.vector, mode: VECTOR_KEYS[key] } })
-  else if (editor.cropping && (e.key === 'Escape' || e.key === 'Enter')) editor.set({ cropping: null })
+  else if (editor.vector && bare && key in VECTOR_KEYS) editor.set({ vector: { ...editor.vector, mode: VECTOR_KEYS[key] } })
+  else if (editor.cropping && done) editor.set({ cropping: null })
   else if (editor.placing.length && e.key === 'Escape') editor.set({ placing: [] })
   else if (editor.threading && e.key === 'Escape') editor.set({ threading: null })
-  else if (editor.pen && (e.key === 'Escape' || e.key === 'Enter')) editor.finishPen(false)
-  else if (!mod && !e.altKey && !e.shiftKey && TOOLS[key]) {
-    if (!e.repeat) editor.setTool(TOOLS[key])
-  }
-  else if (mod && (key === 'z' || key === 'y')) {
-    editor.finishPen(false)
-    editor.apply({ type: key === 'y' || e.shiftKey ? 'redo' : 'undo' })
-  }
-  else if (mod && key === 'a') editor.set({ selection: siblings })
-  else if (mod && key === 'v' && !e.isTrusted) editor.paste()
-  else if (e.key === 'Escape') {
+  else if (editor.pen && done) editor.finishPen(false)
+  else return false
+  return true
+}
+
+function context(editor: Editor, e: KeyboardEvent) {
+  const mod = e.ctrlKey || e.metaKey
+  const ids = editor.selection
+  const one = editor.nodes.get(ids[0])
+  if (mod || e.altKey) return false
+  if (e.key === 'Escape') {
     if (editor.tool !== 'move') editor.setTool('move')
     else if (!ids.length && editor.master) editor.exitMaster()
     else editor.set({ selection: one?.parent ? [one.parent.id] : [], guide: null })
-  } else if (!mod && e.key in JUMPS) {
-    const { spreads } = editor.snapshot
-    const k = spreads.findIndex((s) => s.includes(editor.pageId))
-    const to = spreads[Math.max(0, Math.min(spreads.length - 1, JUMPS[e.key](k, spreads.length)))]
-    editor.showPage(to[0])
-  } else if (e.key === 'Tab' && !mod && !e.altKey && free && siblings.length) {
-    const list = siblings.toReversed()
+  } else if (e.key === 'Tab' && (e.target === document.body || (e.target as Element).classList?.contains('canvas'))) {
+    const list = siblings(editor).toReversed()
+    if (!list.length) return false
     const i = list.indexOf(ids[0])
     editor.set({ selection: [list[(i + (e.shiftKey ? -1 : 1) + list.length) % list.length]] })
-  } else if (!mod && !e.altKey && e.shiftKey && key === 'g') editor.set({ grids: !editor.grids })
-  else if (editor.guide && (e.key === 'Delete' || e.key === 'Backspace')) {
-    const { id, axis, index } = editor.guide
-    const { guides } = editor.sheets.find((s) => s.id === id)!
-    editor.apply({ type: 'setGuides', id, guides: { ...guides, [axis]: guides[axis].toSpliced(index, 1) } })
-    editor.set({ guide: null })
   } else if (!ids.length) return false
-  else if (formatKey(editor, e)) return true
-  else if (e.key === 'Delete' || e.key === 'Backspace') editor.apply({ type: 'delete', ids })
-  else if (mod && e.altKey && key === 'c') editor.resize(editor.selected(), 'autoFit')
-  else if (mod && e.altKey && key === 'h') editor.resize(editor.selected(), 'autoHeight')
-  else if (mod && (key === 'c' || key === 'x') && !e.isTrusted) {
-    navigator.clipboard?.writeText(editor.copy(ids)).catch(() => {})
-    if (key === 'x') editor.apply({ type: 'delete', ids })
-  } else if (e.key === 'Enter' && !mod) enter(editor, e.shiftKey)
-  else if (mod && key === 'd') editor.duplicate(ids)
-  else if (mod && key === 'g' && e.shiftKey) editor.set({ selection: editor.apply({ type: 'ungroup', ids }) })
-  else if (mod && key === 'g') editor.set({ selection: editor.apply({ type: 'group', ids, frame: e.altKey }) })
-  else if (e.key === 'F2') editor.set({ renaming: ids[0] })
-  else if (mod && e.shiftKey && key === 'h') toggle('hidden')
-  else if (mod && e.shiftKey && key === 'l') toggle('locked')
-  else if (!mod && e.shiftKey && e.altKey && key === 'a') {
-    editor.batch(() => {
-      for (const n of editor.selected()) if (n.direction !== 'none') editor.apply({ type: 'set', id: n.id, direction: 'none' })
-    })
-  } else if (!mod && !e.altKey && e.shiftKey && (key === 'h' || key === 'v')) {
-    editor.batch(() => ids.forEach((id) => editor.apply({ type: 'flip', id, vertical: key === 'v' })))
-  } else if (!mod && e.shiftKey && key === 'a') editor.set({ selection: editor.apply({ type: 'autoLayout', ids }) })
-  else if (mod && e.altKey && key === 'm') editor.set({ selection: editor.apply({ type: 'mask', ids }) })
-  else if (mod && !e.shiftKey && key === 'e') {
-    editor.batch(() => {
-      for (const n of editor.selected()) if (n.kind === 'text' || n.kind === 'shape') editor.apply({ type: 'flatten', id: n.id })
-    })
-  }
-  else if (e.altKey && altKey(ALIGNS, e)) align(editor, altKey(ALIGNS, e)!)
-  else if (e.altKey && altKey(BOOLEANS, e)) combine(editor, altKey(BOOLEANS, e)!)
-  else if (mod && e.code in ORDER) {
-    editor.apply({ type: 'order', ids, to: ORDER[e.code as keyof typeof ORDER][e.shiftKey ? 1 : 0] })
-  } else if (!mod && ARROWS[e.key]) {
+  else if (e.key === 'Enter') enter(editor, e.shiftKey)
+  else if (ARROWS[e.key]) {
     const step = (e.shiftKey ? 1 : 0.1) * MM
     const [dx, dy] = ARROWS[e.key]
     editor.batch(() => {
-      for (const n of editor.selected()) {
-        editor.apply({ type: 'setFrame', id: n.id, x: n.x + dx * step, y: n.y + dy * step, w: n.w, h: n.h })
-      }
+      for (const n of editor.selected()) editor.apply({ type: 'setFrame', id: n.id, x: n.x + dx * step, y: n.y + dy * step, w: n.w, h: n.h })
     })
   } else return false
   return true
+}
+
+const allowed = (editor: Editor, a: Action, combo: string, field: boolean, text: boolean) =>
+  !a.native &&
+  (a.typing === 'any' || (!field && (!text || a.typing === 'text') && (!editor.overview || combo.startsWith('Ctrl') || a.group === 'View'))) &&
+  able(editor, a)
+
+export function onKey(editor: Editor, e: KeyboardEvent) {
+  if (e.defaultPrevented || e.isComposing || editor.dragging || document.querySelector('dialog:modal')) return
+  const target = e.target instanceof Element ? e.target : null
+  const text = !!target?.closest('.text-input')
+  const field = !text && (isTyping(e) || !!target?.closest(e.key === 'Enter' ? '.menu, button, a[href], summary' : '.menu'))
+  const free = !text && !field
+  if (free && mode(editor, e)) return e.preventDefault()
+  const combo = comboOf(e)
+  const a = combo ? ACTIONS.find((a) => keysOf(a) === combo) : undefined
+  if (a && combo && allowed(editor, a, combo, field, text)) {
+    if (!e.repeat || a.group !== 'Tools') a.run(editor)
+    return e.preventDefault()
+  }
+  if (free && !editor.overview && context(editor, e)) e.preventDefault()
 }
 
 export function enter(editor: Editor, up: boolean) {

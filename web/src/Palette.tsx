@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { able, ACTIONS, keysOf, ONLY_WHEN_ABLE, press } from './commands'
+import { able, ACTIONS, ONLY_WHEN_ABLE } from './commands'
+import { keysOf } from './keys'
 import { Chip, ink, NO_SCOPE } from './ColorPicker'
 import type { Editor } from './editor'
 import { Keys } from './controls'
@@ -24,7 +25,7 @@ const flat = (nodes: Node[]): Node[] => nodes.flatMap((n) => [n, ...('children' 
 function items(editor: Editor): Item[] {
   const { pages, swatches, textStyles, colorMode } = editor.snapshot
   return [
-    ...ACTIONS.filter((a) => !ONLY_WHEN_ABLE.has(a.title) || able(editor, a)).map((a) => ({ group: 'Commands', title: a.title, keys: keysOf(a), off: !able(editor, a), run: () => (a.run ? a.run(editor) : press(a.keys)) })),
+    ...ACTIONS.filter((a) => !ONLY_WHEN_ABLE.has(a.title) || able(editor, a)).map((a) => ({ group: 'Commands', title: a.title, keys: keysOf(a), off: !able(editor, a), run: () => a.run(editor) })),
     ...pages.flatMap((p, i) =>
       flat(p.children).map((n) => ({
         group: 'Layers',

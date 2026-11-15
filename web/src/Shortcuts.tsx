@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { ACTIONS, comboOf, keysOf, type Action } from './commands'
+import { ACTIONS, type Action } from './commands'
+import { comboOf, keysOf } from './keys'
 import { Keys } from './controls'
 import { Icon } from './icons'
 import { setSettings, settings, useSettings } from './settings'
@@ -120,7 +121,7 @@ export function Shortcuts() {
                         e.stopPropagation()
                         const combo = comboOf(e.nativeEvent)
                         if (!combo) return
-                        if (combo !== 'Escape') setNote(assign(r, combo === 'Backspace' ? null : combo))
+                        if (combo !== 'Escape') setNote(assign(r, e.key === 'Backspace' ? null : combo))
                         setRecording(null)
                       }}
                     >

@@ -16,6 +16,8 @@ import { handleTextKey, insert, range, select, textOf, wordAt } from './textEdit
 import { MasterBanner } from './Switcher'
 import { Keys } from './controls'
 import { selectedCells } from './cells'
+import { ui } from './commands'
+import { isTyping } from './keys'
 
 const DRAG = 3
 const HIT = 6
@@ -80,10 +82,6 @@ function snap45(dx: number, dy: number) {
   const a = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4)
   const d = Math.hypot(dx, dy)
   return [Math.cos(a) * d, Math.sin(a) * d]
-}
-
-export function isTyping(e: Event) {
-  return e.target instanceof HTMLElement && e.target.closest('input:not([type=checkbox]), textarea, select, [contenteditable]') !== null
 }
 
 const RULER = 20
@@ -1345,24 +1343,31 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         e.preventDefault()
         return
       }
-      if (e.type !== 'keydown') return
+    }
+    const viewKey = (f: () => void) => () => {
       settle()
-      const cx = canvas.clientWidth / 2
-      const cy = canvas.clientHeight / 2
-      const mod = e.ctrlKey || e.metaKey
-      const sel = editor.selection.length ? bounds(editor.selected().map(placed)) : undefined
-      const at: [number, number] = sel ? [view.x + (sel.x + sel.w / 2) * view.zoom, view.y + (sel.y + sel.h / 2) * view.zoom] : [cx, cy]
-      if (e.shiftKey && e.code === 'Digit1') glide(fitView(editor.sheets, canvas.clientWidth, canvas.clientHeight), true)
-      else if (e.shiftKey && e.code === 'Digit2' && sel) {
+      f()
+      track()
+    }
+    const center = () => [canvas.clientWidth / 2, canvas.clientHeight / 2] as const
+    const selBounds = () => (editor.selection.length ? bounds(editor.selected().map(placed)) : undefined)
+    Object.assign(ui, {
+      fit: viewKey(() => glide(fitView(editor.sheets, canvas.clientWidth, canvas.clientHeight), true)),
+      fitSelection: viewKey(() => {
+        const sel = selBounds()
+        if (!sel) return
+        const [cx, cy] = center()
         const zoom = Math.min(64 * ONE(), (canvas.clientWidth - 240) / Math.max(sel.w, 1), (canvas.clientHeight - 240) / Math.max(sel.h, 1))
         glide({ x: cx - (sel.x + sel.w / 2) * zoom, y: cy - (sel.y + sel.h / 2) * zoom, zoom })
-      } else if ((e.shiftKey || mod) && e.code === 'Digit0') glide(around(cx, cy, ONE()))
-      else if (mod && (e.key === '=' || e.key === '+')) zoomAt(...at, view.zoom * 1.25)
-      else if (mod && e.key === '-') zoomAt(...at, view.zoom / 1.25)
-      else return
-      track()
-      e.preventDefault()
-    }
+      }),
+      zoomTo: (z: number) => viewKey(() => glide(around(...center(), z * ONE())))(),
+      zoomBy: (f: number) =>
+        viewKey(() => {
+          const sel = selBounds()
+          const at = sel ? ([view.x + (sel.x + sel.w / 2) * view.zoom, view.y + (sel.y + sel.h / 2) * view.zoom] as const) : center()
+          zoomAt(...at, view.zoom * f)
+        })(),
+    })
 
     const clear = (e: Event) => {
       const r = (e as CustomEvent<DOMRect>).detail

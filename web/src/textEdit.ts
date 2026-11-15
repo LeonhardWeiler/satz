@@ -1,5 +1,4 @@
 import type { Editor } from './editor'
-import { keyOf } from './keys'
 import type { Span, TextNode, TextProps, Typeface } from './model'
 import { tab } from './cells'
 import { eachOf } from './Text'
@@ -76,8 +75,6 @@ function move(editor: Editor, to: number, extend: boolean) {
   select(editor, extend ? e.anchor : to, to)
 }
 
-const ALIGN: Record<string, TextAlign> = { l: 'left', t: 'center', r: 'right', j: 'justify' }
-const DECORATION: Record<string, TextDecoration> = { u: 'underline', x: 'strikethrough' }
 
 export function within(spans: Span[], r: [number, number]) {
   let at = 0
@@ -91,33 +88,26 @@ function face(fonts: Typeface[], f: Typeface, key: string) {
   return [fonts.find((o) => o.family === f.family && o.style.toLowerCase() === style.toLowerCase()), `${f.family} ${style}`] as const
 }
 
-export function formatKey(editor: Editor, e: KeyboardEvent): boolean {
-  if (!(e.ctrlKey || e.metaKey)) return false
-  const key = keyOf(e)
+export type Format = { textAlign: TextAlign } | { textDecoration: TextDecoration } | { face: 'b' | 'i' } | { size: number }
+
+export function format(editor: Editor, f: Format) {
   const ed = editor.editing
   const nodes = (ed ? [editor.nodes.get(ed.id)!.node] : editor.selected()).filter((n): n is TextNode => n.kind === 'text')
   const r = ed && ed.anchor !== ed.focus ? range(ed) : null
   const all = nodes.map((n) => editor.storyOf(n)?.spans ?? [])
   const spans = r ? within(all[0], r) : all.flat()
-  const format = (props: TextProps) => nodes.forEach((n) => editor.apply({ type: 'format', id: n.id, range: r, ...props }))
-  let run: (() => void) | undefined
-  if (e.altKey && !e.shiftKey && ALIGN[key]) run = () => format({ textAlign: ALIGN[key] })
-  else if (!e.altKey && e.shiftKey === (key === 'x') && DECORATION[key]) {
-    run = () => format({ textDecoration: spans.every((s) => s.textDecoration === DECORATION[key]) ? 'none' : DECORATION[key] })
-  } else if (!e.altKey && !e.shiftKey && (key === 'b' || key === 'i')) {
-    run = () => {
-      const [to, name] = face(editor.snapshot.fonts, spans[0].font ?? editor.snapshot.fonts[0], key)
-      if (to) format({ font: to })
-      else editor.say(`No ${name} in this document`)
-    }
-  } else if (!e.altKey && e.shiftKey && (e.code === 'Period' || e.code === 'Comma')) {
-    const by = e.code === 'Period' ? 1 : -1
-    run = () => nodes.forEach((n, i) => eachOf(editor, n.id, all[i], r)('size', (v) => Math.min(5000, Math.max(1, v + by))))
-  }
-  if (!run || !spans.length) return false
+  if (!spans.length) return
+  const set = (props: TextProps) => nodes.forEach((n) => editor.apply({ type: 'format', id: n.id, range: r, ...props }))
   editor.endTyping()
-  editor.batch(run)
-  return true
+  editor.batch(() => {
+    if ('textAlign' in f) set(f)
+    else if ('textDecoration' in f) set({ textDecoration: spans.every((s) => s.textDecoration === f.textDecoration) ? 'none' : f.textDecoration })
+    else if ('face' in f) {
+      const [to, name] = face(editor.snapshot.fonts, spans[0].font ?? editor.snapshot.fonts[0], f.face)
+      if (to) set({ font: to })
+      else editor.say(`No ${name} in this document`)
+    } else nodes.forEach((n, i) => eachOf(editor, n.id, all[i], r)('size', (v) => Math.min(5000, Math.max(1, v + f.size))))
+  })
 }
 
 export function handleTextKey(editor: Editor, e: KeyboardEvent): boolean {
@@ -161,12 +151,8 @@ export function handleTextKey(editor: Editor, e: KeyboardEvent): boolean {
     }
     insert(editor, '')
   } else if (e.key === 'Enter') insert(editor, '\n')
-  else if (mod && e.altKey && e.shiftKey && e.code === 'KeyN') insert(editor, PAGE_NUMBER)
   else if (mod && key === 'a') select(editor, 0, text.length)
-  else if (mod && (key === 'z' || key === 'y')) {
-    editor.endTyping()
-    editor.apply({ type: key === 'y' || e.shiftKey ? 'redo' : 'undo' })
-  } else if (e.key === 'Tab') {
+  else if (e.key === 'Tab') {
     const m = a === b && /\blorem(\d*)$/i.exec(text.slice(0, a))
     if (!m) {
       tab(editor, ed.id, e.shiftKey)
@@ -174,6 +160,6 @@ export function handleTextKey(editor: Editor, e: KeyboardEvent): boolean {
     }
     select(editor, a - m[0].length, a)
     insert(editor, lorem(Math.min(Number(m[1] || 10), 10000)))
-  } else if (!formatKey(editor, e)) return false
+  } else return false
   return true
 }

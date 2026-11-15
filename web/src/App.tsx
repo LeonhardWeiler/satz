@@ -1,17 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CanvasKit } from 'canvaskit-wasm'
-import { Canvas, isTyping, useZoom } from './Canvas'
+import { Canvas, useZoom } from './Canvas'
 import { Edge, FOCUSABLE, Keys, NameInput } from './controls'
-import { able, ACTIONS, addPage, comboOf, keysOf, MENU, ONLY_WHEN_ABLE, press } from './commands'
+import { able, ACTIONS, MENU, ONLY_WHEN_ABLE, ui, type Panel } from './commands'
 import { ContextMenu } from './ContextMenu'
 import { CLIP, useEditor, type Editor } from './editor'
 import { Settings } from './SettingsDialog'
 import { Find } from './Find'
 import { History } from './History'
-import { settings } from './settings'
 import { autosave, download, drop, exportFile, flush, open, placeImages, save, show, type Handle } from './file'
 import { Icon } from './icons'
-import { handleKey } from './keys'
+import { isTyping, keysOf, onKey } from './keys'
 import { Layers } from './Layers'
 import { Overview } from './Overview'
 import { Palette } from './Palette'
@@ -82,7 +81,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     m.addEventListener('change', f)
     return () => m.removeEventListener('change', f)
   }, [])
-  const side = (panel: 'left' | 'right' | 'ui' | 'rulers') => (narrow && (panel === 'left' || panel === 'right') ? (`${panel}Narrow` as const) : panel)
+  const side = (panel: Panel) => (narrow && (panel === 'left' || panel === 'right') ? (`${panel}Narrow` as const) : panel)
   const hide = (panel: Parameters<typeof side>[0]) => setHidden((h) => ({ ...h, [side(panel)]: !h[side(panel)] }))
 
   const exportAs = (format: Format, pages: number[]) => {
@@ -131,52 +130,27 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   }, [say, status, said])
 
   useEffect(() => {
-    const remap = (e: KeyboardEvent) => {
-      const keys = comboOf(e)
-      if (!e.isTrusted || !keys || document.querySelector('dialog:modal') || (isTyping(e) && !/Ctrl|Alt/.test(keys))) return
-      const to = ACTIONS.find((a) => settings.keys[a.title] === keys)
-      if (!to && !ACTIONS.some((a) => a.keys === keys && a.title in settings.keys)) return
-      e.preventDefault()
-      e.stopImmediatePropagation()
-      if (to) press(to.keys)
-    }
-    window.addEventListener('keydown', remap, true)
-    return () => window.removeEventListener('keydown', remap, true)
-  }, [])
+    Object.assign(ui, {
+      start: () => setStarting(true),
+      open: () => open(editor),
+      save: saveFile,
+      place: () => placeImages(editor),
+      export: quickExport,
+      find: () => setFinding(true),
+      dialog: (d: 'palette' | 'help' | 'settings' | 'history') => setDialog(d),
+      focus: cycleFocus,
+      hide: (panel: Panel) => {
+        if (panel === 'ui') editor.say(hidden.ui ? '' : <><Keys keys="Shift W" /> shows the interface again</>)
+        hide(panel)
+      },
+    })
+  })
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const mod = e.ctrlKey || e.metaKey
-      if (e.defaultPrevented || document.querySelector('dialog:modal')) return
-      if (e.key === 'F6' && !mod && !e.altKey) cycleFocus(e.shiftKey)
-      else if (e.altKey && !mod && e.code === 'Digit1') hide('left')
-      else if (e.altKey && !mod && e.code === 'Digit2') hide('right')
-      else if (mod && e.shiftKey && e.code === 'KeyE') quickExport()
-      else if (mod && e.altKey && e.code === 'KeyY') editor.togglePreflight()
-      else if (mod && !e.altKey && e.code === 'KeyS') saveFile(e.shiftKey)
-      else if (mod && !e.altKey && !e.shiftKey && e.code === 'KeyO') open(editor)
-      else if (mod && e.altKey && !e.shiftKey && e.code === 'KeyN') setStarting(true)
-      else if (mod && e.shiftKey && !e.altKey && e.code === 'KeyK') placeImages(editor)
-      else if (mod && e.altKey && !e.shiftKey && e.code === 'KeyP') addPage(editor)
-      else if (mod && !e.shiftKey && !e.altKey && e.code === 'KeyK') setDialog('palette')
-      else if (mod && !e.shiftKey && e.code === 'Comma') setDialog('settings')
-      else if (mod && e.altKey && !e.shiftKey && e.code === 'KeyZ') setDialog('history')
-      else if (mod && !e.shiftKey && !e.altKey && e.code === 'KeyF') setFinding(true)
-      else if (isTyping(e) || (e.target as Element).closest?.(e.key === 'Enter' ? '.menu, button, a[href], summary' : '.menu')) return
-      else if (e.shiftKey && !mod && !e.altKey && e.code === 'KeyR') hide('rulers')
-      else if (e.shiftKey && !mod && !e.altKey && e.code === 'KeyW') {
-        editor.say(hidden.ui ? '' : <><Keys keys="Shift W" /> shows the interface again</>)
-        hide('ui')
-      } else if (e.key === '.' && !mod) editor.toggleOverview()
-      else if (e.key === '?' && !mod) setDialog('help')
-      else if (editor.overview && e.key === 'Escape') editor.set({ overview: null })
-      else if (editor.preflight && e.key === 'Escape') editor.togglePreflight()
-      else if ((editor.overview && !mod) || !handleKey(editor, e)) return
-      e.preventDefault()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  })
+    const f = (e: KeyboardEvent) => onKey(editor, e)
+    window.addEventListener('keydown', f)
+    return () => window.removeEventListener('keydown', f)
+  }, [editor])
 
   useEffect(() => {
     const onMenu = (e: MouseEvent) => {
@@ -377,7 +351,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
             const a = title && ACTIONS.find((a) => a.title === title)!
             const shows = title && SHOWS[title]
             if (a && shows) return [shows[0], () => hide(shows[1]), true, !hidden[side(shows[1])], keysOf(a)]
-            return a ? [a.title, () => (a.run ? a.run(editor) : press(a.keys)), able(editor, a), undefined, keysOf(a)] : null
+            return a ? [a.title, () => a.run(editor), able(editor, a), undefined, keysOf(a)] : null
           })}
         />
       )}
