@@ -31,7 +31,7 @@
   --hover: color-mix(in srgb, var(--fg) 7%, transparent);
   --selected: color-mix(in srgb, var(--fg) 12%, transparent);
   --text: var(--fg);
-  --muted: color-mix(in srgb, var(--fg) 64%, var(--bg));
+  --muted: color-mix(in srgb, var(--fg) 72%, var(--bg));
   --border: color-mix(in srgb, var(--fg) 10%, var(--bg));
   --edge: color-mix(in srgb, var(--fg) 18%, var(--bg));
   --scrim: rgb(0 0 0 / 0.6);
@@ -354,8 +354,14 @@ button {
   outline-offset: -2px;
 }
 
-[data-pointer] :focus-visible {
+[data-pointer] :focus-visible,
+.layer-name:focus-visible {
   outline: none;
+}
+
+:root:not([data-pointer]) .layer:has(> .layer-name:focus-visible) {
+  outline: 1.5px solid var(--accent);
+  outline-offset: -1.5px;
 }
 
 .primary {
@@ -372,7 +378,6 @@ button {
   color: var(--bg);
   font-weight: 600;
   cursor: pointer;
-  transition: opacity var(--fast) var(--ease);
 }
 
 .primary:hover {
@@ -414,7 +419,7 @@ button {
 }
 
 [aria-selected='true'] > .layer {
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  background: var(--selected);
   color: var(--text);
 }
 
@@ -574,7 +579,6 @@ textarea {
   padding-right: 8px;
   border-radius: 6px;
   background: var(--input);
-  transition: box-shadow var(--fast) var(--ease);
 }
 
 .field:not(:has(.field-label, .field-step)) {
@@ -1437,7 +1441,8 @@ input[type='range']:focus-visible::-moz-range-thumb {
   grid-column: 4 / -1;
 }
 
-:is(.primary, .button, .icon-button, .field-step, .segmented button, .menu-item, .pal-it, input[type='checkbox']):disabled {
+:is(.primary, .button, .icon-button, .tool, .field-step, .segmented button, .menu-item, .pal-it, input[type='checkbox']:not(.check > *)):disabled,
+.check:has(> :disabled) {
   opacity: var(--dim);
   pointer-events: none;
 }
@@ -1973,7 +1978,6 @@ kbd {
   padding: 0 4px;
   border-radius: 4px;
   background: color-mix(in srgb, currentColor 14%, transparent);
-  color: var(--muted);
   font: 600 11px 'Hanken Grotesk', system-ui, sans-serif;
   line-height: 18px;
   text-align: center;
@@ -1987,6 +1991,9 @@ kbd {
   font-size: 12px;
 }
 
+.primary,
+.field,
+.swatch,
 .tool,
 .icon-button,
 .button,
@@ -1994,9 +2001,12 @@ kbd {
 .layer,
 .menu-item,
 input[type='checkbox'] {
-  transition: background-color var(--fast) var(--ease), color var(--fast) var(--ease), transform var(--fast) var(--ease);
+  transition-property: background-color, border-color, box-shadow, color, opacity, transform;
+  transition-duration: var(--fast);
+  transition-timing-function: var(--ease);
 }
 
+.primary:active,
 .tool:active,
 .icon-button:active,
 .button:active,
@@ -2502,7 +2512,7 @@ input[type='checkbox']:active {
   display: grid;
   grid-template: 'head head' auto 'presets details' minmax(0, 1fr) 'foot foot' auto / minmax(0, 1fr) 272px;
   width: min(960px, 94vw);
-  height: min(640px, 90vh);
+  max-height: min(640px, 90vh);
   padding: 0;
   overflow: hidden;
   border: 1px solid var(--edge);
@@ -2787,7 +2797,7 @@ input[type='checkbox']:active {
   padding: 0;
   border: 0;
   background: none;
-  box-shadow: 0 0 0 1px var(--border);
+  box-shadow: 0 0 0 1px var(--edge);
   cursor: pointer;
 }
 
@@ -2814,7 +2824,7 @@ input[type='checkbox']:active {
 .ov-ghost canvas {
   position: absolute;
   background: #fff;
-  box-shadow: 0 0 0 1px var(--border), var(--shadow-pop);
+  box-shadow: 0 0 0 1px var(--edge), var(--shadow-pop);
 }
 
 .ov-ghost b {
@@ -3061,10 +3071,6 @@ dialog::backdrop {
   flex: 1;
 }
 
-.pal-t b {
-  color: var(--text);
-}
-
 .pal-it small {
   color: var(--muted);
 }
@@ -3083,7 +3089,7 @@ dialog::backdrop {
   background: var(--selected);
 }
 
-.pal-it[aria-selected='true'] svg {
+.pal-it[aria-selected='true'] :is(svg, .keys) {
   color: var(--text);
 }
 
@@ -3265,9 +3271,9 @@ dialog::backdrop {
 
 .help-r > span:first-child {
   flex: 1;
-  color: var(--muted);
 }
 
+.pal-t b,
 .help-r mark {
   background: none;
   color: var(--text);

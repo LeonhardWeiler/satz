@@ -1,59 +1,34 @@
-# UI-Plan: Audit 2 (2026-11)
+# UI-Plan: Audit 3 (2026-11)
 
-Grundlage: Shot-Suite `web/shots` (90 Tests, Light und Dark, 2× DPR, dazu 900 px Breite)
-gegen `web/dist`, dazu das Mess-Audit `web/shots/audit.spec.ts` (Kanten, Höhen,
-Text-Einzüge, Schriften, Abstände). 6 Runden, deployt und geprüft am 2026-11-13; danach
-Runde 7 (Shortcuts, Ratio-Link, Tabellen, GREP, Inhaltsverzeichnis, Anker): 106 Shots
-und Audit grün, `./check` 264 e2e grün, CI grün (bae9414), Pages-Bundle geprüft.
+Grundlage: Shot-Suite `web/shots` (293 Shots je Modus, Light und Dark, 2× DPR) und
+`audit.spec.ts`. Leitidee: ein Baustein je Aufgabe, ein Token je Farbe, eine Regel je
+Zustand; Light und Dark unterscheiden sich nur in Tokens.
 
-## Leitidee
+## Offen
 
-Ein Baustein je Aufgabe, ein Wert je Entscheidung. Jede Steuerung kommt aus
-`controls.tsx`, jede Größe aus den Skalen in `design.test.ts`, jede Farbe aus einem
-Token in `:root`. Gleiche Aufgabe sieht überall gleich aus, Zustände (hover, pressed,
-selected, disabled, focus) haben je genau eine Regel. Light und Dark teilen alle Regeln
-und unterscheiden sich nur in Tokens.
+Runde 4 (Kontrast): nichts offen.
 
 ## Umgesetzt
 
-- Shortcuts: Bold, Italic, Underline, Strikethrough, Ausrichtung und Schriftgröße per
-  Taste auf Auswahl oder markiertem Text; `a` als zweite Frame-Taste und Ctrl R (Rename
-  doppelt zu F2) entfernt; Ctrl Shift , öffnet nicht mehr die Settings.
-- Keep aspect ratio wieder zwischen W und H, verbunden zeigt eine Brücke beide Felder als
-  ein Paar.
-- Tabellen: Zellraster auf dem Canvas, solange Tabelle oder Zelle gewählt ist; Zeilen und
-  Spalten über + und ⋯ im Kopf, dieselben Aktionen im Kontextmenü (Table) und in der
-  Palette; Felder „Column“/„Row“; Radius, Clip und Auto layout nicht bei Tabellen;
-  Zellen zeigen „n cells“, keine Layout-Sektion und nur Ausrichtung und Inset; leere
-  Zellen heißen A1, B1 …
-- `MenuButton` in `controls.tsx` für Kopf-Menüs, auch Fit image nutzt ihn.
-- GREP-Zeile auf dem 2-Spalten-Raster, ohne Label; Inhaltsverzeichnis mit Überschrift
-  „Listed text styles“; Verankerung als „Inline | Custom“ neben „Release anchor“.
-
-- Messrunde (6): jede Box im Panel sitzt auf der 12-px-Inhaltskante, links und rechts
-  (Tabs, Baum, Zeilen, Icon-Buttons im Kopf); Felder, Selects, Buttons und Farbchips
-  28 px, Icon-Buttons 24 px mittig in 28-px-Zeilen; Abstände 8 zwischen Steuerungen,
-  4 zwischen Icon-Buttons, 8 in Popovers; Preflight- und Properties-Kopf gleich hoch;
-  Zeilenaktionen immer sichtbar; Ebenen-Lock/Auge, Stil- und Zeilen-Löschen sind
-  `.icon-button`; Master-Vorschauen so breit wie „New master“; schmales Fenster:
-  linkes Panel 200 px, Inhalt passt mit Einzug.
-
-- Zustände: `--dim` ist der einzige Disabled-Wert, eine Regel dimmt jede deaktivierte
-  Steuerung; Tabs und Segmented teilen Fläche, Auswahl und Hover.
-- Panel: Layout auf einem 2-Spalten-Raster; Felder ohne
-  `disabled` (Drop-Cap-Zeichen erst ab 1 Zeile); Einzüge in der Reihenfolge Left, Right,
-  Before, After, First line; kurze Labels („Inner“), voller Name im Tooltip.
-- Felder: Namensfelder (Swatch, Variable, Modus, Tab-Leader, GREP, Präfix) sitzen in
-  `.field` mit 4 px Abstand zum Label wie jedes `Field`.
-- Dialoge: Settings fokussiert Suche bzw. aktuelle Seite; Bleed steht bei den Rändern im
-  Neues-Dokument-Dialog; Titel der Versionshistorie mittig im Kopf.
-- Menüs und Listen: Auswahl per Häkchen statt fett; Swatch-Löschen ist `.icon-button`.
-- Pflege: doppelte und tote CSS-Regeln entfernt (`index.css` −127 Zeilen netto);
-  `AGENT/design.md` beschreibt das CSS; Shots für schmales Fenster, Versionshistorie und
-  Textstile im Assets-Tab.
+- Canvas: jede Seite zeigt ihre Trim-Kante in der Farbe der Schnittmarken; schwarze
+  Seiten verschwinden im Dark Mode nicht mehr. Übersicht: Seiten mit `--edge` umrandet.
+- Ebenen: der Tastaturfokus umrandet die ganze Zeile (Radius 6); Shot „05b keyboard focus“.
+- Suchtreffer: Palette und Shortcuts teilen eine Regel (Treffer 600, Rest `--text`).
+- Find: andere Treffer schwächer (0.4), der aktuelle hebt sich ab; Stilfilter „Any“.
+- Neues Dokument: Höhe folgt dem Inhalt (max. 640 px), Feld „Name“ statt „Preset“.
+- `design.md`: veraltete Regel zur Einheiten-Endung gestrichen.
+- Ebenen: eine ausgewählte Zeile nutzt `--selected` wie jede Liste.
+- Übergänge: eine Regel für Hover und Druck (Hintergrund, Rand, Schatten, Farbe,
+  Deckkraft, Skalierung) auch für Primary, Feld und Swatch; Primary drückt sich wie jeder
+  Button.
+- Disabled: Werkzeuge dimmen, eine deaktivierte Checkbox dimmt mit ihrem Label.
+- Kontrast: der Audit listet Text unter 4.5:1 (3:1 ab 18.66 px); `--muted` mischt 72 %
+  statt 64 % und erreicht AA auf Canvas, Feldern und ausgewählten Zeilen.
+- Palette: die Tasten des ausgewählten Befehls folgen seinem Icon (`--text`).
 
 ## Bewusst nicht
 
+- Disabled-Text (`--dim`) und Platzhalter in Feldern zählen nicht zum Kontrast-Audit.
 - Opacity behält ihr Icon-Label wie die anderen Metrik-Felder.
 - Farbmodus bleibt Select im Dokument-Panel (Umrechnung ist gewichtig).
 - Find-Buttons behalten den Rand wie jeder `.button`.
@@ -62,3 +37,11 @@ und unterscheiden sich nur in Tokens.
 - Paint-Zeilen lassen rechts Platz für die Hover-Aktionen.
 - Textstile bleiben aufklappbare Zeilen mit fettem Namen (sie tragen Einstellungen),
   Variablen und Swatches öffnen einen Editor.
+- Das W/H-Schloss sitzt in der 8-px-Lücke (Brücke).
+- Benachbart ausgewählte Ebenen bleiben einzelne Pillen.
+- Audit-Kantenversatz bei verschieden breiten Nachbarn (24 vs. 28 px) ist kein Fehler;
+  die bündige Kante zählt.
+- Chips in Listen haben ihre Innenkante, auch schwarze sind im Dark Mode sichtbar.
+- Shots „28 exporting“ und „06 export as JPEG“ zeigen Kachelreste; sie stammen vom
+  Clip-Screenshot in `shot()` während das Canvas neu zeichnet, der
+  volle Screenshot ist sauber.

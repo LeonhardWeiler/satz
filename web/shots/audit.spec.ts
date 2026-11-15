@@ -62,6 +62,52 @@ async function dump(page: Page, root: string) {
   )
 }
 
+
+async function inks(page: Page, root: string) {
+  return page.evaluate((root) => {
+    const ctx = document.createElement('canvas').getContext('2d', { willReadFrequently: true })!
+    const rgba = (c: string) => {
+      ctx.clearRect(0, 0, 1, 1)
+      ctx.fillStyle = c
+      ctx.fillRect(0, 0, 1, 1)
+      const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data
+      return [r, g, b, a / 255]
+    }
+    const over = (t: number[], u: number[]) => [0, 1, 2].map((i) => t[i] * t[3] + u[i] * (1 - t[3]))
+    const lum = (c: number[]) => {
+      const [r, g, b] = c.map((v) => (v /= 255) <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b
+    }
+    const out = new Set<string>()
+    const top = document.querySelector(root)
+    if (!top) return []
+    const w = document.createTreeWalker(top, NodeFilter.SHOW_TEXT)
+    for (let n = w.nextNode(); n; n = w.nextNode()) {
+      const p = n.parentElement!
+      if (!n.textContent!.trim() || !p.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue
+      let dim = false
+      const layers: number[][] = []
+      for (let e: Element | null = p; e; e = e.parentElement) {
+        const s = getComputedStyle(e)
+        if (+s.opacity < 1) dim = true
+        const c = rgba(s.backgroundColor)
+        if (c[3] > 0) layers.push(c)
+        if (c[3] === 1) break
+      }
+      if (dim) continue
+      let bg = [255, 255, 255]
+      for (const l of layers.reverse()) bg = over(l, bg)
+      const s = getComputedStyle(p)
+      const fg = over(rgba(s.color), bg)
+      const [a, b] = [lum(fg), lum(bg)].sort((x, y) => y - x)
+      const cr = (a + 0.05) / (b + 0.05)
+      const big = parseFloat(s.fontSize) >= 18.66 || (parseFloat(s.fontSize) >= 14 && +s.fontWeight >= 700)
+      if (cr < (big ? 3 : 4.5)) out.add(`${cr.toFixed(2)} ${p.tagName.toLowerCase()}.${[...p.classList].join('.')} "${n.textContent!.trim().slice(0, 20)}" ${s.color}`)
+    }
+    return [...out]
+  }, root)
+}
+
 const f = (n: number) => Math.round(n * 2) / 2
 
 function analyse(state: string, items: Item[]) {
@@ -111,7 +157,11 @@ function analyse(state: string, items: Item[]) {
   appendFileSync(FILE, lines.join('\n') + '\n')
 }
 
-const run = async (page: Page, state: string, root: string) => analyse(state, await dump(page, root))
+const run = async (page: Page, state: string, root: string) => {
+  analyse(state, await dump(page, root))
+  const low = await inks(page, root)
+  if (low.length) appendFileSync(FILE, low.map((l) => '  CONTRAST ' + l).join('\n') + '\n')
+}
 
 test.beforeAll(() => { mkdirSync(OUT, { recursive: true }); writeFileSync(FILE, '') })
 

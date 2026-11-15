@@ -133,7 +133,7 @@ export function Find({ editor, onClose }: { editor: Editor; onClose: () => void 
           <input type="checkbox" checked={words} onChange={(e) => setWords(e.currentTarget.checked)} />
           Whole words
         </label>
-        <Select label="In text style" prefix="Style" value={style} options={Object.fromEntries([['', 'any'], ...snapshot.textStyles.map((s) => [s.id, s.name])])} onChange={setStyle} />
+        <Select label="In text style" prefix="Style" value={style} options={Object.fromEntries([['', 'Any'], ...snapshot.textStyles.map((s) => [s.id, s.name])])} onChange={setStyle} />
       </div>
     </section>
   )

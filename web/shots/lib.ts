@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { drawn, png, screen, drag } from '../e2e/util'
 
 export { expect, png, screen, drag, drawn }
-export const OUT = '/tmp/satz-shots'
+export const OUT = process.env.SHOTS ?? '/tmp/satz-shots'
 export const test = base.extend({})
 
 type Rect = { x: number; y: number; width: number; height: number }

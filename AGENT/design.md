@@ -71,7 +71,6 @@ fails vitest.
   rename is F2 only. Enter and Shift Enter on a layer row act as on the canvas (edit a path or
   text, go into a container, up to its parent). F6 and Shift F6 move the focus through the top bar,
   the left panel, the canvas or the page overview and the right panel, skipping hidden ones.
-- Fields in the document unit show no unit suffix; only a value in another unit names it.
 - One control type per setting everywhere: an on/off setting is a checkbox (Facing
   pages), not a two-item segmented control.
 - A setting that only applies in one mode shows only in it (the profile only in CMYK).
@@ -115,7 +114,8 @@ fails vitest.
   `--accent`, `--select`, `--good`, `--bad`, `--warn`. Text on the accent is `--bg`. No raw colours in rules
   except paper white, masks, the checker, the colour picker's scales and the process
   inks of the plates.
-- Greys: `--text` values, `--muted` labels, placeholders and units. Disabled controls
+- Greys: `--text` values, `--muted` labels, placeholders and units, at least 4.5:1 on every
+  surface it sits on (the audit lists what falls below). Disabled controls
   keep their colours at `--dim` opacity, set by one rule.
 - Greys are neutral, without a tint; dark panels #141414 with #f5f5f5 text, the canvas near black.
 - The UI accent is the text colour (white in dark, black in light): focus, checked controls, primary action, the current page. Colour only carries meaning: `--good` green, `--warn` yellow, `--bad` red.
