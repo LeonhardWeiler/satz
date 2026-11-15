@@ -16,13 +16,25 @@ use std::hash::Hash;
 use std::rc::Rc;
 use std::thread::LocalKey;
 
-pub const FONT: &[u8] = include_bytes!("../fonts/SourceSerif4-Regular.ttf");
-const FAMILY: [&[u8]; 3] = [
-    include_bytes!("../fonts/SourceSerif4-Bold.ttf"),
-    include_bytes!("../fonts/SourceSerif4-It.ttf"),
-    include_bytes!("../fonts/SourceSerif4-BoldIt.ttf"),
+const SERIF: [(&[u8], &str); 4] = [
+    (
+        include_bytes!("../fonts/SourceSerif4-Regular.woff2"),
+        "df961dca6fac77ab",
+    ),
+    (
+        include_bytes!("../fonts/SourceSerif4-Bold.woff2"),
+        "08ef6fa8de066a1b",
+    ),
+    (
+        include_bytes!("../fonts/SourceSerif4-It.woff2"),
+        "76aac00707766ff0",
+    ),
+    (
+        include_bytes!("../fonts/SourceSerif4-BoldIt.woff2"),
+        "7f40b6d52fe8438f",
+    ),
 ];
-pub const BUNDLED: usize = 1 + FAMILY.len();
+pub const BUNDLED: usize = SERIF.len();
 pub const MISSING: u32 = 1 << 31;
 pub const VARIED: u32 = 1 << 30;
 
@@ -39,7 +51,10 @@ pub struct Typeface {
 
 thread_local! {
     static FONTS: RefCell<Vec<(Typeface, Rc<[u8]>)>> =
-        RefCell::new([FONT].iter().chain(&FAMILY).map(|b| (typeface(b).unwrap(), Rc::from(*b))).collect());
+        RefCell::new(SERIF.iter().map(|(w, hash)| {
+            let b = wuff::decompress_woff2(w).unwrap();
+            (Typeface { hash: hash.to_string(), ..typeface(&b).unwrap() }, Rc::from(b))
+        }).collect());
     static INSTANCES: RefCell<Vec<(u32, Location)>> = RefCell::default();
 }
 

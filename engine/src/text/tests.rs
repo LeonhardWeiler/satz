@@ -44,7 +44,7 @@ fn black() -> Style {
 #[test]
 fn a_font_without_the_tables_text_is_set_with_is_rejected() {
     for table in [b"hhea", b"head", b"cmap", b"hmtx"] {
-        let mut bytes = FONT.to_vec();
+        let mut bytes = font_bytes(0).to_vec();
         let at = bytes.windows(4).position(|w| w == table).unwrap();
         bytes[at] = b'x';
         assert!(
@@ -57,7 +57,7 @@ fn a_font_without_the_tables_text_is_set_with_is_rejected() {
 
 #[test]
 fn a_font_is_named_by_its_family_and_style() {
-    let f = typeface(FONT).unwrap();
+    let f = typeface(&font_bytes(0)).unwrap();
     assert_eq!(
         (f.family.as_str(), f.style.as_str()),
         ("Source Serif 4", "Regular")
