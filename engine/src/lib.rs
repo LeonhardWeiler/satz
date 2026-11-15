@@ -24,11 +24,32 @@ pub use doc::{Command, Doc, Snapshot};
 use color::ColorMode;
 use js_sys::{Uint8Array, Uint32Array};
 use serde::Serialize;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
-fn splice(o: &doc::Story, s: &doc::Story) -> serde_json::Result<serde_json::Value> {
+type Raw = Box<serde_json::value::RawValue>;
+
+fn raw<T: Serialize + ?Sized>(v: &T) -> serde_json::Result<Raw> {
+    serde_json::value::to_raw_value(v)
+}
+
+fn fields<T: Serialize>(v: &T) -> serde_json::Result<BTreeMap<String, Raw>> {
+    serde_json::from_str(&serde_json::to_string(v)?)
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Splice<'a> {
+    at: usize,
+    cut: usize,
+    text: &'a str,
+    spans_at: usize,
+    spans_cut: usize,
+    spans: &'a [text::Span],
+}
+
+fn splice(o: &doc::Story, s: &doc::Story) -> serde_json::Result<Raw> {
     let (a, b) = (o.text.as_bytes(), s.text.as_bytes());
     let mut p = a.iter().zip(b).take_while(|(x, y)| x == y).count();
     while !o.text.is_char_boundary(p) {
@@ -52,14 +73,14 @@ fn splice(o: &doc::Story, s: &doc::Story) -> serde_json::Result<serde_json::Valu
         .take_while(|(a, b)| a == b)
         .count();
     let units = |t: &str| t.encode_utf16().count();
-    Ok(serde_json::json!({
-        "at": units(&o.text[..p]),
-        "cut": units(&o.text[p..o.text.len() - q]),
-        "text": &s.text[p..s.text.len() - q],
-        "spansAt": ps,
-        "spansCut": o.spans.len() - ps - qs,
-        "spans": &s.spans[ps..s.spans.len() - qs],
-    }))
+    raw(&Splice {
+        at: units(&o.text[..p]),
+        cut: units(&o.text[p..o.text.len() - q]),
+        text: &s.text[p..s.text.len() - q],
+        spans_at: ps,
+        spans_cut: o.spans.len() - ps - qs,
+        spans: &s.spans[ps..s.spans.len() - qs],
+    })
 }
 
 type Drawn = (u32, Vec<u32>, [Option<Rc<doc::Page>>; 2]);
@@ -121,64 +142,62 @@ impl Engine {
             .flat_map(|s| s.pages.iter().chain(&s.masters))
             .map(|p| (p.id.as_str(), p))
             .collect();
-        let sheets = |list: &[Rc<doc::Page>]| -> Result<Vec<serde_json::Value>, JsError> {
-            list.iter()
-                .map(|p| {
-                    let old = sent.get(p.id.as_str());
-                    if old.is_some_and(|o| Rc::ptr_eq(o, p)) {
-                        return Ok(p.id.clone().into());
-                    }
-                    let mut v = serde_json::to_value(p.head())?;
-                    let mut same = old.is_some_and(|o| {
-                        o.head() == p.head()
-                            && (o.children.iter().map(|n| &n.id))
-                                .eq(p.children.iter().map(|n| &n.id))
-                    });
-                    let children = (p.children.iter().enumerate())
-                        .map(|(i, n)| {
-                            let o = old.and_then(|o| doc::same_layer(&o.children, i, &n.id));
-                            if o.is_some_and(|o| Rc::ptr_eq(o, n) || o == n) {
-                                return Ok(n.id.clone().into());
-                            }
-                            let v = serde_json::to_value(n)?;
-                            if o.map(serde_json::to_value).transpose()? == Some(v.clone()) {
-                                return Ok(n.id.clone().into());
-                            }
-                            same = false;
-                            Ok(v)
-                        })
-                        .collect::<Result<Vec<_>, serde_json::Error>>()?;
-                    if same {
-                        return Ok(p.id.clone().into());
-                    }
-                    v["children"] = children.into();
-                    Ok(v)
-                })
-                .collect()
+        let sheets = |list: &[Rc<doc::Page>]| -> serde_json::Result<Raw> {
+            let list = list.iter().map(|p| {
+                let old = sent.get(p.id.as_str());
+                if old.is_some_and(|o| Rc::ptr_eq(o, p)) {
+                    return raw(&p.id);
+                }
+                let mut same = old.is_some_and(|o| {
+                    o.head() == p.head()
+                        && (o.children.iter().map(|n| &n.id)).eq(p.children.iter().map(|n| &n.id))
+                });
+                let children = (p.children.iter().enumerate())
+                    .map(|(i, n)| {
+                        let o = old.and_then(|o| doc::same_layer(&o.children, i, &n.id));
+                        if o.is_some_and(|o| Rc::ptr_eq(o, n) || o == n) {
+                            return raw(&n.id);
+                        }
+                        let v = raw(n)?;
+                        if o.map(raw).transpose()?.is_some_and(|o| o.get() == v.get()) {
+                            return raw(&n.id);
+                        }
+                        same = false;
+                        Ok(v)
+                    })
+                    .collect::<serde_json::Result<Vec<_>>>()?;
+                if same {
+                    return raw(&p.id);
+                }
+                let mut v = fields(&p.head())?;
+                v.insert("children".into(), raw(&children)?);
+                raw(&v)
+            });
+            raw(&list.collect::<serde_json::Result<Vec<_>>>()?)
         };
-        let mut stories = serde_json::Map::new();
+        let mut stories = BTreeMap::new();
         for (id, s) in &snap.stories {
             match old.and_then(|o| o.stories.get(id)) {
                 Some(o) if Rc::ptr_eq(o, s) => {}
                 Some(o) => _ = stories.insert(id.to_string(), splice(o, s)?),
-                None => _ = stories.insert(id.to_string(), serde_json::to_value(&**s)?),
+                None => _ = stories.insert(id.to_string(), raw(&**s)?),
             }
         }
         for id in old.iter().flat_map(|o| o.stories.keys()) {
             if !snap.stories.contains_key(id) {
-                stories.insert(id.to_string(), serde_json::Value::Null);
+                stories.insert(id.to_string(), raw(&())?);
             }
         }
-        let mut out = serde_json::to_value(Snapshot {
+        let mut out = fields(&Snapshot {
             pages: Vec::new(),
             masters: Vec::new(),
             stories: Default::default(),
             ..(*snap).clone()
         })?;
-        out["pages"] = sheets(&snap.pages)?.into();
-        out["masters"] = sheets(&snap.masters)?.into();
-        out["stories"] = stories.into();
-        Ok(out.to_string())
+        out.insert("pages".into(), sheets(&snap.pages)?);
+        out.insert("masters".into(), sheets(&snap.masters)?);
+        out.insert("stories".into(), raw(&stories)?);
+        Ok(serde_json::to_string(&out)?)
     }
 
     #[wasm_bindgen(js_name = frameRange)]
@@ -607,7 +626,7 @@ mod tests {
             (story("", &[]), story("new", &[(3, 1.0)])),
         ];
         for (o, s) in cases {
-            let v = splice(&o, &s).unwrap();
+            let v: serde_json::Value = serde_json::from_str(splice(&o, &s).unwrap().get()).unwrap();
             let n = |k: &str| v[k].as_u64().unwrap() as usize;
             let mut text: Vec<u16> = o.text.encode_utf16().collect();
             text.splice(
