@@ -21,3 +21,5 @@ Before a commit: `./check build` and the affected specs; the full `./check` befo
 - `wasm-bindgen` in `engine/Cargo.toml` matches the flake's `wasm-bindgen-cli`,
   `@playwright/test` the nixpkgs `playwright-driver`, skrifa krilla's.
 - UI changes follow `AGENT/design.md`.
+- Each agent works in its own git worktree and stages files by name, never `git commit -a`.
+- Wait for CI with `watch_pull_request`, not by polling.

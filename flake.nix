@@ -43,6 +43,8 @@
             binaryen
             python3
             imagemagick
+            perl
+            librsvg
           ]);
         });
         devShells.e2e = pkgs.mkShell e2e;
