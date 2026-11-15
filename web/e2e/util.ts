@@ -34,6 +34,17 @@ export async function choose(select: Locator, option: string) {
   await select.page().getByRole('menu', { name: (await select.getAttribute('aria-label'))! }).getByRole('menuitemradio', { name: option, exact: true }).click()
 }
 
+export async function steady<T>(read: () => Promise<T>) {
+  let last = ''
+  await expect
+    .poll(async () => {
+      const now = JSON.stringify(await read())
+      return now === last || ((last = now), false)
+    })
+    .toBe(true)
+  return JSON.parse(last) as T
+}
+
 export async function screen(page: Page, x: number, y: number, i?: number) {
   const canvas = page.getByLabel('Page canvas')
   const box = (await canvas.boundingBox())!

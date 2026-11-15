@@ -9,5 +9,6 @@ export default tseslint.config(
   tseslint.configs.recommended,
   reactHooks.configs.flat.recommended,
   { languageOptions: { globals: globals.browser } },
+  { files: ['e2e/**'], rules: { 'no-restricted-properties': ['error', { property: 'waitForTimeout', message: 'Wait for a state, e.g. with steady() from util.ts.' }] } },
   { files: ['sw.js'], languageOptions: { globals: { ...globals.serviceworker, CACHE: 'readonly', FILES: 'readonly' } } },
 )

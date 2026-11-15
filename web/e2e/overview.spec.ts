@@ -1,5 +1,5 @@
 import type { Locator } from '@playwright/test'
-import { expect, test, addMaster, addPage, current, open, option, overview } from './util'
+import { expect, test, addMaster, addPage, current, open, option, overview, steady } from './util'
 
 test('dot opens the page overview on the current page with drawn thumbnails kept for the next opening, and dot or escape closes it', async ({ page }) => {
   await open(page)
@@ -64,8 +64,7 @@ test('a band dragged to the edge of the pages scrolls them and selects the pages
   await page.mouse.up()
   const top = await pane.evaluate((el) => el.scrollTop)
   expect(top).toBeGreaterThan(0)
-  await page.waitForTimeout(200)
-  expect(await pane.evaluate((el) => el.scrollTop)).toBe(top)
+  expect(await steady(() => pane.evaluate((el) => el.scrollTop))).toBe(top)
 })
 
 test('delete removes the selected pages with a toast, and undo restores them', async ({ page }) => {

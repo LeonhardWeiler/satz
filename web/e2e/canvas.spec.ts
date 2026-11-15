@@ -1,4 +1,4 @@
-import { expect, test, choose, colors, drag, drawn, MM, near, open, pixels, screen } from './util'
+import { expect, test, choose, colors, drag, drawn, MM, near, open, pixels, screen, steady } from './util'
 
 
 test('moving a gradient layer leaves the page and the handles alone', async ({ page }) => {
@@ -411,9 +411,7 @@ test('a marquee held at the edge of the canvas scrolls it until released', async
   await page.mouse.move(box.x + 40, box.y + box.height - 4, { steps: 4 })
   await expect.poll(async () => (await colors(page, [middle]))[0]).not.toEqual(before)
   await page.mouse.up()
-  const [after] = await colors(page, [middle])
-  await page.waitForTimeout(200)
-  expect((await colors(page, [middle]))[0]).toEqual(after)
+  await steady(() => colors(page, [middle]))
 })
 
 test('a layer dragged to the edge of the canvas moves on as the canvas scrolls', async ({ page }) => {
@@ -440,21 +438,17 @@ test('hiding a panel fits a fitted page again and leaves a zoomed one where it i
   }
   for (const key of ['Alt+1', 'Alt+2']) {
     await page.keyboard.press(key)
-    await page.waitForTimeout(100)
-    const shown = await sun()
+    const shown = await steady(sun)
     await page.keyboard.press('Shift+1')
-    await page.waitForTimeout(100)
-    expect(await sun(), `fitted ${key}`).toEqual(shown)
+    expect(await steady(sun), `fitted ${key}`).toEqual(shown)
   }
   for (const key of ['Alt+1', 'Alt+2']) await page.keyboard.press(key)
   await page.keyboard.press('Control+=')
-  await page.waitForTimeout(300)
-  const at = await screen(page, 23, 37)
-  const before = await sun(at)
+  const at = await steady(() => screen(page, 23, 37))
+  const before = await steady(() => sun(at))
   for (const key of ['Alt+1', 'Alt+2', 'Shift+R', 'Shift+W']) {
     await page.keyboard.press(key)
-    await page.waitForTimeout(100)
-    expect((await sun(at)).every((p, i) => near(p, before[i])), key).toBe(true)
+    expect((await steady(() => sun(at))).every((p, i) => near(p, before[i])), key).toBe(true)
   }
 })
 
