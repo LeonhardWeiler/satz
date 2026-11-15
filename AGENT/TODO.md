@@ -32,7 +32,7 @@ font helper, i18n.
 
 IDs name finding cards in `AGENT/project-health-report.html`; read the card for cause and fix.
 
-- [ ] Host the build on the VPS with Brotli; GitHub Pages serves gzip only. Measured on the lean engine WASM: 3.79 MB gzip, 2.82 MB Brotli (q11), no code change needed.
+- [ ] Host the build on the VPS with Brotli; GitHub Pages serves gzip only. Measured on the lean engine WASM: 3.88 MB gzip, 2.87 MB Brotli (q11), no code change needed.
 - [ ] Own CanvasKit build (emscripten) without paragraph, ICU, HarfBuzz and image codecs, none of which the renderer uses: `canvaskit.wasm` is 7.3 MB (2.94 MB gzip) at start, 0.82 MB gzip of it data that is mostly ICU.
 - [ ] TEST-1, blocked: Playwright's Firefox gets no WebGL 2 context headless or under Xvfb.
 
