@@ -391,7 +391,7 @@ test('ctrl while resizing a text scales its type, and a new format scales the la
   await expect(field('W in mm')).toHaveValue('53.21')
 })
 
-test('a stroke goes around the text', async ({ page }) => {
+test('a text names its color picker text color and a stroke goes around it', async ({ page }) => {
   await open(page)
   await page.keyboard.press('t')
   await page.mouse.click(...(await screen(page, 10, 200, 0)))
@@ -402,6 +402,7 @@ test('a stroke goes around the text', async ({ page }) => {
   const before = await ink()
   expect(before).toBeGreaterThan(0)
   const panel = page.getByRole('complementary', { name: 'Properties' })
+  await expect(panel.getByRole('region', { name: 'Text color' }).getByRole('button', { name: 'Text color', exact: true })).toBeVisible()
   await panel.getByRole('button', { name: 'Add stroke' }).click()
   const weight = panel.getByRole('textbox', { name: 'Stroke weight' })
   await weight.fill('2')

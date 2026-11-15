@@ -211,7 +211,7 @@ function PaintRow({
     <div className="row paint-row">
       {p.type !== 'image' ? (
         <ColorPicker
-          label={`${title} color`}
+          label={title === 'Text color' ? title : `${title} color`}
           color={solid ? p.color : p.stops[k].color}
           mode={mode}
           scope={scope}
