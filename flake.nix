@@ -35,6 +35,7 @@
           PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
         };
       in {
+        packages.canvaskit = pkgs.callPackage ./canvaskit.nix { };
         devShells.default = pkgs.mkShell (e2e // {
           packages = e2e.packages ++ (with pkgs; [
             rust

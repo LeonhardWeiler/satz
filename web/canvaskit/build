@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")"
+out=$(nix build ../..#canvaskit --no-link --print-out-paths)
+install -m 644 "$out"/* .

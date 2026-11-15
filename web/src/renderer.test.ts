@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import CanvasKitInit from 'canvaskit-wasm'
+import CanvasKitInit from '../canvaskit/canvaskit.js'
 import { expect, test } from 'vitest'
 import { Engine, initSync } from './engine/engine'
 import type { Command, Node, Snapshot } from './model'

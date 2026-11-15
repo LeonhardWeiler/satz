@@ -53,7 +53,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 600,
     rolldownOptions: {
       onLog: (level, log, handler) => {
-        if (!/^Module "(fs|path)" has been externalized .*\/canvaskit\.js"/.test(log.message)) handler(level, log)
+        if (!/^Module "node:fs" has been externalized .*\/canvaskit\.js"/.test(log.message)) handler(level, log)
       },
     },
   },
