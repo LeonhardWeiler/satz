@@ -10,7 +10,6 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 console_error_panic_hook = "0.1.7"
 crc32fast = "1.5.2"
-# Only switches the deflate of krilla to zlib-rs.
 flate2 = { version = "1.1.10", features = ["zlib-rs"] }
 harfrust = "0.13.3"
 hayro-interpret = { version = "0.9", default-features = false }
@@ -23,7 +22,7 @@ linesweeper = "0.5.0"
 loro = "1.16.2"
 miniz_oxide = "0.9.1"
 ruzstd = { version = "0.9", default-features = false, features = ["std"] }
-moxcms = { version = "0.9.1", default-features = false, features = ["lut"] }
+moxcms = { version = "0.8.1", default-features = false, features = ["lut"] }
 png = "0.18.1"
 read-fonts = "0.43.3"
 regex = { version = "1.12", default-features = false, features = ["std", "unicode"] }

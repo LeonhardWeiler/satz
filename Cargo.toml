@@ -3,9 +3,27 @@ members = ["engine"]
 resolver = "3"
 
 [profile.release]
-opt-level = 3
+opt-level = "s"
 lto = true
 codegen-units = 1
+
+[profile.release.package.engine]
+opt-level = 3
+
+[profile.release.package.tiny-skia]
+opt-level = 3
+
+[profile.release.package.moxcms]
+opt-level = 3
+
+[profile.release.package.serde_json]
+opt-level = 3
+
+[profile.release.package.harfrust]
+opt-level = 3
+
+[profile.release.package.loro-internal]
+opt-level = 3
 
 [profile.test]
 opt-level = 1
