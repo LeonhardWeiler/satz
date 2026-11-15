@@ -1,8 +1,8 @@
 import { useSyncExternalStore } from 'react'
-import { MM } from './editor'
-import type { ColorMode, Grid } from './types'
+import { UNITS } from './field'
+import { MM, type ColorMode, type Grid } from './types'
 
-export const UNITS = { mm: MM, cm: 10 * MM, in: 72, pt: 1 } as const
+export { UNITS }
 export type Unit = keyof typeof UNITS
 export const MAX_LENGTH = 20000 * MM
 

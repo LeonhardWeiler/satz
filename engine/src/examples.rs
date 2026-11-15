@@ -6,7 +6,7 @@ use crate::style::{Effect, EffectKind, Fill, FillKind, FillStop};
 use crate::text::{PAGE_NUMBER, TextAlign};
 use crate::variable::Value;
 
-const MM: f64 = 72.0 / 25.4;
+use crate::doc::MM;
 const PHOTO: &[u8] = include_bytes!("../../examples/earthrise.jpg");
 const DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../examples");
 

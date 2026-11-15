@@ -34,7 +34,7 @@ pub enum Preset {
     X1a,
 }
 
-const MM: f32 = 72.0 / 25.4;
+const MM: f32 = crate::doc::MM as f32;
 const MARK_SPACE: f32 = 10.0 * MM;
 const MARK_OFFSET: f32 = 3.0 * MM;
 const MARK_LENGTH: f32 = 5.0 * MM;

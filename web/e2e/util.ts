@@ -3,7 +3,8 @@ import { join } from 'node:path'
 import { PNG } from 'pngjs'
 import { fitView, type Sheet } from '../src/renderer'
 
-export const MM = 72 / 25.4
+import { MM } from '../src/types'
+export { MM }
 
 export const test = base.extend<{ console: void }>({
   console: [

@@ -81,7 +81,7 @@ pub enum Problem {
     NearTrim { distance: f64 },
 }
 
-const SAFE: f64 = 3.0 * 72.0 / 25.4;
+const SAFE: f64 = 3.0 * MM;
 
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, PartialEq, Serialize)]

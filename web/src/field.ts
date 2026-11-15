@@ -1,4 +1,7 @@
-const UNIT: Record<string, number> = { mm: 1, cm: 10, pt: 25.4 / 72, in: 25.4 }
+import { MM } from './types'
+
+export const UNITS = { mm: MM, cm: 10 * MM, in: 72, pt: 1 } as const
+const UNIT: Record<string, number> = UNITS
 
 export function evalExpr(src: string, cur: number, unit: string): number | null {
   let s = src.trim().replace(/,/g, '.').replace(/[×x]/g, '*').replace(/−/g, '-').replace(/\s+/g, '')

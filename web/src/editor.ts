@@ -14,7 +14,8 @@ export type Shape = 'rect' | 'line' | 'ellipse' | 'polygon' | 'star'
 export type Tool = 'move' | 'frame' | 'text' | 'pen' | 'eyedropper' | 'table' | Shape
 export type Pen = { id: string; anchors: Anchor[] }
 
-export const MM = 72 / 25.4
+export { MM } from './types'
+import { MM } from './types'
 export const CLIP = 'application/x-satz-layers'
 const FRAMED = ['create', 'placeImage', 'setFrame']
 const GRID: Record<string, number> = { x: 10, y: 10, w: 100, h: 100 }

@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { expect, it } from 'vitest'
+import { SELECTION } from './types'
 
 const css = readFileSync(new URL('index.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
 const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].flatMap(([, sel, body]) =>
@@ -60,4 +61,9 @@ it('paints the loading screen, manifest and icon in the theme colours', () => {
   for (const c of [...dark, ...light]) expect(html).toContain(c)
   expect(manifest).toContain(dark[0])
   for (const c of dark) expect(icon).toContain(c)
+})
+
+it('selects text on the canvas in the select colour', () => {
+  const hex = rules.find((r) => r.sel === ':root' && r.prop === '--select')!.value
+  expect(hex).toBe('#' + SELECTION.slice(0, 3).map((c) => Math.round(c * 255).toString(16).padStart(2, '0')).join(''))
 })

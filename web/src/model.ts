@@ -6,14 +6,9 @@ export type Container = Extract<Node, { children: Node[] }>
 export type TextNode = Extract<Node, { kind: 'text' }>
 export type Modes = Record<string, string>
 export type Scope = Omit<Palette, 'textStyles'> & { modes: Modes }
-export type Bindable =
-  | 'font' | 'w' | 'h' | 'radius' | 'strokeWeight' | 'opacity'
-  | 'gap' | 'paddingTop' | 'paddingRight' | 'paddingBottom' | 'paddingLeft'
-  | Styled
 export type Attrs = Omit<Span, 'len'>
 export type TextProps = Partial<Attrs>
-export const STYLED = ['size', 'lineHeight', 'letterSpacing', 'paragraphSpacing', 'paragraphIndent', 'indentLeft', 'indentRight', 'spaceBefore', 'font', 'textCase', 'textDecoration', 'features', 'axes', 'position', 'baselineShift', 'dropLines', 'dropChars', 'keepLines', 'keepTogether', 'keepNext', 'tabs', 'list'] as const
-export type Styled = (typeof STYLED)[number]
+export { STYLED } from './types'
 
 export type Resizing = 'autoWidth' | 'autoHeight' | 'fixedSize'
 export function textSizing({ horizontal, vertical }: Sizing, mode: Resizing): Sizing {

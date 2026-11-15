@@ -793,7 +793,7 @@ fn today() -> [u32; 3] {
 
 type Sheets = (Rc<HashMap<TreeID, Flow>>, HashMap<TreeID, Rc<Page>>);
 
-const MM: f64 = 72.0 / 25.4;
+pub const MM: f64 = 72.0 / 25.4;
 
 const PRINT_PPI: f64 = 300.0;
 
@@ -866,7 +866,7 @@ const MODES: &str = "modes";
 const BINDINGS: &str = "bindings";
 const CONSTRAINTS: &str = "constraints";
 const SIZING: &str = "sizing";
-const SELECTION: [f32; 4] = [0.22, 0.68, 0.88, 0.3];
+const SELECTION: [f32; 4] = [0.302, 0.486, 1.0, 0.3];
 
 const WHITE: u32 = 0xffffffff;
 
@@ -4436,7 +4436,7 @@ mod tests {
     #[test]
     fn a_group_in_an_auto_layout_lays_out_the_same_again() {
         let (mut d, p) = empty();
-        let mm = |v: f64| (v + 1.0 / 7.0) * 72.0 / 25.4;
+        let mm = |v: f64| (v + 1.0 / 7.0) * MM;
         let a = create(
             &mut d,
             &p,
@@ -5590,7 +5590,14 @@ mod tests {
         d.visit::<Props>();
         d.visit::<Palette>();
         d.visit::<history::Version>();
-        let ts: String = d.1.values().map(|v| format!("export {v}\n")).collect();
+        let mut ts: String = d.1.values().map(|v| format!("export {v}\n")).collect();
+        let list = |l: &[&str]| serde_json::to_string(l).unwrap();
+        ts += &format!(
+            "export const MM = {MM}\nexport const SELECTION = {:?}\nexport const STYLED = {} as const\nexport type Styled = (typeof STYLED)[number]\nexport const BINDABLE = {} as const\nexport type Bindable = (typeof BINDABLE)[number] | Styled\n",
+            SELECTION,
+            list(&STYLED),
+            list(&BINDABLE),
+        );
         crate::fixture("types.ts", ts.as_bytes());
     }
 }
