@@ -51,11 +51,11 @@ if (!document.createElement('canvas').getContext('webgl2')) {
     for (const bytes of fonts) engine.addFont(bytes)
     const editor = new Editor(engine)
     const stop = () => {
-      editor.autosaves = false
+      editor.set({ autosaves: false })
       notice('Satz stopped', 'The engine failed. Reload the page to go on from the last autosave.', true)
     }
     if (!alone) {
-      editor.autosaves = false
+      editor.set({ autosaves: false })
       editor.fail('Satz is open in another tab. This tab does not autosave; save the file with Ctrl+S.')
     }
     const id = location.hash.slice(1)

@@ -268,7 +268,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     const fromRuler = (axis: 'x' | 'y') => (e: PointerEvent) => {
       if (e.button !== 0) return
       editor.set({ grids: true })
-      editor.dragging = true
+      editor.point({ dragging: true })
       canvas.setPointerCapture(e.pointerId)
       drag = { kind: 'guide', axis, id: '', dx: 0, index: -1, grouped: false }
     }
@@ -668,7 +668,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     }
     const handleUnder = (e: Pointer) => handleAt(view, e.offsetX, e.offsetY, handles())
     const track = () => {
-      editor.pointer = pointer && toDoc(pointer)
+      editor.point({ pointer: pointer && toDoc(pointer) })
       if (!pointer || drag || editor.pen) return
       const side = portUnder(pointer)?.side
       const to = editor.threading && textUnder(toDoc(pointer))
@@ -768,7 +768,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const edited = e.button === 0 && !space ? inEdited(p) : undefined
       if (edited) {
         e.preventDefault()
-        editor.dragging = true
+        editor.point({ dragging: true })
         canvas.setPointerCapture(e.pointerId)
         const i = textAt(edited.id, p)
         select(editor, e.shiftKey ? editor.editing!.anchor : i, i)
@@ -776,7 +776,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         return
       }
       editor.stopEditing()
-      editor.dragging = true
+      editor.point({ dragging: true })
       canvas.focus()
       canvas.setPointerCapture(e.pointerId)
       if (e.button === 1 || space) {
@@ -1278,7 +1278,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       edge.stop()
       snapped = []
       measures = []
-      editor.dragging = false
+      editor.point({ dragging: false })
       delete canvas.dataset.panning
       track()
       redraw()
@@ -1319,7 +1319,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     }
     const onLeave = () => {
       pointer = undefined
-      editor.pointer = undefined
+      editor.point({ pointer: undefined })
       hover = undefined
       near = false
       cursor = undefined

@@ -45,47 +45,52 @@ export const scopeOf = ({ swatches, collections, variables }: Palette, modes: Mo
 })
 
 export class Editor {
-  snapshot: Snapshot
-  nodes: Map<string, Entry>
-  selection: string[] = []
-  tool: Tool = 'move'
-  renaming: string | null = null
-  hover: string | null = null
-  guide: { id: string; axis: 'x' | 'y'; index: number } | null = null
-  pen: Pen | null = null
-  dragging = false
-  pointer: Point | undefined
-  editing: Editing | null = null
-  found: { story: string; at: number; end: number }[] = []
-  threading: { id: string; before: boolean } | null = null
-  placing: { hash: string; name: string; w: number; h: number; url: string }[] = []
-  pageId: string
-  back: string | null = null
-  overview: string[] | null = null
-  preflight = false
-  grids = true
-  vector: { id: string; mode: 'move' | 'add' | 'delete' | 'fill'; at: At[] } | null = null
-  cropping: string | null = null
-  inks = { on: 2 ** 31 - 1, over: true, gamut: true }
-  previewed: Previewed | null = null
-  pointerInk: number | null = null
-  file = UNTITLED
-  project: string | null = null
-  home = false
-  dirty = false
-  status: ReactNode = ''
-  statusError = false
-  statusAction: { label: string; run: () => void } | null = null
-  said = 0
-  autosaves = true
+  readonly snapshot: Snapshot
+
+  readonly nodes: Map<string, Entry>
+  readonly selection: string[] = []
+  readonly tool: Tool = 'move'
+  readonly renaming: string | null = null
+  readonly hover: string | null = null
+  readonly guide: { id: string; axis: 'x' | 'y'; index: number } | null = null
+  readonly pen: Pen | null = null
+  readonly dragging: boolean = false
+  readonly pointer: Point | undefined
+  readonly editing: Editing | null = null
+  readonly found: { story: string; at: number; end: number }[] = []
+  readonly threading: { id: string; before: boolean } | null = null
+  readonly placing: { hash: string; name: string; w: number; h: number; url: string }[] = []
+  readonly pageId: string
+  readonly back: string | null = null
+  readonly overview: string[] | null = null
+  readonly preflight: boolean = false
+  readonly grids: boolean = true
+  readonly vector: { id: string; mode: 'move' | 'add' | 'delete' | 'fill'; at: At[] } | null = null
+  readonly cropping: string | null = null
+  readonly inks = { on: 2 ** 31 - 1, over: true, gamut: true }
+  readonly previewed: Previewed | null = null
+  readonly pointerInk: number | null = null
+  readonly file = UNTITLED
+  readonly project: string | null = null
+  readonly home: boolean = false
+  readonly dirty: boolean = false
+  readonly status: ReactNode = ''
+  readonly statusError: boolean = false
+  readonly statusAction: { label: string; run: () => void } | null = null
+  readonly said: number = 0
+  readonly autosaves: boolean = true
   private typing = false
-  copied: string | null = null
-  clip: string | null = null
+  readonly copied: string | null = null
+  readonly clip: string | null = null
   private copies: { ids: string[]; from: { x: number; y: number } } | null = null
-  groups = 0
+  readonly groups: number = 0
   private savedAt: string
   private listeners = new Set<() => void>()
   private pointed = new Set<() => void>()
+
+  private get w() {
+    return this as { -readonly [K in keyof Editor]: Editor[K] }
+  }
 
   constructor(readonly engine: Engine) {
     this.snapshot = this.read()
@@ -99,17 +104,17 @@ export class Editor {
     for (const u of updates) this.engine.sync(u)
     Object.assign(this, { selection: [], tool: 'move', renaming: null, hover: null, guide: null, pen: null, editing: null, threading: null, placing: [], overview: null, cropping: null, vector: null, copied: null, clip: null, copies: null })
     this.typing = false
-    this.groups = 0
-    this.snapshot = this.read()
-    this.pageId = this.snapshot.pages[0].id
-    this.nodes = this.index()
+    this.w.groups = 0
+    this.w.snapshot = this.read()
+    this.w.pageId = this.snapshot.pages[0].id
+    this.w.nodes = this.index()
     this.saved(file, dirty ? '' : this.engine.version())
   }
 
   saved(file: Editor['file'], version: string) {
-    this.file = file
+    this.w.file = file
     this.savedAt = version
-    this.dirty = this.engine.version() !== version
+    this.w.dirty = this.engine.version() !== version
     this.emit()
   }
 
@@ -175,7 +180,7 @@ export class Editor {
   private settle() {
     const pages = new Set(this.selection.map((id) => this.nodes.get(id)?.page?.id))
     const [only] = pages
-    if (pages.size === 1 && only && only !== this.pageId) this.pageId = only
+    if (pages.size === 1 && only && only !== this.pageId) this.w.pageId = only
   }
 
   masterOf(page: Page) {
@@ -185,7 +190,7 @@ export class Editor {
   apply(cmd: Command): string[] {
     if (cmd.type === 'undo' || cmd.type === 'redo') {
       this.typing = false
-      this.groups = 0
+      this.w.groups = 0
     }
     if (this.status) this.say('')
     try {
@@ -201,21 +206,21 @@ export class Editor {
   }
 
   say = (status: ReactNode, action?: Editor['statusAction'], error = false) => {
-    this.status = status
-    this.statusError = error
-    this.statusAction = action ?? null
-    this.said++
+    this.w.status = status
+    this.w.statusError = error
+    this.w.statusAction = action ?? null
+    this.w.said++
     this.emit()
   }
 
   fail = (status: ReactNode) => this.say(status, null, true)
 
   beginGroup() {
-    if (this.groups++ === 0) this.engine.apply({ type: 'beginUndoGroup' })
+    if (this.w.groups++ === 0) this.engine.apply({ type: 'beginUndoGroup' })
   }
 
   endGroup() {
-    if (this.groups > 0 && --this.groups === 0) this.engine.apply({ type: 'endUndoGroup' })
+    if (this.groups > 0 && --this.w.groups === 0) this.engine.apply({ type: 'endUndoGroup' })
   }
 
   batch<T>(f: () => T): T {
@@ -289,32 +294,32 @@ export class Editor {
     } finally {
       timed('apply', start)
       start = performance.now()
-      this.snapshot = this.read()
+      this.w.snapshot = this.read()
       timed('snapshot', start)
       const { pages, masters } = this.snapshot
       if (!pages.some((p) => p.id === this.pageId) && !masters.some((p) => p.id === this.pageId)) {
-        this.pageId = pages[Math.max(0, Math.min(at, pages.length - 1))].id
+        this.w.pageId = pages[Math.max(0, Math.min(at, pages.length - 1))].id
       }
       start = performance.now()
-      this.nodes = this.index()
+      this.w.nodes = this.index()
       timed('index', start)
-      this.selection = this.selection.filter((id) => this.nodes.has(id))
+      this.w.selection = this.selection.filter((id) => this.nodes.has(id))
       const v = this.vector && this.nodes.get(this.vector.id)?.node
-      if (v && v.kind !== 'shape') this.vector = null
+      if (v && v.kind !== 'shape') this.w.vector = null
       const n = this.editing && this.nodes.get(this.editing.id)?.node
       if (this.editing) {
         const len = n?.kind === 'text' ? this.storyOf(n).text.length : -1
         const { anchor, focus } = this.editing
-        this.editing = len < 0 ? null : { ...this.editing, anchor: Math.min(anchor, len), focus: Math.min(focus, len) }
+        this.w.editing = len < 0 ? null : { ...this.editing, anchor: Math.min(anchor, len), focus: Math.min(focus, len) }
       }
-      this.dirty = this.engine.version() !== this.savedAt
+      this.w.dirty = this.engine.version() !== this.savedAt
       this.follow()
       this.settle()
       this.emit()
     }
   }
 
-  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'pen' | 'editing' | 'threading' | 'placing' | 'overview' | 'preflight' | 'grids' | 'guide' | 'vector' | 'cropping' | 'inks' | 'previewed' | 'found' | 'home'>>) {
+  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'pen' | 'editing' | 'threading' | 'placing' | 'overview' | 'preflight' | 'grids' | 'guide' | 'vector' | 'cropping' | 'inks' | 'previewed' | 'found' | 'home' | 'project' | 'autosaves' | 'clip'>>) {
     const leaves = this.editing && patch.selection && !patch.selection.includes(this.editing.id)
     if (this.vector && ((patch.selection && !patch.selection.includes(this.vector.id)) || (patch.tool && patch.tool !== 'move'))) patch = { vector: null, ...patch }
     if (this.cropping && ((patch.selection && !patch.selection.includes(this.cropping)) || (patch.tool && patch.tool !== 'move'))) patch = { cropping: null, ...patch }
@@ -346,9 +351,10 @@ export class Editor {
   copy(ids: string[]) {
     this.apply({ type: 'copy', ids })
     const nodes = ids.map((id) => this.nodes.get(id)!.node)
-    this.copied = [...new Set(nodes.map((n) => (n.kind === 'text' ? this.storyOf(n).text : n.name)))].join('\n')
-    this.clip = btoa(Array.from(this.engine.clip(), (b) => String.fromCharCode(b)).join(''))
-    return this.copied
+    const copied = [...new Set(nodes.map((n) => (n.kind === 'text' ? this.storyOf(n).text : n.name)))].join('\n')
+    this.w.copied = copied
+    this.w.clip = btoa(Array.from(this.engine.clip(), (b) => String.fromCharCode(b)).join(''))
+    return copied
   }
 
   duplicate(ids: string[], step = true) {
@@ -375,7 +381,7 @@ export class Editor {
       } catch (e) {
         return this.fail(`Could not paste the copied layers: ${(e as Error).message}.`)
       }
-      this.clip = clip
+      this.w.clip = clip
     }
     const editing = this.editing
     const ids = this.batch(() => {
@@ -433,19 +439,19 @@ export class Editor {
     if (frame === e.id && this.nodes.has(frame)) return
     const found = this.lookup(frame)
     if (!found) return
-    this.pageId = found.page.id
-    this.nodes = this.index()
-    this.editing = { ...e, id: frame }
-    this.selection = [frame]
+    this.w.pageId = found.page.id
+    this.w.nodes = this.index()
+    this.w.editing = { ...e, id: frame }
+    this.w.selection = [frame]
   }
 
   showPage(id: string) {
     if (id === this.pageId) return
     this.finishPen(false)
     this.stopEditing()
-    if (this.snapshot.pages.some((p) => p.id === this.pageId)) this.back = this.pageId
-    this.pageId = id
-    this.nodes = this.index()
+    if (this.snapshot.pages.some((p) => p.id === this.pageId)) this.w.back = this.pageId
+    this.w.pageId = id
+    this.w.nodes = this.index()
     this.set({ selection: [] })
   }
 
@@ -472,7 +478,7 @@ export class Editor {
   }
 
   togglePreflight() {
-    this.pointerInk = null
+    this.w.pointerInk = null
     this.set({ preflight: !this.preflight })
   }
 
@@ -529,7 +535,7 @@ export class Editor {
     const e = this.editing
     if (!e) return
     this.endTyping()
-    this.editing = null
+    this.w.editing = null
     const n = this.nodes.get(e.id)?.node
     if (n?.kind === 'text' && !this.storyOf(n).text && !n.prev && !n.next && !n.cell) this.apply({ type: 'delete', ids: [e.id] })
     this.emit()
@@ -538,11 +544,11 @@ export class Editor {
   finishPen(closed: boolean) {
     const pen = this.pen
     if (!pen) return
-    this.pen = null
+    this.w.pen = null
     if (pen.anchors.length < 2) this.apply({ type: 'delete', ids: [pen.id] })
     else this.apply({ type: 'setPath', id: pen.id, path: penPath(pen.anchors, closed) })
     this.endGroup()
-    this.status = ''
+    this.w.status = ''
     this.set({ tool: 'move', selection: pen.anchors.length < 2 ? [] : [pen.id] })
   }
 
@@ -557,7 +563,7 @@ export class Editor {
     return this.selection.flatMap((id) => this.nodes.get(id)?.node ?? [])
   }
 
-  point(patch: Partial<Pick<Editor, 'hover' | 'pointerInk'>>) {
+  point(patch: Partial<Pick<Editor, 'hover' | 'pointerInk' | 'pointer' | 'dragging'>>) {
     Object.assign(this, patch)
     for (const l of this.pointed) l()
   }

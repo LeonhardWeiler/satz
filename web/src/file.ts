@@ -74,7 +74,7 @@ export async function removeProject(editor: Editor, id: string) {
   files.delete(updates(id))
   await finished(files.transaction)
   await result((await store('projects')).delete(id))
-  if (editor.project === id) editor.project = null
+  if (editor.project === id) editor.set({ project: null })
 }
 
 export const storedFonts = async () => result<Uint8Array[]>((await store('fonts')).getAll())
@@ -82,9 +82,8 @@ export const storedFonts = async () => result<Uint8Array[]>((await store('fonts'
 export let flush = () => Promise.resolve()
 
 export function show(editor: Editor, id: string | null) {
-  if (id) editor.project = id
   history.replaceState(null, '', id ? `#${id}` : location.pathname + location.search)
-  editor.set({ home: !id })
+  editor.set(id ? { project: id, home: false } : { home: true })
 }
 
 export async function openProject(editor: Editor, id: string) {
@@ -322,7 +321,7 @@ async function placeImage(editor: Editor, file: File, handle: Handle | null = nu
     }
     if (!imports(file.name)) return void editor.loadImage(bytes, file.name)
     editor.engine.takeClip(Engine.importFile(bytes, file.name))
-    editor.clip = null
+    editor.set({ clip: null })
     editor.paste()
   } catch (e) {
     if (e instanceof WebAssembly.RuntimeError) throw e
