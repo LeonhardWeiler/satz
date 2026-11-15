@@ -20,6 +20,9 @@ Browser (`PERF=1 PAGES=32 ./check e2e e2e/perf.spec.ts`), ms per step on 32 page
 | keystroke | 4.1   | 0.7      | 6.9   |
 | pan       | 0     | 0        | 5.0   |
 
+CanvasKit is an own build (`canvaskit.nix`): 3.93 MB, 1.53 MB gzip, 1.16 MB Brotli; the npm build
+was 7.32 MB, 2.94 MB gzip.
+
 Measured and not done:
 
 - Optimistic typing and drag: at most 3 of ~10 ms per step, and it needs a second copy of
@@ -36,7 +39,6 @@ Measured and not done:
 - Font and FOGRA51 out of the WASM: 0.5 of 9.2 MB, both needed at start or for CMYK.
 - Cached compiled module: the browser caches the streamed WASM compile.
 - Stored snapshot: load spends its time in `finish`, which the snapshot does not replace.
-- Smaller CanvasKit: needs an own emscripten build.
 - Large rebuilds (`u32` handles, memoized queries, typed arena, threads, render worker,
   WebGPU inks): the largest step costs 4 ms in the engine.
 - Earlier: `use_profile` hash, `kind` cache, snapshot JSON formatter, `run_text` only for
