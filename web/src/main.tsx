@@ -4,12 +4,16 @@ import CanvasKitInit from 'canvaskit-wasm'
 import canvaskitWasm from 'canvaskit-wasm/bin/canvaskit.wasm?url'
 import init, { Engine } from './engine/engine'
 import { App } from './App'
+import { restorePanels } from './controls'
 import { Editor } from './editor'
 import { findGranted, openProject, show, storedFonts } from './file'
+import { followTheme } from './settings'
 import './index.css'
 
 if (import.meta.env.PROD) navigator.serviceWorker?.register(`${import.meta.env.BASE_URL}sw.js`)
 
+followTheme()
+restorePanels()
 const root = createRoot(document.getElementById('root')!)
 addEventListener('pointerdown', () => document.documentElement.toggleAttribute('data-pointer', true), true)
 addEventListener('keydown', (e) => (e.key === 'Tab' || e.key === 'F6') && document.documentElement.removeAttribute('data-pointer'), true)

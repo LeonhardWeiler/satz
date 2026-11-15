@@ -1,6 +1,6 @@
 import { Fragment, useId, useRef, useState, type ComponentProps, type KeyboardEvent, type MouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { createPortal, flushSync } from 'react-dom'
-import { keyName } from './commands'
+import { keyName } from './keys'
 import { MAC } from './textEdit'
 import { ContextMenu } from './ContextMenu'
 import { evalExpr, step } from './field'
@@ -421,9 +421,13 @@ export function Segmented<T extends string>({
 }
 
 const SIZES = 'satz.panels'
-const sizes: Record<string, number> = JSON.parse(localStorage.getItem(SIZES) ?? '{}')
+let sizes: Record<string, number> = {}
 let grab = 0
-for (const [side, v] of Object.entries(sizes)) document.documentElement.style.setProperty(`--${side}-size`, `${v}px`)
+
+export function restorePanels() {
+  sizes = JSON.parse(localStorage.getItem(SIZES) ?? '{}')
+  for (const [side, v] of Object.entries(sizes)) document.documentElement.style.setProperty(`--${side}-size`, `${v}px`)
+}
 
 export function Edge({ side }: { side: 'left' | 'right' | 'swatches' }) {
   const tall = side === 'swatches'

@@ -18,7 +18,7 @@ const OPENS = [{ description: 'Satz, SVG, PDF or Figma', accept: { 'application/
 const IMAGES = [{ description: 'PNG or JPEG image', accept: { 'image/png': ['.png'], 'image/jpeg': ['.jpg', '.jpeg'] } }]
 const PLACES = [{ description: 'Image, SVG, PDF or Figma', accept: { ...IMAGES[0].accept, 'image/svg+xml': ['.svg'], 'application/pdf': ['.pdf'], 'application/x-figma': ['.fig'] } }]
 const imports = (name: string) => /\.(svg|pdf|fig)$/i.test(name)
-const pickers = window as {
+const pickers = globalThis as {
   showSaveFilePicker?: (o: { suggestedName: string; types: Types }) => Promise<Handle>
   showOpenFilePicker?: (o: { types: Types; multiple?: boolean }) => Promise<Handle[]>
 }
@@ -291,13 +291,8 @@ export async function open(editor: Editor) {
   }
 }
 
-const input = document.createElement('input')
-input.type = 'file'
-
 function pick(accept: string, multiple: boolean, picked: (files: File[]) => void) {
-  input.accept = accept
-  input.multiple = multiple
-  input.value = ''
+  const input = Object.assign(document.createElement('input'), { type: 'file', accept, multiple })
   input.onchange = () => picked([...(input.files ?? [])])
   input.click()
 }
@@ -373,7 +368,7 @@ export async function drop(editor: Editor, files: File[], handles: Promise<Handl
 }
 
 type LocalFont = { fullName: string; family: string; style: string; postscriptName: string; blob(): Promise<Blob> }
-const local = window as { queryLocalFonts?: () => Promise<LocalFont[]> }
+const local = globalThis as { queryLocalFonts?: () => Promise<LocalFont[]> }
 export const canFindFonts = !!local.queryLocalFonts
 let locals: LocalFont[] = []
 const heard = new Set<() => void>()

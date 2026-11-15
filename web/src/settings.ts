@@ -42,11 +42,13 @@ export const subscribeSettings = (l: () => void) => {
   return () => void listeners.delete(l)
 }
 
-const light = matchMedia('(prefers-color-scheme: light)')
-const theme = () => (document.documentElement.dataset.theme = settings.theme === 'system' ? (light.matches ? 'light' : 'dark') : settings.theme)
-theme()
-light.addEventListener('change', theme)
-listeners.add(theme)
+export function followTheme() {
+  const light = matchMedia('(prefers-color-scheme: light)')
+  const theme = () => (document.documentElement.dataset.theme = settings.theme === 'system' ? (light.matches ? 'light' : 'dark') : settings.theme)
+  theme()
+  light.addEventListener('change', theme)
+  listeners.add(theme)
+}
 
 export const useSettings = () => useSyncExternalStore(subscribeSettings, () => settings)
 
