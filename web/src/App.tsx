@@ -162,7 +162,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       else if (mod && !e.shiftKey && e.code === 'Comma') setDialog('settings')
       else if (mod && e.altKey && !e.shiftKey && e.code === 'KeyZ') setDialog('history')
       else if (mod && !e.shiftKey && !e.altKey && e.code === 'KeyF') setFinding(true)
-      else if (isTyping(e) || (e.target as Element).closest?.('.menu')) return
+      else if (isTyping(e) || (e.target as Element).closest?.(e.key === 'Enter' ? '.menu, button, a[href], summary' : '.menu')) return
       else if (e.shiftKey && !mod && !e.altKey && e.code === 'KeyR') hide('rulers')
       else if (e.shiftKey && !mod && !e.altKey && e.code === 'KeyW') {
         editor.say(hidden.ui ? '' : <><Keys keys="Shift W" /> shows the interface again</>)

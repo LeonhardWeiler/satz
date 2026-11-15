@@ -338,7 +338,7 @@ test('an effect row shows its colour and type, its offset and blur open in a pop
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).last().click()
-  await panel.getByRole('button', { name: 'Add effect' }).click()
+  await panel.getByRole('button', { name: 'Add effect' }).press('Enter')
   const effects = panel.getByRole('region', { name: 'Effects' })
   await expect(effects.getByRole('button', { name: 'Shadow color' })).toBeVisible()
   await expect(effects.getByRole('textbox')).toHaveCount(0)
