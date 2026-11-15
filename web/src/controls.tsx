@@ -1,5 +1,5 @@
 import { Fragment, useId, useRef, useState, type ComponentProps, type KeyboardEvent, type MouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
+import { createPortal, flushSync } from 'react-dom'
 import { keyName } from './commands'
 import { MAC } from './textEdit'
 import { ContextMenu } from './ContextMenu'
@@ -149,8 +149,10 @@ export function Field({
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
             e.preventDefault()
-            e.currentTarget.blur()
-            e.currentTarget.closest<HTMLElement>('.popover[tabindex]')?.focus()
+            const input = e.currentTarget
+            flushSync(() => input.blur())
+            input.closest<HTMLElement>('.popover[tabindex]')?.focus()
+            input.form?.requestSubmit()
           } else if (e.key === 'Escape') {
             setDraft(null)
             e.currentTarget.blur()

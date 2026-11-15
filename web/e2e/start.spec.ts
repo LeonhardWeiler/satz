@@ -55,7 +55,7 @@ test('enter creates a document of the chosen format, orientation and pages', asy
   await expect(dialog.getByRole('radio', { name: /A4/ })).toBeFocused()
   await dialog.getByRole('radio', { name: 'Landscape' }).click()
   await dialog.getByRole('textbox', { name: 'Pages' }).fill('3')
-  await dialog.getByRole('textbox', { name: 'Pages' }).press('Enter')
+  await dialog.getByRole('textbox', { name: 'Pages' }).press('Tab')
   await expect(dialog.getByRole('button', { name: 'Create' })).toHaveAttribute('title', 'A4, 3 pages')
   await dialog.getByRole('radio', { name: /A4/ }).press('Enter')
   await expect(dialog).toHaveCount(0)
@@ -67,7 +67,7 @@ test('enter creates a document of the chosen format, orientation and pages', asy
   await expect(spreads(page).getByRole('button', { name: 'Page 1' })).toBeVisible()
 })
 
-test('a custom size, color mode, bleed and columns go into the document', async ({ page }) => {
+test('a custom size, color mode, bleed and columns go into the document, enter in a field creates it', async ({ page }) => {
   await open(page)
   await page.keyboard.press('Control+Alt+n')
   const dialog = start(page)
@@ -76,7 +76,6 @@ test('a custom size, color mode, bleed and columns go into the document', async 
     await dialog.getByRole('textbox', { name }).press('Tab')
   }
   await choose(dialog.getByRole('combobox', { name: 'Color mode' }), 'RGB')
-  await fill('Bleed', '5')
   await fill('Columns', '3')
   await fill('Width', '100')
   await expect(dialog.getByRole('radio', { checked: true, name: /A5/ })).toHaveCount(0)
@@ -84,7 +83,8 @@ test('a custom size, color mode, bleed and columns go into the document', async 
   await dialog.getByRole('textbox', { name: 'Pages' }).fill('1')
   await dialog.getByRole('textbox', { name: 'Pages' }).press('Tab')
   await expect(dialog.getByRole('checkbox', { name: 'Facing pages' })).toBeDisabled()
-  await dialog.getByRole('button', { name: /Create/ }).click()
+  await dialog.getByRole('textbox', { name: 'Bleed' }).fill('5')
+  await dialog.getByRole('textbox', { name: 'Bleed' }).press('Enter')
   const panel = page.getByRole('complementary', { name: 'Properties' })
   await expect(panel.getByRole('textbox', { name: 'W in mm' })).toHaveValue('100')
   await expect(panel.getByRole('textbox', { name: 'Bleed in mm' })).toHaveValue('5')

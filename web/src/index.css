@@ -2513,6 +2513,10 @@ input[type='checkbox']:active {
   animation: pop var(--open) var(--ease);
 }
 
+.start-form {
+  display: contents;
+}
+
 .start-head {
   display: flex;
   grid-area: head;

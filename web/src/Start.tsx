@@ -141,79 +141,87 @@ export function Start({ editor, onClose }: { editor: Editor; onClose: () => void
         }
       }}
     >
-      <header className="start-head">
-        <h2>New document</h2>
-        <button type="button" className="icon-button" aria-label="Close" title="Close" onClick={onClose}>
-          <Icon name="close" />
-        </button>
-      </header>
-      <div className="start-presets">
-        {saved.length > 0 && (
-          <>
-            <h3>Saved</h3>
-            <div className="formats" role="radiogroup" aria-label="Saved presets">
-              {saved.map((p) => (
-                <div key={p.name} className="saved">
-                  <Tile name={p.name} w={p.w} h={p.h} checked={preset === p.name} detail={`${formatOf(p.w, p.h)}, ${plural(p.pages)}`} onPick={() => pick(p)} />
-                  <button
-                    type="button"
-                    className="icon-button"
-                    aria-label={`Delete preset ${p.name}`}
-                    title="Delete preset"
-                    onClick={() => setSettings({ docPresets: saved.filter((q) => q !== p) })}
-                  >
-                    <Icon name="close" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-        <h3>Formats</h3>
-        <div className="formats" role="radiogroup" aria-label="Format">
-          {FORMATS.map(([n, a, b]) => {
-            const [fw, fh] = size(a * MM, b * MM)
-            return <Tile key={n} name={n} w={fw} h={fh} checked={!preset && format === n} detail={`${mm(fw)} × ${mm(fh)}`} onPick={() => set({ w: fw, h: fh })} />
-          })}
-        </div>
-      </div>
-      <section className="start-details" aria-label="Preset details">
-        <div className="start-name">
-          <label className="field">
-            <span className="field-label">Preset</span>
-            <input aria-label="Preset name" autoComplete="off" placeholder={format} value={name} onFocus={(e) => e.currentTarget.select()} onChange={(e) => setName(e.currentTarget.value)} />
-          </label>
-          <button type="button" className="icon-button" aria-label="Save preset" title="Save preset" onClick={save}>
-            <Icon name="plus" />
+      <form
+        className="start-form"
+        onSubmit={(e) => {
+          e.preventDefault()
+          create()
+        }}
+      >
+        <header className="start-head">
+          <h2>New document</h2>
+          <button type="button" className="icon-button" aria-label="Close" title="Close" onClick={onClose}>
+            <Icon name="close" />
           </button>
+        </header>
+        <div className="start-presets">
+          {saved.length > 0 && (
+            <>
+              <h3>Saved</h3>
+              <div className="formats" role="radiogroup" aria-label="Saved presets">
+                {saved.map((p) => (
+                  <div key={p.name} className="saved">
+                    <Tile name={p.name} w={p.w} h={p.h} checked={preset === p.name} detail={`${formatOf(p.w, p.h)}, ${plural(p.pages)}`} onPick={() => pick(p)} />
+                    <button
+                      type="button"
+                      className="icon-button"
+                      aria-label={`Delete preset ${p.name}`}
+                      title="Delete preset"
+                      onClick={() => setSettings({ docPresets: saved.filter((q) => q !== p) })}
+                    >
+                      <Icon name="close" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+          <h3>Formats</h3>
+          <div className="formats" role="radiogroup" aria-label="Format">
+            {FORMATS.map(([n, a, b]) => {
+              const [fw, fh] = size(a * MM, b * MM)
+              return <Tile key={n} name={n} w={fw} h={fh} checked={!preset && format === n} detail={`${mm(fw)} × ${mm(fh)}`} onPick={() => set({ w: fw, h: fh })} />
+            })}
+          </div>
         </div>
-        <h3>Size</h3>
-        <div className="grid">
-          <Field label="W" title="Width" value={w} unit="length" min={1} max={14400} onCommit={(v) => set({ w: v })} />
-          <Field label="H" title="Height" value={h} unit="length" min={1} max={14400} onCommit={(v) => set({ h: v })} />
-          <Segmented label="Orientation" value={land ? 'landscape' : 'portrait'} options={ORIENTATIONS} onChange={(o) => (o === 'landscape') !== land && set({ w: h, h: w })} />
-          <Field label="Pages" title="Pages" value={pages} unit="" int min={1} max={999} onCommit={(v) => set({ pages: Math.round(v) })} />
-        </div>
-        <label className="check">
-          <input type="checkbox" checked={pages > 1 && doc.facing} disabled={pages < 2} onChange={(e) => set({ facing: e.currentTarget.checked })} />
-          Facing pages
-        </label>
-        <h3>Color</h3>
-        <ColorModeSelect value={doc.mode} onChange={(mode) => set({ mode })} />
-        <h3>Columns, margins and bleed</h3>
-        <div className="grid">
-          <GridFields what="Columns" g={{ count: doc.columns, gutter: doc.gutter, margin: doc.margin }} set={({ count: columns = doc.columns, ...g }) => set({ ...g, columns })} />
-          <Field label="Bleed" title="Bleed" value={doc.bleed} unit="length" max={100 * MM} onCommit={(bleed) => set({ bleed })} />
-        </div>
-      </section>
-      <footer className="start-footer">
-        <button type="button" className="button" onClick={onClose}>
-          Cancel
-        </button>
-        <button type="button" className="primary" title={`${format}, ${plural(pages)}`} onClick={create}>
-          Create
-        </button>
-      </footer>
+        <section className="start-details" aria-label="Preset details">
+          <div className="start-name">
+            <label className="field">
+              <span className="field-label">Preset</span>
+              <input aria-label="Preset name" autoComplete="off" placeholder={format} value={name} onFocus={(e) => e.currentTarget.select()} onChange={(e) => setName(e.currentTarget.value)} />
+            </label>
+            <button type="button" className="icon-button" aria-label="Save preset" title="Save preset" onClick={save}>
+              <Icon name="plus" />
+            </button>
+          </div>
+          <h3>Size</h3>
+          <div className="grid">
+            <Field label="W" title="Width" value={w} unit="length" min={1} max={14400} onCommit={(v) => set({ w: v })} />
+            <Field label="H" title="Height" value={h} unit="length" min={1} max={14400} onCommit={(v) => set({ h: v })} />
+            <Segmented label="Orientation" value={land ? 'landscape' : 'portrait'} options={ORIENTATIONS} onChange={(o) => (o === 'landscape') !== land && set({ w: h, h: w })} />
+            <Field label="Pages" title="Pages" value={pages} unit="" int min={1} max={999} onCommit={(v) => set({ pages: Math.round(v) })} />
+          </div>
+          <label className="check">
+            <input type="checkbox" checked={pages > 1 && doc.facing} disabled={pages < 2} onChange={(e) => set({ facing: e.currentTarget.checked })} />
+            Facing pages
+          </label>
+          <h3>Color</h3>
+          <ColorModeSelect value={doc.mode} onChange={(mode) => set({ mode })} />
+          <h3>Columns, margins and bleed</h3>
+          <div className="grid">
+            <GridFields what="Columns" g={{ count: doc.columns, gutter: doc.gutter, margin: doc.margin }} set={({ count: columns = doc.columns, ...g }) => set({ ...g, columns })} />
+            <Field label="Bleed" title="Bleed" value={doc.bleed} unit="length" max={100 * MM} onCommit={(bleed) => set({ bleed })} />
+          </div>
+        </section>
+        <footer className="start-footer">
+          <button type="button" className="button" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" className="primary" title={`${format}, ${plural(pages)}`}>
+            Create
+          </button>
+        </footer>
+      </form>
     </dialog>
   )
 }
