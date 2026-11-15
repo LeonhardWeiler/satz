@@ -41,6 +41,8 @@
             wasm-pack
             wasm-bindgen-cli_0_2_127
             binaryen
+            python3
+            imagemagick
           ]);
         });
         devShells.e2e = pkgs.mkShell e2e;

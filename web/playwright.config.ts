@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test'
 import os from 'node:os'
 
 const env = Object.fromEntries(
-  Object.entries(process.env).filter(([k]) => k !== 'WAYLAND_DISPLAY' && k !== 'DISPLAY'),
+  Object.entries(process.env).filter(([k]) => !['WAYLAND_DISPLAY', 'DISPLAY', 'LD_LIBRARY_PATH'].includes(k)),
 ) as Record<string, string>
 
 const port = process.env.PORT ?? '4173'

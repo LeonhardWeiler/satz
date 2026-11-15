@@ -7,9 +7,11 @@ if [ "$stage" != e2e ]; then
   cargo clippy --all-targets -- -D warnings
   cargo test
   wasm-pack build engine --target web --out-dir ../web/src/engine --no-pack
+  size=$(stat -c %s web/src/engine/engine_bg.wasm)
+  [ "$size" -le "${WASM_BUDGET:-14500000}" ] || { echo "engine_bg.wasm is $size bytes, over the budget of ${WASM_BUDGET:-14500000}" >&2; exit 1; }
 fi
 cd web
-pnpm install --frozen-lockfile
+[ pnpm-lock.yaml -nt node_modules/.modules.yaml ] && pnpm install --frozen-lockfile
 if [ "$stage" != e2e ]; then
   pnpm exec tsc --noEmit
   pnpm lint
@@ -17,5 +19,6 @@ if [ "$stage" != e2e ]; then
   pnpm build
 fi
 if [ "$stage" != build ]; then
+  export PORT=${PORT:-$(node -e "const s=require('net').createServer().listen(0,()=>{console.log(s.address().port);s.close()})")}
   pnpm e2e "${@:2}"
 fi
