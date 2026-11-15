@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { expect, it } from 'vitest'
 import { SELECTION } from './types'
 
@@ -66,4 +66,13 @@ it('paints the loading screen, manifest and icon in the theme colours', () => {
 it('selects text on the canvas in the select colour', () => {
   const hex = rules.find((r) => r.sel === ':root' && r.prop === '--select')!.value
   expect(hex).toBe('#' + SELECTION.slice(0, 3).map((c) => Math.round(c * 255).toString(16).padStart(2, '0')).join(''))
+})
+
+it('uses every class the stylesheet names', () => {
+  const src = [...readdirSync(new URL('.', import.meta.url), { recursive: true, encoding: 'utf8' })]
+    .filter((f) => /\.tsx?$/.test(f))
+    .map((f) => readFileSync(new URL(f, import.meta.url), 'utf8'))
+    .join('')
+  const names = new Set(rules.flatMap((r) => [...r.sel.matchAll(/\.([a-z][\w-]*)/g)].map((m) => m[1])))
+  expect([...names].filter((c) => !src.includes(c) && !/^(no|plate)-/.test(c))).toEqual([])
 })

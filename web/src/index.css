@@ -548,10 +548,6 @@ textarea {
   gap: 8px;
 }
 
-.grid.three {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
 .field {
   display: flex;
   align-items: center;
