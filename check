@@ -3,14 +3,18 @@ set -euo pipefail
 cd "$(dirname "$0")"
 stage=${1-all}
 if [ "$stage" != e2e ]; then
-  ! grep -rnE '(^|\s)(//|/\*)(\s|$)' engine/src web/src web/e2e web/*.ts web/*.js --include=*.rs --include=*.ts --include=*.tsx --include=*.js --include=*.css --exclude-dir=engine || { echo "comments are not allowed" >&2; exit 1; }
+  ! grep -rnE '(^|\s)(//|/\*)(\s|$)' engine/src web/src web/e2e web/*.ts web/*.js --include=*.rs --include=*.ts --include=*.tsx --include=*.js --include=*.css --exclude-dir=engine --exclude-dir=engine-io || { echo "comments are not allowed" >&2; exit 1; }
   ! grep -nE '(^|\s)#(\s|$)' check flake.nix Cargo.toml engine/Cargo.toml .github/workflows/*.yml || { echo "comments are not allowed" >&2; exit 1; }
   cargo fmt --check
   cargo clippy --all-targets -- -D warnings
+  cargo clippy -p engine --no-default-features -- -D warnings
   cargo test
-  wasm-pack build engine --target web --out-dir ../web/src/engine --no-pack
-  size=$(stat -c %s web/src/engine/engine_bg.wasm)
-  [ "$size" -le "${WASM_BUDGET:-12800000}" ] || { echo "engine_bg.wasm is $size bytes, over the budget of ${WASM_BUDGET:-12800000}" >&2; exit 1; }
+  wasm-pack build engine --target web --out-dir ../web/src/engine --no-pack -- --no-default-features
+  wasm-pack build engine --target web --out-dir ../web/src/engine-io --out-name engine_io --no-pack
+  for f in engine/engine_bg:9600000 engine-io/engine_io_bg:12800000; do
+    size=$(stat -c %s "web/src/${f%:*}.wasm")
+    [ "$size" -le "${f#*:}" ] || { echo "${f%:*}.wasm is $size bytes, over the budget of ${f#*:}" >&2; exit 1; }
+  done
 fi
 cd web
 [ pnpm-lock.yaml -nt node_modules/.modules.yaml ] && pnpm install --frozen-lockfile
