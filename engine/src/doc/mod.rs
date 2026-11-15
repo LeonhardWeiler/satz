@@ -3,9 +3,7 @@ use crate::color::{Color, ColorMode, Swatch};
 use crate::display_list::{LINE, MOVE, Op, Paint, recolor, rect, shift};
 use crate::geom::{self, LineStyle, Shape, bounds, closed, contains, fit, near, outline};
 use crate::image::{self, ImageInfo};
-use crate::inks::Inks;
 use crate::layout::{Align3, Direction, Layout, MainAlign, Size, Sizing, arrange};
-use crate::pdf::Preset;
 use crate::style::{
     Align, Blend, Cap, Constraint, Constraints, Effect, EffectKind, Fill, FillKind, FillStop, Join,
     Style,
@@ -16,6 +14,7 @@ use crate::text::{
 };
 use crate::variable::{Collection, Mode, Modes, Palette, Scope, Value, Variable};
 pub use boolean::BooleanOp;
+#[cfg(feature = "io")]
 pub(crate) use boolean::path as path_of;
 use harfrust::Feature;
 use loro::event::{ContainerDiff, Diff};
@@ -57,6 +56,15 @@ use pages::*;
 use story::*;
 pub use table::Table;
 use table::*;
+
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Preset {
+    Screen,
+    X4,
+    X1a,
+}
 
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Debug, Default, Deserialize)]

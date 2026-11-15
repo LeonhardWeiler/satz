@@ -1,4 +1,4 @@
-use crate::pdf::Preset;
+use crate::doc::Preset;
 
 const PAGE: &[u8] = b" 0 obj\n<</Type/Page/";
 const STATE: &[u8] = b" 0 obj\n<</Type/ExtGState";

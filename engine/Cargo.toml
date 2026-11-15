@@ -7,12 +7,16 @@ license = "ISC"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[features]
+default = ["io"]
+io = ["dep:crc32fast", "dep:hayro-interpret", "dep:miniz_oxide", "dep:ruzstd", "dep:usvg"]
+
 [dependencies]
 console_error_panic_hook = "0.1.7"
-crc32fast = "1.5.2"
+crc32fast = { version = "1.5.2", optional = true }
 flate2 = { version = "1.1.10", features = ["zlib-rs"] }
 harfrust = "0.13.3"
-hayro-interpret = { version = "0.9", default-features = false }
+hayro-interpret = { version = "0.9", default-features = false, optional = true }
 hypher = { version = "0.1.8", default-features = false, features = ["alloc", "english", "german", "french", "italian", "spanish", "dutch"] }
 jpeg-encoder = "0.7.1"
 js-sys = "=0.3.104"
@@ -20,8 +24,8 @@ krilla = { version = "0.8.2", default-features = false, features = ["raster-imag
 kurbo = "0.13.1"
 linesweeper = "0.5.0"
 loro = "1.16.2"
-miniz_oxide = "0.9.1"
-ruzstd = { version = "0.9", default-features = false, features = ["std"] }
+miniz_oxide = { version = "0.9.1", optional = true }
+ruzstd = { version = "0.9", default-features = false, features = ["std"], optional = true }
 moxcms = { version = "0.8.1", default-features = false, features = ["lut"] }
 png = "0.18.1"
 read-fonts = "0.43.3"
@@ -32,7 +36,7 @@ serde_json = { version = "1.0.151", features = ["raw_value"] }
 skrifa = "0.42.1"
 subsetter = "0.2.6"
 tiny-skia = { version = "0.12.0", default-features = false, features = ["std", "simd"] }
-usvg = { version = "0.49", default-features = false }
+usvg = { version = "0.49", default-features = false, optional = true }
 wasm-bindgen = "=0.2.127"
 wuff = "0.2.9"
 zune-core = "0.5.3"

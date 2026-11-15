@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use std::io::Cursor;
 use std::rc::Rc;
 use std::sync::Arc;
-use tiny_skia::{IntSize, Pixmap};
+use tiny_skia::Pixmap;
 use zune_core::colorspace::ColorSpace;
 use zune_core::options::DecoderOptions;
 use zune_jpeg::JpegDecoder;
@@ -409,6 +409,7 @@ pub fn encode(rgba: &[u8], (w, h): (u32, u32)) -> Option<Vec<u8>> {
     Some(out)
 }
 
+#[cfg(feature = "io")]
 pub fn pdf(
     id: u32,
     cmyk: bool,
@@ -427,6 +428,7 @@ pub fn pdf(
     image
 }
 
+#[cfg(feature = "io")]
 fn build(e: &Entry, id: u32, cmyk: bool, f: u32, quality: u8) -> Option<krilla::image::Image> {
     let file = e.source.is_none() && id & PROOF == 0 && (!cmyk || e.info.space == Space::Cmyk);
     if file && f == 1 && (quality == 0 || e.format == Format::Jpeg) {
@@ -478,7 +480,7 @@ pub fn pixmap(id: u32) -> Option<Rc<Pixmap>> {
                     [m(p[0]), m(p[1]), m(p[2]), p[3]]
                 })
                 .collect();
-            Pixmap::from_vec(premultiplied, IntSize::from_wh(w, h)?).map(Rc::new)
+            Pixmap::from_vec(premultiplied, tiny_skia::IntSize::from_wh(w, h)?).map(Rc::new)
         })
         .clone()
 }
@@ -596,6 +598,7 @@ fn decode_cmyk(bytes: &[u8]) -> Option<(Vec<u8>, u32, u32)> {
     Some((color, w as u32, h as u32))
 }
 
+#[cfg(feature = "io")]
 pub fn plate(id: u32, [w, h]: [f32; 2], pick: impl Fn([f32; 4]) -> [f32; 3]) -> Option<Rc<Pixmap>> {
     let c = cmyk(id)?;
     let (cw, ch) = c.size;
@@ -622,9 +625,10 @@ pub fn plate(id: u32, [w, h]: [f32; 2], pick: impl Fn([f32; 4]) -> [f32; 3]) -> 
             [x * a, y * a, z * a, a].map(|v| (v.clamp(0.0, 1.0) * 255.0).round() as u8)
         })
         .collect();
-    Pixmap::from_vec(data, IntSize::from_wh(c.size.0, c.size.1)?).map(Rc::new)
+    Pixmap::from_vec(data, tiny_skia::IntSize::from_wh(c.size.0, c.size.1)?).map(Rc::new)
 }
 
+#[cfg(feature = "io")]
 fn shrink(c: &Pixels, f: u32) -> Pixels {
     let (w, h) = (c.size.0 / f, c.size.1 / f);
     let n = f * f;

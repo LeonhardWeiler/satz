@@ -3,19 +3,25 @@ mod display_list;
 mod doc;
 #[cfg(test)]
 mod examples;
+#[cfg(feature = "io")]
 mod fig;
 mod geom;
 mod image;
+#[cfg(feature = "io")]
 mod import;
+#[cfg(feature = "io")]
 mod inks;
 mod layout;
 mod linebreak;
+#[cfg(feature = "io")]
 mod pdf;
+#[cfg(feature = "io")]
 mod pdfx;
 mod raster;
 mod style;
 mod text;
 mod variable;
+#[cfg(feature = "io")]
 mod zip;
 
 pub use display_list::{Op, encode};
@@ -339,6 +345,7 @@ impl Engine {
         Ok(unsafe { Uint32Array::view(&self.overlay) })
     }
 
+    #[cfg(feature = "io")]
     pub fn inks(&self, page: &str, ppi: f32) -> Option<inks::Inks> {
         self.doc.inks(page, ppi)
     }
@@ -351,12 +358,14 @@ impl Engine {
         self.doc.png(page, ppi)
     }
 
+    #[cfg(feature = "io")]
     pub fn pdf(&self, title: &str, date: &str, indices: &[u32]) -> Result<Vec<u8>, JsError> {
         self.doc
             .pdf(title, date, indices)
             .map_err(|e| JsError::new(&e))
     }
 
+    #[cfg(feature = "io")]
     pub fn package(&self, title: &str, date: &str, indices: &[u32]) -> Result<Vec<u8>, JsError> {
         self.doc
             .package(title, date, indices)
@@ -386,6 +395,7 @@ impl Engine {
         self.doc.take_clip(bytes).map_err(|e| JsError::new(&e))
     }
 
+    #[cfg(feature = "io")]
     #[wasm_bindgen(js_name = importFile)]
     pub fn import_file(bytes: &[u8], name: &str) -> Result<Vec<u8>, JsError> {
         import::import(bytes, name).map_err(|e| JsError::new(&e))
@@ -527,6 +537,7 @@ pub fn typeface(bytes: &[u8]) -> Result<JsValue, JsError> {
     Ok(serde_wasm_bindgen::to_value(&face)?)
 }
 
+#[cfg(feature = "io")]
 #[wasm_bindgen]
 pub fn zip(names: Vec<String>, data: Vec<Uint8Array>, date: &str) -> Vec<u8> {
     let files: Vec<_> = names

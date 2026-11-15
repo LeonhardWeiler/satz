@@ -341,6 +341,7 @@ pub fn use_profile(icc: Option<&[u8]>) -> bool {
     true
 }
 
+#[cfg(feature = "io")]
 pub fn profile() -> (Vec<u8>, String, bool) {
     let c = cms();
     (c.icc.clone(), c.name.clone(), c.icc == FOGRA51)

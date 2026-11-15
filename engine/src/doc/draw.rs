@@ -952,10 +952,11 @@ impl Doc {
         ops
     }
 
-    pub fn inks(&self, id: &str, ppi: f32) -> Option<Inks> {
+    #[cfg(feature = "io")]
+    pub fn inks(&self, id: &str, ppi: f32) -> Option<crate::inks::Inks> {
         let snap = self.snapshot();
         let p = snap.pages.iter().find(|p| p.id == id)?;
-        Inks::new(&self.print(&snap, p), ppi)
+        crate::inks::Inks::new(&self.print(&snap, p), ppi)
     }
 
     pub fn printed(&self, id: &str) -> Option<u64> {
@@ -980,6 +981,7 @@ impl Doc {
         crate::image::encode(px.data(), (px.width(), px.height()))
     }
 
+    #[cfg(feature = "io")]
     pub fn pdf(&self, title: &str, date: &str, indices: &[u32]) -> Res<Vec<u8>> {
         let snap = self.snapshot();
         let pages: Vec<_> = indices
@@ -1003,6 +1005,7 @@ impl Doc {
         )
     }
 
+    #[cfg(feature = "io")]
     pub fn package(&self, title: &str, date: &str, indices: &[u32]) -> Res<Vec<u8>> {
         let saved = self.save();
         let doc = LoroDoc::new();

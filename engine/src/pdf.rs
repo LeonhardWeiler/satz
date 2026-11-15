@@ -1,5 +1,6 @@
 use crate::color::{ColorMode, Ink};
 use crate::display_list::{CUBIC, LINE, MOVE, Op, Paint, Shadow, Stop as ListStop, close, recolor};
+use crate::doc::Preset;
 use crate::geom::segments;
 use crate::image::{self, plate};
 use crate::pdfx;
@@ -20,19 +21,10 @@ use krilla::paint::{
 use krilla::surface::Surface;
 use krilla::text::{Font, GlyphId, KrillaGlyph};
 use krilla::{Document, SerializeSettings};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use tiny_skia::Pixmap;
-
-#[cfg_attr(test, derive(ts_rs::TS))]
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Preset {
-    Screen,
-    X4,
-    X1a,
-}
 
 const MM: f32 = crate::doc::MM as f32;
 const MARK_SPACE: f32 = 10.0 * MM;
