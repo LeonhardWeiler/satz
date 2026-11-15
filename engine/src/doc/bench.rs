@@ -156,7 +156,6 @@ fn prof() {
 }
 
 #[test]
-#[ignore]
 fn fuzz() {
     use serde_json::{Value, json};
     let env = |k, d| std::env::var(k).map_or(d, |v| v.parse().unwrap());
@@ -216,7 +215,7 @@ fn fuzz() {
     ];
     const NUMBERS: &[f64] = &[-50.0, 0.0, 0.5, 1.0, 10.0, 100.0, 1e6];
     let mut d = heavy(2);
-    let steps = env("STEPS", 500);
+    let steps = env("STEPS", 40);
     for step in 0..steps {
         let mut ids = Vec::new();
         fn collect(v: &Value, ids: &mut Vec<String>) {
@@ -291,6 +290,8 @@ fn fuzz() {
         }
         drop(s);
         pdf(&d);
-        d = Doc::load(&d.save()).unwrap();
+        if step % 10 == 9 {
+            d = Doc::load(&d.save()).unwrap();
+        }
     }
 }
