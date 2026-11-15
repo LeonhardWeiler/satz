@@ -106,6 +106,8 @@ export class Editor {
   statusError = false
   /** A button after the status, like Undo after a deletion. */
   statusAction: { label: string; run: () => void } | null = null
+  /** The number of notices said. */
+  said = 0
   /** Off when the engine trapped or Satz is open in another tab. */
   autosaves = true
   /** Typing into the edited text is one undo step until the caret moves. */
@@ -258,6 +260,7 @@ export class Editor {
     this.status = status
     this.statusError = error
     this.statusAction = action ?? null
+    this.said++
     this.emit()
   }
 

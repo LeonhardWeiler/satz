@@ -52,6 +52,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   const status = useEditor(editor, (e) => e.status)
   const statusError = useEditor(editor, (e) => e.statusError)
   const statusAction = useEditor(editor, (e) => e.statusAction)
+  const said = useEditor(editor, (e) => e.said)
   const say = editor.say
   const dirty = useEditor(editor, (e) => e.dirty)
   const name = useEditor(editor, (e) => e.file.name)
@@ -126,9 +127,10 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     document.title = `${dirty ? '* ' : ''}${name} - Satz`
   }, [dirty, name])
   useEffect(() => {
+    if (!status) return
     const t = setTimeout(() => say(''), 5000)
     return () => clearTimeout(t)
-  }, [say, status])
+  }, [say, status, said])
 
   useEffect(() => {
     const remap = (e: KeyboardEvent) => {
