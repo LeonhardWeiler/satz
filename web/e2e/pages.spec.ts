@@ -1,4 +1,4 @@
-import { expect, test, addPage, colors, current, drag, exportButton, open, option, overview, screen, showPage, choose } from './util'
+import { expect, test, addPage, autosaved, colors, current, drag, exportButton, open, option, overview, screen, showPage, choose } from './util'
 
 test('pages are added, shown, reordered, duplicated and deleted with undo', async ({ page }) => {
   await open(page)
@@ -137,6 +137,7 @@ test('layout grids are saved as a preset, added again after a reload and deleted
   await add.click()
   await page.getByRole('menuitem', { name: 'Save grids as preset' }).click()
   await panel.getByRole('button', { name: 'Remove grid' }).click()
+  await autosaved(page)
   await page.reload()
   await page.keyboard.press('Escape')
   await add.click()
