@@ -651,9 +651,29 @@ mod tests {
             Op::PopLayer,
             Op::PopTransform,
         ];
+        assert_eq!(extent(&ops), Some([0.0, 0.0, 4.0, 4.0]));
         let px = rasterize(&ops, [0.0, 0.0, 4.0, 8.0], 72.0, &|id, _| image::pixmap(id)).unwrap();
         let p = px.pixel(2, 6).unwrap();
         assert_eq!((p.red(), p.alpha()), (255, 255));
+    }
+
+    #[test]
+    fn a_mask_shows_its_content_only_where_it_covers() {
+        let ops = [
+            Op::BeginMask,
+            Op::FillPath {
+                paint: BLACK,
+                path: rect(0.0, 0.0, 2.0, 4.0),
+            },
+            Op::EndMask,
+            Op::FillPath {
+                paint: BLACK,
+                path: rect(0.0, 0.0, 4.0, 4.0),
+            },
+            Op::PopMask,
+        ];
+        let px = rasterize(&ops, [0.0, 0.0, 4.0, 4.0], 72.0, &|id, _| image::pixmap(id)).unwrap();
+        assert_eq!((alpha(&px, 1, 2), alpha(&px, 3, 2)), (255, 0));
     }
 
     #[test]

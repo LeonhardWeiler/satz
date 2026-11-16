@@ -772,12 +772,15 @@ mod tests {
     use crate::doc::tests::*;
 
     #[test]
-    fn the_document_rasterizes_at_300_ppi_until_changed() {
+    fn the_document_rasterizes_at_300_ppi_until_changed_within_72_to_1200() {
         let mut d = Doc::sample();
         assert_eq!(d.snapshot().raster_ppi, 300.0);
-        d.apply(ppi(150.0)).unwrap();
-        assert_eq!(d.snapshot().raster_ppi, 150.0);
-        assert!(d.apply(ppi(0.0)).is_err());
+        for bad in [0.0, 71.0, 1201.0] {
+            assert!(d.apply(ppi(bad)).is_err());
+            assert_eq!(d.snapshot().raster_ppi, 300.0);
+        }
+        d.apply(ppi(1200.0)).unwrap();
+        assert_eq!(d.snapshot().raster_ppi, 1200.0);
         d.apply(Command::Undo).unwrap();
         assert_eq!(d.snapshot().raster_ppi, 300.0);
     }
@@ -826,17 +829,6 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(d.snapshot().preset, Preset::X4);
-    }
-
-    #[test]
-    fn the_raster_ppi_stays_within_72_to_1200() {
-        let mut d = Doc::sample();
-        for bad in [0.0, 71.0, 1201.0] {
-            assert!(d.apply(ppi(bad)).is_err());
-            assert_eq!(d.snapshot().raster_ppi, 300.0);
-        }
-        d.apply(ppi(1200.0)).unwrap();
-        assert_eq!(d.snapshot().raster_ppi, 1200.0);
     }
 
     #[test]

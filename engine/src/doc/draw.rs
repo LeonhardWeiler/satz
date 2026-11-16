@@ -1928,35 +1928,6 @@ mod tests {
     }
 
     #[test]
-    fn inside_strokes_are_clipped_and_twice_as_wide() {
-        let (mut d, p) = empty();
-        let r = create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
-        set(
-            &mut d,
-            &r,
-            Props {
-                fills: Some(vec![]),
-                strokes: Some(vec![Fill::solid(BLACK)]),
-                stroke_weight: Some(2.0),
-                ..Props::default()
-            },
-        );
-        let ops = page_ops(&d);
-        assert!(matches!(ops[2], Op::PushClip { invert: false, .. }));
-        assert!(matches!(ops[3], Op::StrokePath { width: 4.0, .. }));
-        assert_eq!(ops[4], Op::PopClip);
-        set(
-            &mut d,
-            &r,
-            Props {
-                stroke_align: Some(Align::Outside),
-                ..Props::default()
-            },
-        );
-        assert!(matches!(page_ops(&d)[2], Op::PushClip { invert: true, .. }));
-    }
-
-    #[test]
     fn arrows_add_a_head_to_the_stroke() {
         let (mut d, p) = empty();
         let id = create(&mut d, &p, NewKind::Line, [0.0, 0.0, 10.0, 0.0]);

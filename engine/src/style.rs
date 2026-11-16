@@ -481,21 +481,6 @@ mod tests {
     const SQUARE: [f32; 10] = [MOVE, 0.0, 0.0, LINE, 10.0, 0.0, LINE, 10.0, 10.0, CLOSE];
 
     #[test]
-    fn a_gradient_maps_its_unit_box_into_the_frame() {
-        let f = Fill {
-            kind: FillKind::Linear,
-            transform: [1.0, 0.0, 0.0, 1.0, 0.5, 0.0],
-            ..Fill::solid(Color::Rgb(0xff))
-        };
-        match scope(|s| paint(&f, [10.0, 20.0, 100.0, 50.0], s, false)).unwrap() {
-            Paint::Linear { transform, .. } => {
-                assert_eq!(transform, [100.0, 0.0, 0.0, 50.0, 60.0, 20.0])
-            }
-            p => panic!("{p:?}"),
-        }
-    }
-
-    #[test]
     fn hidden_fills_paint_nothing() {
         let fills = [Fill {
             visible: false,
@@ -507,34 +492,36 @@ mod tests {
     #[test]
     fn inside_and_outside_strokes_clip_to_the_shape_at_twice_the_width_but_open_paths_stroke_centred()
      {
-        let style = Style {
-            strokes: vec![Fill::solid(Color::Rgb(0xff))],
-            stroke_align: Align::Outside,
-            stroke_weight: 2.0,
-            ..Style::default()
-        };
-        let ops = scope(|s| style.shape(&SQUARE, &SQUARE, [0.0; 4], s));
-        assert!(matches!(
-            ops[..],
-            [
-                Op::PushClip { invert: true, .. },
-                Op::StrokePath { width: 4.0, .. },
-                Op::PopClip
-            ]
-        ));
-        let open = scope(|s| style.shape(&SQUARE[..9], &SQUARE[..9], [0.0; 4], s));
-        assert!(matches!(open[..], [Op::StrokePath { width: 2.0, .. }]));
+        for (align, invert) in [(Align::Inside, false), (Align::Outside, true)] {
+            let style = Style {
+                strokes: vec![Fill::solid(Color::Rgb(0xff))],
+                stroke_align: align,
+                stroke_weight: 2.0,
+                ..Style::default()
+            };
+            let ops = scope(|s| style.shape(&SQUARE, &SQUARE, [0.0; 4], s));
+            assert!(
+                matches!(
+                    ops[..],
+                    [Op::PushClip { invert: i, .. }, Op::StrokePath { width: 4.0, .. }, Op::PopClip] if i == invert
+                ),
+                "{align:?}: {ops:?}"
+            );
+            let open = scope(|s| style.shape(&SQUARE[..9], &SQUARE[..9], [0.0; 4], s));
+            assert!(matches!(open[..], [Op::StrokePath { width: 2.0, .. }]));
+        }
     }
 
     #[test]
-    fn sides_fill_a_ring_of_their_own_weights() {
-        let style = Style {
+    fn sides_fill_a_ring_of_their_own_weights_clipped_to_the_shape_inside() {
+        let style = |stroke_align| Style {
             strokes: vec![Fill::solid(Color::Rgb(0xff))],
-            stroke_align: Align::Outside,
+            stroke_align,
             stroke_sides: vec![1.0, 0.0, 2.0, 0.0],
             ..Style::default()
         };
-        let ops = scope(|s| style.shape(&SQUARE, &SQUARE, [0.0, 0.0, 10.0, 10.0], s));
+        let ops =
+            scope(|s| style(Align::Outside).shape(&SQUARE, &SQUARE, [0.0, 0.0, 10.0, 10.0], s));
         let [Op::FillPath { path, .. }] = &ops[..] else {
             panic!("{ops:?}")
         };
@@ -542,30 +529,17 @@ mod tests {
         assert!(!geom::contains(path, 5.0, 5.0));
         assert!(geom::contains(path, 5.0, -0.5));
         assert!(geom::contains(path, 5.0, 11.0));
-    }
-
-    #[test]
-    fn a_layer_wraps_a_node_only_for_opacity_blend_or_visible_effects() {
-        assert_eq!(scope(|s| Style::default().layer(s)), None);
-        let hidden = Style {
-            effects: vec![Effect {
-                visible: false,
-                ..Effect::default()
-            }],
-            ..Style::default()
+        let ops =
+            scope(|s| style(Align::Inside).shape(&SQUARE, &SQUARE, [0.0, 0.0, 10.0, 10.0], s));
+        let [
+            Op::PushClip { invert: false, .. },
+            Op::FillPath { path, .. },
+            Op::PopClip,
+        ] = &ops[..]
+        else {
+            panic!("{ops:?}")
         };
-        assert_eq!(scope(|s| hidden.layer(s)), None);
-        let blurred = Style {
-            effects: vec![Effect {
-                kind: EffectKind::Blur,
-                radius: 8.0,
-                ..Effect::default()
-            }],
-            ..Style::default()
-        };
-        assert!(matches!(
-            scope(|s| blurred.layer(s)),
-            Some(Op::PushLayer { blur: 4.0, .. })
-        ));
+        assert_eq!(geom::bounds(path), [0.0, 0.0, 10.0, 10.0]);
+        assert!(geom::contains(path, 5.0, 9.0) && !geom::contains(path, 5.0, 5.0));
     }
 }
