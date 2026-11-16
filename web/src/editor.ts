@@ -1,6 +1,6 @@
 import { useSyncExternalStore, type ReactNode } from 'react'
 import type { Engine } from './engine/engine'
-import { textSizing, type Command, type Container, type Modes, type Node, type Page, type Palette, type Resizing, type Scope, type Snapshot, type TextNode, type Typeface } from './model'
+import { textSizing, type Command, type Container, type Modes, type Node, type Page, type Palette, type Resizing, type Scope, type Snapshot, type TextNode, type Typeface, type Version } from './model'
 import type { Previewed } from './exportWorker'
 import type { Handle } from './file'
 import { penPath, type Anchor } from './pen'
@@ -328,6 +328,11 @@ export class Editor {
     this.setTool('move')
     this.set({ placing: [...this.placing, { hash, name, w: w * fit, h: h * fit, url: URL.createObjectURL(new Blob([bytes])) }] })
     return hash
+  }
+
+  preview(v: Version | null) {
+    this.change(() => this.engine.preview(v?.peer, v?.counter ?? 0))
+    if (v?.page) this.showPage(v.page)
   }
 
   registerImage(bytes: Uint8Array) {

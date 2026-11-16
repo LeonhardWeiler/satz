@@ -410,6 +410,11 @@ impl Engine {
         Ok(serde_wasm_bindgen::to_value(&self.doc.versions())?)
     }
 
+    pub fn preview(&mut self, peer: Option<String>, counter: i32) -> Result<(), JsError> {
+        let v = peer.as_deref().map(|p| (p, counter));
+        self.doc.preview(v).map_err(|e| JsError::new(&e))
+    }
+
     #[wasm_bindgen(js_name = versionVector)]
     pub fn version_vector(&self) -> Vec<u8> {
         self.doc.version_vector()

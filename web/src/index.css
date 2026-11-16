@@ -2987,6 +2987,10 @@ dialog::backdrop {
   background: var(--scrim);
 }
 
+.history::backdrop {
+  background: none;
+}
+
 .palette {
   width: min(560px, 92vw);
   overflow: hidden;
