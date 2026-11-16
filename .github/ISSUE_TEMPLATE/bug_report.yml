@@ -1,0 +1,32 @@
+name: Bug report
+description: Something in Satz does not work as expected.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what you saw instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Create an A5 booklet
+        2. ...
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and OS
+      placeholder: Chromium 142, Linux
+    validations:
+      required: true
+  - type: textarea
+    id: files
+    attributes:
+      label: Files and screenshots
+      description: Attach a .satz file, an exported PDF or a screenshot if it helps.
