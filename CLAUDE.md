@@ -7,7 +7,7 @@ Rust engine (`engine/`, WASM) owns the Loro document; the React UI (`web/`) send
 
 `nix develop -c ./check` runs what CI runs. `./check build` stops before Playwright,
 `./check e2e [args]` runs only Playwright against `web/dist`.
-Before a commit: `./check build` and the affected specs; the full `./check` before the push.
+Before a commit: `./check build` and the affected specs; CI runs the full `./check` on the PR.
 `SATZ_WRITE_FIXTURES=1 cargo test fixture` writes the generated files in `web/src`
 (`types.ts`, `testdata`, `unicode-names.txt`); `cargo test` fails when one is stale.
 
@@ -23,5 +23,3 @@ Before a commit: `./check build` and the affected specs; the full `./check` befo
 - `web/canvaskit` is the output of `nix build .#canvaskit` (`canvaskit.nix`), copied by
   `web/canvaskit/build`; `canvaskit-wasm` in `web/package.json` gives only its types and matches its tag.
 - UI changes follow `docs/design.md`.
-- Each agent works in its own git worktree and stages files by name, never `git commit -a`.
-- Wait for CI with `watch_pull_request`, not by polling.
