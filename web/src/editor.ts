@@ -44,6 +44,83 @@ export const scopeOf = ({ swatches, collections, variables }: Palette, modes: Mo
   modes,
 })
 
+const verbs: Record<Command['type'], string> = {
+  create: 'create the layer',
+  placeImage: 'place the image',
+  setFrame: 'move or resize the layer',
+  setText: 'change the text',
+  editText: 'edit the text',
+  format: 'format the text',
+  scaleText: 'scale the text',
+  addTextStyle: 'add the text style',
+  setTextStyle: 'change the text style',
+  deleteTextStyle: 'delete the text style',
+  toc: 'build the table of contents',
+  anchor: 'anchor the layer',
+  unanchor: 'release the anchored layer',
+  tableInsert: 'insert the row or column',
+  tableDelete: 'delete the row or column',
+  mergeCells: 'merge the cells',
+  splitCell: 'split the cell',
+  sizeTable: 'size the table',
+  set: 'change the layer',
+  setPath: 'change the path',
+  fitImage: 'fit the image',
+  flip: 'flip the layer',
+  flatten: 'flatten the layer',
+  boolean: 'combine the shapes',
+  fillArea: 'fill the area',
+  delete: 'delete the layers',
+  group: 'group the layers',
+  ungroup: 'ungroup the layers',
+  mask: 'mask the layers',
+  autoLayout: 'add auto layout',
+  move: 'move the layers',
+  order: 'reorder the layers',
+  duplicate: 'duplicate the layers',
+  copy: 'copy the layers',
+  setDocument: 'change the document',
+  relink: 'relink the image',
+  embed: 'embed the images',
+  paste: 'paste the copied layers',
+  addPage: 'add a page',
+  setSection: 'change the section',
+  duplicatePage: 'duplicate the page',
+  setPage: 'change the page',
+  setGrids: 'change the grids',
+  setGuides: 'change the guides',
+  deletePage: 'delete the page',
+  movePages: 'move the pages',
+  addMaster: 'add a master',
+  setMaster: 'rename the master',
+  deleteMaster: 'delete the master',
+  useMaster: 'apply the master',
+  override: 'override the master layer',
+  resetToMaster: 'reset to the master',
+  thread: 'thread the text frames',
+  threadBefore: 'thread the text frames',
+  unthread: 'unthread the text frame',
+  addSwatch: 'add the swatch',
+  setSwatch: 'change the swatch',
+  deleteSwatch: 'delete the swatch',
+  addCollection: 'add the collection',
+  setCollection: 'rename the collection',
+  deleteCollection: 'delete the collection',
+  addMode: 'add the mode',
+  setMode: 'rename the mode',
+  deleteMode: 'delete the mode',
+  addVariable: 'add the variable',
+  setVariable: 'change the variable',
+  deleteVariable: 'delete the variable',
+  bind: 'bind the variable',
+  useMode: 'switch the mode',
+  restore: 'restore the version',
+  undo: 'undo',
+  redo: 'redo',
+  beginUndoGroup: 'start an undo step',
+  endUndoGroup: 'end an undo step',
+}
+
 export class Editor {
   readonly snapshot: Snapshot
 
@@ -200,7 +277,7 @@ export class Editor {
       return out
     } catch (e) {
       if (e instanceof WebAssembly.RuntimeError) throw e
-      this.fail(`Could not ${cmd.type.replace(/[A-Z]/g, (c) => ` ${c.toLowerCase()}`)}: ${(e as Error).message}`)
+      this.fail(`Could not ${verbs[cmd.type]}: ${(e as Error).message}`)
       return []
     }
   }
