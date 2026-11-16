@@ -42,7 +42,7 @@ Tastenkürzel, offline als PWA.
 Wert für Satz: **hoch** = typische Aufgaben im Ziel (Plakat, Broschüre, Druck)
 scheitern ohne die Funktion; **mittel** = spart viel Zeit oder fällt Profis auf;
 **niedrig** = nett, nischig oder außerhalb des Ziels. „Liste“ zeigt, wo der Punkt
-schon steht: B = `TODO.md` Later.
+am 05.10.2026 stand: B = geplant.
 
 ### Text und Typografie
 

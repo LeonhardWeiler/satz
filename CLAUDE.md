@@ -22,6 +22,6 @@ Before a commit: `./check build` and the affected specs; the full `./check` befo
   `@playwright/test` the nixpkgs `playwright-driver`, skrifa krilla's.
 - `web/canvaskit` is the output of `nix build .#canvaskit` (`canvaskit.nix`), copied by
   `web/canvaskit/build`; `canvaskit-wasm` in `web/package.json` gives only its types and matches its tag.
-- UI changes follow `AGENT/design.md`.
+- UI changes follow `docs/design.md`.
 - Each agent works in its own git worktree and stages files by name, never `git commit -a`.
 - Wait for CI with `watch_pull_request`, not by polling.
