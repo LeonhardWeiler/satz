@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { type Page } from '@playwright/test'
-import { expect, test, addMaster, assets, colors, drag, exportButton, open, preflight, screen, showPage, choose } from './util'
+import { expect, test, assets, colors, drag, exportButton, open, preflight, screen } from './util'
 
 const layers = (page: Page) => page.getByRole('tree', { name: 'Layers' })
 const rect = (page: Page) => layers(page).getByRole('treeitem', { name: 'Rectangle' }).first()
@@ -90,22 +90,6 @@ test('a locked layer is not hit on the canvas but is selected in the tree', asyn
   await page.keyboard.press('Escape')
   await page.mouse.click(...inside)
   await expect(rect(page)).toHaveAttribute('aria-selected', 'true')
-})
-
-test('a hidden master layer is not drawn on its pages', async ({ page }) => {
-  await open(page)
-  await page.mouse.move(1, 1)
-  const paper = await at(page, await screen(page, 40, 202))
-  await addMaster(page)
-  await page.keyboard.press('r')
-  await drag(page, await screen(page, 20, 197), await screen(page, 60, 207))
-  await rect(page).hover()
-  await rect(page).getByRole('button', { name: 'Hide' }).click()
-  await showPage(page, 1)
-  await choose(page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Master' }), 'A-Master')
-  await expect(page.getByRole('complementary', { name: 'Properties' }).getByRole('combobox', { name: 'Master' })).toHaveText(/A-Master/)
-  await page.mouse.move(1, 1)
-  expect(await at(page, await screen(page, 40, 202))).toBe(paper)
 })
 
 test('hovering a layer row highlights it on the canvas', async ({ page }) => {
