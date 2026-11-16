@@ -3,7 +3,7 @@
 Desktop publishing in the browser: posters and multi-page documents, print-ready PDF.
 All features are listed in [FEATURES.md](FEATURES.md).
 
-**[Open Satz](https://leonhardweiler.github.io/satz/)**
+**[Open Satz](https://leonhardweiler.github.io/satz/)** in Chromium or Firefox; Safari is best effort.
 
 ![Satz with the example booklet open](examples/screenshot.png)
 
