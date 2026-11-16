@@ -1,4 +1,4 @@
-import { expect, test, addPage, colors, current, drag, exportButton, open, option, overview, screen, showPage, choose } from './util'
+import { expect, test, addPage, autosaved, colors, current, drag, exportButton, open, option, overview, screen, showPage, choose } from './util'
 
 test('pages are added, shown, reordered, duplicated and deleted with undo', async ({ page }) => {
   await open(page)
@@ -43,13 +43,13 @@ test('pages are added, shown, reordered, duplicated and deleted with undo', asyn
   await expect(row(3)).toBeVisible()
 })
 
-test('the spread navigation counts the pages and adds one at the end', async ({ page }) => {
+test('the spread navigation counts the pages and adds one at the end, as Ctrl Alt P does since Firefox keeps Ctrl Shift P', async ({ page }) => {
   await open(page)
   const spreads = page.getByRole('navigation', { name: 'Spreads' })
   await expect(spreads.getByRole('button', { name: 'Next spread' })).toBeDisabled()
   await spreads.getByRole('button', { name: 'Add page' }).click()
   await expect(current(page, 2)).toHaveAttribute('aria-pressed', 'true')
-  await spreads.getByRole('button', { name: 'Add page' }).click()
+  await page.keyboard.press('Control+Alt+p')
   await expect(current(page, 3)).toHaveAttribute('aria-pressed', 'true')
   await expect(spreads).toContainText('/ 3')
   await page.keyboard.press('Home')
@@ -137,6 +137,7 @@ test('layout grids are saved as a preset, added again after a reload and deleted
   await add.click()
   await page.getByRole('menuitem', { name: 'Save grids as preset' }).click()
   await panel.getByRole('button', { name: 'Remove grid' }).click()
+  await autosaved(page)
   await page.reload()
   await page.keyboard.press('Escape')
   await add.click()
@@ -147,12 +148,6 @@ test('layout grids are saved as a preset, added again after a reload and deleted
   await page.getByRole('menu', { name: 'Delete preset' }).getByRole('menuitem', { name }).click()
   await add.click()
   await expect(page.getByRole('menuitem', { name })).toHaveCount(0)
-})
-
-test('Ctrl Alt P adds a page, since Firefox keeps Ctrl Shift P', async ({ page }) => {
-  await open(page)
-  await page.keyboard.press('Control+Alt+p')
-  await expect(current(page, 2)).toHaveAttribute('aria-pressed', 'true')
 })
 
 test('the layers panel, the overview and the export range use the numbers a section gives its pages', async ({ page }) => {

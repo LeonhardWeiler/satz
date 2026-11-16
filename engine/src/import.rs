@@ -643,24 +643,27 @@ mod tests {
     }
 
     #[test]
-    fn an_svg_imports_as_a_frame_of_paths_with_their_gradients() {
+    fn an_svg_imports_as_a_frame_of_paths_with_their_gradients_strokes_and_images() {
         let svg = br##"<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100">
             <defs><linearGradient id="g"><stop offset="0" stop-color="#f00"/><stop offset="1" stop-color="#00f"/></linearGradient></defs>
             <rect x="10" y="10" width="80" height="80" fill="url(#g)"/>
             <g transform="translate(100 0)"><circle cx="50" cy="50" r="40" fill="#0f0" stroke="#000" stroke-width="2"/></g>
+            <defs><radialGradient id="r"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#000"/></radialGradient></defs>
+            <path d="M10 95 L90 95 L90 99 Z" fill="url(#r)" stroke="#000" stroke-linejoin="round" stroke-linecap="round"/>
+            <image x="150" y="10" width="20" height="20" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="/>
         </svg>"##;
         let bytes = import(svg, "logo.svg").unwrap();
         let pages = layers(&bytes);
         assert_eq!(pages.len(), 1);
         assert_eq!((pages[0].0, pages[0].1), (200.0, 100.0));
-        assert_eq!(pages[0].2.len(), 2);
+        assert_eq!(pages[0].2.len(), 4);
         let d = Doc::load(&bytes).unwrap();
         let s = d.build_snapshot();
         let Kind::Frame { children, .. } = &s.pages[0].children[0].kind else {
             panic!()
         };
         assert_eq!(s.pages[0].children[0].name, "logo");
-        let [rect, circle] = [&children[0], &children[1]];
+        let [rect, circle, path, image] = [0, 1, 2, 3].map(|i| &children[i]);
         assert_eq!([rect.x, rect.y, rect.w, rect.h], [10.0, 10.0, 80.0, 80.0]);
         assert_eq!(rect.style.fills[0].kind, FillKind::Linear);
         assert_eq!(
@@ -676,6 +679,13 @@ mod tests {
         );
         assert_eq!(circle.style.fills[0].color, Color::Rgb(0x00ff00ff));
         assert_eq!(circle.style.stroke_weight, 2.0);
+        assert_eq!(path.style.fills[0].kind, FillKind::Radial);
+        assert_eq!((path.style.join, path.style.cap), (Join::Round, Cap::Round));
+        assert_eq!(
+            [image.x, image.y, image.w, image.h],
+            [150.0, 10.0, 20.0, 20.0]
+        );
+        assert_eq!(image.style.fills[0].kind, FillKind::Image);
     }
 
     #[test]

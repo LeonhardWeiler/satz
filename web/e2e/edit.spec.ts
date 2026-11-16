@@ -94,6 +94,17 @@ test('copied layers paste back, text from outside pastes as a text layer and a m
   await page.keyboard.press('Control+d')
   await expect.poll(async () => Number(await x.inputValue())).toBeCloseTo(at + 2)
   await expect(suns).toHaveCount(4)
+
+  const rects = layers.getByRole('button', { name: 'Rectangle', exact: true })
+  const canvas = (await page.getByLabel('Page canvas').boundingBox())!
+  const from = [canvas.x + canvas.width * 0.5, canvas.y + canvas.height * 0.1] as const
+  await page.keyboard.press('Escape')
+  await page.keyboard.down('Alt')
+  await drag(page, from, [from[0] + 40, from[1] + 40])
+  await page.keyboard.up('Alt')
+  await expect(rects).toHaveCount(3)
+  await page.keyboard.press('Control+z')
+  await expect(rects).toHaveCount(2)
 })
 
 test('copied layers paste into another document', async ({ page, context }) => {

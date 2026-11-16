@@ -131,36 +131,55 @@ test('a placed image exports as the canvas shows it', async ({ page }) => {
   expect(Number(pdf.match(/\/Width (\d+)/)![1])).toBeLessThan(1200)
 })
 
-test('draw, move, undo and redo a rectangle, then export it', async ({ page }) => {
+test('draw, move, undo and redo a rectangle, draw shapes and a closed pen path, then export them', async ({ page }) => {
   await open(page)
   const canvas = (await page.getByLabel('Page canvas').boundingBox())!
-  const rects = page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true })
+  const at = (fx: number, fy: number) => [canvas.x + canvas.width * fx, canvas.y + canvas.height * fy] as const
+  const layers = page.getByRole('tree', { name: 'Layers' })
+  const count = (name: string) => layers.getByRole('button', { name, exact: true })
+  const rects = count('Rectangle')
   const x = page.getByRole('region', { name: 'Layout' }).getByTitle('X in mm').getByRole('textbox')
+  const drag = async (from: readonly [number, number], to: readonly [number, number]) => {
+    await page.mouse.move(...from)
+    await page.mouse.down()
+    await page.mouse.move(...to, { steps: 4 })
+    await page.mouse.up()
+  }
   await expect(rects).toHaveCount(2)
 
-  await page.keyboard.press('r')
   const cx = canvas.x + canvas.width / 2
   const cy = canvas.y + canvas.height / 2
-  await page.mouse.move(cx - 60, cy - 40)
-  await page.mouse.down()
-  await page.mouse.move(cx + 20, cy + 40, { steps: 4 })
-  await page.mouse.up()
+  await page.keyboard.press('r')
+  await drag([cx - 60, cy - 40], [cx + 20, cy + 40])
   await expect(rects).toHaveCount(3)
   const drawn = await x.inputValue()
-
-  await page.mouse.move(cx - 20, cy)
-  await page.mouse.down()
-  await page.mouse.move(cx + 40, cy, { steps: 4 })
-  await page.mouse.up()
+  await drag([cx - 20, cy], [cx + 40, cy])
   await expect(x).not.toHaveValue(drawn)
-
   await page.keyboard.press('Control+z')
   await expect(x).toHaveValue(drawn)
   await page.keyboard.press('Control+z')
   await expect(rects).toHaveCount(2)
   await page.keyboard.press('Control+Shift+z')
   await expect(rects).toHaveCount(3)
+  await page.keyboard.press('Escape')
 
+  const names = ['Ellipse', 'Line', 'Star', 'Vector']
+  const before = await Promise.all(names.map((n) => count(n).count()))
+  await page.keyboard.press('o')
+  await drag(at(0.35, 0.45), at(0.45, 0.55))
+  await page.keyboard.press('l')
+  await drag(at(0.5, 0.45), at(0.6, 0.55))
+  await page.getByRole('button', { name: 'Shape tools' }).click()
+  await page.getByRole('menuitemradio', { name: /Star/ }).click()
+  await drag(at(0.35, 0.6), at(0.45, 0.7))
+
+  await page.keyboard.press('p')
+  await page.mouse.click(...at(0.5, 0.6))
+  await drag(at(0.65, 0.62), at(0.68, 0.7))
+  await page.mouse.click(...at(0.55, 0.72))
+  await page.mouse.click(...at(0.5, 0.6))
+
+  for (const [i, name] of names.entries()) await expect(count(name)).toHaveCount(before[i] + 1)
   await page.keyboard.press('Escape')
   await page.mouse.move(canvas.x + 2, canvas.y + 2)
   await expectCanvasMatchesPdf(page)
@@ -187,63 +206,6 @@ test('marquee, group, enter the group and undo', async ({ page }) => {
   await expect(title).toHaveText('Group')
   await page.keyboard.press('Control+z')
   await expect(groups).toHaveCount(0)
-})
-
-test('copy, paste and alt-drag duplicate', async ({ page }) => {
-  await open(page)
-  const canvas = (await page.getByLabel('Page canvas').boundingBox())!
-  const rects = page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true })
-  await rects.first().click()
-  await page.keyboard.press('Control+c')
-  await page.keyboard.press('Control+v')
-  await expect(rects).toHaveCount(3)
-
-  const [x, y] = [canvas.x + canvas.width * 0.5, canvas.y + canvas.height * 0.1]
-  await page.keyboard.press('Escape')
-  await page.mouse.move(x, y)
-  await page.keyboard.down('Alt')
-  await page.mouse.down()
-  await page.mouse.move(x + 40, y + 40, { steps: 4 })
-  await page.mouse.up()
-  await page.keyboard.up('Alt')
-  await expect(rects).toHaveCount(4)
-  await page.keyboard.press('Control+z')
-  await expect(rects).toHaveCount(3)
-})
-
-test('draw shapes and a closed pen path, then export them', async ({ page }) => {
-  await open(page)
-  const canvas = (await page.getByLabel('Page canvas').boundingBox())!
-  const at = (fx: number, fy: number) => [canvas.x + canvas.width * fx, canvas.y + canvas.height * fy] as const
-  const layers = page.getByRole('tree', { name: 'Layers' })
-  const names = ['Ellipse', 'Line', 'Star', 'Vector']
-  const count = (name: string) => layers.getByRole('button', { name, exact: true })
-  const before = await Promise.all(names.map((n) => count(n).count()))
-  const drag = async (from: readonly [number, number], to: readonly [number, number]) => {
-    await page.mouse.move(...from)
-    await page.mouse.down()
-    await page.mouse.move(...to, { steps: 4 })
-    await page.mouse.up()
-  }
-
-  await page.keyboard.press('o')
-  await drag(at(0.35, 0.45), at(0.45, 0.55))
-  await page.keyboard.press('l')
-  await drag(at(0.5, 0.45), at(0.6, 0.55))
-  await page.getByRole('button', { name: 'Shape tools' }).click()
-  await page.getByRole('menuitemradio', { name: /Star/ }).click()
-  await drag(at(0.35, 0.6), at(0.45, 0.7))
-
-  await page.keyboard.press('p')
-  await page.mouse.click(...at(0.5, 0.6))
-  await drag(at(0.65, 0.62), at(0.68, 0.7))
-  await page.mouse.click(...at(0.55, 0.72))
-  await page.mouse.click(...at(0.5, 0.6))
-
-  for (const [i, name] of names.entries()) await expect(count(name)).toHaveCount(before[i] + 1)
-  await page.keyboard.press('Escape')
-  await page.mouse.move(canvas.x + 2, canvas.y + 2)
-  await expectCanvasMatchesPdf(page)
 })
 
 test('a cmyk document exports cmyk and spot colors and matches the canvas', async ({ page }) => {
