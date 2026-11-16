@@ -483,6 +483,11 @@ impl Engine {
     pub fn image(&self, id: u32) -> Uint8Array {
         Uint8Array::from(&image::bytes(id)[..])
     }
+
+    #[wasm_bindgen(js_name = imageFile)]
+    pub fn image_file(&self, hash: &str) -> Option<Uint8Array> {
+        image::id(hash).map(|id| self.image(id))
+    }
 }
 
 impl Engine {
