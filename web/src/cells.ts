@@ -62,6 +62,7 @@ const remove = (column: boolean) => (editor: Editor, s: Span) =>
     for (let i = (column ? s.c1 : s.r1) - 1; i >= (column ? s.c0 : s.r0); i--) editor.apply({ type: 'tableDelete', id: s.t.id, column, at: i })
   })
 export const picked = (s: Span) => s.cells.length > 0
+const some = (column: boolean) => (s: Span) => picked(s) && (column ? s.c1 - s.c0 < s.table.columns.length : s.r1 - s.r0 < s.table.rows.length)
 
 export const TABLE_ACTIONS = [
   act('Insert row above', insert(false, (s) => s.r0)),
@@ -70,6 +71,6 @@ export const TABLE_ACTIONS = [
   act('Insert column right', insert(true, (s) => s.c1)),
   act('Merge cells', (editor, s) => editor.apply({ type: 'mergeCells', ids: s.cells.map((c) => c.id) }), (s) => s.cells.length > 1),
   act('Split cell', (editor, s) => editor.apply({ type: 'splitCell', id: s.cells[0].id }), (s) => s.cells.length === 1 && (s.cells[0].cell[2] > 1 || s.cells[0].cell[3] > 1)),
-  act('Delete rows', remove(false), picked),
-  act('Delete columns', remove(true), picked),
+  act('Delete rows', remove(false), some(false)),
+  act('Delete columns', remove(true), some(true)),
 ]
