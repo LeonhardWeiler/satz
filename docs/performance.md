@@ -23,6 +23,12 @@ Browser (`PERF=1 PAGES=32 ./check e2e e2e/perf.spec.ts`), ms per step on 32 page
 CanvasKit is an own build (`canvaskit.nix`): 3.93 MB, 1.53 MB gzip, 1.16 MB Brotli; the npm build
 was 7.32 MB, 2.94 MB gzip.
 
+Engine WASM, 2026-11-17: lean 9.49 MB, 3.88 MB gzip, 2.87 MB Brotli; full 12.71 MB, 5.05 MB
+gzip, 3.67 MB Brotli. The lean one renders first; `warm` and the service worker fetch the full
+one after it, so a first visit moves 10.5 MB gzip (7.7 MB Brotli) with CanvasKit, against
+6.6 MB (4.8 MB) with one engine. The budgets in `check` sit about 100 kB above both; a change
+that grows past one raises it and updates these numbers.
+
 Measured and not done:
 
 - Optimistic typing and drag: at most 3 of ~10 ms per step, and it needs a second copy of
@@ -37,6 +43,8 @@ Measured and not done:
 - PDF fonts: krilla always subsets. Image encoding in workers: images are encoded once.
 - `wasm-opt -O3` and `talc`: no change beyond noise, +57 and +63 KB WASM.
 - Font and FOGRA51 out of the WASM: 0.5 of 9.2 MB, both needed at start or for CMYK.
+- Full engine only: 3.9 MB gzip less on a first visit, but the first render waits 1.2 MB
+  gzip longer.
 - Cached compiled module: the browser caches the streamed WASM compile.
 - Stored snapshot: load spends its time in `finish`, which the snapshot does not replace.
 - Large rebuilds (`u32` handles, memoized queries, typed arena, threads, render worker,
