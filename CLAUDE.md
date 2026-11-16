@@ -5,7 +5,7 @@ Rust engine (`engine/`, WASM) owns the Loro document; the React UI (`web/`) send
 
 ## Checks
 
-`nix develop -c ./check` runs what CI runs. `./check build` stops before Playwright,
+`nix develop -c ./check` runs what CI runs. `./check build` stops before Playwright (`rust` and `web` are its two halves),
 `./check e2e [args]` runs only Playwright against `web/dist`.
 Before a commit: `./check build` and the affected specs; CI runs the full `./check` on the PR.
 `SATZ_WRITE_FIXTURES=1 cargo test fixture` writes the generated files in `web/src`

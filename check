@@ -2,29 +2,34 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 stage=${1-all}
-if [ "$stage" != e2e ]; then
+run() { [ "$stage" = all ] || [ "$stage" = "$1" ] || { [ "$stage" = build ] && [ "$1" != e2e ]; }; }
+if run rust; then
   ! grep -rnE '(^|\s)(//|/\*)(\s|$)' engine/src web/src web/e2e web/*.ts web/*.js --include=*.rs --include=*.ts --include=*.tsx --include=*.js --include=*.css --exclude-dir=engine --exclude-dir=engine-io || { echo "comments are not allowed" >&2; exit 1; }
   ! grep -nE '(^|\s)#(\s|$)' check flake.nix Cargo.toml engine/Cargo.toml .github/workflows/*.yml || { echo "comments are not allowed" >&2; exit 1; }
   cargo fmt --check
   cargo clippy --all-targets -- -D warnings
   cargo clippy -p engine --no-default-features -- -D warnings
   cargo test
+fi
+if run web; then
   wasm-pack build engine --target web --out-dir ../web/src/engine --no-pack -- --no-default-features
   wasm-pack build engine --target web --out-dir ../web/src/engine-io --out-name engine_io --no-pack
   for f in engine/engine_bg:9600000 engine-io/engine_io_bg:12800000; do
     size=$(stat -c %s "web/src/${f%:*}.wasm")
     [ "$size" -le "${f#*:}" ] || { echo "${f%:*}.wasm is $size bytes, over the budget of ${f#*:}" >&2; exit 1; }
+    [ -z "${GITHUB_STEP_SUMMARY-}" ] || echo "${f%:*}.wasm: $size of ${f#*:} bytes" >> "$GITHUB_STEP_SUMMARY"
   done
 fi
+[ "$stage" = rust ] && exit
 cd web
 [ pnpm-lock.yaml -nt node_modules/.modules.yaml ] && pnpm install --frozen-lockfile
-if [ "$stage" != e2e ]; then
+if run web; then
   pnpm exec tsc --noEmit
   pnpm lint
   pnpm test
   pnpm build
 fi
-if [ "$stage" != build ]; then
+if run e2e; then
   export PORT=${PORT:-$(node -e "const s=require('net').createServer().listen(0,()=>{console.log(s.address().port);s.close()})")}
   pnpm e2e "${@:2}"
 fi
