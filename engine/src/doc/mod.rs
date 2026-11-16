@@ -1374,7 +1374,7 @@ impl Doc {
             doc.commit();
             doc
         };
-        doc.export(ExportMode::Snapshot).expect("export")
+        doc.export(ExportMode::state_only(None)).expect("export")
     }
 
     fn used_images(&self) -> HashSet<String> {

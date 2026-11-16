@@ -2455,9 +2455,13 @@ fn a_saved_document_leaves_out_the_images_no_layer_uses() {
     let (mut d, p) = empty();
     let (kept, a) = place(&mut d, &p, 60, 30);
     let (gone, b) = place(&mut d, &p, 40, 30);
+    let before = d.doc.oplog_frontiers();
     d.apply(Command::Delete { ids: vec![gone] }).unwrap();
     let saved = d.save();
     assert!(d.image(&b).is_ok());
+    let raw = LoroDoc::new();
+    raw.import(&saved).unwrap();
+    assert!(raw.checkout(&before).is_err());
     let loaded = std::thread::spawn(move || {
         let d = Doc::load(&saved).unwrap();
         (

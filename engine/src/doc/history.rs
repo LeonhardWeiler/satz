@@ -65,15 +65,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_version_is_restored_in_a_change_that_undo_takes_back_and_a_saved_document_keeps_them() {
+    fn a_version_is_restored_in_a_change_that_undo_takes_back_and_a_saved_document_drops_them() {
         let (mut d, p) = empty();
         create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
         let one = d.versions()[0].clone();
         d.doc.set_next_commit_message("apart");
         create(&mut d, &p, NewKind::Ellipse, [0.0, 0.0, 10.0, 10.0]);
         assert_eq!(page(&d).children.len(), 2);
-        let mut d = Doc::load(&d.save()).unwrap();
-        assert!(d.versions().contains(&one));
+        let saved = Doc::load(&d.save()).unwrap();
+        assert!(!saved.versions().contains(&one));
+        assert_eq!(page(&saved).children.len(), 2);
         let restore = |peer: &str, counter| Command::Restore {
             peer: peer.into(),
             counter,
