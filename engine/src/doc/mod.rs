@@ -1528,6 +1528,9 @@ impl Doc {
     }
 
     pub fn apply(&mut self, cmd: Command) -> Res<Vec<String>> {
+        if self.doc.is_detached() {
+            return Err("a version is previewed".into());
+        }
         if matches!(cmd, Command::BeginUndoGroup | Command::EndUndoGroup) {
             return self.run(cmd);
         }

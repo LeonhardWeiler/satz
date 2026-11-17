@@ -1,6 +1,6 @@
 import { expect, test, open } from './util'
 
-test('a version of the history is restored and undo takes it back', async ({ page }) => {
+test('a version of the history is previewed, restored and undo takes it back', async ({ page }) => {
   await page.clock.install()
   await open(page)
   await page.clock.fastForward('02:00')
@@ -13,12 +13,23 @@ test('a version of the history is restored and undo takes it back', async ({ pag
   const history = page.getByRole('dialog', { name: 'Version history' })
   const versions = history.getByRole('option')
   await page.getByRole('button', { name: 'Version history' }).click()
-  await expect(versions.first()).toHaveText(/Current · \d+ edits?$/)
+  await expect(versions.first()).toHaveText(/Current · Page 1 · \d+ edits?$/)
+  await versions.nth(1).hover()
+  await expect(layer).toHaveCount(1)
+  await page.keyboard.press('Escape')
+  await expect(history).toBeHidden()
+  await expect(layer).toHaveCount(0)
+  await page.keyboard.press('Control+z')
+  await expect(layer).toHaveCount(1)
+  await page.keyboard.press('Control+Shift+z')
+  await expect(layer).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Version history' }).click()
   await versions.nth(1).click()
   await expect(history).toBeHidden()
   await expect(layer).toHaveCount(1)
   await page.keyboard.press('Control+Alt+z')
-  await expect(versions.first()).toHaveText(/Current · Restored$/)
+  await expect(versions.first()).toHaveText(/Current · Page 1 · Restored$/)
   await page.keyboard.press('Escape')
   await expect(history).toBeHidden()
   await page.keyboard.press('Control+z')
