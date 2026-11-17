@@ -176,8 +176,8 @@ export function download(bytes: Uint8Array, name: string, type: string) {
   URL.revokeObjectURL(url)
 }
 
-type Job = { worker?: Worker; fonts: number; images: number; version: string; seen: Uint8Array; queue: Promise<unknown> }
-const fresh = () => ({ fonts: 0, images: 0, version: '', seen: new Uint8Array(), queue: Promise.resolve() })
+type Job = { worker?: Worker; fonts: number; images: Set<string>; version: string; seen: Uint8Array; queue: Promise<unknown> }
+const fresh = () => ({ fonts: 0, images: new Set<string>(), version: '', seen: new Uint8Array(), queue: Promise.resolve() })
 const exporter: Job = fresh()
 const previewer: Job = fresh()
 
@@ -205,8 +205,9 @@ function run<T>(job: Job, editor: Editor, task: { preview?: Preview; out?: Out; 
     const version = editor.engine.version()
     const seen = editor.engine.versionVector()
     const doc = version === job.version ? null : editor.engine.updates(job.seen)
-    const read = linked.length
-    const images = linked.slice(job.images)
+    const { links, images: read } = editor.snapshot
+    const hashes = Object.keys(links).filter((h) => h in read && !job.images.has(h))
+    const images = hashes.map((h) => editor.engine.imageFile(h)!)
     return new Promise<T>((done, fail) => {
       w.onmessage = ({ data }: MessageEvent<T & { error?: string }>) => {
         if (data.error !== undefined) {
@@ -214,7 +215,7 @@ function run<T>(job: Job, editor: Editor, task: { preview?: Preview; out?: Out; 
           return fail(new Error(data.error))
         }
         job.fonts = n
-        job.images = read
+        hashes.forEach((h) => job.images.add(h))
         job.version = version
         job.seen = seen
         done(data)
@@ -223,7 +224,7 @@ function run<T>(job: Job, editor: Editor, task: { preview?: Preview; out?: Out; 
         reset(job)
         fail(new Error(e.message))
       }
-      w.postMessage({ doc, fonts, images, ...task }, [...(doc ? [doc.buffer] : []), ...fonts.map((f) => f.buffer)])
+      w.postMessage({ doc, fonts, images, ...task }, [...(doc ? [doc.buffer] : []), ...fonts.map((f) => f.buffer), ...images.map((i) => i.buffer)])
     })
   })
   job.queue = next.catch(() => {})
@@ -322,7 +323,6 @@ async function placeImage(editor: Editor, file: File, handle: Handle | null = nu
     const bytes = new Uint8Array(await file.arrayBuffer())
     if (!imports(file.name) && handle && editor.snapshot.linkImages) {
       const hash = editor.loadImage(bytes, file.name, true)
-      linked.push(bytes)
       return await result((await store('links')).put(handle, hash))
     }
     if (!imports(file.name)) return void editor.loadImage(bytes, file.name)
@@ -434,14 +434,11 @@ export async function findGranted(editor: Editor) {
   if (p?.state === 'granted') await findFonts(editor)
 }
 
-const linked: Uint8Array[] = []
-
 const link = (hash: string) => store('links').then((s) => result<Handle | undefined>(s.get(hash)), () => undefined)
 
 async function readLink(editor: Editor, hash: string, file: File, handle: Handle | null) {
   const bytes = new Uint8Array(await file.arrayBuffer())
   const to = editor.registerImage(bytes)
-  linked.push(bytes)
   if (to !== hash) editor.apply({ type: 'relink', image: hash, to, name: file.name })
   if (handle) await result((await store('links')).put(handle, to))
 }

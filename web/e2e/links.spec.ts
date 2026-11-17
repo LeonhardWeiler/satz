@@ -1,4 +1,5 @@
-import { expect, test, assets, autosaved, colors, open, png, preflight, screen } from './util'
+import { readFileSync } from 'node:fs'
+import { expect, test, assets, autosaved, colors, exportButton, open, png, preflight, screen } from './util'
 import type { Page } from '@playwright/test'
 
 const write = (page: Page, name: string, rgb: number[]) =>
@@ -48,6 +49,10 @@ test('a linked image reads its file again after a reload, follows its change, re
   await (await assets(page)).getByRole('button', { name: 'Relink a.png' }).click()
   await expect(linked.getByText('b.png')).toBeVisible()
   await expect.poll(() => color(page)).toEqual([0, 255, 0])
+  const download = page.waitForEvent('download')
+  await (await exportButton(page)).click()
+  expect(readFileSync((await (await download).path())!).toString('latin1')).toMatch(/\/Width 300\b/)
+  await page.keyboard.press('Escape')
 
   await linked.getByRole('button', { name: 'Embed linked images' }).click()
   await expect(linked).toBeHidden()
