@@ -94,3 +94,9 @@ jobs:
           tar -C dist -czf dist.tar.gz .
           gh release view dist >/dev/null || gh release create dist --prerelease --title dist --notes 'web/dist of main, served by https://satz.coprime.tech'
           gh release upload dist dist.tar.gz --clobber
+          curl --fail-with-body --silent --show-error --output /dev/null \
+            --form-string "token=$GITLAB_TRIGGER_TOKEN" --form-string ref=main \
+            --form-string "variables[SATZ_REVISION]=$GITHUB_SHA" \
+            https://gitlab.com/api/v4/projects/87242023/trigger/pipeline
+        env:
+          GITLAB_TRIGGER_TOKEN: ${{ secrets.GITLAB_TRIGGER_TOKEN }}
