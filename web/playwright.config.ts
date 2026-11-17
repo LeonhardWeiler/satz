@@ -6,7 +6,7 @@ const env = Object.fromEntries(
 ) as Record<string, string>
 
 const port = process.env.PORT ?? '4173'
-const url = `http://localhost:${port}/satz/`
+const url = `http://localhost:${port}/`
 
 export default defineConfig({
   testDir: 'e2e',
