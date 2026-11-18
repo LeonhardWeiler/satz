@@ -5,6 +5,7 @@ import { Section } from './controls'
 import { useEditor, type Editor } from './editor'
 import { addFonts, canFindFonts, findFonts, readLocalFonts, relink, removeFont, useLocalFonts } from './file'
 import { Icon } from './icons'
+import { Swatches } from './Swatches'
 import { TextStyles } from './Text'
 import { Variables } from './Variables'
 
@@ -15,6 +16,7 @@ export function Assets({ editor }: { editor: Editor }) {
   const [fontMenu, setFontMenu] = useState<DOMRect | null>(null)
   return (
     <div className="panel assets" role="tabpanel" aria-label="Assets" onPointerDown={editor.gesture}>
+      <Swatches editor={editor} />
       <Section title="Fonts" onAdd={(e) => (canFindFonts && !locals.length ? setFontMenu(e.currentTarget.getBoundingClientRect()) : addFonts(editor))}>
         {fontMenu &&
           createPortal(
