@@ -16,6 +16,8 @@ Before a commit: `./check build` and the affected specs; CI runs the full `./che
 - No comments.
 - A keyboard shortcut is an `Action` in `web/src/commands.ts`; `onKey` in `web/src/keys.ts` is the only
   keydown dispatcher.
+- A user command is an `Action`, so it reaches the command palette and shortcuts; check whether it
+  also belongs in `MENU`, the toolbar or a panel.
 - Values both sides need live in Rust and reach TS through `types.ts`.
 - An arm of `Doc::apply` checks everything before it writes to Loro.
 - `wasm-bindgen` in `engine/Cargo.toml` matches the flake's `wasm-bindgen-cli`,
