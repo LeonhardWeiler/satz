@@ -18,7 +18,7 @@ William Anders, NASA, in the public domain.
 
 ```sh
 nix develop
-./check              # fmt, clippy, tests, wasm build, tsc, lint, build, canvas-vs-pdf e2e
+./check              # fmt, clippy, tests, wasm build, tsc, lint, build, playwright e2e
 pnpm -C web dev
 SATZ_WRITE_EXAMPLES=1 cargo test examples   # writes examples/*.satz again
 SATZ_WRITE_FIXTURES=1 cargo test fixture    # writes the generated files in web/src again
