@@ -24,4 +24,5 @@ Before a commit: `./check build` and the affected specs; CI runs the full `./che
   `@playwright/test` the nixpkgs `playwright-driver`, skrifa krilla's.
 - `web/canvaskit` is the output of `nix build .#canvaskit` (`canvaskit.nix`), copied by
   `web/canvaskit/build`; `canvaskit-wasm` in `web/package.json` gives only its types and matches its tag.
-- UI changes follow `docs/design.md`.
+- UI changes follow `docs/design.md`. A UI decision I state goes into it with the change; no later
+  change reverses it without asking me. A new feature gets a shot in `web/shots`.

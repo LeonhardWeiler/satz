@@ -34,6 +34,7 @@ titles are enforced by `web/src/design.test.ts` and `web/src/commands.test.ts`; 
   panel is one shared control (colour mode, grid fields).
 - Properties live only in the right panel, which shows only the selection and page. The
   left panel has 2 tabs: Layers and Assets (swatches, fonts, variables, text styles).
+  Swatches show only in Assets, at a fixed height.
 - Segmented controls use icons only where the icon is unambiguous (alignment, joins),
   otherwise short text; icon-only ones carry no prefix. An on/off setting is a checkbox.
 - One control per value inside a popover too: opacity is the alpha slider, not also a field.
