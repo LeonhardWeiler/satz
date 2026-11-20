@@ -12,11 +12,11 @@ const EXAMPLES = [
   ['Sample', 'A5, 1 page with shapes and text', null, 'Untitled.satz'],
 ] as const
 
-const ago = (at: number) => {
-  const m = Math.round((Date.now() - at) / 60000)
+export const ago = (at: number) => {
+  const m = Math.floor((Date.now() - at) / 60000)
   if (m < 1) return 'Edited just now'
   if (m < 60) return `Edited ${m} min ago`
-  if (m < 1440) return `Edited ${Math.round(m / 60)} h ago`
+  if (m < 1440) return `Edited ${Math.floor(m / 60)} h ago`
   return `Edited ${new Date(at).toLocaleDateString()}`
 }
 
