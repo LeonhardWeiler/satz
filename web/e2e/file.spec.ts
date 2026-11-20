@@ -82,13 +82,22 @@ test('a project that does not load says so and shows the projects', async ({ pag
   await expect(page.getByRole('dialog', { name: 'Projects' })).toBeVisible()
 })
 
-test('a second tab says that Satz is open in another tab and does not autosave', async ({ page, context }) => {
+test('a second tab does not autosave, warns before it closes with edits and autosaves once the first tab closes', async ({ page, context }) => {
   await addPage(page)
   await autosaved(page)
   const other = await context.newPage()
-  await other.goto('')
+  await open(other)
   await expect(other.locator('.status')).toHaveText(/Satz is open in another tab/)
-  await other.close()
+  await expect(other.getByText('Not autosaving')).toBeVisible()
+  await addPage(other)
+  const asked = other.waitForEvent('dialog')
+  await other.close({ runBeforeUnload: true })
+  const dialog = await asked
+  expect(dialog.type()).toBe('beforeunload')
+  await dialog.dismiss()
+  await page.close()
+  await expect(other.getByText('Not autosaving')).toBeHidden()
+  await autosaved(other)
 })
 
 test('a reloaded document has nothing to undo', async ({ page }) => {
@@ -170,6 +179,7 @@ test('an autosave the browser refuses says so', async ({ page }) => {
   })
   await addPage(page)
   await expect(page.getByText('Autosave failed: the disk is full. Save the file with Ctrl+S.')).toBeVisible()
+  await expect(page.getByText('Not autosaving')).toBeVisible()
 })
 
 test('an export worker that breaks says the export failed', async ({ page }) => {

@@ -8,7 +8,7 @@ import { CLIP, useEditor, type Editor } from './editor'
 import { Settings } from './SettingsDialog'
 import { Find } from './Find'
 import { History } from './History'
-import { autosave, download, drop, exportFile, flush, open, placeImages, save, show, type Handle } from './file'
+import { autosave, autosaving, download, drop, exportFile, flush, open, placeImages, save, show, type Handle } from './file'
 import { Icon } from './icons'
 import { isTyping, keysOf, onKey } from './keys'
 import { Layers } from './Layers'
@@ -55,6 +55,12 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   const dirty = useEditor(editor, (e) => e.dirty)
   const name = useEditor(editor, (e) => e.file.name)
   const title = name.replace(/\.satz$/, '')
+  const unkept = useEditor(editor, (e) => !autosaving(e)) && (
+    <span className="unkept" title="Edits in this tab are not autosaved. Save the file with Ctrl+S.">
+      <Icon name="error" />
+      Not autosaving
+    </span>
+  )
   const overview = useEditor(editor, (e) => e.overview !== null)
   const preflight = useEditor(editor, (e) => e.preflight)
   const issues = useEditor(editor, (e) => e.snapshot.preflight)
@@ -244,6 +250,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
               <span className="ext">.satz</span>
             </h1>
           )}
+          {unkept}
         </div>
         <div className="tabs" role="tablist" aria-label="Left panel">
           {(['Layers', 'Assets'] as const).map((t) => (
@@ -262,6 +269,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
                 {title}
                 <span className="ext">.satz</span>
               </span>
+              {unkept}
               <span className="sep" />
             </>
           )}
