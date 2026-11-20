@@ -156,6 +156,7 @@ export class Editor {
   readonly statusAction: { label: string; run: () => void } | null = null
   readonly said: number = 0
   readonly autosaves: boolean = true
+  readonly autosaveFailed: boolean = false
   private typing = false
   readonly copied: string | null = null
   readonly clip: string | null = null
@@ -400,7 +401,7 @@ export class Editor {
     }
   }
 
-  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'pen' | 'editing' | 'threading' | 'placing' | 'overview' | 'preflight' | 'grids' | 'guide' | 'vector' | 'cropping' | 'inks' | 'previewed' | 'found' | 'home' | 'project' | 'autosaves' | 'clip'>>) {
+  set(patch: Partial<Pick<Editor, 'selection' | 'tool' | 'renaming' | 'pen' | 'editing' | 'threading' | 'placing' | 'overview' | 'preflight' | 'grids' | 'guide' | 'vector' | 'cropping' | 'inks' | 'previewed' | 'found' | 'home' | 'project' | 'autosaves' | 'autosaveFailed' | 'clip'>>) {
     const leaves = this.editing && patch.selection && !patch.selection.includes(this.editing.id)
     if (this.vector && ((patch.selection && !patch.selection.includes(this.vector.id)) || (patch.tool && patch.tool !== 'move'))) patch = { vector: null, ...patch }
     if (this.cropping && ((patch.selection && !patch.selection.includes(this.cropping)) || (patch.tool && patch.tool !== 'move'))) patch = { cropping: null, ...patch }

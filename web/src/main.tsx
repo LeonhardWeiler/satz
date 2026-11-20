@@ -55,6 +55,10 @@ if (!document.createElement('canvas').getContext('webgl2')) {
     if (!alone) {
       editor.set({ autosaves: false })
       editor.fail('Satz is open in another tab. This tab does not autosave; save the file with Ctrl+S.')
+      navigator.locks.request('satz', () => {
+        editor.set({ autosaves: true })
+        return new Promise(() => {})
+      })
     }
     const id = location.hash.slice(1)
     if (id) await openProject(editor, id)

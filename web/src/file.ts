@@ -116,7 +116,6 @@ export function autosave(editor: Editor) {
   const state = () => editor.engine.version() + file()
   let last = state()
   let timer = 0
-  let failed = false
   let seen: Uint8Array | undefined
   let base = ''
   let appended = 0
@@ -141,10 +140,13 @@ export function autosave(editor: Editor) {
       base = file()
       seen = vv
       last = now
-      failed = false
+      if (editor.autosaveFailed) editor.set({ autosaveFailed: false })
     } catch (e) {
-      if (!failed) editor.fail(`Autosave failed: ${(e as Error).message}. Save the file with Ctrl+S.`)
-      failed = true
+      if (!editor.autosaveFailed) {
+        editor.fail(`Autosave failed: ${(e as Error).message}. Save the file with Ctrl+S.`)
+        editor.set({ autosaveFailed: true })
+      }
+      clearTimeout(timer)
       timer = window.setTimeout(put, 10000)
     }
   }
@@ -154,8 +156,10 @@ export function autosave(editor: Editor) {
     timer = window.setTimeout(put, 1000)
   }
   const hidden = () => document.visibilityState === 'hidden' && put()
+  const leave = (e: BeforeUnloadEvent) => kept(editor) || e.preventDefault()
   const off = editor.subscribe(later)
   window.addEventListener('pagehide', put)
+  window.addEventListener('beforeunload', leave)
   document.addEventListener('visibilitychange', hidden)
   flush = put
   return () => {
@@ -163,6 +167,7 @@ export function autosave(editor: Editor) {
     put()
     flush = () => Promise.resolve()
     window.removeEventListener('pagehide', put)
+    window.removeEventListener('beforeunload', leave)
     document.removeEventListener('visibilitychange', hidden)
   }
 }
@@ -272,8 +277,12 @@ export function ask(question: string, yes: string): Promise<boolean> {
   )
 }
 
+export const autosaving = (editor: Editor) => editor.autosaves && !editor.autosaveFailed
+
+const kept = (editor: Editor) => !editor.dirty || (autosaving(editor) && !!editor.project)
+
 export const discard = async (editor: Editor) =>
-  !editor.dirty || (editor.autosaves && !!editor.project) || ask(`Discard unsaved changes to ${editor.file.name}?`, 'Discard')
+  kept(editor) || ask(`Discard unsaved changes to ${editor.file.name}?`, 'Discard')
 
 async function load(editor: Editor, file: File, handle: Handle | null) {
   if (!(await discard(editor))) return

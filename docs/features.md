@@ -4,7 +4,7 @@
 
 - Start screen with page formats, orientation, page count, custom sizes and the example poster and booklet
 - New, open, save and rename `.satz` files; drag and drop of documents and images
-- Autosave in the browser, kept across reloads with its unsaved mark
+- Autosave in the browser, kept across reloads with its unsaved mark; only 1 tab autosaves, another shows "Not autosaving", warns before it closes with unsaved edits and takes over once the first closes
 - Version history from the document's own history, kept in saved files; each version names the page it changed and previews on the canvas, restoring one is undoable
 - Installs as an app and works offline
 - Fonts: bundled, uploaded TTF, OTF, WOFF and WOFF2, and the fonts of the computer; missing fonts are found there

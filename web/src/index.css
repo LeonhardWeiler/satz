@@ -1762,6 +1762,16 @@ input[type='range']:focus-visible::-moz-range-thumb {
   white-space: nowrap;
 }
 
+.unkept {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  color: var(--bad);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 :is(.brand, .bar-name) .ext {
   color: var(--muted);
   font-size: 12px;
