@@ -159,7 +159,7 @@ export function handleTextKey(editor: Editor, e: KeyboardEvent): boolean {
       return true
     }
     select(editor, a - m[0].length, a)
-    insert(editor, lorem(Math.min(Number(m[1] || 10), 10000)))
+    insert(editor, lorem(Math.min(Math.max(Number(m[1] || 10), 1), 10000)))
   } else return false
   return true
 }
