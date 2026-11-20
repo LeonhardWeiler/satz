@@ -16,6 +16,7 @@ pub struct Version {
 }
 
 impl Doc {
+    #[allow(clippy::disallowed_methods)]
     pub fn versions(&self) -> Vec<Version> {
         let since = self.doc.shallow_since_vv();
         let mut changes = Vec::new();

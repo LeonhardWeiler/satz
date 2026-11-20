@@ -616,8 +616,7 @@ mod tests {
         })
         .unwrap();
         set_value(&mut b, &v, &light, Value::Number(8.0)).unwrap();
-        a.doc
-            .import(&b.doc.export(ExportMode::all_updates()).unwrap())
+        a.sync(&b.doc.export(ExportMode::all_updates()).unwrap())
             .unwrap();
         let m = Doc::load(&a.save()).unwrap().snapshot();
         let var = &m.palette.variables[0];
