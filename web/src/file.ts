@@ -198,13 +198,17 @@ export async function removeFont(editor: Editor, hash: string) {
   await result((await store('fonts')).delete(hash))
 }
 
-const spawn = () => new Worker(new URL('./exportWorker.ts', import.meta.url), { type: 'module' })
+function spawn(job: Job) {
+  const w = new Worker(new URL('./exportWorker.ts', import.meta.url), { type: 'module' })
+  w.onerror = () => reset(job)
+  return w
+}
 
-export const warm = () => void (exporter.worker ??= spawn())
+export const warm = () => void (exporter.worker ??= spawn(exporter))
 
 function run<T>(job: Job, editor: Editor, task: { preview?: Preview; out?: Out; source?: Source }) {
   const next = job.queue.then(() => {
-    const w = (job.worker ??= spawn())
+    const w = (job.worker ??= spawn(job))
     const n = editor.engine.fontsAdded()
     const fonts = Array.from({ length: n - job.fonts }, (_, i) => editor.engine.font(job.fonts + i))
     const version = editor.engine.version()
