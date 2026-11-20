@@ -2,6 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 stage=${1-all}
+case $stage in all|build|rust|web|e2e) ;; *) echo "unknown stage: $stage (all, build, rust, web or e2e)" >&2; exit 2 ;; esac
 run() { [ "$stage" = all ] || [ "$stage" = "$1" ] || { [ "$stage" = build ] && [ "$1" != e2e ]; }; }
 if run rust; then
   ! grep -rnE '(^|\s)(//|/\*)(\s|$)' engine/src web/src web/e2e web/*.ts web/*.js --include=*.rs --include=*.ts --include=*.tsx --include=*.js --include=*.css --exclude-dir=engine --exclude-dir=engine-io || { echo "comments are not allowed" >&2; exit 1; }
