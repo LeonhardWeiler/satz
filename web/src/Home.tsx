@@ -44,7 +44,7 @@ export function Home({ editor, onNew, children }: { editor: Editor; onNew: () =>
       EXAMPLES.map(async ([, , url]) => {
         const e = url ? new Engine() : Engine.sample()
         try {
-          if (url) e.load(new Uint8Array(await (await fetch(url)).arrayBuffer()))
+          if (url) e.load(new Uint8Array(await (await fetch(url)).arrayBuffer()), [])
           return firstPage(e)
         } catch {
           return undefined

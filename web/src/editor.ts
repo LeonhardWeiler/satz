@@ -177,8 +177,7 @@ export class Editor {
   }
 
   load(bytes: Uint8Array, file = UNTITLED, dirty = false, updates: Uint8Array[] = []) {
-    this.engine.load(bytes)
-    for (const u of updates) this.engine.sync(u)
+    this.engine.load(bytes, updates)
     Object.assign(this, { selection: [], tool: 'move', renaming: null, hover: null, guide: null, pen: null, editing: null, threading: null, placing: [], overview: null, cropping: null, vector: null, copied: null, clip: null, copies: null })
     this.typing = false
     this.w.groups = 0

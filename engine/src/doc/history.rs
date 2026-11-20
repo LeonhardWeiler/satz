@@ -107,12 +107,12 @@ impl Doc {
         }
         self.changed.lock().unwrap().take();
         self.invalidate();
-        self.register_images()
+        self.retain_images()
     }
 
     pub(super) fn restore(&self, peer: String, counter: i32) -> Res<Vec<String>> {
         self.doc.revert_to(&self.at(&peer, counter)?).map_err(err)?;
-        self.register_images()?;
+        self.retain_images()?;
         self.message.set(Some(RESTORED));
         Ok(vec![])
     }

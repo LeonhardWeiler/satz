@@ -1451,7 +1451,12 @@ impl Doc {
         Ok(d)
     }
 
-    fn register_images(&self) -> Res<()> {
+    pub fn retain_images(&self) -> Res<()> {
+        image::retain(&self.register_images()?);
+        Ok(())
+    }
+
+    fn register_images(&self) -> Res<Vec<String>> {
         let mut hashes = vec![];
         let images = self.doc.get_map("images").get_value().into_map();
         for (h, v) in images.unwrap_or_default().iter() {
@@ -1463,8 +1468,7 @@ impl Doc {
                 _ => {}
             }
         }
-        image::retain(&hashes);
-        Ok(())
+        Ok(hashes)
     }
 
     pub fn version_vector(&self) -> Vec<u8> {
