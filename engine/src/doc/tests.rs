@@ -2451,6 +2451,7 @@ fn images_go_into_the_saved_document_and_undo_leaves_them_there() {
 }
 
 #[test]
+#[allow(clippy::disallowed_methods)]
 fn a_saved_document_leaves_out_the_images_no_layer_uses() {
     let (mut d, p) = empty();
     let (kept, a) = place(&mut d, &p, 60, 30);
