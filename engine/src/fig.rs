@@ -1,3 +1,11 @@
+#![deny(
+    clippy::indexing_slicing,
+    clippy::string_slice,
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic
+)]
+
 use crate::color::Color;
 use crate::display_list::{CLOSE, CUBIC, LINE, MOVE};
 use crate::geom::bounds;
@@ -12,19 +20,16 @@ type Files = Vec<(String, Vec<u8>)>;
 const BAD: &str = "not a Figma file";
 
 fn unzip(z: &[u8]) -> Res<Files> {
-    let u16_at = |i: usize| {
-        z.get(i..i + 2)
-            .map(|b| u16::from_le_bytes([b[0], b[1]]) as usize)
+    let le = |i: usize, n: usize| {
+        z.get(i..i + n)
+            .map(|b| b.iter().rev().fold(0, |v, &x| v << 8 | usize::from(x)))
             .ok_or(BAD)
     };
-    let u32_at = |i: usize| {
-        z.get(i..i + 4)
-            .map(|b| u32::from_le_bytes([b[0], b[1], b[2], b[3]]) as usize)
-            .ok_or(BAD)
-    };
+    let u16_at = |i| le(i, 2);
+    let u32_at = |i| le(i, 4);
     let end = (0..z.len().saturating_sub(21))
         .rev()
-        .find(|&i| z[i..].starts_with(b"PK\x05\x06"))
+        .find(|&i| z.get(i..i + 4) == Some(b"PK\x05\x06"))
         .ok_or(BAD)?;
     let mut at = u32_at(end + 16)?;
     let mut out = Vec::new();
@@ -91,8 +96,9 @@ impl Kiwi<'_> {
     }
 
     fn string(&mut self) -> Res<String> {
-        let end = self.b[self.at..].iter().position(|&c| c == 0).ok_or(BAD)?;
-        let s = String::from_utf8_lossy(&self.b[self.at..self.at + end]).into_owned();
+        let rest = self.b.get(self.at..).unwrap_or_default();
+        let end = rest.iter().position(|&c| c == 0).ok_or(BAD)?;
+        let s = String::from_utf8_lossy(rest.split_at(end).0).into_owned();
         self.at += end + 1;
         Ok(s)
     }
@@ -134,9 +140,13 @@ fn schema(b: &[u8]) -> Res<Vec<Type>> {
 fn value(k: &mut Kiwi, types: &[Type], ty: i64, array: bool) -> Res<Value> {
     if array {
         let n = k.uint()?;
+        if n > k.b.len().saturating_sub(k.at) as u64 {
+            return Err(BAD.into());
+        }
         if ty == -2 {
-            let bytes = k.b.get(k.at..k.at + n as usize).ok_or(BAD)?;
-            k.at += n as usize;
+            let end = k.at.checked_add(n as usize).ok_or(BAD)?;
+            let bytes = k.b.get(k.at..end).ok_or(BAD)?;
+            k.at = end;
             return Ok(Value::Array(bytes.iter().map(|&b| b.into()).collect()));
         }
         return (0..n).map(|_| value(k, types, ty, false)).collect();
@@ -187,8 +197,8 @@ fn value(k: &mut Kiwi, types: &[Type], ty: i64, array: bool) -> Res<Value> {
 fn segments(b: &[u8]) -> Res<Vec<Vec<u8>>> {
     let mut at = 12;
     let mut out = Vec::new();
-    while at + 4 <= b.len() {
-        let n = u32::from_le_bytes([b[at], b[at + 1], b[at + 2], b[at + 3]]) as usize;
+    while let Some(len) = b.get(at..at + 4) {
+        let n = len.iter().rev().fold(0, |v, &x| v << 8 | usize::from(x));
         let data = b.get(at + 4..at + 4 + n).ok_or(BAD)?;
         out.push(if data.starts_with(&[0x28, 0xb5, 0x2f, 0xfd]) {
             let mut d = ruzstd::decoding::StreamingDecoder::new(data).map_err(|_| BAD)?;
@@ -231,6 +241,10 @@ fn read(bytes: &[u8]) -> Res<(Value, Files)> {
 }
 
 const IDENTITY: [f32; 6] = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0];
+
+fn at<'a>(v: &'a Value, path: &str) -> &'a Value {
+    v.pointer(path).unwrap_or(&Value::Null)
+}
 
 fn num(v: &Value) -> f32 {
     v.as_f64().unwrap_or(0.0) as f32
@@ -283,7 +297,9 @@ fn blend(v: &Value) -> Blend {
             if i == 0 {
                 w.clone()
             } else {
-                w[..1].to_uppercase() + &w[1..]
+                let mut c = w.chars();
+                c.next()
+                    .map_or(String::new(), |f| f.to_uppercase().chain(c).collect())
             }
         })
         .collect::<String>();
@@ -313,7 +329,8 @@ impl Fig<'_> {
                 .map(|k| {
                     let p = |o: usize| {
                         b.get(*at + o..*at + o + 4)
-                            .map(|s| f32::from_le_bytes([s[0], s[1], s[2], s[3]]))
+                            .and_then(|s| s.try_into().ok())
+                            .map(f32::from_le_bytes)
                     };
                     let (x, y) = (p(k * 8)?, p(k * 8 + 4)?);
                     Some([a * x + c * y + e, bb * x + d * y + f])
@@ -330,19 +347,21 @@ impl Fig<'_> {
             ) else {
                 break;
             };
-            match cmd {
-                0 if open => {
+            match (cmd, p.as_slice()) {
+                (0, _) if open => {
                     out.push(CLOSE);
                     open = false;
                 }
-                0 => {}
-                1 => {
-                    out.extend([MOVE, p[0][0], p[0][1]]);
+                (0, _) => {}
+                (1, [[x, y]]) => {
+                    out.extend([MOVE, *x, *y]);
                     open = true;
                 }
-                2 => out.extend([LINE, p[0][0], p[0][1]]),
-                3 => quad(&mut out, p[0], p[1]),
-                4 => out.extend([CUBIC, p[0][0], p[0][1], p[1][0], p[1][1], p[2][0], p[2][1]]),
+                (2, [[x, y]]) => out.extend([LINE, *x, *y]),
+                (3, [p1, p2]) => quad(&mut out, *p1, *p2),
+                (4, [[x1, y1], [x2, y2], [x3, y3]]) => {
+                    out.extend([CUBIC, *x1, *y1, *x2, *y2, *x3, *y3])
+                }
                 _ => break,
             }
         }
@@ -393,7 +412,7 @@ impl Fig<'_> {
             return;
         }
         let opacity = opacity * n["opacity"].as_f64().unwrap_or(1.0) as f32;
-        let size = [num(&n["size"]["x"]), num(&n["size"]["y"])];
+        let size = [num(at(n, "/size/x")), num(at(n, "/size/y"))];
         let fills = self.paints(&n["fillPaints"], size, t);
         let mut shape = |path: Vec<f32>, fills: Vec<Fill>| {
             out.push(Item::Shape(Shape {
@@ -410,15 +429,15 @@ impl Fig<'_> {
         for g in n["fillGeometry"].as_array().into_iter().flatten() {
             shape(self.path(&g["commandsBlob"], t), fills.clone());
         }
-        for g in n["textData"]["glyphs"].as_array().into_iter().flatten() {
+        for g in at(n, "/textData/glyphs").as_array().into_iter().flatten() {
             let s = num(&g["fontSize"]);
             let at = [
                 s,
                 0.0,
                 0.0,
                 -s,
-                num(&g["position"]["x"]),
-                num(&g["position"]["y"]),
+                num(at(g, "/position/x")),
+                num(at(g, "/position/y")),
             ];
             shape(self.path(&g["commandsBlob"], then(t, at)), fills.clone());
         }
@@ -432,7 +451,7 @@ impl Fig<'_> {
             .flatten()
             .filter(|p| p["visible"] != false)
         {
-            let hash: String = bytes(&p["image"]["hash"])
+            let hash: String = bytes(at(p, "/image/hash"))
                 .iter()
                 .map(|b| format!("{b:02x}"))
                 .collect();
@@ -453,7 +472,7 @@ impl Fig<'_> {
             out.push(Item::Image(image.clone(), rect, rect));
         }
         let key = if n["type"] == "INSTANCE" && !self.kids.contains_key(&id(&n["guid"])) {
-            id(&n["symbolData"]["symbolID"])
+            id(at(n, "/symbolData/symbolID"))
         } else {
             id(&n["guid"])
         };
@@ -465,6 +484,7 @@ impl Fig<'_> {
 
 pub fn sheets(file: &[u8]) -> Res<Vec<Sheet>> {
     let (msg, images) = read(file)?;
+    let msg = &msg;
     let all = msg["nodeChanges"].as_array().ok_or(BAD)?;
     let mut fig = Fig {
         blobs: msg["blobs"]
@@ -478,15 +498,15 @@ pub fn sheets(file: &[u8]) -> Res<Vec<Sheet>> {
     };
     for n in all.iter().filter(|n| n["parentIndex"].is_object()) {
         fig.kids
-            .entry(id(&n["parentIndex"]["guid"]))
+            .entry(id(at(n, "/parentIndex/guid")))
             .or_default()
             .push(n);
     }
     for k in fig.kids.values_mut() {
         k.sort_by(|a, b| {
-            a["parentIndex"]["position"]
+            at(a, "/parentIndex/position")
                 .as_str()
-                .cmp(&b["parentIndex"]["position"].as_str())
+                .cmp(&at(b, "/parentIndex/position").as_str())
         });
     }
     let kids = |n: &Value| {
@@ -507,8 +527,8 @@ pub fn sheets(file: &[u8]) -> Res<Vec<Sheet>> {
             let name = n["name"].as_str().map(String::from);
             out.push(Sheet {
                 name,
-                width: num(&n["size"]["x"]).into(),
-                height: num(&n["size"]["y"]).into(),
+                width: num(at(n, "/size/x")).into(),
+                height: num(at(n, "/size/y")).into(),
                 items,
             });
         }
@@ -554,8 +574,29 @@ pub fn sheets(file: &[u8]) -> Res<Vec<Sheet>> {
 }
 
 #[cfg(test)]
-mod tests {
+#[allow(clippy::indexing_slicing, clippy::unwrap_used, clippy::panic)]
+pub(crate) mod tests {
     use super::*;
+
+    pub(crate) fn renamed(fig: &[u8], from: &str, to: &str) -> Vec<u8> {
+        let files = unzip(fig).unwrap();
+        let canvas = &files.iter().find(|f| f.0 == "canvas.fig").unwrap().1;
+        let n = u32::from_le_bytes(canvas[12..16].try_into().unwrap()) as usize;
+        let mut schema = miniz_oxide::inflate::decompress_to_vec(&canvas[16..16 + n]).unwrap();
+        let at = schema
+            .windows(from.len())
+            .position(|w| w == from.as_bytes())
+            .unwrap();
+        schema[at..at + to.len()].copy_from_slice(to.as_bytes());
+        let packed = miniz_oxide::deflate::compress_to_vec(&schema, 6);
+        [
+            &canvas[..12],
+            &(packed.len() as u32).to_le_bytes(),
+            &packed,
+            &canvas[16 + n..],
+        ]
+        .concat()
+    }
 
     #[test]
     fn a_figma_file_imports_with_a_page_for_each_frame_and_its_text_as_outlines() {

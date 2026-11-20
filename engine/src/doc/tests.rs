@@ -2567,3 +2567,126 @@ fn fixture_types() {
     );
     crate::fixture("types.ts", ts.as_bytes());
 }
+
+#[cfg(feature = "io")]
+#[test]
+fn damaged_files_fail_without_a_panic() {
+    let damaged = |bytes: &[u8]| {
+        let n = bytes.len();
+        let mut seed = 0x2545_f491_4f6c_dd1du64;
+        let mut out: Vec<Vec<u8>> = (0..64).map(|i| bytes[..n * i / 64].to_vec()).collect();
+        for _ in 0..64 {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            let mut b = bytes.to_vec();
+            b[seed as usize % n] ^= 1 << (seed >> 61);
+            out.push(b);
+        }
+        out
+    };
+    let sample = Doc::sample();
+    let saved = sample.save();
+    let mut edited = Doc::load(&saved).unwrap();
+    let vv = edited.version_vector();
+    let ids = page(&edited)
+        .children
+        .iter()
+        .map(|n| n.id.clone())
+        .collect();
+    edited.apply(Command::Copy { ids }).unwrap();
+    let clip = edited.clip_out();
+    let ids = page(&edited)
+        .children
+        .iter()
+        .map(|n| n.id.clone())
+        .collect();
+    edited.apply(Command::Delete { ids }).unwrap();
+    let update = edited.updates(&vv);
+    let svg = br##"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="5" height="5" fill="#f00"/></svg>"##;
+    let fig = include_bytes!("../../testdata/structure.fig");
+    let pdf = pdf(&sample);
+    let png = sample.png(&page(&sample).id, 4.0).unwrap();
+    let jpeg = include_bytes!("../../testdata/cmyk-black.jpg");
+    let ycck = include_bytes!("../../testdata/ycck-cyan.jpg");
+    let woff2 = include_bytes!("../../fonts/DMMono-Regular.woff2");
+    let icc = include_bytes!("../../icc/FOGRA51.icc");
+    type Entry<'a> = (&'a str, &'a [u8], Box<dyn Fn(&[u8]) -> bool + 'a>);
+    let entries: Vec<Entry> = vec![
+        ("load", &saved, Box::new(|b| Doc::load(b).is_ok())),
+        (
+            "sync",
+            &update,
+            Box::new(|b| Doc::load(&saved).unwrap().sync(b).is_ok()),
+        ),
+        (
+            "take_clip",
+            &clip,
+            Box::new(|b| Doc::default().take_clip(b).is_ok()),
+        ),
+        (
+            "import svg",
+            svg,
+            Box::new(|b| crate::import::import(b, "a.svg").is_ok()),
+        ),
+        (
+            "import pdf",
+            &pdf,
+            Box::new(|b| crate::import::import(b, "a.pdf").is_ok()),
+        ),
+        (
+            "import fig",
+            fig,
+            Box::new(|b| crate::import::import(b, "a.fig").is_ok()),
+        ),
+        (
+            "add_font ttf",
+            MONO,
+            Box::new(|b| Doc::default().add_font(b).is_ok()),
+        ),
+        (
+            "add_font woff2",
+            woff2,
+            Box::new(|b| Doc::default().add_font(b).is_ok()),
+        ),
+        (
+            "add_image png",
+            &png,
+            Box::new(|b| Doc::default().add_image(b, None).is_ok()),
+        ),
+        (
+            "add_image jpeg",
+            jpeg,
+            Box::new(|b| Doc::default().add_image(b, None).is_ok()),
+        ),
+        (
+            "register_image ycck",
+            ycck,
+            Box::new(|b| Doc::default().register_image(b).is_ok()),
+        ),
+        (
+            "set_profile",
+            icc,
+            Box::new(|b| Doc::default().set_profile(Some(b.to_vec())).is_ok()),
+        ),
+    ];
+    let mut panics = vec![];
+    for (name, bytes, f) in &entries {
+        assert!(f(bytes), "{name} fails on the intact file");
+        for (i, b) in damaged(bytes).iter().enumerate() {
+            if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f(b))).is_err() {
+                panics.push(format!("{name} {i}"));
+            }
+        }
+    }
+    for (from, to) in [
+        ("PASS_THROUGH", "PASS__THROUG"),
+        ("PASS_THROUGH", "P_\u{e4}SS_THROU"),
+    ] {
+        let b = crate::fig::tests::renamed(fig, from, to);
+        if std::panic::catch_unwind(|| crate::import::import(&b, "a.fig")).is_err() {
+            panics.push(format!("fig blend {to}"));
+        }
+    }
+    assert!(panics.is_empty(), "{panics:?}");
+}

@@ -1,3 +1,11 @@
+#![deny(
+    clippy::indexing_slicing,
+    clippy::string_slice,
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic
+)]
+
 use crate::color::{Color, ColorMode};
 use crate::display_list::{CLOSE, CUBIC, LINE, MOVE};
 use crate::doc::{Command, Doc, NewKind, Props};
@@ -305,11 +313,9 @@ fn svg_group(g: &usvg::Group, opacity: f32, out: &mut Vec<Item>) {
 }
 
 fn last(path: &[f32]) -> [f32; 2] {
-    let n = path.len();
-    if n >= 2 {
-        [path[n - 2], path[n - 1]]
-    } else {
-        [0.0; 2]
+    match path {
+        [.., x, y] => [*x, *y],
+        _ => [0.0; 2],
     }
 }
 
@@ -472,7 +478,10 @@ impl Sink {
             .map(|g| g.1)
             .chain([mode])
             .rfind(|&m| m != BlendMode::Normal);
-        BLENDS[mode.unwrap_or_default() as usize]
+        BLENDS
+            .get(mode.unwrap_or_default() as usize)
+            .copied()
+            .unwrap_or(Blend::Normal)
     }
 
     fn clip_box(&self) -> Option<Rect> {
@@ -602,7 +611,10 @@ impl<'a> Device<'a> for Sink {
                     .iter()
                     .enumerate()
                     .flat_map(|(i, [r, g, b])| {
-                        let a = alpha.as_ref().map_or(255.0, |a| f32::from(a[i]));
+                        let a = alpha
+                            .as_ref()
+                            .and_then(|a| a.get(i))
+                            .map_or(255.0, |&a| f32::from(a));
                         [*r, *g, *b, (a * opacity).round() as u8]
                     })
                     .collect();
@@ -624,6 +636,7 @@ impl<'a> Device<'a> for Sink {
 }
 
 #[cfg(test)]
+#[allow(clippy::indexing_slicing, clippy::unwrap_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::doc::{Kind, Node};
