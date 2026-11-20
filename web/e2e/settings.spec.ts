@@ -103,3 +103,17 @@ test('zoom to 100% shows the page at the size measured against a reference in th
   await page.keyboard.press('Control+0')
   await expect(page.getByRole('button', { name: 'Zoom' })).toHaveText('100%')
 })
+
+test('a setting changed in one tab reaches the other and survives its next change', async ({ page, context }) => {
+  await open(page)
+  const other = await context.newPage()
+  await open(other)
+  await page.keyboard.press('Control+Comma')
+  await choose(page.getByRole('dialog', { name: 'Settings' }).getByRole('combobox', { name: 'Theme' }), 'Light')
+  await expect(other.locator('html')).toHaveAttribute('data-theme', 'light')
+
+  await other.keyboard.press('Control+Comma')
+  await choose(other.getByRole('dialog', { name: 'Settings' }).getByRole('combobox', { name: 'Unit' }), 'Inches')
+  await page.reload()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+})

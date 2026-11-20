@@ -30,11 +30,14 @@ const stored = (): Partial<Settings> => {
 
 export let settings: Settings = { ...DEFAULTS, ...stored() }
 const listeners = new Set<() => void>()
+const notify = () => {
+  for (const l of listeners) l()
+}
 
 export function setSettings(patch: Partial<Settings>) {
   settings = { ...settings, ...patch }
   localStorage.setItem(KEY, JSON.stringify(settings))
-  for (const l of listeners) l()
+  notify()
 }
 
 export const subscribeSettings = (l: () => void) => {
@@ -42,7 +45,12 @@ export const subscribeSettings = (l: () => void) => {
   return () => void listeners.delete(l)
 }
 
-export function followTheme() {
+export function followBrowser() {
+  addEventListener('storage', (e) => {
+    if (e.key !== KEY) return
+    settings = { ...DEFAULTS, ...stored() }
+    notify()
+  })
   const light = matchMedia('(prefers-color-scheme: light)')
   const theme = () => (document.documentElement.dataset.theme = settings.theme === 'system' ? (light.matches ? 'light' : 'dark') : settings.theme)
   theme()

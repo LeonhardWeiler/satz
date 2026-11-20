@@ -7,10 +7,10 @@ import { App } from './App'
 import { restorePanels } from './controls'
 import { Editor } from './editor'
 import { findGranted, openProject, show, storedFonts, warm } from './file'
-import { followTheme } from './settings'
+import { followBrowser } from './settings'
 import './index.css'
 
-followTheme()
+followBrowser()
 restorePanels()
 const root = createRoot(document.getElementById('root')!)
 addEventListener('pointerdown', () => document.documentElement.toggleAttribute('data-pointer', true), true)
