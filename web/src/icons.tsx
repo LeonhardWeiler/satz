@@ -84,7 +84,6 @@ const ICONS = {
   ),
   eyedropper: <path d="M2 14l.7-.7h2L10 8M2.7 13.3v-2L8 6M10 4l2.3-2.3a1.4 1.4 0 0 1 2 2L12 6l.3.3a1.4 1.4 0 0 1-2 2L7.7 5.7a1.4 1.4 0 0 1 2-2z" />,
   fit: <path d="M1.5 5.5v-4h4M10.5 1.5h4v4M14.5 10.5v4h-4M5.5 14.5h-4v-4" />,
-  crop: <path d="M4.5 1.5v10h10M1.5 4.5h10v10" />,
   adjust: (
     <>
       <path d="M2.5 5h2M7.5 5h6M2.5 11h6M11.5 11h2" />
@@ -114,16 +113,12 @@ const ICONS = {
       <rect x="11" y="10.5" width="3" height="3" rx=".5" fill="currentColor" />
     </>
   ),
-  flipHorizontal: <path d="M8 2v12M6 4.5v8H2.5zM10 4.5v8h3.5z" />,
-  flipVertical: <path d="M2 8h12M11.5 6h-8V2.5zM11.5 10h-8v3.5z" />,
   reset: <path d="M3 3v3h3M3.4 6A5 5 0 1 1 3 8.5" />,
   unlink: <path d="M6.75 5.75l1-1a2.5 2.5 0 0 1 3.5 3.5l-1 1M9.25 10.25l-1 1a2.5 2.5 0 0 1-3.5-3.5l1-1M3 3l1.5 1.5M13 13l-1.5-1.5" />,
   ratio: <path d="M7 9l2-2M6.75 5.75l1-1a2.5 2.5 0 0 1 3.5 3.5l-1 1M9.25 10.25l-1 1a2.5 2.5 0 0 1-3.5-3.5l1-1" />,
   arrowDown: <path d="M8 3v10M4.5 9.5 8 13l3.5-3.5" />,
   arrowUp: <path d="M8 13V3M4.5 6.5 8 3l3.5 3.5" />,
   arrowRight: <path d="M3 8h10M9.5 4.5 13 8l-3.5 3.5" />,
-  arrowLeft: <path d="M13 8H3M6.5 4.5 3 8l3.5 3.5" />,
-  plainLine: <path d="M3 8h10" />,
   strokeWeight: (
     <>
       <path d="M3 3.5h10" strokeWidth="0.75" />
