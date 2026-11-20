@@ -78,5 +78,6 @@ stdenv.mkDerivation {
   installPhase = ''
     mkdir -p $out
     cp out/canvaskit.js out/canvaskit.wasm LICENSE $out
+    sed -i 's/if(typeof exports==="object".*$/export default CanvasKitInit;/' $out/canvaskit.js
   '';
 }
