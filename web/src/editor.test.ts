@@ -44,3 +44,14 @@ test('the snapshot the editor merges from changes equals the full one', () => {
   }
   expect(applied).toBeGreaterThan(100)
 })
+
+test('a project that fails to open leaves the open one as it was', () => {
+  initSync({ module: readFileSync(new URL('engine/engine_bg.wasm', import.meta.url)) })
+  const editor = new Editor(Engine.sample())
+  const { hash } = editor.engine.addImage(readFileSync(new URL('../public/icon-192.png', import.meta.url)), undefined) as { hash: string }
+  const version = editor.engine.version()
+  const other = Engine.blank(100, 100, 1, false).updates(new Uint8Array())
+  expect(() => editor.load(other, undefined, false, [new Uint8Array([1, 2, 3])])).toThrow()
+  expect(editor.engine.version()).toBe(version)
+  expect(editor.engine.imageFile(hash)).toBeDefined()
+})

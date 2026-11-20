@@ -401,8 +401,13 @@ impl Engine {
         import::import(bytes, name).map_err(|e| JsError::new(&e))
     }
 
-    pub fn load(&mut self, bytes: &[u8]) -> Result<(), JsError> {
-        self.doc = Doc::load(bytes).map_err(|e| JsError::new(&e))?;
+    pub fn load(&mut self, bytes: &[u8], updates: Vec<Uint8Array>) -> Result<(), JsError> {
+        let mut doc = Doc::load(bytes).map_err(|e| JsError::new(&e))?;
+        for u in updates {
+            doc.sync(&u.to_vec()).map_err(|e| JsError::new(&e))?;
+        }
+        doc.retain_images().map_err(|e| JsError::new(&e))?;
+        self.doc = doc;
         Ok(())
     }
 
@@ -425,7 +430,8 @@ impl Engine {
     }
 
     pub fn sync(&mut self, bytes: &[u8]) -> Result<(), JsError> {
-        self.doc.sync(bytes).map_err(|e| JsError::new(&e))
+        self.doc.sync(bytes).map_err(|e| JsError::new(&e))?;
+        self.doc.retain_images().map_err(|e| JsError::new(&e))
     }
 
     pub fn version(&self) -> String {
