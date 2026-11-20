@@ -53,7 +53,7 @@ export function Settings({ page: first = 'general', onClose }: { page?: Settings
       <div className="settings-pane">
         <header>
           <h3>{PAGES[page][0]}</h3>
-          <button type="button" className="icon-button" aria-label="Close" onClick={() => ref.current!.close()}>
+          <button type="button" className="icon-button" aria-label="Close" title="Close (Esc)" onClick={() => ref.current!.close()}>
             <Icon name="close" />
           </button>
         </header>

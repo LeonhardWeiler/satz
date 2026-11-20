@@ -104,7 +104,7 @@ export function Find({ editor, onClose }: { editor: Editor; onClose: () => void 
         <button type="button" className="icon-button" aria-label="Next match" title="Next match (Enter)" disabled={!all.length} onClick={() => next(1)}>
           <Icon name="arrowDown" />
         </button>
-        <button type="button" className="icon-button" aria-label="Close" onClick={onClose}>
+        <button type="button" className="icon-button" aria-label="Close" title="Close (Esc)" onClick={onClose}>
           <Icon name="close" />
         </button>
         </span>
