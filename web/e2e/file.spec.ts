@@ -189,6 +189,21 @@ test('an export worker that breaks says the export failed', async ({ page }) => 
   await expect(page.getByText(/^Could not export the PDF: .*trap/)).toBeVisible()
 })
 
+test('an export worker that fails at startup is replaced by the next export', async ({ page }) => {
+  let first = true
+  await page.route(/exportWorker[^/]*\.js$/, (r) => {
+    if (!first) return r.continue()
+    first = false
+    return r.fulfill({ contentType: 'text/javascript', body: "console.log('boot'); throw new Error('boot')" })
+  })
+  const booted = page.waitForEvent('worker').then((w) => w.waitForEvent('console'))
+  await open(page)
+  await booted
+  const download = page.waitForEvent('download')
+  await (await exportButton(page)).click()
+  expect((await download).suggestedFilename()).toMatch(/\.pdf$/)
+})
+
 test('an svg opens as a project of its layers and places into a document', async ({ page }) => {
   const svg = {
     name: 'logo.svg',
