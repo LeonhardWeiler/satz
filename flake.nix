@@ -23,7 +23,7 @@
         };
         e2e = {
           packages = with pkgs; [
-            nodejs_22
+            nodejs_24
             pnpm
             mupdf
           ];
@@ -40,7 +40,7 @@
           packages = e2e.packages ++ (with pkgs; [
             rust
             wasm-pack
-            wasm-bindgen-cli_0_2_127
+            wasm-bindgen-cli
             binaryen
             python3
             imagemagick

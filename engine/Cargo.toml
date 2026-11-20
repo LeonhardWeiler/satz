@@ -19,7 +19,7 @@ harfrust = "0.13.3"
 hayro-interpret = { version = "0.9", default-features = false, optional = true }
 hypher = { version = "0.1.8", default-features = false, features = ["alloc", "english", "german", "french", "italian", "spanish", "dutch"] }
 jpeg-encoder = "0.7.1"
-js-sys = "=0.3.104"
+js-sys = "=0.3.107"
 krilla = { version = "0.8.2", default-features = false, features = ["raster-images"] }
 kurbo = "0.13.1"
 linesweeper = "0.5.0"
@@ -36,8 +36,8 @@ serde_json = { version = "1.0.151", features = ["raw_value"] }
 skrifa = "0.42.1"
 subsetter = "0.2.6"
 tiny-skia = { version = "0.12.0", default-features = false, features = ["std", "simd"] }
-usvg = { version = "0.49", default-features = false, optional = true }
-wasm-bindgen = "=0.2.127"
+usvg = { version = "0.50", default-features = false, optional = true }
+wasm-bindgen = "=0.2.130"
 wuff = "0.2.9"
 zune-core = "0.5.3"
 zune-jpeg = "0.5.15"
