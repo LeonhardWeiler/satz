@@ -71,6 +71,13 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   const lastFormat = useRef<Format>('pdf')
   const [starting, setStarting] = useState(false)
   const [dialog, setDialog] = useState<'palette' | 'help' | 'settings' | 'history' | null>(null)
+  const showDialog = (d: 'palette' | 'help' | 'settings' | 'history') => {
+    if (d === 'history') {
+      editor.finishPen(false)
+      editor.stopEditing()
+    }
+    setDialog(d)
+  }
   const [finding, setFinding] = useState(false)
   const [menu, setMenu] = useState<{ x: number; y: number; sub?: 'transform' | 'table' | 'zoom' } | null>(null)
   const zoom = useZoom()
@@ -142,7 +149,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       place: () => placeImages(editor),
       export: quickExport,
       find: () => setFinding(true),
-      dialog: (d: 'palette' | 'help' | 'settings' | 'history') => setDialog(d),
+      dialog: showDialog,
       focus: cycleFocus,
       hide: (panel: Panel) => {
         if (panel === 'ui') editor.say(hidden.ui ? '' : <><Keys keys="Shift W" /> shows the interface again</>)
@@ -305,7 +312,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
             <Icon name="pages" />
           </button>
           <span className="sep" />
-          <button type="button" className="tool" aria-label="Version history" title="Version history (Ctrl+Alt+Z)" onClick={() => setDialog('history')}>
+          <button type="button" className="tool" aria-label="Version history" title="Version history (Ctrl+Alt+Z)" onClick={() => showDialog('history')}>
             <Icon name="clock" />
           </button>
           <button type="button" className="tool" aria-label="Settings" title="Settings (Ctrl+,)" onClick={() => setDialog('settings')}>

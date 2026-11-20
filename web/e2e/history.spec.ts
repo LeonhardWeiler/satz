@@ -1,4 +1,4 @@
-import { expect, test, open } from './util'
+import { expect, test, open, screen } from './util'
 
 test('a version of the history is previewed, restored and undo takes it back', async ({ page }) => {
   await page.clock.install()
@@ -35,3 +35,33 @@ test('a version of the history is previewed, restored and undo takes it back', a
   await page.keyboard.press('Control+z')
   await expect(layer).toHaveCount(0)
 })
+
+for (const tool of ['pen', 'text']) {
+  test(`version history ends the ${tool} before it previews another page`, async ({ page }) => {
+    await page.clock.install()
+    await open(page)
+    await page.clock.fastForward('02:00')
+    await page.getByRole('tab', { name: 'Layers' }).click()
+    const layers = page.getByRole('tree', { name: 'Layers' })
+    await layers.getByRole('button', { name: /^Satz sets type/ }).click()
+    await page.keyboard.press('Delete')
+    await page.keyboard.press('PageDown')
+    await page.clock.fastForward('02:00')
+    const before = await layers.getByRole('treeitem').count()
+    if (tool === 'pen') {
+      await page.keyboard.press('p')
+      await page.mouse.click(...(await screen(page, 40, 20)))
+    } else {
+      await page.keyboard.press('t')
+      await page.mouse.click(...(await screen(page, 40, 20)))
+      await expect(page.getByRole('textbox', { name: 'Text editor' })).toBeFocused()
+    }
+    if (tool === 'pen') await page.keyboard.press('Control+Alt+z')
+    else await page.getByRole('button', { name: 'Version history' }).click()
+    const history = page.getByRole('dialog', { name: 'Version history' })
+    await history.getByRole('option').nth(1).hover()
+    await page.keyboard.press('Escape')
+    await expect(history).toBeHidden()
+    await expect(layers.getByRole('treeitem')).toHaveCount(before)
+  })
+}
