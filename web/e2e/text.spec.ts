@@ -198,10 +198,12 @@ test('lorem with a count and tab types that many words of lorem ipsum', async ({
   await expect(layers.getByRole('button', { name: 'Hi Lorem ipsum dolor.', exact: true })).toBeVisible()
   await page.keyboard.type(' lorem')
   await page.keyboard.press('Tab')
+  await page.keyboard.type(' lorem0')
+  await page.keyboard.press('Tab')
   await page.keyboard.press('Control+a')
   await page.keyboard.press('Control+c')
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
-    'Hi Lorem ipsum dolor. Lorem ipsum dolor sit amet consectetur adipiscing elit sed do.',
+    'Hi Lorem ipsum dolor. Lorem ipsum dolor sit amet consectetur adipiscing elit sed do. Lorem.',
   )
 })
 
