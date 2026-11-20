@@ -23,18 +23,29 @@ const pickers = globalThis as {
   showOpenFilePicker?: (o: { types: Types; multiple?: boolean }) => Promise<Handle[]>
 }
 
-let db: Promise<IDBDatabase> | undefined
+export function once<T>(load: () => Promise<T>) {
+  let p: Promise<T> | undefined
+  return () =>
+    (p ??= load().catch((e: unknown) => {
+      p = undefined
+      throw e
+    }))
+}
+
+const db = once(
+  () =>
+    new Promise<IDBDatabase>((done, fail) => {
+      const r = indexedDB.open('satz', 4)
+      r.onupgradeneeded = () => {
+        for (const s of ['files', 'fonts', 'projects', 'links']) if (!r.result.objectStoreNames.contains(s)) r.result.createObjectStore(s)
+      }
+      r.onsuccess = () => done(r.result)
+      r.onerror = () => fail(r.error)
+    }),
+)
 
 async function store(name: 'files' | 'fonts' | 'projects' | 'links') {
-  db ??= new Promise((done, fail) => {
-    const r = indexedDB.open('satz', 4)
-    r.onupgradeneeded = () => {
-      for (const s of ['files', 'fonts', 'projects', 'links']) if (!r.result.objectStoreNames.contains(s)) r.result.createObjectStore(s)
-    }
-    r.onsuccess = () => done(r.result)
-    r.onerror = () => fail(r.error)
-  })
-  return (await db).transaction(name, 'readwrite').objectStore(name)
+  return (await db()).transaction(name, 'readwrite').objectStore(name)
 }
 
 const finished = (t: IDBTransaction) =>

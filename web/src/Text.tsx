@@ -5,7 +5,7 @@ import { Check, Field, FontSelect, Group, NameInput, nextName, Section, Segmente
 import { ColorPicker } from './ColorPicker'
 import { neutral, type Color } from './color'
 import { scopeOf, useEditor, type Editor } from './editor'
-import { addFonts, addLocalFont, useLocalFonts } from './file'
+import { addFonts, addLocalFont, once, useLocalFonts } from './file'
 import { Icon, type IconName } from './icons'
 import { Dialog } from './Popover'
 import { MAX_LENGTH, length } from './settings'
@@ -382,19 +382,18 @@ function Characters({ editor, node, font }: { editor: Editor; node: TextNode; fo
 
 const faces = new Set<number>()
 
-let names: Promise<Map<number, string>> | undefined
-const loadNames = () =>
-  (names ??= fetch(namesUrl)
-    .then((r) => r.text())
-    .then((t) => new Map(t.split('\n').filter(Boolean).map((l) => [parseInt(l, 16), l.slice(l.indexOf(' ') + 1)])))
-    .catch(() => new Map()))
+const loadNames = once(() =>
+  fetch(namesUrl)
+    .then((r) => (r.ok ? r.text() : Promise.reject(new Error(`character names: ${r.status}`))))
+    .then((t) => new Map(t.split('\n').filter(Boolean).map((l) => [parseInt(l, 16), l.slice(l.indexOf(' ') + 1)]))),
+)
 
 function Glyphs({ editor, font, at, put, onClose }: { editor: Editor; font?: string; at: Element; put: (c: string) => void; onClose: () => void }) {
   const [query, setQuery] = useState('')
   const [hover, setHover] = useState('')
   const [[id, codes]] = useState(() => editor.engine.characters(font) as [number, number[]])
   const [named, setNamed] = useState(new Map<number, string>())
-  useEffect(() => void loadNames().then(setNamed), [])
+  useEffect(() => void loadNames().then(setNamed, () => {}), [])
   const chars = codes.map((c) => [c, named.get(c) ?? ''] as const)
   const family = `satz-font-${id}`
   if (!faces.has(id)) {
