@@ -151,7 +151,7 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
             <div className="pf-list">
               {sorted.map((i) => (
                 <button
-                  key={`${i.layer} ${i.problem}`}
+                  key={JSON.stringify(i)}
                   type="button"
                   className={`iss ${isError(i) ? 'error' : 'warn'}`}
                   aria-current={selection.includes(i.layer)}
