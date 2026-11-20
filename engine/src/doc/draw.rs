@@ -1008,9 +1008,8 @@ impl Doc {
     #[cfg(feature = "io")]
     pub fn package(&self, title: &str, date: &str, indices: &[u32]) -> Res<Vec<u8>> {
         let saved = self.save();
-        let doc = LoroDoc::new();
-        doc.import(&saved).expect("a saved document imports");
-        let images = doc.get_map("images").get_value().into_map();
+        let used = self.used_images();
+        let images = self.doc.get_map("images").get_value().into_map();
         let mut files = vec![
             (format!("{title}/{title}.satz"), saved),
             (
@@ -1038,7 +1037,7 @@ impl Doc {
             files.push((format!("{title}/Fonts/{name}.{ext}"), bytes.to_vec()));
         }
         for (hash, v) in images.unwrap_or_default().iter() {
-            if let LoroValue::Binary(bytes) = v {
+            if let (true, LoroValue::Binary(bytes)) = (used.contains(hash), v) {
                 let ext = if bytes.starts_with(b"\x89PNG") {
                     "png"
                 } else {

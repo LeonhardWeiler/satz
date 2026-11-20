@@ -118,10 +118,8 @@ impl Doc {
     }
 
     pub fn take_clip(&mut self, bytes: &[u8]) -> Res<()> {
-        let doc = LoroDoc::new();
-        doc.import(bytes).map_err(|_| "not copied layers")?;
-        let d = Doc::with(doc);
-        let page = *d.pages().first().ok_or("not copied layers")?;
+        let d = Doc::read(bytes)?;
+        let page = d.pages()[0];
         d.convert(self.color_mode())?;
         let images = d
             .doc
@@ -269,6 +267,12 @@ mod tests {
             n.style.fills[0].color
         );
         assert!(b.take_clip(b"no").is_err());
+        for (k, v) in [("opacity", LoroValue::from("x")), ("w", f64::NAN.into())] {
+            let c = Doc::load(&a.clip_out()).unwrap();
+            let n = c.children(c.pages()[0])[0];
+            c.meta(n).insert(k, v).unwrap();
+            assert!(b.take_clip(&c.save()).is_err(), "{k}");
+        }
     }
 
     #[test]

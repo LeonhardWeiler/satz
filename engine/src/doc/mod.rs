@@ -1427,6 +1427,15 @@ impl Doc {
     }
 
     pub fn load(bytes: &[u8]) -> Res<Doc> {
+        let d = Doc::read(bytes)?;
+        d.register_images()?;
+        d.doc.set_next_commit_origin(LAYOUT_ORIGIN);
+        d.finish(vec![], false)?;
+        Ok(d)
+    }
+
+    #[allow(clippy::disallowed_methods)]
+    pub(super) fn read(bytes: &[u8]) -> Res<Doc> {
         let doc = LoroDoc::new();
         doc.import(bytes).map_err(|_| "not a Satz document")?;
         let d = Doc::with(doc);
@@ -1439,9 +1448,6 @@ impl Doc {
             return Err("not a Satz document".into());
         }
         d.check_file()?;
-        d.register_images()?;
-        d.doc.set_next_commit_origin(LAYOUT_ORIGIN);
-        d.finish(vec![], false)?;
         Ok(d)
     }
 
@@ -1477,6 +1483,7 @@ impl Doc {
             .unwrap_or_else(|| (self.doc).export(ExportMode::Snapshot).expect("export"))
     }
 
+    #[allow(clippy::disallowed_methods)]
     pub fn sync(&mut self, bytes: &[u8]) -> Res<()> {
         let meta = LoroDoc::decode_import_blob_meta(bytes, false).map_err(err)?;
         if meta.mode.is_snapshot() {

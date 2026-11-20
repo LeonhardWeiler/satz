@@ -1,0 +1,3 @@
+disallowed-methods = [
+  { path = "loro::LoroDoc::import", reason = "bytes into a doc go through Doc::read, which runs check_file" },
+]
