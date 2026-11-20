@@ -173,7 +173,7 @@ export const ACTIONS: Action[] = [
     title: 'Paste style',
     keys: '',
     group: 'Edit',
-    can: () => Object.keys(copied).length > 0,
+    can: (editor) => selected(editor) && Object.keys(copied).length > 0,
     run: (editor) => editor.batch(() => editor.selected().forEach((n) => editor.apply({ type: 'set', id: n.id, ...copied }))),
   },
   { title: 'Rename', keys: 'F2', group: 'Edit', can: selected, run: (editor) => editor.set({ renaming: editor.selection[0] }) },
