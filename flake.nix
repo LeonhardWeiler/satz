@@ -47,6 +47,7 @@
             imagemagick
             perl
             librsvg
+            typescript
           ]);
         });
         devShells.e2e = pkgs.mkShell e2e;
