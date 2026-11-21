@@ -23,11 +23,12 @@ Browser (`PERF=1 PAGES=32 ./check e2e e2e/perf.spec.ts`), ms per step on 32 page
 CanvasKit is an own build (`canvaskit.nix`): 3.93 MB, 1.53 MB gzip, 1.16 MB Brotli; the npm build
 was 7.32 MB, 2.94 MB gzip.
 
-Engine WASM, 2026-11-17: lean 9.49 MB, 3.88 MB gzip, 2.87 MB Brotli; full 12.71 MB, 5.05 MB
-gzip, 3.67 MB Brotli. The lean one renders first; `warm` and the service worker fetch the full
+Engine WASM, 2026-11-21: lean 9.52 MB, 3.89 MB gzip, 2.89 MB Brotli; full 12.75 MB, 5.06 MB
+gzip, 3.69 MB Brotli. The lean one renders first; `warm` and the service worker fetch the full
 one after it, so a first visit moves 10.5 MB gzip (7.7 MB Brotli) with CanvasKit, against
-6.6 MB (4.8 MB) with one engine. The budgets in `check` sit about 100 kB above both; a change
-that grows past one raises it and updates these numbers.
+6.6 MB (4.8 MB) with one engine. The budgets in `check` are a regression gate, not a target:
+each is the size measured on 2026-11-21 plus 3 %, rounded up to 10 kB. A change that grows past
+one sets it to the new size plus 3 % and updates these numbers.
 
 Measured and not done:
 

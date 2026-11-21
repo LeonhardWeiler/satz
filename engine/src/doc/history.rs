@@ -100,7 +100,7 @@ impl Doc {
                 self.doc.checkout(&at).map_err(err)?;
             }
             None if self.doc.is_detached() => {
-                self.doc.checkout_to_latest();
+                self.doc.try_checkout_to_latest().map_err(err)?;
                 self.undo.resume();
             }
             None => return Ok(()),

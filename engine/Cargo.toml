@@ -23,7 +23,7 @@ js-sys = "=0.3.107"
 krilla = { version = "0.8.2", default-features = false, features = ["raster-images"] }
 kurbo = "0.13.1"
 linesweeper = "0.5.0"
-loro = "1.17.1"
+loro = "1.18.0"
 miniz_oxide = { version = "0.9.1", optional = true }
 ruzstd = { version = "0.9", default-features = false, features = ["std"], optional = true }
 moxcms = { version = "0.8.1", default-features = false, features = ["lut"] }
