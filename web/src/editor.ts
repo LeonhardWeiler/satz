@@ -1,6 +1,6 @@
 import { useSyncExternalStore, type ReactNode } from 'react'
 import type { Engine } from './engine/engine'
-import { textSizing, type Command, type Container, type Modes, type Node, type Page, type Palette, type Resizing, type Scope, type Snapshot, type TextNode, type Typeface, type Version } from './model'
+import { textSizing, type Command, type Container, type Modes, type Node, type Page, type Palette, type Resizing, type Scope, type Sheet, type Snapshot, type TextNode, type Typeface, type Version } from './model'
 import type { Previewed } from './exportWorker'
 import type { Handle } from './file'
 import { penPath, type Anchor } from './pen'
@@ -323,7 +323,7 @@ export class Editor {
   }
 
   loadImage(bytes: Uint8Array<ArrayBuffer>, name: string, link = false) {
-    const { hash, width, height } = this.change(() => this.engine.addImage(bytes, link ? name : undefined) as { hash: string; width: number; height: number })
+    const { hash, width, height } = this.change(() => this.engine.addImage(bytes, link ? name : undefined))
     const [w, h] = [width, height].map((px) => (px * 72) / 300)
     const fit = Math.min(1, this.page.width / w, this.page.height / h)
     this.setTool('move')
@@ -337,24 +337,20 @@ export class Editor {
   }
 
   registerImage(bytes: Uint8Array) {
-    return this.change(() => this.engine.registerImage(bytes) as { hash: string }).hash
+    return this.change(() => this.engine.registerImage(bytes)).hash
   }
 
   private read(): Snapshot {
-    const s = JSON.parse(this.engine.changes())
+    const s = this.engine.changes()
     const old = this.snapshot as Snapshot | undefined
     const sheets = new Map([...(old?.pages ?? []), ...(old?.masters ?? [])].map((p) => [p.id, p]))
-    const keep = (p: Page | string) => {
+    const keep = (p: Sheet | string): Page => {
       if (typeof p === 'string') return sheets.get(p)!
       const layers = new Map(sheets.get(p.id)?.children.map((n) => [n.id, n]))
-      p.children = p.children.map((n: Node | string) => (typeof n === 'string' ? layers.get(n)! : n))
-      return p
+      return { ...p, children: p.children.map((n) => (typeof n === 'string' ? layers.get(n)! : n)) }
     }
-    s.pages = s.pages.map(keep)
-    s.masters = s.masters.map(keep)
     const stories = new Map(Object.entries(old?.stories ?? {}))
-    for (const k in s.stories) {
-      const v = s.stories[k]
+    for (const [k, v] of Object.entries(s.stories)) {
       const o = stories.get(k)
       if (v === null) stories.delete(k)
       else if (!('at' in v)) stories.set(k, v)
@@ -365,8 +361,7 @@ export class Editor {
         })
       }
     }
-    s.stories = Object.fromEntries(stories)
-    return s
+    return { ...s, pages: s.pages.map(keep), masters: s.masters.map(keep), stories: Object.fromEntries(stories) }
   }
 
   private change<T>(f: () => T): T {

@@ -2561,10 +2561,13 @@ fn fixture_types() {
     d.visit::<Props>();
     d.visit::<Palette>();
     d.visit::<history::Version>();
+    d.visit::<crate::Delta>();
+    d.visit::<crate::Scope>();
+    d.visit::<crate::image::ImageInfo>();
     let mut ts: String = d.1.values().map(|v| format!("export {v}\n")).collect();
     let list = |l: &[&str]| serde_json::to_string(l).unwrap();
     ts += &format!(
-        "export const MM = {MM}\nexport const SELECTION = {:?}\nexport const STYLED = {} as const\nexport type Styled = (typeof STYLED)[number]\nexport const BINDABLE = {} as const\nexport type Bindable = (typeof BINDABLE)[number] | Styled\n",
+        "export type Sheet = Omit<Page, \"children\"> & {{ children: Array<string | Node> }}\nexport type Changes = Omit<Snapshot, keyof Delta> & Delta\nexport type Process = Extract<Color, number | {{ cmyk: Array<number> }}>\nexport const MM = {MM}\nexport const SELECTION = {:?}\nexport const STYLED = {} as const\nexport type Styled = (typeof STYLED)[number]\nexport const BINDABLE = {} as const\nexport type Bindable = (typeof BINDABLE)[number] | Styled\n",
         SELECTION,
         list(&STYLED),
         list(&BINDABLE),

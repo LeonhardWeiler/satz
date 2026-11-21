@@ -1,8 +1,7 @@
 import { neutral as engineNeutral, preview, resolve as engineResolve, toCmyk } from './engine/engine'
-import type { Color, ColorMode, Fill, Scope } from './model'
-export type { Color, ColorMode } from './types'
+import type { Color, ColorMode, Fill, Process, Scope } from './model'
+export type { Color, ColorMode, Process } from './types'
 
-export type Process = number | { cmyk: number[]; alpha: number }
 export type Hsv = [h: number, s: number, v: number]
 
 export const resolve = (c: Color, scope: Scope): Process =>
@@ -53,7 +52,7 @@ export function fromHsv([h, s, v]: Hsv) {
 
 export const solid = (color: Color): Fill => ({ type: 'solid', color, stops: [], transform: [1, 0, 0, 1, 0, 0], visible: true })
 
-export const neutral = (name: 'black' | 'white' | 'gray', mode: ColorMode) => engineNeutral(name, mode) as Color
+export const neutral = (name: 'black' | 'white' | 'gray', mode: ColorMode) => engineNeutral(name, mode)
 
 export const cmykText = (cmyk: number[]) => cmyk.map((v, i) => `${'CMYK'[i]}:${Math.round(v * 1000) / 10}`).join(' ')
 

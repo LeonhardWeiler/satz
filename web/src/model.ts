@@ -1,11 +1,10 @@
-import type { Node, Palette, Sizing, Span } from './types'
+import type { Node, Sizing, Span } from './types'
 
 export type * from './types'
 
 export type Container = Extract<Node, { children: Node[] }>
 export type TextNode = Extract<Node, { kind: 'text' }>
 export type Modes = Record<string, string>
-export type Scope = Omit<Palette, 'textStyles'> & { modes: Modes }
 export type Attrs = Omit<Span, 'len'>
 export type TextProps = Partial<Attrs>
 export { STYLED } from './types'

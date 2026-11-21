@@ -88,7 +88,7 @@ test('text in a missing font is highlighted pink', async () => {
     return n
   }
   const before = pink()
-  engine.apply({ type: 'format', id: text.id, range: null, font: { name: 'Gone Sans', hash: '0123456789abcdef' } })
+  engine.apply({ type: 'format', id: text.id, range: null, font: { name: 'Gone Sans', family: '', style: '', hash: '0123456789abcdef' } })
   expect(pink()).toBeGreaterThan(before + 500)
   renderer.delete()
 })
