@@ -146,6 +146,7 @@ export class Editor {
   readonly cropping: string | null = null
   readonly inks = { on: 2 ** 31 - 1, over: true, gamut: true }
   readonly previewed: Previewed | null = null
+  readonly version: Version | null = null
   readonly pointerInk: number | null = null
   readonly file = UNTITLED
   readonly project: string | null = null
@@ -332,6 +333,7 @@ export class Editor {
   }
 
   preview(v: Version | null) {
+    this.w.version = v
     this.change(() => this.engine.preview(v?.peer, v?.counter ?? 0))
     if (v?.page) this.showPage(v.page)
   }

@@ -32,6 +32,11 @@ function usePreview(editor: Editor, on: boolean) {
     if (!on) return
     let [key, busy, again, gone] = ['', false, false, false]
     const request = () => {
+      if (editor.version) {
+        key = ''
+        if (editor.previewed) editor.set({ previewed: null })
+        return
+      }
       const pages = editor.spread.map((p) => p.id).filter((id) => editor.snapshot.pages.some((p) => p.id === id))
       const next = JSON.stringify([editor.engine.version(), pages, editor.inks])
       if (next === key || gone || editor.groups) return
@@ -39,7 +44,7 @@ function usePreview(editor: Editor, on: boolean) {
       ;[key, busy] = [next, true]
       preview(editor, { pages, ppi: PPI, ...editor.inks, limit: editor.snapshot.inkLimit })
         .then(
-          (previewed) => gone || editor.set({ previewed }),
+          (previewed) => gone || editor.version || editor.set({ previewed }),
           (e: unknown) => editor.fail(`Could not show the inks: ${(e as Error).message}`),
         )
         .finally(() => {
