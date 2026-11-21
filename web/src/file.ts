@@ -54,9 +54,9 @@ const finished = (t: IDBTransaction) =>
     t.onerror = t.onabort = () => fail(t.error ?? new Error('the write was aborted'))
   })
 
-const result = <T,>(r: IDBRequest<T>) =>
+const result = <T,>(r: IDBRequest) =>
   new Promise<T>((done, fail) => {
-    r.onsuccess = () => done(r.result)
+    r.onsuccess = () => done(r.result as T)
     r.onerror = () => fail(r.error ?? new Error('the request failed'))
   })
 

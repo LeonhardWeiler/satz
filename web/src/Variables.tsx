@@ -217,7 +217,7 @@ export function ModeSelects({ editor, id, own, inherited }: { editor: Editor; id
     .map((c) => {
       const auto = c.modes.find((m) => m.id === inherited[c.id]) ?? c.modes[0]
       const many = collections.length > 1
-      const options = Object.fromEntries([['', `Auto (${auto.name})`], ...c.modes.map((m) => [m.id, m.name])])
+      const options = Object.fromEntries([['', `Auto (${auto.name})`] as const, ...c.modes.map((m) => [m.id, m.name] as const)])
       return (
         <Select
           key={c.id}

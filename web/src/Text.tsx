@@ -285,7 +285,7 @@ export function TypeOptions({ editor, spans, set, each, paragraph }: { editor: E
 const TAB_ALIGNS: Record<Tab['align'], string> = { left: 'Left', center: 'Center', right: 'Right', decimal: 'Decimal' }
 
 function TabStops({ tabs, set }: { tabs: string | null; set: (tabs: Tab[]) => void }) {
-  const list: Tab[] = tabs === null ? [] : JSON.parse(tabs)
+  const list = tabs === null ? [] : (JSON.parse(tabs) as Tab[])
   const put = (i: number, t: Partial<Tab>) => set(list.with(i, { ...list[i], ...t }).sort((a, b) => a.at - b.at))
   const [keys, without] = useRowKeys(list)
   return (
@@ -494,7 +494,7 @@ export function TextSection({ editor, nodes }: { editor: Editor; nodes: TextNode
                   editor={editor}
                   node={nodes[0]}
                   label="Shading"
-                  color={shading === null ? undefined : JSON.parse(shading)}
+                  color={shading === null ? undefined : (JSON.parse(shading) as Color)}
                   set={(c) => format({ shading: c })}
                 />
               </>
@@ -637,7 +637,7 @@ export function TextFrameSection({ editor, nodes, set }: { editor: Editor; nodes
   const same = <T,>(get: (n: TextNode) => T) => sameOf(nodes, get)
   const resizing = same((n) => (n.sizing.horizontal === 'hug' ? 'autoWidth' : n.sizing.vertical === 'hug' ? 'autoHeight' : 'fixedSize'))
   const ruled = same((n) => JSON.stringify(n.columnRule?.weight ? n.columnRule : null))
-  const rule: TextNode['columnRule'] | null | undefined = ruled === null ? undefined : JSON.parse(ruled)
+  const rule = ruled === null ? undefined : (JSON.parse(ruled) as TextNode['columnRule'])
   const insets = INSETS.map((p) => same((n) => n[p]))
   const ids = nodes.map((n) => n.id).join()
   const [each, toggle] = useSides('inset', ids, insets)

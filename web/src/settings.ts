@@ -22,7 +22,7 @@ export type Settings = typeof DEFAULTS
 
 const stored = (): Partial<Settings> => {
   try {
-    return JSON.parse(localStorage.getItem(KEY) ?? '{}')
+    return JSON.parse(localStorage.getItem(KEY) ?? '{}') as Partial<Settings>
   } catch {
     return {}
   }

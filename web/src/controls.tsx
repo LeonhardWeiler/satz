@@ -425,7 +425,7 @@ let sizes = new Map<string, number>()
 let grab = 0
 
 export function restorePanels() {
-  sizes = new Map(Object.entries(JSON.parse(localStorage.getItem(SIZES) ?? '{}')))
+  sizes = new Map(Object.entries(JSON.parse(localStorage.getItem(SIZES) ?? '{}') as Record<string, number>))
   for (const [side, v] of sizes) document.documentElement.style.setProperty(`--${side}-size`, `${v}px`)
 }
 

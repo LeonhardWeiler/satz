@@ -8,8 +8,8 @@ test('decodes what the rust encoder wrote', () => {
   const bytes = read('display-list.bin')
   const words = new Uint32Array(bytes.buffer, bytes.byteOffset, bytes.length / 4)
   const plain = JSON.parse(
-    JSON.stringify(decode(words), (_, v) => (ArrayBuffer.isView(v) ? Array.from(v as Float32Array) : v)),
-  )
+    JSON.stringify(decode(words), (_, v: unknown) => (ArrayBuffer.isView(v) ? Array.from(v as Float32Array) : v)),
+  ) as unknown
   expect(plain).toMatchObject(JSON.parse(read('display-list.json').toString()))
 })
 
