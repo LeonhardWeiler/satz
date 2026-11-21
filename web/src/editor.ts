@@ -179,7 +179,8 @@ export class Editor {
 
   load(bytes: Uint8Array, file = UNTITLED, dirty = false, updates: Uint8Array[] = []) {
     this.engine.load(bytes, updates)
-    Object.assign(this, { selection: [], tool: 'move', renaming: null, hover: null, guide: null, pen: null, editing: null, threading: null, placing: [], overview: null, cropping: null, vector: null, copied: null, clip: null, copies: null })
+    Object.assign(this, { selection: [], tool: 'move', renaming: null, hover: null, guide: null, pen: null, editing: null, threading: null, overview: null, cropping: null, vector: null, copied: null, clip: null, copies: null })
+    this.set({ placing: [] })
     this.typing = false
     this.w.groups = 0
     this.w.snapshot = this.read()
@@ -408,6 +409,7 @@ export class Editor {
     if (leaves && !('editing' in patch)) this.stopEditing()
     if (patch.editing) patch = { selection: [patch.editing.id], ...patch }
     if (patch.selection?.length) patch = { guide: null, ...patch }
+    for (const p of this.placing) if (patch.placing && !patch.placing.includes(p)) URL.revokeObjectURL(p.url)
     Object.assign(this, patch)
     this.follow()
     this.settle()
