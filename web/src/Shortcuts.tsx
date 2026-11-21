@@ -62,11 +62,11 @@ const mark = (text: string, q: string) => {
 const assign = (a: Action, keys: string | null) => {
   const old = keysOf(a)
   const other = ACTIONS.find((b) => b !== a && b.group && keysOf(b) === (keys ?? a.keys))
-  const next = { ...settings.keys }
-  const put = (x: Action, k: string) => (k === x.keys ? delete next[x.title] : (next[x.title] = k))
+  const next = new Map(Object.entries(settings.keys))
+  const put = (x: Action, k: string) => (k === x.keys ? next.delete(x.title) : next.set(x.title, k))
   put(a, keys ?? a.keys)
   if (other) put(other, old)
-  setSettings({ keys: next })
+  setSettings({ keys: Object.fromEntries(next) })
   return other ? `${other.title} takes ${old}` : null
 }
 
