@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { readdirSync, readFileSync } from 'node:fs'
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vite-plus'
 import react from '@vitejs/plugin-react'
 
 const base = '/'
@@ -58,4 +58,22 @@ export default defineConfig({
     },
   },
   server: { fs: { allow: ['..'] } },
+  lint: {
+    ignorePatterns: ['dist', 'canvaskit', 'src/engine', 'src/engine-io', 'test-results', 'playwright-report'],
+    plugins: ['eslint', 'typescript', 'react'],
+    categories: { correctness: 'error' },
+    env: { browser: true },
+    rules: {
+      'react/jsx-key': 'off',
+      'react/rules-of-hooks': 'error',
+      'react/exhaustive-deps': 'warn',
+      ...Object.fromEntries(
+        ['error-boundaries', 'globals', 'immutability', 'incompatible-library', 'preserve-manual-memoization', 'purity', 'refs', 'set-state-in-effect', 'set-state-in-render', 'static-components', 'unsupported-syntax', 'use-memo'].map((r) => [`react/${r}`, 'error']),
+      ),
+    },
+    overrides: [
+      { files: ['e2e/**'], rules: { 'eslint/no-restricted-properties': ['error', { property: 'waitForTimeout', message: 'Wait for a state, e.g. with steady() from util.ts.' }] } },
+      { files: ['sw.js'], env: { serviceworker: true }, globals: { CACHE: 'readonly', FILES: 'readonly' } },
+    ],
+  },
 })

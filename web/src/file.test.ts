@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { once } from './file'
 
 it('once caches a result and retries after a rejection', async () => {

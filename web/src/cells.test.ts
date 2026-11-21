@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { expect, test } from 'vitest'
+import { expect, test } from 'vite-plus/test'
 import { TABLE_ACTIONS } from './cells'
 import { Editor } from './editor'
 import { Engine, initSync } from './engine/engine'

@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { cmykText, colorText, parseCmyk } from './color'
 import type { Scope } from './model'
 
