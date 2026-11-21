@@ -23,12 +23,12 @@ export default defineConfig({
     {
       name: 'content-security-policy',
       apply: 'build',
-      transformIndexHtml: () => [
+      transformIndexHtml: (html) => [
         {
           tag: 'meta',
           attrs: {
             'http-equiv': 'Content-Security-Policy',
-            content: "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; img-src 'self' blob: data:; style-src 'self' 'unsafe-inline'",
+            content: `default-src 'self'; script-src 'self' 'wasm-unsafe-eval' ${[...html.matchAll(/<script>([^]*?)<\/script>/g)].map(([, s]) => `'sha256-${createHash('sha256').update(s).digest('base64')}'`).join(' ')}; img-src 'self' blob: data:; style-src 'self' 'unsafe-inline'`,
           },
           injectTo: 'head-prepend',
         },

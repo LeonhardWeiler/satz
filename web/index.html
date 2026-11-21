@@ -4,8 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="dark light" />
-    <meta name="theme-color" content="#141414" media="(prefers-color-scheme: dark)" />
-    <meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#141414" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="description" content="Desktop publishing in the browser: posters and multi-page documents, print-ready PDF." />
@@ -23,12 +22,10 @@
         background: #141414;
         color: #f5f5f5;
       }
-      @media (prefers-color-scheme: light) {
-        html,
-        body {
-          background: #fafafa;
-          color: #171717;
-        }
+      [data-theme='light'],
+      [data-theme='light'] body {
+        background: #fafafa;
+        color: #171717;
       }
       .loading {
         display: grid;
@@ -68,6 +65,17 @@
         }
       }
     </style>
+    <script>
+      {
+        let theme = 'system'
+        try {
+          theme = JSON.parse(localStorage.getItem('satz.settings')).theme ?? theme
+        } catch {}
+        if (theme === 'system') theme = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+        document.documentElement.dataset.theme = theme
+        document.querySelector('meta[name=theme-color]').content = getComputedStyle(document.documentElement).backgroundColor
+      }
+    </script>
   </head>
   <body>
     <div id="root">
