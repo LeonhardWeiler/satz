@@ -48,7 +48,7 @@ it('times motion with the 2 durations', () => {
 
 it('keeps raw colours in the theme', () => {
   const allowed = /^:root|picker|plate|thumb|format-box|ov-ghost canvas|swap|^text$/
-  expect(bad((r) => /#[\da-f]{3,8}\b|rgba?\(/i.test(r.value) && !/^mask/.test(r.prop) && !allowed.test(r.sel))).toEqual([])
+  expect(bad((r) => /#[\da-f]{3,8}\b|rgba?\(/i.test(r.value) && !r.prop.startsWith('mask') && !allowed.test(r.sel))).toEqual([])
 })
 
 it('paints the loading screen, manifest and icon in the theme colours', () => {
@@ -78,7 +78,7 @@ it('uses every class the stylesheet names', () => {
 })
 
 it('draws lines 1 px and rings 2 px', () => {
-  expect(bad((r) => /^border(-(top|right|bottom|left))?(-width)?$/.test(r.prop) && !/picker/.test(r.sel) && px(r.value).some((n) => n !== 1))).toEqual([])
+  expect(bad((r) => /^border(-(top|right|bottom|left))?(-width)?$/.test(r.prop) && !r.sel.includes('picker') && px(r.value).some((n) => n !== 1))).toEqual([])
   expect(bad((r) => /^outline(-width)?$/.test(r.prop) && px(r.value).some((n) => n !== 1 && n !== 2))).toEqual([])
 })
 

@@ -36,14 +36,13 @@ if (!document.createElement('canvas').getContext('webgl2')) {
       CanvasKitInit({ locateFile: () => canvaskitWasm }),
       init(),
       storedFonts().catch(() => []),
-      new Promise<boolean>((got) =>
-        navigator.locks
-          ? navigator.locks.request('satz', { ifAvailable: true }, (lock) => {
-              got(!!lock)
-              return lock && new Promise(() => {})
-            })
-          : got(true),
-      ),
+      new Promise<boolean>((got) => {
+        if (!navigator.locks) return got(true)
+        void navigator.locks.request('satz', { ifAvailable: true }, (lock) => {
+          got(!!lock)
+          return lock && new Promise(() => {})
+        })
+      }),
     ])
     const engine = new Engine()
     for (const bytes of fonts) engine.addFont(bytes)
@@ -56,7 +55,7 @@ if (!document.createElement('canvas').getContext('webgl2')) {
     if (!alone) {
       editor.set({ autosaves: false })
       editor.fail('Satz is open in another tab. This tab does not autosave; save the file with Ctrl+S.')
-      navigator.locks.request('satz', () => {
+      void navigator.locks.request('satz', () => {
         editor.set({ autosaves: true })
         return new Promise(() => {})
       })
@@ -70,8 +69,8 @@ if (!document.createElement('canvas').getContext('webgl2')) {
       </StrictMode>,
     )
     warm()
-    if (import.meta.env.PROD) navigator.serviceWorker?.register(`${import.meta.env.BASE_URL}sw.js`)
-    findGranted(editor)
+    if (import.meta.env.PROD) navigator.serviceWorker?.register(`${import.meta.env.BASE_URL}sw.js`).catch(console.error)
+    void findGranted(editor)
   } catch (e) {
     console.error(e)
     notice('Satz could not start', 'Loading the engine failed. Check your connection and reload the page.', true)

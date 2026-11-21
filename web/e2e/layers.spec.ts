@@ -9,7 +9,7 @@ const at = async (page: Page, p: readonly [number, number]) => (await colors(pag
 async function exported(page: Page) {
   const download = page.waitForEvent('download')
   await (await exportButton(page)).click()
-  const pdf = (await (await download).path())!
+  const pdf = await (await download).path()
   await page.keyboard.press('Escape')
   await page.keyboard.press('Shift+1')
   return execFileSync('mutool', ['draw', '-F', 'trace', '-o', '-', pdf]).toString().match(/<fill_path/g)?.length ?? 0

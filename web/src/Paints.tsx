@@ -8,7 +8,6 @@ import { Dialog } from './Popover'
 import type { Effect, Fill, Scope, Snapshot } from './model'
 
 const TYPES = [['solid', 'Solid'], ['linear', 'Linear'], ['radial', 'Radial']] as const
-type Type = (typeof TYPES)[number][0]
 const EFFECTS = { dropShadow: 'Drop shadow', blur: 'Layer blur' } as const
 const RADIAL = [0.5, 0, 0, 0.5, 0.5, 0.5]
 const shadow = (mode: ColorMode): Effect => ({
@@ -198,7 +197,7 @@ function PaintRow({
                 opacity,
               ]
             : [
-                named(Object.fromEntries(TYPES)[p.type as Type]),
+                named(Object.fromEntries(TYPES)[p.type]),
                 p.type === 'linear' && (
                   <Field label={<Icon name="angle" />} title={`${title} angle`} unit="°" min={-Infinity} reset={0} value={angle(p.transform)} onCommit={(v) => set({ ...p, transform: linear(v) })} />
                 ),

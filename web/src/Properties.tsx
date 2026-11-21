@@ -177,7 +177,7 @@ export function Properties({ editor }: { editor: Editor }) {
     </PaintList>
   )
 
-  const heading = one && cropping === one.id ? 'Crop' : one ? one.name : nodes.length ? `${nodes.length} ${cells ? 'cells' : 'layers'}` : overview ? 'Pages' : 'Document'
+  const heading = cropping === one?.id ? 'Crop' : one ? one.name : nodes.length ? `${nodes.length} ${cells ? 'cells' : 'layers'}` : overview ? 'Pages' : 'Document'
   return (
     <aside
       className="panel properties"
@@ -409,9 +409,9 @@ export function Properties({ editor }: { editor: Editor }) {
           </div>
         </Section>
       )}
-      {texts && <TextSection editor={editor} nodes={nodes as TextNode[]} />}
+      {texts && <TextSection editor={editor} nodes={nodes} />}
       {texts && fill}
-      {texts && <TextFrameSection editor={editor} nodes={nodes as TextNode[]} set={set} />}
+      {texts && <TextFrameSection editor={editor} nodes={nodes} set={set} />}
       {texts && one && !cells && <ContentsSection editor={editor} node={one as TextNode} />}
       {one?.kind === 'frame' && !table && <AutoLayout editor={editor} node={one} set={set} />}
       {box && (
@@ -504,8 +504,8 @@ export function Properties({ editor }: { editor: Editor }) {
                     label={<Icon name={SIDE_ICONS[i]} />}
                     title={`${side} stroke`}
                     unit="pt"
-                    value={one.strokeSides![i]}
-                    onCommit={(v) => set({ strokeSides: one.strokeSides!.map((w, j) => (j === i ? v : w)) })}
+                    value={one.strokeSides[i]}
+                    onCommit={(v) => set({ strokeSides: one.strokeSides.map((w, j) => (j === i ? v : w)) })}
                   />
                 ))}
               {mode === 'cmyk' && <Check label="Overprint stroke" value={same((n) => n.overprintStroke)} set={(overprintStroke) => set({ overprintStroke })} />}

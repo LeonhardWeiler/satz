@@ -108,7 +108,7 @@ test('a fill bound to a color variable follows the mode of its frame and page', 
   const shown = async () => colors(page, [await screen(page, 74, 7), await screen(page, 100, 185)])
   const expectColors = async (top: number[], inFrame: number[]) => {
     const [a, b] = await shown()
-    expect(near(a, top) && near(b, inFrame), `${a} ${b}`).toBe(true)
+    expect(near(a, top) && near(b, inFrame), `${a.join()} ${b.join()}`).toBe(true)
   }
   const [red, blue] = [[255, 0, 0], [0, 0, 255]]
   await expectColors(red, red)

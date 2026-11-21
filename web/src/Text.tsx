@@ -173,7 +173,7 @@ export function TypeOptions({ editor, spans, set, each, paragraph }: { editor: E
   const same = <T,>(get: (a: Pick<Attrs, Styled>) => T) => sameOf(spans, get)
   const on = (tag: string, dflt?: boolean) => (a: Pick<Attrs, Styled>) => (dflt ? !a.features.includes(`${tag}=0`) : a.features.includes(tag))
   const put = (drop: string[], add: string[]) => each('features', (old) => [...old.filter((f) => !drop.some((t) => f === t || f === `${t}=0`)), ...add].sort())
-  const fold = <K extends 'textCase' | 'position'>(key: K, options: Record<string, string>, tags: Record<string, string>, plain: string) => {
+  const fold = (key: 'textCase' | 'position', options: Record<string, string>, tags: Record<string, string>, plain: string) => {
     const known = [...new Set(Object.keys(tags).flatMap((t) => t.split(' ')))]
     const tagged = (a: Pick<Attrs, Styled>) => known.filter((t) => a.features.includes(t)).join(' ')
     const label = key === 'textCase' ? 'Case' : 'Position'
@@ -185,7 +185,7 @@ export function TypeOptions({ editor, spans, set, each, paragraph }: { editor: E
         options={{ ...options, ...tags }}
         onChange={(v) => editor.batch(() => {
           const tag = v in tags
-          if (same((a) => a[key]) !== (tag ? plain : v)) set({ [key]: tag ? plain : v } as TextProps)
+          if (same((a) => a[key]) !== (tag ? plain : v)) set({ [key]: tag ? plain : v })
           if (same(tagged) !== (tag ? v : '')) put(known, tag ? v.split(' ') : [])
         })}
       />
@@ -488,7 +488,7 @@ export function TextSection({ editor, nodes }: { editor: Editor; nodes: TextNode
                   prefix="Language"
                   value={lang ?? 'mixed'}
                   options={langs}
-                  onChange={(l) => l !== 'mixed' && format({ lang: l as Attrs['lang'] })}
+                  onChange={(l) => l !== 'mixed' && format({ lang: l })}
                 />
                 <ColorCheck
                   editor={editor}
@@ -663,7 +663,7 @@ export function TextFrameSection({ editor, nodes, set }: { editor: Editor; nodes
             label="Resizing"
             value={resizing}
             options={RESIZING}
-            disabled={(v) => nodes.some((n) => (v === 'autoWidth' && !!(n.prev || n.next)) || (v === 'autoHeight' && !!n.next))}
+            disabled={(v) => nodes.some((n) => (v === 'autoWidth' && !!(n.prev ?? n.next)) || (v === 'autoHeight' && !!n.next))}
             onChange={(mode) => editor.resize(nodes, mode)}
           />
         )}

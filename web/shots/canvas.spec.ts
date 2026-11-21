@@ -242,7 +242,7 @@ test('transform drags', async ({ page }) => {
   let br: [number, number] = [0, 0]
   for (let i = 0; i < 150 && !br[0]; i += 2) {
     await page.mouse.move(SUN[0] + i, SUN[1] + i)
-    if (/resize/.test(await canvas.evaluate((e) => (e as HTMLElement).style.cursor))) br = [SUN[0] + i, SUN[1] + i]
+    if ((await canvas.evaluate((e) => (e as HTMLElement).style.cursor)).includes('resize')) br = [SUN[0] + i, SUN[1] + i]
   }
   await page.mouse.down()
   await page.mouse.move(br[0] + 20, br[1] + 15, { steps: 5 })

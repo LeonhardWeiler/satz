@@ -115,7 +115,7 @@ const CAPS = ['Butt', 'Round', 'Square'] as const
 const JOINS = ['Miter', 'Round', 'Bevel'] as const
 
 export class Renderer {
-  private caches = [0, 1, 2].map(() => ({ pictures: new Map(), layers: new Map() }) as { pictures: Cache; layers: Cache })
+  private caches: { pictures: Cache; layers: Cache }[] = [0, 1, 2].map(() => ({ pictures: new Map(), layers: new Map() }))
   private cache = this.caches[0]
   private plates: Surface[] = []
   private inksEffect?: RuntimeEffect

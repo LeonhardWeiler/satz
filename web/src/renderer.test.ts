@@ -50,7 +50,7 @@ test('text in several sizes shares one typeface per font, freed with the rendere
   const engine = Engine.sample()
   const typefaces: { delete: () => void }[] = []
   let freed = 0
-  const make = ck.Typeface.MakeTypefaceFromData
+  const make = ck.Typeface.MakeTypefaceFromData.bind(ck.Typeface)
   ck.Typeface.MakeTypefaceFromData = (data) => {
     const t = make(data)!
     const free = t.delete.bind(t)

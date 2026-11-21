@@ -124,11 +124,11 @@ export const STORY =
   'Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore ' +
   'et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum.'
 
-export async function port(page: Page, [x0, y0, x1, y1]: number[], out: boolean, i?: number) {
+export async function port(page: Page, [x0, y0, x1, y1]: number[], out: boolean, i?: number): Promise<[number, number]> {
   const [l, t] = await screen(page, x0, y0, i)
   const [r, b] = await screen(page, x1, y1, i)
   const inset = Math.min(24, (b - t) / 4)
-  return (out ? [r, b - inset] : [l, t + inset]) as [number, number]
+  return out ? [r, b - inset] : [l, t + inset]
 }
 
 export async function frameOnNewPage(page: Page, box: number[]) {

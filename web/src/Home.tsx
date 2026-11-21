@@ -40,8 +40,8 @@ export function Home({ editor, onNew, children }: { editor: Editor; onNew: () =>
   useEffect(() => {
     ref.current!.showModal()
     ref.current!.focus()
-    load(setList)
-    Promise.all(
+    void load(setList)
+    void Promise.all(
       EXAMPLES.map(async ([, , url]) => {
         const e = url ? new Engine() : Engine.sample()
         try {
@@ -62,7 +62,7 @@ export function Home({ editor, onNew, children }: { editor: Editor; onNew: () =>
         const r = await fetch(url)
         if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
         await begin(editor, new Uint8Array(await r.arrayBuffer()), { name, handle: null })
-        findGranted(editor)
+        void findGranted(editor)
       } else {
         const e = Engine.sample()
         await begin(editor, e.save())
@@ -74,8 +74,8 @@ export function Home({ editor, onNew, children }: { editor: Editor; onNew: () =>
   }
   const remove = async (p: Project) => {
     if (!(await ask(`Delete ${p.name} from this browser?`, 'Delete'))) return
-    await removeProject(editor, p.id).catch((e: Error) => editor.fail(`Could not delete ${p.name}: ${e.message}.`))
-    load(setList)
+    await removeProject(editor, p.id).catch((e: unknown) => editor.fail(`Could not delete ${p.name}: ${(e as Error).message}.`))
+    void load(setList)
   }
 
   return (
@@ -101,12 +101,12 @@ export function Home({ editor, onNew, children }: { editor: Editor; onNew: () =>
         <ul className="home-grid" aria-label="Recent">
           {list.map((p) => (
             <li key={p.id} className="home-card">
-              <button type="button" onClick={() => openProject(editor, p.id)}>
+              <button type="button" onClick={() => void openProject(editor, p.id)}>
                 <Thumb bytes={p.thumb} />
                 <strong>{p.name.replace(/\.satz$/, '')}</strong>
                 <small>{ago(p.at)}</small>
               </button>
-              <button type="button" className="icon-button" aria-label={`Delete ${p.name}`} title="Delete" onClick={() => remove(p)}>
+              <button type="button" className="icon-button" aria-label={`Delete ${p.name}`} title="Delete" onClick={() => void remove(p)}>
                 <Icon name="close" />
               </button>
             </li>
@@ -116,7 +116,7 @@ export function Home({ editor, onNew, children }: { editor: Editor; onNew: () =>
               <Icon name="plus" />
               New document
             </button>
-            <button type="button" className="button" onClick={() => open(editor)}>
+            <button type="button" className="button" onClick={() => void open(editor)}>
               <Icon name="folder" />
               Open or import…
             </button>
@@ -126,7 +126,7 @@ export function Home({ editor, onNew, children }: { editor: Editor; onNew: () =>
         <ul className="home-grid" aria-label="Examples">
           {EXAMPLES.map(([title, text, url, name], i) => (
             <li key={title} className="home-card">
-              <button type="button" onClick={() => example(url, name)}>
+              <button type="button" onClick={() => void example(url, name)}>
                 <Thumb bytes={thumbs[i]} />
                 <strong>{title}</strong>
                 <small>{text}</small>

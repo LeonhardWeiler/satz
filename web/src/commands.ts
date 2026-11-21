@@ -43,7 +43,7 @@ export function addPage(editor: Editor) {
 }
 
 const selected = (editor: Editor) => editor.selection.length > 0
-const copy = (editor: Editor) => void navigator.clipboard?.writeText(editor.copy(editor.selection)).catch((e: Error) => editor.fail(`Could not copy: ${e.message}.`))
+const copy = (editor: Editor) => void navigator.clipboard?.writeText(editor.copy(editor.selection)).catch((e: unknown) => editor.fail(`Could not copy: ${(e as Error).message}.`))
 const each = (editor: Editor, f: (n: Node) => unknown) => editor.batch(() => editor.selected().forEach(f))
 const toggle = (editor: Editor, prop: 'hidden' | 'locked') => {
   const on = editor.selected().some((n) => !n[prop])

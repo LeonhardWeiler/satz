@@ -109,7 +109,7 @@ export function Start({ editor, onClose }: { editor: Editor; onClose: () => void
 
   const openFile = () => {
     onClose()
-    open(editor)
+    void open(editor)
   }
 
   return (
@@ -132,7 +132,7 @@ export function Start({ editor, onClose }: { editor: Editor; onClose: () => void
           next.focus()
         } else if (e.key === 'Enter' && (at >= 0 || target === ref.current)) {
           e.preventDefault()
-          create()
+          void create()
         } else if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.code === 'KeyO') {
           e.preventDefault()
           openFile()
@@ -143,7 +143,7 @@ export function Start({ editor, onClose }: { editor: Editor; onClose: () => void
         className="start-form"
         onSubmit={(e) => {
           e.preventDefault()
-          create()
+          void create()
         }}
       >
         <header className="start-head">

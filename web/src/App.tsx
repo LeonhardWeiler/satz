@@ -112,7 +112,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           download(bytes, file, type)
           say(`Exported ${zipped ? `${pages.length} pages as ${file}` : file}`)
         },
-        (e: Error) => editor.fail(`Could not export the ${kind}: ${e.message}. Reload the page and try again.`),
+        (e: unknown) => editor.fail(`Could not export the ${kind}: ${(e as Error).message}. Reload the page and try again.`),
       )
       .finally(() => setExporting(false))
   }
@@ -126,7 +126,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     say('Saving…')
     save(editor, as).then(
       () => say(`Saved ${editor.file.name}`),
-      (e: Error) => e.name === 'AbortError' ? say('') : editor.fail(<>Could not save {name}: {e.message}. Try Save as <Keys keys="Ctrl Shift S" /></>),
+      (e: unknown) => (e as Error).name === 'AbortError' ? say('') : editor.fail(<>Could not save {name}: {(e as Error).message}. Try Save as <Keys keys="Ctrl Shift S" /></>),
     )
   }
 
@@ -178,7 +178,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         const text = e.clipboardData.getData('text/plain').replace(/\r\n?/g, '\n')
         const clip = e.clipboardData.getData(CLIP)
         if (clip) editor.paste(clip)
-        else if (images.length) drop(editor, images)
+        else if (images.length) void drop(editor, images)
         else if (text.trim() && text !== editor.copied) editor.pasteText(text)
         else editor.paste()
       } else {
@@ -201,7 +201,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       if (!files(e)) return
       e.preventDefault()
       const items = [...e.dataTransfer!.items].filter((i) => i.kind === 'file') as (DataTransferItem & { getAsFileSystemHandle?(): Promise<Handle | null> })[]
-      drop(editor, [...e.dataTransfer!.files], items.map((i) => i.getAsFileSystemHandle?.() ?? Promise.resolve(null)))
+      void drop(editor, [...e.dataTransfer!.files], items.map((i) => i.getAsFileSystemHandle?.() ?? Promise.resolve(null)))
     }
     window.addEventListener('dragover', over)
     window.addEventListener('drop', onDrop)
@@ -239,7 +239,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       <div className="left" inert={off('left')}>
         <Edge side="left" />
         <div className="brand" title="Double-click to rename" onDoubleClick={() => setRenaming(true)} onBlur={() => setRenaming(false)}>
-          <button type="button" className="mark" aria-label="Projects" title="Projects" onClick={() => flush().then(() => show(editor, null))} />
+          <button type="button" className="mark" aria-label="Projects" title="Projects" onClick={() => void flush().then(() => show(editor, null))} />
           {renaming ? (
             <>
               <NameInput label="Document name" value={title} autoFocus onCommit={(v) => editor.saved({ ...editor.file, name: `${v}.satz` }, '')} />
@@ -274,7 +274,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
               <span className="sep" />
             </>
           )}
-          {!overview && <Toolbar editor={editor} onPlaceImage={() => placeImages(editor)} />}
+          {!overview && <Toolbar editor={editor} onPlaceImage={() => void placeImages(editor)} />}
         </div>
         <div className="bar-mid">{!overview && <Switcher editor={editor} />}</div>
         <div className="bar-side end">

@@ -51,7 +51,7 @@ test('a linked image reads its file again after a reload, follows its change, re
   await expect.poll(() => color(page)).toEqual([0, 255, 0])
   const download = page.waitForEvent('download')
   await (await exportButton(page)).click()
-  expect(readFileSync((await (await download).path())!).toString('latin1')).toMatch(/\/Width 300\b/)
+  expect(readFileSync(await (await download).path()).toString('latin1')).toMatch(/\/Width 300\b/)
   await page.keyboard.press('Escape')
 
   await linked.getByRole('button', { name: 'Embed linked images' }).click()

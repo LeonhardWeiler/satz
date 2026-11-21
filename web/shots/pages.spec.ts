@@ -1,11 +1,12 @@
+import type { Page } from '@playwright/test'
 import { example, expect, layers, opened, png, props, rest, select, shot, start, test } from './lib'
 import { place } from '../e2e/util'
 
 const G = '09 Pages & masters'
 const L = '08 Layers & swatches'
 const F = '10 Preflight & export'
-const ov = (page) => page.getByRole('region', { name: 'Page overview' })
-const sw = (page) => page.getByRole('navigation', { name: 'Spreads' })
+const ov = (page: Page) => page.getByRole('region', { name: 'Page overview' })
+const sw = (page: Page) => page.getByRole('navigation', { name: 'Spreads' })
 
 test('overview', async ({ page }) => {
   await example(page, 'booklet.satz')
@@ -199,7 +200,7 @@ test('preflight cmyk', async ({ page }) => {
   await shot(page, F, '29 exported', 'After the export: status line', [page.locator('.status'), pf.getByRole('region', { name: 'Output' })], 8)
 })
 
-const sect = (page, name: string) => props(page).getByRole('region', { name, exact: true })
+const sect = (page: Page, name: string) => props(page).getByRole('region', { name, exact: true })
 
 test('page properties', async ({ page }) => {
   await example(page, 'booklet.satz', { h: 1600 })

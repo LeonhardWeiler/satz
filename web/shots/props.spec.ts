@@ -1,8 +1,9 @@
+import type { Page } from '@playwright/test'
 import { opened, png, rest, select, shot, start, test } from './lib'
 import { place } from '../e2e/util'
 
 const P = '05 Properties'
-const both = (page, n: string, what: string) => shot(page, P, n + ' ' + what, `Properties: ${what}`, ['right'])
+const both = (page: Page, n: string, what: string) => shot(page, P, n + ' ' + what, `Properties: ${what}`, ['right'])
 
 test('sample elements', async ({ page }) => {
   await start(page, { h: 2200 })
@@ -64,8 +65,8 @@ test('image', async ({ page }) => {
   await part(page, '23', 'keep aspect ratio', 'Layout')
 })
 
-const sec = (page, name: string) => page.getByRole('complementary', { name: 'Properties' }).getByRole('region', { name, exact: true })
-const part = (page, n: string, what: string, name: string) => shot(page, P, `${n} ${what}`, `Properties: ${what}`, [sec(page, name)], 8)
+const sec = (page: Page, name: string) => page.getByRole('complementary', { name: 'Properties' }).getByRole('region', { name, exact: true })
+const part = (page: Page, n: string, what: string, name: string) => shot(page, P, `${n} ${what}`, `Properties: ${what}`, [sec(page, name)], 8)
 
 test('property states', async ({ page }) => {
   await start(page, { h: 2200 })
