@@ -72,6 +72,7 @@ export default defineConfig({
       ),
     },
     overrides: [
+      { files: ['src/**'], rules: { 'eslint/no-restricted-properties': ['error', { object: 'WebAssembly', property: 'RuntimeError', message: 'A trap reaches stop() through Engine.onPanic.' }] } },
       { files: ['e2e/**'], rules: { 'eslint/no-restricted-properties': ['error', { property: 'waitForTimeout', message: 'Wait for a state, e.g. with steady() from util.ts.' }] } },
       { files: ['sw.js'], env: { serviceworker: true }, globals: { CACHE: 'readonly', FILES: 'readonly' } },
     ],

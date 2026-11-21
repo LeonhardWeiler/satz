@@ -276,7 +276,6 @@ export class Editor {
       if (notes.length) this.say(notes.join('. '))
       return out
     } catch (e) {
-      if (e instanceof WebAssembly.RuntimeError) throw e
       this.fail(`Could not ${verbs[cmd.type]}: ${(e as Error).message}`)
       return []
     }

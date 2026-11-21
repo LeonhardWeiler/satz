@@ -34,9 +34,18 @@ test('a notice tells when the engine fails to load', { annotation: { type: 'erro
   await expect(page.getByRole('progressbar')).toHaveCount(0)
 })
 
-test('a trap in the engine stops Satz with a notice whose button reloads it', { annotation: { type: 'errors' } }, async ({ page }) => {
+test('a caught panic in the engine stops Satz with a notice whose button reloads it', { annotation: { type: 'errors' } }, async ({ page }) => {
+  await page.addInitScript(() => {
+    const w = window as unknown as { trap?: () => void }
+    const streaming = WebAssembly.instantiateStreaming
+    WebAssembly.instantiateStreaming = async (...args) => {
+      const out = await streaming(...args)
+      w.trap ??= out.instance.exports.trap as () => void
+      return out
+    }
+  })
   await open(page)
-  await page.evaluate(() => setTimeout(() => { throw new WebAssembly.RuntimeError('unreachable') }))
+  await page.evaluate(() => Promise.resolve((window as unknown as { trap: () => void }).trap).then((trap) => trap()).catch(() => {}))
   await expect(page.getByRole('alert')).toContainText('Satz stopped')
   await page.getByRole('button', { name: 'Reload' }).click()
   await expect(page.getByLabel('Page canvas')).toBeVisible()

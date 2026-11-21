@@ -52,6 +52,7 @@ if (!document.createElement('canvas').getContext('webgl2')) {
       editor.set({ autosaves: false })
       notice('Satz stopped', 'The engine failed. Reload the page to go on from the last autosave.', true)
     }
+    Engine.onPanic(() => queueMicrotask(stop))
     if (!alone) {
       editor.set({ autosaves: false })
       editor.fail('Satz is open in another tab. This tab does not autosave; save the file with Ctrl+S.')
@@ -70,9 +71,6 @@ if (!document.createElement('canvas').getContext('webgl2')) {
     )
     warm()
     if (import.meta.env.PROD) navigator.serviceWorker?.register(`${import.meta.env.BASE_URL}sw.js`)
-    const trapped = (e: unknown) => e instanceof WebAssembly.RuntimeError && stop()
-    window.addEventListener('error', (e) => trapped(e.error))
-    window.addEventListener('unhandledrejection', (e) => trapped(e.reason))
     findGranted(editor)
   } catch (e) {
     console.error(e)
