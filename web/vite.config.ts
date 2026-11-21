@@ -59,7 +59,7 @@ export default defineConfig({
   },
   server: { fs: { allow: ['..'] } },
   lint: {
-    ignorePatterns: ['dist', 'canvaskit', 'src/engine', 'src/engine-io', 'test-results', 'playwright-report'],
+    ignorePatterns: ['dist', 'canvaskit', 'src/engine', 'src/engine-io', 'src/types.ts', 'test-results', 'playwright-report'],
     plugins: ['eslint', 'oxc', 'react', 'unicorn', 'typescript'],
     categories: { correctness: 'error', suspicious: 'error', perf: 'error' },
     env: { browser: true },
@@ -92,6 +92,10 @@ export default defineConfig({
       'unicorn/no-useless-spread': 'error',
       'unicorn/no-useless-fallback-in-spread': 'error',
       'unicorn/require-module-specifiers': 'error',
+      'typescript/array-type': 'error',
+      'typescript/consistent-indexed-object-style': 'error',
+      'typescript/consistent-type-definitions': ['error', 'type'],
+      'typescript/no-dynamic-delete': 'error',
     },
     overrides: [
       { files: ['src/**'], rules: { 'eslint/no-restricted-properties': ['error', { object: 'WebAssembly', property: 'RuntimeError', message: 'A trap reaches stop() through Engine.onPanic.' }] } },

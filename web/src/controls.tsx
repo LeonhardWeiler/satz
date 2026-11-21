@@ -421,12 +421,12 @@ export function Segmented<T extends string>({
 }
 
 const SIZES = 'satz.panels'
-let sizes: Record<string, number> = {}
+let sizes = new Map<string, number>()
 let grab = 0
 
 export function restorePanels() {
-  sizes = JSON.parse(localStorage.getItem(SIZES) ?? '{}')
-  for (const [side, v] of Object.entries(sizes)) document.documentElement.style.setProperty(`--${side}-size`, `${v}px`)
+  sizes = new Map(Object.entries(JSON.parse(localStorage.getItem(SIZES) ?? '{}')))
+  for (const [side, v] of sizes) document.documentElement.style.setProperty(`--${side}-size`, `${v}px`)
 }
 
 export function Edge({ side }: { side: 'left' | 'right' }) {
@@ -445,13 +445,13 @@ export function Edge({ side }: { side: 'left' | 'right' }) {
         if (!e.currentTarget.hasPointerCapture(e.pointerId)) return
         const v = Math.round(Math.min(560, Math.max(200, at(e) - grab)))
         document.documentElement.style.setProperty(`--${side}-size`, `${v}px`)
-        sizes[side] = v
+        sizes.set(side, v)
       }}
-      onPointerUp={() => localStorage.setItem(SIZES, JSON.stringify(sizes))}
+      onPointerUp={() => localStorage.setItem(SIZES, JSON.stringify(Object.fromEntries(sizes)))}
       onDoubleClick={() => {
         document.documentElement.style.removeProperty(`--${side}-size`)
-        delete sizes[side]
-        localStorage.setItem(SIZES, JSON.stringify(sizes))
+        sizes.delete(side)
+        localStorage.setItem(SIZES, JSON.stringify(Object.fromEntries(sizes)))
       }}
     />
   )

@@ -327,7 +327,7 @@ test('space activates a focused layer button', async ({ page }) => {
   await expect(page.getByRole('complementary', { name: 'Properties' }).getByRole('heading', { level: 2 })).toHaveText('Sun')
 })
 
-test('side panels are resized at their inner edge and keep their size after a reload', async ({ page }) => {
+test('side panels are resized at their inner edge and keep their size after a reload, and a double click resets them', async ({ page }) => {
   await open(page)
   const right = page.getByRole('complementary', { name: 'Properties' })
   const box = (await right.boundingBox())!
@@ -336,6 +336,10 @@ test('side panels are resized at their inner edge and keep their size after a re
   await expect.poll(width).toBe(Math.round(box.width) + 100)
   await page.reload()
   await expect.poll(width).toBe(Math.round(box.width) + 100)
+  await page.mouse.dblclick(box.x - 98, box.y + 300)
+  await expect.poll(width).toBe(Math.round(box.width))
+  await page.reload()
+  await expect.poll(width).toBe(Math.round(box.width))
 })
 
 test('the canvas scrolls no further than 20000 mm from the page', async ({ page }) => {
