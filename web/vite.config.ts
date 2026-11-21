@@ -62,6 +62,7 @@ export default defineConfig({
     ignorePatterns: ['dist', 'canvaskit', 'src/engine', 'src/engine-io', 'src/types.ts', 'test-results', 'playwright-report'],
     plugins: ['eslint', 'oxc', 'react', 'unicorn', 'typescript'],
     categories: { correctness: 'error', suspicious: 'error', perf: 'error' },
+    options: { typeAware: true },
     env: { browser: true },
     rules: {
       'react/jsx-key': 'off',
@@ -96,10 +97,18 @@ export default defineConfig({
       'typescript/consistent-indexed-object-style': 'error',
       'typescript/consistent-type-definitions': ['error', 'type'],
       'typescript/no-dynamic-delete': 'error',
+      'typescript/no-unsafe-type-assertion': 'off',
+      'typescript/no-misused-spread': 'off',
+      'typescript/consistent-return': 'off',
+      'typescript/restrict-template-expressions': ['error', { allowNumber: true }],
+      'typescript/prefer-nullish-coalescing': ['error', { ignorePrimitives: { boolean: true } }],
+      ...Object.fromEntries(
+        ['no-floating-promises', 'no-misused-promises', 'no-unnecessary-type-assertion', 'use-unknown-in-catch-callback-variable', 'no-duplicate-type-constituents', 'prefer-promise-reject-errors', 'restrict-plus-operands', 'prefer-optional-chain', 'prefer-includes', 'prefer-string-starts-ends-with', 'prefer-regexp-exec', 'no-unnecessary-type-parameters', 'unbound-method'].map((r) => [`typescript/${r}`, 'error']),
+      ),
     },
     overrides: [
       { files: ['src/**'], rules: { 'eslint/no-restricted-properties': ['error', { object: 'WebAssembly', property: 'RuntimeError', message: 'A trap reaches stop() through Engine.onPanic.' }] } },
-      { files: ['src/ContextMenu.tsx'], rules: { 'react/no-array-index-key': 'off' } },
+      { files: ['src/ContextMenu.tsx'], rules: { 'react/no-array-index-key': 'off', 'typescript/no-base-to-string': 'off' } },
       { files: ['e2e/**'], rules: { 'eslint/no-restricted-properties': ['error', { property: 'waitForTimeout', message: 'Wait for a state, e.g. with steady() from util.ts.' }] } },
       { files: ['sw.js'], env: { serviceworker: true }, globals: { CACHE: 'readonly', FILES: 'readonly' } },
     ],

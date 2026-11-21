@@ -33,6 +33,7 @@
             withWebkit = false;
           };
           PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
+          OXLINT_TSGOLINT_PATH = "${pkgs.tsgolint}/bin/tsgolint";
         };
       in {
         packages.canvaskit = pkgs.callPackage ./canvaskit.nix { };
