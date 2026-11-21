@@ -226,6 +226,7 @@ function run<T>(job: Job, editor: Editor, task: { preview?: Preview; out?: Out; 
     const seen = editor.engine.versionVector()
     const doc = version === job.version ? null : editor.engine.updates(job.seen)
     const { links, images: read } = editor.snapshot
+    job.images.forEach((h) => h in links || job.images.delete(h))
     const hashes = Object.keys(links).filter((h) => h in read && !job.images.has(h))
     const images = hashes.map((h) => editor.engine.imageFile(h)!)
     return new Promise<T>((done, fail) => {
