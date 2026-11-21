@@ -111,7 +111,7 @@ function Thumb({ paint, snapshot, lists, sheets, height }: { paint: ReturnType<t
   const h = Math.max(...sheets.map((s) => s.height))
   const key = JSON.stringify([lists, sheets, height])
   useEffect(() => {
-    const [l, s] = JSON.parse(key)
+    const [l, s] = JSON.parse(key) as [Lists, Sheet[]]
     paint(ref.current!, l, s, snapshot)
   }, [paint, snapshot, key])
   return <canvas ref={ref} className="thumb" style={{ width: Math.round((height * w) / h), height }} />

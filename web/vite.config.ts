@@ -105,7 +105,7 @@ export default defineConfig({
       'typescript/restrict-template-expressions': ['error', { allowNumber: true }],
       'typescript/prefer-nullish-coalescing': ['error', { ignorePrimitives: { boolean: true } }],
       ...Object.fromEntries(
-        ['no-floating-promises', 'no-misused-promises', 'no-unnecessary-type-assertion', 'use-unknown-in-catch-callback-variable', 'no-duplicate-type-constituents', 'prefer-promise-reject-errors', 'restrict-plus-operands', 'prefer-optional-chain', 'prefer-includes', 'prefer-string-starts-ends-with', 'prefer-regexp-exec', 'no-unnecessary-type-parameters', 'unbound-method'].map((r) => [`typescript/${r}`, 'error']),
+        ['no-floating-promises', 'no-misused-promises', 'no-unnecessary-type-assertion', 'use-unknown-in-catch-callback-variable', 'no-duplicate-type-constituents', 'prefer-promise-reject-errors', 'restrict-plus-operands', 'prefer-optional-chain', 'prefer-includes', 'prefer-string-starts-ends-with', 'prefer-regexp-exec', 'no-unnecessary-type-parameters', 'unbound-method', 'no-unsafe-argument', 'no-unsafe-assignment', 'no-unsafe-call', 'no-unsafe-member-access', 'no-unsafe-return'].map((r) => [`typescript/${r}`, 'error']),
       ),
     },
     overrides: [
@@ -115,7 +115,7 @@ export default defineConfig({
       { files: ['src/**'], excludeFiles: ['src/**/*.test.ts', 'src/ColorPicker.tsx', 'src/Canvas.tsx'], rules: { 'satz/no-hex-color': 'error' } },
       { files: ['src/**'], rules: { 'satz/no-cached-rejection': 'error', 'satz/way-out': 'error' } },
       { files: ['src/**'], excludeFiles: ['src/**/*.test.ts', 'src/SettingsDialog.tsx', 'src/Shortcuts.tsx', 'src/Properties.tsx'], rules: { 'satz/no-unit-text': 'error' } },
-      { files: ['sw.js'], env: { serviceworker: true }, globals: { CACHE: 'readonly', FILES: 'readonly' } },
+      { files: ['sw.js'], env: { serviceworker: true }, globals: { CACHE: 'readonly', FILES: 'readonly' }, rules: Object.fromEntries(['argument', 'assignment', 'call', 'member-access', 'return'].map((r) => [`typescript/no-unsafe-${r}`, 'off'])) },
     ],
   },
 })

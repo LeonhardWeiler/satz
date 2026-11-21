@@ -48,7 +48,7 @@ export async function steady<T>(read: () => Promise<T>) {
 export async function screen(page: Page, x: number, y: number, i?: number) {
   const canvas = page.getByLabel('Page canvas')
   const box = (await canvas.boundingBox())!
-  const sheets: Sheet[] = JSON.parse((await canvas.getAttribute('data-sheets'))!)
+  const sheets = JSON.parse((await canvas.getAttribute('data-sheets'))!) as Sheet[]
   const view = fitView(sheets, box.width, box.height)
   const sx = sheets[i ?? sheets.length - 1].x + x * MM
   return [box.x + view.x + sx * view.zoom, box.y + view.y + y * MM * view.zoom] as const
@@ -70,7 +70,7 @@ export async function autosaved(page: Page, dirty = true) {
           r.onsuccess = () => {
             const get = r.result.transaction('files').objectStore('files').get(location.hash.slice(1))
             get.onsuccess = () => {
-              done(!!get.result && (!dirty || get.result.dirty))
+              done(!!get.result && (!dirty || (get.result as { dirty: boolean }).dirty))
               r.result.close()
             }
           }

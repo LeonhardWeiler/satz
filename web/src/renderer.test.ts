@@ -14,7 +14,7 @@ test('layers with shadows are recorded again only when their content changes', a
     PictureRecorder: new Proxy(ck.PictureRecorder, {
       construct: (target, args) => {
         recorded++
-        return Reflect.construct(target, args)
+        return Reflect.construct(target, args) as object
       },
     }),
   })

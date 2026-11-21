@@ -5,7 +5,7 @@ import { begin, discard, open } from './file'
 import { Field, Segmented, Select } from './controls'
 import { length, setSettings, useSettings, type DocPreset } from './settings'
 import { Icon } from './icons'
-import type { Page } from './types'
+import type { Snapshot } from './types'
 import type { ColorMode, Grid } from './model'
 
 export const ORIENTATIONS = [
@@ -91,7 +91,7 @@ export function Start({ editor, onClose }: { editor: Editor; onClose: () => void
     if (!(await discard(editor))) return
     const e = Engine.blank(w, h, pages, pages > 1 && doc.facing)
     if (doc.mode !== 'cmyk') e.apply({ type: 'setDocument', colorMode: doc.mode })
-    for (const p of JSON.parse(e.snapshot()).pages as Page[]) {
+    for (const p of (JSON.parse(e.snapshot()) as Snapshot).pages) {
       e.apply({ type: 'setPage', id: p.id, bleed: doc.bleed })
       if (doc.margin > 0 || doc.columns > 1) e.apply({ type: 'setGrids', id: p.id, grids: [{ kind: 'columns', count: doc.columns, gutter: doc.gutter, margin: doc.margin, size: 5 * MM }] })
     }

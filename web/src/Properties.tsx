@@ -258,7 +258,7 @@ export function Properties({ editor }: { editor: Editor }) {
                 label="Master"
                 prefix="Master"
                 value={master}
-                options={Object.fromEntries([['', 'None'], ...snapshot.masters.map((m) => [m.id, m.name])])}
+                options={Object.fromEntries([['', 'None'] as const, ...snapshot.masters.map((m) => [m.id, m.name] as const)])}
                 onChange={(m) => editor.batch(() => targets.forEach((id) => editor.apply({ type: 'useMaster', page: id, master: m || null })))}
               />
             )}
@@ -680,7 +680,7 @@ function FormatRow({ sheets, each }: { sheets: Page[]; each: (props: PageProps) 
           label="Format"
           prefix="Format"
           value={format}
-          options={Object.fromEntries([...FORMATS.map(([n]) => [n, n]), ...(format === 'Custom' ? [['Custom', 'Custom']] : [])])}
+          options={Object.fromEntries([...FORMATS.map(([n]) => [n, n] as const), ...(format === 'Custom' ? [['Custom', 'Custom'] as const] : [])])}
           onChange={(n) => {
             const [, a, b] = FORMATS.find(([f]) => f === n) ?? []
             if (!a || !b) return

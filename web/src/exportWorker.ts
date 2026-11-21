@@ -42,7 +42,7 @@ onmessage = async ({ data: { doc, fonts, images, preview, out, source } }: Messa
       return postMessage({ file }, { transfer: [file.buffer] })
     }
     if (out) {
-      const snap: Snapshot = JSON.parse(e.snapshot())
+      const snap = JSON.parse(e.snapshot()) as Snapshot
       const files = await Promise.all(out.pages.map(async (i) => {
         const png = e.png(snap.pages[i].id, out.ppi)!
         if (out.type === 'image/png') return png
@@ -56,7 +56,7 @@ onmessage = async ({ data: { doc, fonts, images, preview, out, source } }: Messa
       return postMessage({ file }, { transfer: [file.buffer] })
     }
     const { pages: shown, ppi, on, limit, over, gamut } = preview!
-    const snap: Snapshot = JSON.parse(e.snapshot())
+    const snap = JSON.parse(e.snapshot()) as Snapshot
     const max = new Map<string, number>()
     let highest = 0
     for (const { id } of snap.pages) {

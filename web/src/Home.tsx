@@ -3,6 +3,7 @@ import { Engine } from './engine/engine'
 import type { Editor } from './editor'
 import { ask, begin, findGranted, open, openProject, projects, removeProject, show, type Project } from './file'
 import { Icon } from './icons'
+import type { Snapshot } from './types'
 import booklet from '../../examples/booklet.satz?url'
 import poster from '../../examples/poster.satz?url'
 
@@ -21,7 +22,7 @@ export const ago = (at: number) => {
 }
 
 const firstPage = (e: Engine) => {
-  const p = JSON.parse(e.snapshot()).pages[0]
+  const p = (JSON.parse(e.snapshot()) as Snapshot).pages[0]
   return e.png(p.id, (240 * 72) / Math.max(p.width, p.height))
 }
 
