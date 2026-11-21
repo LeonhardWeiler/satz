@@ -151,7 +151,7 @@ function Wheel({ hsv, rule, set }: { hsv: Hsv; rule: Harmony; set: (hsv: Hsv) =>
         const a = (c[0] * Math.PI) / 180
         return (
           <span
-            key={i}
+            key={HARMONIES[rule][i]}
             className="picker-thumb"
             data-own={HARMONIES[rule][i] === 0 || undefined}
             style={{ left: `${50 + 50 * s * Math.sin(a)}%`, top: `${50 - 50 * s * Math.cos(a)}%`, background: `#${hex(fromHsv(c))}` }}
@@ -294,7 +294,7 @@ export function Picker({
           <Select label="Harmony" value={rule} options={HARMONY_NAMES} onChange={setRule} />
           <div className="picker-harmony" role="group" aria-label="Harmony colors">
             {harmony(state.hsv, rule).map((c, i) => (
-              <button key={i} type="button" aria-label={`Harmony color #${hex(fromHsv(c))}`} title={`#${hex(fromHsv(c))}`} style={{ background: `#${hex(fromHsv(c))}` }} onClick={() => set(c)} />
+              <button key={HARMONIES[rule][i]} type="button" aria-label={`Harmony color #${hex(fromHsv(c))}`} title={`#${hex(fromHsv(c))}`} style={{ background: `#${hex(fromHsv(c))}` }} onClick={() => set(c)} />
             ))}
           </div>
           {editor && (

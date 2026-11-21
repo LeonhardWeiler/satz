@@ -95,7 +95,7 @@ it('keeps greys neutral and muted text at 4.5:1 on every surface', () => {
       if (ref) return rgba(tokens.get(ref[1])!)
       if (v === 'transparent') return [0, 0, 0, 0]
       if (v.startsWith('#')) {
-        const h = v.length === 4 ? [...v.slice(1)].map((c) => c + c).join('') : v.slice(1)
+        const h = v.length === 4 ? v.slice(1).replace(/./g, '$&$&') : v.slice(1)
         return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)).concat(1)
       }
       const m = /^color-mix\(in srgb, (.+) (\d+)%, (.+)\)$/.exec(v)!
