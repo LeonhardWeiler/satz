@@ -1452,7 +1452,10 @@ impl Doc {
     }
 
     pub fn retain_images(&self) -> Res<()> {
-        image::retain(&self.register_images()?);
+        let keep = self.register_images()?;
+        if !self.doc.is_detached() {
+            image::retain(&keep);
+        }
         Ok(())
     }
 
