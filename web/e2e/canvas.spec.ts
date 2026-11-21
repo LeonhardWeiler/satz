@@ -509,6 +509,11 @@ test('a guide runs across the canvas, is picked and dragged beside the page and 
   await drag(page, [x, ruler.y + ruler.height / 2], [x, y])
   await page.mouse.move(1, 1)
   expect(await blue(ox)).toBe(true)
+  await page.mouse.move(ox, y + 40)
+  await page.mouse.move(ox, y)
+  await expect(page.locator('.marks line.guide')).toHaveCount(1)
+  await page.mouse.move(ox, y + 40)
+  await expect(page.locator('.marks line.guide')).toHaveCount(0)
 
   const [, y2] = await screen(page, 0, 60)
   await drag(page, [ox, y], [ox, y2])
