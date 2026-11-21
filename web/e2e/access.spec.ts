@@ -45,11 +45,12 @@ test('a file picked to open replaces the document with it', async ({ page }) => 
   await expect(page).toHaveTitle('Untitled.satz - Satz')
 })
 
-test('missing fonts are found among the fonts of this computer', async ({ page }) => {
+test('missing fonts are found among the fonts of this computer, past one that cannot be read', async ({ page }) => {
   const font = readFileSync(new URL('../../engine/fonts/DMMono-Regular.ttf', import.meta.url)).toString('base64')
   await page.addInitScript((font) => {
     const bytes = Uint8Array.from(atob(font), (c) => c.charCodeAt(0))
-    Object.assign(window, { queryLocalFonts: async () => [{ fullName: 'DM Mono Regular', family: 'DM Mono', style: 'Regular', postscriptName: 'DMMono-Regular', blob: async () => new Blob([bytes]) }] })
+    const dm = { fullName: 'DM Mono Regular', family: 'DM Mono', style: 'Regular', postscriptName: 'DMMono-Regular' }
+    Object.assign(window, { queryLocalFonts: async () => [{ ...dm, blob: () => Promise.reject(new Error('unreadable')) }, { ...dm, blob: async () => new Blob([bytes]) }] })
   }, font)
   await open(page)
   await assets(page)

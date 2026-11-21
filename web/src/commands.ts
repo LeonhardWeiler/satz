@@ -43,6 +43,7 @@ export function addPage(editor: Editor) {
 }
 
 const selected = (editor: Editor) => editor.selection.length > 0
+const copy = (editor: Editor) => void navigator.clipboard?.writeText(editor.copy(editor.selection)).catch((e: Error) => editor.fail(`Could not copy: ${e.message}.`))
 const each = (editor: Editor, f: (n: Node) => unknown) => editor.batch(() => editor.selected().forEach(f))
 const toggle = (editor: Editor, prop: 'hidden' | 'locked') => {
   const on = editor.selected().some((n) => !n[prop])
@@ -134,9 +135,9 @@ export const ACTIONS: Action[] = [
   { title: 'Redo', keys: 'Ctrl Shift Z', group: 'Edit', run: (editor) => history(editor, 'redo'), typing: 'text' },
   { title: 'Version history', keys: 'Ctrl Alt Z', group: 'Edit', run: () => ui.dialog('history'), typing: 'any' },
   { title: 'Find and replace', keys: 'Ctrl F', group: 'Edit', run: () => ui.find(), typing: 'any' },
-  { title: 'Copy', keys: 'Ctrl C', group: 'Edit', can: selected, native: true, run: (editor) => void navigator.clipboard?.writeText(editor.copy(editor.selection)).catch(() => {}) },
+  { title: 'Copy', keys: 'Ctrl C', group: 'Edit', can: selected, native: true, run: copy },
   { title: 'Cut', keys: 'Ctrl X', group: 'Edit', can: selected, native: true, run: (editor) => {
-      navigator.clipboard?.writeText(editor.copy(editor.selection)).catch(() => {})
+      copy(editor)
       editor.apply({ type: 'delete', ids: editor.selection })
     } },
   { title: 'Paste', keys: 'Ctrl V', group: 'Edit', native: true, run: (editor) => editor.paste() },

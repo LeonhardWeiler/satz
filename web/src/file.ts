@@ -80,11 +80,11 @@ export async function projects() {
 }
 
 export async function removeProject(editor: Editor, id: string) {
-  const files = await store('files')
-  files.delete(id)
-  files.delete(updates(id))
-  await finished(files.transaction)
-  await result((await store('projects')).delete(id))
+  const t = (await db()).transaction(['files', 'projects'], 'readwrite')
+  t.objectStore('files').delete(id)
+  t.objectStore('files').delete(updates(id))
+  t.objectStore('projects').delete(id)
+  await finished(t)
   if (editor.project === id) editor.set({ project: null })
 }
 
@@ -247,7 +247,7 @@ function run<T>(job: Job, editor: Editor, task: { preview?: Preview; out?: Out; 
       w.postMessage({ doc, fonts, images, ...task }, [...(doc ? [doc.buffer] : []), ...fonts.map((f) => f.buffer), ...images.map((i) => i.buffer)])
     })
   })
-  job.queue = next.catch(() => {})
+  job.queue = Promise.allSettled([next])
   return next
 }
 
@@ -267,7 +267,7 @@ export async function save(editor: Editor, as: boolean) {
   }
   let handle = as ? null : editor.file.handle
   if (handle && (await handle.requestPermission({ mode: 'readwrite' })) !== 'granted') handle = null
-  if (handle && handle.name !== name) await handle.move?.(name).catch(() => {})
+  if (handle && handle.name !== name) await handle.move?.(name).catch((e: Error) => editor.fail(`Could not rename the file to ${name}: ${e.message}.`))
   if (handle?.name !== name) handle = null
   handle ??= await pickers.showSaveFilePicker({ suggestedName: name, types: TYPES })
   const out = await handle.createWritable()
@@ -438,10 +438,14 @@ export async function findFonts(editor: Editor) {
   if (!(await readLocalFonts(editor))) return
   let found = 0
   for (const f of locals.filter((f) => missing.some((m) => m.name === f.fullName))) {
-    const bytes = new Uint8Array(await (await f.blob()).arrayBuffer())
-    if (!missing.some((m) => m.hash === (typeface(bytes) as Typeface).hash)) continue
-    await keep(editor, bytes)
-    found++
+    try {
+      const bytes = new Uint8Array(await (await f.blob()).arrayBuffer())
+      if (!missing.some((m) => m.hash === (typeface(bytes) as Typeface).hash)) continue
+      await keep(editor, bytes)
+      found++
+    } catch (e) {
+      if (e instanceof WebAssembly.RuntimeError) throw e
+    }
   }
   editor.say(`Found ${found} of ${missing.length} missing fonts on this computer.${found < missing.length ? ' Add the others with Add font.' : ''}`)
 }
