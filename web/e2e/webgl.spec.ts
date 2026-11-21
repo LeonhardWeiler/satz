@@ -40,12 +40,16 @@ test('a caught panic in the engine stops Satz with a notice whose button reloads
     const streaming = WebAssembly.instantiateStreaming
     WebAssembly.instantiateStreaming = async (...args) => {
       const out = await streaming(...args)
-      w.trap ??= out.instance.exports.trap as () => void
-      return out
+      const exports = out.instance.exports as Record<string, (...a: unknown[]) => unknown>
+      if (w.trap || !exports.engine_trap) return out
+      const make = exports.engine_new
+      let engine: unknown
+      w.trap = () => exports.engine_trap(engine)
+      return { module: out.module, instance: { exports: { ...exports, engine_new: (...a: unknown[]) => { const p = make(...a); engine ??= p; return p } } } as unknown as WebAssembly.Instance }
     }
   })
   await open(page)
-  await page.evaluate(() => Promise.resolve((window as unknown as { trap: () => void }).trap).then((trap) => trap()).catch(() => {}))
+  await page.evaluate(() => Promise.resolve().then(() => (window as unknown as { trap: () => void }).trap()).catch(() => {}))
   await expect(page.getByRole('alert')).toContainText('Satz stopped')
   await page.getByRole('button', { name: 'Reload' }).click()
   await expect(page.getByLabel('Page canvas')).toBeVisible()

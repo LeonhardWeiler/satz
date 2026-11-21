@@ -49,8 +49,8 @@ if (!document.createElement('canvas').getContext('webgl2')) {
     for (const bytes of fonts) engine.addFont(bytes)
     const editor = new Editor(engine)
     const stop = () => {
-      editor.set({ autosaves: false })
       notice('Satz stopped', 'The engine failed. Reload the page to go on from the last autosave.', true)
+      editor.set({ autosaves: false })
     }
     Engine.onPanic(() => queueMicrotask(stop))
     if (!alone) {

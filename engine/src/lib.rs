@@ -126,6 +126,10 @@ impl Engine {
         }));
     }
 
+    pub fn trap(&mut self) {
+        panic!("trap");
+    }
+
     pub fn sample() -> Engine {
         Engine {
             doc: Doc::sample(),
@@ -559,11 +563,6 @@ pub(crate) fn content_hash(bytes: &[u8]) -> String {
         (h ^ b as u64).wrapping_mul(0x100000001b3)
     });
     format!("{hash:016x}")
-}
-
-#[wasm_bindgen]
-pub fn trap() {
-    panic!("trap");
 }
 
 #[wasm_bindgen]

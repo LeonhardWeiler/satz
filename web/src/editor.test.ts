@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { expect, test } from 'vite-plus/test'
 import { Editor } from './editor'
-import { Engine, initSync, trap } from './engine/engine'
+import { Engine, initSync } from './engine/engine'
 import type { Command, Snapshot } from './model'
 
 test('the snapshot the editor merges from changes equals the full one', () => {
@@ -60,6 +60,6 @@ test('a panic in the engine calls the panic hook once', () => {
   initSync({ module: readFileSync(new URL('engine/engine_bg.wasm', import.meta.url)) })
   let calls = 0
   Engine.onPanic(() => calls++)
-  expect(() => trap()).toThrow('unreachable')
+  expect(() => new Engine().trap()).toThrow('unreachable')
   expect(calls).toBe(1)
 })
