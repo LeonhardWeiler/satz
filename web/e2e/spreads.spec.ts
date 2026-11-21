@@ -1,6 +1,6 @@
-import { expect, test, addPage, colors, current, drag, open, screen } from './util'
+import { expect, test, addPage, colors, current, drag, open, screen, type RGB } from './util'
 
-const gray = ([r, g, b]: number[]) => [r, g, b].every((c) => Math.abs(c - 0xd9) < 8)
+const gray = ([r, g, b]: RGB) => [r, g, b].every((c) => Math.abs(c - 0xd9) < 8)
 
 test('a spread shows its pages at the spine, and layers are drawn, selected and moved across it', async ({ page }) => {
   await open(page)

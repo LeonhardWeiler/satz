@@ -86,7 +86,8 @@ test('with facing pages the page overview shows spreads from a first right page,
   expect(await names('Spread 1')).toEqual(['Page 1'])
   expect(await names('Spread 2–3')).toEqual(['Page 2', 'Page 3'])
   expect(await names('Spread 4')).toEqual(['Page 4'])
-  const [one, two, three] = await Promise.all([1, 2, 3].map(async (n) => (await row(n).boundingBox())!))
+  const box = async (n: number) => (await row(n).boundingBox())!
+  const [one, two, three] = await Promise.all([box(1), box(2), box(3)])
   expect(three.x).toBeGreaterThan(two.x)
   expect(Math.abs(one.x - three.x)).toBeLessThan(1)
 

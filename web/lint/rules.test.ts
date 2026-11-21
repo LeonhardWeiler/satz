@@ -5,8 +5,11 @@ import plugin from './index.ts'
 RuleTester.describe = describe
 RuleTester.it = it
 const tester = new RuleTester({ languageOptions: { parserOptions: { lang: 'tsx' } } })
-const run = (rule: string, valid: string[], invalid: string[]) =>
-  tester.run(rule, plugin.rules[rule], { valid, invalid: invalid.map((code) => ({ code, errors: 1 })) })
+const run = (name: string, valid: string[], invalid: string[]) => {
+  const rule = plugin.rules[name]
+  if (!rule) throw new Error(`no rule ${name}`)
+  tester.run(name, rule, { valid, invalid: invalid.map((code) => ({ code, errors: 1 })) })
+}
 
 run(
   'no-test-timing',

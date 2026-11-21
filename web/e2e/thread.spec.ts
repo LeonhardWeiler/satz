@@ -1,8 +1,8 @@
 import { type Page } from '@playwright/test'
 import { expect, test, STORY, current, frameOnNewPage, open, pixels, port, screen, showPage } from './util'
 
-const A = [20, 20, 60, 40]
-const B = [80, 20, 120, 40]
+const A = [20, 20, 60, 40] as const
+const B = [80, 20, 120, 40] as const
 
 const overset = async (page: Page, at: readonly [number, number]) =>
   (await pixels(page, at[0] - 4, at[1] - 4, 9, 9)).some(([r, g, b]) => r > 200 && g < 110 && b < 110)

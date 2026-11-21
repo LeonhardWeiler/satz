@@ -80,7 +80,7 @@ test('snapping and measuring', async ({ page }) => {
 test('drawing tools', async ({ page }) => {
   await start(page)
   const tools = page.getByRole('toolbar', { name: 'Tools' })
-  for (const [k, n] of [['f', 'frame'], ['r', 'rectangle'], ['l', 'line'], ['o', 'ellipse'], ['p', 'pen'], ['t', 'text'], ['i', 'eyedropper']]) {
+  for (const [k, n] of [['f', 'frame'], ['r', 'rectangle'], ['l', 'line'], ['o', 'ellipse'], ['p', 'pen'], ['t', 'text'], ['i', 'eyedropper']] as const) {
     await page.keyboard.press(k)
     await rest(page)
     await shot(page, B, `0${['f', 'r', 'l', 'o', 'p', 't', 'i'].indexOf(k) + 2} ${n} tool`, `Toolbar with the ${n} tool active`, [tools], 6)

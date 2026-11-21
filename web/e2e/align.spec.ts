@@ -7,7 +7,8 @@ test('layers align to each other, a single layer to its frame, and three distrib
   const layers = page.getByRole('tree', { name: 'Layers' })
   const box = async (name: string) => {
     await layers.getByRole('button', { name, exact: true }).click()
-    return Promise.all(['X in mm', 'W in mm'].map(async (f) => Number(await panel.getByRole('textbox', { name: f, exact: true }).inputValue())))
+    const num = async (f: string) => Number(await panel.getByRole('textbox', { name: f, exact: true }).inputValue())
+    return Promise.all([num('X in mm'), num('W in mm')])
   }
   const x = async (name: string) => (await box(name))[0]
   const pick = async () => {

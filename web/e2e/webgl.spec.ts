@@ -2,7 +2,7 @@ import { expect, test, open } from './util'
 
 test('without webgl 2 a notice replaces the canvas', async ({ page }) => {
   await page.addInitScript(() => {
-    const proto = HTMLCanvasElement.prototype as unknown as Record<string, (...args: unknown[]) => unknown>
+    const proto = HTMLCanvasElement.prototype as unknown as { getContext: (...args: unknown[]) => unknown }
     const get = proto.getContext
     proto.getContext = function (this: unknown, ...args: unknown[]) {
       return args[0] === 'webgl2' ? null : get.apply(this, args)
@@ -41,10 +41,10 @@ test('a caught panic in the engine stops Satz with a notice whose button reloads
     WebAssembly.instantiateStreaming = async (...args) => {
       const out = await streaming(...args)
       const exports = out.instance.exports as Record<string, (...a: unknown[]) => unknown>
-      if (w.trap || !exports.engine_trap) return out
-      const make = exports.engine_new
+      const { engine_trap: trap, engine_new: make } = exports
+      if (w.trap || !trap || !make) return out
       let engine: unknown
-      w.trap = () => exports.engine_trap(engine)
+      w.trap = () => trap(engine)
       return { module: out.module, instance: { exports: { ...exports, engine_new: (...a: unknown[]) => { const p = make(...a); engine ??= p; return p } } } as unknown as WebAssembly.Instance }
     }
   })

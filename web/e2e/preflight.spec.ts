@@ -70,8 +70,8 @@ test('export writes every page or a range as a png or a jpeg, and a package as a
   await expect(page.getByText('Exported 2 pages as Untitled.zip')).toBeVisible()
   await expect.poll(() => bytes.length).toBe(1)
   expect(names[0]).toBe('Untitled.zip')
-  expect(bytes[0].subarray(0, 4).toString('latin1')).toBe('PK\x03\x04')
-  expect(bytes[0].includes('Untitled-2.png')).toBe(true)
+  expect(bytes[0]?.subarray(0, 4).toString('latin1')).toBe('PK\x03\x04')
+  expect(bytes[0]?.includes('Untitled-2.png')).toBe(true)
 
   await choose(region.getByRole('combobox', { name: 'Format' }), 'JPEG')
   const range = region.getByRole('textbox', { name: 'Pages to export' })
@@ -84,7 +84,7 @@ test('export writes every page or a range as a png or a jpeg, and a package as a
   await go.click()
   await expect.poll(() => bytes.length).toBe(2)
   expect(names[1]).toBe('Untitled-2.jpg')
-  expect([...bytes[1].subarray(0, 2)]).toEqual([0xff, 0xd8])
+  expect(bytes[1]?.readUInt16BE(0)).toBe(0xffd8)
 
   await choose(region.getByRole('combobox', { name: 'Format' }), 'Package')
   await expect(region.getByRole('combobox', { name: 'Preset' })).toBeVisible()
@@ -92,8 +92,8 @@ test('export writes every page or a range as a png or a jpeg, and a package as a
   await go.click()
   await expect.poll(() => bytes.length).toBe(3)
   expect(names[2]).toBe('Untitled.zip')
-  expect(bytes[2].subarray(0, 4).toString('latin1')).toBe('PK\x03\x04')
-  expect(bytes[2].includes('Untitled/Untitled.pdf')).toBe(true)
+  expect(bytes[2]?.subarray(0, 4).toString('latin1')).toBe('PK\x03\x04')
+  expect(bytes[2]?.includes('Untitled/Untitled.pdf')).toBe(true)
 })
 
 test('export saves every page at once, and the preflight opens from its shortcut and its button, and esc ends it', async ({ page }) => {
