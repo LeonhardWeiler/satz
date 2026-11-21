@@ -154,10 +154,10 @@ export class Editor {
   readonly status: ReactNode = ''
   readonly statusError: boolean = false
   readonly statusAction: { label: string; run: () => void } | null = null
-  readonly said: number = 0
   readonly autosaves: boolean = true
   readonly autosaveFailed: boolean = false
   private typing = false
+  private quiet: ReturnType<typeof setTimeout> | undefined
   readonly copied: string | null = null
   readonly clip: string | null = null
   private copies: { ids: string[]; from: { x: number; y: number } } | null = null
@@ -285,7 +285,8 @@ export class Editor {
     this.w.status = status
     this.w.statusError = error
     this.w.statusAction = action ?? null
-    this.w.said++
+    clearTimeout(this.quiet)
+    if (status) this.quiet = setTimeout(() => this.say(''), 5000)
     this.emit()
   }
 

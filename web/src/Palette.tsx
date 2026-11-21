@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 import { able, ACTIONS, ONLY_WHEN_ABLE } from './commands'
 import { keysOf } from './keys'
 import { Chip, ink, NO_SCOPE } from './ColorPicker'
@@ -8,7 +8,7 @@ import { Icon, KindIcon } from './icons'
 import { sizeOf } from './Text'
 import type { Fill, Node } from './model'
 
-type Item = { group: string; title: string; keys?: string; hint?: string; icon?: ReactNode; off?: boolean; run: () => void }
+type Item = { id: string; group: string; title: string; keys?: string; hint?: string; icon?: ReactNode; off?: boolean; run: () => void }
 
 function match(query: string, text: string): [number, number[]] {
   const q = query.toLowerCase()
@@ -20,14 +20,26 @@ function match(query: string, text: string): [number, number[]] {
   return [hits.length === q.length && q.length > 2 ? 1 : 0, hits]
 }
 
+function runs(text: string, hits: number[]) {
+  const out: [number, string, boolean][] = []
+  ;[...text].forEach((c, k) => {
+    const hit = hits.includes(k)
+    const last = out.at(-1)
+    if (last?.[2] === hit) last[1] += c
+    else out.push([k, c, hit])
+  })
+  return out
+}
+
 const flat = (nodes: Node[]): Node[] => nodes.flatMap((n) => [n, ...('children' in n ? flat(n.children) : [])])
 
 function items(editor: Editor): Item[] {
   const { pages, swatches, textStyles, colorMode } = editor.snapshot
   return [
-    ...ACTIONS.filter((a) => !ONLY_WHEN_ABLE.has(a.title) || able(editor, a)).map((a) => ({ group: 'Commands', title: a.title, keys: keysOf(a), off: !able(editor, a), run: () => a.run(editor) })),
+    ...ACTIONS.filter((a) => !ONLY_WHEN_ABLE.has(a.title) || able(editor, a)).map((a) => ({ id: a.title, group: 'Commands', title: a.title, keys: keysOf(a), off: !able(editor, a), run: () => a.run(editor) })),
     ...pages.flatMap((p, i) =>
       flat(p.children).map((n) => ({
+        id: n.id,
         group: 'Layers',
         title: n.name,
         hint: `Page ${i + 1}`,
@@ -39,6 +51,7 @@ function items(editor: Editor): Item[] {
       })),
     ),
     ...pages.map((p, i) => ({
+      id: p.id,
       group: 'Pages',
       title: `Page ${i + 1}`,
       hint: editor.masterOf(p)?.name,
@@ -49,6 +62,7 @@ function items(editor: Editor): Item[] {
       },
     })),
     ...swatches.map((s) => ({
+      id: s.id,
       group: 'Swatches',
       title: `Fill with ${s.name}`,
       hint: ink(s.color, colorMode),
@@ -56,6 +70,7 @@ function items(editor: Editor): Item[] {
       run: () => fillWith(editor, s.id) || editor.fail('Select a layer first'),
     })),
     ...textStyles.map((s) => ({
+      id: s.id,
       group: 'Text styles',
       title: `Style ${s.name}`,
       hint: sizeOf(s),
@@ -88,9 +103,6 @@ export function Palette({ editor, onClose }: { editor: Editor; onClose: () => vo
   useEffect(() => {
     ref.current!.showModal()
   }, [])
-  useEffect(() => {
-    ref.current!.querySelector('[aria-selected=true]')?.scrollIntoView({ block: 'nearest' })
-  }, [at])
 
   const all = items(editor)
   const ranked = all
@@ -125,10 +137,14 @@ export function Palette({ editor, onClose }: { editor: Editor; onClose: () => vo
           onChange={(e) => {
             setQuery(e.currentTarget.value)
             setAt(0)
+            ref.current!.querySelector('.pal-list')!.scrollTop = 0
           }}
           onKeyDown={(e) => {
-            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') setAt(Math.max(0, Math.min(shown.length - 1, at + (e.key === 'ArrowDown' ? 1 : -1))))
-            else if (e.key === 'Enter') run(shown[at])
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+              const next = Math.max(0, Math.min(shown.length - 1, at + (e.key === 'ArrowDown' ? 1 : -1)))
+              setAt(next)
+              ref.current!.querySelectorAll('[role=option]')[next]?.scrollIntoView({ block: 'nearest' })
+            } else if (e.key === 'Enter') run(shown[at])
             else return
             e.preventDefault()
             e.stopPropagation()
@@ -138,11 +154,11 @@ export function Palette({ editor, onClose }: { editor: Editor; onClose: () => vo
       </div>
       <div className="pal-list" role="listbox" aria-label="Results">
         {shown.map((x, i) => (
-          <div key={`${x.group}${i}`} role="presentation">
+          <div key={`${x.group} ${x.id}`} role="presentation">
             {x.group !== shown[i - 1]?.group && <div className="pal-g">{x.group}</div>}
             <button type="button" tabIndex={-1} className="pal-it" role="option" aria-selected={i === at} disabled={x.off} onClick={() => run(x)}>
               {x.icon}
-              <span className="pal-t">{[...x.title].map((c, k) => (x.m[1].includes(k) ? <b key={k}>{c}</b> : c))}</span>
+              <span className="pal-t">{runs(x.title, x.m[1]).map(([k, t, hit]) => (hit ? <b key={k}>{t}</b> : <Fragment key={k}>{t}</Fragment>))}</span>
               {x.keys ? <Keys keys={x.keys} /> : x.hint && <small>{x.hint}</small>}
             </button>
           </div>

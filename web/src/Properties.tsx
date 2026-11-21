@@ -1,5 +1,5 @@
 import { neutral, solid } from './color'
-import { Check, Field, Group, NameInput, Section, Segmented, Select, SIDE_ICONS, SIDE_NAMES, SidesToggle, useMore } from './controls'
+import { Check, Field, Group, NameInput, Section, Segmented, Select, SIDE_ICONS, SIDE_NAMES, SidesToggle, useMore, useRowKeys } from './controls'
 import { useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
@@ -573,6 +573,7 @@ function GridSection({ editor, sheets, all }: { editor: Editor; sheets: Page[]; 
   const key = (p: Page) => JSON.stringify(p.grids)
   const grids = sameOf(sheets, key) === null ? null : sheets[0].grids
   const setGrids = (grids: Grid[], to = sheets) => editor.batch(() => to.forEach((p) => editor.apply({ type: 'setGrids', id: p.id, grids })))
+  const [keys, without] = useRowKeys(grids ?? [])
   const fresh: Grid = { kind: 'columns', count: 2, gutter: 5 * MM, margin: 15 * MM, size: 5 * MM }
   const [presets, setPresets] = useState<{ at: DOMRect; remove?: boolean } | null>(null)
   const saved = useSettings().gridPresets
@@ -625,10 +626,10 @@ function GridSection({ editor, sheets, all }: { editor: Editor; sheets: Page[]; 
           {grids.map((g, i) => {
             const set = (next: Partial<Grid>) => setGrids(grids.map((h, j) => (j === i ? { ...g, ...next } : h)))
             return (
-              <li key={i} className="paint">
+              <li key={keys[i]} className="paint">
                 <div className="row">
                   <Select label="Grid type" value={g.kind} options={GRIDS} onChange={(kind) => set({ kind })} />
-                  <button type="button" className="icon-button" aria-label="Remove grid" title="Remove grid" onClick={() => setGrids(grids.filter((_, j) => j !== i))}>
+                  <button type="button" className="icon-button" aria-label="Remove grid" title="Remove grid" onClick={() => setGrids(without(i))}>
                     <Icon name="minus" />
                   </button>
                 </div>

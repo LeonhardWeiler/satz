@@ -1,7 +1,7 @@
 import { Fragment, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { ColorPicker } from './ColorPicker'
 import { alpha, colorText, css, neutral, parseColor, withAlpha, type ColorMode } from './color'
-import { Field, NameInput, RowActions, Section, Segmented, Select } from './controls'
+import { Field, NameInput, RowActions, Section, Segmented, Select, useRowKeys } from './controls'
 import { Icon } from './icons'
 import type { Editor } from './editor'
 import { Dialog } from './Popover'
@@ -242,9 +242,10 @@ function Stops({ paint: p, at, scope, select, set }: { paint: Fill; at: number; 
     return Math.min(1, Math.max(0, (x - r.left) / r.width))
   }
   const put = (k: number, v: number) => set({ ...p, stops: replace(p.stops, k, { ...p.stops[k], at: Math.min(1, Math.max(0, v)) }) })
+  const [keys, without] = useRowKeys(p.stops)
   const remove = (k: number) => {
     if (p.stops.length < 3) return
-    set({ ...p, stops: p.stops.filter((_, j) => j !== k) })
+    set({ ...p, stops: without(k) })
     select(0)
   }
   return (
@@ -263,7 +264,7 @@ function Stops({ paint: p, at, scope, select, set }: { paint: Fill; at: number; 
       >
         {p.stops.map((s, k) => (
           <button
-            key={k}
+            key={keys[k]}
             type="button"
             className="picker-stop"
             aria-label={`Stop ${k + 1}`}
@@ -309,6 +310,7 @@ export function EffectList({
   scope: Scope
   onChange: (effects: Effect[]) => void
 }) {
+  const [keys, without] = useRowKeys(effects ?? [])
   return (
     <Section title="Effects" onAdd={() => onChange([...(effects ?? []), shadow(mode)])}>
       {!effects && <p className="empty" title="Adding one replaces them on all layers">Mixed</p>}
@@ -316,12 +318,12 @@ export function EffectList({
         <ul className="rows">
           {effects.map((e, i) => (
             <EffectRow
-              key={i}
+              key={keys[i]}
               effect={e}
               mode={mode}
               scope={scope}
               set={(next) => onChange(replace(effects, i, { ...e, ...next }))}
-              onRemove={() => onChange(effects.filter((_, j) => j !== i))}
+              onRemove={() => onChange(without(i))}
             />
           ))}
         </ul>

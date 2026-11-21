@@ -26,8 +26,8 @@ function makePainter(ck: CanvasKit, editor: Editor) {
   let gpu: GrDirectContext | null = null
   let surface: Surface | null = null
   const off = new OffscreenCanvas(1, 1)
-  const queue = new Map<HTMLCanvasElement, [Lists, Sheet[]]>()
-  const waiting = new Map<HTMLCanvasElement, [Lists, Sheet[]]>()
+  const queue = new Map<HTMLCanvasElement, [Lists, Sheet[], Snapshot]>()
+  const waiting = new Map<HTMLCanvasElement, [Lists, Sheet[], Snapshot]>()
   const pictures = new Map<string, { bitmap: ImageBitmap; of: string }>()
   const used = new Set<string>()
   const show = (c: HTMLCanvasElement, picture?: ImageBitmap) => {
@@ -36,11 +36,11 @@ function makePainter(ck: CanvasKit, editor: Editor) {
     c.getContext('2d')!.drawImage(picture, 0, 0, c.width, c.height)
   }
   let frame = 0
-  const draw = (c: HTMLCanvasElement, lists: Lists, sheets: Sheet[]) => {
+  const draw = (c: HTMLCanvasElement, lists: Lists, sheets: Sheet[], snapshot: Snapshot) => {
     if (!c.isConnected) return
     const width = Math.round(c.clientWidth * devicePixelRatio)
     const height = Math.round(c.clientHeight * devicePixelRatio)
-    const { colorMode, profile } = editor.snapshot
+    const { colorMode, profile } = snapshot
     const key = JSON.stringify([lists, sheets])
     const of = JSON.stringify([width, height, colorMode, profile, lists.map((l) => editor.engine.listVersion(l.id))])
     if (pictures.get(key)?.of === of) return show(c, pictures.get(key)!.bitmap)
@@ -60,7 +60,7 @@ function makePainter(ck: CanvasKit, editor: Editor) {
     renderer.reprofile(profile ?? '')
     renderer.draw(surface.getCanvas(), lists, sheets, { x: -left * zoom, y: 0, zoom }, 1, null, colorMode === 'cmyk')
     surface.flush()
-    if (renderer.decoding) waiting.set(c, [lists, sheets])
+    if (renderer.decoding) waiting.set(c, [lists, sheets, snapshot])
     else waiting.delete(c)
     pictures.get(key)?.bitmap.close()
     pictures.set(key, { bitmap: off.transferToImageBitmap(), of: renderer.decoding ? '' : of })
@@ -68,19 +68,19 @@ function makePainter(ck: CanvasKit, editor: Editor) {
   }
   const run = () => {
     const end = performance.now() + 8
-    for (const [c, [lists, sheets]] of queue) {
+    for (const [c, [lists, sheets, snapshot]] of queue) {
       if (performance.now() > end) break
       queue.delete(c)
-      draw(c, lists, sheets)
+      draw(c, lists, sheets, snapshot)
     }
     frame = queue.size ? requestAnimationFrame(run) : 0
   }
   return {
-    paint: (c: HTMLCanvasElement, lists: Lists, sheets: Sheet[]) => {
+    paint: (c: HTMLCanvasElement, lists: Lists, sheets: Sheet[], snapshot: Snapshot) => {
       const key = JSON.stringify([lists, sheets])
       used.add(key)
       show(c, pictures.get(key)?.bitmap)
-      queue.set(c, [lists, sheets])
+      queue.set(c, [lists, sheets, snapshot])
       frame ||= requestAnimationFrame(run)
     },
     stop: () => {
@@ -112,7 +112,7 @@ function Thumb({ paint, snapshot, lists, sheets, height }: { paint: ReturnType<t
   const key = JSON.stringify([lists, sheets, height])
   useEffect(() => {
     const [l, s] = JSON.parse(key)
-    paint(ref.current!, l, s)
+    paint(ref.current!, l, s, snapshot)
   }, [paint, snapshot, key])
   return <canvas ref={ref} className="thumb" style={{ width: Math.round((height * w) / h), height }} />
 }

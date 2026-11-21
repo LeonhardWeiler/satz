@@ -25,6 +25,8 @@ const firstPage = (e: Engine) => {
   return e.png(p.id, (240 * 72) / Math.max(p.width, p.height))
 }
 
+const load = (set: (list: Project[]) => void) => projects().then(set, () => set([]))
+
 const Thumb = ({ bytes }: { bytes?: Uint8Array }) => (
   <span className="home-thumb">
     {bytes ? <img src={`data:image/png;base64,${btoa(Array.from(bytes, (b) => String.fromCharCode(b)).join(''))}`} alt="" /> : <Icon name="doc" />}
@@ -35,11 +37,10 @@ export function Home({ editor, onNew, children }: { editor: Editor; onNew: () =>
   const ref = useRef<HTMLDialogElement>(null)
   const [list, setList] = useState<Project[]>([])
   const [thumbs, setThumbs] = useState<(Uint8Array | undefined)[]>([])
-  const reload = () => projects().then(setList, () => setList([]))
   useEffect(() => {
     ref.current!.showModal()
     ref.current!.focus()
-    reload()
+    load(setList)
     Promise.all(
       EXAMPLES.map(async ([, , url]) => {
         const e = url ? new Engine() : Engine.sample()
@@ -74,7 +75,7 @@ export function Home({ editor, onNew, children }: { editor: Editor; onNew: () =>
   const remove = async (p: Project) => {
     if (!(await ask(`Delete ${p.name} from this browser?`, 'Delete'))) return
     await removeProject(editor, p.id).catch((e: Error) => editor.fail(`Could not delete ${p.name}: ${e.message}.`))
-    reload()
+    load(setList)
   }
 
   return (

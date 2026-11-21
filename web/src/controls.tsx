@@ -486,7 +486,20 @@ export function Keys({ keys }: { keys: string }) {
     else parts.push([cap, cap ? keyName(k) : k])
     mod = /^(Ctrl|Alt|Shift)$/.test(k)
   }
-  return <span className="keys">{parts.map(([cap, t], i) => (cap ? <kbd key={i}>{t}</kbd> : <em key={i}>{t}</em>))}</span>
+  return <span className="keys">{parts.map(([cap, t]) => (cap ? <kbd key={t}>{t}</kbd> : <em key={t}>{t}</em>))}</span>
+}
+
+export function useRowKeys<T>(list: T[]): [number[], (i: number) => T[]] {
+  const [kept, setKept] = useState<number[]>([])
+  const top = Math.max(-1, ...kept)
+  const keys = list.map((_, j) => kept[j] ?? top + 1 + j - kept.length)
+  return [
+    keys,
+    (i) => {
+      setKept(keys.toSpliced(i, 1))
+      return list.toSpliced(i, 1)
+    },
+  ]
 }
 
 export const SIDE_NAMES = ['Top', 'Right', 'Bottom', 'Left']
@@ -502,13 +515,13 @@ export function Sides({
   what,
   values,
   each,
-  wrap = (_, f) => f,
+  renderField = (_, f) => f,
   set,
 }: {
   what: string
   values: (number | null)[]
   each: boolean
-  wrap?: (side: number, field: ReactNode) => ReactNode
+  renderField?: (side: number, field: ReactNode) => ReactNode
   set: (values: (number | null)[]) => void
 }) {
   if (!each)
@@ -524,7 +537,7 @@ export function Sides({
     )
   return SIDE_NAMES.map((side, i) => (
     <Fragment key={side}>
-      {wrap(i, <Field label={<Icon name={SIDE_ICONS[i]} />} title={`${side} ${what}`} unit="length" reset={0} value={values[i]} onCommit={(v) => set(values.with(i, v))} />)}
+      {renderField(i, <Field label={<Icon name={SIDE_ICONS[i]} />} title={`${side} ${what}`} unit="length" reset={0} value={values[i]} onCommit={(v) => set(values.with(i, v))} />)}
     </Fragment>
   ))
 }

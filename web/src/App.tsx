@@ -50,7 +50,6 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   const status = useEditor(editor, (e) => e.status)
   const statusError = useEditor(editor, (e) => e.statusError)
   const statusAction = useEditor(editor, (e) => e.statusAction)
-  const said = useEditor(editor, (e) => e.said)
   const say = editor.say
   const dirty = useEditor(editor, (e) => e.dirty)
   const name = useEditor(editor, (e) => e.file.name)
@@ -135,11 +134,6 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   useEffect(() => {
     document.title = `${dirty ? '* ' : ''}${name} - Satz`
   }, [dirty, name])
-  useEffect(() => {
-    if (!status) return
-    const t = setTimeout(() => say(''), 5000)
-    return () => clearTimeout(t)
-  }, [say, status, said])
 
   useEffect(() => {
     Object.assign(ui, {
@@ -198,7 +192,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     const types = ['copy', 'cut', 'paste'] as const
     types.forEach((t) => window.addEventListener(t, clip))
     return () => types.forEach((t) => window.removeEventListener(t, clip))
-  }, [editor, say])
+  }, [editor])
 
   useEffect(() => {
     const files = (e: DragEvent) => e.dataTransfer?.types.includes('Files')
@@ -215,7 +209,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       window.removeEventListener('dragover', over)
       window.removeEventListener('drop', onDrop)
     }
-  }, [editor, say])
+  }, [editor])
 
   const off = (panel: 'left' | 'right') => hidden.ui || hidden[side(panel)]
   const bar = (

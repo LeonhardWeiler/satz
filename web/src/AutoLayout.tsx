@@ -49,7 +49,7 @@ export function AutoLayout({ editor, node, set }: { editor: Editor; node: Node &
       what="padding"
       values={padding}
       each={each}
-      wrap={(i, field) => (
+      renderField={(i, field) => (
         <Bindable editor={editor} id={node.id} prop={PADDING[i]} title={`${SIDE_NAMES[i]} padding`} label={SIDE_NAMES[i]}>
           {field}
         </Bindable>

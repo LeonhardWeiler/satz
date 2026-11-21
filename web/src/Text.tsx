@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
-import { Check, Field, FontSelect, Group, NameInput, nextName, Section, Segmented, Select, Sides, useMore, useSides } from './controls'
+import { Check, Field, FontSelect, Group, NameInput, nextName, Section, Segmented, Select, Sides, useMore, useRowKeys, useSides } from './controls'
 import { ColorPicker } from './ColorPicker'
 import { neutral, type Color } from './color'
 import { scopeOf, useEditor, type Editor } from './editor'
@@ -287,6 +287,7 @@ const TAB_ALIGNS: Record<Tab['align'], string> = { left: 'Left', center: 'Center
 function TabStops({ tabs, set }: { tabs: string | null; set: (tabs: Tab[]) => void }) {
   const list: Tab[] = tabs === null ? [] : JSON.parse(tabs)
   const put = (i: number, t: Partial<Tab>) => set(list.with(i, { ...list[i], ...t }).sort((a, b) => a.at - b.at))
+  const [keys, without] = useRowKeys(list)
   return (
     <div className="tab-stops">
       <Group
@@ -299,14 +300,14 @@ function TabStops({ tabs, set }: { tabs: string | null; set: (tabs: Tab[]) => vo
       />
       {!list.length && <p className="pf-note">No tab stops. Tabs go to every {length(36)}.</p>}
       {list.map((t, i) => (
-        <div key={i} className="row">
+        <div key={keys[i]} className="row">
           <Field label="Tab" title={`Tab stop ${i + 1}`} unit="length" value={t.at} onCommit={(at) => put(i, { at })} />
           <Select label={`Tab alignment ${i + 1}`} value={t.align} options={TAB_ALIGNS} onChange={(align) => put(i, { align })} />
           <label className="field">
             <span className="field-label">Leader</span>
             <NameInput label={`Tab leader ${i + 1}`} value={t.leader} blank onCommit={(leader) => put(i, { leader })} />
           </label>
-          <button type="button" className="icon-button" aria-label={`Remove tab stop ${i + 1}`} title="Remove tab stop" onClick={() => set(list.toSpliced(i, 1))}>
+          <button type="button" className="icon-button" aria-label={`Remove tab stop ${i + 1}`} title="Remove tab stop" onClick={() => set(without(i))}>
             <Icon name="minus" />
           </button>
         </div>
@@ -600,6 +601,7 @@ function GrepStyles({ editor, style }: { editor: Editor; style: TextStyle }) {
   const others = Object.fromEntries(styles.filter((s) => s.id !== style.id).map((s) => [s.id, s.name]))
   const set = (grep: Grep[]) => editor.apply({ type: 'setTextStyle', id: style.id, grep })
   const put = (i: number, g: Partial<Grep>) => set(style.grep.with(i, { ...style.grep[i], ...g }))
+  const [keys, without] = useRowKeys(style.grep)
   const first = Object.keys(others)[0]
   return (
     <div className="tab-stops">
@@ -615,14 +617,14 @@ function GrepStyles({ editor, style }: { editor: Editor; style: TextStyle }) {
       />
       {!first && <p className="pf-note">Add another text style to set what a pattern matches in it.</p>}
       {style.grep.map((g, i) => (
-        <div key={i} className="row">
+        <div key={keys[i]} className="row">
           <div className="grid">
             <div className="field">
               <NameInput label={`GREP pattern ${i + 1}`} value={g.pattern} onCommit={(pattern) => put(i, { pattern })} />
             </div>
             <Select label={`GREP text style ${i + 1}`} value={g.style} options={others} onChange={(s) => put(i, { style: s })} />
           </div>
-          <button type="button" className="icon-button" aria-label={`Remove GREP style ${i + 1}`} title="Remove GREP style" onClick={() => set(style.grep.toSpliced(i, 1))}>
+          <button type="button" className="icon-button" aria-label={`Remove GREP style ${i + 1}`} title="Remove GREP style" onClick={() => set(without(i))}>
             <Icon name="minus" />
           </button>
         </div>
