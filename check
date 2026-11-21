@@ -25,7 +25,7 @@ fi
 cd web
 [ pnpm-lock.yaml -nt node_modules/.modules.yaml ] && pnpm install --frozen-lockfile
 if run web; then
-  pnpm exec tsc --noEmit
+  tsc --noEmit
   pnpm lint
   pnpm test
   pnpm build

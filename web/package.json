@@ -23,7 +23,6 @@
     "@vitejs/plugin-react": "^6.3.0",
     "canvaskit-wasm": "0.42.0",
     "pngjs": "^7.0.0",
-    "typescript": "~6.0.3",
     "vite": "npm:@voidzero-dev/vite-plus-core@8.3.8000",
     "vite-plus": "1.7.0"
   },
