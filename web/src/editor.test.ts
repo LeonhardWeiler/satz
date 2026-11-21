@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { expect, test } from 'vite-plus/test'
+import { expect, test, vi } from 'vite-plus/test'
 import { Editor } from './editor'
 import { Engine, initSync } from './engine/engine'
 import type { Command, Snapshot } from './model'
@@ -62,4 +62,29 @@ test('a panic in the engine calls the panic hook once', () => {
   Engine.onPanic(() => calls++)
   expect(() => new Engine().trap()).toThrow('unreachable')
   expect(calls).toBe(1)
+})
+
+test('an image that leaves placing revokes its object URL', () => {
+  initSync({ module: readFileSync(new URL('engine/engine_bg.wasm', import.meta.url)) })
+  const editor = new Editor(Engine.sample())
+  const png = readFileSync(new URL('../public/icon-192.png', import.meta.url))
+  const live = new Set<string>()
+  let n = 0
+  const create = vi.spyOn(URL, 'createObjectURL').mockImplementation(() => {
+    const url = `blob:${n++}`
+    live.add(url)
+    return url
+  })
+  const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation((url) => void live.delete(url))
+  const place = () => editor.loadImage(new Uint8Array(png), 'icon.png')
+  const other = editor.engine.updates(new Uint8Array())
+  for (const leave of [() => editor.set({ placing: editor.placing.slice(1) }), () => editor.set({ placing: [] }), () => editor.setTool('rect'), place, () => editor.load(other)]) {
+    place()
+    expect(live.size).toBe(1)
+    leave()
+    expect(live.size).toBe(editor.placing.length)
+    editor.set({ placing: [] })
+  }
+  create.mockRestore()
+  revoke.mockRestore()
 })
