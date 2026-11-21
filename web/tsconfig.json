@@ -8,11 +8,12 @@
     "jsx": "react-jsx",
     "strict": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "skipLibCheck": true
   },
-  "include": ["src", "e2e", "shots", "vite.config.ts", "playwright.config.ts"]
+  "include": ["src", "e2e", "shots", "lint", "vite.config.ts", "playwright.config.ts"]
 }

@@ -4,7 +4,7 @@
     "dev": "vp dev",
     "build": "vp build",
     "lint": "vp lint",
-    "test": "vp test run --dir src",
+    "test": "vp test run",
     "e2e": "playwright test",
     "preview": "vp preview"
   },

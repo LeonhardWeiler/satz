@@ -76,7 +76,7 @@ async function rectOf(page: Page, t: Target): Promise<Rect | null> {
 
 export async function shot(page: Page, cat: string, name: string, caption: string, targets: Target[] = [], pad = 12) {
   await drawn(page)
-  await page.waitForTimeout(150)
+  await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.timeline instanceof DocumentTimeline && a.effect?.getComputedTiming().endTime !== Infinity).map((a) => a.finished)))
   const v = page.viewportSize()!
   let clip: Rect | undefined
   if (targets.length) {

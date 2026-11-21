@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import { example, expect, layers, opened, png, props, rest, select, shot, start, test } from './lib'
-import { place } from '../e2e/util'
+import { place, steady } from '../e2e/util'
 
 const G = '09 Pages & masters'
 const L = '08 Layers & swatches'
@@ -165,40 +165,48 @@ test('preflight cmyk', async ({ page }) => {
   await page.keyboard.press('Shift+1')
   await rest(page)
   const pf = page.getByRole('region', { name: 'Preflight' })
-  await expect(pf.getByText('Highest')).toBeVisible()
-  await page.waitForTimeout(1500)
+  await expect(pf.getByText(/^max \d+ %$/).first()).toBeVisible()
+  await expect(pf.getByRole('checkbox', { name: 'Mark colors outside the gamut' })).toBeChecked()
   await shot(page, F, '20 preflight CMYK', 'Preflight of a CMYK document: proof, separations, ink coverage')
   await shot(page, F, '21 preflight CMYK panel', 'Preflight panel (CMYK)', ['right'])
-  await pf.getByRole('checkbox', { name: 'Mark colors outside the gamut' }).check()
-  await page.waitForTimeout(1500)
   await shot(page, F, '22 gamut marks', 'Colors outside the gamut marked on the canvas')
-  await pf.getByRole('checkbox', { name: 'Mark colors outside the gamut' }).check()
-  await pf.getByText('Mark above limit').click()
-  await pf.getByRole('textbox', { name: 'Ink limit' }).fill('200')
-  await page.keyboard.press('Enter')
-  await page.waitForTimeout(1500)
+  const over = pf.getByRole('checkbox', { name: 'Mark above limit' })
+  await expect(over).toBeChecked()
+  await inked(page, async () => {
+    await pf.getByRole('textbox', { name: 'Ink limit' }).fill('200')
+    await page.keyboard.press('Enter')
+  })
   await shot(page, F, '23 ink above limit', 'Ink above the limit marked on the canvas')
-  await pf.getByText('Mark above limit').click()
+  await inked(page, () => over.uncheck())
   const plates = pf.getByRole('region', { name: 'Separations' }).locator('.plate')
-  await plates.first().click()
-  await page.waitForTimeout(1500)
+  await inked(page, () => plates.first().click())
   await shot(page, F, '24 cyan plate off', 'Separations with the cyan plate turned off')
-  await plates.first().click()
-  await plates.last().click()
-  await page.waitForTimeout(1500)
+  await inked(page, async () => {
+    await plates.first().click()
+    await plates.last().click()
+  })
   await shot(page, F, '25 cyan and spot plates off', 'Separations with the cyan and the spot plate turned off')
-  await plates.last().click()
+  await inked(page, () => plates.last().click())
   const c = (await page.getByLabel('Page canvas').boundingBox())!
   await page.mouse.move(c.x + c.width / 2, c.y + c.height * 0.55)
-  await page.waitForTimeout(800)
-  await shot(page, F, '26 ink under pointer', 'Ink coverage under the pointer', [pf.getByRole('region', { name: 'Ink coverage' })], 8)
+  const coverage = pf.getByRole('region', { name: 'Ink coverage' })
+  await expect(coverage.locator('.kv', { hasText: 'Under pointer' }).getByText(/^\d+ %$/)).toBeVisible()
+  await shot(page, F, '26 ink under pointer', 'Ink coverage under the pointer', [coverage], 8)
   await rest(page)
   await opened(page, F, '27 preset select CMYK', 'Preset select in a CMYK document', pf.getByRole('combobox', { name: 'Preset' }))
   await pf.locator('.pf-go').click()
   await shot(page, F, '28 exporting', 'Exporting: button and progress bar', [pf.getByRole('region', { name: 'Output' })], 8)
-  await page.waitForTimeout(5000)
+  await expect(page.locator('.status').getByText(/^Exported /)).toBeVisible()
   await shot(page, F, '29 exported', 'After the export: status line', [page.locator('.status'), pf.getByRole('region', { name: 'Output' })], 8)
 })
+
+async function inked(page: Page, act: () => Promise<void>) {
+  const canvas = page.getByLabel('Page canvas')
+  const before = await canvas.screenshot()
+  await act()
+  await expect.poll(async () => (await canvas.screenshot()).equals(before)).toBe(false)
+  await steady(async () => (await canvas.screenshot()).toString('base64'))
+}
 
 const sect = (page: Page, name: string) => props(page).getByRole('region', { name, exact: true })
 

@@ -13,6 +13,8 @@ Before a commit: `./check build` and the affected specs; CI runs the full `./che
 
 ## Rules
 
+- Rules a linter can check are `satz/…` rules in `web/lint/`, each with cases in `rules.test.ts`. An exception
+  is a file in the rule's `excludeFiles` in `web/vite.config.ts`, never a disable comment.
 - No comments.
 - A keyboard shortcut is an `Action` in `web/src/commands.ts`; `onKey` in `web/src/keys.ts` is the only
   keydown dispatcher.

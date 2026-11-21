@@ -58,9 +58,11 @@ export default defineConfig({
     },
   },
   server: { fs: { allow: ['..'] } },
+  test: { include: ['src/**/*.test.ts', 'lint/*.test.ts'] },
   lint: {
     ignorePatterns: ['dist', 'canvaskit', 'src/engine', 'src/engine-io', 'src/types.ts', 'test-results', 'playwright-report'],
     plugins: ['eslint', 'oxc', 'react', 'unicorn', 'typescript'],
+    jsPlugins: ['./lint/index.ts'],
     categories: { correctness: 'error', suspicious: 'error', perf: 'error' },
     options: { typeAware: true },
     env: { browser: true },
@@ -109,7 +111,10 @@ export default defineConfig({
     overrides: [
       { files: ['src/**'], rules: { 'eslint/no-restricted-properties': ['error', { object: 'WebAssembly', property: 'RuntimeError', message: 'A trap reaches stop() through Engine.onPanic.' }] } },
       { files: ['src/ContextMenu.tsx'], rules: { 'react/no-array-index-key': 'off', 'typescript/no-base-to-string': 'off' } },
-      { files: ['e2e/**'], rules: { 'eslint/no-restricted-properties': ['error', { property: 'waitForTimeout', message: 'Wait for a state, e.g. with steady() from util.ts.' }] } },
+      { files: ['e2e/**', 'shots/**', 'src/**/*.test.ts', 'lint/**/*.test.ts'], excludeFiles: ['**/playwright.config.ts'], rules: { 'satz/no-test-timing': 'error' } },
+      { files: ['src/**'], excludeFiles: ['src/**/*.test.ts', 'src/ColorPicker.tsx', 'src/Canvas.tsx'], rules: { 'satz/no-hex-color': 'error' } },
+      { files: ['src/**'], rules: { 'satz/no-cached-rejection': 'error', 'satz/way-out': 'error' } },
+      { files: ['src/**'], excludeFiles: ['src/**/*.test.ts', 'src/SettingsDialog.tsx', 'src/Shortcuts.tsx', 'src/Properties.tsx'], rules: { 'satz/no-unit-text': 'error' } },
       { files: ['sw.js'], env: { serviceworker: true }, globals: { CACHE: 'readonly', FILES: 'readonly' } },
     ],
   },

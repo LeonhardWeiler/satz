@@ -4,7 +4,6 @@ import { test, expect, open, screen, drawn, showPage } from './util'
 import type { Page } from '@playwright/test'
 
 test.skip(!process.env.PERF, 'a benchmark, run with PERF=1')
-test.setTimeout(600_000)
 test.describe.configure({ mode: 'serial' })
 test.use({ trace: 'off' })
 

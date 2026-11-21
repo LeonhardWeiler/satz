@@ -166,7 +166,6 @@ const run = async (page: Page, state: string, root: string) => {
 test.beforeAll(() => { mkdirSync(OUT, { recursive: true }); writeFileSync(FILE, '') })
 
 test('audit', async ({ page }) => {
-  test.setTimeout(180_000)
   await start(page, { h: 1400 })
   await page.keyboard.press('Escape')
   await rest(page)

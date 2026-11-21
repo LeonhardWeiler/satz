@@ -8,6 +8,8 @@ const env = Object.fromEntries(
 const port = process.env.PORT ?? '4173'
 const url = `http://localhost:${port}/`
 
+const chrome = { ...devices['Desktop Chrome'], launchOptions: { env, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] } }
+
 export default defineConfig({
   testDir: 'e2e',
   fullyParallel: true,
@@ -18,16 +20,8 @@ export default defineConfig({
   reporter: process.env.CI ? [['github'], ['list']] : 'list',
   use: { baseURL: url, colorScheme: 'dark', serviceWorkers: 'block', trace: 'retain-on-first-failure', contextOptions: { reducedMotion: 'reduce' } },
   projects: [
-    {
-      name: 'chromium',
-      use: {
-        ...devices['Desktop Chrome'],
-        launchOptions: {
-          env,
-          args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
-        },
-      },
-    },
+    { name: 'chromium', use: chrome, testIgnore: 'perf.spec.ts' },
+    { name: 'perf', use: chrome, testMatch: 'perf.spec.ts', timeout: 600_000 },
   ],
   webServer: {
     command: `pnpm preview --port ${port} --strictPort`,
