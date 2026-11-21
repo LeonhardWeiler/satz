@@ -1,7 +1,5 @@
 import { type Locator, type Page } from '@playwright/test'
-import { expect, test, addVariable, assets, colors, open, pixels, screen, choose } from './util'
-
-const near = ([r, g, b]: number[], [R, G, B]: number[]) => Math.max(Math.abs(r - R), Math.abs(g - G), Math.abs(b - B)) <= 24
+import { expect, test, addVariable, assets, colors, near, open, pixels, screen, choose, type RGB } from './util'
 
 test('modes and variables are made with the plus and edited in a popover', async ({ page }) => {
   await open(page)
@@ -76,7 +74,7 @@ test('a font variable sets the font of a text in the mode of its page', async ({
 async function theme(page: Page) {
   const dialog = await addVariable(page, 'Color')
   await dialog.getByRole('button', { name: 'Add mode' }).click()
-  for (const [mode, hex] of [['Mode 1', 'ff0000'], ['Mode 2', '0000ff']]) {
+  for (const [mode, hex] of [['Mode 1', 'ff0000'], ['Mode 2', '0000ff']] as const) {
     await dialog.getByRole('button', { name: `Color 1 in ${mode}` }).click()
     const hexField = page.getByRole('dialog', { name: `Color 1 in ${mode}` }).getByRole('textbox', { name: 'Hex' })
     await hexField.fill(hex)
@@ -106,11 +104,12 @@ test('a fill bound to a color variable follows the mode of its frame and page', 
   await bind(rects.first())
   await expect(panel.getByText('Color 1')).toBeVisible()
   const shown = async () => colors(page, [await screen(page, 74, 7), await screen(page, 100, 185)])
-  const expectColors = async (top: number[], inFrame: number[]) => {
+  const expectColors = async (top: RGB, inFrame: RGB) => {
     const [a, b] = await shown()
     expect(near(a, top) && near(b, inFrame), `${a.join()} ${b.join()}`).toBe(true)
   }
-  const [red, blue] = [[255, 0, 0], [0, 0, 255]]
+  const red: RGB = [255, 0, 0]
+  const blue: RGB = [0, 0, 255]
   await expectColors(red, red)
 
   await page.keyboard.press('Escape')
@@ -129,7 +128,7 @@ test('a number variable binds to width and detaches with the value of the curren
   await open(page)
   const dialog = await addVariable(page, 'Number')
   await dialog.getByRole('button', { name: 'Add mode' }).click()
-  for (const [mode, v] of [['Mode 1', '10'], ['Mode 2', '20']]) {
+  for (const [mode, v] of [['Mode 1', '10'], ['Mode 2', '20']] as const) {
     await dialog.getByRole('textbox', { name: `Number 1 in ${mode}` }).fill(v)
     await dialog.getByRole('textbox', { name: `Number 1 in ${mode}` }).press('Enter')
   }

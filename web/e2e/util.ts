@@ -50,7 +50,9 @@ export async function screen(page: Page, x: number, y: number, i?: number) {
   const box = (await canvas.boundingBox())!
   const sheets = JSON.parse((await canvas.getAttribute('data-sheets'))!) as Sheet[]
   const view = fitView(sheets, box.width, box.height)
-  const sx = sheets[i ?? sheets.length - 1].x + x * MM
+  const sheet = sheets.at(i ?? -1)
+  if (!sheet) throw new Error(`no sheet ${i}`)
+  const sx = sheet.x + x * MM
   return [box.x + view.x + sx * view.zoom, box.y + view.y + y * MM * view.zoom] as const
 }
 
@@ -86,7 +88,7 @@ export function png(name: string, width: number, height: number, rgb: (x: number
   return { name, mimeType: 'image/png', buffer: PNG.sync.write(out) }
 }
 
-export async function place(page: Page, file: { name: string; mimeType: string; buffer: Buffer }, at = [74, 105]) {
+export async function place(page: Page, file: { name: string; mimeType: string; buffer: Buffer }, at: readonly [number, number] = [74, 105]) {
   const chooser = page.waitForEvent('filechooser')
   await page.getByRole('button', { name: 'Place image' }).click()
   await (await chooser).setFiles(file)
@@ -106,38 +108,44 @@ export async function drawn(page: Page) {
 export async function pixels(page: Page, x: number, y: number, w: number, h: number) {
   await drawn(page)
   const png = PNG.sync.read(await page.screenshot({ clip: { x, y, width: w, height: h } }))
-  const out: [number, number, number][] = []
-  for (let i = 0; i < png.data.length; i += 4) out.push([png.data[i], png.data[i + 1], png.data[i + 2]])
+  const out: RGB[] = []
+  for (let i = 0; i < png.data.length; i += 4) out.push(rgb(png.data, i))
   return out
 }
 
-export async function colors(page: Page, points: (readonly [number, number])[]) {
+export async function colors<const P extends readonly (readonly [number, number])[]>(page: Page, points: P) {
   await drawn(page)
   const png = PNG.sync.read(await page.screenshot())
-  return points.map(([x, y]) => {
-    const i = (Math.round(y) * png.width + Math.round(x)) * 4
-    return [png.data[i], png.data[i + 1], png.data[i + 2]]
-  })
+  return points.map(([x, y]) => rgb(png.data, (Math.round(y) * png.width + Math.round(x)) * 4)) as { -readonly [K in keyof P]: RGB }
+}
+
+export type RGB = readonly [number, number, number]
+
+function rgb(data: Uint8Array, i: number): RGB {
+  const [r = 0, g = 0, b = 0] = data.subarray(i, i + 3)
+  return [r, g, b]
 }
 
 export const STORY =
   'Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore ' +
   'et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum.'
 
-export async function port(page: Page, [x0, y0, x1, y1]: number[], out: boolean, i?: number): Promise<[number, number]> {
+export async function port(page: Page, [x0, y0, x1, y1]: Box, out: boolean, i?: number): Promise<[number, number]> {
   const [l, t] = await screen(page, x0, y0, i)
   const [r, b] = await screen(page, x1, y1, i)
   const inset = Math.min(24, (b - t) / 4)
   return out ? [r, b - inset] : [l, t + inset]
 }
 
-export async function frameOnNewPage(page: Page, box: number[]) {
+export async function frameOnNewPage(page: Page, box: Box) {
   await addPage(page)
   await page.keyboard.press('t')
   await drag(page, await screen(page, box[0], box[1]), await screen(page, box[2], box[3]))
 }
 
-export const near = ([r, g, b]: number[], [R, G, B]: number[]) => Math.max(Math.abs(r - R), Math.abs(g - G), Math.abs(b - B)) <= 24
+type Box = readonly [number, number, number, number]
+
+export const near = ([r, g, b]: RGB, [R, G, B]: RGB) => Math.max(Math.abs(r - R), Math.abs(g - G), Math.abs(b - B)) <= 24
 
 export async function overview(page: Page) {
   const o = page.getByRole('region', { name: 'Page overview' })

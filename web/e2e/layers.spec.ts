@@ -151,6 +151,7 @@ test('dragging a layer row reorders it among its siblings and drops it into a gr
     await row(from).dragTo(row(to), { targetPosition: { x: box.width / 2, y: box.height * f } })
   }
   const [a, b, ...rest] = (await tops()).filter((n) => n !== 'Shapes')
+  if (!a || !b) throw new Error('two layers')
   await onto(a, b, 0.9)
   expect((await tops()).filter((n) => n !== 'Shapes')).toEqual([b, a, ...rest])
   await onto(a, 'Shapes', 0.5)

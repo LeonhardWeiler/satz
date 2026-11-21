@@ -3,9 +3,9 @@ import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type Page } from '@playwright/test'
-import { expect, test, addMaster, addPage, colors, current, drag, exportButton, open, overview, screen, showPage, choose } from './util'
+import { expect, test, addMaster, addPage, colors, current, drag, exportButton, open, overview, screen, showPage, choose, type RGB } from './util'
 
-const gray = ([r, g, b]: number[]) => [r, g, b].every((c) => Math.abs(c - 0xd9) < 8)
+const gray = ([r, g, b]: RGB) => [r, g, b].every((c) => Math.abs(c - 0xd9) < 8)
 
 const title = (page: Page) => page.getByRole('complementary', { name: 'Properties' }).getByRole('heading', { level: 2 })
 const rects = (page: Page) => page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true })

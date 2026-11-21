@@ -1,4 +1,4 @@
-import { expect, test, drag, open, screen, choose, pixels } from './util'
+import { expect, test, drag, open, screen, choose, colors } from './util'
 
 test('shift+a adds a hugging auto layout whose padding, sizing and alignment move the child', async ({ page }) => {
   await open(page)
@@ -106,7 +106,7 @@ test('a child made absolute keeps its place and stays visible', async ({ page })
   await expect(panel.getByRole('textbox', { name: 'X in mm' })).toHaveValue('40')
   await page.keyboard.press('Escape')
   const [x, y] = await screen(page, 45, 85)
-  expect((await pixels(page, x, y, 1, 1))[0][0]).toBeLessThan(240)
+  expect((await colors(page, [[x, y]]))[0][0]).toBeLessThan(240)
 })
 
 test('ctrl while resizing a frame leaves its children where they are', async ({ page }) => {

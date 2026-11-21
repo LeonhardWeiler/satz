@@ -5,6 +5,8 @@ import { example, OUT, props, rest, section, select, start, test } from './lib'
 const FILE = `${OUT}/audit.txt`
 const BOX = '.field, .select, .segmented, .tabs, .button, .primary, .icon-button, .swatch, input:not([type=checkbox]), [role=slider], canvas, .check, .bound-name, [role=option], [role=menuitem], [role=menuitemradio], [role=menuitemcheckbox], textarea, [role=treeitem] > div, .settings-card, .pal-it, .format, .layer, .iss, h2 + .icon-button'
 
+type RGB = [number, number, number]
+type RGBA = [number, number, number, number]
 type Item = { kind: 'box' | 'text'; key: string; sec: string; x: number; y: number; r: number; b: number; fs?: number; fw?: string; pad?: number }
 
 async function dump(page: Page, root: string) {
@@ -66,18 +68,16 @@ async function dump(page: Page, root: string) {
 async function inks(page: Page, root: string) {
   return page.evaluate((root) => {
     const ctx = document.createElement('canvas').getContext('2d', { willReadFrequently: true })!
-    const rgba = (c: string) => {
+    const rgba = (c: string): RGBA => {
       ctx.clearRect(0, 0, 1, 1)
       ctx.fillStyle = c
       ctx.fillRect(0, 0, 1, 1)
-      const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data
+      const [r = 0, g = 0, b = 0, a = 0] = ctx.getImageData(0, 0, 1, 1).data
       return [r, g, b, a / 255]
     }
-    const over = (t: number[], u: number[]) => [0, 1, 2].map((i) => t[i] * t[3] + u[i] * (1 - t[3]))
-    const lum = (c: number[]) => {
-      const [r, g, b] = c.map((v) => (v /= 255) <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)
-      return 0.2126 * r + 0.7152 * g + 0.0722 * b
-    }
+    const over = ([r, g, b, a]: RGBA, [R, G, B]: RGB): RGB => [r * a + R * (1 - a), g * a + G * (1 - a), b * a + B * (1 - a)]
+    const linear = (v: number) => ((v /= 255) <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)
+    const lum = ([r, g, b]: RGB) => 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
     const out = new Set<string>()
     const top = document.querySelector(root)
     if (!top) return []
@@ -86,7 +86,7 @@ async function inks(page: Page, root: string) {
       const p = n.parentElement!
       if (!n.textContent!.trim() || !p.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue
       let dim = false
-      const layers: number[][] = []
+      const layers: RGBA[] = []
       for (let e: Element | null = p; e; e = e.parentElement) {
         const s = getComputedStyle(e)
         if (+s.opacity < 1) dim = true
@@ -95,12 +95,11 @@ async function inks(page: Page, root: string) {
         if (c[3] === 1) break
       }
       if (dim) continue
-      let bg = [255, 255, 255]
+      let bg: RGB = [255, 255, 255]
       for (const l of layers.reverse()) bg = over(l, bg)
       const s = getComputedStyle(p)
       const fg = over(rgba(s.color), bg)
-      const [a, b] = [lum(fg), lum(bg)].sort((x, y) => y - x)
-      const cr = (a + 0.05) / (b + 0.05)
+      const cr = (Math.max(lum(fg), lum(bg)) + 0.05) / (Math.min(lum(fg), lum(bg)) + 0.05)
       const big = parseFloat(s.fontSize) >= 18.66 || (parseFloat(s.fontSize) >= 14 && +s.fontWeight >= 700)
       if (cr < (big ? 3 : 4.5)) out.add(`${cr.toFixed(2)} ${p.tagName.toLowerCase()}.${[...p.classList].join('.')} "${n.textContent!.trim().slice(0, 20)}" ${s.color}`)
     }
@@ -115,9 +114,11 @@ function analyse(state: string, items: Item[]) {
   if (process.env.FULL) for (const i of [...items].sort((a, b) => a.y - b.y || a.x - b.x)) lines.push(`    ${i.kind} ${i.sec.slice(0, 14).padEnd(14)} x${f(i.x)} y${f(i.y)} r${f(i.r)} h${f(i.b - i.y)}${i.fs ? ' fs' + i.fs + '/' + i.fw : ''}${i.pad !== undefined ? ' pad' + i.pad : ''} ${i.key.slice(0, 60)}`)
   const near = (vals: [number, string][], what: string) => {
     vals.sort((a, b) => a[0] - b[0])
-    for (let i = 1; i < vals.length; i++) {
-      const d = vals[i][0] - vals[i - 1][0]
-      if (d > 0.6 && d <= 6) lines.push(`  ${what} ${f(vals[i - 1][0])} vs ${f(vals[i][0])}: ${vals[i - 1][1]}  |  ${vals[i][1]}`)
+    for (const [i, [v, key]] of vals.entries()) {
+      const next = vals[i + 1]
+      if (!next) break
+      const d = next[0] - v
+      if (d > 0.6 && d <= 6) lines.push(`  ${what} ${f(v)} vs ${f(next[0])}: ${key}  |  ${next[1]}`)
     }
   }
   near(items.map((i) => [i.x, `${i.sec} ${i.key}`]), 'LEFT')
@@ -151,7 +152,10 @@ function analyse(state: string, items: Item[]) {
       const hts = new Set(row.map((i) => f(i.b - i.y)))
       if (row.length > 1 && (tops.size > 1 || hts.size > 1)) lines.push(`  ROW ${sec}: ` + row.map((i) => `${i.key}@${f(i.y)}h${f(i.b - i.y)}`).join(' , '))
     }
-    const gaps = rows.slice(1).map((r, k) => f(Math.min(...r.map((i) => i.y)) - Math.max(...rows[k].map((i) => i.b))))
+    const gaps = rows.flatMap((r, k) => {
+      const next = rows[k + 1]
+      return next ? [f(Math.min(...next.map((i) => i.y)) - Math.max(...r.map((i) => i.b)))] : []
+    })
     if (gaps.length) lines.push(`  GAPS ${sec}: ${gaps.join(' ')}`)
   }
   appendFileSync(FILE, lines.join('\n') + '\n')

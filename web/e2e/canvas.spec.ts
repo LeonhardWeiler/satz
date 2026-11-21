@@ -90,9 +90,9 @@ test('property sections space their rows evenly and size their controls alike', 
         const kids = [...s.children].filter((c) => c.getClientRects().length).map((c) => c.getBoundingClientRect())
         return {
           name: s.getAttribute('aria-label'),
-          top: kids[0].top - r.top - parseFloat(getComputedStyle(s).borderTopWidth),
+          top: (kids[0]?.top ?? NaN) - r.top - parseFloat(getComputedStyle(s).borderTopWidth),
           bottom: r.bottom - parseFloat(getComputedStyle(s).borderBottomWidth) - kids.at(-1)!.bottom,
-          gaps: kids.slice(1).map((k, i) => k.top - kids[i].bottom),
+          gaps: kids.slice(1).map((k, i) => k.top - (kids[i]?.bottom ?? NaN)),
           heights: [...s.querySelectorAll('.field, .select, .segmented, .specimen')].map((c) => c.getBoundingClientRect().height),
         }
       }),
@@ -193,7 +193,8 @@ test('resize cursors turn with the layer', async ({ page }) => {
   const panel = page.getByRole('complementary', { name: 'Properties' })
   const field = (title: string) => panel.getByTitle(title, { exact: true }).getByRole('textbox')
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).last().click()
-  const [x, y, w, h] = await Promise.all(['X in mm', 'Y in mm', 'W in mm', 'H in mm'].map(async (t) => Number(await field(t).inputValue())))
+  const num = async (t: string) => Number(await field(t).inputValue())
+  const [x, y, w, h] = await Promise.all([num('X in mm'), num('Y in mm'), num('W in mm'), num('H in mm')])
   const top = async (degrees: number) => {
     await field('Rotation in °').fill(String(degrees))
     await field('Rotation in °').press('Enter')
@@ -452,7 +453,7 @@ test('hiding a panel fits a fitted page again and leaves a zoomed one where it i
   const before = await steady(() => sun(at))
   for (const key of ['Alt+1', 'Alt+2', 'Shift+R', 'Shift+W']) {
     await page.keyboard.press(key)
-    expect((await steady(() => sun(at))).every((p, i) => near(p, before[i])), key).toBe(true)
+    expect((await steady(() => sun(at))).every((p, i) => before[i] !== undefined && near(p, before[i])), key).toBe(true)
   }
 })
 
@@ -568,7 +569,8 @@ test('resizing shows the size under the box and turning the angle at the pointer
   const panel = page.getByRole('complementary', { name: 'Properties' })
   const field = (title: string) => panel.getByTitle(title, { exact: true }).getByRole('textbox')
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).last().click()
-  const [x, y, w, h] = await Promise.all(['X in mm', 'Y in mm', 'W in mm', 'H in mm'].map(async (t) => Number(await field(t).inputValue())))
+  const num = async (t: string) => Number(await field(t).inputValue())
+  const [x, y, w, h] = await Promise.all([num('X in mm'), num('Y in mm'), num('W in mm'), num('H in mm')])
   const note = page.locator('.marks text.note')
   const [cx, cy] = await screen(page, x + w, y + h)
   await page.mouse.move(cx, cy)

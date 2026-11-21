@@ -1,8 +1,8 @@
-import { expect, test, autosaved, choose, colors, drag, open, place, png, preflight, screen } from './util'
+import { expect, test, autosaved, choose, colors, drag, open, place, png, preflight, screen, type RGB } from './util'
 
 const red = (width: number, height: number) => png('red.png', width, height, () => [255, 0, 0])
 
-const isRed = ([r, g, b]: number[]) => r > 240 && g < 15 && b < 15
+const isRed = ([r, g, b]: RGB) => r > 240 && g < 15 && b < 15
 
 test('a placed image draws at 300 ppi, preflight reports it enlarged, and it stays after a reload', async ({ page }) => {
   await open(page)

@@ -102,14 +102,11 @@ test('several selected layers show and set the box around them', async ({ page }
   const layers = page.getByRole('tree', { name: 'Layers' })
   const field = (name: string) => panel.getByRole('textbox', { name: `${name} in mm` })
   const read = async (name: string) => Number((await field(name).inputValue()).replace(',', '.'))
-  const each = async () => {
-    const out = []
-    for (const name of ['Sun', 'Triangle']) {
-      await layers.getByRole('button', { name, exact: true }).click()
-      out.push({ x: await read('X'), w: await read('W') })
-    }
-    return out
+  const box = async (name: string) => {
+    await layers.getByRole('button', { name, exact: true }).click()
+    return { x: await read('X'), w: await read('W') }
   }
+  const each = async () => [await box('Sun'), await box('Triangle')] as const
   const [sun, tri] = await each()
   const both = async () => {
     await layers.getByRole('button', { name: 'Sun', exact: true }).click()

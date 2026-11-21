@@ -84,7 +84,8 @@ test('the top bar keeps every tool and Export inside it at any width', async ({ 
     if (width === 760) for (const k of ['Alt+1', 'Alt+2']) await page.keyboard.press(k)
     if (width === 760) await expect(page.getByRole('complementary', { name: 'Properties' })).toBeInViewport({ ratio: 1 })
     const whole = await page.evaluate(() => {
-      const [m, s] = ['.bar-mid', '.switcher'].map((q) => document.querySelector(q)!.getBoundingClientRect())
+      const m = document.querySelector('.bar-mid')!.getBoundingClientRect()
+      const s = document.querySelector('.switcher')!.getBoundingClientRect()
       return s.top >= m.bottom || (s.left >= m.left && s.right <= m.right)
     })
     expect(whole).toBe(true)

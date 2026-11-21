@@ -1,8 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { type Locator, type Page } from '@playwright/test'
-import { expect, test, assets, open, pixels, screen, choose } from './util'
-
-const near = ([r, g, b]: number[], [R, G, B]: number[]) => Math.max(Math.abs(r - R), Math.abs(g - G), Math.abs(b - B)) <= 24
+import { expect, test, assets, colors, near, open, screen, choose } from './util'
 
 async function expectInside(page: Page, el: Locator) {
   const box = (await el.boundingBox())!
@@ -53,7 +51,7 @@ test('hex, saturation, hue and alpha change the fill', async ({ page }) => {
   await panel.getByRole('button', { name: 'Fill color' }).click()
   const picker = page.getByRole('dialog', { name: 'Fill color' })
   const [x, y] = await screen(page, 74, 7)
-  const color = async () => (await pixels(page, x, y, 1, 1))[0]
+  const color = async () => (await colors(page, [[x, y]]))[0]
 
   await picker.getByRole('textbox', { name: 'Hex' }).fill('00ff00')
   await picker.getByRole('textbox', { name: 'Hex' }).press('Enter')
@@ -103,7 +101,7 @@ test('the picker copies cmyk as text and takes it pasted in common notations', a
     await page.evaluate((t) => navigator.clipboard.writeText(t), text)
     await field('Black').focus()
     await page.keyboard.press('Control+v')
-    for (const [name, v] of [['Cyan', '20'], ['Magenta', '40'], ['Yellow', '0'], ['Black', '10']]) await expect(field(name)).toHaveValue(v)
+    for (const [name, v] of [['Cyan', '20'], ['Magenta', '40'], ['Yellow', '0'], ['Black', '10']] as const) await expect(field(name)).toHaveValue(v)
     await field('Cyan').fill('0')
     await field('Cyan').press('Enter')
   }
@@ -130,12 +128,12 @@ test('a cmyk document shows and takes cmyk values in the picker', async ({ page 
   const picker = page.getByRole('dialog', { name: 'Fill color' })
   await expect(picker.getByRole('textbox', { name: 'Hex' })).toBeVisible()
   const field = (name: string) => picker.getByRole('textbox', { name })
-  for (const [name, v] of [['Cyan', '100'], ['Magenta', '0'], ['Yellow', '0'], ['Black', '0']]) {
+  for (const [name, v] of [['Cyan', '100'], ['Magenta', '0'], ['Yellow', '0'], ['Black', '0']] as const) {
     await field(name).fill(v)
     await field(name).press('Enter')
   }
   const [x, y] = await screen(page, 74, 7)
-  expect(near((await pixels(page, x, y, 1, 1))[0], [0, 163, 228])).toBe(true)
+  expect(near((await colors(page, [[x, y]]))[0], [0, 163, 228])).toBe(true)
 
   const hue = picker.getByRole('slider', { name: 'Hue' })
   await hue.focus()
@@ -167,7 +165,7 @@ test('a spot swatch is made in the swatches panel, bound in the picker, tinted a
   const editor = page.getByRole('dialog', { name: 'Edit swatch' })
   await editor.getByRole('textbox', { name: 'Name' }).fill('HKS 43')
   await editor.getByRole('checkbox', { name: 'Spot color' }).check()
-  for (const [name, v] of [['Cyan', '100'], ['Magenta', '60'], ['Yellow', '0'], ['Black', '0']]) {
+  for (const [name, v] of [['Cyan', '100'], ['Magenta', '60'], ['Yellow', '0'], ['Black', '0']] as const) {
     await editor.getByRole('textbox', { name }).fill(v)
     await editor.getByRole('textbox', { name }).press('Enter')
   }
@@ -190,12 +188,12 @@ test('a spot swatch is made in the swatches panel, bound in the picker, tinted a
   await picker.getByRole('option', { name: 'HKS 43' }).click()
   await expect(picker).toBeHidden()
   const [x, y] = await screen(page, 74, 7)
-  const [r, , b] = (await pixels(page, x, y, 1, 1))[0]
+  const [r, , b] = (await colors(page, [[x, y]]))[0]
   expect(b - r).toBeGreaterThan(100)
   await expect(panel.getByText('HKS 43')).toBeVisible()
   await panel.getByRole('textbox', { name: 'Fill tint' }).fill('0')
   await panel.getByRole('textbox', { name: 'Fill tint' }).press('Enter')
-  expect(near((await pixels(page, x, y, 1, 1))[0], [255, 255, 255])).toBe(true)
+  expect(near((await colors(page, [[x, y]]))[0], [255, 255, 255])).toBe(true)
   await panel.getByRole('textbox', { name: 'Fill tint' }).fill('100')
   await panel.getByRole('textbox', { name: 'Fill tint' }).press('Enter')
   expect(await panel.getByRole('textbox', { name: 'Fill tint' }).evaluate((e) => [e, e.closest('.field')!].every((e) => e.scrollWidth <= e.clientWidth))).toBe(true)
@@ -205,7 +203,7 @@ test('a spot swatch is made in the swatches panel, bound in the picker, tinted a
   await swatches.getByRole('button', { name: 'Delete HKS 43' }).click()
   await expect(swatches.getByRole('option')).toHaveCount(0)
   await expect(panel.getByRole('textbox', { name: 'Fill value' })).toBeVisible()
-  const [r2, , b2] = (await pixels(page, x, y, 1, 1))[0]
+  const [r2, , b2] = (await colors(page, [[x, y]]))[0]
   expect(b2 - r2).toBeGreaterThan(100)
 })
 
@@ -277,7 +275,7 @@ test('a spot color made from black gets k 100 as its alternate', async ({ page }
   await page.getByRole('button', { name: 'Add swatch' }).click()
   const editor = page.getByRole('dialog', { name: 'Edit swatch' })
   await editor.getByRole('checkbox', { name: 'Spot color' }).check()
-  for (const [name, v] of [['Cyan', '0'], ['Magenta', '0'], ['Yellow', '0'], ['Black', '100']])
+  for (const [name, v] of [['Cyan', '0'], ['Magenta', '0'], ['Yellow', '0'], ['Black', '100']] as const)
     await expect(editor.getByRole('textbox', { name })).toHaveValue(v)
 })
 
@@ -312,7 +310,7 @@ test('a cmyk document takes an uploaded icc profile and goes back to fogra51', a
   await upload('notes.icc', Buffer.from('notes'))
   await expect(page.getByText('Could not use notes.icc: not an ICC profile.')).toBeVisible()
   const icc = readFileSync(new URL('../../engine/icc/FOGRA51.icc', import.meta.url))
-  icc[24] ^= 1
+  icc.writeUInt8(icc.readUInt8(24) ^ 1, 24)
   await upload('own.icc', icc)
   await expect(profile).toHaveText(/FOGRA51 \(Satz\)$/)
   await choose(profile, 'FOGRA51')

@@ -16,7 +16,8 @@ async function ms(page: Page, name: string, runs: number, f: (i: number) => Prom
     await cdp.send('Profiler.setSamplingInterval', { interval: 200 })
     await cdp.send('Profiler.start')
   }
-  const t: Record<string, number[]> = { total: [], apply: [], snapshot: [], index: [], paint: [] }
+  const measures = ['apply', 'snapshot', 'index', 'paint'] as const
+  const t: Record<'total' | (typeof measures)[number], number[]> = { total: [], apply: [], snapshot: [], index: [], paint: [] }
   for (let i = 0; i < runs; i++) {
     await page.evaluate(() => performance.clearMeasures())
     const start = performance.now()
@@ -24,10 +25,10 @@ async function ms(page: Page, name: string, runs: number, f: (i: number) => Prom
     await drawn(page)
     t.total.push(performance.now() - start)
     const phases = await page.evaluate(() => performance.getEntriesByType('measure').map((m) => [m.name, m.duration] as const))
-    for (const k of ['apply', 'snapshot', 'index', 'paint']) t[k].push(phases.filter((p) => p[0] === k).reduce((s, p) => s + p[1], 0))
+    for (const k of measures) t[k].push(phases.filter((p) => p[0] === k).reduce((s, p) => s + p[1], 0))
   }
   if (cdp) writeFileSync(join(DIR, `${name}.cpuprofile`), JSON.stringify((await cdp.send('Profiler.stop')).profile))
-  return Object.fromEntries(Object.entries(t).map(([k, v]) => [k, Math.round(v.sort((a, b) => a - b)[runs >> 1] * 10) / 10]))
+  return Object.fromEntries(Object.entries(t).map(([k, v]) => [k, Math.round((v.sort((a, b) => a - b).at(runs >> 1) ?? NaN) * 10) / 10]))
 }
 
 for (const n of (process.env.PAGES ?? '1,8,32').split(',').map(Number)) {

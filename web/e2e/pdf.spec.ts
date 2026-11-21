@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type Page } from '@playwright/test'
 import { PNG } from 'pngjs'
-import { fitView, type Sheet } from '../src/renderer'
+import { fitView } from '../src/renderer'
 import { expect, test, STORY, addMaster, addPage, assets, drag, drawn, exportButton, frameOnNewPage, near, open, openExample, pixels, place, png, port, screen, showPage, choose, addVariable } from './util'
 
 const EDGE = 4
@@ -16,7 +16,7 @@ const MAX_SHARE_DARK = 0.005
 
 function pageBox(xml: string, name: string) {
   const m = new RegExp(`<${name} l="([\\d.]+)" b="([\\d.]+)" r="([\\d.]+)" t="([\\d.]+)"`).exec(xml)!
-  const [l, b, r, t] = m.slice(1).map(Number)
+  const [l = NaN, b = NaN, r = NaN, t = NaN] = m.slice(1).map(Number)
   return { l, b, r, t }
 }
 
@@ -37,14 +37,17 @@ async function exportPdf(page: Page) {
   return pdf
 }
 
-async function expectCanvasMatchesPdf(page: Page, n = 1, spread = [n], pdf?: string, maxShare = MAX_SHARE) {
+async function expectCanvasMatchesPdf(page: Page, n = 1, spread: readonly number[] = [n], pdf?: string, maxShare = MAX_SHARE) {
   const canvas = (await page.getByLabel('Page canvas').boundingBox())!
   pdf ??= await exportPdf(page)
   const dir = mkdtempSync(join(tmpdir(), 'satz-'))
 
-  const sheets: Sheet[] = spread.map((k) => sheet(pdf, k))
-  if (sheets.length === 2) sheets[0].x = -sheets[0].width
-  const { x: left, width, height, bleed } = sheets[spread.indexOf(n)]
+  const sheets = spread.map((k) => sheet(pdf, k))
+  const [first] = sheets
+  if (first && sheets.length === 2) first.x = -first.width
+  const own = sheets[spread.indexOf(n)]
+  if (!own) throw new Error(`page ${n} is not in ${spread.join()}`)
+  const { x: left, width, height, bleed } = own
   const view = fitView(sheets, canvas.width, canvas.height)
 
   const x = Math.round(canvas.x + view.x + (left - bleed) * view.zoom)
@@ -69,7 +72,8 @@ async function expectCanvasMatchesPdf(page: Page, n = 1, spread = [n], pdf?: str
     for (let dy = 0; dy < BLOCK; dy++) {
       for (let dx = 0; dx < BLOCK; dx++) {
         const i = ((py + dy) * img.width + px + dx) * 4 + c
-        sum += pasteboard && img.data[i] === BACKGROUND[c] ? 255 : img.data[i]
+        const v = img.data.readUInt8(i)
+        sum += pasteboard && v === BACKGROUND[c] ? 255 : v
       }
     }
     return sum / (BLOCK * BLOCK)
@@ -120,7 +124,7 @@ test('a placed image exports as the canvas shows it', async ({ page }) => {
   const go = await exportButton(page)
   const region = page.getByRole('region', { name: 'Preflight' })
   await region.getByRole('button', { name: 'Advanced output' }).click()
-  for (const [name, value] of [['Image resolution', '72 ppi'], ['JPEG quality', '75 %']]) {
+  for (const [name, value] of [['Image resolution', '72 ppi'], ['JPEG quality', '75 %']] as const) {
     await region.getByRole('combobox', { name }).click()
     await page.getByRole('menuitemradio', { name: value }).click()
   }
@@ -164,7 +168,7 @@ test('draw, move, undo and redo a rectangle, draw shapes and a closed pen path, 
   await page.keyboard.press('Escape')
 
   const names = ['Ellipse', 'Line', 'Star', 'Vector']
-  const before = await Promise.all(names.map((n) => count(n).count()))
+  const before = await Promise.all(names.map(async (n) => [n, await count(n).count()] as const))
   await page.keyboard.press('o')
   await drag(at(0.35, 0.45), at(0.45, 0.55))
   await page.keyboard.press('l')
@@ -179,7 +183,7 @@ test('draw, move, undo and redo a rectangle, draw shapes and a closed pen path, 
   await page.mouse.click(...at(0.55, 0.72))
   await page.mouse.click(...at(0.5, 0.6))
 
-  for (const [i, name] of names.entries()) await expect(count(name)).toHaveCount(before[i] + 1)
+  for (const [name, k] of before) await expect(count(name)).toHaveCount(k + 1)
   await page.keyboard.press('Escape')
   await page.mouse.move(canvas.x + 2, canvas.y + 2)
   await expectCanvasMatchesPdf(page)
@@ -337,7 +341,7 @@ test('formatted text matches the canvas', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: /^Satz sets type/ }).click()
-  for (const [name, value] of [['W in mm', '110'], ['Font size in pt', '13'], ['Line height in pt', '21']]) {
+  for (const [name, value] of [['W in mm', '110'], ['Font size in pt', '13'], ['Line height in pt', '21']] as const) {
     await panel.getByRole('textbox', { name }).fill(value)
     await panel.getByRole('textbox', { name }).press('Enter')
   }
@@ -355,7 +359,7 @@ test('formatted text matches the canvas', async ({ page }) => {
   await page.keyboard.press('Escape')
   await panel.getByRole('region', { name: 'Text frame' }).getByRole('button', { name: 'Frame options' }).click()
   await panel.getByRole('button', { name: 'Inset of each side' }).click()
-  for (const [name, value] of [['Top inset in mm', '3'], ['Columns', '2'], ['Gutter in mm', '4'], ['Baseline grid in pt', '21']]) {
+  for (const [name, value] of [['Top inset in mm', '3'], ['Columns', '2'], ['Gutter in mm', '4'], ['Baseline grid in pt', '21']] as const) {
     await panel.getByRole('textbox', { name }).fill(value)
     await panel.getByRole('textbox', { name }).press('Enter')
   }
@@ -371,7 +375,7 @@ test('every page is exported and the second one matches the canvas', async ({ pa
   await open(page)
   await addPage(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
-  for (const [name, value] of [['W in mm', '120'], ['H in mm', '160'], ['Bleed in mm', '5']]) {
+  for (const [name, value] of [['W in mm', '120'], ['H in mm', '160'], ['Bleed in mm', '5']] as const) {
     await panel.getByRole('textbox', { name }).fill(value)
     await panel.getByRole('textbox', { name }).press('Enter')
   }
@@ -403,7 +407,7 @@ test('a master drawn under a page matches the canvas', async ({ page }) => {
 
 test('text threaded across two pages matches the canvas and reads as one story', async ({ page }) => {
   await open(page, 2000)
-  const a = [20, 20, 70, 60]
+  const a = [20, 20, 70, 60] as const
   await frameOnNewPage(page, a)
   await page.keyboard.type(STORY)
   await page.keyboard.press('Escape')
@@ -458,7 +462,7 @@ test('every page of the example booklet exports as the canvas shows it', async (
   await openExample(page, 'booklet.satz')
   const pdf = await exportPdf(page)
   expect(execFileSync('mutool', ['pages', pdf]).toString().match(/<page /g)).toHaveLength(8)
-  for (const spread of [[1], [2, 3], [4, 5], [6, 7], [8]]) {
+  for (const spread of [[1], [2, 3], [4, 5], [6, 7], [8]] as const) {
     await showPage(page, spread[0])
     await page.mouse.move(1, 1)
     for (const n of spread) await expectCanvasMatchesPdf(page, n, spread, pdf, MAX_SHARE_DARK)

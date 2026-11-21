@@ -70,7 +70,7 @@ test('alt on the left page of a facing master measures to its own edges', async 
 test('distance labels never cover each other', async ({ page }) => {
   await open(page)
   await addMaster(page)
-  for (const [x, y, w, h] of [[20, 50, 10, 2], [20, 53, 10, 2], [40, 50, 10, 5]]) {
+  for (const [x, y, w, h] of [[20, 50, 10, 2], [20, 53, 10, 2], [40, 50, 10, 5]] as const) {
     await page.keyboard.press('r')
     await page.keyboard.down('Control')
     await drag(page, await screen(page, x, y), await screen(page, x + w, y + h))
