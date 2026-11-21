@@ -2153,7 +2153,10 @@ fn an_uploaded_cmyk_profile_is_kept_undone_and_the_pdf_output_intent() {
     assert!(d.set_profile(Some(b"not icc".to_vec())).is_err());
     let mut icc = include_bytes!("../../icc/FOGRA51.icc").to_vec();
     icc[24] ^= 1;
+    let page = d.snapshot().pages[0].id.clone();
+    let printed = d.printed(&page);
     d.set_profile(Some(icc)).unwrap();
+    assert_ne!(d.printed(&page), printed);
     let name = d.snapshot().profile.clone().unwrap();
     assert!(!name.is_empty());
     let pdf =
@@ -2163,6 +2166,7 @@ fn an_uploaded_cmyk_profile_is_kept_undone_and_the_pdf_output_intent() {
     assert_eq!(Doc::load(&d.save()).unwrap().snapshot().profile, Some(name));
     d.apply(Command::Undo).unwrap();
     assert_eq!(d.snapshot().profile, None);
+    assert_eq!(d.printed(&page), printed);
     let pdf =
         String::from_utf8_lossy(&d.pdf("T", "2026-09-28T12:00:00Z", &[0]).unwrap()).into_owned();
     assert!(pdf.contains("/OutputConditionIdentifier(FOGRA51)"));

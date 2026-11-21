@@ -341,6 +341,10 @@ pub fn use_profile(icc: Option<&[u8]>) -> bool {
     true
 }
 
+pub fn hash_profile(h: &mut impl std::hash::Hasher) {
+    std::hash::Hash::hash(&cms().icc, h);
+}
+
 #[cfg(feature = "io")]
 pub fn profile() -> (Vec<u8>, String, bool) {
     let c = cms();

@@ -964,6 +964,7 @@ impl Doc {
         let p = snap.pages.iter().find(|p| p.id == id)?;
         let mut h = std::hash::DefaultHasher::new();
         std::hash::Hash::hash(&crate::encode(&self.print(&snap, p)), &mut h);
+        crate::color::hash_profile(&mut h);
         Some(std::hash::Hasher::finish(&h))
     }
 
