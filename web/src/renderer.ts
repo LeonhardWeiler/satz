@@ -16,6 +16,7 @@ export type Box = { x: number; y: number; w: number; h: number; rotation?: numbe
 type Line = [{ x: number; y: number }, { x: number; y: number }]
 export type Overlay = {
   accent: string
+  bad: string
   pasteboard?: boolean
   selection: (Box | Line)[]
   editing?: boolean
@@ -61,7 +62,6 @@ const CROP = [128, 131, 139, 1] as const
 const GRID = [255, 72, 72] as const
 const GUIDE = [0, 170, 255, 0.9] as const
 const FAR = 1e5
-const OVERSET = '#ff6b5e'
 const BLENDS = [
   'SrcOver', 'Multiply', 'Screen', 'Overlay', 'Darken', 'Lighten', 'ColorDodge', 'ColorBurn',
   'HardLight', 'SoftLight', 'Difference', 'Exclusion', 'Hue', 'Saturation', 'Color', 'Luminosity',
@@ -424,7 +424,7 @@ export class Renderer {
     canvas: Canvas,
     view: View,
     dpr: number,
-    { accent: color, selection, editing, hover, marquee, handles, radii, gaps, ends, pen, insert, ports, threads, vector, crop }: Overlay,
+    { accent: color, bad, selection, editing, hover, marquee, handles, radii, gaps, ends, pen, insert, ports, threads, vector, crop }: Overlay,
   ) {
     const { ck, chrome: paint } = this
     const screen = (b: Box) =>
@@ -577,7 +577,7 @@ export class Renderer {
       square(p.x, p.y, PORT)
       const [x, y] = [Math.floor(p.x) + 0.5, Math.floor(p.y) + 0.5]
       if (p.state === 'overset' || p.state === 'open') {
-        if (p.state === 'overset') paint.setColor(ck.parseColorString(OVERSET))
+        if (p.state === 'overset') paint.setColor(ck.parseColorString(bad))
         paint.setStrokeWidth(p.state === 'overset' ? 2 : 1.5)
         canvas.drawLine(x - 3, y, x + 3, y, paint)
         canvas.drawLine(x, y - 3, x, y + 3, paint)

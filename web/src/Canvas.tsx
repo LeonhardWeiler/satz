@@ -197,6 +197,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     let hover: string | undefined
     let near = false
     let accent = ''
+    let bad = ''
     let markup = ''
     let cursor: Point | undefined
     let pointer: Pointer | undefined
@@ -509,6 +510,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         text,
         found,
         accent: (accent ||= getComputedStyle(canvas).getPropertyValue('--select')),
+        bad: (bad ||= getComputedStyle(canvas).getPropertyValue('--bad')),
         pasteboard: !editor.preflight,
         selection: [...(editor.selection.length > 1 || ed || drag?.kind === 'marquee' ? editor.selected() : []), ...selectedCells(editor)].map(outline),
         editing: !!ed,
@@ -1410,6 +1412,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     window.addEventListener('keyup', onKey)
     const restyle = () => {
       accent = ''
+      bad = ''
       rulers.delete(top)
       rulers.delete(left)
       redraw()
