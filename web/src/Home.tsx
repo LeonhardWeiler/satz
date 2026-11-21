@@ -73,7 +73,7 @@ export function Home({ editor, onNew, children }: { editor: Editor; onNew: () =>
   }
   const remove = async (p: Project) => {
     if (!(await ask(`Delete ${p.name} from this browser?`, 'Delete'))) return
-    await removeProject(editor, p.id)
+    await removeProject(editor, p.id).catch((e: Error) => editor.fail(`Could not delete ${p.name}: ${e.message}.`))
     reload()
   }
 

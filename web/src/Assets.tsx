@@ -39,7 +39,7 @@ export function Assets({ editor }: { editor: Editor }) {
           {fonts.slice(editor.engine.fontsBundled()).map((f) => (
             <li key={f.hash}>
               <span className="swatch-name" title={f.name}>{f.name}</span>
-              <button type="button" className="icon-button" aria-label={`Remove ${f.name}`} title="Remove font" onClick={() => removeFont(editor, f.hash).catch(() => {})}>
+              <button type="button" className="icon-button" aria-label={`Remove ${f.name}`} title="Remove font" onClick={() => removeFont(editor, f.hash).catch((e: Error) => editor.fail(`Could not remove ${f.name}: ${e.message}.`))}>
                 <Icon name="minus" />
               </button>
             </li>
