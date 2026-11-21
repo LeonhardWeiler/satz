@@ -52,7 +52,10 @@ export function followBrowser() {
     notify()
   })
   const light = matchMedia('(prefers-color-scheme: light)')
-  const theme = () => (document.documentElement.dataset.theme = settings.theme === 'system' ? (light.matches ? 'light' : 'dark') : settings.theme)
+  const theme = () => {
+    document.documentElement.dataset.theme = settings.theme === 'system' ? (light.matches ? 'light' : 'dark') : settings.theme
+    document.querySelector<HTMLMetaElement>('meta[name=theme-color]')!.content = getComputedStyle(document.documentElement).backgroundColor
+  }
   theme()
   light.addEventListener('change', theme)
   listeners.add(theme)

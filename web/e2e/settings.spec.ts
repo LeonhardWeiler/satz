@@ -26,12 +26,22 @@ test('the theme follows the system until light or dark is chosen', async ({ page
   await expect(root).toHaveAttribute('data-theme', 'dark')
   await page.emulateMedia({ colorScheme: 'light' })
   await expect(root).toHaveAttribute('data-theme', 'light')
+  await expect(page.locator('meta[name=theme-color]')).toHaveAttribute('content', 'rgb(250, 250, 250)')
 
   await page.keyboard.press('Control+Comma')
   await choose(page.getByRole('dialog', { name: 'Settings' }).getByRole('combobox', { name: 'Theme' }), 'Dark')
   await expect(root).toHaveAttribute('data-theme', 'dark')
   await page.reload()
   await expect(root).toHaveAttribute('data-theme', 'dark')
+})
+
+test('the loading screen and the browser bar follow the chosen theme', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('satz.settings', JSON.stringify({ theme: 'light' })))
+  await page.route(/\.js$/, (route) => route.abort())
+  await page.goto('/')
+  await expect(page.getByRole('progressbar', { name: 'Loading Satz' })).toBeVisible()
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(250, 250, 250)')
+  await expect(page.locator('meta[name=theme-color]')).toHaveAttribute('content', 'rgb(250, 250, 250)')
 })
 
 test('a shortcut changed in the shortcut list runs its command and frees the old keys', async ({ page }) => {
