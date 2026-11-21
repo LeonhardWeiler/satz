@@ -1,4 +1,4 @@
-import { expect, test, vi } from 'vitest'
+import { expect, test, vi } from 'vite-plus/test'
 import { ago } from './Home'
 
 test('ago rounds edit times down', () => {

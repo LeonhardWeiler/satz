@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync } from 'node:fs'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { SELECTION } from './types'
 
 const css = readFileSync(new URL('index.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')

@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest'
+import { expect, test } from 'vite-plus/test'
 import { handleAt, portAt, portsOf, radiusHandles, resized } from './handles'
 
 const view = { x: 100, y: 50, zoom: 2 }

@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest'
+import { expect, test } from 'vite-plus/test'
 import { contours, nearest, remove, shift, split, toPath } from './vector'
 
 const [MOVE, LINE, CUBIC, CLOSE] = [0, 1, 4, 5]

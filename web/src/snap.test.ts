@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest'
+import { expect, test } from 'vite-plus/test'
 import type { Node } from './model'
 import type { Sheet } from './renderer'
 import { equals, guides, measure, nearest, snap, spacings, targets } from './snap'

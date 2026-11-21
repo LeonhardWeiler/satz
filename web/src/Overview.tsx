@@ -100,7 +100,7 @@ function makePainter(ck: CanvasKit, editor: Editor) {
 }
 
 function usePaint(ck: CanvasKit, editor: Editor) {
-  const p = (painter ??= makePainter(ck, editor))
+  const [p] = useState(() => (painter ??= makePainter(ck, editor)))
   useEffect(() => p.stop, [p])
   return p.paint
 }

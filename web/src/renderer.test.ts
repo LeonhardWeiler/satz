@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import CanvasKitInit from '../canvaskit/canvaskit.js'
-import { expect, test } from 'vitest'
+import { expect, test } from 'vite-plus/test'
 import { Engine, initSync } from './engine/engine'
 import type { Command, Node, Snapshot } from './model'
 import { Renderer } from './renderer'

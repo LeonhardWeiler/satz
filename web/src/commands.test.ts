@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest'
+import { expect, test } from 'vite-plus/test'
 import { ACTIONS } from './commands'
 import type { Editor } from './editor'
 

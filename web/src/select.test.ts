@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest'
+import { expect, test } from 'vite-plus/test'
 import { pick, span } from './select'
 import type { Layout, Node, Style } from './model'
 

@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { expect, test } from 'vitest'
+import { expect, test } from 'vite-plus/test'
 import { close, decode, link, type Op } from './displayList'
 
 const read = (name: string) => readFileSync(new URL(`testdata/${name}`, import.meta.url))
