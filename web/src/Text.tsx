@@ -392,7 +392,7 @@ const loadNames = once(() =>
 function Glyphs({ editor, font, at, put, onClose }: { editor: Editor; font?: string; at: Element; put: (c: string) => void; onClose: () => void }) {
   const [query, setQuery] = useState('')
   const [hover, setHover] = useState('')
-  const [[id, codes]] = useState(() => editor.engine.characters(font) as [number, number[]])
+  const [[id, codes]] = useState(() => editor.engine.characters(font))
   const [named, setNamed] = useState(new Map<number, string>())
   useEffect(() => void loadNames().then(setNamed, () => {}), [])
   const chars = codes.map((c) => [c, named.get(c) ?? ''] as const)

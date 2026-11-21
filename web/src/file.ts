@@ -438,7 +438,7 @@ export async function findFonts(editor: Editor) {
   for (const f of locals.filter((f) => missing.some((m) => m.name === f.fullName))) {
     try {
       const bytes = new Uint8Array(await (await f.blob()).arrayBuffer())
-      if (!missing.some((m) => m.hash === (typeface(bytes) as Typeface).hash)) continue
+      if (!missing.some((m) => m.hash === typeface(bytes).hash)) continue
       await keep(editor, bytes)
       found++
     } catch {

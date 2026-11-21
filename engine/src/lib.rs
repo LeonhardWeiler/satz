@@ -29,7 +29,7 @@ pub use doc::{Command, Doc, Snapshot};
 
 use color::ColorMode;
 use js_sys::{Uint8Array, Uint32Array};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
@@ -48,6 +48,32 @@ fn fields<T: Serialize>(v: &T) -> serde_json::Result<BTreeMap<String, Raw>> {
     serde_json::from_str(&serde_json::to_string(v)?)
 }
 
+fn js<T: Serialize + ?Sized>(v: &T) -> Result<JsValue, JsError> {
+    Ok(v.serialize(&serde_wasm_bindgen::Serializer::json_compatible())?)
+}
+
+#[wasm_bindgen(typescript_custom_section)]
+const TYPES: &str = r#"import type { Changes, Color, ColorMode, Command, ImageInfo, Process, Scope, Typeface, Version } from "../types";"#;
+
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[derive(Serialize)]
+pub(crate) struct Delta<'a> {
+    #[cfg_attr(test, ts(type = "Array<string | Sheet>"))]
+    pages: Raw,
+    #[cfg_attr(test, ts(type = "Array<string | Sheet>"))]
+    masters: Raw,
+    stories: BTreeMap<String, Option<Sent<'a>>>,
+}
+
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[derive(Serialize)]
+#[serde(untagged)]
+enum Sent<'a> {
+    Splice(Splice<'a>),
+    Story(&'a doc::Story),
+}
+
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Splice<'a> {
@@ -59,7 +85,7 @@ struct Splice<'a> {
     spans: &'a [text::Span],
 }
 
-fn splice(o: &doc::Story, s: &doc::Story) -> serde_json::Result<Raw> {
+fn splice<'a>(o: &doc::Story, s: &'a doc::Story) -> Splice<'a> {
     let (a, b) = (o.text.as_bytes(), s.text.as_bytes());
     let mut p = a.iter().zip(b).take_while(|(x, y)| x == y).count();
     while !o.text.is_char_boundary(p) {
@@ -83,14 +109,14 @@ fn splice(o: &doc::Story, s: &doc::Story) -> serde_json::Result<Raw> {
         .take_while(|(a, b)| a == b)
         .count();
     let units = |t: &str| t.encode_utf16().count();
-    raw(&Splice {
+    Splice {
         at: units(&o.text[..p]),
         cut: units(&o.text[p..o.text.len() - q]),
         text: &s.text[p..s.text.len() - q],
         spans_at: ps,
         spans_cut: o.spans.len() - ps - qs,
         spans: &s.spans[ps..s.spans.len() - qs],
-    })
+    }
 }
 
 type Drawn = (u32, Vec<u32>, [Option<Rc<doc::Page>>; 2]);
@@ -144,7 +170,10 @@ impl Engine {
         }
     }
 
-    pub fn apply(&mut self, cmd: JsValue) -> Result<Vec<String>, JsError> {
+    pub fn apply(
+        &mut self,
+        #[wasm_bindgen(unchecked_param_type = "Command")] cmd: JsValue,
+    ) -> Result<Vec<String>, JsError> {
         let cmd: Command = serde_wasm_bindgen::from_value(cmd)?;
         self.doc.apply(cmd).map_err(|e| JsError::new(&e))
     }
@@ -157,7 +186,8 @@ impl Engine {
         Ok(serde_json::to_string(&*self.doc.snapshot())?)
     }
 
-    pub fn changes(&mut self) -> Result<String, JsError> {
+    #[wasm_bindgen(unchecked_return_type = "Changes")]
+    pub fn changes(&mut self) -> Result<JsValue, JsError> {
         let snap = self.doc.snapshot();
         let old = self.sent.replace(snap.clone());
         let old = old.as_deref();
@@ -203,13 +233,13 @@ impl Engine {
         for (id, s) in &snap.stories {
             match old.and_then(|o| o.stories.get(id)) {
                 Some(o) if Rc::ptr_eq(o, s) => {}
-                Some(o) => _ = stories.insert(id.to_string(), splice(o, s)?),
-                None => _ = stories.insert(id.to_string(), raw(&**s)?),
+                Some(o) => _ = stories.insert(id.to_string(), Some(Sent::Splice(splice(o, s)))),
+                None => _ = stories.insert(id.to_string(), Some(Sent::Story(s))),
             }
         }
         for id in old.iter().flat_map(|o| o.stories.keys()) {
             if !snap.stories.contains_key(id) {
-                stories.insert(id.to_string(), raw(&())?);
+                stories.insert(id.to_string(), None);
             }
         }
         let mut out = fields(&Snapshot {
@@ -218,10 +248,12 @@ impl Engine {
             stories: Default::default(),
             ..(*snap).clone()
         })?;
-        out.insert("pages".into(), sheets(&snap.pages)?);
-        out.insert("masters".into(), sheets(&snap.masters)?);
-        out.insert("stories".into(), raw(&stories)?);
-        Ok(serde_json::to_string(&out)?)
+        out.extend(fields(&Delta {
+            pages: sheets(&snap.pages)?,
+            masters: sheets(&snap.masters)?,
+            stories,
+        })?);
+        js_sys::JSON::parse(&serde_json::to_string(&out)?).map_err(|_| JsError::new("changes"))
     }
 
     #[wasm_bindgen(js_name = frameRange)]
@@ -429,8 +461,9 @@ impl Engine {
         Ok(())
     }
 
+    #[wasm_bindgen(unchecked_return_type = "Version[]")]
     pub fn versions(&self) -> Result<JsValue, JsError> {
-        Ok(serde_wasm_bindgen::to_value(&self.doc.versions())?)
+        js(&self.doc.versions())
     }
 
     pub fn preview(&mut self, peer: Option<String>, counter: i32) -> Result<(), JsError> {
@@ -464,16 +497,14 @@ impl Engine {
         text::outline(font, size, glyphs, positions)
     }
 
+    #[wasm_bindgen(unchecked_return_type = "[number, number[]]")]
     pub fn characters(&self, hash: Option<String>) -> Result<JsValue, JsError> {
-        Ok(serde_wasm_bindgen::to_value(&text::characters(
-            hash.as_deref(),
-        ))?)
+        js(&text::characters(hash.as_deref()))
     }
 
-    #[wasm_bindgen(js_name = addFont)]
+    #[wasm_bindgen(js_name = addFont, unchecked_return_type = "Typeface")]
     pub fn add_font(&mut self, bytes: &[u8]) -> Result<JsValue, JsError> {
-        let face = self.doc.add_font(bytes).map_err(|e| JsError::new(&e))?;
-        Ok(serde_wasm_bindgen::to_value(&face)?)
+        js(&self.doc.add_font(bytes).map_err(|e| JsError::new(&e))?)
     }
 
     #[wasm_bindgen(js_name = removeFont)]
@@ -491,22 +522,20 @@ impl Engine {
         text::BUNDLED
     }
 
-    #[wasm_bindgen(js_name = addImage)]
+    #[wasm_bindgen(js_name = addImage, unchecked_return_type = "ImageInfo")]
     pub fn add_image(&mut self, bytes: &[u8], link: Option<String>) -> Result<JsValue, JsError> {
-        let info = self
+        js(&self
             .doc
             .add_image(bytes, link)
-            .map_err(|e| JsError::new(&e))?;
-        Ok(serde_wasm_bindgen::to_value(&info)?)
+            .map_err(|e| JsError::new(&e))?)
     }
 
-    #[wasm_bindgen(js_name = registerImage)]
+    #[wasm_bindgen(js_name = registerImage, unchecked_return_type = "ImageInfo")]
     pub fn register_image(&mut self, bytes: &[u8]) -> Result<JsValue, JsError> {
-        let info = self
+        js(&self
             .doc
             .register_image(bytes)
-            .map_err(|e| JsError::new(&e))?;
-        Ok(serde_wasm_bindgen::to_value(&info)?)
+            .map_err(|e| JsError::new(&e))?)
     }
 
     pub fn image(&self, id: u32) -> Uint8Array {
@@ -565,10 +594,9 @@ pub(crate) fn content_hash(bytes: &[u8]) -> String {
     format!("{hash:016x}")
 }
 
-#[wasm_bindgen]
+#[wasm_bindgen(unchecked_return_type = "Typeface")]
 pub fn typeface(bytes: &[u8]) -> Result<JsValue, JsError> {
-    let face = text::typeface(bytes).map_err(|e| JsError::new(&e))?;
-    Ok(serde_wasm_bindgen::to_value(&face)?)
+    js(&text::typeface(bytes).map_err(|e| JsError::new(&e))?)
 }
 
 #[cfg(feature = "io")]
@@ -597,34 +625,47 @@ pub fn to_cmyk(rgb: u32) -> Vec<f32> {
     color::separate(rgb).to_vec()
 }
 
-#[wasm_bindgen]
-pub fn neutral(name: &str, mode: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(unchecked_return_type = "Color")]
+pub fn neutral(
+    #[wasm_bindgen(unchecked_param_type = "\"black\" | \"white\" | \"gray\"")] name: &str,
+    #[wasm_bindgen(unchecked_param_type = "ColorMode")] mode: JsValue,
+) -> Result<JsValue, JsError> {
     let mode = serde_wasm_bindgen::from_value(mode)?;
     let color = match name {
         "black" => color::Color::black(mode),
         "white" => color::Color::white(mode),
         _ => color::Color::gray(mode),
     };
-    Ok(serde_wasm_bindgen::to_value(&color)?)
+    js(&color)
 }
 
-#[wasm_bindgen]
-pub fn resolve(color: JsValue, scope: JsValue) -> Result<JsValue, JsError> {
-    #[derive(serde::Deserialize)]
-    struct Owned {
-        #[serde(flatten)]
-        palette: variable::Palette,
-        #[serde(default)]
-        modes: variable::Modes,
-    }
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[derive(Deserialize)]
+pub(crate) struct Scope {
+    swatches: Vec<color::Swatch>,
+    collections: Vec<variable::Collection>,
+    variables: Vec<variable::Variable>,
+    modes: variable::Modes,
+}
+
+#[wasm_bindgen(unchecked_return_type = "Process")]
+pub fn resolve(
+    #[wasm_bindgen(unchecked_param_type = "Color")] color: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "Scope")] scope: JsValue,
+) -> Result<JsValue, JsError> {
     let color: color::Color = serde_wasm_bindgen::from_value(color)?;
-    let s: Owned = serde_wasm_bindgen::from_value(scope)?;
+    let s: Scope = serde_wasm_bindgen::from_value(scope)?;
+    let palette = variable::Palette {
+        swatches: s.swatches,
+        collections: s.collections,
+        variables: s.variables,
+        text_styles: Vec::new(),
+    };
     let scope = variable::Scope {
-        palette: &s.palette,
+        palette: &palette,
         modes: &s.modes,
     };
-    let ser = serde_wasm_bindgen::Serializer::json_compatible();
-    Ok(color.resolve(&scope).serialize(&ser)?)
+    js(&color.resolve(&scope))
 }
 
 #[cfg(test)]
@@ -671,7 +712,7 @@ mod tests {
             (story("", &[]), story("new", &[(3, 1.0)])),
         ];
         for (o, s) in cases {
-            let v: serde_json::Value = serde_json::from_str(splice(&o, &s).unwrap().get()).unwrap();
+            let v = serde_json::to_value(splice(&o, &s)).unwrap();
             let n = |k: &str| v[k].as_u64().unwrap() as usize;
             let mut text: Vec<u16> = o.text.encode_utf16().collect();
             text.splice(

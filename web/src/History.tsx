@@ -9,7 +9,7 @@ const time = (t: number) => new Date(t * 1000).toLocaleTimeString(undefined, { h
 
 export function History({ editor, onClose }: { editor: Editor; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null)
-  const [versions] = useState(() => editor.engine.versions() as Version[])
+  const [versions] = useState(() => editor.engine.versions())
   const [{ pages, masters, labels }] = useState(editor.snapshot)
   const [was] = useState(() => ({ page: editor.pageId, selection: editor.selection }))
   const [shown, setShown] = useState(versions[0])
