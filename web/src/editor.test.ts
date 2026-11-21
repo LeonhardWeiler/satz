@@ -88,3 +88,12 @@ test('an image that leaves placing revokes its object URL', () => {
   create.mockRestore()
   revoke.mockRestore()
 })
+
+test('moving the pointer does not notify pointer listeners', () => {
+  initSync({ module: readFileSync(new URL('engine/engine_bg.wasm', import.meta.url)) })
+  const editor = new Editor(Engine.sample())
+  const listener = vi.fn()
+  editor.subscribePointer(listener)
+  editor.pointer = { x: 10, y: 20 }
+  expect(listener).not.toHaveBeenCalled()
+})

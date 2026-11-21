@@ -196,6 +196,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     let drag: Drag | null = null
     let hover: string | undefined
     let near = false
+    let lit = ''
     let accent = ''
     let bad = ''
     let markup = ''
@@ -670,7 +671,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     }
     const handleUnder = (e: Pointer) => handleAt(view, e.offsetX, e.offsetY, handles())
     const track = () => {
-      editor.point({ pointer: pointer && toDoc(pointer) })
+      editor.pointer = pointer && toDoc(pointer)
       if (!pointer || drag || editor.pen) return
       const side = portUnder(pointer)?.side
       const to = editor.threading && textUnder(toDoc(pointer))
@@ -690,10 +691,12 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         : handle ? 'Drag to crop the frame'
         : id === editor.cropping ? 'Drag to move the image' : ''
       const on = over(handles().box)
-      if (id !== hover || side !== port || on !== near) {
+      const now = `${guide ? `${guide.id} ${guide.axis} ${guide.index}` : ''} ${alt ? pageAt(toDoc(pointer), editor.sheets)?.id : ''}`
+      if (id !== hover || side !== port || on !== near || now !== lit) {
         hover = id
         port = side
         near = on
+        lit = now
         redraw()
       }
     }
@@ -1321,7 +1324,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     }
     const onLeave = () => {
       pointer = undefined
-      editor.point({ pointer: undefined })
+      editor.pointer = undefined
       hover = undefined
       near = false
       cursor = undefined

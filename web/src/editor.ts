@@ -132,7 +132,7 @@ export class Editor {
   readonly guide: { id: string; axis: 'x' | 'y'; index: number } | null = null
   readonly pen: Pen | null = null
   readonly dragging: boolean = false
-  readonly pointer: Point | undefined
+  pointer: Point | undefined
   readonly editing: Editing | null = null
   readonly found: { story: string; at: number; end: number }[] = []
   readonly threading: { id: string; before: boolean } | null = null
@@ -644,7 +644,7 @@ export class Editor {
     return this.selection.flatMap((id) => this.nodes.get(id)?.node ?? [])
   }
 
-  point(patch: Partial<Pick<Editor, 'hover' | 'pointerInk' | 'pointer' | 'dragging'>>) {
+  point(patch: Partial<Pick<Editor, 'hover' | 'pointerInk' | 'dragging'>>) {
     Object.assign(this, patch)
     for (const l of this.pointed) l()
   }
