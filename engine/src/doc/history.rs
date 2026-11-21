@@ -172,4 +172,16 @@ mod tests {
         saved.apply(Command::Delete { ids }).unwrap();
         assert_eq!(saved.versions()[0].page.as_deref(), Some(p.as_str()));
     }
+
+    #[test]
+    fn previewing_a_version_before_a_linked_image_keeps_the_image_read() {
+        let (mut d, p) = empty();
+        create(&mut d, &p, NewKind::Rect, [0.0, 0.0, 10.0, 10.0]);
+        let one = d.versions()[0].clone();
+        let png = image::tests::png(30, 20);
+        let hash = d.add_image(&png, Some("a.png".into())).unwrap().hash;
+        d.preview(Some((&one.peer, one.counter))).unwrap();
+        d.preview(None).unwrap();
+        assert!(image::info(&hash).is_some());
+    }
 }
