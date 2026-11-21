@@ -430,7 +430,7 @@ test('a layer dragged to the edge of the canvas moves on as the canvas scrolls',
   await page.mouse.down()
   await page.mouse.move(x, bottom, { steps: 4 })
   const top = page.getByRole('complementary', { name: 'Properties' }).getByRole('region', { name: 'Layout' }).getByRole('textbox', { name: 'Y in mm' })
-  await expect.poll(async () => Number(await top.inputValue()), { timeout: 15000 }).toBeGreaterThan(40 + (bottom - y) / mm + 10)
+  await expect.poll(async () => Number(await top.inputValue())).toBeGreaterThan(40 + (bottom - y) / mm + 10)
   await page.mouse.up()
 })
 

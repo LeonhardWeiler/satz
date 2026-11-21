@@ -38,7 +38,7 @@ test('export with errors opens the preflight, which names them but still downloa
   let download = page.waitForEvent('download')
   await exportPdf.click()
   await download
-  await expect(page.getByText('Exported Untitled.pdf')).toBeVisible({ timeout: 30000 })
+  await expect(page.getByText('Exported Untitled.pdf')).toBeVisible()
 
   await page.keyboard.press('r')
   await drag(page, await screen(page, 20, -1), await screen(page, 40, 20))
@@ -67,7 +67,7 @@ test('export writes every page or a range as a png or a jpeg, and a package as a
     bytes.push(Buffer.from(await (await d.createReadStream()).toArray().then((c) => Buffer.concat(c))))
   })
   await go.click()
-  await expect(page.getByText('Exported 2 pages as Untitled.zip')).toBeVisible({ timeout: 30000 })
+  await expect(page.getByText('Exported 2 pages as Untitled.zip')).toBeVisible()
   await expect.poll(() => bytes.length).toBe(1)
   expect(names[0]).toBe('Untitled.zip')
   expect(bytes[0].subarray(0, 4).toString('latin1')).toBe('PK\x03\x04')
@@ -119,7 +119,7 @@ test('preflight in the booklet separates the plates, reports ink over the limit 
   const issues = region.locator('.iss')
   await expect(issues).toHaveCount(0)
 
-  await expect(region.getByText(/^max \d+ %$/).first()).toBeVisible({ timeout: 30000 })
+  await expect(region.getByText(/^max \d+ %$/).first()).toBeVisible()
   const box = (await page.getByLabel('Page canvas').boundingBox())!
   const area = [box.x, box.y, box.width, box.height] as const
   const before = await pixels(page, ...area)
@@ -151,7 +151,7 @@ test('the preflight of a cmyk booklet never scrolls sideways', async ({ page }) 
   await page.getByRole('dialog', { name: 'Projects' }).getByRole('button', { name: /Satz booklet/ }).click()
   await expect(page).toHaveTitle('booklet.satz - Satz')
   const region = await preflight(page)
-  await expect(region.getByText(/^max \d+ %$/).first()).toBeVisible({ timeout: 30000 })
+  await expect(region.getByText(/^max \d+ %$/).first()).toBeVisible()
   const body = region.locator('.pf-body')
   expect(await body.evaluate((b) => b.scrollWidth - b.clientWidth)).toBe(0)
 })
