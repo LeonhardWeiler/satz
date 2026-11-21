@@ -1,8 +1,9 @@
+import type { Page } from '@playwright/test'
 import { variables, opened, props, rest, section, select, shot, start, test } from './lib'
 
 const C = '06 Popovers & menus'
 const T = '07 Text'
-const combo = (page, name: string | RegExp) => props(page).getByRole('combobox', { name }).first()
+const combo = (page: Page, name: string | RegExp) => props(page).getByRole('combobox', { name }).first()
 
 test('color pickers and selects', async ({ page }) => {
   await start(page, { h: 1400 })

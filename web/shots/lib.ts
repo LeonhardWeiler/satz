@@ -10,7 +10,7 @@ export const test = base.extend({})
 type Rect = { x: number; y: number; width: number; height: number }
 type Target = Locator | Rect | 'right' | 'left'
 
-export async function start(page: Page, { w = 1600, h = 1000, doc = 'Sample' as string | null } = {}) {
+export async function start(page: Page, { w = 1600, h = 1000, doc = 'Sample' }: { w?: number; h?: number; doc?: string | null } = {}) {
   page.on('filechooser', () => {})
   await page.addInitScript(() => delete (window as { showOpenFilePicker?: unknown }).showOpenFilePicker)
   await page.setViewportSize({ width: w, height: h })

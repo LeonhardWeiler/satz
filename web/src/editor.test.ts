@@ -19,16 +19,16 @@ test('the snapshot the editor merges from changes equals the full one', () => {
     () => ({ type: 'create', parent: page(), kind: ['rect', 'text', 'frame'][rand(3)], x: rand(100), y: rand(100), w: 10 + rand(50), h: 10 + rand(50) }) as Command,
     () => {
       const id = ids()[rand(ids().length)]
-      return { type: 'setFrame', id, x: rand(100), y: rand(100), w: 5 + rand(80), h: 5 + rand(80) } as Command
+      return { type: 'setFrame', id, x: rand(100), y: rand(100), w: 5 + rand(80), h: 5 + rand(80) }
     },
     () => {
       const t = texts()
-      return t.length ? ({ type: 'editText', id: t[rand(t.length)], range: [0, rand(3)], text: ['', 'a', 'Hallo Welt\n'][rand(3)] } as Command) : undefined
+      return t.length ? { type: 'editText', id: t[rand(t.length)], range: [0, rand(3)], text: ['', 'a', 'Hallo Welt\n'][rand(3)] } : undefined
     },
-    () => ({ type: 'delete', ids: [ids()[rand(ids().length)]] }) as Command,
-    () => ({ type: 'addPage', after: page() }) as Command,
-    () => ({ type: 'undo' }) as Command,
-    () => ({ type: 'redo' }) as Command,
+    () => ({ type: 'delete', ids: [ids()[rand(ids().length)]] }),
+    () => ({ type: 'addPage', after: page() }),
+    () => ({ type: 'undo' }),
+    () => ({ type: 'redo' }),
   ]
   let applied = 0
   for (let i = 0; i < 150; i++) {

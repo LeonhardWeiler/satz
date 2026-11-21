@@ -13,7 +13,7 @@ export function TableSection({ editor, nodes }: { editor: Editor; nodes: Node[] 
     const sizes = (column ? table.columns : table.rows).map((x, i) => (i >= from && i < to ? v : x))
     editor.apply({ type: 'sizeTable', id: t.id, columns: column ? sizes : table.columns, rows: column ? table.rows : sizes })
   }
-  const items = (list: Action[]) => list.map((a): [string, () => void, boolean] => [a.title, () => a.run!(editor), a.can!(editor)])
+  const items = (list: Action[]) => list.map((a): [string, () => void, boolean] => [a.title, () => a.run(editor), a.can!(editor)])
   return (
     <Section
       title={`Table ${table.columns.length} × ${table.rows.length}`}

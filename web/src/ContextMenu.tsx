@@ -55,7 +55,7 @@ export function ContextMenu({
             if (roam(e, items) || e.key.length !== 1 || e.target instanceof HTMLInputElement) return
             const from = items.indexOf(e.target as HTMLElement) + 1
             const key = e.key.toLowerCase()
-            ;[...items.slice(from), ...items.slice(0, from)].find((el) => el.textContent!.toLowerCase().startsWith(key))?.focus()
+            ;[...items.slice(from), ...items.slice(0, from)].find((el) => el.textContent.toLowerCase().startsWith(key))?.focus()
           }
         }}
       >

@@ -15,7 +15,7 @@ const MAX_SHARE = 0.0005
 const MAX_SHARE_DARK = 0.005
 
 function pageBox(xml: string, name: string) {
-  const m = xml.match(new RegExp(`<${name} l="([\\d.]+)" b="([\\d.]+)" r="([\\d.]+)" t="([\\d.]+)"`))!
+  const m = new RegExp(`<${name} l="([\\d.]+)" b="([\\d.]+)" r="([\\d.]+)" t="([\\d.]+)"`).exec(xml)!
   const [l, b, r, t] = m.slice(1).map(Number)
   return { l, b, r, t }
 }
@@ -126,9 +126,9 @@ test('a placed image exports as the canvas shows it', async ({ page }) => {
   }
   const download = page.waitForEvent('download')
   await go.click()
-  const pdf = readFileSync((await (await download).path())!).toString('latin1')
+  const pdf = readFileSync(await (await download).path()).toString('latin1')
   expect(pdf).toContain('/DCTDecode')
-  expect(Number(pdf.match(/\/Width (\d+)/)![1])).toBeLessThan(1200)
+  expect(Number(/\/Width (\d+)/.exec(pdf)![1])).toBeLessThan(1200)
 })
 
 test('draw, move, undo and redo a rectangle, draw shapes and a closed pen path, then export them', async ({ page }) => {

@@ -543,7 +543,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const page = pointer ? pageAt(toDoc(pointer), editor.sheets) : undefined
       const target = !alt || !sel || drag || ed || pen || editor.tool !== 'move'
         ? undefined
-        : hovered || (page && { x: page.x, y: 0, w: page.width, h: page.height })
+        : hovered ?? (page && { x: page.x, y: 0, w: page.width, h: page.height })
       if (target) measures = measure(sel!, target, snapsNow().others)
       else if (!drag) measures = []
       const next = svgOf(target, (drag?.kind === 'draw' && drag.id && drag.tool !== 'line') || drag?.kind === 'resize' ? sel : undefined, drag?.kind === 'rotate' ? drag.turn + drag.by : undefined)
@@ -677,7 +677,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const guide = editor.tool === 'move' && guideAt(toDoc(pointer))
       canvas.style.cursor = guide ? (guide.axis === 'x' ? 'col-resize' : 'row-resize')
         : side ? 'pointer'
-        : to ? (editor.engine.canThread(editor.threading!.id, to) ? 'alias' : 'not-allowed')
+        : to ? (editor.engine.canThread(editor.threading.id, to) ? 'alias' : 'not-allowed')
         : editor.threading ? 'alias'
         : editor.vector?.mode === 'add' || editor.vector?.mode === 'fill' ? 'crosshair'
         : editor.vector && knotUnder(toDoc(pointer)) ? 'move' : cursorOf(handleUnder(pointer) ?? '', handles().box?.rotation ?? 0)
@@ -970,7 +970,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         const frames = editor.selected()
         const [turn, own] = turnOf(frames)
         const snaps = snapsNow()
-        const image = (editor.cropping || e.ctrlKey || e.metaKey) && frames.length === 1 && imageBox(frames[0], placed(frames[0]))
+        const image = (editor.cropping !== null || e.ctrlKey || e.metaKey) && frames.length === 1 && imageBox(frames[0], placed(frames[0]))
         if (image) {
           const { x, y, w, h } = image
           snaps.lines.x.push({ at: x, from: y, to: y + h }, { at: x + w, from: y, to: y + h })
@@ -1480,7 +1480,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
               if (handleTextKey(editor, e.nativeEvent)) e.preventDefault()
             }}
             onInput={(e) => {
-              if ((e.nativeEvent as InputEvent).isComposing) return
+              if (e.nativeEvent.isComposing) return
               const v = e.currentTarget.value
               e.currentTarget.value = ''
               insert(editor, v)

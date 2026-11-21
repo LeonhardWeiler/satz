@@ -61,7 +61,7 @@ export function Tooltip() {
     el.style.top = `${above ? tip.at.top - 6 - h : tip.at.bottom + 6}px`
   }, [tip])
   if (!tip) return null
-  const m = tip.text.match(/^(.*) \(((?:Ctrl|Alt|Shift|Space|Enter|Esc|Del|[A-Z0-9]|[^\w\s])(?:[+ ].*)?)\)$/)
+  const m = /^(.*) \(((?:Ctrl|Alt|Shift|Space|Enter|Esc|Del|[A-Z0-9]|[^\w\s])(?:[+ ].*)?)\)$/.exec(tip.text)
   return (
     <div ref={ref} className="tooltip" role="tooltip" popover="manual">
       {m ? m[1] : tip.text}
