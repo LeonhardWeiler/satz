@@ -40,7 +40,7 @@ const db = once(
         for (const s of ['files', 'fonts', 'projects', 'links']) if (!r.result.objectStoreNames.contains(s)) r.result.createObjectStore(s)
       }
       r.onsuccess = () => done(r.result)
-      r.onerror = () => fail(r.error)
+      r.onerror = () => fail(r.error ?? new Error('the database did not open'))
     }),
 )
 
@@ -57,7 +57,7 @@ const finished = (t: IDBTransaction) =>
 const result = <T,>(r: IDBRequest<T>) =>
   new Promise<T>((done, fail) => {
     r.onsuccess = () => done(r.result)
-    r.onerror = () => fail(r.error)
+    r.onerror = () => fail(r.error ?? new Error('the request failed'))
   })
 
 const updates = (id: string) => IDBKeyRange.bound([id, 0], [id, Infinity])
@@ -157,26 +157,27 @@ export function autosave(editor: Editor) {
         editor.set({ autosaveFailed: true })
       }
       clearTimeout(timer)
-      timer = window.setTimeout(put, 10000)
+      timer = window.setTimeout(write, 10000)
     }
   }
+  const write = () => void put()
   const later = () => {
     if (state() === last) return
     clearTimeout(timer)
-    timer = window.setTimeout(put, 1000)
+    timer = window.setTimeout(write, 1000)
   }
-  const hidden = () => document.visibilityState === 'hidden' && put()
+  const hidden = () => document.visibilityState === 'hidden' && write()
   const leave = (e: BeforeUnloadEvent) => kept(editor) || e.preventDefault()
   const off = editor.subscribe(later)
-  window.addEventListener('pagehide', put)
+  window.addEventListener('pagehide', write)
   window.addEventListener('beforeunload', leave)
   document.addEventListener('visibilitychange', hidden)
   flush = put
   return () => {
     off()
-    put()
+    write()
     flush = () => Promise.resolve()
-    window.removeEventListener('pagehide', put)
+    window.removeEventListener('pagehide', write)
     window.removeEventListener('beforeunload', leave)
     document.removeEventListener('visibilitychange', hidden)
   }
@@ -266,7 +267,7 @@ export async function save(editor: Editor, as: boolean) {
   }
   let handle = as ? null : editor.file.handle
   if (handle && (await handle.requestPermission({ mode: 'readwrite' })) !== 'granted') handle = null
-  if (handle && handle.name !== name) await handle.move?.(name).catch((e: Error) => editor.fail(`Could not rename the file to ${name}: ${e.message}.`))
+  if (handle && handle.name !== name) await handle.move?.(name).catch((e: unknown) => editor.fail(`Could not rename the file to ${name}: ${(e as Error).message}.`))
   if (handle?.name !== name) handle = null
   handle ??= await pickers.showSaveFilePicker({ suggestedName: name, types: TYPES })
   const out = await handle.createWritable()
@@ -320,7 +321,7 @@ export async function open(editor: Editor) {
   }
 }
 
-function pick(accept: string, multiple: boolean, picked: (files: File[]) => void) {
+function pick(accept: string, multiple: boolean, picked: (files: File[]) => unknown) {
   const input = Object.assign(document.createElement('input'), { type: 'file', accept, multiple })
   input.onchange = () => picked([...(input.files ?? [])])
   input.click()
@@ -328,7 +329,7 @@ function pick(accept: string, multiple: boolean, picked: (files: File[]) => void
 
 async function keep(editor: Editor, bytes: Uint8Array) {
   const face: Typeface = editor.addFont(bytes)
-  await store('fonts').then((s) => result(s.put(bytes, face.hash))).catch((e: Error) => editor.fail(`${face.name} is used now but not kept for the next visit: ${e.message}.`))
+  await store('fonts').then((s) => result(s.put(bytes, face.hash))).catch((e: unknown) => editor.fail(`${face.name} is used now but not kept for the next visit: ${(e as Error).message}.`))
   return face
 }
 
@@ -451,7 +452,7 @@ export async function findGranted(editor: Editor) {
   for (const hash of Object.keys(links).filter((h) => !(h in images))) {
     const handle = await link(hash)
     const file = handle && (await handle.queryPermission({ mode: 'read' })) === 'granted' && (await handle.getFile().catch(() => null))
-    if (file) await readLink(editor, hash, file, handle).catch((e: Error) => editor.fail(`Could not read ${file.name}: ${e.message}.`))
+    if (file) await readLink(editor, hash, file, handle).catch((e: unknown) => editor.fail(`Could not read ${file.name}: ${(e as Error).message}.`))
   }
   if (!canFindFonts || !editor.snapshot.missingFonts.length) return
   const p = await navigator.permissions.query({ name: 'local-fonts' as PermissionName }).catch(() => null)
@@ -468,7 +469,7 @@ async function readLink(editor: Editor, hash: string, file: File, handle: Handle
 }
 
 export async function relink(editor: Editor, hash: string) {
-  const failed = (e: Error) => e.name !== 'AbortError' && editor.fail(`Could not read the image: ${e.message}.`)
+  const failed = (e: unknown) => (e as Error).name !== 'AbortError' && editor.fail(`Could not read the image: ${(e as Error).message}.`)
   if (!pickers.showOpenFilePicker) return pick('.png,.jpg,.jpeg', false, ([file]) => file && readLink(editor, hash, file, null).catch(failed))
   try {
     const kept = await link(hash)
@@ -477,7 +478,7 @@ export async function relink(editor: Editor, hash: string) {
     const [handle] = await pickers.showOpenFilePicker({ types: IMAGES })
     await readLink(editor, hash, await handle.getFile(), handle)
   } catch (e) {
-    failed(e as Error)
+    failed(e)
   }
 }
 

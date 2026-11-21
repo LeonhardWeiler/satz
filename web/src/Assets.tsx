@@ -39,7 +39,7 @@ export function Assets({ editor }: { editor: Editor }) {
           {fonts.slice(editor.engine.fontsBundled()).map((f) => (
             <li key={f.hash}>
               <span className="swatch-name" title={f.name}>{f.name}</span>
-              <button type="button" className="icon-button" aria-label={`Remove ${f.name}`} title="Remove font" onClick={() => removeFont(editor, f.hash).catch((e: Error) => editor.fail(`Could not remove ${f.name}: ${e.message}.`))}>
+              <button type="button" className="icon-button" aria-label={`Remove ${f.name}`} title="Remove font" onClick={() => void removeFont(editor, f.hash).catch((e: unknown) => editor.fail(`Could not remove ${f.name}: ${(e as Error).message}.`))}>
                 <Icon name="minus" />
               </button>
             </li>
@@ -51,7 +51,7 @@ export function Assets({ editor }: { editor: Editor }) {
           ))}
         </ul>
         {canFindFonts && missingFonts.length > 0 && (
-          <button type="button" className="button" onClick={() => findFonts(editor)}>
+          <button type="button" className="button" onClick={() => void findFonts(editor)}>
             Find missing fonts on this computer
           </button>
         )}
@@ -75,7 +75,7 @@ function LinkedImages({ editor }: { editor: Editor }) {
           <li key={hash} className={missing.includes(hash) ? 'missing' : undefined} title={missing.includes(hash) ? 'Missing: the layers it fills show empty' : undefined}>
             <span className="swatch-name" title={name}>{name}</span>
             {missing.includes(hash) && (
-              <button type="button" className="icon-button" aria-label={`Relink ${name}`} title="Relink" onClick={() => relink(editor, hash)}>
+              <button type="button" className="icon-button" aria-label={`Relink ${name}`} title="Relink" onClick={() => void relink(editor, hash)}>
                 <Icon name="folder" />
               </button>
             )}

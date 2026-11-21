@@ -40,7 +40,7 @@ function usePreview(editor: Editor, on: boolean) {
       preview(editor, { pages, ppi: PPI, ...editor.inks, limit: editor.snapshot.inkLimit })
         .then(
           (previewed) => gone || editor.set({ previewed }),
-          (e: Error) => editor.fail(`Could not show the inks: ${e.message}`),
+          (e: unknown) => editor.fail(`Could not show the inks: ${(e as Error).message}`),
         )
         .finally(() => {
           busy = false
