@@ -104,7 +104,6 @@ export async function openProject(editor: Editor, id: string) {
   try {
     editor.load(saved.bytes, { name: saved.name, handle: saved.handle }, saved.dirty, saved.updates)
   } catch (e) {
-    if (e instanceof WebAssembly.RuntimeError) throw e
     return editor.fail(`Could not open ${saved.name}: ${(e as Error).message}.`)
   }
   show(editor, id)
@@ -337,7 +336,6 @@ async function addFont(editor: Editor, file: File) {
   try {
     await keep(editor, new Uint8Array(await file.arrayBuffer()))
   } catch (e) {
-    if (e instanceof WebAssembly.RuntimeError) throw e
     editor.fail(`Could not add ${file.name}: ${(e as Error).message}. Choose a .ttf, .otf, .woff or .woff2 file.`)
   }
 }
@@ -354,7 +352,6 @@ async function placeImage(editor: Editor, file: File, handle: Handle | null = nu
     editor.set({ clip: null })
     editor.paste()
   } catch (e) {
-    if (e instanceof WebAssembly.RuntimeError) throw e
     editor.fail(`Could not place ${file.name}: ${(e as Error).message}.`)
   }
 }
@@ -428,7 +425,6 @@ export async function addLocalFont(editor: Editor, f: LocalFont) {
   try {
     return await keep(editor, new Uint8Array(await (await f.blob()).arrayBuffer()))
   } catch (e) {
-    if (e instanceof WebAssembly.RuntimeError) throw e
     editor.fail(`Could not add ${f.fullName}: ${(e as Error).message}.`)
   }
 }
@@ -443,8 +439,8 @@ export async function findFonts(editor: Editor) {
       if (!missing.some((m) => m.hash === (typeface(bytes) as Typeface).hash)) continue
       await keep(editor, bytes)
       found++
-    } catch (e) {
-      if (e instanceof WebAssembly.RuntimeError) throw e
+    } catch {
+      continue
     }
   }
   editor.say(`Found ${found} of ${missing.length} missing fonts on this computer.${found < missing.length ? ' Add the others with Add font.' : ''}`)

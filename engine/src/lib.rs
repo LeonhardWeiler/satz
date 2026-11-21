@@ -34,6 +34,10 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
+thread_local! {
+    static ON_PANIC: std::cell::RefCell<Option<js_sys::Function>> = const { std::cell::RefCell::new(None) };
+}
+
 type Raw = Box<serde_json::value::RawValue>;
 
 fn raw<T: Serialize + ?Sized>(v: &T) -> serde_json::Result<Raw> {
@@ -110,6 +114,16 @@ impl Engine {
     pub fn new() -> Engine {
         console_error_panic_hook::set_once();
         Engine::default()
+    }
+
+    #[wasm_bindgen(js_name = onPanic)]
+    pub fn on_panic(f: js_sys::Function) {
+        console_error_panic_hook::set_once();
+        ON_PANIC.set(Some(f));
+        std::panic::set_hook(Box::new(|info| {
+            console_error_panic_hook::hook(info);
+            ON_PANIC.with_borrow(|f| f.as_ref().map(|f| f.call0(&JsValue::NULL)));
+        }));
     }
 
     pub fn sample() -> Engine {
@@ -545,6 +559,11 @@ pub(crate) fn content_hash(bytes: &[u8]) -> String {
         (h ^ b as u64).wrapping_mul(0x100000001b3)
     });
     format!("{hash:016x}")
+}
+
+#[wasm_bindgen]
+pub fn trap() {
+    panic!("trap");
 }
 
 #[wasm_bindgen]
