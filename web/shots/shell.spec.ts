@@ -1,5 +1,4 @@
 import { example, expect, rest, select, shot, start, test } from './lib'
-import { addPage } from '../e2e/util'
 
 const A = '01 App shell'
 const D = '02 Dialogs'
@@ -148,13 +147,14 @@ test('shell feedback', async ({ page }) => {
   await page.keyboard.press('Delete')
   await expect(status).toHaveText(/keeps/)
   await shot(page, A, '30 status, error', 'Status line with a refused command', [status], 60)
-  await addPage(page)
-  if (!(await page.getByRole('region', { name: 'Page overview' }).isVisible())) await page.keyboard.press('.')
-  await page.getByRole('region', { name: 'Page overview' }).getByRole('listbox', { name: 'Pages' }).getByRole('option').last().click()
+  const ov = page.getByRole('region', { name: 'Page overview' })
+  await ov.getByRole('button', { name: 'Add page' }).click()
+  await ov.getByRole('listbox', { name: 'Pages' }).focus()
   await page.keyboard.press('Delete')
+  await expect(status).toHaveText(/^Deleted page/)
   await rest(page)
   await shot(page, A, '31 status, page deleted', 'Status line after deleting a page', [status], 60)
-  if (await page.getByRole('region', { name: 'Page overview' }).isVisible()) await page.keyboard.press('.')
+  if (await ov.isVisible()) await page.keyboard.press('.')
   await page.getByRole('toolbar', { name: 'Tools' }).getByRole('button', { name: 'Pen' }).click()
   await page.mouse.click(560, 680)
   await shot(page, A, '32 status, pen hint', 'Pen hint in the status line', [status], 60)
