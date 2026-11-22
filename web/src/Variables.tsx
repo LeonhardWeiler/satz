@@ -4,9 +4,9 @@ import { Chip, ColorPicker } from './ColorPicker'
 import { ContextMenu } from './ContextMenu'
 import { neutral } from './color'
 import { Check, Field, FontSelect, NameInput, nextName, Section, Select } from './controls'
-import { MM, scopeOf, useEditor, type Editor } from './editor'
+import { scopeOf, useEditor, type Editor } from './editor'
 import { Icon } from './icons'
-import type { Bindable as Prop, Modes, Typeface, Value, Variable } from './model'
+import { BINDABLE, type Bindable as Prop, type Modes, type Typeface, type Value, type Variable } from './model'
 import { docked, Popover } from './Popover'
 
 type Kind = 'color' | 'number' | 'font' | 'boolean'
@@ -267,7 +267,7 @@ export function Bindable({
     editor.batch(() => {
       const collection = snapshot.collections[0]?.id ?? editor.apply({ type: 'addCollection', name: 'Variables' })[0]
       if (!collection) return
-      const number = unit === 'length' ? field.value! / MM : field.value!
+      const number = (unit === '%' ? field.value! / 100 : field.value!) / ((BINDABLE as Record<string, number>)[prop] ?? 1)
       const [made] = editor.apply({ type: 'addVariable', collection, name: nextName(title, snapshot.variables.map((v) => v.name)), value: { number } })
       if (made) bind(made)
     })

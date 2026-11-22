@@ -7,7 +7,7 @@ export type TextNode = Extract<Node, { kind: 'text' }>
 export type Modes = Record<string, string>
 export type Attrs = Omit<Span, 'len'>
 export type TextProps = Partial<Attrs>
-export { STYLED } from './types'
+export { BINDABLE, STYLED } from './types'
 
 export type Resizing = 'autoWidth' | 'autoHeight' | 'fixedSize'
 export function textSizing({ horizontal, vertical }: Sizing, mode: Resizing): Sizing {
