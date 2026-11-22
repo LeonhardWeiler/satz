@@ -13,8 +13,19 @@ if run rust; then
   cargo test
 fi
 if run web; then
-  wasm-pack build engine --target web --out-dir ../web/src/engine --no-pack -- --no-default-features
-  wasm-pack build engine --target web --out-dir ../web/src/engine-io --out-name engine_io --no-pack
+  key=$(find check Cargo.toml Cargo.lock .cargo flake.nix flake.lock engine examples -type f | sort | xargs sha256sum | sha256sum | cut -c1-16)
+  wasm=${XDG_CACHE_HOME:-$HOME/.cache}/satz/wasm-$key.tar
+  if [ -f "$wasm" ]; then
+    tar -xf "$wasm" -C web/src
+    touch "$wasm"
+  else
+    wasm-pack build engine --target web --out-dir ../web/src/engine --no-pack -- --no-default-features
+    wasm-pack build engine --target web --out-dir ../web/src/engine-io --out-name engine_io --no-pack
+    mkdir -p "${wasm%/*}"
+    tar -cf "$wasm.$$" -C web/src engine engine-io
+    mv "$wasm.$$" "$wasm"
+    find "${wasm%/*}" -name 'wasm-*.tar' -mtime +7 -delete
+  fi
   for f in engine/engine_bg:9820000 engine-io/engine_io_bg:13140000; do
     size=$(stat -c %s "web/src/${f%:*}.wasm")
     [ "$size" -le "${f#*:}" ] || { echo "${f%:*}.wasm is $size bytes, over the budget of ${f#*:}" >&2; exit 1; }
