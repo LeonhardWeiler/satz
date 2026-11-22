@@ -1,5 +1,5 @@
 import { useSyncExternalStore, type ReactNode } from 'react'
-import type { Engine } from './engine/engine'
+import { Engine } from './engine/engine'
 import { textSizing, type Command, type Container, type Modes, type Node, type Page, type Palette, type Resizing, type Scope, type Sheet, type Snapshot, type TextNode, type Typeface, type Version } from './model'
 import type { Previewed } from './exportWorker'
 import type { Handle } from './file'
@@ -672,6 +672,22 @@ export class Editor {
   private emit() {
     for (const l of this.listeners) l()
   }
+}
+
+export function onTrap(f: () => void) {
+  for (const o of [Engine, Engine.prototype] as unknown as Record<string, unknown>[])
+    for (const k of Object.getOwnPropertyNames(o)) {
+      const m = o[k]
+      if (k === 'constructor' || typeof m !== 'function') continue
+      o[k] = function (this: unknown, ...a: unknown[]) {
+        try {
+          return m.apply(this, a) as unknown
+        } catch (e) {
+          if (e instanceof WebAssembly.RuntimeError) f()
+          throw e
+        }
+      }
+    }
 }
 
 export function useEditor<T>(editor: Editor, read: (e: Editor) => T): T {

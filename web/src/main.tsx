@@ -5,7 +5,7 @@ import canvaskitWasm from '../canvaskit/canvaskit.wasm?url'
 import init, { Engine } from './engine/engine'
 import { App } from './App'
 import { restorePanels } from './controls'
-import { Editor } from './editor'
+import { Editor, onTrap } from './editor'
 import { findGranted, openProject, show, storedFonts, warm } from './file'
 import { followBrowser } from './settings'
 import './index.css'
@@ -51,7 +51,7 @@ if (!document.createElement('canvas').getContext('webgl2')) {
       notice('Satz stopped', 'The engine failed. Reload the page to go on from the last autosave.', true)
       editor.set({ autosaves: false })
     }
-    Engine.onPanic(() => queueMicrotask(stop))
+    onTrap(() => queueMicrotask(stop))
     if (!alone) {
       editor.set({ autosaves: false })
       editor.fail('Satz is open in another tab. This tab does not autosave; save the file with Ctrl+S.')
