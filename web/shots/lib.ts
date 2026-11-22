@@ -95,7 +95,7 @@ export async function shot(page: Page, cat: string, name: string, caption: strin
   appendFileSync(join(out, 'manifest.jsonl'), JSON.stringify({ cat, name, caption, file }) + '\n')
 }
 
-export async function variables(page: Page) {
+export async function asset(page: Page, name: 'Swatches' | 'Variables') {
   await page.getByRole('tab', { name: 'Assets' }).click()
-  return page.locator('.left').getByRole('region', { name: 'Variables', exact: true })
+  return page.locator('.left').getByRole('region', { name, exact: true })
 }

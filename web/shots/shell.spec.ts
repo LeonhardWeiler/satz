@@ -1,4 +1,5 @@
 import { example, expect, rest, select, shot, start, test } from './lib'
+import { addPage } from '../e2e/util'
 
 const A = '01 App shell'
 const D = '02 Dialogs'
@@ -147,7 +148,7 @@ test('shell feedback', async ({ page }) => {
   await page.keyboard.press('Delete')
   await expect(status).toHaveText(/keeps/)
   await shot(page, A, '30 status, error', 'Status line with a refused command', [status], 60)
-  await page.keyboard.press('Control+Shift+p')
+  await addPage(page)
   if (!(await page.getByRole('region', { name: 'Page overview' }).isVisible())) await page.keyboard.press('.')
   await page.getByRole('region', { name: 'Page overview' }).getByRole('listbox', { name: 'Pages' }).getByRole('option').last().click()
   await page.keyboard.press('Delete')

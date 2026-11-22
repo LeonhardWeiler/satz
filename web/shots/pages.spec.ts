@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { example, expect, layers, opened, png, props, rest, select, shot, start, test } from './lib'
+import { asset, example, expect, layers, opened, png, props, rest, select, shot, start, test } from './lib'
 import { place, steady } from '../e2e/util'
 
 const G = '09 Pages & masters'
@@ -251,7 +251,7 @@ test('overview of one page', async ({ page }) => {
 
 test('swatches more', async ({ page }) => {
   await example(page, 'poster.satz', { h: 1400 })
-  const sws = page.getByRole('region', { name: 'Swatches' })
+  const sws = await asset(page, 'Swatches')
   await sws.getByRole('option').first().click()
   const ed = page.getByRole('dialog').last()
   await shot(page, L, '24 swatch selected, editing', 'A swatch selected opens its editor', [sws, ed], 16)
@@ -263,8 +263,8 @@ test('swatches more', async ({ page }) => {
 
 test('swatches rgb', async ({ page }) => {
   await start(page, { h: 1400 })
-  const sws = page.getByRole('region', { name: 'Swatches' })
   await select(page, 'Star')
+  const sws = await asset(page, 'Swatches')
   await sws.getByRole('button', { name: 'Add swatch' }).click()
   await shot(page, L, '26 edit swatch, RGB', 'Edit swatch in an RGB document', [sws, page.getByRole('dialog').last()], 16)
   await page.keyboard.press('Escape')

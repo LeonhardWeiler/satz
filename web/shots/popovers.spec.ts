@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { variables, opened, props, rest, section, select, shot, start, test } from './lib'
+import { asset, opened, props, rest, section, select, shot, start, test } from './lib'
 
 const C = '06 Popovers & menus'
 const T = '07 Text'
@@ -57,7 +57,7 @@ test('document and page selects', async ({ page }) => {
   await rest(page)
   await shot(page, C, '27 layout grid', 'Layout grid row (columns)', [section(page, 'Layout grids')], 8)
   await opened(page, C, '28 grid type select', 'Grid type select', combo(page, 'Grid type'))
-  const vars = await variables(page)
+  const vars = await asset(page, 'Variables')
   await opened(page, C, '29 variable kinds', 'Create variable menu', vars.getByRole('button', { name: 'Add variable' }))
   await vars.getByRole('button', { name: 'Add variable' }).click()
   await page.getByRole('menu', { name: 'Create variable' }).getByRole('menuitem', { name: 'Color' }).click()
@@ -89,22 +89,21 @@ test('cmyk and swatches', async ({ page }) => {
   const { example } = await import('./lib')
   await example(page, 'poster.satz', { h: 1400 })
   await opened(page, C, '40 profile select', 'Output profile select (CMYK)', combo(page, 'Profile'))
-  await shot(page, '08 Layers & swatches', '20 swatches panel', 'Swatches panel with a spot color', [page.getByRole('region', { name: 'Swatches' })], 8)
-  const sw = page.getByRole('region', { name: 'Swatches' }).getByRole('option').first()
+  const sws = await asset(page, 'Swatches')
+  await shot(page, '08 Layers & swatches', '20 swatches panel', 'Swatches panel with a spot color', [sws], 8)
+  const sw = sws.getByRole('option').first()
   await sw.click({ button: 'right' })
   await shot(page, '08 Layers & swatches', '21 swatch context menu', 'Swatch context menu', [sw, page.getByRole('menu')], 16)
   await page.keyboard.press('Escape')
   await sw.dblclick()
   await rest(page)
-  await shot(page, '08 Layers & swatches', '22 swatch rename', 'Swatch being renamed', [page.getByRole('region', { name: 'Swatches' })], 8)
+  await shot(page, '08 Layers & swatches', '22 swatch rename', 'Swatch being renamed', [sws], 8)
   await page.keyboard.press('Escape')
-  await page.getByRole('region', { name: 'Swatches' }).getByRole('button', { name: 'Add swatch' }).click()
+  await sws.getByRole('button', { name: 'Add swatch' }).click()
   const ed = page.getByRole('dialog').last()
-  await shot(page, '08 Layers & swatches', '23 edit swatch', 'Edit swatch popover (name, spot, CMYK)', [page.getByRole('region', { name: 'Swatches' }), ed], 16)
+  await shot(page, '08 Layers & swatches', '23 edit swatch', 'Edit swatch popover (name, spot, CMYK)', [sws, ed], 16)
   await page.keyboard.press('Escape')
-  await rest(page)
-  await page.getByRole('tree', { name: 'Layers' }).locator('.layer-name').filter({ hasText: /^Title/ }).first().click()
-  await rest(page)
+  await select(page, 'Title…')
   await shot(page, C, '41 text with spot color', 'Text bound to a spot swatch (tint)', ['right'])
   await page.getByRole('tree', { name: 'Layers' }).locator('.layer-name').filter({ hasText: /^Sky|^Background/ }).first().click()
   await rest(page)
@@ -142,7 +141,7 @@ test('text', async ({ page }) => {
 
 test('variables', async ({ page }) => {
   await start(page, { h: 1600 })
-  const vars = await variables(page)
+  const vars = await asset(page, 'Variables')
   for (const k of ['Number', 'Font']) {
     await vars.getByRole('button', { name: 'Add variable' }).click()
     await page.getByRole('menu', { name: 'Create variable' }).getByRole('menuitem', { name: k }).click()
