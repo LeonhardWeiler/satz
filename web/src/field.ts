@@ -37,3 +37,7 @@ export function evalExpr(src: string, cur: number, unit: string): number | null 
 }
 
 export const step = (e: { shiftKey: boolean; altKey: boolean }, int?: boolean) => (e.shiftKey ? 10 : e.altKey && !int ? 0.1 : 1)
+
+export const round = (v: number, digits: number) => Math.round(v * 10 ** digits) / 10 ** digits
+
+export const limits = (shown: number, min: number, max: number, per: number, digits: number) => [shown <= round(min / per, digits), shown >= round(max / per, digits)]
