@@ -139,3 +139,16 @@ test('commands that move or resize the selection leave its locked layers alone',
   }
   vi.unstubAllGlobals()
 })
+
+test('copied text leaves out the placeholders of anchored layers', () => {
+  initSync({ module: readFileSync(new URL('engine/engine_bg.wasm', import.meta.url)) })
+  const editor = new Editor(Engine.blank(100, 100, 1, false))
+  const page = editor.snapshot.pages[0]!.id
+  const [text] = editor.apply({ type: 'create', parent: page, kind: 'text', x: 0, y: 0, w: 50, h: 20 })
+  const [rect] = editor.apply({ type: 'create', parent: page, kind: 'rect', x: 0, y: 0, w: 5, h: 5 })
+  editor.apply({ type: 'editText', id: text!, range: [0, 0], text: 'ab' })
+  editor.apply({ type: 'anchor', id: rect!, text: text!, at: 1 })
+  editor.set({ editing: { id: text!, anchor: 0, focus: 3 } })
+  expect(editor.selectedText()).toBe('ab')
+  expect(editor.copy([text!])).toBe('ab')
+})

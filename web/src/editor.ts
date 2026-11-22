@@ -15,11 +15,12 @@ export type Tool = 'move' | 'frame' | 'text' | 'pen' | 'eyedropper' | 'table' | 
 export type Pen = { id: string; anchors: Anchor[] }
 
 export { MM } from './types'
-import { MM } from './types'
+import { ANCHOR, MM } from './types'
 export const CLIP = 'application/x-satz-layers'
 const FRAMED = ['create', 'placeImage', 'setFrame']
 const GRID: Record<string, number> = { x: 10, y: 10, w: 100, h: 100 }
 const FRACTIONS = ['opacity', 'sweep', 'inner', 'ratio']
+const plain = (text: string) => text.replaceAll(ANCHOR, '')
 
 export const timed = 'satzPerf' in globalThis ? (name: string, start: number) => void performance.measure(name, { start }) : () => {}
 
@@ -434,10 +435,17 @@ export class Editor {
   copy(ids: string[]) {
     this.apply({ type: 'copy', ids })
     const nodes = ids.map((id) => this.nodes.get(id)!.node)
-    const copied = [...new Set(nodes.map((n) => (n.kind === 'text' ? this.storyOf(n).text : n.name)))].join('\n')
+    const copied = [...new Set(nodes.map((n) => (n.kind === 'text' ? plain(this.storyOf(n).text) : n.name)))].join('\n')
     this.w.copied = copied
     this.w.clip = btoa(Array.from(this.engine.clip(), (b) => String.fromCharCode(b)).join(''))
     return copied
+  }
+
+  selectedText() {
+    const e = this.editing
+    const n = e && this.nodes.get(e.id)?.node
+    if (!e || n?.kind !== 'text') return ''
+    return plain(this.storyOf(n).text.slice(Math.min(e.anchor, e.focus), Math.max(e.anchor, e.focus)))
   }
 
   duplicate(ids: string[], step = true) {
