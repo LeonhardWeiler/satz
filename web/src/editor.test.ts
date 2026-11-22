@@ -182,3 +182,23 @@ test('previewing versions and going back to the master leaves the way back alone
   editor.exitMaster()
   expect(editor.pageId).toBe(first)
 })
+
+test('a field that holds a node id is cleared when its node is deleted', () => {
+  initSync({ module: readFileSync(new URL('engine/engine_bg.wasm', import.meta.url)) })
+  const fields = {
+    renaming: (id: string) => ({ renaming: id }),
+    hover: (id: string) => ({ hover: id }),
+    threading: (id: string) => ({ threading: { id, before: false } }),
+    editing: (id: string) => ({ editing: { id, anchor: 0, focus: 0 } }),
+    vector: (id: string) => ({ selection: [id], vector: { id, mode: 'move' as const, at: [] } }),
+    cropping: (id: string) => ({ selection: [id], cropping: id }),
+  }
+  for (const [field, patch] of Object.entries(fields)) {
+    const editor = new Editor(Engine.blank(100, 100, 1, false))
+    const kind = field === 'vector' ? 'rect' : 'text'
+    const [id] = editor.apply({ type: 'create', parent: editor.snapshot.pages[0]!.id, kind, x: 0, y: 0, w: 50, h: 20 })
+    Object.assign(editor, patch(id!))
+    editor.apply({ type: 'delete', ids: [id!] })
+    expect(editor[field as keyof typeof fields], field).toBeNull()
+  }
+})
