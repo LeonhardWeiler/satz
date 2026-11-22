@@ -44,7 +44,9 @@ onmessage = async ({ data: { doc, fonts, images, preview, out, source } }: Messa
     if (out) {
       const snap = JSON.parse(e.snapshot()) as Snapshot
       const files = await Promise.all(out.pages.map(async (i) => {
-        const png = e.png(snap.pages[i].id, out.ppi)!
+        const page = snap.pages[i]
+        if (!page) throw new Error(`no page ${i + 1}`)
+        const png = e.png(page.id, out.ppi)!
         if (out.type === 'image/png') return png
         const bitmap = await createImageBitmap(new Blob([png as Uint8Array<ArrayBuffer>]))
         const canvas = new OffscreenCanvas(bitmap.width, bitmap.height)
@@ -52,7 +54,8 @@ onmessage = async ({ data: { doc, fonts, images, preview, out, source } }: Messa
         return new Uint8Array(await (await canvas.convertToBlob({ type: out.type, quality: 0.9 })).arrayBuffer())
       }))
       const ext = out.type === 'image/png' ? 'png' : 'jpg'
-      const file = files.length > 1 ? zip(out.pages.map((i) => `${out.title}-${i + 1}.${ext}`), files, date) : files[0]
+      const [only, ...rest] = files
+      const file = only && !rest.length ? only : zip(out.pages.map((i) => `${out.title}-${i + 1}.${ext}`), files, date)
       return postMessage({ file }, { transfer: [file.buffer] })
     }
     const { pages: shown, ppi, on, limit, over, gamut } = preview!
@@ -61,7 +64,7 @@ onmessage = async ({ data: { doc, fonts, images, preview, out, source } }: Messa
     let highest = 0
     for (const { id } of snap.pages) {
       const p = pageOf(e, id, ppi)
-      p.names.forEach((name, k) => max.set(name, Math.max(p.max[k], max.get(name) ?? 0)))
+      p.names.forEach((name, k) => max.set(name, Math.max(p.max[k] ?? 0, max.get(name) ?? 0)))
       highest = Math.max(highest, p.ink)
     }
     for (const [id, p] of pages) {
