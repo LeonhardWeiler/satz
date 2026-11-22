@@ -90,13 +90,16 @@ export function Start({ editor, onClose }: { editor: Editor; onClose: () => void
   const create = async () => {
     if (!(await discard(editor))) return
     const e = Engine.blank(w, h, pages, pages > 1 && doc.facing)
-    if (doc.mode !== 'cmyk') e.apply({ type: 'setDocument', colorMode: doc.mode })
-    for (const p of (JSON.parse(e.snapshot()) as Snapshot).pages) {
-      e.apply({ type: 'setPage', id: p.id, bleed: doc.bleed })
-      if (doc.margin > 0 || doc.columns > 1) e.apply({ type: 'setGrids', id: p.id, grids: [{ kind: 'columns', count: doc.columns, gutter: doc.gutter, margin: doc.margin, size: 5 * MM }] })
+    try {
+      if (doc.mode !== 'cmyk') e.apply({ type: 'setDocument', colorMode: doc.mode })
+      for (const p of (JSON.parse(e.snapshot()) as Snapshot).pages) {
+        e.apply({ type: 'setPage', id: p.id, bleed: doc.bleed })
+        if (doc.margin > 0 || doc.columns > 1) e.apply({ type: 'setGrids', id: p.id, grids: [{ kind: 'columns', count: doc.columns, gutter: doc.gutter, margin: doc.margin, size: 5 * MM }] })
+      }
+      await begin(editor, e.save())
+    } finally {
+      e.free()
     }
-    await begin(editor, e.save())
-    e.free()
     editor.say(`Created ${format}, ${plural(pages)}`)
     onClose()
   }

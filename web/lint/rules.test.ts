@@ -53,8 +53,17 @@ run(
   [
     'class Editor { loadImage(bytes) { this.set({ placing: [{ url: URL.createObjectURL(new Blob([bytes])) }] }) } set(patch) { for (const p of this.placing) URL.revokeObjectURL(p.url) } }',
     'function save(bytes) { const url = URL.createObjectURL(new Blob([bytes])); a.href = url; a.click(); URL.revokeObjectURL(url) }',
+    'async function f(url) { const e = url ? new Engine() : Engine.sample(); try { e.load(await get(url)) } finally { e.free() } }',
+    'const create = async () => { const e = Engine.blank(1, 1, 1, false); try { await begin(e.save()) } finally { e.free() } }',
   ],
-  ['img.src = URL.createObjectURL(blob)'],
+  [
+    'img.src = URL.createObjectURL(blob)',
+    'const create = async () => { const e = Engine.blank(1, 1, 1, false); await begin(e.save()); e.free() }',
+    'async function f() { const e = Engine.sample(); try { await begin(e.save()) } catch { } }',
+    'function f() { const e = new Engine(); g(() => { try { } finally { e.free() } }) }',
+    'function f() { const e = new Engine(); try { } finally { other.free() } }',
+    'new Editor(Engine.sample())',
+  ],
 )
 
 run(
