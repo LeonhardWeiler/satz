@@ -43,7 +43,7 @@ test('pages are added, shown, reordered, duplicated and deleted with undo', asyn
   await expect(row(3)).toBeVisible()
 })
 
-test('the spread navigation counts the pages and adds one at the end, as Ctrl Alt P does since Firefox keeps Ctrl Shift P', async ({ page }) => {
+test('the spread navigation counts the pages and adds one after the current page or the last one selected in the overview, as Ctrl Alt P does since Firefox keeps Ctrl Shift P', async ({ page }) => {
   await open(page)
   const spreads = page.getByRole('navigation', { name: 'Spreads' })
   await expect(spreads.getByRole('button', { name: 'Next spread' })).toBeDisabled()
@@ -53,8 +53,17 @@ test('the spread navigation counts the pages and adds one at the end, as Ctrl Al
   await expect(current(page, 3)).toHaveAttribute('aria-pressed', 'true')
   await expect(spreads).toContainText('/ 3')
   await page.keyboard.press('Home')
+  await spreads.getByRole('button', { name: 'Add page' }).click()
+  await expect(current(page, 2)).toHaveAttribute('aria-pressed', 'true')
+  await expect(spreads).toContainText('/ 4')
+  await page.keyboard.press('Home')
   await spreads.getByRole('button', { name: 'Next spread' }).click()
   await expect(current(page, 2)).toHaveAttribute('aria-pressed', 'true')
+  const pages = await overview(page)
+  await option(page, 3).click({ modifiers: ['Control'] })
+  await pages.getByRole('button', { name: 'Add page' }).click()
+  await expect(option(page, 4)).toHaveAttribute('aria-selected', 'true')
+  await expect(option(page, 5)).toBeVisible()
 })
 
 test('the page size is set per page in the properties panel', async ({ page }) => {

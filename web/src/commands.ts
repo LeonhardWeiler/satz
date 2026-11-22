@@ -35,8 +35,11 @@ export const ui: {
 } = { start: noop, open: noop, save: noop, place: noop, export: noop, find: noop, dialog: noop, hide: noop, focus: noop, fit: noop, fitSelection: noop, zoomTo: noop, zoomBy: noop }
 
 export function addPage(editor: Editor) {
-  const [id] = editor.apply({ type: 'addPage', after: editor.master ? editor.snapshot.pages.at(-1)!.id : editor.pageId })
-  if (id) editor.showPage(id)
+  const pages = editor.snapshot.pages.map((p) => p.id)
+  const [id] = editor.apply({ type: 'addPage', after: editor.master ? pages.at(-1) : (editor.overview?.filter((id) => pages.includes(id)).at(-1) ?? editor.pageId) })
+  if (!id) return
+  editor.showPage(id)
+  if (editor.overview) editor.set({ overview: [id] })
 }
 
 const selected = (editor: Editor) => editor.selection.length > 0

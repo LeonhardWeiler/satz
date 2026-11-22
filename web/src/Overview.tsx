@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from 'react'
 import type { CanvasKit, GrDirectContext, Surface } from 'canvaskit-wasm'
 import { createPortal } from 'react-dom'
+import { addPage } from './commands'
 import { ContextMenu } from './ContextMenu'
 import { Field } from './controls'
 import { prefix } from './engine/engine'
@@ -397,7 +398,7 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         <header className="ov-head">
           <h2>Pages</h2>
           <Field label="Columns" unit="" int min={0} max={12} zero="Auto" value={columns} onCommit={(v) => resize({ columns: v })} />
-          <button type="button" className="icon-button" aria-label="Add page" title="Add page" onClick={() => show(editor.apply({ type: 'addPage', after: selected.filter((id) => ids.includes(id)).at(-1) ?? ids.at(-1) })[0])}>
+          <button type="button" className="icon-button" aria-label="Add page" title="Add page" data-action="Add page" onClick={() => addPage(editor)}>
             <Icon name="plus" />
           </button>
         </header>

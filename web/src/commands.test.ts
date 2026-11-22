@@ -40,3 +40,15 @@ test('page commands on an open master act on that master', () => {
   action('Duplicate page').run(editor)
   expect(applied).toEqual([{ type: 'deleteMaster', id: 'm' }, { type: 'addMaster', like: 'm', layers: true }])
 })
+
+test('add page goes after the last page selected in the overview, else after the current page', () => {
+  const applied: unknown[] = []
+  const editor = (overview: string[] | null, master = false) =>
+    ({ snapshot: { pages: [{ id: 'p1' }, { id: 'p2' }, { id: 'p3' }] }, pageId: master ? 'm' : 'p1', master: master ? { id: 'm' } : undefined, overview, apply: (c: unknown) => (applied.push(c), []), showPage: () => {} }) as unknown as Editor
+  const add = ACTIONS.find((a) => a.title === 'Add page')!
+  add.run(editor(null))
+  add.run(editor(['p2', 'm']))
+  add.run(editor(['m']))
+  add.run(editor(null, true))
+  expect(applied).toEqual(['p1', 'p2', 'p1', 'p3'].map((after) => ({ type: 'addPage', after })))
+})

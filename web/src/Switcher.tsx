@@ -1,4 +1,5 @@
 import { Fragment } from 'react'
+import { addPage } from './commands'
 import { useEditor, type Editor } from './editor'
 import { Icon } from './icons'
 import { useSettings } from './settings'
@@ -41,7 +42,7 @@ export function Switcher({ editor }: { editor: Editor }) {
       <button type="button" className="icon-button" aria-label="Next spread" title="Next spread" data-action="Next spread" disabled={k >= spreads.length - 1} onClick={() => go(k + 1)}>
         <Icon name="chevron" />
       </button>
-      <button type="button" className="icon-button" aria-label="Add page" title="Add page" data-action="Add page" onClick={() => show(editor.apply({ type: 'addPage', after: pages.at(-1)?.id })[0])}>
+      <button type="button" className="icon-button" aria-label="Add page" title="Add page" data-action="Add page" onClick={() => addPage(editor)}>
         <Icon name="plus" />
       </button>
     </nav>
