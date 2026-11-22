@@ -254,11 +254,11 @@ export function TypeOptions({ editor, spans, set, each, paragraph }: { editor: E
                 <>
                   {paragraph && <Group title="Hyphenation & shading">{paragraph}</Group>}
                   <Group title="Indents & spacing">
-                    <Field label="Left" title="Left indent" unit="pt" reset={0} value={same((a) => a.indentLeft)} onCommit={(indentLeft) => set({ indentLeft })} />
-                    <Field label="Right" title="Right indent" unit="pt" reset={0} value={same((a) => a.indentRight)} onCommit={(indentRight) => set({ indentRight })} />
+                    <Field label="Left" title="Left indent" unit="length" reset={0} value={same((a) => a.indentLeft)} onCommit={(indentLeft) => set({ indentLeft })} />
+                    <Field label="Right" title="Right indent" unit="length" reset={0} value={same((a) => a.indentRight)} onCommit={(indentRight) => set({ indentRight })} />
                     <Field label="Before" title="Space before" unit="pt" reset={0} value={same((a) => a.spaceBefore)} onCommit={(spaceBefore) => set({ spaceBefore })} />
                     <Field label="After" title="Space after" unit="pt" reset={0} value={same((a) => a.paragraphSpacing)} onCommit={(paragraphSpacing) => set({ paragraphSpacing })} />
-                    <Field label="First line" title="First line indent" unit="pt" reset={0} value={same((a) => a.paragraphIndent)} onCommit={(paragraphIndent) => set({ paragraphIndent })} />
+                    <Field label="First line" title="First line indent" unit="length" reset={0} value={same((a) => a.paragraphIndent)} onCommit={(paragraphIndent) => set({ paragraphIndent })} />
                   </Group>
                   <Group title="Lists & breaks">
                     <Select label="List" prefix="List" value={same((a) => a.list)} options={LISTS} onChange={(list) => set({ list })} />
