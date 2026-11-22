@@ -1,6 +1,6 @@
 import { expect, test, open } from './util'
 
-test('a field takes expressions with units, steps with the arrow keys and shakes off invalid input', async ({ page }) => {
+test('a field takes expressions with units, steps with the arrow keys, reverts on escape and shakes off invalid input', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Sun' }).click()
@@ -21,6 +21,10 @@ test('a field takes expressions with units, steps with the arrow keys and shakes
   await x.press('Shift+ArrowUp')
   await expect(x).toHaveValue('31')
   await x.press('Alt+ArrowDown')
+  await expect(x).toHaveValue('30.9')
+
+  await x.fill('77')
+  await x.press('Escape')
   await expect(x).toHaveValue('30.9')
 
   await x.fill('2 +')
