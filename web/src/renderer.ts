@@ -10,6 +10,8 @@ const VARIED = 2 ** 30
 const [PLATE_CMY, PLATE_K] = [2 ** 30, 2 ** 29]
 
 type Cache = Map<number, { hash: number; picture: SkPicture; images: Set<number> }>
+type Caches = { pictures: Cache; layers: Cache }
+const caches = (): Caches => ({ pictures: new Map(), layers: new Map() })
 
 export type View = { x: number; y: number; zoom: number }
 export type Box = { x: number; y: number; w: number; h: number; rotation?: number }
@@ -25,7 +27,7 @@ export type Overlay = {
   handles?: Box
   radii?: { x: number; y: number }[]
   gaps?: { x: number; y: number; axis: 'x' | 'y' }[]
-  ends?: { x: number; y: number }[]
+  ends?: Line
   insert?: [{ x: number; y: number }, { x: number; y: number }]
   pen?: { anchors: { x: number; y: number; hx: number; hy: number }[]; cursor?: { x: number; y: number } } | null
   text?: { ops: Uint32Array; x: number }[]
@@ -43,6 +45,7 @@ const IMAGE_BYTES = 256 * 2 ** 20
 export const HANDLE = 8
 const PORT = 10
 const [MOVE, LINE, CLOSE] = [0, 1, 5]
+const edges = ([l = 0, t = 0, r = 0, b = 0]: Iterable<number>) => [l, t, r, b] as const
 
 export type Sheet = { x: number; width: number; height: number; bleed: number; grids?: Grid[]; guides?: Guides }
 export type Inked = { width: number; height: number; image: Uint8Array; rect: Box }
@@ -115,7 +118,7 @@ const CAPS = ['Butt', 'Round', 'Square'] as const
 const JOINS = ['Miter', 'Round', 'Bevel'] as const
 
 export class Renderer {
-  private caches: { pictures: Cache; layers: Cache }[] = [0, 1, 2].map(() => ({ pictures: new Map(), layers: new Map() }))
+  private caches: [Caches, Caches, Caches] = [caches(), caches(), caches()]
   private cache = this.caches[0]
   private plates: Surface[] = []
   private inksEffect?: RuntimeEffect
@@ -162,25 +165,22 @@ export class Renderer {
     const trims = sheets.map((s) => ck.XYWHRect(s.x, 0, s.width, s.height))
     const key = sheets.map((s) => [s.x, s.width, s.height, s.bleed]).join()
     if (this.bleed?.key !== key) {
-      const bleeds = sheets.map((s) => ck.LTRBRect(s.x - s.bleed, -s.bleed, s.x + s.width + s.bleed, s.height + s.bleed))
-      const box = ([l, t, r, b]: Float32Array) => ck.Path.MakeFromCmds([MOVE, l, t, LINE, r, t, LINE, r, b, LINE, l, b, CLOSE])!
-      let path = box(bleeds[0])
-      for (const r of bleeds.slice(1)) {
-        const b = box(r)
-        const u = ck.Path.MakeFromOp(path, b, ck.PathOp.Union)
-        b.delete()
-        if (u) {
-          path.delete()
-          path = u
-        }
+      const box = (s: Sheet) => {
+        const [l, t, r, b] = [s.x - s.bleed, -s.bleed, s.x + s.width + s.bleed, s.height + s.bleed]
+        return ck.Path.MakeFromCmds([MOVE, l, t, LINE, r, t, LINE, r, b, LINE, l, b, CLOSE])!
       }
+      const path = sheets.map(box).reduce((a, b) => {
+        const u = ck.Path.MakeFromOp(a, b, ck.PathOp.Union)
+        for (const p of u ? [a, b] : [b]) p.delete()
+        return u ?? a
+      })
       this.bleed?.path.delete()
       this.bleed = { key, path }
     }
     const bleed = this.bleed.path
     const bounds = bleed.getBounds()
     const { live, shown } = this
-    const pages = (c: Canvas, plate: number) => {
+    const pages = (c: Canvas, plate: 0 | 1 | 2) => {
       this.cache = this.caches[plate]
       this.recorded = true
       paint.setStyle(ck.PaintStyle.Fill)
@@ -247,7 +247,7 @@ export class Renderer {
             const r = spans === x ? ck.XYWHRect(a, m, b - a, across - 2 * m) : ck.XYWHRect(s.x + m, a, across - 2 * m, b - a)
             paint.setColor(ck.Color(...GRID, a === b ? 0.2 : 0.06))
             paint.setStyle(a === b ? ck.PaintStyle.Stroke : ck.PaintStyle.Fill)
-            if (a === b) canvas.drawLine(r[0], r[1], r[2], r[3], paint)
+            if (a === b) canvas.drawLine(...edges(r), paint)
             else canvas.drawRect(r, paint)
           }
         }
@@ -287,12 +287,12 @@ export class Renderer {
     dash?.delete()
     paint.setColor(ck.Color(...CROP))
     for (const t of trims) canvas.drawRect(t, paint)
-    const l = sheets[0].x
+    const l = Math.min(...sheets.map((s) => s.x))
     const r = Math.max(...sheets.map((s) => s.x + s.width))
     const b = Math.max(...sheets.map((s) => s.height))
     const off = Math.max(...sheets.map((s) => s.bleed)) + 4 / view.zoom
     const len = 14 / view.zoom
-    for (const [x, y, dx, dy] of [[l, 0, -1, -1], [r, 0, 1, -1], [l, b, -1, 1], [r, b, 1, 1]]) {
+    for (const [x, y, dx, dy] of [[l, 0, -1, -1], [r, 0, 1, -1], [l, b, -1, 1], [r, b, 1, 1]] as const) {
       canvas.drawLine(x + dx * off, y, x + dx * (off + len), y, paint)
       canvas.drawLine(x, y + dy * off, x, y + dy * (off + len), paint)
     }
@@ -366,7 +366,7 @@ export class Renderer {
 
   private drawScene(canvas: Canvas, lists: { id: string; x: number; inks?: Inked }[], sheets: Sheet[], view: View, dpr: number, cmyk: boolean, on: number, content: (c: Canvas) => void) {
     const { ck } = this
-    const [, , width, height] = canvas.getDeviceClipBounds()
+    const [, , width, height] = edges(canvas.getDeviceClipBounds())
     const key = [width, height, dpr, view.x, view.y, view.zoom, cmyk, on, ...sheets.flatMap((s) => [s.x, s.width, s.height, s.bleed]), ...lists.flatMap((l) => [l.id, l.x, l.inks?.image, this.engine.listVersion(l.id)])]
     let scene = this.scene
     if (!scene || scene.key.length !== key.length || scene.key.some((v, i) => v !== key[i])) {
@@ -386,9 +386,9 @@ export class Renderer {
     image.delete()
   }
 
-  private drawPlates(canvas: Canvas, on: number, draw: (c: Canvas, plate: number) => void) {
+  private drawPlates(canvas: Canvas, on: number, draw: (c: Canvas, plate: 1 | 2) => void) {
     const { ck } = this
-    const [, , width, height] = canvas.getDeviceClipBounds()
+    const [, , width, height] = edges(canvas.getDeviceClipBounds())
     if (this.plates[0]?.width() !== width || this.plates[0]?.height() !== height) {
       for (const s of this.plates) s.delete()
       const info = { width, height, colorType: ck.ColorType.RGBA_8888, alphaType: ck.AlphaType.Premul, colorSpace: ck.ColorSpace.SRGB }
@@ -396,7 +396,7 @@ export class Renderer {
     }
     const plates = this.plates.map((s, i) => {
       s.getCanvas().clear(ck.TRANSPARENT)
-      draw(s.getCanvas(), i + 1)
+      draw(s.getCanvas(), i ? 2 : 1)
       const image = s.makeImageSnapshot()
       const shader = image.makeShaderOptions(ck.TileMode.Clamp, ck.TileMode.Clamp, ck.FilterMode.Nearest, ck.MipmapMode.None)
       image.delete()
@@ -471,14 +471,14 @@ export class Renderer {
     if (marquee) {
       const r = ck.XYWHRect(marquee.x + 0.5, marquee.y + 0.5, marquee.w, marquee.h)
       paint.setStyle(ck.PaintStyle.Fill)
-      paint.setColor(ck.Color4f(accent[0], accent[1], accent[2], 0.08))
+      paint.setColor(ck.multiplyByAlpha(accent, 0.08))
       canvas.drawRect(r, paint)
       paint.setStyle(ck.PaintStyle.Stroke)
       paint.setColor(accent)
       canvas.drawRect(r, paint)
     }
-    if (pen) {
-      const last = pen.anchors.at(-1)!
+    const last = pen?.anchors.at(-1)
+    if (pen && last) {
       if (pen.cursor) canvas.drawLine(...at(last.x, last.y), ...at(pen.cursor.x, pen.cursor.y), paint)
       if (last.hx || last.hy) {
         canvas.drawLine(...at(last.x - last.hx, last.y - last.hy), ...at(last.x + last.hx, last.y + last.hy), paint)
@@ -500,7 +500,7 @@ export class Renderer {
         knots.forEach((k, i) => {
           const picked = vector.at.some((a) => a[0] === c && a[1] === i)
           if (picked) {
-            for (const [x, y] of [[k.ix, k.iy], [k.ox, k.oy]]) {
+            for (const [x, y] of [[k.ix, k.iy], [k.ox, k.oy]] as const) {
               if (x === k.x && y === k.y) continue
               paint.setStyle(ck.PaintStyle.Stroke)
               paint.setColor(accent)
@@ -530,7 +530,7 @@ export class Renderer {
     }
     if (crop) {
       turned(crop.frame, () => {
-        const [l, t, r, b] = screen(crop.frame)
+        const [l, t, r, b] = edges(screen(crop.frame))
         const dim = ck.Path.MakeFromCmds([MOVE, -1e5, -1e5, LINE, 1e5, -1e5, LINE, 1e5, 1e5, LINE, -1e5, 1e5, CLOSE, MOVE, l, t, LINE, r, t, LINE, r, b, LINE, l, b, CLOSE])
         dim?.setFillType(ck.FillType.EvenOdd)
         paint.setStyle(ck.PaintStyle.Fill)
@@ -549,9 +549,10 @@ export class Renderer {
     if (handles) {
       turned(handles, () => {
         const r = screen(handles)
+        const [l, t, rt, b] = edges(r)
         canvas.drawRect(r, paint)
-        for (const x of [r[0], r[2]]) for (const y of [r[1], r[3]]) square(x, y, HANDLE)
-        if (r[3] - r[1] > 4 * HANDLE) for (const x of [r[0], r[2]]) square(x, (r[1] + r[3]) / 2, HANDLE)
+        for (const x of [l, rt]) for (const y of [t, b]) square(x, y, HANDLE)
+        if (b - t > 4 * HANDLE) for (const x of [l, rt]) square(x, (t + b) / 2, HANDLE)
         for (const p of radii ?? []) {
           paint.setStyle(ck.PaintStyle.Fill)
           paint.setColor(ck.WHITE)
@@ -598,6 +599,7 @@ export class Renderer {
     const { ck } = this
     for (let i = from; i < to; i++) {
       const op = ops[i]
+      if (!op) break
       if (op.op === 'beginItem') {
         const end = close(ops, i)
         canvas.drawPicture(this.cached(this.cache.pictures, op.item, op.hash, () => this.record(ops, i + 1, end, bounds)))
@@ -623,7 +625,7 @@ export class Renderer {
         const end = close(ops, i)
         const layer = new ck.Paint()
         layer.setAlphaf(op.opacity)
-        layer.setBlendMode(ck.BlendMode[BLENDS[op.blend]])
+        layer.setBlendMode(ck.BlendMode[BLENDS[op.blend] ?? 'SrcOver'])
         const blur = op.blur > 0 ? ck.ImageFilter.MakeBlur(op.blur, op.blur, ck.TileMode.Decal, null) : null
         if (!op.shadows.length) {
           layer.setImageFilter(blur)
@@ -700,11 +702,10 @@ export class Renderer {
       const font = this.font(op.font, op.size)
       const widths = font.getGlyphWidths(op.glyphs)
       const { ascent, descent } = font.getMetrics()
-      const [x, y] = op.positions
-      const last = op.glyphs.length - 1
+      const [x = 0, y = 0] = op.positions
       paint.setStyle(ck.PaintStyle.Fill)
       paint.setColor(ck.Color(255, 64, 160, 0.6))
-      canvas.drawRect(ck.LTRBRect(x, y + ascent, op.positions[2 * last] + widths[last], y + descent), paint)
+      canvas.drawRect(ck.LTRBRect(x, y + ascent, (op.positions.at(-2) ?? x) + (widths.at(-1) ?? 0), y + descent), paint)
     }
     const shader = this.setPaint(op.paint)
     if (op.op === 'glyphRun' && op.font < MISSING && op.font >= VARIED) {
@@ -718,8 +719,8 @@ export class Renderer {
       if (op.op === 'strokePath') {
         paint.setStyle(ck.PaintStyle.Stroke)
         paint.setStrokeWidth(op.width)
-        paint.setStrokeCap(ck.StrokeCap[CAPS[op.cap]])
-        paint.setStrokeJoin(ck.StrokeJoin[JOINS[op.join]])
+        paint.setStrokeCap(ck.StrokeCap[CAPS[op.cap] ?? 'Butt'])
+        paint.setStrokeJoin(ck.StrokeJoin[JOINS[op.join] ?? 'Miter'])
         paint.setStrokeMiter(4)
       }
       if (path) canvas.drawPath(path, paint)
