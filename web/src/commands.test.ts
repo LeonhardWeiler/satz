@@ -22,3 +22,21 @@ test('paste style needs a copied style and a selection', () => {
   expect(action('Paste style').can!(editor(['a']))).toBe(true)
   expect(action('Paste style').can!(editor([]))).toBe(false)
 })
+
+test('page commands on an open master act on that master', () => {
+  const action = (title: string) => ACTIONS.find((a) => a.title === title)!
+  const applied: unknown[] = []
+  const editor = {
+    snapshot: { pages: [{ id: 'p1' }, { id: 'p2' }], masters: [{ id: 'm' }] },
+    pageId: 'm',
+    master: { id: 'm' },
+    overview: null,
+    apply: (c: unknown) => (applied.push(c), []),
+    deletePages: (ids: string[]) => applied.push({ deletePages: ids }),
+    showPage: () => {},
+    set: () => {},
+  } as unknown as Editor
+  action('Delete selected pages').run(editor)
+  action('Duplicate page').run(editor)
+  expect(applied).toEqual([{ type: 'deleteMaster', id: 'm' }, { type: 'addMaster', like: 'm', layers: true }])
+})

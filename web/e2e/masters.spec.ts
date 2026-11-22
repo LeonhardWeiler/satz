@@ -67,6 +67,27 @@ test('duplicate master in the context menu adds the next master', async ({ page 
   await expect(page.getByText(/Editing master/)).toContainText('B-Master')
 })
 
+test('delete and duplicate page on an open master act on the master and keep the pages', async ({ page }) => {
+  await open(page)
+  await addPage(page)
+  await addMaster(page)
+  const command = async (name: string) => {
+    await page.keyboard.press('Control+k')
+    const palette = page.getByRole('dialog', { name: 'Command palette' })
+    await palette.getByRole('textbox', { name: 'Search' }).fill(name)
+    await expect(palette.getByRole('option').first()).toHaveText(new RegExp(`^${name}`))
+    await page.keyboard.press('Enter')
+    await expect(palette).toHaveCount(0)
+  }
+  await command('Duplicate page')
+  await expect(page.getByText(/Editing master/)).toContainText('B-Master')
+  await command('Delete selected pages')
+  const pages = await overview(page)
+  await expect(pages.getByRole('option', { name: 'B-Master', exact: true })).toHaveCount(0)
+  await expect(pages.getByRole('option', { name: 'A-Master', exact: true })).toHaveCount(1)
+  await expect(pages.getByRole('listbox', { name: 'Pages' }).getByRole('option')).toHaveCount(2)
+})
+
 test('a name another master has is rejected in the status bar', async ({ page }) => {
   await open(page)
   await addMaster(page)
