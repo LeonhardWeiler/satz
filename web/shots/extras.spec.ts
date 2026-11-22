@@ -1,4 +1,4 @@
-import { variables, example, props, rest, section, select, shot, start, test } from './lib'
+import { asset, example, props, rest, section, select, shot, start, test } from './lib'
 
 const C = '06 Popovers & menus'
 const T = '07 Text'
@@ -20,7 +20,7 @@ test('extras sample', async ({ page }) => {
   await page.keyboard.press('Control+z')
   await page.keyboard.press('Escape')
   await page.keyboard.press('Escape')
-  await (await variables(page)).getByRole('button', { name: 'Add variable' }).click()
+  await (await asset(page, 'Variables')).getByRole('button', { name: 'Add variable' }).click()
   await page.getByRole('menu', { name: 'Create variable' }).getByRole('menuitem', { name: 'Number' }).click()
   await page.keyboard.press('Escape')
   await select(page, 'Rectangle')

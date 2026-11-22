@@ -1,6 +1,6 @@
 import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import type { Page } from '@playwright/test'
-import { example, OUT, props, rest, section, select, start, test } from './lib'
+import { asset, example, OUT, props, rest, section, select, start, test } from './lib'
 
 const FILE = `${OUT}/audit.txt`
 const BOX = '.field, .select, .segmented, .tabs, .button, .primary, .icon-button, .swatch, input:not([type=checkbox]), [role=slider], canvas, .check, .bound-name, [role=option], [role=menuitem], [role=menuitemradio], [role=menuitemcheckbox], textarea, [role=treeitem] > div, .settings-card, .pal-it, .format, .layer, .iss, h2 + .icon-button'
@@ -195,12 +195,11 @@ test('audit', async ({ page }) => {
   await section(page, 'Fill').getByRole('button', { name: 'Fill color' }).first().click()
   await run(page, 'color picker', '[role=dialog][aria-label="Fill color"]')
   await page.keyboard.press('Escape')
-  await page.getByRole('region', { name: 'Swatches' }).getByRole('button', { name: 'Add swatch' }).click()
+  await (await asset(page, 'Swatches')).getByRole('button', { name: 'Add swatch' }).click()
   await run(page, 'edit swatch', '[role=dialog]:last-of-type')
   await run(page, 'swatches', '[aria-label=Swatches]')
   await page.keyboard.press('Escape')
-  await page.getByRole('tab', { name: 'Assets' }).click()
-  const vars = page.locator('.left').getByRole('region', { name: 'Variables', exact: true })
+  const vars = await asset(page, 'Variables')
   await vars.getByRole('button', { name: 'Add variable' }).click()
   await page.getByRole('menu', { name: 'Create variable' }).getByRole('menuitem').first().click()
   await rest(page)
