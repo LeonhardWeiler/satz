@@ -320,6 +320,10 @@ export class Editor {
     this.change(() => this.engine.setProfile(icc ?? undefined))
   }
 
+  setToday(now: Date) {
+    this.change(() => this.engine.setToday(now.getFullYear(), now.getMonth() + 1, now.getDate()))
+  }
+
   removeFont(hash: string) {
     this.change(() => this.engine.removeFont(hash))
   }
