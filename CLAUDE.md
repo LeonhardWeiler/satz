@@ -8,6 +8,11 @@ Rust engine (`engine/`, WASM) owns the Loro document; the React UI (`web/`) send
 `nix develop -c ./check` runs what CI runs. `./check build` stops before Playwright (`rust` and `web` are its two halves),
 `./check e2e [args]` runs only Playwright against `web/dist`.
 Before a commit: `./check build` and the affected specs; CI runs the full `./check` on the PR.
+The dev shell runs rustc through sccache, shared by all worktrees; it fails on `CARGO_INCREMENTAL=1`.
+Its wrapper moves a build script's `OUT_DIR` to `~/.cache/satz/out/<hash>`, so the paths in the
+cache keys match across worktrees. `./check web` takes the wasm from `~/.cache/satz` while the
+files hashed by its key in `check` are unchanged; a file the engine includes from elsewhere
+belongs in that key.
 `SATZ_WRITE_FIXTURES=1 cargo test fixture` writes the generated files in `web/src`
 (`types.ts`, `testdata`, `unicode-names.txt`); `cargo test` fails when one is stale.
 
