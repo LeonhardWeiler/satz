@@ -7,7 +7,7 @@ import { penPath } from './pen'
 import { rowOf, setGap, type Row } from './align'
 import { gapHandles, handleAt, portAt, portsOf, radiusHandles, rect, resized, spin, upright } from './handles'
 import { Renderer, fitView, HANDLE, type Box, type View } from './renderer'
-import { pick, type Entry } from './select'
+import { marqueed, pick, type Entry } from './select'
 import { edgeScroll } from './scroll'
 import { length, settings, subscribeSettings, UNITS } from './settings'
 import { equals, guides, measure, nearest, snap, spacings, targets, type Guide, type Lines, type Measure } from './snap'
@@ -1089,11 +1089,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       } else if (drag.kind === 'marquee') {
         drag.end = p
         const m = rect(drag.start, p)
-        const inside = editor.spread
-          .flatMap((page) => page.children.map((n) => ({ ...n, x: n.x + page.x })))
-          .filter((n) => !n.hidden && !n.locked)
-          .filter((n) => n.x < m.x + m.w && n.x + n.w > m.x && n.y < m.y + m.h && n.y + n.h > m.y)
-          .map((n) => n.id)
+        const inside = marqueed(editor.spread.flatMap((page) => page.children), drag.start, m, (n) => editor.shown(n))
         editor.set({ selection: [...new Set([...drag.base, ...inside])] })
       } else if (drag.kind === 'pen') {
         const pen = editor.pen
