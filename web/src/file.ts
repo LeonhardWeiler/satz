@@ -222,7 +222,8 @@ function run<T>(job: Job, editor: Editor, task: { preview?: Preview; out?: Out; 
   const next = job.queue.then(() => {
     const w = (job.worker ??= spawn(job))
     const n = editor.engine.fontsAdded()
-    const fonts = Array.from({ length: n - job.fonts }, (_, i) => editor.engine.font(job.fonts + i))
+    const from = Math.max(job.fonts, editor.engine.fontsBundled())
+    const fonts = Array.from({ length: n - from }, (_, i) => editor.engine.font(from + i))
     const version = editor.engine.version()
     const seen = editor.engine.versionVector()
     const doc = version === job.version ? null : editor.engine.updates(job.seen)
