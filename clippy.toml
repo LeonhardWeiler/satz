@@ -1,3 +1,4 @@
 disallowed-methods = [
+  { path = "wasm_bindgen::JsError::new", reason = "a failure is an Error variant, thrown through From<Error> for JsValue" },
   { path = "loro::LoroDoc::import", reason = "bytes into a doc go through Doc::read, which runs check_file" },
 ]

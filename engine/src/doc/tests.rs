@@ -2514,7 +2514,7 @@ fn image_fills_need_an_image_of_the_document_and_a_layer_other_than_text() {
     w.write_chunk(png::chunk::IDAT, &[]).unwrap();
     drop(w);
     let e = d.add_image(&huge, None).unwrap_err();
-    assert_eq!(e, "the image has more than 50 megapixels");
+    assert_eq!(e, Error::TooManyPixels);
     let other = Doc::default();
     other
         .doc
@@ -2564,6 +2564,7 @@ fn fixture_types() {
     d.visit::<crate::Delta>();
     d.visit::<crate::Scope>();
     d.visit::<crate::image::ImageInfo>();
+    d.visit::<crate::error::Error>();
     let mut ts: String = d.1.values().map(|v| format!("export {v}\n")).collect();
     let list = |l: &[&str]| serde_json::to_string(l).unwrap();
     ts += &format!(

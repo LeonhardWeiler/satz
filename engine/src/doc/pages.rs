@@ -107,7 +107,7 @@ impl Section {
         if (1..=max).contains(&self.start) {
             Ok(())
         } else {
-            Err(format!("a section starts at 1 to {max}"))
+            Err(Error::SectionStart { max })
         }
     }
 }
@@ -335,7 +335,10 @@ impl Doc {
         let t = TreeID::try_from(id).map_err(err)?;
         match self.tree.parent(t) {
             Some(TreeParentId::Root) if self.kind(t) == Some(kind) => Ok(t),
-            _ => Err(format!("no {} {id}", kind.as_str())),
+            _ => Err(Error::NotFound {
+                what: kind.as_str(),
+                id: id.into(),
+            }),
         }
     }
 
@@ -369,23 +372,23 @@ impl Doc {
         if s.raster_ppi
             .is_some_and(|ppi| !(72.0..=1200.0).contains(&ppi))
         {
-            return Err("raster ppi must be in 72..=1200".into());
+            return Err(Error::RasterPpi);
         }
         if s.image_ppi
             .is_some_and(|ppi| ppi != 0.0 && !(72.0..=2400.0).contains(&ppi))
         {
-            return Err("image ppi must be 0 or in 72..=2400".into());
+            return Err(Error::ImagePpi);
         }
         if s.jpeg_quality.is_some_and(|q| q > 100) {
-            return Err("JPEG quality must be in 0..=100".into());
+            return Err(Error::JpegQuality);
         }
         if s.ink_limit.is_some_and(|l| !(200.0..=400.0).contains(&l)) {
-            return Err("ink limit must be in 200..=400".into());
+            return Err(Error::InkLimit);
         }
         if s.preset == Some(Preset::X1a)
             && s.color_mode.unwrap_or(self.color_mode()) == ColorMode::Rgb
         {
-            return Err("PDF/X-1a needs a CMYK document".into());
+            return Err(Error::PdfX1aNeedsCmyk);
         }
         let m = self.doc.get_map("document");
         match s.facing_pages {
@@ -439,7 +442,7 @@ impl Doc {
         let pages = self.pages();
         let like = match after {
             Some(a) => self.page(&a)?,
-            None => *pages.last().ok_or("no page")?,
+            None => *pages.last().ok_or(Error::NoPage)?,
         };
         let p = self.new_node(TreeParentId::Root, None)?;
         self.tree.mov_after(p, like).map_err(err)?;
@@ -567,7 +570,7 @@ impl Doc {
     pub(super) fn set_guides(&self, id: String, guides: Guides) -> Res<Vec<String>> {
         let page = self.sheet(&id)?;
         if !guides.x.iter().chain(&guides.y).all(|v| v.is_finite()) {
-            return Err("guides need finite positions".into());
+            return Err(Error::Guides);
         }
         self.meta(page).insert(GUIDES, loro(guides)?).map_err(err)?;
         Ok(vec![])
@@ -576,7 +579,7 @@ impl Doc {
     pub(super) fn delete_page(&self, id: String) -> Res<Vec<String>> {
         let p = self.page(&id)?;
         if self.pages().len() == 1 {
-            return Err("a document keeps one page".into());
+            return Err(Error::LastPage);
         }
         self.remove(p)?;
         Ok(vec![])
@@ -595,7 +598,7 @@ impl Doc {
             })
             .collect::<Res<Vec<_>>>()?;
         if (1..moving.len()).any(|i| moving[..i].contains(&moving[i])) {
-            return Err("a page twice".into());
+            return Err(Error::PageTwice);
         }
         let all = if master { self.masters() } else { self.pages() };
         let others: Vec<_> = all.into_iter().filter(|o| !moving.contains(o)).collect();
@@ -614,13 +617,13 @@ impl Doc {
     pub(super) fn add_master(&self, like: Option<String>, layers: bool) -> Res<Vec<String>> {
         let like = match like {
             Some(l) => self.sheet(&l)?,
-            None => *self.pages().first().ok_or("no page")?,
+            None => *self.pages().first().ok_or(Error::NoPage)?,
         };
         let names: Vec<String> = self.masters().into_iter().map(|m| self.name(m)).collect();
         let name = ('A'..='Z')
             .map(|c| format!("{c}-Master"))
             .find(|n| !names.contains(n))
-            .ok_or("no free master name")?;
+            .ok_or(Error::NoMasterName)?;
         let p = self.new_node(TreeParentId::Root, None)?;
         let (m, from) = (self.meta(p), self.meta(like));
         m.insert(KIND, NodeKind::Master.as_str()).map_err(err)?;
@@ -669,7 +672,7 @@ impl Doc {
             .into_iter()
             .any(|o| o != m && self.name(o) == name)
         {
-            return Err(format!("a master named {name} exists"));
+            return Err(Error::MasterExists { name });
         }
         self.meta(m).insert("name", name).map_err(err)?;
         Ok(vec![])
@@ -704,13 +707,13 @@ impl Doc {
     pub(super) fn override_layer(&self, page: String, id: String) -> Res<Vec<String>> {
         let p = self.page(&page)?;
         let item = self.node(&id)?;
-        let master = self.master_of(p).ok_or("the page has no master")?;
+        let master = self.master_of(p).ok_or(Error::NoMaster)?;
         if self.tree.parent(item) != Some(master.into()) {
-            return Err("not a layer of the page's master".into());
+            return Err(Error::NotOnMaster);
         }
         let mut detached = self.detached(p);
         if detached.contains(&id) {
-            return Err("already overridden".into());
+            return Err(Error::Overridden);
         }
         let clip = self.clip(item);
         let copy = self.paste(&clip, p.into(), 0)?;
@@ -736,7 +739,7 @@ impl Doc {
     pub(super) fn reset_to_master(&self, ids: Vec<String>) -> Res<Vec<String>> {
         for id in &ids {
             if self.page(id).is_err() && self.override_of(self.node(id)?).is_none() {
-                return Err(format!("{id} overrides no master layer"));
+                return Err(Error::NotAnOverride { id: id.clone() });
             }
         }
         for id in ids {

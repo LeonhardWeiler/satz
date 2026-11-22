@@ -1,6 +1,7 @@
 use crate::color::{self, Ink};
 use crate::color::{Color, ColorMode, Swatch};
 use crate::display_list::{LINE, MOVE, Op, Paint, recolor, rect, shift};
+use crate::error::{Error, Res, err};
 use crate::geom::{self, LineStyle, Shape, bounds, closed, contains, fit, near, outline};
 use crate::image::{self, ImageInfo};
 use crate::layout::{Align3, Direction, Layout, MainAlign, Size, Sizing, arrange};
@@ -29,7 +30,6 @@ use serde::de::{DeserializeOwned, Deserializer, IntoDeserializer, Visitor};
 use serde::{Deserialize, Serialize};
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::fmt::Display;
 use std::ops::Range;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
@@ -482,12 +482,9 @@ const MAX_PAGE: f64 = 14400.0;
 const MAX_BLEED: f64 = 100.0 * MM;
 const MAX_TEXT: f64 = 5000.0;
 
-fn within(v: Option<f64>, lo: f64, hi: f64, what: &str) -> Res<()> {
+fn within(v: Option<f64>, lo: f64, hi: f64, what: &'static str) -> Res<()> {
     match v {
-        Some(v) if !(lo..=hi).contains(&v) => {
-            let r = |v: f64| (v * 100.0).round() / 100.0;
-            Err(format!("{what} must be from {} to {}", r(lo), r(hi)))
-        }
+        Some(v) if !(lo..=hi).contains(&v) => Err(Error::OutOfRange { what, lo, hi }),
         _ => Ok(()),
     }
 }
@@ -498,7 +495,7 @@ impl Props {
         within(f(self.stroke_weight), 0.0, MAX_LENGTH, "stroke weight")?;
         if let Some(c) = &self.stroke_sides {
             if !matches!(c.len(), 0 | 4) {
-                return Err("stroke sides take 4 weights or none".into());
+                return Err(Error::StrokeSides);
             }
             for &w in c {
                 within(Some(w.into()), 0.0, MAX_LENGTH, "stroke weight")?;
@@ -507,7 +504,7 @@ impl Props {
         within(f(self.radius), 0.0, MAX_LENGTH, "radius")?;
         if let Some(c) = &self.corners {
             if !matches!(c.len(), 0 | 4) {
-                return Err("corners take 4 radii or none".into());
+                return Err(Error::Corners);
             }
             for &r in c {
                 within(Some(r.into()), 0.0, MAX_LENGTH, "radius")?;
@@ -561,13 +558,13 @@ impl Props {
         for f in self.fills.iter().chain(&self.strokes).flatten() {
             f.color.check()?;
             if !f.transform.iter().all(|v| v.is_finite()) {
-                return Err("paint transforms must be finite".into());
+                return Err(Error::PaintTransform);
             }
             for v in f.adjust {
                 within(Some(v.into()), -1.0, 1.0, "image adjustment")?;
             }
             if matches!(f.kind, FillKind::Linear | FillKind::Radial) && f.stops.len() < 2 {
-                return Err("a gradient needs 2 stops or more".into());
+                return Err(Error::GradientStops);
             }
             for s in &f.stops {
                 within(Some(s.at.into()), 0.0, 1.0, "stop")?;
@@ -575,7 +572,7 @@ impl Props {
             }
         }
         if self.path.as_ref().is_some_and(|p| !geom::valid(p)) {
-            return Err("not a path".into());
+            return Err(Error::NotAPath);
         }
         Ok(())
     }
@@ -653,10 +650,10 @@ impl TextProps {
         if self.drop_lines.is_some_and(|v| v > 20)
             || self.drop_chars.is_some_and(|v| !(1..=20).contains(&v))
         {
-            return Err("a drop cap takes up to 20 lines and 1 to 20 characters".into());
+            return Err(Error::DropCap);
         }
         if self.keep_lines.is_some_and(|v| !(1..=20).contains(&v)) {
-            return Err("keep 1 to 20 lines together".into());
+            return Err(Error::KeepLines);
         }
         if self
             .tabs
@@ -664,9 +661,7 @@ impl TextProps {
             .flatten()
             .any(|t| !(0.0..=MAX_LENGTH).contains(&t.at) || t.leader.chars().count() > 8)
         {
-            return Err(
-                "a tab stop sits at 0 pt or more with a leader of up to 8 characters".into(),
-            );
+            return Err(Error::TabStop);
         }
         if let Some(f) = self
             .features
@@ -674,12 +669,12 @@ impl TextProps {
             .flatten()
             .find(|f| f.parse::<Feature>().is_err())
         {
-            return Err(format!("{f} is not an OpenType feature"));
+            return Err(Error::NotAFeature { feature: f.clone() });
         }
         if (self.axes.iter().flatten())
             .any(|(t, v)| t.len() != 4 || !t.is_ascii() || !v.is_finite())
         {
-            return Err("an axis has a 4 letter tag and a finite value".into());
+            return Err(Error::Axis);
         }
         self.fill
             .iter()
@@ -787,8 +782,6 @@ pub struct Doc {
     message: Cell<Option<&'static str>>,
     today: Cell<[u32; 3]>,
 }
-
-type Res<T> = Result<T, String>;
 
 fn today() -> [u32; 3] {
     if cfg!(target_arch = "wasm32") {
@@ -969,10 +962,6 @@ fn check_frame([x, y, w, h]: [f64; 4]) -> Res<()> {
     within(Some(y), -MAX_LENGTH, MAX_LENGTH, "y")?;
     within(Some(w), 0.0, MAX_LENGTH, "width")?;
     within(Some(h), 0.0, MAX_LENGTH, "height")
-}
-
-fn err(e: impl Display) -> String {
-    e.to_string()
 }
 
 fn container(m: &LoroMap, key: &str) -> Option<Container> {
@@ -1417,8 +1406,10 @@ impl Doc {
 
     fn image(&self, hash: &str) -> Res<ImageInfo> {
         match self.doc.get_map("images").get(hash) {
-            Some(_) => image::info(hash).ok_or_else(|| format!("image {hash} does not decode")),
-            None => Err(format!("no image {hash}")),
+            Some(_) => {
+                image::info(hash).ok_or_else(|| Error::ImageNotDecoded { hash: hash.into() })
+            }
+            None => Err(Error::NoImage { hash: hash.into() }),
         }
     }
 
@@ -1437,7 +1428,7 @@ impl Doc {
     #[allow(clippy::disallowed_methods)]
     pub(super) fn read(bytes: &[u8]) -> Res<Doc> {
         let doc = LoroDoc::new();
-        doc.import(bytes).map_err(|_| "not a Satz document")?;
+        doc.import(bytes).map_err(|_| Error::NotSatz)?;
         let d = Doc::with(doc);
         let kinds: Vec<_> = d.tree.roots().into_iter().map(|r| d.kind(r)).collect();
         if !kinds.contains(&Some(NodeKind::Page))
@@ -1445,7 +1436,7 @@ impl Doc {
                 .iter()
                 .any(|k| !matches!(k, Some(NodeKind::Page | NodeKind::Master | NodeKind::Trash)))
         {
-            return Err("not a Satz document".into());
+            return Err(Error::NotSatz);
         }
         d.check_file()?;
         Ok(d)
@@ -1543,7 +1534,7 @@ impl Doc {
 
     pub fn apply(&mut self, cmd: Command) -> Res<Vec<String>> {
         if self.doc.is_detached() {
-            return Err("a version is previewed".into());
+            return Err(Error::Previewing);
         }
         if matches!(cmd, Command::BeginUndoGroup | Command::EndUndoGroup) {
             return self.run(cmd);
@@ -2052,12 +2043,15 @@ impl Doc {
         from_loro(self.doc.get_list(name).get_deep_value()).unwrap_or_default()
     }
 
-    fn find<T: DeserializeOwned>(&self, name: &str, id: &str) -> Res<(usize, T)> {
+    fn find<T: DeserializeOwned>(&self, name: &'static str, id: &str) -> Res<(usize, T)> {
         let all: Vec<serde_json::Value> = self.list(name);
         let i = all
             .iter()
             .position(|v| v["id"] == id)
-            .ok_or_else(|| format!("no {} {id}", name.trim_end_matches('s')))?;
+            .ok_or_else(|| Error::NotFound {
+                what: name.trim_end_matches('s'),
+                id: id.into(),
+            })?;
         Ok((i, serde_json::from_value(all[i].clone()).map_err(err)?))
     }
 
@@ -2068,7 +2062,7 @@ impl Doc {
                 .get(i)
                 .and_then(|v| v.into_container().ok())
                 .and_then(|c| c.into_map().ok())
-                .ok_or("no entry")?,
+                .ok_or(Error::NoEntry)?,
             None => list
                 .insert_container(list.len(), LoroMap::new())
                 .map_err(err)?,
@@ -2122,10 +2116,10 @@ impl Doc {
                 .count()
         };
         if images(&props.strokes) > 0 {
-            return Err("strokes cannot be images".into());
+            return Err(Error::ImageStroke);
         }
         if images(&props.fills) > 0 && self.kind(id) == Some(NodeKind::Text) {
-            return Err("text cannot be filled with an image".into());
+            return Err(Error::ImageTextFill);
         }
         for f in props
             .fills
@@ -2137,7 +2131,7 @@ impl Doc {
         }
         let m = self.meta(id);
         let serde_json::Value::Object(props) = serde_json::to_value(props).map_err(err)? else {
-            return Err("props are not a map".into());
+            return Err(Error::PropsNotAMap);
         };
         for (k, v) in props.into_iter().filter(|(_, v)| !v.is_null()) {
             m.insert(&k, loro(v)?).map_err(err)?;
@@ -2211,7 +2205,7 @@ impl Doc {
                 .tree
                 .parent(id)
                 .and_then(parent_node)
-                .ok_or("no parent")?;
+                .ok_or(Error::NoParent)?;
             let [x, y, w, h] = self.bounds(id);
             let c = [x + w / 2.0, y + h / 2.0];
             let [sx, sy] = geom::apply(self.turn(p), c);
@@ -2279,8 +2273,8 @@ impl Doc {
     }
 
     fn group(&self, ids: &[TreeID], frame: bool) -> Res<TreeID> {
-        let top = *ids.last().ok_or("nothing to group")?;
-        let parent = self.tree.parent(top).ok_or("no parent")?;
+        let top = *ids.last().ok_or(Error::NothingToGroup)?;
+        let parent = self.tree.parent(top).ok_or(Error::NoParent)?;
         let index = self.index(top) + 1;
         let g = self.new_node(parent, Some(index))?;
         let m = self.meta(g);
@@ -2420,14 +2414,17 @@ impl Doc {
                 _ => break,
             }
         }
-        Err(format!("no node {id}"))
+        Err(Error::NotFound {
+            what: "node",
+            id: id.into(),
+        })
     }
 
     fn layer(&self, id: &str) -> Res<TreeID> {
         let n = self.node(id)?;
         match self.tree.parent(n) {
             Some(TreeParentId::Node(_)) => Ok(n),
-            _ => Err(format!("{id} is not a layer")),
+            _ => Err(Error::NotALayer { id: id.into() }),
         }
     }
 
@@ -2435,7 +2432,7 @@ impl Doc {
         let n = self.node(id)?;
         match self.kind(n) {
             Some(NodeKind::Page | NodeKind::Master | NodeKind::Group | NodeKind::Frame) => Ok(n),
-            _ => Err("not a container".into()),
+            _ => Err(Error::NotAContainer),
         }
     }
 
@@ -2520,7 +2517,7 @@ impl Doc {
             .unwrap_or_default();
         let cropped = crop && fills.iter().any(|f| f.kind == FillKind::Image);
         if cropped && (w <= 0.0 || h <= 0.0) {
-            return Err("an image cannot be cropped to nothing".into());
+            return Err(Error::CropToNothing);
         }
         let was = self.bounds(id);
         let [.., ow, oh] = was;
@@ -2578,15 +2575,15 @@ impl Doc {
     fn set_props(&self, id: String, mut props: Props) -> Res<Vec<String>> {
         let id = self.node(&id)?;
         if props.anchored.is_some() && value(&self.meta(id), ANCHORED).is_none() {
-            return Err("not anchored".into());
+            return Err(Error::NotAnchored { id: id.to_string() });
         }
         if let Some(s) = props.sizing {
             let threaded = self.next_of(id).is_some() || self.prev_of(id).is_some();
             if threaded && s.horizontal == Size::Hug {
-                return Err("a threaded text frame cannot be auto width".into());
+                return Err(Error::ThreadedAutoWidth);
             }
             if self.next_of(id).is_some() && s.vertical == Size::Hug {
-                return Err("only the last frame of a thread can be auto height".into());
+                return Err(Error::ThreadedAutoHeight);
             }
         }
         let set = serde_json::to_value(&props).map_err(err)?;
@@ -2609,7 +2606,7 @@ impl Doc {
     fn set_path(&self, id: String, path: Vec<f32>) -> Res<Vec<String>> {
         let id = self.layer(&id)?;
         if !geom::valid(&path) {
-            return Err("not a path".into());
+            return Err(Error::NotAPath);
         }
         let [x, y, w, h] = self.bounds(id).map(|v| v as f32);
         let [l, t, nw, nh] = bounds(&path);
@@ -2670,9 +2667,9 @@ impl Doc {
             f.transform = [sw, 0.0, 0.0, sh, (1.0 - sw) / 2.0, (1.0 - sh) / 2.0].map(|v| v as f32);
             aspect = Some(a);
         }
-        let a = aspect.ok_or("no image fill")?;
+        let a = aspect.ok_or(Error::NoImageFill)?;
         if w <= 0.0 || h <= 0.0 {
-            return Err("an image fits only into a box".into());
+            return Err(Error::FitIntoBox);
         }
         if fit == Fit::Frame {
             self.set_frame(id, [x, y, w, w / a])?;
@@ -2808,13 +2805,13 @@ impl Doc {
                 outline(&shape, frame)
             }
             Some(NodeKind::Text) => self.glyphs(&id.to_string(), frame)?,
-            _ => return Err("only shapes and text flatten".into()),
+            _ => return Err(Error::NotFlattenable),
         };
         let rotation = num(&self.meta(id), "rotation");
         let [a, b, c, d, e, f] = geom::rotation(rotation, frame.map(f64::from)).map(|v| v as f32);
         let path = geom::map(&path, |[u, v]| [a * u + c * v + e, b * u + d * v + f]);
         if !geom::valid(&path) {
-            return Err("not a path".into());
+            return Err(Error::NotAPath);
         }
         Ok(path)
     }
@@ -2859,7 +2856,7 @@ impl Doc {
             .iter()
             .chain(&snap.masters)
             .find_map(|p| find(&p.children, id))
-            .ok_or("no such layer")?;
+            .ok_or(Error::NoLayer)?;
         let Kind::Text {
             content,
             frame: tf,
@@ -2869,7 +2866,7 @@ impl Doc {
             ..
         } = &n.kind
         else {
-            return Err("threaded text does not flatten".into());
+            return Err(Error::FlattenThreaded);
         };
         let s = Scope {
             palette: &snap.palette,
@@ -2916,7 +2913,7 @@ impl Doc {
                 .tree
                 .parent(g)
                 .and_then(parent_node)
-                .ok_or("no parent")?;
+                .ok_or(Error::NoParent)?;
             let kids = self.children(g);
             self.reparent(&kids, parent, self.index(g))?;
             out.extend(kids.iter().map(|c| c.to_string()));
@@ -2927,7 +2924,7 @@ impl Doc {
 
     fn mask(&self, ids: Vec<String>) -> Res<Vec<String>> {
         let ids = self.sorted(&ids)?;
-        let highest = *ids.last().ok_or("nothing to mask")?;
+        let highest = *ids.last().ok_or(Error::NothingToMask)?;
         Ok(if ids.len() == 1 {
             let on = value(&self.meta(highest), "mask").and_then(|v| v.into_bool().ok());
             self.meta(highest)
@@ -3012,7 +3009,7 @@ impl Doc {
         let mut up = Some(p);
         while let Some(n) = up {
             if ids.contains(&n) {
-                return Err("cannot move a layer into itself".into());
+                return Err(Error::IntoItself);
             }
             up = self.tree.parent(n).and_then(parent_node);
         }
@@ -3035,7 +3032,7 @@ impl Doc {
             ids.reverse();
         }
         for id in ids {
-            let parent = self.tree.parent(id).ok_or("no parent")?;
+            let parent = self.tree.parent(id).ok_or(Error::NoParent)?;
             let (i, n) = (self.index(id), self.children(parent).len());
             let to = match to {
                 Order::Forward => (i + 1).min(n - 1),

@@ -317,6 +317,7 @@ dependencies = [
  "serde_json",
  "skrifa 0.42.1",
  "subsetter",
+ "thiserror 2.0.21",
  "tiny-skia",
  "ts-rs",
  "unicode_names2",

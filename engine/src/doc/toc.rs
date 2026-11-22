@@ -66,7 +66,7 @@ impl Doc {
             return Ok(false);
         }
         t.update(&joined, UpdateOptions::default())
-            .map_err(|e| format!("{e:?}"))?;
+            .map_err(|e| err(format!("{e:?}")))?;
         let mut start = 0;
         for ((level, ..), line) in entries.iter().zip(&text) {
             let end = start + line.encode_utf16().count();

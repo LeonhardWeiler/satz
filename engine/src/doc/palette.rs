@@ -20,9 +20,9 @@ pub(super) fn map_colors(v: &mut serde_json::Value, f: &impl Fn(&Color) -> Optio
 
 pub(super) fn check_value(v: &Value) -> Res<()> {
     match v {
-        Value::Color(Color::Variable { .. }) => Err("a variable cannot hold a variable".into()),
+        Value::Color(Color::Variable { .. }) => Err(Error::VariableInVariable),
         Value::Color(c) => c.check(),
-        Value::Number(n) if !n.is_finite() => Err("numbers must be finite".into()),
+        Value::Number(n) if !n.is_finite() => Err(Error::NotFinite),
         Value::Number(_) | Value::Font(_) | Value::Boolean(_) => Ok(()),
     }
 }
@@ -312,7 +312,9 @@ impl Doc {
             .iter()
             .any(|s| s.id != swatch.id && s.name == swatch.name)
         {
-            return Err(format!("a swatch named {} exists", swatch.name));
+            return Err(Error::SwatchExists {
+                name: swatch.name.clone(),
+            });
         }
         Ok(())
     }
@@ -405,7 +407,10 @@ impl Doc {
             .modes
             .iter_mut()
             .find(|m| m.id == id)
-            .ok_or_else(|| format!("no mode {id}"))?;
+            .ok_or_else(|| Error::NotFound {
+                what: "mode",
+                id: id.clone(),
+            })?;
         m.name = name;
         self.put("collections", Some(i), c)?;
         Ok(vec![])
@@ -414,10 +419,10 @@ impl Doc {
     pub(super) fn delete_mode(&self, collection: String, id: String) -> Res<Vec<String>> {
         let (i, mut c) = self.find::<Collection>("collections", &collection)?;
         if !c.modes.iter().any(|m| m.id == id) {
-            return Err(format!("no mode {id}"));
+            return Err(Error::NotFound { what: "mode", id });
         }
         if c.modes.len() == 1 {
-            return Err("a collection keeps one mode".into());
+            return Err(Error::LastMode);
         }
         c.modes.retain(|m| m.id != id);
         self.put("collections", Some(i), c)?;
@@ -472,7 +477,7 @@ impl Doc {
         let (_, c) = self.find::<Collection>("collections", &collection)?;
         check_value(&value)?;
         if self.variables(&collection).any(|(_, v)| v.name == name) {
-            return Err(format!("a variable named {name} exists"));
+            return Err(Error::VariableExists { name });
         }
         let id = self.new_id();
         let values = c.modes.into_iter().map(|m| (m.id, value.clone()));
@@ -502,20 +507,20 @@ impl Doc {
                 .variables(&v.collection)
                 .any(|(_, o)| o.id != id && o.name == name)
             {
-                return Err(format!("a variable named {name} exists"));
+                return Err(Error::VariableExists { name });
             }
             v.name = name;
         }
         if let Some(value) = value {
             let (_, c) = self.find::<Collection>("collections", &v.collection)?;
             let mode = mode.unwrap_or_else(|| c.modes[0].id.clone());
-            let old = v
-                .values
-                .get(&mode)
-                .ok_or_else(|| format!("no mode {mode}"))?;
+            let old = v.values.get(&mode).ok_or_else(|| Error::NotFound {
+                what: "mode",
+                id: mode.clone(),
+            })?;
             check_value(&value)?;
             if !old.same_kind(&value) {
-                return Err("a variable keeps its type".into());
+                return Err(Error::VariableType);
             }
             v.values.insert(mode, value);
         }
@@ -536,13 +541,13 @@ impl Doc {
                 matches!(v, Value::Font(_)) == font
                     && matches!(v, Value::Number(_) | Value::Font(_))
             }) {
-                return Err("a variable binds to a property of its type".into());
+                return Err(Error::BindType);
             }
         }
         if let Ok((i, mut s)) = self.find::<TextStyle>("textStyles", &id) {
             let own = serde_json::to_value(&s.attrs).map_err(err)?;
             if !STYLED.contains(&prop.as_str()) || prop != "font" && !own[&prop].is_f64() {
-                return Err(format!("{prop} cannot be bound"));
+                return Err(Error::NotBindable { prop });
             }
             match variable {
                 Some(v) => s.bindings.insert(prop, v),
@@ -555,7 +560,7 @@ impl Doc {
         let story = prop == "size" || prop == "font";
         let n = if story { self.story(n) } else { n };
         if !BINDABLE.contains(&prop.as_str()) {
-            return Err(format!("{prop} cannot be bound"));
+            return Err(Error::NotBindable { prop });
         }
         if story && variable.is_some() {
             let t = self.text(n)?;
@@ -588,7 +593,12 @@ impl Doc {
         let mut modes = self.modes(n);
         match mode {
             Some(m) if c.modes.iter().any(|x| x.id == m) => modes.insert(collection, m),
-            Some(m) => return Err(format!("no mode {m}")),
+            Some(m) => {
+                return Err(Error::NotFound {
+                    what: "mode",
+                    id: m,
+                });
+            }
             None => modes.remove(&collection),
         };
         self.meta(n).insert(MODES, loro(modes)?).map_err(err)?;

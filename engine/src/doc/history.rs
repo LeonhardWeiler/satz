@@ -87,7 +87,7 @@ impl Doc {
                 .get(&id.peer)
                 .is_some_and(|&s| id.counter < s)
         {
-            return Err("no such version".into());
+            return Err(Error::NoVersion);
         }
         Ok(Frontiers::from(id))
     }

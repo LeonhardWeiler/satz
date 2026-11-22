@@ -1,3 +1,4 @@
+use crate::error::{Error, Res};
 use crate::variable::{Scope, Value};
 use moxcms::{
     ColorProfile, DataColorSpace, Layout, ProfileText, RenderingIntent, Transform8BitExecutor,
@@ -73,13 +74,11 @@ pub struct Swatch {
 }
 
 impl Swatch {
-    pub fn check(&self) -> Result<(), String> {
+    pub fn check(&self) -> Res<()> {
         self.color.check()?;
         match (&self.color, self.spot) {
-            (Color::Swatch { .. } | Color::Variable { .. }, _) => {
-                Err("a swatch cannot use a swatch or variable".into())
-            }
-            (Color::Rgb(_), true) => Err("a spot color needs a CMYK alternate".into()),
+            (Color::Swatch { .. } | Color::Variable { .. }, _) => Err(Error::SwatchOfSwatch),
+            (Color::Rgb(_), true) => Err(Error::SpotNeedsCmyk),
             _ => Ok(()),
         }
     }
@@ -92,7 +91,7 @@ impl From<u32> for Color {
 }
 
 impl Color {
-    pub fn check(&self) -> Result<(), String> {
+    pub fn check(&self) -> Res<()> {
         let unit = |v: &f32| (0.0..=1.0).contains(v);
         let ok = match self {
             Color::Rgb(_) => true,
@@ -100,8 +99,7 @@ impl Color {
             Color::Swatch { tint, alpha, .. } => unit(tint) && unit(alpha),
             Color::Variable { alpha, .. } => unit(alpha),
         };
-        ok.then_some(())
-            .ok_or_else(|| "color values must be in 0..=1".into())
+        ok.then_some(()).ok_or(Error::ColorRange)
     }
 
     pub fn black(mode: ColorMode) -> Color {
@@ -252,13 +250,13 @@ struct Cms {
 }
 
 impl Cms {
-    fn new(icc: &[u8]) -> Result<Cms, String> {
-        let p = ColorProfile::new_from_slice(icc).map_err(|_| "not an ICC profile")?;
+    fn new(icc: &[u8]) -> Res<Cms> {
+        let p = ColorProfile::new_from_slice(icc).map_err(|_| Error::NotIcc)?;
         if p.color_space != DataColorSpace::Cmyk {
-            return Err("not a CMYK profile".into());
+            return Err(Error::NotCmykProfile);
         }
         let srgb = ColorProfile::new_srgb();
-        let fail = |_| "the profile does not convert colors".to_string();
+        let fail = |_| Error::ProfileConversion;
         let name = match &p.description {
             Some(ProfileText::PlainString(s)) => s.clone(),
             Some(ProfileText::Localizable(l)) => {
@@ -323,7 +321,7 @@ fn cms() -> Rc<Cms> {
     CMS.with(|c| c.borrow().clone())
 }
 
-pub fn check_profile(icc: &[u8]) -> Result<(), String> {
+pub fn check_profile(icc: &[u8]) -> Res<()> {
     Cms::new(icc).map(|_| ())
 }
 

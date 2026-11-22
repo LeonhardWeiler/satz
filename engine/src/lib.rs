@@ -1,6 +1,7 @@
 mod color;
 mod display_list;
 mod doc;
+mod error;
 #[cfg(test)]
 mod examples;
 #[cfg(feature = "io")]
@@ -48,8 +49,18 @@ fn fields<T: Serialize>(v: &T) -> serde_json::Result<BTreeMap<String, Raw>> {
     serde_json::from_str(&serde_json::to_string(v)?)
 }
 
-fn js<T: Serialize + ?Sized>(v: &T) -> Result<JsValue, JsError> {
+fn js<T: Serialize + ?Sized>(v: &T) -> Result<JsValue, JsValue> {
     Ok(v.serialize(&serde_wasm_bindgen::Serializer::json_compatible())?)
+}
+
+impl From<error::Error> for JsValue {
+    fn from(e: error::Error) -> JsValue {
+        let out = js_sys::Error::new(&e.to_string());
+        if let Ok(cause) = js(&e) {
+            out.set_cause(&cause);
+        }
+        out.into()
+    }
 }
 
 #[wasm_bindgen(typescript_custom_section)]
@@ -173,9 +184,9 @@ impl Engine {
     pub fn apply(
         &mut self,
         #[wasm_bindgen(unchecked_param_type = "Command")] cmd: JsValue,
-    ) -> Result<Vec<String>, JsError> {
+    ) -> Result<Vec<String>, JsValue> {
         let cmd: Command = serde_wasm_bindgen::from_value(cmd)?;
-        self.doc.apply(cmd).map_err(|e| JsError::new(&e))
+        Ok(self.doc.apply(cmd)?)
     }
 
     pub fn notes(&self) -> Vec<String> {
@@ -253,16 +264,13 @@ impl Engine {
             masters: sheets(&snap.masters)?,
             stories,
         })?);
-        js_sys::JSON::parse(&serde_json::to_string(&out)?).map_err(|_| JsError::new("changes"))
+        Ok(js_sys::JSON::parse(&serde_json::to_string(&out)?)
+            .map_err(serde_wasm_bindgen::Error::from)?)
     }
 
     #[wasm_bindgen(js_name = frameRange)]
-    pub fn frame_range(&self, id: &str) -> Result<Vec<usize>, JsError> {
-        Ok(self
-            .doc
-            .frame_range(id)
-            .map_err(|e| JsError::new(&e))?
-            .to_vec())
+    pub fn frame_range(&self, id: &str) -> Result<Vec<usize>, JsValue> {
+        Ok(self.doc.frame_range(id)?.to_vec())
     }
 
     pub fn hit(&self, page: &str, x: f64, y: f64, tolerance: f64) -> Vec<String> {
@@ -334,21 +342,17 @@ impl Engine {
             .collect()
     }
 
-    pub fn caret(&self, id: &str, index: u32) -> Result<Vec<f64>, JsError> {
-        Ok(self
-            .doc
-            .caret(id, index as usize)
-            .map_err(|e| JsError::new(&e))?
-            .to_vec())
+    pub fn caret(&self, id: &str, index: u32) -> Result<Vec<f64>, JsValue> {
+        Ok(self.doc.caret(id, index as usize)?.to_vec())
     }
 
-    pub fn turn(&self, id: &str) -> Result<Vec<f32>, JsError> {
-        Ok(self.doc.turn_of(id).map_err(|e| JsError::new(&e))?.to_vec())
+    pub fn turn(&self, id: &str) -> Result<Vec<f32>, JsValue> {
+        Ok(self.doc.turn_of(id)?.to_vec())
     }
 
     #[wasm_bindgen(js_name = pathOf)]
-    pub fn path_of(&self, id: &str) -> Result<Vec<f32>, JsError> {
-        self.doc.path_of(id).map_err(|e| JsError::new(&e))
+    pub fn path_of(&self, id: &str) -> Result<Vec<f32>, JsValue> {
+        Ok(self.doc.path_of(id)?)
     }
 
     #[wasm_bindgen(js_name = canThread)]
@@ -357,25 +361,20 @@ impl Engine {
     }
 
     #[wasm_bindgen(js_name = textFrame)]
-    pub fn text_frame(&self, id: &str, index: u32) -> Result<String, JsError> {
-        self.doc
-            .text_frame(id, index as usize)
-            .map_err(|e| JsError::new(&e))
+    pub fn text_frame(&self, id: &str, index: u32) -> Result<String, JsValue> {
+        Ok(self.doc.text_frame(id, index as usize)?)
     }
 
     #[wasm_bindgen(js_name = textIndex)]
-    pub fn text_index(&self, id: &str, x: f64, y: f64) -> Result<u32, JsError> {
-        let i = self
-            .doc
-            .text_index(id, x, y)
-            .map_err(|e| JsError::new(&e))?;
+    pub fn text_index(&self, id: &str, x: f64, y: f64) -> Result<u32, JsValue> {
+        let i = self.doc.text_index(id, x, y)?;
         Ok(i as u32)
     }
 
     #[wasm_bindgen(js_name = textLine)]
-    pub fn text_line(&self, id: &str, index: u32) -> Result<Vec<u32>, JsError> {
+    pub fn text_line(&self, id: &str, index: u32) -> Result<Vec<u32>, JsValue> {
         let l = self.doc.text_line(id, index as usize);
-        Ok(l.map_err(|e| JsError::new(&e))?.map(|i| i as u32).to_vec())
+        Ok(l?.map(|i| i as u32).to_vec())
     }
 
     #[wasm_bindgen(js_name = textOverlay)]
@@ -386,11 +385,10 @@ impl Engine {
         focus: u32,
         caret_width: f32,
         page: &str,
-    ) -> Result<Uint32Array, JsError> {
+    ) -> Result<Uint32Array, JsValue> {
         let ops = self
             .doc
-            .text_overlay(id, anchor as usize, focus as usize, caret_width, page)
-            .map_err(|e| JsError::new(&e))?;
+            .text_overlay(id, anchor as usize, focus as usize, caret_width, page)?;
         self.overlay = encode(&ops);
         Ok(unsafe { Uint32Array::view(&self.overlay) })
     }
@@ -409,27 +407,23 @@ impl Engine {
     }
 
     #[cfg(feature = "io")]
-    pub fn pdf(&self, title: &str, date: &str, indices: &[u32]) -> Result<Vec<u8>, JsError> {
-        self.doc
-            .pdf(title, date, indices)
-            .map_err(|e| JsError::new(&e))
+    pub fn pdf(&self, title: &str, date: &str, indices: &[u32]) -> Result<Vec<u8>, JsValue> {
+        Ok(self.doc.pdf(title, date, indices)?)
     }
 
     #[cfg(feature = "io")]
-    pub fn package(&self, title: &str, date: &str, indices: &[u32]) -> Result<Vec<u8>, JsError> {
-        self.doc
-            .package(title, date, indices)
-            .map_err(|e| JsError::new(&e))
+    pub fn package(&self, title: &str, date: &str, indices: &[u32]) -> Result<Vec<u8>, JsValue> {
+        Ok(self.doc.package(title, date, indices)?)
     }
 
     #[wasm_bindgen(js_name = setProfile)]
-    pub fn set_profile(&mut self, icc: Option<Vec<u8>>) -> Result<(), JsError> {
-        self.doc.set_profile(icc).map_err(|e| JsError::new(&e))
+    pub fn set_profile(&mut self, icc: Option<Vec<u8>>) -> Result<(), JsValue> {
+        Ok(self.doc.set_profile(icc)?)
     }
 
     #[wasm_bindgen(js_name = setToday)]
-    pub fn set_today(&mut self, y: u32, m: u32, d: u32) -> Result<(), JsError> {
-        self.doc.set_today(y, m, d).map_err(|e| JsError::new(&e))
+    pub fn set_today(&mut self, y: u32, m: u32, d: u32) -> Result<(), JsValue> {
+        Ok(self.doc.set_today(y, m, d)?)
     }
 
     pub fn save(&self) -> Vec<u8> {
@@ -441,34 +435,34 @@ impl Engine {
     }
 
     #[wasm_bindgen(js_name = takeClip)]
-    pub fn take_clip(&mut self, bytes: &[u8]) -> Result<(), JsError> {
-        self.doc.take_clip(bytes).map_err(|e| JsError::new(&e))
+    pub fn take_clip(&mut self, bytes: &[u8]) -> Result<(), JsValue> {
+        Ok(self.doc.take_clip(bytes)?)
     }
 
     #[cfg(feature = "io")]
     #[wasm_bindgen(js_name = importFile)]
-    pub fn import_file(bytes: &[u8], name: &str) -> Result<Vec<u8>, JsError> {
-        import::import(bytes, name).map_err(|e| JsError::new(&e))
+    pub fn import_file(bytes: &[u8], name: &str) -> Result<Vec<u8>, JsValue> {
+        Ok(import::import(bytes, name)?)
     }
 
-    pub fn load(&mut self, bytes: &[u8], updates: Vec<Uint8Array>) -> Result<(), JsError> {
-        let mut doc = Doc::load(bytes).map_err(|e| JsError::new(&e))?;
+    pub fn load(&mut self, bytes: &[u8], updates: Vec<Uint8Array>) -> Result<(), JsValue> {
+        let mut doc = Doc::load(bytes)?;
         for u in updates {
-            doc.sync(&u.to_vec()).map_err(|e| JsError::new(&e))?;
+            doc.sync(&u.to_vec())?;
         }
-        doc.retain_images().map_err(|e| JsError::new(&e))?;
+        doc.retain_images()?;
         self.doc = doc;
         Ok(())
     }
 
     #[wasm_bindgen(unchecked_return_type = "Version[]")]
-    pub fn versions(&self) -> Result<JsValue, JsError> {
+    pub fn versions(&self) -> Result<JsValue, JsValue> {
         js(&self.doc.versions())
     }
 
-    pub fn preview(&mut self, peer: Option<String>, counter: i32) -> Result<(), JsError> {
+    pub fn preview(&mut self, peer: Option<String>, counter: i32) -> Result<(), JsValue> {
         let v = peer.as_deref().map(|p| (p, counter));
-        self.doc.preview(v).map_err(|e| JsError::new(&e))
+        Ok(self.doc.preview(v)?)
     }
 
     #[wasm_bindgen(js_name = versionVector)]
@@ -480,9 +474,9 @@ impl Engine {
         self.doc.updates(since)
     }
 
-    pub fn sync(&mut self, bytes: &[u8]) -> Result<(), JsError> {
-        self.doc.sync(bytes).map_err(|e| JsError::new(&e))?;
-        self.doc.retain_images().map_err(|e| JsError::new(&e))
+    pub fn sync(&mut self, bytes: &[u8]) -> Result<(), JsValue> {
+        self.doc.sync(bytes)?;
+        Ok(self.doc.retain_images()?)
     }
 
     pub fn version(&self) -> String {
@@ -498,18 +492,18 @@ impl Engine {
     }
 
     #[wasm_bindgen(unchecked_return_type = "[number, number[]]")]
-    pub fn characters(&self, hash: Option<String>) -> Result<JsValue, JsError> {
+    pub fn characters(&self, hash: Option<String>) -> Result<JsValue, JsValue> {
         js(&text::characters(hash.as_deref()))
     }
 
     #[wasm_bindgen(js_name = addFont, unchecked_return_type = "Typeface")]
-    pub fn add_font(&mut self, bytes: &[u8]) -> Result<JsValue, JsError> {
-        js(&self.doc.add_font(bytes).map_err(|e| JsError::new(&e))?)
+    pub fn add_font(&mut self, bytes: &[u8]) -> Result<JsValue, JsValue> {
+        js(&self.doc.add_font(bytes)?)
     }
 
     #[wasm_bindgen(js_name = removeFont)]
-    pub fn remove_font(&mut self, hash: &str) -> Result<(), JsError> {
-        self.doc.remove_font(hash).map_err(|e| JsError::new(&e))
+    pub fn remove_font(&mut self, hash: &str) -> Result<(), JsValue> {
+        Ok(self.doc.remove_font(hash)?)
     }
 
     #[wasm_bindgen(js_name = fontsAdded)]
@@ -523,19 +517,13 @@ impl Engine {
     }
 
     #[wasm_bindgen(js_name = addImage, unchecked_return_type = "ImageInfo")]
-    pub fn add_image(&mut self, bytes: &[u8], link: Option<String>) -> Result<JsValue, JsError> {
-        js(&self
-            .doc
-            .add_image(bytes, link)
-            .map_err(|e| JsError::new(&e))?)
+    pub fn add_image(&mut self, bytes: &[u8], link: Option<String>) -> Result<JsValue, JsValue> {
+        js(&self.doc.add_image(bytes, link)?)
     }
 
     #[wasm_bindgen(js_name = registerImage, unchecked_return_type = "ImageInfo")]
-    pub fn register_image(&mut self, bytes: &[u8]) -> Result<JsValue, JsError> {
-        js(&self
-            .doc
-            .register_image(bytes)
-            .map_err(|e| JsError::new(&e))?)
+    pub fn register_image(&mut self, bytes: &[u8]) -> Result<JsValue, JsValue> {
+        js(&self.doc.register_image(bytes)?)
     }
 
     pub fn image(&self, id: u32) -> Uint8Array {
@@ -595,8 +583,8 @@ pub(crate) fn content_hash(bytes: &[u8]) -> String {
 }
 
 #[wasm_bindgen(unchecked_return_type = "Typeface")]
-pub fn typeface(bytes: &[u8]) -> Result<JsValue, JsError> {
-    js(&text::typeface(bytes).map_err(|e| JsError::new(&e))?)
+pub fn typeface(bytes: &[u8]) -> Result<JsValue, JsValue> {
+    js(&text::typeface(bytes)?)
 }
 
 #[cfg(feature = "io")]
@@ -629,7 +617,7 @@ pub fn to_cmyk(rgb: u32) -> Vec<f32> {
 pub fn neutral(
     #[wasm_bindgen(unchecked_param_type = "\"black\" | \"white\" | \"gray\"")] name: &str,
     #[wasm_bindgen(unchecked_param_type = "ColorMode")] mode: JsValue,
-) -> Result<JsValue, JsError> {
+) -> Result<JsValue, JsValue> {
     let mode = serde_wasm_bindgen::from_value(mode)?;
     let color = match name {
         "black" => color::Color::black(mode),
@@ -652,7 +640,7 @@ pub(crate) struct Scope {
 pub fn resolve(
     #[wasm_bindgen(unchecked_param_type = "Color")] color: JsValue,
     #[wasm_bindgen(unchecked_param_type = "Scope")] scope: JsValue,
-) -> Result<JsValue, JsError> {
+) -> Result<JsValue, JsValue> {
     let color: color::Color = serde_wasm_bindgen::from_value(color)?;
     let s: Scope = serde_wasm_bindgen::from_value(scope)?;
     let palette = variable::Palette {

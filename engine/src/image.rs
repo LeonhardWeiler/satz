@@ -1,5 +1,6 @@
 use crate::color::{preview_pixels, separate_pixels};
 use crate::content_hash;
+use crate::error::{Error, Res};
 use krilla::Data;
 use krilla::image::{BitsPerComponent, CustomImage, ImageColorspace};
 use loro::LoroBinaryValue;
@@ -108,15 +109,15 @@ fn push(e: Entry) -> u32 {
     id
 }
 
-fn format(bytes: &[u8]) -> Result<Format, String> {
+fn format(bytes: &[u8]) -> Res<Format> {
     match bytes {
         [0x89, b'P', b'N', b'G', ..] => Ok(Format::Png),
         [0xff, 0xd8, 0xff, ..] => Ok(Format::Jpeg),
-        _ => Err("not a PNG or JPEG image".into()),
+        _ => Err(Error::NotAnImage),
     }
 }
 
-fn pdf_image(format: Format, bytes: &LoroBinaryValue) -> Result<krilla::image::Image, String> {
+fn pdf_image(format: Format, bytes: &LoroBinaryValue) -> Res<krilla::image::Image> {
     let data =
         Data::from(std::sync::Arc::new(Shared(bytes.clone()))
             as std::sync::Arc<dyn AsRef<[u8]> + Send + Sync>);
@@ -124,6 +125,7 @@ fn pdf_image(format: Format, bytes: &LoroBinaryValue) -> Result<krilla::image::I
         Format::Png => krilla::image::Image::from_png(data, true),
         Format::Jpeg => krilla::image::Image::from_jpeg(data, true),
     }
+    .map_err(crate::error::err)
 }
 
 struct Shared(LoroBinaryValue);
@@ -134,9 +136,9 @@ impl AsRef<[u8]> for Shared {
     }
 }
 
-const MAX_PIXELS: u64 = 50_000_000;
+pub const MAX_PIXELS: u64 = 50_000_000;
 
-pub fn register(bytes: LoroBinaryValue) -> Result<ImageInfo, String> {
+pub fn register(bytes: LoroBinaryValue) -> Res<ImageInfo> {
     let hash = content_hash(&bytes);
     if let Some(e) = entry_by_hash(&hash) {
         return Ok(e.info.clone());
@@ -144,14 +146,11 @@ pub fn register(bytes: LoroBinaryValue) -> Result<ImageInfo, String> {
     let format = format(&bytes)?;
     let (w, h) = size(&bytes)?;
     if u64::from(w) * u64::from(h) > MAX_PIXELS {
-        return Err(format!(
-            "the image has more than {} megapixels",
-            MAX_PIXELS / 1_000_000
-        ));
+        return Err(Error::TooManyPixels);
     }
-    decode(format, &bytes).ok_or("the image is damaged")?;
+    decode(format, &bytes).ok_or(Error::ImageDamaged)?;
     let (width, height) = pdf_image(format, &bytes)
-        .map_err(|_| "not a PNG or JPEG image")?
+        .map_err(|_| Error::NotAnImage)?
         .size();
     let info = ImageInfo {
         hash,
@@ -236,8 +235,8 @@ fn orientation(tiff: &[u8]) -> Option<u16> {
         .and_then(|e| u16_at(e + 8))
 }
 
-fn size(bytes: &[u8]) -> Result<(u32, u32), String> {
-    let bad = || "not a PNG or JPEG image".to_string();
+fn size(bytes: &[u8]) -> Res<(u32, u32)> {
+    let bad = || Error::NotAnImage;
     match format(bytes)? {
         Format::Png => {
             let r = png::Decoder::new(Cursor::new(bytes))

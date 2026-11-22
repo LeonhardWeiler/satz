@@ -1,6 +1,7 @@
 use crate::color::Color;
 use crate::content_hash;
 use crate::display_list::{CLOSE, CUBIC, LINE, MOVE, Op, Paint, rect};
+use crate::error::{Error, Res};
 use crate::linebreak::{Item, break_lines};
 use crate::style::{Cap, Join, Style, paints};
 use crate::variable::{Scope, Value};
@@ -92,8 +93,8 @@ fn kept<K: Eq + Hash, V: Clone>(
     v
 }
 
-pub fn typeface(bytes: &[u8]) -> Result<Typeface, String> {
-    let bad = || "not a TrueType or OpenType font".to_string();
+pub fn typeface(bytes: &[u8]) -> Res<Typeface> {
+    let bad = || Error::NotAFont;
     let f = FontRef::new(bytes).map_err(|_| bad())?;
     let sets = f.cmap().is_ok()
         && f.hhea().is_ok()
@@ -121,18 +122,18 @@ pub fn typeface(bytes: &[u8]) -> Result<Typeface, String> {
     })
 }
 
-pub fn add_font(bytes: &[u8]) -> Result<Typeface, String> {
+pub fn add_font(bytes: &[u8]) -> Res<Typeface> {
     let sfnt = match bytes.get(..4) {
         Some(b"wOFF") => wuff::decompress_woff1(bytes),
         Some(b"wOF2") => wuff::decompress_woff2(bytes),
         _ => Ok(bytes.into()),
     }
-    .map_err(|e| e.to_string())?;
+    .map_err(|_| Error::FontDamaged)?;
     let face = typeface(&sfnt)?;
     let glyphs: Vec<u16> =
         (0..FontRef::new(&sfnt).map_or(0, |f| f.maxp().map_or(0, |m| m.num_glyphs()))).collect();
     let all = subsetter::GlyphRemapper::new_from_glyphs_sorted(&glyphs);
-    subsetter::subset(&sfnt, 0, &all).map_err(|_| "the font is damaged")?;
+    subsetter::subset(&sfnt, 0, &all).map_err(|_| Error::FontDamaged)?;
     FONTS.with_borrow_mut(|f| {
         if !f.iter().any(|(t, b)| t.hash == face.hash && !b.is_empty()) {
             f.push((face.clone(), sfnt.into()));
