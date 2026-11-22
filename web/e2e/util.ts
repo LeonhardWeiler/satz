@@ -153,10 +153,10 @@ export async function overview(page: Page) {
   return o
 }
 
-export const option = (page: Page, n: number) =>
+export const option = (page: Page, n: number | string) =>
   page.getByRole('region', { name: 'Page overview' }).getByRole('option', { name: `Page ${n}`, exact: true })
 
-export const current = (page: Page, n: number) =>
+export const current = (page: Page, n: number | string) =>
   page.getByRole('navigation', { name: 'Spreads' }).getByRole('button', { name: `Page ${n}`, exact: true })
 
 

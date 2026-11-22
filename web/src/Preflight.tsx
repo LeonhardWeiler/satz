@@ -5,7 +5,7 @@ import { useEditor, type Editor } from './editor'
 import { length, useSettings } from './settings'
 import { preview } from './file'
 import { Icon } from './icons'
-import type { Issue, Preset } from './model'
+import { pageName, type Issue, type Preset } from './model'
 
 const PPI = 48
 const PLATES = [
@@ -108,7 +108,6 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
   const pages = useEditor(editor, (e) => e.snapshot.pages)
   const panel = useRef<HTMLElement>(null)
   useEffect(() => [...panel.current!.querySelectorAll<HTMLElement>(FOCUSABLE)].find((e) => !e.closest('.panel-header'))?.focus(), [])
-  const masters = useEditor(editor, (e) => e.snapshot.masters)
   const profile = useEditor(editor, (e) => e.snapshot.profile) ?? 'FOGRA51'
   const selection = useEditor(editor, (e) => e.selection)
   useSettings()
@@ -126,10 +125,6 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
   const chosen = pagesOf(range, labels)
   const sorted = [...issues].sort((a, b) => Number(isError(b)) - Number(isError(a)))
   const errors = issues.filter(isError).length
-  const where = (id: string) => {
-    const n = pages.findIndex((p) => p.id === id)
-    return n < 0 ? masters.find((m) => m.id === id)?.name : `Page ${labels[n]}`
-  }
   const show = (i: Issue) => {
     editor.showPage(i.page)
     editor.set({ selection: [i.layer] })
@@ -172,7 +167,7 @@ export function Preflight({ editor, exporting, onExport }: { editor: Editor; exp
                     <strong>{problem(i, editor)}</strong>
                     <small>{i.name}</small>
                   </span>
-                  <span className="iss-w">{where(i.page)}</span>
+                  <span className="iss-w">{pageName(doc, i.page)}</span>
                 </button>
               ))}
             </div>

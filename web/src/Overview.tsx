@@ -7,7 +7,7 @@ import { Field } from './controls'
 import { prefix } from './engine/engine'
 import { firstPage, useEditor, type Editor } from './editor'
 import { Icon } from './icons'
-import type { Page, Snapshot } from './model'
+import { pageName, type Page, type Snapshot } from './model'
 import { Renderer, type Sheet } from './renderer'
 import { edgeScroll } from './scroll'
 import { span } from './select'
@@ -324,12 +324,12 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
   )
 
   const pageThumb = (p: Page) => {
-    const n = ids.indexOf(p.id) + 1
     const master = masters.find((m) => m.id === p.master)
+    const name = pageName(snapshot, p.id)!
     return thumb(
       p.id,
-      `Page ${n}`,
-      `Page ${snapshot.labels[n - 1]}${master ? `, master ${master.name}` : ''}`,
+      name,
+      `${name}${master ? `, master ${master.name}` : ''}`,
       false,
       <Thumb paint={paint} snapshot={snapshot} lists={[{ id: p.id, x: 0 }]} sheets={[sheet(p)]} height={PAGE} />,
     )
@@ -419,7 +419,7 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
                 key={spread.map((p) => p.id).join()}
                 className="ov-item"
                 role={facing ? 'group' : undefined}
-                aria-label={facing ? `Spread ${spread.map((p) => ids.indexOf(p.id) + 1).join('–')}` : undefined}
+                aria-label={facing ? `Spread ${spread.map((p) => snapshot.labels[ids.indexOf(p.id)]).join('–')}` : undefined}
                 data-current={spread.some((p) => p.id === current) || undefined}
               >
                 <div className="ov-pages" style={facing && k === 0 && spread.length === 1 ? { marginLeft: lead } : undefined}>

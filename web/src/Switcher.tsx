@@ -2,6 +2,7 @@ import { Fragment } from 'react'
 import { addPage } from './commands'
 import { useEditor, type Editor } from './editor'
 import { Icon } from './icons'
+import { pageName } from './model'
 import { useSettings } from './settings'
 
 export function Switcher({ editor }: { editor: Editor }) {
@@ -27,12 +28,12 @@ export function Switcher({ editor }: { editor: Editor }) {
       </button>
       <span className="switcher-at">
         {spreads[k]?.map((id, i) => {
-          const n = pages.findIndex((p) => p.id === id) + 1
+          const name = pageName(snapshot, id)
           return (
             <Fragment key={id}>
               {i > 0 && '–'}
-              <button type="button" aria-pressed={spread || id === current} aria-label={`Page ${n}`} title={`Page ${n}, its layers`} onClick={() => editor.showPage(id)}>
-                {n}
+              <button type="button" aria-pressed={spread || id === current} aria-label={name} title={`${name}, its layers`} onClick={() => editor.showPage(id)}>
+                {snapshot.labels[pages.findIndex((p) => p.id === id)]}
               </button>
             </Fragment>
           )
