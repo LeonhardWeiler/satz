@@ -34,26 +34,33 @@ test('a notice tells when the engine fails to load', { annotation: { type: 'erro
   await expect(page.getByRole('progressbar')).toHaveCount(0)
 })
 
-test('a caught panic in the engine stops Satz with a notice whose button reloads it', { annotation: { type: 'errors' } }, async ({ page }) => {
+test('a trap in the engine stops Satz with a notice whose button reloads it', { annotation: { type: 'errors' } }, async ({ page }) => {
   await page.addInitScript(() => {
     const w = window as unknown as { trap?: () => void }
     const streaming = WebAssembly.instantiateStreaming
     WebAssembly.instantiateStreaming = async (...args) => {
       const out = await streaming(...args)
       const exports = out.instance.exports as Record<string, (...a: unknown[]) => unknown>
-      const { engine_trap: trap, engine_new: make } = exports
-      if (w.trap || !trap || !make) return out
-      let engine: unknown
-      w.trap = () => trap(engine)
-      return { module: out.module, instance: { exports: { ...exports, engine_new: (...a: unknown[]) => { const p = make(...a); engine ??= p; return p } } } as unknown as WebAssembly.Instance }
+      const { engine_apply: apply } = exports
+      if (w.trap || !apply) return out
+      let armed = false
+      w.trap = () => (armed = true)
+      const trapping = (...a: unknown[]) => {
+        if (armed) throw new WebAssembly.RuntimeError('call stack exhausted')
+        return apply(...a)
+      }
+      return { module: out.module, instance: { exports: { ...exports, engine_apply: trapping } } as unknown as WebAssembly.Instance }
     }
   })
   await open(page)
-  await page.evaluate(() => Promise.resolve().then(() => (window as unknown as { trap: () => void }).trap()).catch(() => {}))
+  await page.evaluate(() => (window as unknown as { trap: () => void }).trap())
+  await page.keyboard.press('Control+a')
+  await page.keyboard.press('Delete')
   await expect(page.getByRole('alert')).toContainText('Satz stopped')
   await page.getByRole('button', { name: 'Reload' }).click()
   await expect(page.getByLabel('Page canvas')).toBeVisible()
 })
+
 
 test('each wasm file is fetched once and all but the full engine are preloaded', async ({ page }) => {
   const wasm: string[] = []

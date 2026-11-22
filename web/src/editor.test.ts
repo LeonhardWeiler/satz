@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { expect, test, vi } from 'vite-plus/test'
 import { ACTIONS } from './commands'
-import { Editor } from './editor'
+import { Editor, onTrap } from './editor'
 import { Engine, initSync } from './engine/engine'
 import { onKey } from './keys'
 import type { Command, EngineError, Snapshot } from './model'
@@ -66,11 +66,13 @@ test('a failing command throws its text with the error as cause', () => {
   expect(() => new Engine().apply({ type: 'setText', id: '9@9', text: '' })).toThrow(expect.objectContaining({ message: 'no node 9@9', cause }))
 })
 
-test('a panic in the engine calls the panic hook once', () => {
+test('a trap in the engine calls the trap hook once and an engine error does not', () => {
   initSync({ module: readFileSync(new URL('engine/engine_bg.wasm', import.meta.url)) })
   let calls = 0
-  Engine.onPanic(() => calls++)
-  expect(() => new Engine().trap()).toThrow('unreachable')
+  onTrap(() => calls++)
+  expect(() => new Engine().apply({ type: 'setText', id: '9@9', text: '' })).toThrow('no node 9@9')
+  expect(calls).toBe(0)
+  expect(() => new Engine().trap()).toThrow(WebAssembly.RuntimeError)
   expect(calls).toBe(1)
 })
 
