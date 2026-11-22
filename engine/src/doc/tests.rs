@@ -2513,6 +2513,42 @@ fn a_package_holds_the_document_its_pdf_fonts_and_used_images() {
 }
 
 #[test]
+fn a_package_gives_same_named_images_and_fonts_their_own_files() {
+    let mut b = booklet();
+    let twin = [MONO, &[0; 4]].concat();
+    for (i, font) in [MONO, &twin].into_iter().enumerate() {
+        let face = b.d.add_font(font).unwrap();
+        format(&mut b.d, &b.frames[0], Some([i, i + 1]), in_font(face)).unwrap();
+    }
+    for (w, name) in [
+        (2, "IMG_0001.JPG"),
+        (3, "IMG_0001.JPG"),
+        (4, "img_0001.jpg"),
+    ] {
+        let png = image::tests::png(w, w);
+        b.d.add_image(&png, Some(name.into())).unwrap();
+    }
+    let zip = b.d.package("Satz", "2026-09-28T12:00:00Z", &[0]).unwrap();
+    let names: std::collections::BTreeSet<String> = crate::zip::unzip(&zip)
+        .into_iter()
+        .map(|f| f.0.to_lowercase())
+        .filter(|n| n.contains("mono") || n.contains("images/"))
+        .collect();
+    let mono = text::typeface(MONO).unwrap().name.to_lowercase();
+    assert_eq!(
+        names,
+        [
+            format!("satz/fonts/{mono}-2.ttf"),
+            format!("satz/fonts/{mono}.ttf"),
+            "satz/images/img_0001-2.jpg".into(),
+            "satz/images/img_0001-3.jpg".into(),
+            "satz/images/img_0001.jpg".into(),
+        ]
+        .into()
+    );
+}
+
+#[test]
 fn the_booklet_pdf_reads_as_one_story_with_a_number_on_every_page() {
     let b = booklet();
     let path = std::env::temp_dir().join(format!("satz-booklet-{}.pdf", std::process::id()));
