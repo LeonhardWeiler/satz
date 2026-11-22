@@ -43,7 +43,7 @@ test('shift click fills up to a page before or after the selected ones and drops
   await expect(region).toBeVisible()
 })
 
-test('a band dragged to the edge of the pages scrolls them and selects the pages it reaches', async ({ page }) => {
+test('a band dragged to the edge of the pages scrolls them and selects the pages it reaches, and a cancelled pointer ends it', async ({ page }) => {
   await open(page)
   for (let i = 0; i < 4; i++) await addPage(page)
   const region = await overview(page)
@@ -59,10 +59,12 @@ test('a band dragged to the edge of the pages scrolls them and selects the pages
   await page.mouse.down()
   await page.mouse.move(b.x + b.width / 2, b.y + b.height - 4, { steps: 4 })
   await expect(option(page, 4)).toHaveAttribute('aria-selected', 'true')
-  await page.mouse.up()
+  await pane.dispatchEvent('pointercancel')
+  await expect(page.locator('.ov-band')).toHaveCount(0)
   const top = await pane.evaluate((el) => el.scrollTop)
   expect(top).toBeGreaterThan(0)
   expect(await steady(() => pane.evaluate((el) => el.scrollTop))).toBe(top)
+  await page.mouse.up()
 })
 
 test('delete removes the selected pages with a toast, and undo restores them', async ({ page }) => {
