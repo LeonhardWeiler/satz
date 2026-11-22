@@ -117,7 +117,9 @@ export const curved = (k: Knot) => k.ix !== k.x || k.iy !== k.y || k.ox !== k.x 
 
 export function smooth(cs: Contour[], [c, i]: At, on: boolean): Contour[] {
   const out = structuredClone(cs)
-  const { knots = [], closed = false } = out[c] ?? {}
+  const contour = out[c]
+  if (!contour) return out
+  const { knots, closed } = contour
   const n = knots.length
   const [k, prev, next] = [i, closed ? (i + n - 1) % n : Math.max(i - 1, 0), closed ? (i + 1) % n : Math.min(i + 1, n - 1)].map((j) => knots[j])
   if (!k || !prev || !next) return out
