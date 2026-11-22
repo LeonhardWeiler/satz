@@ -6,13 +6,17 @@ import { neutral } from './color'
 import { Check, Field, FontSelect, NameInput, nextName, Section, Select } from './controls'
 import { MM, scopeOf, useEditor, type Editor } from './editor'
 import { Icon } from './icons'
-import type { Bindable as Prop, Modes, Typeface, Value } from './model'
+import type { Bindable as Prop, Modes, Typeface, Value, Variable } from './model'
 import { docked, Popover } from './Popover'
 
 type Kind = 'color' | 'number' | 'font' | 'boolean'
 const KINDS: Record<Kind, string> = { color: 'Color', number: 'Number', font: 'Font', boolean: 'Boolean' }
 const KIND_ICONS = { color: 'drop', number: 'hash', font: 'text', boolean: 'check' } as const
-export const kindOf = (v: Value): Kind => ('color' in v ? 'color' : 'number' in v ? 'number' : 'boolean' in v ? 'boolean' : 'font')
+export function kindOf({ id, values }: Variable): Kind {
+  const [v] = Object.values(values)
+  if (!v) throw new Error(`variable ${id} has no value`)
+  return 'color' in v ? 'color' : 'number' in v ? 'number' : 'boolean' in v ? 'boolean' : 'font'
+}
 
 export function Variables({ editor }: { editor: Editor }) {
   const snapshot = useEditor(editor, (e) => e.snapshot)
@@ -27,6 +31,7 @@ export function Variables({ editor }: { editor: Editor }) {
   const add = (kind: Kind) =>
     editor.batch(() => {
       const collection = collections[0]?.id ?? editor.apply({ type: 'addCollection', name: 'Variables' })[0]
+      if (!collection) return
       const value: Value = kind === 'color' ? { color: neutral('black', colorMode) } : kind === 'number' ? { number: 0 } : kind === 'boolean' ? { boolean: true } : { font: null }
       const name = nextName(KINDS[kind], variables.map((v) => v.name))
       setOpen(editor.apply({ type: 'addVariable', collection, name, value })[0] ?? null)
@@ -41,14 +46,20 @@ export function Variables({ editor }: { editor: Editor }) {
   }
   const duplicate = (id: string) =>
     editor.batch(() => {
-      const v = variables.find((v) => v.id === id)!
-      const [mode, ...modes] = collections.find((c) => c.id === v.collection)!.modes
+      const v = variables.find((v) => v.id === id)
+      const [mode, ...modes] = collections.find((c) => c.id === v?.collection)?.modes ?? []
+      const value = mode && v?.values[mode.id]
+      if (!v || !value) return
       const name = nextName(v.name.replace(/ \d+$/, ''), variables.map((v) => v.name))
-      const [copy] = editor.apply({ type: 'addVariable', collection: v.collection, name, value: v.values[mode.id] })
+      const [copy] = editor.apply({ type: 'addVariable', collection: v.collection, name, value })
       if (copy) for (const m of modes) editor.apply({ type: 'setVariable', id: copy, mode: m.id, value: v.values[m.id] })
     })
-  const preview = (v: Value) =>
-    'color' in v ? <Chip color={v.color} scope={scope} /> : 'number' in v ? <span>{v.number}</span> : 'boolean' in v ? <span>{v.boolean ? 'True' : 'False'}</span> : <span>{v.font?.name ?? fonts[0].name}</span>
+  const preview = (variable: Variable) => {
+    const mode = collections.find((c) => c.id === variable.collection)?.modes[0]
+    const v = mode && variable.values[mode.id]
+    if (!v) return null
+    return 'color' in v ? <Chip color={v.color} scope={scope} /> : 'number' in v ? <span>{v.number}</span> : 'boolean' in v ? <span>{v.boolean ? 'True' : 'False'}</span> : <span>{(v.font ?? fonts[0])?.name}</span>
+  }
 
   return (
     <Section title="Variables" onAdd={(e) => setMenu(e.currentTarget.getBoundingClientRect())}>
@@ -67,15 +78,15 @@ export function Variables({ editor }: { editor: Editor }) {
             >
               {renaming === v.id ? (
                 <div className="var" onBlur={() => setRenaming(null)}>
-                  <Icon name={KIND_ICONS[kindOf(Object.values(v.values)[0])]} />
+                  <Icon name={KIND_ICONS[kindOf(v)]} />
                   <NameInput label="Variable name" value={v.name} autoFocus onCommit={(name) => editor.apply({ type: 'setVariable', id: v.id, name })} />
                 </div>
               ) : (
                 <>
                   <button type="button" className="var" aria-haspopup="dialog" aria-expanded={open === v.id} onClick={() => setOpen(open === v.id ? null : v.id)}>
-                    <Icon name={KIND_ICONS[kindOf(Object.values(v.values)[0])]} />
+                    <Icon name={KIND_ICONS[kindOf(v)]} />
                     <span className="var-name">{v.name}</span>
-                    <span className="var-value">{preview(v.values[collections.find((c) => c.id === v.collection)!.modes[0].id])}</span>
+                    <span className="var-value">{preview(v)}</span>
                   </button>
                   <button type="button" className="swatch-delete" aria-label={`Delete ${v.name}`} title="Delete variable" onClick={() => remove(v.id)}>
                     <Icon name="minus" />
@@ -166,6 +177,7 @@ function VariableEditor({ editor, id, fonts, onClose }: { editor: Editor; id: st
       </label>
       {c.modes.map((m) => {
         const value = v.values[m.id]
+        if (!value) return null
         const label = `${v.name} in ${m.name}`
         const set = (value: Value) => editor.apply({ type: 'setVariable', id, mode: m.id, value })
         return (
@@ -180,7 +192,7 @@ function VariableEditor({ editor, id, fonts, onClose }: { editor: Editor; id: st
             ) : 'boolean' in value ? (
               <Check label={label} value={value.boolean} set={(boolean) => set({ boolean })} />
             ) : (
-              <FontSelect label={label} faces={fonts} value={(value.font ?? fonts[0]).hash} compact onChange={(font) => set({ font })} />
+              <FontSelect label={label} faces={fonts} value={(value.font ?? fonts[0])?.hash ?? null} compact onChange={(font) => set({ font })} />
             )}
             {c.modes.length > 1 && (
               <button
@@ -216,6 +228,7 @@ export function ModeSelects({ editor, id, own, inherited }: { editor: Editor; id
     .filter((c) => c.modes.length > 1)
     .map((c) => {
       const auto = c.modes.find((m) => m.id === inherited[c.id]) ?? c.modes[0]
+      if (!auto) return null
       const many = collections.length > 1
       const options = Object.fromEntries([['', `Auto (${auto.name})`] as const, ...c.modes.map((m) => [m.id, m.name] as const)])
       return (
@@ -224,7 +237,7 @@ export function ModeSelects({ editor, id, own, inherited }: { editor: Editor; id
           label={many ? `${c.name} mode` : 'Mode'}
           prefix={many ? `${c.name} mode` : 'Variable mode'}
           wide
-          value={c.modes.some((m) => m.id === own[c.id]) ? own[c.id] : ''}
+          value={c.modes.find((m) => m.id === own[c.id])?.id ?? ''}
           options={options}
           onChange={(mode) => editor.apply({ type: 'useMode', id, collection: c.id, mode: mode || null })}
         />
@@ -253,6 +266,7 @@ export function Bindable({
   const create = () =>
     editor.batch(() => {
       const collection = snapshot.collections[0]?.id ?? editor.apply({ type: 'addCollection', name: 'Variables' })[0]
+      if (!collection) return
       const number = unit === 'length' ? field.value! / MM : field.value!
       const [made] = editor.apply({ type: 'addVariable', collection, name: nextName(title, snapshot.variables.map((v) => v.name)), value: { number } })
       if (made) bind(made)
@@ -262,7 +276,7 @@ export function Bindable({
   const bound = (snapshot.textStyles.find((s) => s.id === id)?.bindings ?? editor.nodes.get(id)?.node.bindings)?.[prop]
   const variable = snapshot.variables.find((v) => v.id === bound)
   const kind = prop === 'font' ? 'font' : 'number'
-  const numbers = snapshot.variables.filter((v) => kindOf(Object.values(v.values)[0]) === kind)
+  const numbers = snapshot.variables.filter((v) => kindOf(v) === kind)
   const bind = (variable: string | null) => {
     setOpen(false)
     editor.apply({ type: 'bind', id, prop, variable })

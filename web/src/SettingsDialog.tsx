@@ -8,13 +8,13 @@ const UNITS: Record<Unit, string> = { mm: 'Millimeters', cm: 'Centimeters', in: 
 const PAGES = { general: ['General', 'settings'], screen: ['Screen size', 'fit'], shortcuts: ['Keyboard shortcuts', 'help'] } satisfies Record<string, [string, IconName]>
 export type SettingsPage = keyof typeof PAGES
 
-const REFERENCES: Record<string, [string, string, number, number?, number?]> = {
-  card: ['Bank card', 'Hold a bank or ID card against the outline', 85.6, 53.98, 3.18],
-  cm: ['1 cm', 'Hold a ruler against the bar and match 1 cm', 10],
-  ruler: ['10 cm', 'Hold a ruler against the bar and match 10 cm', 100],
-  a4: ['A4 width', 'Hold the short side of an A4 sheet against the bar', 210],
-  letter: ['US Letter width', 'Hold the short side of a US Letter sheet against the bar', 215.9],
-}
+const REFERENCES = new Map<string, [string, string, number, number?, number?]>([
+  ['card', ['Bank card', 'Hold a bank or ID card against the outline', 85.6, 53.98, 3.18]],
+  ['cm', ['1 cm', 'Hold a ruler against the bar and match 1 cm', 10]],
+  ['ruler', ['10 cm', 'Hold a ruler against the bar and match 10 cm', 100]],
+  ['a4', ['A4 width', 'Hold the short side of an A4 sheet against the bar', 210]],
+  ['letter', ['US Letter width', 'Hold the short side of a US Letter sheet against the bar', 215.9]],
+])
 
 function Row({ title, note, children }: { title: string; note?: string; children: ReactNode }) {
   return (
@@ -38,7 +38,7 @@ export function Settings({ page: first = 'general', onClose }: { page?: Settings
     d.showModal()
     ;(d.querySelector<HTMLElement>('.help-search') ?? d.querySelector<HTMLElement>('nav [aria-current]'))!.focus()
   }, [])
-  const [, how = '', w = 0, h, r = 0] = REFERENCES[reference] ?? []
+  const [, how = '', w = 0, h, r = 0] = REFERENCES.get(reference) ?? []
   return (
     <dialog ref={ref} className="settings" aria-label="Settings" onClose={onClose} onClick={(e) => e.target === e.currentTarget && ref.current!.close()}>
       <nav aria-label="Settings pages">
@@ -75,7 +75,7 @@ export function Settings({ page: first = 'general', onClose }: { page?: Settings
             <p className="settings-note">Zoom to 100% shows pages at their printed size once the screen is measured: pick something at hand and match it.</p>
             <div className="settings-card">
               <Row title="Reference" note="Something whose size you know">
-                <Select label="Reference" value={reference} options={Object.fromEntries(Object.entries(REFERENCES).map(([k, [name]]) => [k, name]))} onChange={setReference} />
+                <Select label="Reference" value={reference} options={Object.fromEntries([...REFERENCES].map(([k, [name]]) => [k, name]))} onChange={setReference} />
               </Row>
               <Row title="Screen size" note={`1 mm is ${screenMm.toFixed(2)} px`}>
                 <input type="range" aria-label="Screen size" min={2} max={6} step={0.01} value={screenMm} onChange={(e) => setSettings({ screenMm: +e.currentTarget.value })} />

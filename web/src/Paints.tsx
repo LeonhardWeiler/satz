@@ -21,7 +21,7 @@ function linear(degrees: number) {
   return [dx, dy, -dy, dx, 0.5 - dx / 2, 0.5 - dy / 2]
 }
 
-const angle = (t: number[]) => (Math.atan2(t[1], t[0]) * 180) / Math.PI
+const angle = ([x = 1, y = 0]: number[]) => (Math.atan2(y, x) * 180) / Math.PI
 
 function retype(p: Fill, type: Fill['type']): Fill {
   if (type === p.type) return p
@@ -30,10 +30,10 @@ function retype(p: Fill, type: Fill['type']): Fill {
   return { ...p, type, stops, transform: type === 'linear' ? linear(90) : RADIAL }
 }
 
-const replace = <T,>(list: T[], i: number, item: T) => list.map((v, j) => (j === i ? item : v))
+const update = <T,>(list: T[], i: number, f: (v: T) => T) => list.map((v, j) => (j === i ? f(v) : v))
 const move = <T,>(list: T[], from: number, to: number) => {
   const out = list.filter((_, j) => j !== from)
-  out.splice(to, 0, list[from])
+  out.splice(to, 0, ...list.slice(from, from + 1))
   return out
 }
 
@@ -80,7 +80,7 @@ export function PaintList({
             .map((p, i) => ({ p, i }))
             .toReversed()
             .map(({ p, i }) => {
-              const set = (next: Fill) => onChange(replace(paints, i, next))
+              const set = (next: Fill) => onChange(update(paints, i, () => next))
               return (
                 <li
                   key={i}
@@ -197,7 +197,7 @@ function PaintRow({
                 opacity,
               ]
             : [
-                named(Object.fromEntries(TYPES)[p.type]),
+                named(TYPES.find(([t]) => t === p.type)?.[1] ?? p.type),
                 p.type === 'linear' && (
                   <Field label={<Icon name="angle" />} title={`${title} angle`} unit="°" min={-Infinity} reset={0} value={angle(p.transform)} onCommit={(v) => set({ ...p, transform: linear(v) })} />
                 ),
@@ -207,12 +207,12 @@ function PaintRow({
       {p.type !== 'image' ? (
         <ColorPicker
           label={title === 'Text color' ? title : `${title} color`}
-          color={solid ? p.color : p.stops[k].color}
+          color={solid ? p.color : (p.stops[k]?.color ?? p.color)}
           mode={mode}
           scope={scope}
           editor={solid ? editor : undefined}
           chip={solid ? undefined : <span className="chip" style={{ background: gradient(p, scope) }} />}
-          onChange={(color) => set(solid ? { ...p, color } : { ...p, stops: replace(p.stops, k, { ...p.stops[k], color }) })}
+          onChange={(color) => set(solid ? { ...p, color } : { ...p, stops: update(p.stops, k, (s) => ({ ...s, color })) })}
         >
           <Segmented label={`${title} type`} value={p.type} options={TYPES} onChange={(t) => set(retype(p, t))} />
           {!solid && <Stops paint={p} at={k} scope={scope} select={setAt} set={set} />}
@@ -240,7 +240,7 @@ function Stops({ paint: p, at, scope, select, set }: { paint: Fill; at: number; 
     const r = bar.current!.getBoundingClientRect()
     return Math.min(1, Math.max(0, (x - r.left) / r.width))
   }
-  const put = (k: number, v: number) => set({ ...p, stops: replace(p.stops, k, { ...p.stops[k], at: Math.min(1, Math.max(0, v)) }) })
+  const put = (k: number, v: number) => set({ ...p, stops: update(p.stops, k, (s) => ({ ...s, at: Math.min(1, Math.max(0, v)) })) })
   const [keys, without] = useRowKeys(p.stops)
   const remove = (k: number) => {
     if (p.stops.length < 3) return
@@ -257,6 +257,7 @@ function Stops({ paint: p, at, scope, select, set }: { paint: Fill; at: number; 
           if (e.target !== e.currentTarget) return
           const t = where(e.clientX)
           const before = p.stops.filter((s) => s.at <= t).sort((a, b) => b.at - a.at)[0] ?? p.stops[0]
+          if (!before) return
           set({ ...p, stops: [...p.stops, { ...before, at: t }] })
           select(p.stops.length)
         }}
@@ -287,7 +288,7 @@ function Stops({ paint: p, at, scope, select, set }: { paint: Fill; at: number; 
         ))}
       </div>
       <div className="row">
-        <Field label="Position" title="Stop position" unit="%" max={100} value={p.stops[at].at * 100} onCommit={(v) => put(at, v / 100)} />
+        <Field label="Position" title="Stop position" unit="%" max={100} value={(p.stops[at]?.at ?? 0) * 100} onCommit={(v) => put(at, v / 100)} />
         {p.stops.length > 2 && (
           <button type="button" className="icon-button" aria-label="Remove stop" title="Remove stop" onClick={() => remove(at)}>
             <Icon name="minus" />
@@ -321,7 +322,7 @@ export function EffectList({
               effect={e}
               mode={mode}
               scope={scope}
-              set={(next) => onChange(replace(effects, i, { ...e, ...next }))}
+              set={(next) => onChange(update(effects, i, () => ({ ...e, ...next })))}
               onRemove={() => onChange(without(i))}
             />
           ))}
@@ -378,9 +379,9 @@ const ADJUST = ['Brightness', 'Contrast', 'Saturation']
 const near = (a: number, b: number) => Math.abs(a - b) < 1e-4
 
 function fitOf(p: Fill) {
-  const t = p.transform
-  if (!near(t[1], 0) || !near(t[2], 0) || !near(t[4], (1 - t[0]) / 2) || !near(t[5], (1 - t[3]) / 2)) return undefined
-  const [lo, hi] = [Math.min(t[0], t[3]), Math.max(t[0], t[3])]
+  const [a = 1, b = 0, c = 0, d = 1, e = 0, f = 0] = p.transform
+  if (!near(b, 0) || !near(c, 0) || !near(e, (1 - a) / 2) || !near(f, (1 - d) / 2)) return undefined
+  const [lo, hi] = [Math.min(a, d), Math.max(a, d)]
   return near(lo, 1) && near(hi, 1) ? 'frame' : near(lo, 1) ? 'cover' : near(hi, 1) ? 'contain' : undefined
 }
 
@@ -402,13 +403,16 @@ function ImageTools({ editor, id, paint: p, set, at, onClose }: { editor: Editor
         </button>
       </div>
       <div className="adjust">
-        {ADJUST.map((name, i) => (
-          <Fragment key={name}>
-            <span>{name}</span>
-            <input type="range" aria-label={name} min={-100} max={100} value={Math.round(adjust[i] * 100)} style={{ '--a': `${50 + Math.min(0, adjust[i]) * 50}%`, '--b': `${50 + Math.max(0, adjust[i]) * 50}%` } as CSSProperties} onChange={(e) => change(i, Number(e.currentTarget.value))} />
-            <Field label="" title={name} unit="%" min={-100} max={100} reset={0} value={Math.round(adjust[i] * 100)} onCommit={(v) => change(i, v)} />
-          </Fragment>
-        ))}
+        {ADJUST.map((name, i) => {
+          const a = adjust[i] ?? 0
+          return (
+            <Fragment key={name}>
+              <span>{name}</span>
+              <input type="range" aria-label={name} min={-100} max={100} value={Math.round(a * 100)} style={{ '--a': `${50 + Math.min(0, a) * 50}%`, '--b': `${50 + Math.max(0, a) * 50}%` } as CSSProperties} onChange={(e) => change(i, Number(e.currentTarget.value))} />
+              <Field label="" title={name} unit="%" min={-100} max={100} reset={0} value={Math.round(a * 100)} onCommit={(v) => change(i, v)} />
+            </Fragment>
+          )
+        })}
         <button type="button" className="button" disabled={adjust.every((v) => !v)} onClick={() => set({ ...p, adjust: [0, 0, 0] })}>
           Reset
         </button>

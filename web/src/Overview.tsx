@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
 import { Field } from './controls'
 import { prefix } from './engine/engine'
-import { useEditor, type Editor } from './editor'
+import { firstPage, useEditor, type Editor } from './editor'
 import { Icon } from './icons'
 import type { Page, Snapshot } from './model'
 import { Renderer, type Sheet } from './renderer'
@@ -15,8 +15,8 @@ import { setSettings, settings, useSettings } from './settings'
 type Lists = { id: string; x: number }[]
 type Menu = { id: string; master: boolean; x: number; y: number }
 
-const ZOOM = [80, 480]
-const clamp = (v: number, [lo, hi]: number[]) => Math.round(Math.min(hi, Math.max(lo, v)))
+const ZOOM: [number, number] = [80, 480]
+const clamp = (v: number, [lo, hi]: [number, number]) => Math.round(Math.min(hi, Math.max(lo, v)))
 const resize = (patch: Partial<typeof settings.overview>) => setSettings({ overview: { ...settings.overview, ...patch } })
 
 let painter: ReturnType<typeof makePainter> | undefined
@@ -261,11 +261,10 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     if (d && e.altKey) {
       if (mine.length === 1 && all[i + d]) move(mine, i + d)
     } else if (d) {
-      const j = Math.max(0, Math.min(all.length - 1, i + d))
-      if (e.shiftKey) select([...mine.filter((id) => id !== all[j]), all[j]])
-      else select([all[j]])
+      const to = all[Math.max(0, Math.min(all.length - 1, i + d))]
+      if (to) select(e.shiftKey ? [...mine.filter((id) => id !== to), to] : [to])
     } else if (e.key === 'Delete' || e.key === 'Backspace') {
-      if (all === ids) editor.deletePages(mine.length ? mine : [all[i]])
+      if (all === ids) editor.deletePages(mine.length ? mine : all.slice(i, i + 1))
       else if (mine.length) editor.batch(() => mine.forEach((id) => editor.apply({ type: 'deleteMaster', id })))
     } else if (e.key === 'Enter' && all[i]) openPage(all[i])
     else if (e.key === 'F2' && all === masterIds && all[i]) setRenaming(all[i])
@@ -335,7 +334,8 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     )
   }
 
-  const rows = facing ? spreads : ids.map((id) => [id])
+  const rows = facing ? spreads.map((s) => pages.filter((p) => s.includes(p.id))) : pages.map((p) => [p])
+  const lead = width(firstPage(snapshot))
   return (
     <section className="overview" aria-label="Page overview" style={{ gridTemplateColumns: `${wide}px 1fr` }} onPointerDown={editor.gesture}>
       <div className="ov-col" onPointerDown={(e) => marquee(e, masterIds, masterList.current)}>
@@ -415,21 +415,21 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           >
             {rows.map((spread, k) => (
               <div
-                key={spread.join()}
+                key={spread.map((p) => p.id).join()}
                 className="ov-item"
                 role={facing ? 'group' : undefined}
-                aria-label={facing ? `Spread ${spread.map((id) => ids.indexOf(id) + 1).join('–')}` : undefined}
-                data-current={spread.includes(current) || undefined}
+                aria-label={facing ? `Spread ${spread.map((p) => ids.indexOf(p.id) + 1).join('–')}` : undefined}
+                data-current={spread.some((p) => p.id === current) || undefined}
               >
-                <div className="ov-pages" style={facing && k === 0 && spread.length === 1 ? { marginLeft: width(pages[0]) } : undefined}>
-                  {spread.map((id) => pageThumb(pages[ids.indexOf(id)]))}
+                <div className="ov-pages" style={facing && k === 0 && spread.length === 1 ? { marginLeft: lead } : undefined}>
+                  {spread.map(pageThumb)}
                 </div>
-                <span className="ov-cap" style={{ display: 'grid', gridTemplateColumns: spread.map((id) => `${width(pages[ids.indexOf(id)])}px`).join(' '), paddingLeft: facing && k === 0 && spread.length === 1 ? width(pages[0]) : 0 }}>
-                  {spread.map((id) => {
-                    const m = masters.find((m) => m.id === pages[ids.indexOf(id)].master)
+                <span className="ov-cap" style={{ display: 'grid', gridTemplateColumns: spread.map((p) => `${width(p)}px`).join(' '), paddingLeft: facing && k === 0 && spread.length === 1 ? lead : 0 }}>
+                  {spread.map((p) => {
+                    const m = masters.find((m) => m.id === p.master)
                     return (
-                      <span key={id}>
-                        {snapshot.labels[ids.indexOf(id)]}
+                      <span key={p.id}>
+                        {snapshot.labels[ids.indexOf(p.id)]}
                         {m && (
                           <>
                             {' · '}
