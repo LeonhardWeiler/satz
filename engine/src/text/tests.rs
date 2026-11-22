@@ -47,8 +47,9 @@ fn a_font_without_the_tables_text_is_set_with_is_rejected() {
         let mut bytes = font_bytes(0).to_vec();
         let at = bytes.windows(4).position(|w| w == table).unwrap();
         bytes[at] = b'x';
-        assert!(
-            add_font(&bytes).is_err(),
+        assert_eq!(
+            add_font(&bytes).err(),
+            Some(Error::NotAFont),
             "{}",
             str::from_utf8(table).unwrap()
         );

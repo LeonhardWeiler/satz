@@ -741,14 +741,22 @@ mod tests {
         let mut d = Doc::sample();
         let red = swatch(&mut d, "Red", Color::Rgb(0xff0000ff), false).unwrap();
         swatch(&mut d, "Blue", Color::Rgb(0x0000ffff), false).unwrap();
-        assert!(swatch(&mut d, "Red", process(0.0, 1.0, 1.0, 0.0), true).is_err());
+        assert_eq!(
+            swatch(&mut d, "Red", process(0.0, 1.0, 1.0, 0.0), true).err(),
+            Some(Error::SwatchExists { name: "Red".into() })
+        );
         let rename = |name: &str| Command::SetSwatch {
             id: red.clone(),
             name: Some(name.into()),
             color: None,
             spot: None,
         };
-        assert!(d.apply(rename("Blue")).is_err());
+        assert_eq!(
+            d.apply(rename("Blue")).err(),
+            Some(Error::SwatchExists {
+                name: "Blue".into()
+            })
+        );
         d.apply(rename("Red")).unwrap();
         let names: Vec<_> = d
             .build_snapshot()
@@ -819,7 +827,10 @@ mod tests {
     #[test]
     fn spot_swatches_have_a_cmyk_alternate_and_render_their_tint() {
         let (mut d, p) = empty();
-        assert!(swatch(&mut d, "HKS 57", Color::Rgb(0xff00ffff), true).is_err());
+        assert_eq!(
+            swatch(&mut d, "HKS 57", Color::Rgb(0xff00ffff), true).err(),
+            Some(Error::SpotNeedsCmyk)
+        );
         let id = swatch(&mut d, "HKS 57", process(0.0, 1.0, 0.0, 0.0), true).unwrap();
         let r = create(&mut d, &p, NewKind::Rect, [0.0; 4]);
         set(
@@ -884,9 +895,18 @@ mod tests {
                 props,
             })
         };
-        assert!(set(&mut d, fill(process(0.0, 1.5, 0.0, 0.0))).is_err());
-        assert!(set(&mut d, fill(bound("x", -0.5))).is_err());
-        assert!(swatch(&mut d, "X", process(0.0, 0.0, 0.0, 2.0), false).is_err());
+        assert_eq!(
+            set(&mut d, fill(process(0.0, 1.5, 0.0, 0.0))).err(),
+            Some(Error::ColorRange)
+        );
+        assert_eq!(
+            set(&mut d, fill(bound("x", -0.5))).err(),
+            Some(Error::ColorRange)
+        );
+        assert_eq!(
+            swatch(&mut d, "X", process(0.0, 0.0, 0.0, 2.0), false).err(),
+            Some(Error::ColorRange)
+        );
         assert!(set(&mut d, fill(process(0.0, 1.0, 0.0, 0.0))).is_ok());
     }
 
@@ -1042,9 +1062,17 @@ mod tests {
             ["opacity", "strokeWeight"]
         );
         bind(&mut d, &r, "strokeWeight", None).unwrap();
-        assert!(bind(&mut d, &r, "name", Some(&size)).is_err());
+        assert_eq!(
+            bind(&mut d, &r, "name", Some(&size)).err(),
+            Some(Error::NotBindable {
+                prop: "name".into()
+            })
+        );
         let color = variable(&mut d, &c, "Ink", Value::Color(Color::Rgb(0))).unwrap();
-        assert!(bind(&mut d, &r, "w", Some(&color)).is_err());
+        assert_eq!(
+            bind(&mut d, &r, "w", Some(&color)).err(),
+            Some(Error::BindType)
+        );
     }
 
     #[test]
@@ -1061,9 +1089,18 @@ mod tests {
         let spot = swatch(&mut d, "HKS 57", process(0.0, 1.0, 0.0, 0.0), true).unwrap();
         let ink = variable(&mut d, &c, "Ink", Value::Color(Color::Rgb(0xff0000ff))).unwrap();
         let size = variable(&mut d, &c, "Size", Value::Number(2.0)).unwrap();
-        assert!(variable(&mut d, &c, "Ink", Value::Number(1.0)).is_err());
-        assert!(set_value(&mut d, &ink, &dark, Value::Number(1.0)).is_err());
-        assert!(set_value(&mut d, &ink, &dark, Value::Color(var(&ink))).is_err());
+        assert_eq!(
+            variable(&mut d, &c, "Ink", Value::Number(1.0)).err(),
+            Some(Error::VariableExists { name: "Ink".into() })
+        );
+        assert_eq!(
+            set_value(&mut d, &ink, &dark, Value::Number(1.0)).err(),
+            Some(Error::VariableType)
+        );
+        assert_eq!(
+            set_value(&mut d, &ink, &dark, Value::Color(var(&ink))).err(),
+            Some(Error::VariableInVariable)
+        );
         set_value(&mut d, &ink, &dark, Value::Color(bound(&spot, 0.5))).unwrap();
         d.apply(Command::SetCollection {
             id: c.clone(),
@@ -1138,12 +1175,13 @@ mod tests {
                 .collect::<Vec<_>>(),
             [&dark]
         );
-        assert!(
+        assert_eq!(
             d.apply(Command::DeleteMode {
                 collection: c.clone(),
                 id: dark,
             })
-            .is_err()
+            .err(),
+            Some(Error::LastMode)
         );
         set(
             &mut d,

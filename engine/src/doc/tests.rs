@@ -889,14 +889,29 @@ fn set_changes_properties_and_unknown_nodes_are_errors() {
     assert_eq!(n.style.fills, [Fill::solid(0xff0000ff)]);
     assert_eq!((n.style.opacity, n.style.blend), (0.5, Blend::Multiply));
     let bad = Command::Delete {
-        ids: vec!["nope".into()],
+        ids: vec!["1@1".into()],
     };
-    assert!(d.apply(bad).is_err());
+    assert_eq!(
+        d.apply(bad).err(),
+        Some(Error::NotFound {
+            what: "node",
+            id: "1@1".into()
+        })
+    );
     d.apply(Command::Delete {
         ids: vec![a.clone()],
     })
     .unwrap();
-    assert!(d.apply(Command::Delete { ids: vec![a] }).is_err());
+    assert_eq!(
+        d.apply(Command::Delete {
+            ids: vec![a.clone()]
+        })
+        .err(),
+        Some(Error::NotFound {
+            what: "node",
+            id: a
+        })
+    );
 }
 
 #[test]
@@ -1077,13 +1092,13 @@ fn move_reorders_and_reparents() {
         parent: f.clone(),
         index: 0,
     };
-    assert!(d.apply(into_self).is_err());
+    assert_eq!(d.apply(into_self).err(), Some(Error::IntoItself));
     let into_leaf = Command::Move {
         ids: vec![b],
         parent: a,
         index: 0,
     };
-    assert!(d.apply(into_leaf).is_err());
+    assert_eq!(d.apply(into_leaf).err(), Some(Error::NotAContainer));
 }
 
 #[test]
@@ -1104,7 +1119,7 @@ fn a_move_into_a_moved_subtree_changes_nothing() {
         parent: f,
         index: 0,
     };
-    assert!(d.apply(cyclic).is_err());
+    assert_eq!(d.apply(cyclic).err(), Some(Error::IntoItself));
     assert_eq!(d.snapshot(), before);
 }
 
@@ -1251,51 +1266,121 @@ fn set_and_set_frame_reject_values_out_of_range() {
         })
     };
     let bad = [
-        Props {
-            stroke_weight: Some(-0.1),
-            ..Props::default()
-        },
-        Props {
-            radius: Some(-1.0),
-            ..Props::default()
-        },
-        Props {
-            count: Some(2),
-            ..Props::default()
-        },
-        Props {
-            count: Some(61),
-            ..Props::default()
-        },
-        Props {
-            ratio: Some(0.0),
-            ..Props::default()
-        },
-        Props {
-            ratio: Some(1.01),
-            ..Props::default()
-        },
-        Props {
-            opacity: Some(1.5),
-            ..Props::default()
-        },
-        Props {
-            opacity: Some(f32::NAN),
-            ..Props::default()
-        },
-        Props {
-            effects: Some(vec![Effect {
-                radius: -1.0,
-                ..Effect::default()
-            }]),
-            ..Props::default()
-        },
+        (
+            Props {
+                stroke_weight: Some(-0.1),
+                ..Props::default()
+            },
+            Error::OutOfRange {
+                what: "stroke weight",
+                lo: 0.0,
+                hi: MAX_LENGTH,
+            },
+        ),
+        (
+            Props {
+                radius: Some(-1.0),
+                ..Props::default()
+            },
+            Error::OutOfRange {
+                what: "radius",
+                lo: 0.0,
+                hi: MAX_LENGTH,
+            },
+        ),
+        (
+            Props {
+                count: Some(2),
+                ..Props::default()
+            },
+            Error::OutOfRange {
+                what: "count",
+                lo: 3.0,
+                hi: 60.0,
+            },
+        ),
+        (
+            Props {
+                count: Some(61),
+                ..Props::default()
+            },
+            Error::OutOfRange {
+                what: "count",
+                lo: 3.0,
+                hi: 60.0,
+            },
+        ),
+        (
+            Props {
+                ratio: Some(0.0),
+                ..Props::default()
+            },
+            Error::OutOfRange {
+                what: "ratio",
+                lo: 0.01,
+                hi: 1.0,
+            },
+        ),
+        (
+            Props {
+                ratio: Some(1.01),
+                ..Props::default()
+            },
+            Error::OutOfRange {
+                what: "ratio",
+                lo: 0.01,
+                hi: 1.0,
+            },
+        ),
+        (
+            Props {
+                opacity: Some(1.5),
+                ..Props::default()
+            },
+            Error::OutOfRange {
+                what: "opacity",
+                lo: 0.0,
+                hi: 1.0,
+            },
+        ),
+        (
+            Props {
+                opacity: Some(f32::NAN),
+                ..Props::default()
+            },
+            Error::OutOfRange {
+                what: "opacity",
+                lo: 0.0,
+                hi: 1.0,
+            },
+        ),
+        (
+            Props {
+                effects: Some(vec![Effect {
+                    radius: -1.0,
+                    ..Effect::default()
+                }]),
+                ..Props::default()
+            },
+            Error::OutOfRange {
+                what: "blur",
+                lo: 0.0,
+                hi: MAX_LENGTH,
+            },
+        ),
     ];
-    for props in bad {
+    for (props, e) in bad {
         let what = format!("{props:?}");
-        assert!(set(&mut d, &r, props).is_err(), "{what}");
+        assert_eq!(set(&mut d, &r, props).err(), Some(e), "{what}");
     }
-    assert!(format(&mut d, &t, None, sized(0.09)).is_err());
+    assert_eq!(
+        format(&mut d, &t, None, sized(0.09)).err(),
+        Some(Error::OutOfRange {
+            what: "text size",
+            lo: 0.1,
+            hi: MAX_TEXT
+        })
+    );
     format(&mut d, &t, None, sized(0.1)).unwrap();
     let set_frame = |d: &mut Doc, w, h| {
         d.apply(Command::SetFrame {
@@ -1307,8 +1392,22 @@ fn set_and_set_frame_reject_values_out_of_range() {
             crop: false,
         })
     };
-    assert!(set_frame(&mut d, -1.0, 1.0).is_err());
-    assert!(set_frame(&mut d, 1.0, -1.0).is_err());
+    assert_eq!(
+        set_frame(&mut d, -1.0, 1.0).err(),
+        Some(Error::OutOfRange {
+            what: "width",
+            lo: 0.0,
+            hi: MAX_LENGTH
+        })
+    );
+    assert_eq!(
+        set_frame(&mut d, 1.0, -1.0).err(),
+        Some(Error::OutOfRange {
+            what: "height",
+            lo: 0.0,
+            hi: MAX_LENGTH
+        })
+    );
     set_frame(&mut d, 10.0, 0.0).unwrap();
     assert_eq!(frame(&page(&d).children[0]), [-5.0, 0.0, 10.0, 0.01 * MM]);
 }
@@ -1379,21 +1478,49 @@ fn a_file_with_a_value_no_command_takes_is_not_opened() {
     let r = create(&mut d, &p, NewKind::Rect, [0.0; 4]);
     let t = create(&mut d, &p, NewKind::Text, [0.0; 4]);
     assert!(Doc::load(&d.save()).is_ok());
-    for (id, k, v) in [
-        (&r, "strokeWeight", -1.0),
-        (&r, "w", 1e300),
-        (&p, "height", 1e308),
+    for ((id, k, v), e) in [
+        (
+            (&r, "strokeWeight", -1.0),
+            Error::OutOfRange {
+                what: "stroke weight",
+                lo: 0.0,
+                hi: MAX_LENGTH,
+            },
+        ),
+        (
+            (&r, "w", 1e300),
+            Error::OutOfRange {
+                what: "width",
+                lo: 0.0,
+                hi: MAX_LENGTH,
+            },
+        ),
+        (
+            (&p, "height", 1e308),
+            Error::OutOfRange {
+                what: "page height",
+                lo: 1.0,
+                hi: MAX_PAGE,
+            },
+        ),
     ] {
         let d = Doc::load(&d.save()).unwrap();
         let n = TreeID::try_from(id.as_str()).unwrap();
         d.meta(n).insert(k, v).unwrap();
-        assert!(Doc::load(&d.save()).is_err(), "{k}");
+        assert_eq!(Doc::load(&d.save()).err(), Some(e), "{k}");
     }
     let n = TreeID::try_from(t.as_str()).unwrap();
     let text = d.own_text(n).unwrap();
     text.insert(0, "a").unwrap();
     text.mark(0..1, "size", 1e40).unwrap();
-    assert!(Doc::load(&d.save()).is_err());
+    assert_eq!(
+        Doc::load(&d.save()).err(),
+        Some(Error::OutOfRange {
+            what: "text size",
+            lo: 0.1,
+            hi: MAX_TEXT
+        })
+    );
 }
 
 #[test]
@@ -1489,194 +1616,378 @@ fn a_command_that_fails_leaves_the_document_as_it_was() {
         )
     };
     let bad = [
-        Command::SetDocument(Settings {
-            raster_ppi: Some(150.0),
-            color_mode: Some(ColorMode::Cmyk),
-            ink_limit: Some(500.0),
-            ..Settings::default()
-        }),
-        set(
-            &r,
-            Props {
-                opacity: Some(2.0),
-                ..Props::default()
-            },
-        ),
-        set(
-            &f,
-            Props {
-                gap: Some(f64::NAN),
-                ..Props::default()
-            },
-        ),
-        set(
-            &r,
-            Props {
-                effects: Some(vec![Effect {
-                    x: f32::INFINITY,
-                    ..Effect::default()
-                }]),
-                ..Props::default()
-            },
-        ),
-        fill(Fill {
-            transform: [f32::NAN, 0.0, 0.0, 1.0, 0.0, 0.0],
-            ..Fill::default()
-        }),
-        fill(Fill {
-            stops: vec![FillStop {
-                at: 2.0,
-                color: Color::Rgb(BLACK),
-            }],
-            ..Fill::default()
-        }),
-        new(&p, [0.0, 0.0, -1.0, 1.0]),
-        new(&p, [f64::NAN, 0.0, 1.0, 1.0]),
-        new(&r, [0.0, 0.0, 1.0, 1.0]),
-        frame(&r, [f64::NAN, 0.0, 10.0, 10.0]),
-        frame(&r, [0.0, f64::INFINITY, 10.0, 10.0]),
-        frame(&p, [0.0, 0.0, 10.0, 10.0]),
-        path(vec![LINE, 1.0, 1.0]),
-        path(vec![MOVE, f32::NAN, 0.0]),
-        path(vec![MOVE, 0.0]),
-        Command::SetDocument(Settings {
-            raster_ppi: Some(5000.0),
-            facing_pages: Some(true),
-            ..Settings::default()
-        }),
-        Command::SetDocument(Settings {
-            image_ppi: Some(10.0),
-            ..Settings::default()
-        }),
-        Command::SetDocument(Settings {
-            jpeg_quality: Some(101),
-            ..Settings::default()
-        }),
-        Command::SetPage {
-            id: p.clone(),
-            width: Some(100.0),
-            height: Some(-1.0),
-            bleed: None,
-            scale: false,
-        },
-        Command::SetPage {
-            id: p.clone(),
-            width: Some(1e6),
-            height: None,
-            bleed: Some(1e5),
-            scale: false,
-        },
-        frame(&r, [0.0, 0.0, 1e9, 10.0]),
-        new(&p, [-1e9, 0.0, 1.0, 1.0]),
-        Command::SetSection {
-            id: p.clone(),
-            section: Some(Section {
-                start: 10000,
-                style: Numbering::Arabic,
-                prefix: String::new(),
+        (
+            Command::SetDocument(Settings {
+                raster_ppi: Some(150.0),
+                color_mode: Some(ColorMode::Cmyk),
+                ink_limit: Some(500.0),
+                ..Settings::default()
             }),
-        },
-        Command::SetGrids {
-            id: p.clone(),
-            grids: vec![Grid {
-                kind: GridKind::Columns,
-                count: 1000,
-                gutter: 0.0,
-                margin: 0.0,
-                size: 0.0,
-            }],
-        },
-        Command::ScaleText {
-            id: t.clone(),
-            by: 0.0,
-        },
-        Command::SetGrids {
-            id: p.clone(),
-            grids: vec![Grid {
-                kind: GridKind::Grid,
-                count: 1,
-                gutter: 0.0,
-                margin: 0.0,
-                size: 0.0,
-            }],
-        },
-        set(
-            &r,
-            Props {
-                corners: Some(vec![1.0, 2.0]),
-                ..Props::default()
+            Error::InkLimit,
+        ),
+        (
+            set(
+                &r,
+                Props {
+                    opacity: Some(2.0),
+                    ..Props::default()
+                },
+            ),
+            Error::OutOfRange {
+                what: "opacity",
+                lo: 0.0,
+                hi: 1.0,
             },
         ),
-        set(
-            &r,
-            Props {
-                sweep: Some(2.0),
-                ..Props::default()
+        (
+            set(
+                &f,
+                Props {
+                    gap: Some(f64::NAN),
+                    ..Props::default()
+                },
+            ),
+            Error::OutOfRange {
+                what: "gap",
+                lo: -MAX_LENGTH,
+                hi: MAX_LENGTH,
             },
         ),
-        set(
-            &r,
-            Props {
-                rotation: Some(f64::NAN),
-                ..Props::default()
+        (
+            set(
+                &r,
+                Props {
+                    effects: Some(vec![Effect {
+                        x: f32::INFINITY,
+                        ..Effect::default()
+                    }]),
+                    ..Props::default()
+                },
+            ),
+            Error::OutOfRange {
+                what: "effect offset",
+                lo: -MAX_LENGTH,
+                hi: MAX_LENGTH,
             },
         ),
-        set(
-            &r,
-            Props {
-                corners: Some(vec![1.0, 2.0, f32::NAN, 0.0]),
-                ..Props::default()
+        (
+            fill(Fill {
+                transform: [f32::NAN, 0.0, 0.0, 1.0, 0.0, 0.0],
+                ..Fill::default()
+            }),
+            Error::PaintTransform,
+        ),
+        (
+            fill(Fill {
+                stops: vec![FillStop {
+                    at: 2.0,
+                    color: Color::Rgb(BLACK),
+                }],
+                ..Fill::default()
+            }),
+            Error::OutOfRange {
+                what: "stop",
+                lo: 0.0,
+                hi: 1.0,
             },
         ),
-        Command::ScaleText {
-            id: r.clone(),
-            by: 2.0,
-        },
-        Command::ResetToMaster {
-            ids: vec![copy, r.clone()],
-        },
-        Command::Delete {
-            ids: vec![r.clone(), p.clone()],
-        },
-        Command::FillArea {
-            id: r.clone(),
-            x: 1e6,
-            y: 1e6,
-        },
-        Command::Flip {
-            id: p.clone(),
-            vertical: false,
-        },
-        Command::Format {
-            id: t.clone(),
-            range: None,
-            props: sized(f64::NAN),
-        },
-        Command::AddTextStyle {
-            name: "Body".into(),
-            props: TextProps {
-                size: Some(f64::INFINITY),
-                line_height: Some(0.0),
-                letter_spacing: Some(0.0),
-                paragraph_spacing: Some(0.0),
-                ..TextProps::default()
+        (
+            new(&p, [0.0, 0.0, -1.0, 1.0]),
+            Error::OutOfRange {
+                what: "width",
+                lo: 0.0,
+                hi: MAX_LENGTH,
             },
-        },
-        Command::DeleteMode {
-            collection: c.clone(),
-            id: "none".into(),
-        },
-        Command::SetVariable {
-            id: v.clone(),
-            name: None,
-            mode: None,
-            value: Some(Value::Number(f64::NAN)),
-        },
+        ),
+        (
+            new(&p, [f64::NAN, 0.0, 1.0, 1.0]),
+            Error::OutOfRange {
+                what: "x",
+                lo: -MAX_LENGTH,
+                hi: MAX_LENGTH,
+            },
+        ),
+        (new(&r, [0.0, 0.0, 1.0, 1.0]), Error::NotAContainer),
+        (
+            frame(&r, [f64::NAN, 0.0, 10.0, 10.0]),
+            Error::OutOfRange {
+                what: "x",
+                lo: -MAX_LENGTH,
+                hi: MAX_LENGTH,
+            },
+        ),
+        (
+            frame(&r, [0.0, f64::INFINITY, 10.0, 10.0]),
+            Error::OutOfRange {
+                what: "y",
+                lo: -MAX_LENGTH,
+                hi: MAX_LENGTH,
+            },
+        ),
+        (
+            frame(&p, [0.0, 0.0, 10.0, 10.0]),
+            Error::NotALayer { id: p.clone() },
+        ),
+        (path(vec![LINE, 1.0, 1.0]), Error::NotAPath),
+        (path(vec![MOVE, f32::NAN, 0.0]), Error::NotAPath),
+        (path(vec![MOVE, 0.0]), Error::NotAPath),
+        (
+            Command::SetDocument(Settings {
+                raster_ppi: Some(5000.0),
+                facing_pages: Some(true),
+                ..Settings::default()
+            }),
+            Error::RasterPpi,
+        ),
+        (
+            Command::SetDocument(Settings {
+                image_ppi: Some(10.0),
+                ..Settings::default()
+            }),
+            Error::ImagePpi,
+        ),
+        (
+            Command::SetDocument(Settings {
+                jpeg_quality: Some(101),
+                ..Settings::default()
+            }),
+            Error::JpegQuality,
+        ),
+        (
+            Command::SetPage {
+                id: p.clone(),
+                width: Some(100.0),
+                height: Some(-1.0),
+                bleed: None,
+                scale: false,
+            },
+            Error::OutOfRange {
+                what: "page height",
+                lo: 1.0,
+                hi: MAX_PAGE,
+            },
+        ),
+        (
+            Command::SetPage {
+                id: p.clone(),
+                width: Some(1e6),
+                height: None,
+                bleed: Some(1e5),
+                scale: false,
+            },
+            Error::OutOfRange {
+                what: "page width",
+                lo: 1.0,
+                hi: MAX_PAGE,
+            },
+        ),
+        (
+            frame(&r, [0.0, 0.0, 1e9, 10.0]),
+            Error::OutOfRange {
+                what: "width",
+                lo: 0.0,
+                hi: MAX_LENGTH,
+            },
+        ),
+        (
+            new(&p, [-1e9, 0.0, 1.0, 1.0]),
+            Error::OutOfRange {
+                what: "x",
+                lo: -MAX_LENGTH,
+                hi: MAX_LENGTH,
+            },
+        ),
+        (
+            Command::SetSection {
+                id: p.clone(),
+                section: Some(Section {
+                    start: 10000,
+                    style: Numbering::Arabic,
+                    prefix: String::new(),
+                }),
+            },
+            Error::SectionStart { max: 9999 },
+        ),
+        (
+            Command::SetGrids {
+                id: p.clone(),
+                grids: vec![Grid {
+                    kind: GridKind::Columns,
+                    count: 1000,
+                    gutter: 0.0,
+                    margin: 0.0,
+                    size: 0.0,
+                }],
+            },
+            Error::OutOfRange {
+                what: "grid count",
+                lo: 1.0,
+                hi: 100.0,
+            },
+        ),
+        (
+            Command::ScaleText {
+                id: t.clone(),
+                by: 0.0,
+            },
+            Error::ScaleNotPositive,
+        ),
+        (
+            Command::SetGrids {
+                id: p.clone(),
+                grids: vec![Grid {
+                    kind: GridKind::Grid,
+                    count: 1,
+                    gutter: 0.0,
+                    margin: 0.0,
+                    size: 0.0,
+                }],
+            },
+            Error::OutOfRange {
+                what: "cell size",
+                lo: 1.0,
+                hi: MAX_LENGTH,
+            },
+        ),
+        (
+            set(
+                &r,
+                Props {
+                    corners: Some(vec![1.0, 2.0]),
+                    ..Props::default()
+                },
+            ),
+            Error::Corners,
+        ),
+        (
+            set(
+                &r,
+                Props {
+                    sweep: Some(2.0),
+                    ..Props::default()
+                },
+            ),
+            Error::OutOfRange {
+                what: "sweep",
+                lo: 0.0,
+                hi: 1.0,
+            },
+        ),
+        (
+            set(
+                &r,
+                Props {
+                    rotation: Some(f64::NAN),
+                    ..Props::default()
+                },
+            ),
+            Error::OutOfRange {
+                what: "rotation",
+                lo: -360.0,
+                hi: 360.0,
+            },
+        ),
+        (
+            set(
+                &r,
+                Props {
+                    corners: Some(vec![1.0, 2.0, f32::NAN, 0.0]),
+                    ..Props::default()
+                },
+            ),
+            Error::OutOfRange {
+                what: "radius",
+                lo: 0.0,
+                hi: MAX_LENGTH,
+            },
+        ),
+        (
+            Command::ScaleText {
+                id: r.clone(),
+                by: 2.0,
+            },
+            Error::NotText,
+        ),
+        (
+            Command::ResetToMaster {
+                ids: vec![copy, r.clone()],
+            },
+            Error::NotAnOverride { id: r.clone() },
+        ),
+        (
+            Command::Delete {
+                ids: vec![r.clone(), p.clone()],
+            },
+            Error::NotALayer { id: p.clone() },
+        ),
+        (
+            Command::FillArea {
+                id: r.clone(),
+                x: 1e6,
+                y: 1e6,
+            },
+            Error::AreaNotPath,
+        ),
+        (
+            Command::Flip {
+                id: p.clone(),
+                vertical: false,
+            },
+            Error::NotALayer { id: p.clone() },
+        ),
+        (
+            Command::Format {
+                id: t.clone(),
+                range: None,
+                props: sized(f64::NAN),
+            },
+            Error::OutOfRange {
+                what: "text size",
+                lo: 0.1,
+                hi: MAX_TEXT,
+            },
+        ),
+        (
+            Command::AddTextStyle {
+                name: "Body".into(),
+                props: TextProps {
+                    size: Some(f64::INFINITY),
+                    line_height: Some(0.0),
+                    letter_spacing: Some(0.0),
+                    paragraph_spacing: Some(0.0),
+                    ..TextProps::default()
+                },
+            },
+            Error::OutOfRange {
+                what: "text size",
+                lo: 0.1,
+                hi: MAX_TEXT,
+            },
+        ),
+        (
+            Command::DeleteMode {
+                collection: c.clone(),
+                id: "none".into(),
+            },
+            Error::NotFound {
+                what: "mode",
+                id: "none".into(),
+            },
+        ),
+        (
+            Command::SetVariable {
+                id: v.clone(),
+                name: None,
+                mode: None,
+                value: Some(Value::Number(f64::NAN)),
+            },
+            Error::NotFinite,
+        ),
     ];
     let before = d.snapshot();
-    for cmd in bad {
+    for (cmd, e) in bad {
         let what = format!("{cmd:?}");
-        assert!(d.apply(cmd).is_err(), "{what}");
+        assert_eq!(d.apply(cmd).err(), Some(e), "{what}");
         assert_eq!(d.doc.get_pending_txn_len(), 0, "{what}");
         assert!(d.snapshot() == before, "{what}");
     }
@@ -2150,7 +2461,10 @@ fn a_pdf_holds_the_pages_asked_for_in_their_order() {
 #[test]
 fn an_uploaded_cmyk_profile_is_kept_undone_and_the_pdf_output_intent() {
     let mut d = Doc::blank(100.0, 100.0, 1, false, ColorMode::Cmyk);
-    assert!(d.set_profile(Some(b"not icc".to_vec())).is_err());
+    assert_eq!(
+        d.set_profile(Some(b"not icc".to_vec())).err(),
+        Some(Error::NotIcc)
+    );
     let mut icc = include_bytes!("../../icc/FOGRA51.icc").to_vec();
     icc[24] ^= 1;
     let page = d.snapshot().pages[0].id.clone();
@@ -2314,10 +2628,13 @@ fn a_saved_booklet_loads_as_it_was_without_undo_history() {
 
 #[test]
 fn a_file_that_is_not_a_satz_document_does_not_load() {
-    assert!(Doc::load(b"not a satz file").is_err());
+    assert_eq!(Doc::load(b"not a satz file").err(), Some(Error::NotSatz));
     let other = LoroDoc::new();
     other.get_map("x").insert("a", 1).unwrap();
-    assert!(Doc::load(&other.export(ExportMode::Snapshot).unwrap()).is_err());
+    assert_eq!(
+        Doc::load(&other.export(ExportMode::Snapshot).unwrap()).err(),
+        Some(Error::NotSatz)
+    );
 }
 
 #[test]
@@ -2361,7 +2678,7 @@ fn cropping_a_turned_image_keeps_it_where_it_is_on_the_page() {
         after.iter().zip(before).all(|(a, b)| (a - b).abs() < 1e-3),
         "{after:?} {before:?}"
     );
-    assert!(crop(&mut d, 0.0).is_err());
+    assert_eq!(crop(&mut d, 0.0).err(), Some(Error::CropToNothing));
 }
 
 #[test]
@@ -2402,12 +2719,13 @@ fn an_image_fills_or_fits_its_box_or_the_box_takes_its_shape() {
         ([0.0, 0.0, 100.0, 50.0], [1.0, 0.0, 0.0, 1.0, 0.0, 0.0])
     );
     let r = create(&mut d, &p, NewKind::Rect, [0.0; 4]);
-    assert!(
+    assert_eq!(
         d.apply(Command::FitImage {
             id: r,
             fit: Fit::Cover
         })
-        .is_err()
+        .err(),
+        Some(Error::NoImageFill)
     );
 }
 
@@ -2466,7 +2784,10 @@ fn a_saved_document_leaves_out_the_images_no_layer_uses() {
     assert!(d.image(&b).is_ok());
     let raw = LoroDoc::new();
     raw.import(&saved).unwrap();
-    assert!(raw.checkout(&before).is_err());
+    assert_eq!(
+        raw.checkout(&before).err(),
+        Some(loro::LoroError::SwitchToVersionBeforeShallowRoot)
+    );
     let loaded = std::thread::spawn(move || {
         let d = Doc::load(&saved).unwrap();
         (
@@ -2492,12 +2813,17 @@ fn image_fills_need_an_image_of_the_document_and_a_layer_other_than_text() {
         fills: Some(vec![f]),
         ..Props::default()
     };
-    assert!(apply(&id, fills(Fill::image("0123456789abcdef"))).is_err());
+    assert_eq!(
+        apply(&id, fills(Fill::image("0123456789abcdef"))).err(),
+        Some(Error::NoImage {
+            hash: "0123456789abcdef".into()
+        })
+    );
     let strokes = Props {
         strokes: Some(vec![Fill::image(&hash)]),
         ..Props::default()
     };
-    assert!(apply(&id, strokes).is_err());
+    assert_eq!(apply(&id, strokes).err(), Some(Error::ImageStroke));
     let t = text(&mut d, "Hi");
     let mut apply = |id: &str, props| {
         d.apply(Command::Set {
@@ -2505,8 +2831,11 @@ fn image_fills_need_an_image_of_the_document_and_a_layer_other_than_text() {
             props,
         })
     };
-    assert!(apply(&t, fills(Fill::image(&hash))).is_err());
-    assert!(d.add_image(b"GIF89a", None).is_err());
+    assert_eq!(
+        apply(&t, fills(Fill::image(&hash))).err(),
+        Some(Error::ImageTextFill)
+    );
+    assert_eq!(d.add_image(b"GIF89a", None).err(), Some(Error::NotAnImage));
     let mut huge = Vec::new();
     let mut w = png::Encoder::new(&mut huge, 10_000, 5_001)
         .write_header()
@@ -2532,7 +2861,12 @@ fn image_fills_need_an_image_of_the_document_and_a_layer_other_than_text() {
         w: 1.0,
         h: 1.0,
     };
-    assert!(d.apply(unknown).is_err());
+    assert_eq!(
+        d.apply(unknown).err(),
+        Some(Error::NoImage {
+            hash: "0123456789abcdef".into()
+        })
+    );
 }
 
 #[test]

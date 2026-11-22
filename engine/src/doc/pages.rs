@@ -779,7 +779,7 @@ mod tests {
         let mut d = Doc::sample();
         assert_eq!(d.snapshot().raster_ppi, 300.0);
         for bad in [0.0, 71.0, 1201.0] {
-            assert!(d.apply(ppi(bad)).is_err());
+            assert_eq!(d.apply(ppi(bad)).err(), Some(Error::RasterPpi));
             assert_eq!(d.snapshot().raster_ppi, 300.0);
         }
         d.apply(ppi(1200.0)).unwrap();
@@ -821,8 +821,11 @@ mod tests {
                 ..Settings::default()
             })
         };
-        assert!(d.apply(x1a(None)).is_err());
-        assert!(d.apply(x1a(Some(ColorMode::Rgb))).is_err());
+        assert_eq!(d.apply(x1a(None)).err(), Some(Error::PdfX1aNeedsCmyk));
+        assert_eq!(
+            d.apply(x1a(Some(ColorMode::Rgb))).err(),
+            Some(Error::PdfX1aNeedsCmyk)
+        );
         assert_eq!(d.snapshot().preset, Preset::X4);
         d.apply(x1a(Some(ColorMode::Cmyk))).unwrap();
         assert_eq!(d.snapshot().preset, Preset::X1a);
@@ -867,18 +870,25 @@ mod tests {
         assert_eq!(page_ids(&d), [&p2, &p3, &p1].map(String::clone));
         move_pages(&mut d, [&p1, &p2], 1).unwrap();
         assert_eq!(page_ids(&d), [&p3, &p1, &p2].map(String::clone));
-        assert!(move_pages(&mut d, [&p1, &p1], 0).is_err());
+        assert_eq!(
+            move_pages(&mut d, [&p1, &p1], 0).err(),
+            Some(Error::PageTwice)
+        );
         d.apply(Command::Undo).unwrap();
         d.apply(Command::Undo).unwrap();
         d.apply(Command::Undo).unwrap();
         assert_eq!(page_ids(&d), [&p1, &p2, &p3].map(String::clone));
         d.apply(Command::DeletePage { id: p3.clone() }).unwrap();
         assert_eq!(page_ids(&d), [&p1, &p2].map(String::clone));
-        assert!(
+        assert_eq!(
             d.apply(Command::Delete {
                 ids: vec![r.clone()]
             })
-            .is_err()
+            .err(),
+            Some(Error::NotFound {
+                what: "node",
+                id: r.clone()
+            })
         );
         d.apply(Command::Undo).unwrap();
         assert_eq!(page_ids(&d), [&p1, &p2, &p3].map(String::clone));
@@ -888,15 +898,22 @@ mod tests {
         );
         d.apply(Command::DeletePage { id: p1.clone() }).unwrap();
         d.apply(Command::DeletePage { id: p2.clone() }).unwrap();
-        assert!(d.apply(Command::DeletePage { id: p3.clone() }).is_err());
-        assert!(
+        assert_eq!(
+            d.apply(Command::DeletePage { id: p3.clone() }).err(),
+            Some(Error::LastPage)
+        );
+        assert_eq!(
             d.apply(Command::MovePages {
-                ids: vec![r],
+                ids: vec![r.clone()],
                 index: 0
             })
-            .is_err()
+            .err(),
+            Some(Error::NotFound {
+                what: "page",
+                id: r
+            })
         );
-        assert!(
+        assert_eq!(
             d.apply(Command::SetPage {
                 id: p3,
                 width: Some(-1.0),
@@ -904,7 +921,12 @@ mod tests {
                 bleed: None,
                 scale: false,
             })
-            .is_err()
+            .err(),
+            Some(Error::OutOfRange {
+                what: "page width",
+                lo: 1.0,
+                hi: MAX_PAGE
+            })
         );
     }
 
@@ -949,7 +971,10 @@ mod tests {
             x: vec![f64::NAN],
             y: vec![],
         };
-        assert!(d.apply(Command::SetGuides { id: p, guides: bad }).is_err());
+        assert_eq!(
+            d.apply(Command::SetGuides { id: p, guides: bad }).err(),
+            Some(Error::Guides)
+        );
     }
 
     #[test]
@@ -1249,7 +1274,13 @@ mod tests {
         assert_eq!(d.hit(&m, 15.0, 15.0, 0.0), std::slice::from_ref(&under));
         assert_eq!(d.master_hit(&p1, 15.0, 15.0, 0.0), Some(under.clone()));
         assert_eq!(d.master_hit(&p2, 15.0, 15.0, 0.0), None);
-        assert!(use_master(&mut d, &p1, Some(&p2)).is_err());
+        assert_eq!(
+            use_master(&mut d, &p1, Some(&p2)).err(),
+            Some(Error::NotFound {
+                what: "master",
+                id: p2.clone()
+            })
+        );
         assert_eq!(
             d.apply(Command::AddMaster {
                 like: None,
@@ -1266,12 +1297,15 @@ mod tests {
         })
         .unwrap();
         assert_eq!(d.snapshot().masters[0].name, "Body");
-        assert!(
+        assert_eq!(
             d.apply(Command::SetMaster {
                 id: m.clone(),
                 name: "B-Master".into(),
             })
-            .is_err()
+            .err(),
+            Some(Error::MasterExists {
+                name: "B-Master".into()
+            })
         );
     }
 
@@ -1321,12 +1355,16 @@ mod tests {
         })
         .unwrap();
         assert_eq!(order(&d), [&c, &a, &b].map(String::clone));
-        assert!(
+        assert_eq!(
             d.apply(Command::MovePages {
-                ids: vec![b, p],
+                ids: vec![b, p.clone()],
                 index: 0
             })
-            .is_err()
+            .err(),
+            Some(Error::NotFound {
+                what: "master",
+                id: p
+            })
         );
     }
 
@@ -1383,12 +1421,13 @@ mod tests {
         assert_eq!(hits(&d, 15.0, 15.0, 0.0), std::slice::from_ref(&copy));
         assert_eq!(d.master_hit(&p1, 15.0, 15.0, 0.0), None);
         assert_eq!(items(&d.render(&p2)).len(), 1);
-        assert!(
+        assert_eq!(
             d.apply(Command::Override {
                 page: p1.clone(),
                 id: top.clone(),
             })
-            .is_err()
+            .err(),
+            Some(Error::NotOnMaster)
         );
         d.apply(Command::Delete {
             ids: vec![copy.clone()],
@@ -1614,7 +1653,14 @@ mod tests {
         }))
         .unwrap();
         assert!(page(&d).children[0].w > short);
-        assert!(d.set_today(2026, 13, 1).is_err());
+        assert_eq!(
+            d.set_today(2026, 13, 1).err(),
+            Some(Error::NoDate {
+                y: 2026,
+                m: 13,
+                d: 1
+            })
+        );
     }
 
     #[test]
@@ -1648,12 +1694,13 @@ mod tests {
         })
         .unwrap();
         assert_eq!(numbers(&d), ["A-ix", "A-IV", "A-V"]);
-        assert!(
+        assert_eq!(
             d.apply(Command::SetSection {
                 id: p1.clone(),
                 section: Some(section(0, Numbering::Arabic)),
             })
-            .is_err()
+            .err(),
+            Some(Error::SectionStart { max: 9999 })
         );
         let copy = d
             .apply(Command::DuplicatePage { id: p2.clone() })

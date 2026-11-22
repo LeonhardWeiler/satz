@@ -1279,12 +1279,13 @@ mod tests {
         assert!(
             matches!(&page(&d).children[1].kind, Kind::Text { content, .. } if content.text == "Hallo")
         );
-        assert!(
+        assert_eq!(
             d.apply(Command::SetText {
                 id: page(&d).children[0].id.clone(),
                 text: String::new()
             })
-            .is_err()
+            .err(),
+            Some(Error::NotText)
         );
     }
 
@@ -1304,8 +1305,18 @@ mod tests {
         assert_eq!(lens_and(&d, |a| a.size), [(12, 9.0)]);
         d.apply(Command::Undo).unwrap();
         assert_eq!(lens_and(&d, |a| a.size), [(6, 20.0), (6, 12.0)]);
-        assert!(format(&mut d, &t, None, sized(0.0)).is_err());
-        assert!(format(&mut d, &t, Some([3, 99]), sized(9.0)).is_err());
+        assert_eq!(
+            format(&mut d, &t, None, sized(0.0)).err(),
+            Some(Error::OutOfRange {
+                what: "text size",
+                lo: 0.1,
+                hi: MAX_TEXT
+            })
+        );
+        assert_eq!(
+            format(&mut d, &t, Some([3, 99]), sized(9.0)).err(),
+            Some(Error::RangeOutsideText)
+        );
     }
 
     #[test]
@@ -1407,10 +1418,27 @@ mod tests {
             }]),
             props: TextProps::default(),
         };
-        assert!(d.apply(grep("(", &num)).is_err());
-        assert!(d.apply(grep("", &num)).is_err());
-        assert!(d.apply(grep(r"\d+", &body)).is_err());
-        assert!(d.apply(grep(r"\d+", "nothing")).is_err());
+        assert_eq!(
+            d.apply(grep("(", &num)).err(),
+            Some(Error::NotARegex {
+                pattern: "(".into()
+            })
+        );
+        assert_eq!(
+            d.apply(grep("", &num)).err(),
+            Some(Error::NotARegex { pattern: "".into() })
+        );
+        assert_eq!(
+            d.apply(grep(r"\d+", &body)).err(),
+            Some(Error::GrepSetsStyle)
+        );
+        assert_eq!(
+            d.apply(grep(r"\d+", "nothing")).err(),
+            Some(Error::NotFound {
+                what: "textStyle",
+                id: "nothing".into()
+            })
+        );
         d.apply(grep(r"\d+", &num)).unwrap();
         let sizes = [(8, 10.0), (2, 20.0), (9, 10.0), (1, 20.0)];
         assert_eq!(lens_and(&d, |a| a.size), sizes);
@@ -1468,8 +1496,16 @@ mod tests {
         assert_eq!(lens_and(&d, |a| a.size), [(5, 8.0), (6, 12.0)]);
         use_mode(&mut d, &p, &c, Some(&big));
         assert_eq!(lens_and(&d, |a| a.size), [(5, 16.0), (6, 12.0)]);
-        assert!(bind(&mut d, &body, "w", Some(&v)).is_err());
-        assert!(bind(&mut d, &body, "dropLines", Some(&v)).is_err());
+        assert_eq!(
+            bind(&mut d, &body, "w", Some(&v)).err(),
+            Some(Error::NotBindable { prop: "w".into() })
+        );
+        assert_eq!(
+            bind(&mut d, &body, "dropLines", Some(&v)).err(),
+            Some(Error::NotBindable {
+                prop: "dropLines".into()
+            })
+        );
 
         format(&mut d, &t, Some([0, 2]), sized(30.0)).unwrap();
         let s = spans(&d);
@@ -1593,9 +1629,18 @@ mod tests {
         let v = variable(&mut d, &c, "Face", Value::Font(None)).unwrap();
         set_value(&mut d, &v, &alt, Value::Font(Some(mono.clone()))).unwrap();
         let n = variable(&mut d, &c, "Size", Value::Number(9.0)).unwrap();
-        assert!(bind(&mut d, &t, "font", Some(&n)).is_err());
-        assert!(bind(&mut d, &t, "size", Some(&v)).is_err());
-        assert!(bind(&mut d, &r, "font", Some(&v)).is_err());
+        assert_eq!(
+            bind(&mut d, &t, "font", Some(&n)).err(),
+            Some(Error::BindType)
+        );
+        assert_eq!(
+            bind(&mut d, &t, "size", Some(&v)).err(),
+            Some(Error::BindType)
+        );
+        assert_eq!(
+            bind(&mut d, &r, "font", Some(&v)).err(),
+            Some(Error::NotText)
+        );
         bind(&mut d, &t, "font", Some(&v)).unwrap();
         assert_eq!(lens_and(&d, |a| a.font.clone()), [(8, None)]);
         use_mode(&mut d, &p, &c, Some(&alt));
@@ -1632,8 +1677,17 @@ mod tests {
             condition: Some(v.into()),
             ..TextProps::default()
         };
-        assert!(format(&mut d, &t, Some([3, 9]), when(&n)).is_err());
-        assert!(format(&mut d, &t, Some([3, 9]), when("nope")).is_err());
+        assert_eq!(
+            format(&mut d, &t, Some([3, 9]), when(&n)).err(),
+            Some(Error::ConditionNotBoolean)
+        );
+        assert_eq!(
+            format(&mut d, &t, Some([3, 9]), when("nope")).err(),
+            Some(Error::NotFound {
+                what: "variable",
+                id: "nope".into()
+            })
+        );
         format(&mut d, &t, Some([3, 9]), when(&long)).unwrap();
         let x = |d: &Doc, i| d.caret(&t, i).unwrap()[0];
         let full = x(&d, 12);
@@ -1679,26 +1733,48 @@ mod tests {
             panic!("not text");
         };
         assert_eq!(frame.columns, 3);
-        for bad in [
-            Props {
-                columns: Some(0),
-                ..Props::default()
-            },
-            Props {
-                inset_right: Some(-1.0),
-                ..Props::default()
-            },
-            Props {
-                baseline_grid: Some(-2.0),
-                ..Props::default()
-            },
+        for (bad, e) in [
+            (
+                Props {
+                    columns: Some(0),
+                    ..Props::default()
+                },
+                Error::OutOfRange {
+                    what: "columns",
+                    lo: 1.0,
+                    hi: 20.0,
+                },
+            ),
+            (
+                Props {
+                    inset_right: Some(-1.0),
+                    ..Props::default()
+                },
+                Error::OutOfRange {
+                    what: "inset",
+                    lo: 0.0,
+                    hi: MAX_LENGTH,
+                },
+            ),
+            (
+                Props {
+                    baseline_grid: Some(-2.0),
+                    ..Props::default()
+                },
+                Error::OutOfRange {
+                    what: "baseline grid",
+                    lo: 1.0,
+                    hi: MAX_LENGTH,
+                },
+            ),
         ] {
-            assert!(
+            assert_eq!(
                 d.apply(Command::Set {
                     id: t.clone(),
                     props: bad
                 })
-                .is_err()
+                .err(),
+                Some(e)
             );
         }
     }
@@ -1859,8 +1935,14 @@ mod tests {
         assert!(
             matches!(&page(&d).children[0].kind, Kind::Text { content, .. } if content.text == "Jello!")
         );
-        assert!(edit(&mut d, &t, [3, 9], "x").is_err());
-        assert!(edit(&mut d, &t, [4, 3], "x").is_err());
+        assert_eq!(
+            edit(&mut d, &t, [3, 9], "x").err(),
+            Some(Error::RangeOutsideText)
+        );
+        assert_eq!(
+            edit(&mut d, &t, [4, 3], "x").err(),
+            Some(Error::RangeOutsideText)
+        );
     }
 
     #[test]
@@ -1887,7 +1969,7 @@ mod tests {
         assert_eq!(caret.len(), 1);
         assert!((caret[0][1] - x2 as f32 + 0.25).abs() < 0.01, "{caret:?}");
         assert_eq!(fills(d.text_overlay(&t, 1, 4, 0.5, &p).unwrap()).len(), 2);
-        assert!(d.caret(&t, 9).is_err());
+        assert_eq!(d.caret(&t, 9).err(), Some(Error::IndexOutsideText));
     }
 
     #[test]
@@ -1969,7 +2051,10 @@ mod tests {
     #[test]
     fn text_flattens_into_the_outlines_of_its_glyphs_unless_threaded() {
         let (mut d, _, _, a, _) = two_pages();
-        assert!(d.apply(Command::Flatten { id: a }).is_err());
+        assert_eq!(
+            d.apply(Command::Flatten { id: a }).err(),
+            Some(Error::FlattenThreaded)
+        );
         let t = text(&mut d, "Hi");
         d.apply(Command::Flatten { id: t.clone() }).unwrap();
         let p = page(&d);
@@ -2137,9 +2222,12 @@ mod tests {
         set_frame(&mut d, &b, [0.0, 100.0, 30.0, 1.0]);
         assert_eq!(flow(&d, &c).1, 12);
         assert!(close(frames(&d, &c)[0][3], LEADING));
-        for (id, s) in [
-            (&a, sizing(Size::Fixed, Size::Hug)),
-            (&c, sizing(Size::Hug, Size::Hug)),
+        for ((id, s), e) in [
+            (
+                (&a, sizing(Size::Fixed, Size::Hug)),
+                Error::ThreadedAutoHeight,
+            ),
+            ((&c, sizing(Size::Hug, Size::Hug)), Error::ThreadedAutoWidth),
         ] {
             let bad = Command::Set {
                 id: id.clone(),
@@ -2148,12 +2236,12 @@ mod tests {
                     ..Props::default()
                 },
             };
-            assert!(d.apply(bad).is_err());
+            assert_eq!(d.apply(bad).err(), Some(e));
         }
-        assert!(thread(&mut d, &a, &a).is_err());
-        assert!(thread(&mut d, &c, &a).is_err());
+        assert_eq!(thread(&mut d, &a, &a).err(), Some(Error::Threaded));
+        assert_eq!(thread(&mut d, &c, &a).err(), Some(Error::Threaded));
         let r = create(&mut d, &p, NewKind::Rect, [0.0; 4]);
-        assert!(thread(&mut d, &c, &r).is_err());
+        assert_eq!(thread(&mut d, &c, &r).err(), Some(Error::ThreadNotText));
     }
 
     #[test]
@@ -2286,9 +2374,15 @@ mod tests {
         let (m1, m2) = (add_master(&mut d), add_master(&mut d));
         let on_page = fixed_text(&mut d, &p, [0.0, 0.0, 100.0, 100.0]);
         let [a, b, c] = [&m1, &m1, &m2].map(|m| fixed_text(&mut d, m, [0.0, 0.0, 100.0, 100.0]));
-        assert!(thread(&mut d, &a, &on_page).is_err());
-        assert!(thread(&mut d, &on_page, &a).is_err());
-        assert!(thread(&mut d, &a, &c).is_err());
+        assert_eq!(
+            thread(&mut d, &a, &on_page).err(),
+            Some(Error::ThreadAcross)
+        );
+        assert_eq!(
+            thread(&mut d, &on_page, &a).err(),
+            Some(Error::ThreadAcross)
+        );
+        assert_eq!(thread(&mut d, &a, &c).err(), Some(Error::ThreadAcross));
         thread(&mut d, &a, &b).unwrap();
     }
 
@@ -2407,8 +2501,11 @@ mod tests {
         assert_eq!(face.name, "DM Mono Regular");
         assert_eq!(face.hash.len(), 16);
         assert_eq!(text::add_font(MONO).unwrap(), face);
-        assert!(text::add_font(b"not a font").is_err());
-        assert!(text::add_font(b"wOF2 compressed").is_err());
+        assert_eq!(text::add_font(b"not a font").err(), Some(Error::NotAFont));
+        assert_eq!(
+            text::add_font(b"wOF2 compressed").err(),
+            Some(Error::FontDamaged)
+        );
         let woff2 = text::add_font(include_bytes!("../../fonts/DMMono-Regular.woff2")).unwrap();
         assert_eq!(woff2.name, face.name);
         let id = text::font_id(&Some(woff2));
@@ -2477,7 +2574,7 @@ mod tests {
             axes: Some(BTreeMap::from([("weight".into(), 700.0)])),
             ..TextProps::default()
         };
-        assert!(format(&mut d, &t, None, wrong).is_err());
+        assert_eq!(format(&mut d, &t, None, wrong).err(), Some(Error::Axis));
     }
 
     #[test]
@@ -2535,7 +2632,12 @@ mod tests {
             text_align: Some(TextAlign::Center),
             ..TextProps::default()
         };
-        assert!(style(centred).is_err());
+        assert_eq!(
+            style(centred).err(),
+            Some(Error::NotInTextStyle {
+                key: "textAlign".into()
+            })
+        );
         let id = style(in_font(mono.clone())).unwrap().remove(0);
         let styled = TextProps {
             text_style: Some(id),
