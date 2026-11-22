@@ -229,11 +229,13 @@ export function Overview({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     const up = () => {
       el.removeEventListener('pointermove', moved)
       el.removeEventListener('pointerup', up)
+      el.removeEventListener('pointercancel', up)
       edge.stop()
       setBand(null)
     }
     el.addEventListener('pointermove', moved)
     el.addEventListener('pointerup', up)
+    el.addEventListener('pointercancel', up)
   }
   const move = (moving: string[], index: number) => editor.apply({ type: 'movePages', ids: moving, index })
   const show = (id?: string) => {
