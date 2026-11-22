@@ -48,7 +48,9 @@
             perl
             librsvg
             typescript
+            sccache
           ]);
+          RUSTC_WRAPPER = "sccache";
         });
         devShells.e2e = pkgs.mkShell e2e;
       });
