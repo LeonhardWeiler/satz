@@ -122,6 +122,15 @@ const verbs: Record<Command['type'], string> = {
   endUndoGroup: 'end an undo step',
 }
 
+const NODE_FIELDS = [
+  ['renaming', undefined],
+  ['hover', undefined],
+  ['cropping', undefined],
+  ['threading', 'text'],
+  ['editing', 'text'],
+  ['vector', 'shape'],
+] as const
+
 export class Editor {
   readonly snapshot: Snapshot
 
@@ -389,13 +398,15 @@ export class Editor {
       this.w.nodes = this.index()
       timed('index', start)
       this.w.selection = this.selection.filter((id) => this.nodes.has(id))
-      const v = this.vector && this.nodes.get(this.vector.id)?.node
-      if (v && v.kind !== 'shape') this.w.vector = null
+      for (const [field, kind] of NODE_FIELDS) {
+        const f = this[field]
+        const n = f && this.nodes.get(typeof f === 'string' ? f : f.id)?.node
+        if (f && (!n || (kind && n.kind !== kind))) this.w[field] = null
+      }
       const n = this.editing && this.nodes.get(this.editing.id)?.node
-      if (this.editing) {
-        const len = n?.kind === 'text' ? this.storyOf(n).text.length : -1
-        const { anchor, focus } = this.editing
-        this.w.editing = len < 0 ? null : { ...this.editing, anchor: Math.min(anchor, len), focus: Math.min(focus, len) }
+      if (this.editing && n?.kind === 'text') {
+        const len = this.storyOf(n).text.length
+        this.w.editing = { ...this.editing, anchor: Math.min(this.editing.anchor, len), focus: Math.min(this.editing.focus, len) }
       }
       this.w.dirty = this.engine.version() !== this.savedAt
       this.follow()
