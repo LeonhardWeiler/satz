@@ -1808,7 +1808,10 @@ mod tests {
         for (a, b) in before.concat().iter().zip(after.concat()) {
             assert!((a - b).abs() < 1e-3, "{a} {b}");
         }
-        assert!(d.apply(Command::Flatten { id: p }).is_err());
+        assert_eq!(
+            d.apply(Command::Flatten { id: p.clone() }).err(),
+            Some(Error::NotALayer { id: p })
+        );
     }
 
     #[test]
@@ -2256,7 +2259,7 @@ mod tests {
         };
         d.apply(limit(400.0)).unwrap();
         assert!(!problems(&d).iter().any(|i| i.0 == dark));
-        assert!(d.apply(limit(401.0)).is_err());
+        assert_eq!(d.apply(limit(401.0)).err(), Some(Error::InkLimit));
         assert_eq!(d.build_snapshot().ink_limit, 400.0);
     }
 

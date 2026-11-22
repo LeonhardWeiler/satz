@@ -186,11 +186,12 @@ mod tests {
         assert_eq!(fill(&d), Some(hash.clone()));
         assert_eq!(d.image_links()[&hash], "a.png");
         assert!(d.apply(Command::Embed { images: vec![hash] }).is_ok());
-        assert!(
+        assert_eq!(
             d.apply(Command::Embed {
                 images: vec!["x".into()]
             })
-            .is_err()
+            .err(),
+            Some(Error::NotLinked { hash: "x".into() })
         );
     }
 }

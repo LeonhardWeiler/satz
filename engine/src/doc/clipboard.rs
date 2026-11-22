@@ -266,12 +266,27 @@ mod tests {
             "{:?}",
             n.style.fills[0].color
         );
-        assert!(b.take_clip(b"no").is_err());
-        for (k, v) in [("opacity", LoroValue::from("x")), ("w", f64::NAN.into())] {
+        assert_eq!(b.take_clip(b"no").err(), Some(Error::NotSatz));
+        for ((k, v), e) in [
+            (
+                ("opacity", LoroValue::from("x")),
+                Error::Internal {
+                    message: "invalid type: string \"x\", expected f32".into(),
+                },
+            ),
+            (
+                ("w", f64::NAN.into()),
+                Error::OutOfRange {
+                    what: "width",
+                    lo: 0.0,
+                    hi: MAX_LENGTH,
+                },
+            ),
+        ] {
             let c = Doc::load(&a.clip_out()).unwrap();
             let n = c.children(c.pages()[0])[0];
             c.meta(n).insert(k, v).unwrap();
-            assert!(b.take_clip(&c.save()).is_err(), "{k}");
+            assert_eq!(b.take_clip(&c.save()).err(), Some(e), "{k}");
         }
     }
 

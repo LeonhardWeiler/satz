@@ -138,8 +138,11 @@ mod tests {
             peer: peer.into(),
             counter,
         };
-        assert!(d.apply(restore(&one.peer, one.counter + 1000)).is_err());
-        assert!(d.apply(restore("x", 0)).is_err());
+        assert_eq!(
+            d.apply(restore(&one.peer, one.counter + 1000)).err(),
+            Some(Error::NoVersion)
+        );
+        assert_eq!(d.apply(restore("1", 0)).err(), Some(Error::NoVersion));
         let n = d.versions().len();
         d.apply(restore(&one.peer, one.counter)).unwrap();
         assert_eq!(page(&d).children.len(), 1);
@@ -158,10 +161,13 @@ mod tests {
         d.doc.set_next_commit_message("apart");
         create(&mut d, &p, NewKind::Ellipse, [0.0, 0.0, 10.0, 10.0]);
         let (version, n) = (d.version(), d.versions().len());
-        assert!(d.preview(Some((&one.peer, one.counter + 1000))).is_err());
+        assert_eq!(
+            d.preview(Some((&one.peer, one.counter + 1000))).err(),
+            Some(Error::NoVersion)
+        );
         d.preview(Some((&one.peer, one.counter))).unwrap();
         assert_eq!(page(&d).children.len(), 1);
-        assert!(d.apply(Command::Undo).is_err());
+        assert_eq!(d.apply(Command::Undo).err(), Some(Error::Previewing));
         d.preview(None).unwrap();
         assert_eq!(page(&d).children.len(), 2);
         assert_eq!((d.version(), d.versions().len()), (version, n));

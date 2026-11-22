@@ -727,8 +727,19 @@ mod tests {
 
     #[test]
     fn a_file_that_is_neither_svg_nor_pdf_does_not_import() {
-        assert!(import(b"<svg", "a.svg").is_err());
-        assert!(import(b"%PDF-", "a.pdf").is_err());
-        assert!(import(b"", "a.txt").is_err());
+        assert_eq!(
+            import(b"<svg", "a.svg").err(),
+            Some(Error::NotAnSvg {
+                message: "SVG data parsing failed cause the document does not have a root node"
+                    .into()
+            })
+        );
+        assert_eq!(
+            import(b"%PDF-", "a.pdf").err(),
+            Some(Error::NotAPdf {
+                message: "Invalid".into()
+            })
+        );
+        assert_eq!(import(b"", "a.txt").err(), Some(Error::NotImportable));
     }
 }

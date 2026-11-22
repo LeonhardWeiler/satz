@@ -218,8 +218,14 @@ mod tests {
         let (xs, _) = line(&d, &t);
         assert_eq!(xy(&d, &r), [xs[4] as f64, low as f64 - 40.0]);
         assert!((50.0..55.0).contains(&(xs[5] - xs[4])), "{xs:?}");
-        assert!(anchor(&mut d, &r, &t, 0).is_err());
-        assert!(anchor(&mut d, &t, &t, 0).is_err());
+        assert_eq!(
+            anchor(&mut d, &r, &t, 0).err(),
+            Some(Error::Anchored { id: r.clone() })
+        );
+        assert_eq!(
+            anchor(&mut d, &t, &t, 0).err(),
+            Some(Error::AnchorInOwnText)
+        );
 
         d.apply(Command::Undo).unwrap();
         d.apply(Command::Unanchor { id: r.clone() }).unwrap();
@@ -231,7 +237,10 @@ mod tests {
             field::<Anchoring>(&d.meta(d.node(&r).unwrap()).get_deep_value(), ANCHORED),
             None
         );
-        assert!(d.apply(Command::Unanchor { id: r }).is_err());
+        assert_eq!(
+            d.apply(Command::Unanchor { id: r.clone() }).err(),
+            Some(Error::NotAnchored { id: r })
+        );
     }
 
     #[test]
@@ -261,11 +270,12 @@ mod tests {
             ..Props::default()
         };
         let set = Command::Set {
-            id: b,
+            id: b.clone(),
             props: inline,
         };
-        assert!(
-            d.apply(set).is_err(),
+        assert_eq!(
+            d.apply(set).err(),
+            Some(Error::NotAnchored { id: b }),
             "only an anchored layer is anchored inline"
         );
     }

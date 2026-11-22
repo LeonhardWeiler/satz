@@ -205,7 +205,13 @@ mod tests {
         let s = d.flows()[&d.node(&toc).unwrap()].story.spans.clone();
         assert!(s.iter().all(|s| s.attrs.tabs[0].at == 150.0));
         assert_eq!(d.bounds(d.node(&toc).unwrap())[3], h);
-        assert!(run(&mut d, &[&"x".to_string()]).is_err());
+        assert_eq!(
+            run(&mut d, &[&"x".to_string()]).err(),
+            Some(Error::NotFound {
+                what: "textStyle",
+                id: "x".into()
+            })
+        );
         run(&mut d, &[]).unwrap();
         assert_eq!(toc_of(&d), ("Second\t1\nIntro\t2".into(), vec![]));
     }

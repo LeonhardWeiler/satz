@@ -765,11 +765,17 @@ pub mod tests {
 
     #[test]
     fn other_files_are_not_images() {
-        assert!(register(b"GIF89a".to_vec().into()).is_err());
-        assert!(register(b"\x89PNG broken".to_vec().into()).is_err());
+        assert_eq!(
+            register(b"GIF89a".to_vec().into()).err(),
+            Some(Error::NotAnImage)
+        );
+        assert_eq!(
+            register(b"\x89PNG broken".to_vec().into()).err(),
+            Some(Error::NotAnImage)
+        );
         let mut cut = png(40, 40);
         cut.truncate(cut.len() - 30);
-        assert!(register(cut.into()).is_err());
+        assert_eq!(register(cut.into()).err(), Some(Error::ImageDamaged));
     }
 
     #[test]

@@ -440,13 +440,13 @@ mod tests {
             ids: vec![far.clone(), near],
             op: BooleanOp::Intersect,
         };
-        assert!(d.apply(disjoint).is_err());
+        assert_eq!(d.apply(disjoint).err(), Some(Error::BooleanEmpty));
         let t = text(&mut d, "Hi");
         let with_text = Command::Boolean {
             ids: vec![far, t],
             op: BooleanOp::Union,
         };
-        assert!(d.apply(with_text).is_err());
+        assert_eq!(d.apply(with_text).err(), Some(Error::BooleanNotShape));
     }
 
     #[test]
@@ -507,7 +507,7 @@ mod tests {
         assert_eq!(fill(25.0, 25.0).unwrap(), Vec::<[f32; 4]>::new());
         assert_eq!(fill(5.0, 5.0).unwrap(), [[0.0, 0.0, 20.0, 20.0]]);
         assert_eq!(fill(51.0, 6.0).unwrap(), [[0.0, 0.0, 55.0, 20.0]]);
-        assert!(fill(80.0, 80.0).is_err());
+        assert_eq!(fill(80.0, 80.0).err(), Some(Error::NoArea));
     }
 
     #[test]

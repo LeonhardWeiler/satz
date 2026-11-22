@@ -417,7 +417,10 @@ mod tests {
             .map(|(_, c)| (c[1], c[0]))
             .collect();
         assert!(order.is_sorted(), "{order:?}");
-        assert!(insert(&mut d, false, 9).is_err());
+        assert_eq!(
+            insert(&mut d, false, 9).err(),
+            Some(Error::IndexOutsideTable)
+        );
 
         let b = cell(&d, &id, [1, 1]);
         let c = cell(&d, &id, [1, 2]);
@@ -428,8 +431,11 @@ mod tests {
                 ids: ids.iter().map(|s| s.to_string()).collect(),
             })
         };
-        assert!(merge(&mut d, &[&b, &e, &c]).is_err());
-        assert!(merge(&mut d, &[&b]).is_err());
+        assert_eq!(
+            merge(&mut d, &[&b, &e, &c]).err(),
+            Some(Error::NotARectangle)
+        );
+        assert_eq!(merge(&mut d, &[&b]).err(), Some(Error::MergeOne));
         merge(&mut d, &[&c, &b]).unwrap();
         let at = |d: &Doc| {
             grid(d, &id)
@@ -452,14 +458,23 @@ mod tests {
         delete(&mut d, false, 2).unwrap();
         assert_eq!(grid(&d, &id).len(), 15);
         d.apply(Command::SplitCell { id: b.clone() }).unwrap();
-        assert!(d.apply(Command::SplitCell { id: b.clone() }).is_err());
+        assert_eq!(
+            d.apply(Command::SplitCell { id: b.clone() }).err(),
+            Some(Error::NotMerged { id: b.clone() })
+        );
         assert_eq!(grid(&d, &id).len(), 16);
 
         delete(&mut d, true, 0).unwrap();
         let g = grid(&d, &id);
         assert_eq!(g.len(), 12);
         assert_eq!(g[0].1[0], 10.0);
-        assert!(d.node(&a).is_err());
+        assert_eq!(
+            d.node(&a).err(),
+            Some(Error::NotFound {
+                what: "node",
+                id: a.clone()
+            })
+        );
 
         set_frame(&mut d, &id, [10.0, 10.0, 600.0, 200.0]);
         let g = grid(&d, &id);
@@ -474,8 +489,11 @@ mod tests {
         };
         size(&mut d, vec![50.0, 150.0, 100.0]).unwrap();
         assert!(close(grid(&d, &id)[1].1[2], 150.0));
-        assert!(size(&mut d, vec![50.0]).is_err());
-        assert!(size(&mut d, vec![50.0, 0.0, 1.0]).is_err());
+        assert_eq!(size(&mut d, vec![50.0]).err(), Some(Error::TableSizeCount));
+        assert_eq!(
+            size(&mut d, vec![50.0, 0.0, 1.0]).err(),
+            Some(Error::TableSizeValue)
+        );
         for _ in 0..11 {
             d.apply(Command::Undo).unwrap();
         }
