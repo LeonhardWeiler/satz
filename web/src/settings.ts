@@ -20,15 +20,41 @@ const DEFAULTS = {
 export type DocPreset = { name: string; w: number; h: number; pages: number; facing: boolean; mode: ColorMode; margin: number; columns: number; gutter: number; bleed: number }
 export type Settings = typeof DEFAULTS
 
-const stored = (): Partial<Settings> => {
+const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
+
+const merge = (d: unknown, v: unknown): unknown => {
+  if (Array.isArray(d)) return Array.isArray(v) ? v : d
+  if (!isObject(d)) return typeof v === typeof d ? v : d
+  if (!isObject(v)) return d
+  const keys = Object.keys(d)
+  if (!keys.length) return Object.fromEntries(Object.entries(v).filter(([, x]) => typeof x === 'string'))
+  return Object.fromEntries(keys.map((k) => [k, merge(d[k], v[k])]))
+}
+
+export const decode = <T>(defaults: T, json: string | null): T => {
   try {
-    return JSON.parse(localStorage.getItem(KEY) ?? '{}') as Partial<Settings>
+    return merge(defaults, JSON.parse(json ?? '{}')) as T
   } catch {
-    return {}
+    return defaults
   }
 }
 
-export let settings: Settings = { ...DEFAULTS, ...stored() }
+export const load = <T>(key: string, defaults: T): T => {
+  try {
+    return decode(defaults, localStorage.getItem(key))
+  } catch {
+    return defaults
+  }
+}
+
+export const store = (key: string, value: unknown) => localStorage.setItem(key, JSON.stringify(value))
+
+const stored = (): Settings => {
+  const s = load(KEY, DEFAULTS)
+  return s.unit in UNITS ? s : { ...s, unit: DEFAULTS.unit }
+}
+
+export let settings = stored()
 const listeners = new Set<() => void>()
 const notify = () => {
   for (const l of listeners) l()
