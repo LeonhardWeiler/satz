@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { typeface } from './engine/engine'
-import { UNTITLED, type Editor } from './editor'
+import { firstPage, UNTITLED, type Editor } from './editor'
 import type { Typeface } from './model'
 import type { Out, Preview, Previewed, Source } from './exportWorker'
 
@@ -15,12 +15,13 @@ export type Project = { id: string; name: string; at: number; thumb?: Uint8Array
 type Types = { description: string; accept: Record<string, string[]> }[]
 const TYPES = [{ description: 'Satz document', accept: { 'application/x-satz': ['.satz'] } }]
 const OPENS = [{ description: 'Satz, SVG, PDF or Figma', accept: { 'application/x-satz': ['.satz'], 'image/svg+xml': ['.svg'], 'application/pdf': ['.pdf'], 'application/x-figma': ['.fig'] } }]
-const IMAGES = [{ description: 'PNG or JPEG image', accept: { 'image/png': ['.png'], 'image/jpeg': ['.jpg', '.jpeg'] } }]
-const PLACES = [{ description: 'Image, SVG, PDF or Figma', accept: { ...IMAGES[0].accept, 'image/svg+xml': ['.svg'], 'application/pdf': ['.pdf'], 'application/x-figma': ['.fig'] } }]
+const IMAGE = { 'image/png': ['.png'], 'image/jpeg': ['.jpg', '.jpeg'] }
+const IMAGES = [{ description: 'PNG or JPEG image', accept: IMAGE }]
+const PLACES = [{ description: 'Image, SVG, PDF or Figma', accept: { ...IMAGE, 'image/svg+xml': ['.svg'], 'application/pdf': ['.pdf'], 'application/x-figma': ['.fig'] } }]
 const imports = (name: string) => /\.(svg|pdf|fig)$/i.test(name)
 const pickers = globalThis as {
   showSaveFilePicker?: (o: { suggestedName: string; types: Types }) => Promise<Handle>
-  showOpenFilePicker?: (o: { types: Types; multiple?: boolean }) => Promise<Handle[]>
+  showOpenFilePicker?: (o: { types: Types; multiple?: boolean }) => Promise<[Handle, ...Handle[]]>
 }
 
 export function once<T>(load: () => Promise<T>) {
@@ -117,7 +118,7 @@ export async function begin(editor: Editor, bytes: Uint8Array, file = UNTITLED) 
 }
 
 function thumb(editor: Editor) {
-  const p = editor.snapshot.pages[0]
+  const p = firstPage(editor.snapshot)
   return editor.engine.png(p.id, (240 * 72) / Math.max(p.width, p.height))
 }
 

@@ -9,7 +9,9 @@ export const resolve = (c: Color, scope: Scope): Process =>
 
 export function rgb(c: Color, scope: Scope) {
   const p = resolve(c, scope)
-  return typeof p === 'number' ? p >>> 8 : preview(p.cmyk[0], p.cmyk[1], p.cmyk[2], p.cmyk[3])
+  if (typeof p === 'number') return p >>> 8
+  const [cyan = 0, magenta = 0, yellow = 0, black = 0] = p.cmyk
+  return preview(cyan, magenta, yellow, black)
 }
 
 export const alpha = (c: Color) => (typeof c === 'number' ? ((c & 0xff) / 255) * 100 : c.alpha * 100)
@@ -35,7 +37,8 @@ export function fromRgb(rgb: number, like: Color, mode: ColorMode): Color {
 }
 
 export function toHsv(rgb: number): Hsv {
-  const [r, g, b] = [16, 8, 0].map((s) => ((rgb >>> s) & 0xff) / 255)
+  const byte = (s: number) => ((rgb >>> s) & 0xff) / 255
+  const [r, g, b] = [byte(16), byte(8), byte(0)]
   const v = Math.max(r, g, b)
   const d = v - Math.min(r, g, b)
   const h = d === 0 ? 0 : v === r ? ((g - b) / d + 6) % 6 : v === g ? (b - r) / d + 2 : (r - g) / d + 4

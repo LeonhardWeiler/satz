@@ -8,6 +8,12 @@ export type Measure = { x1: number; y1: number; x2: number; y2: number; length: 
 
 const EPSILON = 1e-6
 
+export const neighbours = <T>(list: T[]) =>
+  list.flatMap((a, i): [T, T][] => {
+    const b = list[i + 1]
+    return b === undefined ? [] : [[a, b]]
+  })
+
 export function gridSpans(s: Sheet) {
   const x: [number, number, number?][] = []
   const y: [number, number, number?][] = []
@@ -136,14 +142,14 @@ export function measure(a: Box, b: Box, others: Box[] = []): Measure[] {
     v(ib, d ? d.y : ub, x(d))
     return out
   }
-  const oy = [Math.max(a.y, b.y), Math.min(a.y + a.h, b.y + b.h)]
-  const ox = [Math.max(a.x, b.x), Math.min(a.x + a.w, b.x + b.w)]
+  const [oy0, oy1] = [Math.max(a.y, b.y), Math.min(a.y + a.h, b.y + b.h)]
+  const [ox0, ox1] = [Math.max(a.x, b.x), Math.min(a.x + a.w, b.x + b.w)]
   if (b.x >= a.x + a.w || a.x >= b.x + b.w) {
     const right = b.x >= a.x + a.w
     const [l, r] = right ? [a.x + a.w, b.x] : [b.x + b.w, a.x]
-    const y = oy[0] < oy[1] ? (oy[0] + oy[1]) / 2 : a.y + a.h / 2
+    const y = oy0 < oy1 ? (oy0 + oy1) / 2 : a.y + a.h / 2
     h(l, r, y)
-    if (oy[0] >= oy[1]) {
+    if (oy0 >= oy1) {
       const x = right ? b.x : b.x + b.w
       const to = b.y > y ? b.y : b.y + b.h
       out.push({ x1: x, y1: y, x2: x, y2: to, length: Math.abs(to - y), dashed: true })
@@ -152,9 +158,9 @@ export function measure(a: Box, b: Box, others: Box[] = []): Measure[] {
   if (b.y >= a.y + a.h || a.y >= b.y + b.h) {
     const below = b.y >= a.y + a.h
     const [t, u] = below ? [a.y + a.h, b.y] : [b.y + b.h, a.y]
-    const x = ox[0] < ox[1] ? (ox[0] + ox[1]) / 2 : a.x + a.w / 2
+    const x = ox0 < ox1 ? (ox0 + ox1) / 2 : a.x + a.w / 2
     v(t, u, x)
-    if (ox[0] >= ox[1]) {
+    if (ox0 >= ox1) {
       const y = below ? b.y : b.y + b.h
       const to = b.x > x ? b.x : b.x + b.w
       out.push({ x1: x, y1: y, x2: to, y2: y, length: Math.abs(to - x), dashed: true })
@@ -169,8 +175,7 @@ function row(box: Box, others: Box[], axis: 'x' | 'y') {
   const line = others.filter((o) => o[q] < box[q] + box[t] && o[q] + o[t] > box[q]).sort((a, b) => a[p] - b[p])
   const before = line.filter((o) => end(o) <= box[p] + EPSILON).sort((a, b) => end(b) - end(a))[0]
   const after = line.find((o) => o[p] >= end(box) - EPSILON)
-  const gaps = line.slice(1).flatMap((n, i) => {
-    const m = line[i]
+  const gaps = neighbours(line).flatMap(([m, n]) => {
     const d = n[p] - end(m)
     return d > EPSILON && (end(box) <= end(m) + EPSILON || box[p] >= n[p] - EPSILON) ? [{ m, n, d }] : []
   })

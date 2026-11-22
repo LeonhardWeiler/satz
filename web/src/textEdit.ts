@@ -95,7 +95,7 @@ export function format(editor: Editor, f: Format) {
   const nodes = (ed ? [editor.nodes.get(ed.id)!.node] : editor.selected()).filter((n): n is TextNode => n.kind === 'text')
   const r = ed && ed.anchor !== ed.focus ? range(ed) : null
   const all = nodes.map((n) => editor.storyOf(n)?.spans ?? [])
-  const spans = r ? within(all[0], r) : all.flat()
+  const spans = r ? within(all[0] ?? [], r) : all.flat()
   if (!spans.length) return
   const set = (props: TextProps) => nodes.forEach((n) => editor.apply({ type: 'format', id: n.id, range: r, ...props }))
   editor.endTyping()
@@ -103,10 +103,12 @@ export function format(editor: Editor, f: Format) {
     if ('textAlign' in f) set(f)
     else if ('textDecoration' in f) set({ textDecoration: spans.every((s) => s.textDecoration === f.textDecoration) ? 'none' : f.textDecoration })
     else if ('face' in f) {
-      const [to, name] = face(editor.snapshot.fonts, spans[0].font ?? editor.snapshot.fonts[0], f.face)
+      const font = spans[0]?.font ?? editor.snapshot.fonts[0]
+      if (!font) return
+      const [to, name] = face(editor.snapshot.fonts, font, f.face)
       if (to) set({ font: to })
       else editor.say(`No ${name} in this document`)
-    } else nodes.forEach((n, i) => eachOf(editor, n.id, all[i], r)('size', (v) => Math.min(5000, Math.max(1, v + f.size))))
+    } else nodes.forEach((n, i) => eachOf(editor, n.id, all[i] ?? [], r)('size', (v) => Math.min(5000, Math.max(1, v + f.size))))
   })
 }
 
@@ -123,24 +125,24 @@ export function handleTextKey(editor: Editor, e: KeyboardEvent): boolean {
   const word = MAC ? e.altKey : mod
   if (e.key === 'Escape') editor.stopEditing()
   else if (MAC && e.metaKey && e.key.startsWith('Arrow')) {
-    const [start, end] = e.key === 'ArrowUp' || e.key === 'ArrowDown' ? [0, text.length] : engine.textLine(ed.id, focus)
+    const [start = 0, end = 0] = e.key === 'ArrowUp' || e.key === 'ArrowDown' ? [0, text.length] : engine.textLine(ed.id, focus)
     move(editor, e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? start : end, extend)
   } else if (e.key === 'ArrowLeft') move(editor, a !== b && !extend && !word ? a : before(text, focus, word), extend)
   else if (e.key === 'ArrowRight') move(editor, a !== b && !extend && !word ? b : after(text, focus, word), extend)
   else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
     const up = e.key === 'ArrowUp'
-    const [x, top, bottom] = engine.caret(ed.id, focus)
+    const [x = 0, top = 0, bottom = 0] = engine.caret(ed.id, focus)
     let to = engine.textIndex(ed.id, x, up ? top - 0.5 : bottom + 0.5)
     if (engine.textLine(ed.id, to)[0] === engine.textLine(ed.id, focus)[0]) {
       const n = editor.nodes.get(ed.id)?.node
       const frame = n?.kind === 'text' ? n : undefined
-      const [start, end] = frame ? engine.frameRange(frame.id) : [0, 0]
+      const [start = 0, end = 0] = frame ? engine.frameRange(frame.id) : [0, 0]
       if (up) to = frame?.prev ? Math.max(0, start - 1) : 0
       else to = frame?.next && end < text.length ? end : text.length
     }
     move(editor, to, extend)
   } else if (e.key === 'Home' || e.key === 'End') {
-    const [start, end] = mod ? [0, text.length] : engine.textLine(ed.id, focus)
+    const [start = 0, end = 0] = mod ? [0, text.length] : engine.textLine(ed.id, focus)
     move(editor, e.key === 'Home' ? start : end, extend)
   } else if (e.key === 'Backspace' || e.key === 'Delete') {
     const forward = e.key === 'Delete'

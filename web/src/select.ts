@@ -19,9 +19,7 @@ export function pick(nodes: Node[], path: string[], selection: string[], mode: '
   const all = index(nodes)
   const parents = new Set(selection.map((id) => all.get(id)?.parent?.id))
   for (let i = path.length - 1; i > 0; i--) if (parents.has(path[i - 1])) return path[i]
-  let i = 0
-  while (i < path.length - 1 && all.get(path[i])?.node.kind === 'frame') i++
-  return path[i]
+  return path.find((id, i) => i === path.length - 1 || all.get(id)?.node.kind !== 'frame')
 }
 
 export function span(list: string[], selection: string[], id: string) {

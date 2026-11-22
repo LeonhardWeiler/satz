@@ -36,7 +36,7 @@ export function spanOf(editor: Editor, nodes: Node[]) {
   if (!of) return undefined
   const { table, cells } = of
   const span = (a: 0 | 1): [number, number] =>
-    cells.length ? [Math.min(...cells.map((c) => c.cell[a])), Math.max(...cells.map((c) => c.cell[a] + c.cell[a + 2]))] : [0, (a ? table.rows : table.columns).length]
+    cells.length ? [Math.min(...cells.map((c) => c.cell[a])), Math.max(...cells.map((c) => c.cell[a] + c.cell[a ? 3 : 2]))] : [0, (a ? table.rows : table.columns).length]
   const [c0, c1] = span(0)
   const [r0, r1] = span(1)
   return { ...of, c0, c1, r0, r1 }
@@ -70,7 +70,13 @@ export const TABLE_ACTIONS = [
   act('Insert column left', insert(true, (s) => s.c0)),
   act('Insert column right', insert(true, (s) => s.c1)),
   act('Merge cells', (editor, s) => editor.apply({ type: 'mergeCells', ids: s.cells.map((c) => c.id) }), (s) => s.cells.length > 1),
-  act('Split cell', (editor, s) => editor.apply({ type: 'splitCell', id: s.cells[0].id }), (s) => s.cells.length === 1 && (s.cells[0].cell[2] > 1 || s.cells[0].cell[3] > 1)),
+  act(
+    'Split cell',
+    (editor, { cells: [c] }) => {
+      if (c) editor.apply({ type: 'splitCell', id: c.id })
+    },
+    ({ cells: [c, ...rest] }) => !!c && !rest.length && (c.cell[2] > 1 || c.cell[3] > 1),
+  ),
   act('Delete rows', remove(false), some(false)),
   act('Delete columns', remove(true), some(true)),
 ]

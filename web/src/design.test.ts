@@ -3,7 +3,7 @@ import { expect, it } from 'vite-plus/test'
 import { SELECTION } from './types'
 
 const css = readFileSync(new URL('index.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
-const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].flatMap(([, sel, body]) =>
+const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].flatMap(([, sel = '', body = '']) =>
   body
     .split(';')
     .map((d) => d.trim())
@@ -13,6 +13,8 @@ const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].flatMap(([, sel, body])
       return { sel: sel.trim(), prop: d.slice(0, i).trim(), value: d.slice(i + 1).trim() }
     }),
 )
+
+type Rgba = [r: number, g: number, b: number, a: number]
 
 const px = (v: string) => [...v.matchAll(/(-?[\d.]+)px/g)].map((m) => Math.abs(Number(m[1])))
 
@@ -73,7 +75,7 @@ it('uses every class the stylesheet names', () => {
     .filter((f) => /\.tsx?$/.test(f))
     .map((f) => readFileSync(new URL(f, import.meta.url), 'utf8'))
     .join('')
-  const names = new Set(rules.flatMap((r) => [...r.sel.matchAll(/\.([a-z][\w-]*)/g)].map((m) => m[1])))
+  const names = new Set(rules.flatMap((r) => [...r.sel.matchAll(/\.([a-z][\w-]*)/g)].map(([, c = '']) => c)))
   expect([...names].filter((c) => !src.includes(c) && !/^(no|plate)-/.test(c))).toEqual([])
 })
 
@@ -90,26 +92,34 @@ it('presses controls to 0.93 and honours reduced motion', () => {
 it('keeps greys neutral and muted text at 4.5:1 on every surface', () => {
   for (const theme of [':root', ":root[data-theme='light']"]) {
     const tokens = new Map(rules.filter((r) => r.sel === ':root' || r.sel === theme).map((r) => [r.prop, r.value]))
-    const rgba = (v: string): number[] => {
-      const ref = /^var\((--[\w-]+)\)$/.exec(v)
-      if (ref) return rgba(tokens.get(ref[1])!)
+    const rgba = (v: string): Rgba => {
+      const [, ref] = /^var\((--[\w-]+)\)$/.exec(v) ?? []
+      if (ref) return rgba(tokens.get(ref)!)
       if (v === 'transparent') return [0, 0, 0, 0]
       if (v.startsWith('#')) {
         const h = v.length === 4 ? v.slice(1).replace(/./g, '$&$&') : v.slice(1)
-        return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)).concat(1)
+        const byte = (i: number) => parseInt(h.slice(i, i + 2), 16)
+        return [byte(0), byte(2), byte(4), 1]
       }
-      const m = /^color-mix\(in srgb, (.+) (\d+)%, (.+)\)$/.exec(v)!
-      const [a, b, t] = [rgba(m[1]), rgba(m[3]), Number(m[2]) / 100]
+      const [, x = '', p = '', y = ''] = /^color-mix\(in srgb, (.+) (\d+)%, (.+)\)$/.exec(v)!
+      const [a, b, t] = [rgba(x), rgba(y), Number(p) / 100]
       const alpha = a[3] * t + b[3] * (1 - t)
-      return [0, 1, 2].map((i) => (a[i] * a[3] * t + b[i] * b[3] * (1 - t)) / alpha).concat(alpha)
+      const mix = (i: 0 | 1 | 2) => (a[i] * a[3] * t + b[i] * b[3] * (1 - t)) / alpha
+      return [mix(0), mix(1), mix(2), alpha]
     }
-    const over = (top: number[], under: number[]) => [0, 1, 2].map((i) => top[i] * top[3] + under[i] * (1 - top[3]))
-    const lum = (c: number[]) =>
-      c.map((v) => v / 255).map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)).reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0)
-    const ratio = (a: number[], b: number[]) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05)
+    const over = (top: Rgba, under: Rgba): Rgba => {
+      const mix = (i: 0 | 1 | 2) => top[i] * top[3] + under[i] * (1 - top[3])
+      return [mix(0), mix(1), mix(2), 1]
+    }
+    const linear = (c: number) => {
+      const v = c / 255
+      return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4
+    }
+    const lum = ([r, g, b]: Rgba) => 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
+    const ratio = (a: Rgba, b: Rgba) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05)
     for (const t of ['--bg', '--fg', '--canvas']) expect(new Set(rgba(tokens.get(t)!).slice(0, 3)).size, t).toBe(1)
     const muted = rgba(tokens.get('--muted')!)
-    for (const base of ['--bg', '--raised'].map((t) => over(rgba(tokens.get(t)!), [0, 0, 0])))
+    for (const base of ['--bg', '--raised'].map((t) => over(rgba(tokens.get(t)!), [0, 0, 0, 1])))
       for (const s of ['--input', '--hover', '--selected', null])
         expect(ratio(over(muted, base), s ? over(rgba(tokens.get(s)!), base) : base), `${theme} ${s}`).toBeGreaterThanOrEqual(4.5)
   }

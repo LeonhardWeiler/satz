@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { bounds, MM, type Editor } from './editor'
 import { Icon, type IconName } from './icons'
 import type { BooleanOp, Node } from './model'
+import { neighbours } from './snap'
 
 export const BOOLEANS: [BooleanOp, string, IconName, string][] = [
   ['union', 'Union', 'union', 'Ctrl Alt U'],
@@ -65,7 +66,7 @@ export function align(editor: Editor, how: Align, layers = editor.selected()) {
     for (const row of rows) row.sort((a, b) => a.x - b.x)
     const cw = Math.max(...nodes.map((n) => n.w))
     const rh = Math.max(...nodes.map((n) => n.h))
-    const gaps = rows.flatMap((row) => row.slice(1).map((n, i) => n.x - row[i].x - row[i].w)).filter((g) => g > 0)
+    const gaps = rows.flatMap((row) => neighbours(row).map(([m, n]) => n.x - m.x - m.w)).filter((g) => g > 0)
     const gap = gaps.length ? Math.min(...gaps) : 5 * MM
     rows.forEach((row, r) => row.forEach((n, c) => moves.set(n, [to.x + c * (cw + gap), to.y + r * (rh + gap)])))
   } else {
@@ -89,15 +90,16 @@ export function rowOf(editor: Editor): Row | null {
   if (nodes.length < 2 || parents.size > 1 || (parent?.kind === 'frame' && parent.direction !== 'none') || nodes.some((n) => n.locked || n.rotation)) return null
   for (const [x, w, y, h] of [['x', 'w', 'y', 'h'], ['y', 'h', 'x', 'w']] as const) {
     const s = [...nodes].sort((a, b) => a[x] - b[x])
-    const gaps = s.slice(1).map((n, i) => n[x] - s[i][x] - s[i][w])
-    if (gaps.every((g) => g >= 0) && s.slice(1).every((n, i) => n[y] < s[i][y] + s[i][h] && s[i][y] < n[y] + n[h])) return { axis: x, nodes: s, gaps }
+    const pairs = neighbours(s)
+    const gaps = pairs.map(([m, n]) => n[x] - m[x] - m[w])
+    if (gaps.every((g) => g >= 0) && pairs.every(([m, n]) => n[y] < m[y] + m[h] && m[y] < n[y] + n[h])) return { axis: x, nodes: s, gaps }
   }
   return null
 }
 
 export function setGap(editor: Editor, { axis, nodes }: Row, gap: number) {
   const w = axis === 'x' ? 'w' : 'h'
-  let at = nodes[0][axis]
+  let at = nodes[0]?.[axis] ?? 0
   editor.batch(() => {
     for (const n of nodes) {
       if (n[axis] !== at) editor.apply({ type: 'setFrame', id: n.id, x: n.x, y: n.y, w: n.w, h: n.h, [axis]: at })
