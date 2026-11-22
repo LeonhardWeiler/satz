@@ -57,6 +57,8 @@ test('a shortcut changed in the shortcut list runs its command and frees the old
   const tool = page.getByRole('toolbar', { name: 'Tools' })
   await page.keyboard.press('q')
   await expect(tool.getByRole('button', { name: 'Rectangle', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await tool.getByRole('button', { name: 'Rectangle', exact: true }).hover()
+  await expect(page.getByRole('tooltip')).toHaveText('RectangleQ')
   await page.keyboard.press('v')
   await page.keyboard.press('r')
   await expect(tool.getByRole('button', { name: 'Move', exact: true })).toHaveAttribute('aria-pressed', 'true')

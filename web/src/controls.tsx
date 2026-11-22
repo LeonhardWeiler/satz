@@ -478,7 +478,7 @@ const KEYCAP = /^(Ctrl|Alt|Shift|Space|Enter|Esc|Tab|Del|Backspace|Home|End|PgUp
 export function Keys({ keys }: { keys: string }) {
   const parts: [cap: boolean, text: string][] = []
   let mod = false
-  for (const k of keys.replace(/(\w)\+/g, '$1 ').split(' ')) {
+  for (const k of keys.split(' ')) {
     const cap = KEYCAP.test(k)
     const last = parts.at(-1)
     if (cap && last?.[0] && mod) last[1] += (MAC ? '' : '+') + keyName(k)

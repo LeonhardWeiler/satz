@@ -198,8 +198,8 @@ export function Properties({ editor }: { editor: Editor }) {
         )}
         {box && combinable(editor) && (
           <div role="toolbar" aria-label="Boolean" className="booleans">
-            {BOOLEANS.map(([op, title, icon, key]) => (
-              <button key={op} type="button" className="icon-button" aria-label={title} title={`${title} (${key})`} onClick={() => combine(editor, op)}>
+            {BOOLEANS.map(([op, title, icon]) => (
+              <button key={op} type="button" className="icon-button" aria-label={title} title={title} data-action={title} onClick={() => combine(editor, op)}>
                 <Icon name={icon} />
               </button>
             ))}

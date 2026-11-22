@@ -1,11 +1,12 @@
 import { Keys } from './controls'
+import { keysFor } from './keys'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 const DELAY = 500
 const MARGIN = 8
 
 export function Tooltip() {
-  const [tip, setTip] = useState<{ text: string; at: DOMRect } | null>(null)
+  const [tip, setTip] = useState<{ text: string; keys: string; at: DOMRect } | null>(null)
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     let el: HTMLElement | null = null
@@ -31,7 +32,11 @@ export function Tooltip() {
       el = t
       t.dataset.tip = t.title
       t.removeAttribute('title')
-      const show = () => setTip({ text: t.dataset.tip!, at: t.getBoundingClientRect() })
+      const show = () => {
+        const m = /^(.*) \(((?:Ctrl|Alt|Shift|Space|Enter|Esc|Del|[A-Z0-9]|[^\w\s])(?: .*)?)\)$/.exec(t.dataset.tip!)
+        const [text, keys] = t.dataset.action ? [t.dataset.tip!, keysFor(t.dataset.action)] : m ? [m[1], m[2]] : [t.dataset.tip!, '']
+        setTip({ text, keys, at: t.getBoundingClientRect() })
+      }
       if (performance.now() - shown < DELAY) show()
       else timer = window.setTimeout(show, DELAY)
     }
@@ -61,11 +66,10 @@ export function Tooltip() {
     el.style.top = `${above ? tip.at.top - 6 - h : tip.at.bottom + 6}px`
   }, [tip])
   if (!tip) return null
-  const m = /^(.*) \(((?:Ctrl|Alt|Shift|Space|Enter|Esc|Del|[A-Z0-9]|[^\w\s])(?:[+ ].*)?)\)$/.exec(tip.text)
   return (
     <div ref={ref} className="tooltip" role="tooltip" popover="manual">
-      {m ? m[1] : tip.text}
-      {m && <Keys keys={m[2]} />}
+      {tip.text}
+      {tip.keys && <Keys keys={tip.keys} />}
     </div>
   )
 }

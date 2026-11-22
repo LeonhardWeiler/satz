@@ -32,6 +32,10 @@ const SYMBOLS: Record<string, string> = { Ctrl: '⌘', Alt: '⌥', Shift: '⇧' 
 
 export const keyName = (k: string) => (MAC ? (SYMBOLS[k] ?? k) : k)
 export const keysOf = (a: Action) => settings.keys[a.title] ?? a.keys
+export const keysFor = (title: string) => {
+  const a = ACTIONS.find((a) => a.title === title)
+  return a ? keysOf(a) : ''
+}
 export const keyOf = (e: KeyboardEvent) => (e.altKey && /^Key[A-Z]$/.test(e.code) ? e.code.slice(3) : e.key).toLowerCase()
 
 export function isTyping(e: Event) {

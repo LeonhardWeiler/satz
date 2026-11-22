@@ -1,7 +1,6 @@
 import { Fragment } from 'react'
 import { useEditor, type Editor } from './editor'
 import { Icon } from './icons'
-import { Keys } from './controls'
 import { useSettings } from './settings'
 
 export function Switcher({ editor }: { editor: Editor }) {
@@ -21,7 +20,7 @@ export function Switcher({ editor }: { editor: Editor }) {
   const go = (i: number) => editor.showPage(spreads[i][0])
   return (
     <nav className="switcher" aria-label="Spreads">
-      <button type="button" className="icon-button" aria-label="Previous spread" title="Previous spread (PgUp)" disabled={k <= 0} onClick={() => go(k - 1)}>
+      <button type="button" className="icon-button" aria-label="Previous spread" title="Previous spread" data-action="Previous spread" disabled={k <= 0} onClick={() => go(k - 1)}>
         <Icon name="left" />
       </button>
       <span className="switcher-at">
@@ -38,10 +37,10 @@ export function Switcher({ editor }: { editor: Editor }) {
         })}
         <span className="switcher-total">/ {pages.length}</span>
       </span>
-      <button type="button" className="icon-button" aria-label="Next spread" title="Next spread (PgDn)" disabled={k >= spreads.length - 1} onClick={() => go(k + 1)}>
+      <button type="button" className="icon-button" aria-label="Next spread" title="Next spread" data-action="Next spread" disabled={k >= spreads.length - 1} onClick={() => go(k + 1)}>
         <Icon name="chevron" />
       </button>
-      <button type="button" className="icon-button" aria-label="Add page" title="Add page (Ctrl Alt P)" onClick={() => editor.showPage(editor.apply({ type: 'addPage', after: pages.at(-1)!.id })[0])}>
+      <button type="button" className="icon-button" aria-label="Add page" title="Add page" data-action="Add page" onClick={() => editor.showPage(editor.apply({ type: 'addPage', after: pages.at(-1)!.id })[0])}>
         <Icon name="plus" />
       </button>
     </nav>
@@ -60,8 +59,8 @@ export function MasterBanner({ editor }: { editor: Editor }) {
       <span>
         Editing master <strong>{master.name}</strong>, used by {used} {used === 1 ? 'page' : 'pages'}
       </span>
-      <button type="button" onClick={() => editor.exitMaster()}>
-        Done<Keys keys="Esc" />
+      <button type="button" title="Done (Esc)" onClick={() => editor.exitMaster()}>
+        Done
       </button>
     </div>
   )
