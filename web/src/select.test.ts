@@ -1,5 +1,6 @@
 import { expect, test } from 'vite-plus/test'
-import { pick, span } from './select'
+import { marqueed, pick, span } from './select'
+import { rect as box } from './handles'
 import type { Layout, Node, Style } from './model'
 
 const style: Style = {
@@ -50,4 +51,22 @@ test('shift click fills up to a layer before or after the selection and drops th
   expect(sorted(span(list, ['x', '1', '3'], '5'))).toEqual(['1', '3', '4', '5', 'x'])
   expect(span(list, ['3'], '5')?.at(-1)).toBe('5')
   expect(span(list, ['x'], '5')).toBeNull()
+})
+
+test('a marquee picks by the rotated outline and inside the parent it starts in', () => {
+  const at = (n: Node, x: number, y: number, w: number, h: number, more: Partial<Node> = {}) => ({ ...n, x, y, w, h, ...more }) as Node
+  const spun = at(rect('spun'), 0, 0, 10, 10, { rotation: 45 })
+  const g = at(group('g', [at(rect('a'), 20, 0, 10, 10), at(rect('b'), 40, 0, 10, 10)]), 20, 0, 30, 10)
+  const f = at(frame('f', [at(rect('c'), 60, 0, 10, 10), at(rect('d'), 80, 0, 10, 10), at(rect('e'), 60, 20, 10, 10, { locked: true })]), 60, 0, 30, 30)
+  const shut = at(group('shut', [at(rect('s'), 100, 0, 10, 10)]), 100, 0, 30, 10, { locked: true })
+  const nodes = [spun, g, f, shut]
+  const sweep = (x0: number, y0: number, x1: number, y1: number) => marqueed(nodes, { x: x0, y: y0 }, box({ x: x0, y: y0 }, { x: x1, y: y1 }), (n) => n)
+  expect(sweep(0, 0, 1, 1)).toEqual([])
+  expect(sweep(-3, 4, -1, 6)).toEqual(['spun'])
+  expect(sweep(15, -5, 25, 5)).toEqual(['g'])
+  expect(sweep(35, 5, 45, 8)).toEqual(['b'])
+  expect(sweep(55, -5, 75, 25)).toEqual(['c'])
+  expect(sweep(55, -5, 95, 35)).toEqual(['f'])
+  expect(sweep(88, 35, 85, 25)).toEqual(['f'])
+  expect(sweep(115, 5, 125, 8)).toEqual([])
 })
