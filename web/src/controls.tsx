@@ -141,7 +141,7 @@ export function Field({
             input.closest<HTMLElement>('.popover[tabindex]')?.focus()
             input.form?.requestSubmit()
           } else if (e.key === 'Escape') {
-            setDraft(null)
+            flushSync(() => setDraft(null))
             e.currentTarget.blur()
           } else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && edit) {
             e.preventDefault()
