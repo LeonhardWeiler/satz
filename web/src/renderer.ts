@@ -284,7 +284,7 @@ export class Renderer {
     paint.setPathEffect(dash)
     canvas.drawPath(bleed, paint)
     paint.setPathEffect(null)
-    dash?.delete()
+    dash.delete()
     paint.setColor(ck.Color(...CROP))
     for (const t of trims) canvas.drawRect(t, paint)
     const l = Math.min(...sheets.map((s) => s.x))
@@ -389,7 +389,7 @@ export class Renderer {
   private drawPlates(canvas: Canvas, on: number, draw: (c: Canvas, plate: 1 | 2) => void) {
     const { ck } = this
     const [, , width, height] = edges(canvas.getDeviceClipBounds())
-    if (this.plates[0]?.width() !== width || this.plates[0]?.height() !== height) {
+    if (this.plates[0]?.width() !== width || this.plates[0].height() !== height) {
       for (const s of this.plates) s.delete()
       const info = { width, height, colorType: ck.ColorType.RGBA_8888, alphaType: ck.AlphaType.Premul, colorSpace: ck.ColorSpace.SRGB }
       this.plates = [canvas.makeSurface(info)!, canvas.makeSurface(info)!]
@@ -543,7 +543,7 @@ export class Renderer {
         paint.setPathEffect(dash)
         canvas.drawRect(screen(crop.image), paint)
         paint.setPathEffect(null)
-        dash?.delete()
+        dash.delete()
       })
     }
     if (handles) {
@@ -584,7 +584,7 @@ export class Renderer {
         canvas.drawLine(x, y - 3, x, y + 3, paint)
         paint.setStrokeWidth(1)
         paint.setColor(accent)
-      } else if (p.state === 'threaded') {
+      } else {
         const path = ck.Path.MakeFromCmds([MOVE, x - 2, y - 3, LINE, x + 3, y, LINE, x - 2, y + 3, CLOSE])
         paint.setStyle(ck.PaintStyle.Fill)
         if (path) canvas.drawPath(path, paint)

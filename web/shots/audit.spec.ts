@@ -27,7 +27,7 @@ async function dump(page: Page, root: string) {
         return (s.getAttribute('aria-label') ?? s.querySelector('h2,h3')?.textContent ?? s.tagName.toLowerCase() + '.' + s.className).slice(0, 30)
       }
       const name = (el: Element) => {
-        const t = el.getAttribute('aria-label') ?? el.getAttribute('title') ?? el.textContent?.trim() ?? ''
+        const t = el.getAttribute('aria-label') ?? el.getAttribute('title') ?? el.textContent.trim()
         return `${el.tagName.toLowerCase()}.${[...el.classList].join('.')}[${t.slice(0, 24)}]`
       }
       const top = document.querySelector(root)

@@ -37,7 +37,7 @@ if (!document.createElement('canvas').getContext('webgl2')) {
       init(),
       storedFonts().catch(() => []),
       new Promise<boolean>((got) => {
-        if (!navigator.locks) return got(true)
+        if (!('locks' in navigator)) return got(true)
         void navigator.locks.request('satz', { ifAvailable: true }, (lock) => {
           got(!!lock)
           return lock && new Promise(() => {})
@@ -69,7 +69,7 @@ if (!document.createElement('canvas').getContext('webgl2')) {
       </StrictMode>,
     )
     warm()
-    if (import.meta.env.PROD) navigator.serviceWorker?.register(`${import.meta.env.BASE_URL}sw.js`).catch(console.error)
+    if (import.meta.env.PROD && 'serviceWorker' in navigator) navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(console.error)
     void findGranted(editor)
   } catch (e) {
     console.error(e)

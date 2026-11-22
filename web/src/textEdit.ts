@@ -94,7 +94,7 @@ export function format(editor: Editor, f: Format) {
   const ed = editor.editing
   const nodes = (ed ? [editor.nodes.get(ed.id)!.node] : editor.selected()).filter((n): n is TextNode => n.kind === 'text')
   const r = ed && ed.anchor !== ed.focus ? range(ed) : null
-  const all = nodes.map((n) => editor.storyOf(n)?.spans ?? [])
+  const all = nodes.map((n) => editor.storyOf(n).spans)
   const spans = r ? within(all[0] ?? [], r) : all.flat()
   if (!spans.length) return
   const set = (props: TextProps) => nodes.forEach((n) => editor.apply({ type: 'format', id: n.id, range: r, ...props }))

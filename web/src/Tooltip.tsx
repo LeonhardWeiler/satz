@@ -25,7 +25,7 @@ export function Tooltip() {
       })
     }
     const over = (e: PointerEvent) => {
-      const t = (e.target as Element).closest?.<HTMLElement>('[title], [data-tip]') ?? null
+      const t = e.target instanceof Element ? e.target.closest<HTMLElement>('[title], [data-tip]') : null
       if (t === el) return
       hide()
       if (!t?.title || e.pointerType === 'touch') return
