@@ -12,27 +12,29 @@ test('the snapshot the editor merges from changes equals the full one', () => {
     seed = (seed * 48271) % 2147483647
     return seed % n
   }
+  const pick = <T>(xs: readonly T[]) => {
+    const x = xs[rand(xs.length)]
+    if (x === undefined) throw new Error('pick from an empty list')
+    return x
+  }
   const ids = () => [...editor.snapshot.pages, ...editor.snapshot.masters].map((p) => p.id).concat([...editor.nodes.keys()])
   const texts = () => [...editor.nodes.values()].filter((e) => e.node.kind === 'text').map((e) => e.node.id)
-  const page = () => editor.snapshot.pages[rand(editor.snapshot.pages.length)].id
+  const page = () => pick(editor.snapshot.pages).id
   const steps: (() => Command | undefined)[] = [
-    () => ({ type: 'create', parent: page(), kind: ['rect', 'text', 'frame'][rand(3)], x: rand(100), y: rand(100), w: 10 + rand(50), h: 10 + rand(50) }) as Command,
-    () => {
-      const id = ids()[rand(ids().length)]
-      return { type: 'setFrame', id, x: rand(100), y: rand(100), w: 5 + rand(80), h: 5 + rand(80) }
-    },
+    () => ({ type: 'create', parent: page(), kind: pick(['rect', 'text', 'frame'] as const), x: rand(100), y: rand(100), w: 10 + rand(50), h: 10 + rand(50) }),
+    () => ({ type: 'setFrame', id: pick(ids()), x: rand(100), y: rand(100), w: 5 + rand(80), h: 5 + rand(80) }),
     () => {
       const t = texts()
-      return t.length ? { type: 'editText', id: t[rand(t.length)], range: [0, rand(3)], text: ['', 'a', 'Hallo Welt\n'][rand(3)] } : undefined
+      return t.length ? { type: 'editText', id: pick(t), range: [0, rand(3)], text: pick(['', 'a', 'Hallo Welt\n']) } : undefined
     },
-    () => ({ type: 'delete', ids: [ids()[rand(ids().length)]] }),
+    () => ({ type: 'delete', ids: [pick(ids())] }),
     () => ({ type: 'addPage', after: page() }),
     () => ({ type: 'undo' }),
     () => ({ type: 'redo' }),
   ]
   let applied = 0
   for (let i = 0; i < 150; i++) {
-    const cmd = steps[rand(steps.length)]()
+    const cmd = pick(steps)()
     if (!cmd) continue
     try {
       editor.apply(cmd)
