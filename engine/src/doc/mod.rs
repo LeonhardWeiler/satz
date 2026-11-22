@@ -1532,6 +1532,74 @@ impl Doc {
             .try_for_each(|s| text(s.clone()))
     }
 
+    #[cfg(test)]
+    fn check_refs(&self) {
+        use serde_json::Value as J;
+        fn refs(v: &J, out: &mut Vec<(&'static str, String)>) {
+            let mut add = |what, v: &J| {
+                if let Some(s) = v.as_str().filter(|s| !s.is_empty()) {
+                    out.push((what, s.to_string()));
+                }
+            };
+            match v {
+                J::Object(o) => {
+                    for (k, x) in o {
+                        match k.as_str() {
+                            "swatch" => add("swatch", x),
+                            "variable" => add("variable", x),
+                            "textStyle" => add("textStyle", x),
+                            "master" => add("master", x),
+                            TOC => x
+                                .as_array()
+                                .into_iter()
+                                .flatten()
+                                .for_each(|s| add("textStyle", s)),
+                            "grep" => x
+                                .as_array()
+                                .into_iter()
+                                .flatten()
+                                .for_each(|g| add("textStyle", &g["style"])),
+                            BINDINGS => x
+                                .as_object()
+                                .into_iter()
+                                .flatten()
+                                .for_each(|(_, v)| add("variable", v)),
+                            _ => {}
+                        }
+                    }
+                    o.values().for_each(|x| refs(x, out));
+                }
+                J::Array(a) => a.iter().for_each(|x| refs(x, out)),
+                _ => {}
+            }
+        }
+        let json = |v: LoroValue| serde_json::to_value(v).unwrap();
+        let mut out = vec![];
+        let mut all = vec![];
+        for r in self.tree.roots() {
+            self.walk(r, &mut all);
+        }
+        for &n in &all {
+            refs(&json(self.meta(n).get_deep_value()), &mut out);
+            if let Ok(t) = self.own_text(n) {
+                refs(&json(t.get_richtext_value()), &mut out);
+            }
+        }
+        for name in ["swatches", "variables", "textStyles"] {
+            refs(&json(self.doc.get_list(name).get_deep_value()), &mut out);
+        }
+        for (what, id) in out {
+            let ok = match what {
+                "master" => self.master(&id).is_ok(),
+                _ => {
+                    let list = format!("{what}{}", if what == "swatch" { "es" } else { "s" });
+                    self.list::<J>(&list).iter().any(|v| v["id"] == id)
+                }
+            };
+            assert!(ok, "dangling {what} {id}");
+        }
+    }
+
     pub fn apply(&mut self, cmd: Command) -> Res<Vec<String>> {
         if self.doc.is_detached() {
             return Err(Error::Previewing);
@@ -1562,6 +1630,11 @@ impl Doc {
             self.undo.group_end();
         }
         let out = out?;
+        #[cfg(test)]
+        {
+            self.check_file().unwrap();
+            self.check_refs();
+        }
         self.version = format!("{:?}", self.doc.oplog_frontiers());
         Ok(out)
     }
