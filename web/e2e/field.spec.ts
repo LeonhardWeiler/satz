@@ -34,7 +34,7 @@ test('a field takes expressions with units, steps with the arrow keys, reverts o
   await expect(panel.locator('.field.bad')).toHaveAttribute('title', /not a number/)
 })
 
-test('dragging the label of a field scrubs it in one undo step', async ({ page }) => {
+test('dragging the label of a field scrubs it in one undo step and a cancelled touch ends it', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('complementary', { name: 'Properties' })
   await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Sun' }).click()
@@ -47,6 +47,13 @@ test('dragging the label of a field scrubs it in one undo step', async ({ page }
   for (const dx of [4, 12, 20]) await page.mouse.move(label.x + label.width / 2 + dx, label.y + label.height / 2)
   await page.mouse.up()
   await expect.poll(async () => Number(await x.inputValue())).toBeCloseTo(before + 10)
+  await expect(page.locator('html')).not.toHaveClass(/scrubbing/)
+  const cdp = await page.context().newCDPSession(page)
+  const touch = (type: 'touchStart' | 'touchCancel') => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchCancel' ? [] : [{ x: label.x + label.width / 2, y: label.y + label.height / 2 }] })
+  await touch('touchStart')
+  await expect(page.locator('html')).toHaveClass(/scrubbing/)
+  await touch('touchCancel')
+  await expect(page.locator('html')).not.toHaveClass(/scrubbing/)
   await page.keyboard.press('Control+z')
   await expect.poll(async () => Number(await x.inputValue())).toBeCloseTo(before)
 })

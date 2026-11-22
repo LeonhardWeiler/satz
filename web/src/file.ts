@@ -288,10 +288,14 @@ export function ask(question: string, yes: string): Promise<boolean> {
   document.body.append(d)
   d.showModal()
   return new Promise((done) =>
-    d.addEventListener('close', () => {
-      d.remove()
-      done(d.returnValue === 'yes')
-    }),
+    d.addEventListener(
+      'close',
+      () => {
+        d.remove()
+        done(d.returnValue === 'yes')
+      },
+      { once: true },
+    ),
   )
 }
 

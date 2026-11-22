@@ -4,7 +4,13 @@ import { called } from './match.ts'
 const url = 'A file that calls URL.createObjectURL also calls URL.revokeObjectURL.'
 const engine = 'An Engine made here is freed in a finally of the same function.'
 const cancel = 'A file that listens to pointerup also listens to pointercancel or lostpointercapture.'
+const remove = 'A listener added here is removed in the same file, or passes once: true or a signal.'
 const ends = ['pointercancel', 'lostpointercapture']
+const event = (n: ESTree.CallExpression) => (n.arguments[0]?.type === 'Literal' && typeof n.arguments[0].value === 'string' ? n.arguments[0].value : undefined)
+const once = (n: ESTree.CallExpression) => {
+  const o = n.arguments[2]
+  return o?.type === 'ObjectExpression' && o.properties.some((p) => p.type === 'Property' && p.key.type === 'Identifier' && (p.key.name === 'signal' || (p.key.name === 'once' && p.value.type === 'Literal' && p.value.value === true)))
+}
 
 const scope = (n: ESTree.Node) => {
   let s = n.parent
@@ -24,6 +30,8 @@ export default defineRule({
     const freed: [string, ESTree.Node | null][] = []
     const ups: ESTree.Node[] = []
     let cancelled = false
+    const added: [ESTree.Node, string][] = []
+    const removed = new Set<string>()
     const listen = (node: ESTree.Node, event: string) => {
       if (event === 'pointerup') ups.push(node)
       if (ends.includes(event)) cancelled = true
@@ -41,7 +49,12 @@ export default defineRule({
         if (node.name.type === 'JSXIdentifier' && node.name.name.startsWith('on')) listen(node, node.name.name.slice(2).toLowerCase())
       },
       CallExpression(node) {
-        if (called(node.callee, 'addEventListener') && node.arguments[0]?.type === 'Literal' && typeof node.arguments[0].value === 'string') listen(node, node.arguments[0].value)
+        const e = event(node)
+        if (e && called(node.callee, 'addEventListener')) {
+          listen(node, e)
+          if (!once(node)) added.push([node, e])
+        }
+        if (e && called(node.callee, 'removeEventListener')) removed.add(e)
         if (called(node.callee, 'createObjectURL', 'URL')) made.push(node)
         if (called(node.callee, 'revokeObjectURL', 'URL')) revoked = true
         if (called(node.callee, 'sample', 'Engine') || called(node.callee, 'blank', 'Engine')) make(node)
@@ -49,6 +62,7 @@ export default defineRule({
       },
       'Program:exit'() {
         if (!cancelled) for (const node of ups) context.report({ node, message: cancel })
+        for (const [node, e] of added) if (!removed.has(e)) context.report({ node, message: remove })
         if (!revoked) for (const node of made) context.report({ node, message: url })
         for (const [node, name, s] of engines) if (!freed.some(([n, f]) => n === name && f === s)) context.report({ node, message: engine })
       },

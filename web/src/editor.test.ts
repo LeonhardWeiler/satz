@@ -202,3 +202,18 @@ test('a field that holds a node id is cleared when its node is deleted', () => {
     expect(editor[field as keyof typeof fields], field).toBeNull()
   }
 })
+
+test('a gesture ends its undo group on pointerup and on pointercancel', () => {
+  initSync({ module: readFileSync(new URL('engine/engine_bg.wasm', import.meta.url)) })
+  vi.stubGlobal('window', new EventTarget())
+  const editor = new Editor(Engine.sample())
+  for (const end of ['pointerup', 'pointercancel', 'pointerup']) {
+    editor.gesture()
+    window.dispatchEvent(new Event(end))
+    expect(editor.groups, end).toBe(0)
+  }
+  editor.beginGroup()
+  window.dispatchEvent(new Event('pointerup'))
+  expect(editor.groups).toBe(1)
+  vi.unstubAllGlobals()
+})
