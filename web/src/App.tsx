@@ -32,8 +32,9 @@ const reachable = (e: HTMLElement) => !e.closest('[inert]') && e.checkVisibility
 function cycleFocus(back: boolean) {
   const at = REGIONS.findIndex((s) => document.activeElement?.closest(s))
   const from = at < 0 ? (back ? 0 : REGIONS.length - 1) : at
-  for (let i = 1; i <= REGIONS.length; i++) {
-    const r = [...document.querySelectorAll<HTMLElement>(REGIONS[(from + (back ? -i : i) + REGIONS.length) % REGIONS.length])].find(reachable)
+  const order = back ? [...REGIONS.slice(from), ...REGIONS.slice(0, from)].reverse() : [...REGIONS.slice(from + 1), ...REGIONS.slice(0, from + 1)]
+  for (const s of order) {
+    const r = [...document.querySelectorAll<HTMLElement>(s)].find(reachable)
     if (!r) continue
     const f = r.matches('canvas') ? r : ENTRIES.flatMap((s) => [...r.querySelectorAll<HTMLElement>(s)]).find(reachable)
     if (f) return f.focus()
@@ -108,7 +109,8 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     exportFile(editor, image ? { type: `image/${format}`, ppi: editor.snapshot.rasterPpi, title, pages } : { type: `application/${format}`, title, pages })
       .then(
         (bytes) => {
-          const file = image && !zipped && editor.snapshot.pages.length > 1 ? `${title}-${pages[0] + 1}.${ext}` : `${title}.${ext}`
+          const [page] = pages
+          const file = image && !zipped && page !== undefined && editor.snapshot.pages.length > 1 ? `${title}-${page + 1}.${ext}` : `${title}.${ext}`
           download(bytes, file, type)
           say(`Exported ${zipped ? `${pages.length} pages as ${file}` : file}`)
         },

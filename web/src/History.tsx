@@ -53,7 +53,7 @@ export function History({ editor, onClose }: { editor: Editor; onClose: () => vo
       <div className="pal-list" role="listbox" aria-label="Versions">
         {versions.map((v, i) => (
           <div key={`${v.peer}${v.counter}`} role="presentation">
-            {(i === 0 || day(v.time) !== day(versions[i - 1].time)) && <div className="pal-g">{day(v.time)}</div>}
+            {(i === 0 || day(v.time) !== day(versions[i - 1]?.time ?? v.time)) && <div className="pal-g">{day(v.time)}</div>}
             <button type="button" className="pal-it" role="option" aria-selected={v === shown} onMouseEnter={() => show(v)} onFocus={() => show(v)} onClick={() => restore(v)}>
               <span className="pal-t">{time(v.time)}</span>
               <small>{[i === 0 && 'Current', where(v.page), v.restored ? 'Restored' : `${v.edits} ${v.edits === 1 ? 'edit' : 'edits'}`].filter(Boolean).join(' · ')}</small>

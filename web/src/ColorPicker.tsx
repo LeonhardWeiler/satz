@@ -46,7 +46,7 @@ export function Chip({ color, scope }: { color: Color; scope: Scope }) {
 
 export const NO_SCOPE: Scope = { swatches: [], collections: [], variables: [], modes: {} }
 
-export const ink = (c: Color, mode: ColorMode) => (typeof c === 'object' && 'cmyk' in c ? c.cmyk.map((v, i) => 'CMYK'[i] + Math.round(v * 100)).filter((s) => !/^.0$/.test(s)).join(' ') || 'K0' : mode === 'cmyk' ? 'RGB' : '')
+export const ink = (c: Color, mode: ColorMode) => (typeof c === 'object' && 'cmyk' in c ? c.cmyk.map((v, i) => 'CMYK'.charAt(i) + Math.round(v * 100)).filter((s) => !/^.0$/.test(s)).join(' ') || 'K0' : mode === 'cmyk' ? 'RGB' : '')
 
 export function SwatchOption({ swatch, mode, selected, onPick }: { swatch: Swatch; mode: ColorMode; selected: boolean; onPick: () => void }) {
   const values = ink(swatch.color, mode)
@@ -126,7 +126,8 @@ function Wheel({ hsv, rule, set }: { hsv: Hsv; rule: Harmony; set: (hsv: Hsv) =>
   }
   const step = (e: KeyboardEvent<HTMLDivElement>) => {
     const d = e.shiftKey ? 10 : 1
-    const move = { ArrowLeft: [-d, 0], ArrowRight: [d, 0], ArrowDown: [0, -d / 100], ArrowUp: [0, d / 100] }[e.key]
+    const moves: Record<string, [number, number]> = { ArrowLeft: [-d, 0], ArrowRight: [d, 0], ArrowDown: [0, -d / 100], ArrowUp: [0, d / 100] }
+    const move = moves[e.key]
     if (!move) return
     e.preventDefault()
     set([(h + move[0] + 360) % 360, clamp(s + move[1]), v])
@@ -192,7 +193,7 @@ export function Picker({
   const rgb = screen(process, scope)
   const [state, setState] = useState(() => ({ color, hsv: toHsv(rgb) }))
   if (state.color !== color) setState({ color, hsv: rgb === screen(state.color, scope) ? state.hsv : toHsv(rgb) })
-  const colors = scope.variables.filter((v) => 'color' in Object.values(v.values)[0])
+  const colors = scope.variables.filter((v) => Object.values(v.values).some((x) => 'color' in x))
   const [h, s, v] = state.hsv
 
   const set = (hsv: Hsv) => {
@@ -230,7 +231,8 @@ export function Picker({
   }
   const step = (e: KeyboardEvent<HTMLDivElement>) => {
     const d = e.shiftKey ? 0.1 : 0.01
-    const move = { ArrowLeft: [-d, 0], ArrowRight: [d, 0], ArrowDown: [0, -d], ArrowUp: [0, d] }[e.key]
+    const moves: Record<string, [number, number]> = { ArrowLeft: [-d, 0], ArrowRight: [d, 0], ArrowDown: [0, -d], ArrowUp: [0, d] }
+    const move = moves[e.key]
     if (!move) return
     e.preventDefault()
     set([h, clamp(s + move[0]), clamp(v + move[1])])
@@ -272,6 +274,7 @@ export function Picker({
             onClick={() => {
               const name = nextName('Swatch', scope.swatches.map((s) => s.name))
               const [swatch] = editor.apply({ type: 'addSwatch', name, color: withAlpha(process, 100), spot: false })
+              if (!swatch) return
               onChange({ swatch, tint: 1, alpha: alpha(process) / 100 })
               setTab('swatches')
             }}
@@ -397,10 +400,11 @@ export function Picker({
             <div className="picker-inks">
               {INKS.map((ink, i) => {
                 const put = (p: number) => onChange({ ...cmyk, cmyk: cmyk.cmyk.map((c, j) => (j === i ? clamp(p / 100) : c)) })
+                const c = Math.round((cmyk.cmyk[i] ?? 0) * 100)
                 return (
                   <Fragment key={ink}>
-                    <input type="range" aria-label={ink} style={{ '--ink': INK_COLORS[i] } as CSSProperties} min={0} max={100} value={Math.round(cmyk.cmyk[i] * 100)} onChange={(e) => put(Number(e.currentTarget.value))} />
-                    <Field label={'CMYK'[i]} title={ink} unit="" value={Math.round(cmyk.cmyk[i] * 100)} onCommit={put} />
+                    <input type="range" aria-label={ink} style={{ '--ink': INK_COLORS[i] } as CSSProperties} min={0} max={100} value={c} onChange={(e) => put(Number(e.currentTarget.value))} />
+                    <Field label={'CMYK'.charAt(i)} title={ink} unit="" value={c} onCommit={put} />
                   </Fragment>
                 )
               })}

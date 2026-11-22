@@ -29,12 +29,13 @@ export function Tooltip() {
       if (t === el) return
       hide()
       if (!t?.title || e.pointerType === 'touch') return
+      const tip = t.title
       el = t
-      t.dataset.tip = t.title
+      t.dataset.tip = tip
       t.removeAttribute('title')
       const show = () => {
-        const m = /^(.*) \(((?:Ctrl|Alt|Shift|Space|Enter|Esc|Del|[A-Z0-9]|[^\w\s])(?: .*)?)\)$/.exec(t.dataset.tip!)
-        const [text, keys] = t.dataset.action ? [t.dataset.tip!, keysFor(t.dataset.action)] : m ? [m[1], m[2]] : [t.dataset.tip!, '']
+        const m = /^(.*) \(((?:Ctrl|Alt|Shift|Space|Enter|Esc|Del|[A-Z0-9]|[^\w\s])(?: .*)?)\)$/.exec(tip)
+        const [text, keys] = t.dataset.action ? [tip, keysFor(t.dataset.action)] : m ? [m[1] ?? tip, m[2] ?? ''] : [tip, '']
         setTip({ text, keys, at: t.getBoundingClientRect() })
       }
       if (performance.now() - shown < DELAY) show()

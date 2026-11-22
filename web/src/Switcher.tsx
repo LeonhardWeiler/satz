@@ -17,7 +17,8 @@ export function Switcher({ editor }: { editor: Editor }) {
   }
   const { spreads, pages } = snapshot
   const k = spreads.findIndex((s) => s.includes(current))
-  const go = (i: number) => editor.showPage(spreads[i][0])
+  const show = (id?: string) => id && editor.showPage(id)
+  const go = (i: number) => show(spreads[i]?.[0])
   return (
     <nav className="switcher" aria-label="Spreads">
       <button type="button" className="icon-button" aria-label="Previous spread" title="Previous spread" data-action="Previous spread" disabled={k <= 0} onClick={() => go(k - 1)}>
@@ -40,7 +41,7 @@ export function Switcher({ editor }: { editor: Editor }) {
       <button type="button" className="icon-button" aria-label="Next spread" title="Next spread" data-action="Next spread" disabled={k >= spreads.length - 1} onClick={() => go(k + 1)}>
         <Icon name="chevron" />
       </button>
-      <button type="button" className="icon-button" aria-label="Add page" title="Add page" data-action="Add page" onClick={() => editor.showPage(editor.apply({ type: 'addPage', after: pages.at(-1)!.id })[0])}>
+      <button type="button" className="icon-button" aria-label="Add page" title="Add page" data-action="Add page" onClick={() => show(editor.apply({ type: 'addPage', after: pages.at(-1)?.id })[0])}>
         <Icon name="plus" />
       </button>
     </nav>

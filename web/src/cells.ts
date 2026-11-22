@@ -35,7 +35,7 @@ export function spanOf(editor: Editor, nodes: Node[]) {
   const of = tableOf(editor, nodes)
   if (!of) return undefined
   const { table, cells } = of
-  const span = (a: 0 | 1) =>
+  const span = (a: 0 | 1): [number, number] =>
     cells.length ? [Math.min(...cells.map((c) => c.cell[a])), Math.max(...cells.map((c) => c.cell[a] + c.cell[a + 2]))] : [0, (a ? table.rows : table.columns).length]
   const [c0, c1] = span(0)
   const [r0, r1] = span(1)

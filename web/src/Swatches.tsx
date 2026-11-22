@@ -21,9 +21,9 @@ export function Swatches({ editor }: { editor: Editor }) {
   const add = () => {
     const node = editor.selected()[0]
     const fill = node?.fills.find((f) => f.type === 'solid')
-    const color = fill ? resolve(fill.color, scopeOf(snapshot, node.activeModes)) : neutral('black', mode)
+    const color = node && fill ? resolve(fill.color, scopeOf(snapshot, node.activeModes)) : neutral('black', mode)
     const name = nextName('Swatch', swatches.map((s) => s.name))
-    setEditing(editor.apply({ type: 'addSwatch', name, color, spot: false })[0])
+    setEditing(editor.apply({ type: 'addSwatch', name, color, spot: false })[0] ?? null)
   }
   const remove = (id: string) => {
     editor.apply({ type: 'deleteSwatch', id })

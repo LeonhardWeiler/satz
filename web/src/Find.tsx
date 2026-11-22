@@ -18,7 +18,9 @@ function matches(snapshot: Snapshot, find: string, matchCase: boolean, words: bo
     })
   for (const p of [...snapshot.pages, ...snapshot.masters]) walk(p.children)
   return heads.flatMap((story) => {
-    const { text, spans } = snapshot.stories[story]
+    const s = snapshot.stories[story]
+    if (!s) throw new Error(`story ${story} is missing`)
+    const { text, spans } = s
     return [...text.matchAll(re)].flatMap((m) => {
       let at = 0
       const span = spans.find((s) => (at += s.len) > m.index)
@@ -51,11 +53,12 @@ export function Find({ editor, onClose }: { editor: Editor; onClose: () => void 
     if (!all.length) return
     const after = all.findIndex((m) => (m.story === head ? m.at >= hi : false))
     const i = current >= 0 ? current + d : d > 0 ? Math.max(0, after) : (after > 0 ? after : all.length) - 1
-    show(all[(i + all.length) % all.length])
+    const m = all[(i + all.length) % all.length]
+    if (m) show(m)
   }
   const replaceOne = () => {
-    if (current < 0) return next(1)
     const m = all[current]
+    if (!m) return next(1)
     editor.apply({ type: 'editText', id: m.story, range: [m.at, m.end], text: replace })
     const rest = matches(editor.snapshot, find, matchCase, words, style)
     const following = rest.slice(current).find((r) => r.story !== m.story || r.at >= m.at + replace.length) ?? rest[0]

@@ -1,5 +1,5 @@
 import { neutral, solid } from './color'
-import { Check, Field, Group, NameInput, Section, Segmented, Select, SIDE_ICONS, SIDE_NAMES, SidesToggle, useMore, useRowKeys } from './controls'
+import { Check, Field, Group, NameInput, Section, Segmented, Select, SIDES, SidesToggle, useMore, useRowKeys } from './controls'
 import { useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
@@ -19,8 +19,7 @@ import { TableSection } from './Table'
 
 const turnOf = (n: Node): number | null => {
   if (n.kind !== 'group') return n.rotation
-  const turns = n.children.map(turnOf)
-  return turns.every((t) => t === turns[0]) ? turns[0] : null
+  return sameOf(n.children, turnOf)
 }
 const WRAPS: Record<Wrap, string> = { none: 'None', around: 'Around', jump: 'Jump' }
 const ANCHORINGS = [['inline', 'Inline'], ['custom', 'Custom']] as const satisfies readonly (readonly [Anchoring, string])[]
@@ -40,7 +39,7 @@ const LINE_STYLES = Object.fromEntries(
       <svg className="dash" viewBox="0 0 24 8" aria-hidden="true">
         <path d={d} />
       </svg>
-      <span className="dash-name">{k[0].toUpperCase() + k.slice(1)}</span>
+      <span className="dash-name">{k.charAt(0).toUpperCase() + k.slice(1)}</span>
     </>,
   ]),
 ) as Record<LineStyle, ReactNode>
@@ -91,8 +90,8 @@ export function Properties({ editor }: { editor: Editor }) {
     return values.every((v) => v === values[0]) ? (values[0] ?? null) : null
   }
   const sameList = <T,>(get: (n: Node) => T[]) => {
-    const values = nodes.map((n) => JSON.stringify(get(n)))
-    return values.every((v) => v === values[0]) ? get(nodes[0]) : null
+    const [first] = nodes
+    return first && sameOf(nodes, (n) => JSON.stringify(get(n))) !== null ? get(first) : null
   }
   const each = (cmd: (n: Node) => Command | undefined) => {
     editor.batch(() => {
@@ -113,6 +112,8 @@ export function Properties({ editor }: { editor: Editor }) {
 
   const one = nodes.length === 1 ? nodes[0] : undefined
   const row = rowOf(editor)
+  const [gap = null, ...gaps] = row?.gaps ?? []
+  const rowGap = gap !== null && gaps.every((g) => Math.abs(g - gap) < 1e-6) ? gap : null
   const ids = snapshot.pages.map((p) => p.id)
   const picked = overview?.filter((id) => ids.includes(id)) ?? []
   const targets = isPage && picked.length ? picked : [page.id]
@@ -271,7 +272,7 @@ export function Properties({ editor }: { editor: Editor }) {
                 <input
                   type="checkbox"
                   checked={page.section !== null}
-                  onChange={(e) => editor.apply({ type: 'setSection', id: page.id, section: e.currentTarget.checked ? { start: numbers[0], style: 'arabic', prefix: '' } : null })}
+                  onChange={(e) => editor.apply({ type: 'setSection', id: page.id, section: e.currentTarget.checked ? { start: numbers[0] ?? 1, style: 'arabic', prefix: '' } : null })}
                 />
                 Start section
               </label>
@@ -309,7 +310,7 @@ export function Properties({ editor }: { editor: Editor }) {
                   label="Gap"
                   title={row.axis === 'x' ? 'Horizontal spacing' : 'Vertical spacing'}
                   unit="length"
-                  value={row.gaps.every((g) => Math.abs(g - row.gaps[0]) < 1e-6) ? row.gaps[0] : null}
+                  value={rowGap}
                   onCommit={(v) => setGap(editor, row, v)}
                 />
               )}
@@ -498,13 +499,13 @@ export function Properties({ editor }: { editor: Editor }) {
                 </>
               )}
               {sided && one?.strokeSides?.length === 4 &&
-                SIDE_NAMES.map((side, i) => (
+                SIDES.map(([side, icon], i) => (
                   <Field
                     key={side}
-                    label={<Icon name={SIDE_ICONS[i]} />}
+                    label={<Icon name={icon} />}
                     title={`${side} stroke`}
                     unit="pt"
-                    value={one.strokeSides[i]}
+                    value={one.strokeSides[i] ?? null}
                     onCommit={(v) => set({ strokeSides: one.strokeSides.map((w, j) => (j === i ? v : w)) })}
                   />
                 ))}
@@ -571,7 +572,8 @@ const GRIDS: Record<Grid['kind'], string> = { columns: 'Columns', rows: 'Rows', 
 
 function GridSection({ editor, sheets, all }: { editor: Editor; sheets: Page[]; all: Page[] }) {
   const key = (p: Page) => JSON.stringify(p.grids)
-  const grids = sameOf(sheets, key) === null ? null : sheets[0].grids
+  const shared = sameOf(sheets, key)
+  const grids = shared === null ? null : (sheets[0]?.grids ?? null)
   const setGrids = (grids: Grid[], to = sheets) => editor.batch(() => to.forEach((p) => editor.apply({ type: 'setGrids', id: p.id, grids })))
   const [keys, without] = useRowKeys(grids ?? [])
   const fresh: Grid = { kind: 'columns', count: 2, gutter: 5 * MM, margin: 15 * MM, size: 5 * MM }
@@ -601,7 +603,7 @@ function GridSection({ editor, sheets, all }: { editor: Editor; sheets: Page[]; 
       onAdd={(e) => setPresets({ at: e.currentTarget.getBoundingClientRect() })}
       actions={
         <>
-          {grids && all.some((p) => key(p) !== key(sheets[0])) && (
+          {grids && all.some((p) => key(p) !== shared) && (
             <button type="button" className="icon-button" aria-label="Apply grids to all pages" title="Apply grids to all pages" onClick={() => setGrids(grids, all)}>
               <Icon name="pages" />
             </button>

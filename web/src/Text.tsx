@@ -11,7 +11,7 @@ import { keysFor } from './keys'
 import { Dialog } from './Popover'
 import { MAX_LENGTH, length } from './settings'
 import { DATE, PAGE_NUMBER, insert, range, within } from './textEdit'
-import { STYLED, type Attrs, type Grep, type Props, type Span, type Styled, type Tab, type TextNode, type TextProps, type TextStyle, type Typeface } from './model'
+import { STYLED, type Attrs, type Grep, type Modes, type Props, type Span, type Styled, type Tab, type TextNode, type TextProps, type TextStyle, type Typeface } from './model'
 import { Bindable, kindOf } from './Variables'
 import namesUrl from './unicode-names.txt?url'
 
@@ -57,8 +57,8 @@ const specimen = (s?: TextStyle) => (s ? { fontSize: Math.min(Math.max(s.size * 
 export const sizeOf = (s: TextStyle) => `${s.size}/${s.lineHeight || 'Auto'} pt`
 
 export function sameOf<A, T>(spans: A[], get: (a: A) => T): T | null {
-  const values = spans.map(get)
-  return values.every((v) => v === values[0]) ? values[0] : null
+  const [first, ...rest] = spans.map(get)
+  return first !== undefined && rest.every((v) => v === first) ? first : null
 }
 
 export function Specimen({ editor, spans, format }: { editor: Editor; spans: Attrs[]; format: (p: TextProps) => void }) {
@@ -67,20 +67,21 @@ export function Specimen({ editor, spans, format }: { editor: Editor; spans: Att
   const current = styles.find((s) => s.id === style)
   const [menu, setMenu] = useState<DOMRect | null>(null)
   const own = (a: Attrs, bound = {}) => Object.fromEntries(STYLED.filter((k) => !(k in bound)).map((k) => [k, a[k]]))
-  const changed = current && spans.some((a) => STYLED.some((k) => !(k in current.bindings) && current[k] !== null && JSON.stringify(a[k]) !== JSON.stringify(current[k])))
+  const [first] = spans
+  const changed = first && current && spans.some((a) => STYLED.some((k) => !(k in current.bindings) && current[k] !== null && JSON.stringify(a[k]) !== JSON.stringify(current[k])))
   const overrides: Parameters<typeof ContextMenu>[0]['items'] = changed
     ? [
         null,
         ['Reset to style', () => format({ textStyle: current.id }), true],
-        ['Update style', () => void editor.apply({ type: 'setTextStyle', id: current.id, ...own(spans[0], current.bindings) }), true],
+        ['Update style', () => void editor.apply({ type: 'setTextStyle', id: current.id, ...own(first, current.bindings) }), true],
       ]
     : []
   const create = () => {
-    const a = spans[0]
+    if (!first) return
     const [id] = editor.apply({
       type: 'addTextStyle',
       name: nextName('Text style', styles.map((s) => s.name)),
-      ...own(a),
+      ...own(first),
     })
     format({ textStyle: id })
   }
@@ -139,7 +140,9 @@ export const eachOf = (editor: Editor, id: string, spans: Span[], r: [number, nu
     at += s.len
     return from < Math.min(at, b) ? [{ range: [from, Math.min(at, b)] as [number, number], [key]: f(s[key]) }] : []
   })
-  const all = runs[0]?.[key] ?? f(spans[0]?.[key] ?? (key === 'features' ? [] : {}))
+  const [s] = spans
+  if (!s) return
+  const all = runs[0]?.[key] ?? f(s[key])
   editor.batch(() => {
     editor.apply({ type: 'format', id, range: r, [key]: all })
     runs.filter((x) => JSON.stringify(x[key]) !== JSON.stringify(all)).forEach((x) => editor.apply({ type: 'format', id, ...x }))
@@ -287,7 +290,7 @@ const TAB_ALIGNS: Record<Tab['align'], string> = { left: 'Left', center: 'Center
 
 function TabStops({ tabs, set }: { tabs: string | null; set: (tabs: Tab[]) => void }) {
   const list = tabs === null ? [] : (JSON.parse(tabs) as Tab[])
-  const put = (i: number, t: Partial<Tab>) => set(list.with(i, { ...list[i], ...t }).sort((a, b) => a.at - b.at))
+  const put = (i: number, t: Partial<Tab>) => set(list.map((x, j) => (j === i ? { ...x, ...t } : x)).sort((a, b) => a.at - b.at))
   const [keys, without] = useRowKeys(list)
   return (
     <div className="tab-stops">
@@ -426,13 +429,12 @@ export function Font({ editor, id, fonts, set }: { editor: Editor; id?: string; 
   const added = useEditor(editor, (e) => e.snapshot.fonts)
   const missing = useEditor(editor, (e) => e.snapshot.missingFonts).map((m) => m.font)
   const locals = useLocalFonts().filter((l) => !added.some((f) => f.name === l.fullName))
-  const hashes = fonts.map((f) => (f ?? added[0]).hash)
   const select = (
     <FontSelect
       label="Font"
       faces={[...added, ...missing, ...locals.map((l) => ({ name: l.fullName, family: l.family, style: l.style, hash: `local:${l.postscriptName}` }))]}
       missing={missing.map((f) => f.hash)}
-      value={hashes.every((h) => h === hashes[0]) ? hashes[0] : null}
+      value={sameOf(fonts, (f) => (f ?? added[0])?.hash ?? null)}
       onAdd={() => addFonts(editor)}
       onChange={(f) => {
         const l = locals.find((l) => `local:${l.postscriptName}` === f.hash)
@@ -456,11 +458,11 @@ export function TextSection({ editor, nodes }: { editor: Editor; nodes: TextNode
   const one = nodes.length === 1 ? nodes[0] : undefined
   const edited = useEditor(editor, (e) => (one && e.editing?.id === one.id && e.editing.anchor !== e.editing.focus ? e.editing : null))
   const r = edited && range(edited)
-  const all = nodes.map((n) => stories[n.story]?.spans ?? [])
-  const spans = r ? within(all[0], r) : all.flat()
+  const spansOf = (n: TextNode) => stories[n.story]?.spans ?? []
+  const spans = one && r ? within(spansOf(one), r) : nodes.flatMap(spansOf)
   const same = <T,>(get: (a: Attrs) => T) => sameOf(spans, get)
   const format = (props: TextProps) => editor.batch(() => nodes.forEach((n) => editor.apply({ type: 'format', id: n.id, range: r, ...props })))
-  const each: Each = (key, f) => editor.batch(() => nodes.forEach((n, i) => eachOf(editor, n.id, all[i], r)(key, f)))
+  const each: Each = (key, f) => editor.batch(() => nodes.forEach((n) => eachOf(editor, n.id, spansOf(n), r)(key, f)))
   const align = same((a) => a.textAlign)
   const hyphenate = same((a) => a.hyphenate)
   const lang = same((a) => a.lang)
@@ -468,7 +470,7 @@ export function TextSection({ editor, nodes }: { editor: Editor; nodes: TextNode
   const langs: Record<string, string> = { ...LANGS }
   if (lang === null) langs.mixed = 'Mixed'
   const conditions: Record<string, string> = { '': 'Always' }
-  for (const v of variables) if (kindOf(Object.values(v.values)[0]) === 'boolean') conditions[v.id] = v.name
+  for (const v of variables) if (kindOf(v) === 'boolean') conditions[v.id] = v.name
 
   return (
     <Section
@@ -493,7 +495,7 @@ export function TextSection({ editor, nodes }: { editor: Editor; nodes: TextNode
                 />
                 <ColorCheck
                   editor={editor}
-                  node={nodes[0]}
+                  modes={nodes[0]?.activeModes}
                   label="Shading"
                   color={shading === null ? undefined : (JSON.parse(shading) as Color)}
                   set={(c) => format({ shading: c })}
@@ -601,7 +603,7 @@ function GrepStyles({ editor, style }: { editor: Editor; style: TextStyle }) {
   const styles = useEditor(editor, (e) => e.snapshot.textStyles)
   const others = Object.fromEntries(styles.filter((s) => s.id !== style.id).map((s) => [s.id, s.name]))
   const set = (grep: Grep[]) => editor.apply({ type: 'setTextStyle', id: style.id, grep })
-  const put = (i: number, g: Partial<Grep>) => set(style.grep.with(i, { ...style.grep[i], ...g }))
+  const put = (i: number, g: Partial<Grep>) => set(style.grep.map((x, j) => (j === i ? { ...x, ...g } : x)))
   const [keys, without] = useRowKeys(style.grep)
   const first = Object.keys(others)[0]
   return (
@@ -681,7 +683,7 @@ export function TextFrameSection({ editor, nodes, set }: { editor: Editor; nodes
           {columned && (
             <ColorCheck
               editor={editor}
-              node={nodes[0]}
+              modes={nodes[0]?.activeModes}
               label="Column rule"
               color={rule && rule.color}
               set={(color) => set({ columnRule: color ? { weight: 1, color } : { ...rule!, weight: 0 } })}
@@ -703,12 +705,12 @@ export function TextFrameSection({ editor, nodes, set }: { editor: Editor; nodes
   )
 }
 
-function ColorCheck({ editor, node, label, color, set, children }: { editor: Editor; node: TextNode; label: string; color: Color | null | undefined; set: (c: Color | null) => void; children?: ReactNode }) {
+function ColorCheck({ editor, modes, label, color, set, children }: { editor: Editor; modes?: Modes; label: string; color: Color | null | undefined; set: (c: Color | null) => void; children?: ReactNode }) {
   const snapshot = useEditor(editor, (e) => e.snapshot)
   return (
     <div className="row">
       <Check label={label} value={color === undefined ? null : !!color} set={(on) => set(on ? neutral('gray', snapshot.colorMode) : null)} />
-      {color && <ColorPicker label={`${label} color`} color={color} mode={snapshot.colorMode} scope={scopeOf(snapshot, node.activeModes)} onChange={set} />}
+      {color && <ColorPicker label={`${label} color`} color={color} mode={snapshot.colorMode} scope={scopeOf(snapshot, modes)} onChange={set} />}
       {children}
     </div>
   )
@@ -718,7 +720,8 @@ export function ContentsSection({ editor, node }: { editor: Editor; node: TextNo
   const styles = useEditor(editor, (e) => e.snapshot.textStyles)
   const toc = node.toc
   const run = (ids: string[]) => editor.apply({ type: 'toc', id: node.id, styles: ids })
-  if (!styles.length) return null
+  const [first] = styles
+  if (!first) return null
   return (
     <Section
       title="Table of contents"
@@ -728,7 +731,7 @@ export function ContentsSection({ editor, node }: { editor: Editor; node: TextNo
             <Icon name="reset" />
           </button>
         ) : (
-          <button type="button" className="icon-button" aria-label="Add table of contents" title="Add table of contents" onClick={() => run([styles[0].id])}>
+          <button type="button" className="icon-button" aria-label="Add table of contents" title="Add table of contents" onClick={() => run([first.id])}>
             <Icon name="plus" />
           </button>
         )
