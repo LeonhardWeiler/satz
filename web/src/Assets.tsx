@@ -34,7 +34,7 @@ export function Assets({ editor }: { editor: Editor }) {
           )}
         <ul className="fonts">
           <li>
-            <span className="swatch-name">{fonts[0].family}</span>
+            <span className="swatch-name">{fonts[0]?.family}</span>
           </li>
           {fonts.slice(editor.engine.fontsBundled()).map((f) => (
             <li key={f.hash}>

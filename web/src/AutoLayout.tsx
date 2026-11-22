@@ -1,4 +1,4 @@
-import { Field, Group, Section, Segmented, Select, SIDE_NAMES, Sides, useSides } from './controls'
+import { Field, Group, Section, Segmented, Select, Sides, useSides } from './controls'
 import type { Editor } from './editor'
 import { Icon } from './icons'
 import type { Layout, Node, Props, Size } from './model'
@@ -49,8 +49,8 @@ export function AutoLayout({ editor, node, set }: { editor: Editor; node: Node &
       what="padding"
       values={padding}
       each={each}
-      renderField={(i, field) => (
-        <Bindable editor={editor} id={node.id} prop={PADDING[i]} title={`${SIDE_NAMES[i]} padding`} label={SIDE_NAMES[i]}>
+      renderField={(side, field) => (
+        <Bindable editor={editor} id={node.id} prop={`padding${side}`} title={`${side} padding`} label={side}>
           {field}
         </Bindable>
       )}
@@ -85,15 +85,16 @@ export function AutoLayout({ editor, node, set }: { editor: Editor; node: Node &
           aria-label="Alignment"
           className="align-grid"
           onKeyDown={(e) => {
-            const [dr, dc] = STEPS[e.key] ?? []
-            if (dr === undefined) return
+            const step = STEPS[e.key]
+            if (!step) return
+            const [dr, dc] = step
             e.preventDefault()
             const cells = [...e.currentTarget.children] as HTMLElement[]
             const i = Math.max(cells.indexOf(document.activeElement as HTMLElement), 0)
             const r = Math.min(Math.max(Math.floor(i / 3) + dr, 0), 2)
             const c = Math.min(Math.max((i % 3) + dc, 0), 2)
             align(r, c)
-            cells[r * 3 + c].focus()
+            cells[r * 3 + c]?.focus()
           }}
         >
           {ROWS.map((row, r) =>

@@ -8,12 +8,15 @@ export function TableSection({ editor, nodes }: { editor: Editor; nodes: Node[] 
   const s = spanOf(editor, nodes)
   if (!s) return null
   const { t, table, c0, c1, r0, r1 } = s
-  const same = (sizes: number[], from: number, to: number) => (sizes.slice(from, to).every((v) => Math.abs(v - sizes[from]) < 1e-6) ? sizes[from] : null)
+  const same = (sizes: number[], from: number, to: number) => {
+    const [first = null, ...rest] = sizes.slice(from, to)
+    return first !== null && rest.every((v) => Math.abs(v - first) < 1e-6) ? first : null
+  }
   const size = (column: boolean, from: number, to: number, v: number) => {
     const sizes = (column ? table.columns : table.rows).map((x, i) => (i >= from && i < to ? v : x))
     editor.apply({ type: 'sizeTable', id: t.id, columns: column ? sizes : table.columns, rows: column ? table.rows : sizes })
   }
-  const items = (list: Action[]) => list.map((a): [string, () => void, boolean] => [a.title, () => a.run(editor), a.can!(editor)])
+  const items = (list: Action[]) => list.map((a): [string, () => void, boolean] => [a.title, () => a.run(editor), a.can?.(editor) ?? true])
   return (
     <Section
       title={`Table ${table.columns.length} × ${table.rows.length}`}

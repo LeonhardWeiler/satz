@@ -85,7 +85,7 @@ export function Start({ editor, onClose }: { editor: Editor; onClose: () => void
     setPreset(p.name)
     setName(p.name)
   }
-  const size = (a: number, b: number) => (land ? [Math.max(a, b), Math.min(a, b)] : [Math.min(a, b), Math.max(a, b)])
+  const size = (a: number, b: number): [number, number] => (land ? [Math.max(a, b), Math.min(a, b)] : [Math.min(a, b), Math.max(a, b)])
 
   const create = async () => {
     if (!(await discard(editor))) return
@@ -128,8 +128,8 @@ export function Start({ editor, onClose }: { editor: Editor; onClose: () => void
         if (at >= 0 && ['ArrowLeft', 'ArrowUp', 'ArrowRight', 'ArrowDown'].includes(e.key)) {
           e.preventDefault()
           const next = tiles[Math.max(0, Math.min(tiles.length - 1, at + (e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1)))]
-          next.click()
-          next.focus()
+          next?.click()
+          next?.focus()
         } else if (e.key === 'Enter' && (at >= 0 || target === ref.current)) {
           e.preventDefault()
           void create()

@@ -38,7 +38,7 @@ export function Settings({ page: first = 'general', onClose }: { page?: Settings
     d.showModal()
     ;(d.querySelector<HTMLElement>('.help-search') ?? d.querySelector<HTMLElement>('nav [aria-current]'))!.focus()
   }, [])
-  const [, how, w, h, r = 0] = REFERENCES[reference]
+  const [, how = '', w = 0, h, r = 0] = REFERENCES[reference] ?? []
   return (
     <dialog ref={ref} className="settings" aria-label="Settings" onClose={onClose} onClick={(e) => e.target === e.currentTarget && ref.current!.close()}>
       <nav aria-label="Settings pages">

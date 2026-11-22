@@ -8,7 +8,12 @@ import { Icon } from './icons'
 import type { Issue, Preset } from './model'
 
 const PPI = 48
-const PLATES = [['Cyan', 'c'], ['Magenta', 'm'], ['Yellow', 'y'], ['Black', 'k']]
+const PLATES = [
+  ['Cyan', 'c'],
+  ['Magenta', 'm'],
+  ['Yellow', 'y'],
+  ['Black', 'k'],
+] as const
 
 const problem = (i: Issue, editor: Editor) =>
   i.problem === 'missingFont' ? `Missing font ${i.font}`

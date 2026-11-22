@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Engine } from './engine/engine'
-import type { Editor } from './editor'
+import { firstPage, type Editor } from './editor'
 import { ask, begin, findGranted, open, openProject, projects, removeProject, show, type Project } from './file'
 import { Icon } from './icons'
 import type { Snapshot } from './types'
@@ -21,8 +21,8 @@ export const ago = (at: number) => {
   return `Edited ${new Date(at).toLocaleDateString()}`
 }
 
-const firstPage = (e: Engine) => {
-  const p = (JSON.parse(e.snapshot()) as Snapshot).pages[0]
+const cover = (e: Engine) => {
+  const p = firstPage(JSON.parse(e.snapshot()) as Snapshot)
   return e.png(p.id, (240 * 72) / Math.max(p.width, p.height))
 }
 
@@ -47,7 +47,7 @@ export function Home({ editor, onNew, children }: { editor: Editor; onNew: () =>
         const e = url ? new Engine() : Engine.sample()
         try {
           if (url) e.load(new Uint8Array(await (await fetch(url)).arrayBuffer()), [])
-          return firstPage(e)
+          return cover(e)
         } catch {
           return undefined
         } finally {

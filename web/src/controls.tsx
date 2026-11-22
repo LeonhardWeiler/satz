@@ -501,8 +501,13 @@ export function useRowKeys<T>(list: T[]): [number[], (i: number) => T[]] {
   ]
 }
 
-export const SIDE_NAMES = ['Top', 'Right', 'Bottom', 'Left']
-export const SIDE_ICONS: IconName[] = ['sideTop', 'sideRight', 'sideBottom', 'sideLeft']
+export const SIDES = [
+  ['Top', 'sideTop'],
+  ['Right', 'sideRight'],
+  ['Bottom', 'sideBottom'],
+  ['Left', 'sideLeft'],
+] as const satisfies [string, IconName][]
+type Side = (typeof SIDES)[number][0]
 
 export function useSides(what: string, id: string, values: (number | null)[], opened?: boolean): [boolean, ReactNode] {
   const [shown, setShown] = useState<{ id: string; each: boolean } | null>(null)
@@ -520,29 +525,29 @@ export function Sides({
   what: string
   values: (number | null)[]
   each: boolean
-  renderField?: (side: number, field: ReactNode) => ReactNode
+  renderField?: (side: Side, field: ReactNode) => ReactNode
   set: (values: (number | null)[]) => void
 }) {
   if (!each)
     return (
       <Field
         label={<Icon name="padding" />}
-        title={`${what[0].toUpperCase()}${what.slice(1)}`}
+        title={`${what.charAt(0).toUpperCase()}${what.slice(1)}`}
         unit="length"
         reset={0}
-        value={values.every((v) => v === values[0]) ? values[0] : null}
+        value={values.every((v) => v === values[0]) ? (values[0] ?? null) : null}
         onCommit={(v) => set(values.map(() => v))}
       />
     )
-  return SIDE_NAMES.map((side, i) => (
+  return SIDES.map(([side, icon], i) => (
     <Fragment key={side}>
-      {renderField(i, <Field label={<Icon name={SIDE_ICONS[i]} />} title={`${side} ${what}`} unit="length" reset={0} value={values[i]} onCommit={(v) => set(values.with(i, v))} />)}
+      {renderField(side, <Field label={<Icon name={icon} />} title={`${side} ${what}`} unit="length" reset={0} value={values[i] ?? null} onCommit={(v) => set(values.with(i, v))} />)}
     </Fragment>
   ))
 }
 
 export function SidesToggle({ what, pressed, disabled, onClick }: { what: string; pressed: boolean | null; disabled?: boolean; onClick: () => void }) {
-  const title = `${what[0].toUpperCase()}${what.slice(1)} of each side`
+  const title = `${what.charAt(0).toUpperCase()}${what.slice(1)} of each side`
   return (
     <button type="button" className="icon-button" aria-label={title} title={title} aria-pressed={pressed ?? 'mixed'} disabled={disabled} onClick={onClick}>
       <Icon name="sides" />

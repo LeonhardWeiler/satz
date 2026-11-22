@@ -1,5 +1,5 @@
 import { neutral, solid } from './color'
-import { Check, Field, Group, NameInput, Section, Segmented, Select, SIDE_ICONS, SIDE_NAMES, SidesToggle, useMore, useRowKeys } from './controls'
+import { Check, Field, Group, NameInput, Section, Segmented, Select, SIDES, SidesToggle, useMore, useRowKeys } from './controls'
 import { useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ContextMenu } from './ContextMenu'
@@ -498,13 +498,13 @@ export function Properties({ editor }: { editor: Editor }) {
                 </>
               )}
               {sided && one?.strokeSides?.length === 4 &&
-                SIDE_NAMES.map((side, i) => (
+                SIDES.map(([side, icon], i) => (
                   <Field
                     key={side}
-                    label={<Icon name={SIDE_ICONS[i]} />}
+                    label={<Icon name={icon} />}
                     title={`${side} stroke`}
                     unit="pt"
-                    value={one.strokeSides[i]}
+                    value={one.strokeSides[i] ?? null}
                     onCommit={(v) => set({ strokeSides: one.strokeSides.map((w, j) => (j === i ? v : w)) })}
                   />
                 ))}
