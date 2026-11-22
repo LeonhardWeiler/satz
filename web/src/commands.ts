@@ -41,7 +41,7 @@ export function addPage(editor: Editor) {
 
 const selected = (editor: Editor) => editor.selection.length > 0
 const copy = (editor: Editor) => void navigator.clipboard.writeText(editor.copy(editor.selection)).catch((e: unknown) => editor.fail(`Could not copy: ${(e as Error).message}.`))
-const each = (editor: Editor, f: (n: Node) => unknown) => editor.batch(() => editor.selected().forEach(f))
+const each = (editor: Editor, f: (n: Node) => unknown, nodes = editor.selected()) => editor.batch(() => nodes.forEach(f))
 const toggle = (editor: Editor, prop: 'hidden' | 'locked') => {
   const on = editor.selected().some((n) => !n[prop])
   each(editor, (n) => editor.apply({ type: 'set', id: n.id, [prop]: on }))
@@ -151,8 +151,8 @@ export const ACTIONS: Action[] = [
   { title: 'Ungroup', keys: 'Ctrl Shift G', group: 'Arrange', can: (editor) => editor.selected().some((n) => n.kind === 'group' || n.kind === 'frame'), run: (editor) => editor.set({ selection: editor.apply({ type: 'ungroup', ids: editor.selection }) }) },
   { title: 'Use as mask', keys: 'Ctrl Alt M', group: 'Arrange', run: (editor) => editor.set({ selection: editor.apply({ type: 'mask', ids: editor.selection }) }) },
   { title: 'Flatten', keys: 'Ctrl E', group: 'Arrange', can: (editor) => editor.selected().some((n) => n.kind === 'text' || n.kind === 'shape'), run: (editor) => each(editor, (n) => (n.kind === 'text' || n.kind === 'shape') && editor.apply({ type: 'flatten', id: n.id })) },
-  { title: 'Flip horizontal', keys: 'Shift H', group: 'Arrange', run: (editor) => each(editor, (n) => editor.apply({ type: 'flip', id: n.id, vertical: false })) },
-  { title: 'Flip vertical', keys: 'Shift V', group: 'Arrange', run: (editor) => each(editor, (n) => editor.apply({ type: 'flip', id: n.id, vertical: true })) },
+  { title: 'Flip horizontal', keys: 'Shift H', group: 'Arrange', run: (editor) => each(editor, (n) => editor.apply({ type: 'flip', id: n.id, vertical: false }), editor.changeable()) },
+  { title: 'Flip vertical', keys: 'Shift V', group: 'Arrange', run: (editor) => each(editor, (n) => editor.apply({ type: 'flip', id: n.id, vertical: true }), editor.changeable()) },
   { title: 'Add auto layout', keys: 'Shift A', group: 'Arrange', run: (editor) => editor.set({ selection: editor.apply({ type: 'autoLayout', ids: editor.selection }) }) },
   { title: 'Remove auto layout', keys: 'Alt Shift A', group: 'Arrange', run: (editor) => each(editor, (n) => n.direction !== 'none' && editor.apply({ type: 'set', id: n.id, direction: 'none' })) },
   { title: 'Bring forward', keys: 'Ctrl ]', group: 'Arrange', run: (editor) => editor.apply({ type: 'order', ids: editor.selection, to: 'forward' }) },

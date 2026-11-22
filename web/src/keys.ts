@@ -94,7 +94,7 @@ function context(editor: Editor, e: KeyboardEvent) {
     const step = (e.shiftKey ? 1 : 0.1) * MM
     const [dx, dy] = arrow
     editor.batch(() => {
-      for (const n of editor.selected()) editor.apply({ type: 'setFrame', id: n.id, x: n.x + dx * step, y: n.y + dy * step, w: n.w, h: n.h })
+      for (const n of editor.changeable()) editor.apply({ type: 'setFrame', id: n.id, x: n.x + dx * step, y: n.y + dy * step, w: n.w, h: n.h })
     })
   } else return false
   return true
