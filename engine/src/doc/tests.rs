@@ -2938,7 +2938,8 @@ fn fixture_types() {
     let mut ts: String = d.1.values().map(|v| format!("export {v}\n")).collect();
     let list = |l: &[&str]| serde_json::to_string(l).unwrap();
     ts += &format!(
-        "export type Sheet = Omit<Page, \"children\"> & {{ children: Array<string | Node> }}\nexport type Changes = Omit<Snapshot, keyof Delta> & Delta\nexport type Process = Extract<Color, number | {{ cmyk: Array<number> }}>\nexport const MM = {MM}\nexport const SELECTION = {:?}\nexport const STYLED = {} as const\nexport type Styled = (typeof STYLED)[number]\nexport const BINDABLE = {{{}}} as const\nexport type Bindable = keyof typeof BINDABLE | Styled\n",
+        "export type Sheet = Omit<Page, \"children\"> & {{ children: Array<string | Node> }}\nexport type Changes = Omit<Snapshot, keyof Delta> & Delta\nexport type Process = Extract<Color, number | {{ cmyk: Array<number> }}>\nexport const MM = {MM}\nexport const ANCHOR = \"{}\"\nexport const SELECTION = {:?}\nexport const STYLED = {} as const\nexport type Styled = (typeof STYLED)[number]\nexport const BINDABLE = {{{}}} as const\nexport type Bindable = keyof typeof BINDABLE | Styled\n",
+        crate::text::ANCHOR.escape_unicode(),
         SELECTION,
         list(&STYLED),
         BINDABLE.map(|(p, s)| format!("\"{p}\": {s}")).join(", "),

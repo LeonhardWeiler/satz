@@ -78,6 +78,7 @@ export type Sheet = Omit<Page, "children"> & { children: Array<string | Node> }
 export type Changes = Omit<Snapshot, keyof Delta> & Delta
 export type Process = Extract<Color, number | { cmyk: Array<number> }>
 export const MM = 2.834645669291339
+export const ANCHOR = "\u{fffc}"
 export const SELECTION = [0.302, 0.486, 1.0, 0.3]
 export const STYLED = ["size","lineHeight","letterSpacing","paragraphSpacing","paragraphIndent","indentLeft","indentRight","spaceBefore","font","textCase","textDecoration","features","axes","position","baselineShift","dropLines","dropChars","keepLines","keepTogether","keepNext","tabs","list"] as const
 export type Styled = (typeof STYLED)[number]

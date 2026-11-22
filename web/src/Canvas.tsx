@@ -12,7 +12,7 @@ import { edgeScroll } from './scroll'
 import { length, settings, subscribeSettings, UNITS } from './settings'
 import { equals, guides, measure, nearest, snap, spacings, targets, type Guide, type Lines, type Measure } from './snap'
 import { curved, nearest as nearestSegment, remove, shift, smooth, split, type At, type Contour, type Knot } from './vector'
-import { handleTextKey, insert, range, select, textOf, wordAt } from './textEdit'
+import { handleTextKey, insert, select, wordAt } from './textEdit'
 import { MasterBanner } from './Switcher'
 import { Keys } from './controls'
 import { selectedCells } from './cells'
@@ -1512,13 +1512,11 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
               insert(editor, e.data)
             }}
             onCopy={(e) => {
-              const [a, b] = range(editor.editing!)
-              e.clipboardData.setData('text/plain', textOf(editor).slice(a, b))
+              e.clipboardData.setData('text/plain', editor.selectedText())
               e.preventDefault()
             }}
             onCut={(e) => {
-              const [a, b] = range(editor.editing!)
-              e.clipboardData.setData('text/plain', textOf(editor).slice(a, b))
+              e.clipboardData.setData('text/plain', editor.selectedText())
               insert(editor, '')
               e.preventDefault()
             }}
