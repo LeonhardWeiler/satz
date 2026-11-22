@@ -22,13 +22,14 @@ export const selectedCells = (editor: Editor) =>
 export function tab(editor: Editor, id: string, back: boolean) {
   const t = editor.nodes.get(id)?.parent
   const n = editor.nodes.get(id)?.node
-  if (!t?.table || n?.kind !== 'text' || !n.cell) return
+  if (!t?.table || n?.kind !== 'text' || !n.cell) return false
   const at = cellsOf(t).findIndex((c) => c.id === id) + (back ? -1 : 1)
-  if (at < 0) return
+  if (at < 0) return true
   if (at === cellsOf(t).length) editor.apply({ type: 'tableInsert', id: t.id, column: false, at: t.table.rows.length })
   const fresh = editor.nodes.get(t.id)?.node
   const to = fresh && 'children' in fresh ? cellsOf(fresh)[at] : undefined
   if (to) editor.set({ selection: [to.id], editing: { id: to.id, anchor: 0, focus: editor.storyOf(to).text.length } })
+  return true
 }
 
 export function spanOf(editor: Editor, nodes: Node[]) {

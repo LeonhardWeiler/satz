@@ -47,7 +47,7 @@
 ## Text
 
 - Frames that are auto width, auto height (with a min height) or fixed; fit frame to text
-- Fonts, size, leading, tracking, case, decoration, OpenType features, variable font axes, indents, alignment
+- Fonts, size, leading, tracking, case, decoration, OpenType features, variable font axes, indents, alignment, tab stops with alignment and leaders (Tab types a tab outside table cells, Escape leaves the text)
 - Knuth-Plass line breaking, hyphenation per language, baseline grid, columns with column rules, paragraph shading, insets, vertical alignment, max lines, trim
 - Text styles with GREP styles (what a regular expression matches in their paragraphs takes another text style), special characters, lorem ipsum, find and replace across stories
 - Table of contents from the paragraphs of chosen text styles, one level each, with dot leaders and page numbers; updates on demand

@@ -156,12 +156,10 @@ export function handleTextKey(editor: Editor, e: KeyboardEvent): boolean {
   else if (mod && key === 'a') select(editor, 0, text.length)
   else if (e.key === 'Tab') {
     const m = a === b && /\blorem(\d+)?$/i.exec(text.slice(0, a))
-    if (!m) {
-      tab(editor, ed.id, e.shiftKey)
-      return true
-    }
-    select(editor, a - m[0].length, a)
-    insert(editor, lorem(Math.min(Math.max(Number(m[1] ?? 10), 1), 10000)))
+    if (m) {
+      select(editor, a - m[0].length, a)
+      insert(editor, lorem(Math.min(Math.max(Number(m[1] ?? 10), 1), 10000)))
+    } else if (!tab(editor, ed.id, e.shiftKey) && !e.shiftKey) insert(editor, '\t')
   } else return false
   return true
 }
