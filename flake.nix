@@ -21,6 +21,19 @@
           extensions = [ "clippy" "rustfmt" "rust-src" "rust-analyzer" ];
           targets = [ "wasm32-unknown-unknown" ];
         };
+        rustc-wrapper = pkgs.writeShellScript "rustc-wrapper" ''
+          if [ -d "''${OUT_DIR-}" ]; then
+            key=$(cd "$OUT_DIR" && find . -type f -print0 | sort -z | xargs -0r sha256sum | sha256sum | cut -c1-16)
+            out=''${XDG_CACHE_HOME:-$HOME/.cache}/satz/out/$key
+            if [ ! -d "$out" ]; then
+              mkdir -p "''${out%/*}"
+              cp -rT "$OUT_DIR" "$out.$$"
+              mv -T "$out.$$" "$out" 2>/dev/null || :
+            fi
+            export OUT_DIR=$out
+          fi
+          exec ${pkgs.sccache}/bin/sccache "$@"
+        '';
         e2e = {
           packages = with pkgs; [
             nodejs_24
@@ -48,7 +61,9 @@
             perl
             librsvg
             typescript
+            sccache
           ]);
+          RUSTC_WRAPPER = rustc-wrapper;
         });
         devShells.e2e = pkgs.mkShell e2e;
       });

@@ -29,6 +29,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
+            ~/.cache/satz
           key: cargo-rust-${{ hashFiles('Cargo.lock', 'flake.lock', '**/Cargo.toml') }}
       - run: nix develop -c ./check rust
 
@@ -46,6 +47,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
+            ~/.cache/satz
           key: cargo-web-${{ hashFiles('Cargo.lock', 'flake.lock', '**/Cargo.toml') }}
       - run: nix develop -c ./check web
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
