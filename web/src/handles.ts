@@ -114,12 +114,13 @@ export function resized(box: Box, handle: string, d: Point, keys: { altKey: bool
     const sw = Math.abs((r - l) / box.w)
     const sh = Math.abs((b - t) / box.h)
     const s = !/[ns]/.test(handle) ? sw : !/[ew]/.test(handle) ? sh : Math.max(sw, sh)
-    const cx = handle.includes('w') ? r : handle.includes('e') ? l : (l + r) / 2
-    const cy = handle.includes('n') ? b : handle.includes('s') ? t : (t + b) / 2
+    const edge = keys.altKey ? '' : handle
+    const cx = edge.includes('w') ? r : edge.includes('e') ? l : (l + r) / 2
+    const cy = edge.includes('n') ? b : edge.includes('s') ? t : (t + b) / 2
     const w = box.w * s * Math.sign(r - l || 1)
     const h = box.h * s * Math.sign(b - t || 1)
-    ;[l, r] = handle.includes('w') ? [cx - w, cx] : handle.includes('e') ? [cx, cx + w] : [cx - w / 2, cx + w / 2]
-    ;[t, b] = handle.includes('n') ? [cy - h, cy] : handle.includes('s') ? [cy, cy + h] : [cy - h / 2, cy + h / 2]
+    ;[l, r] = edge.includes('w') ? [cx - w, cx] : edge.includes('e') ? [cx, cx + w] : [cx - w / 2, cx + w / 2]
+    ;[t, b] = edge.includes('n') ? [cy - h, cy] : edge.includes('s') ? [cy, cy + h] : [cy - h / 2, cy + h / 2]
   }
   const sx = box.w ? (r - l) / box.w : 1
   const sy = box.h ? (b - t) / box.h : 1
