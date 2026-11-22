@@ -681,7 +681,7 @@ export function onTrap(f: () => void) {
       if (k === 'constructor' || typeof m !== 'function') continue
       o[k] = function (this: unknown, ...a: unknown[]) {
         try {
-          return m.apply(this, a)
+          return m.apply(this, a) as unknown
         } catch (e) {
           if (e instanceof WebAssembly.RuntimeError) f()
           throw e
