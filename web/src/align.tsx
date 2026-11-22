@@ -38,7 +38,7 @@ const frameOf = (editor: Editor, id?: string) => {
 }
 
 export function align(editor: Editor, how: Align, layers = editor.selected()) {
-  const nodes = layers.filter((n) => !n.locked)
+  const nodes = editor.changeable(layers)
   const to = nodes.length > 1 ? bounds(nodes) : frameOf(editor, nodes[0]?.id) ?? { x: 0, y: 0, w: editor.page.width, h: editor.page.height }
   const moves = new Map<Node, [number, number]>()
   const sorted = (x: 'x' | 'y', w: 'w' | 'h') => [...nodes].sort((a, b) => a[x] + a[w] / 2 - b[x] - b[w] / 2)

@@ -25,7 +25,7 @@
 - Group, ungroup, masks, booleans (union, subtract, intersect, exclude), flatten shapes and text to outlines
 - Move, resize, rotate, flip, align, distribute, swap places by dragging centres; the gap between layers in a row shows in the panel and drags on the canvas
 - Auto layout with direction, gap, padding, alignment, hug, fill and absolute children; a frame that would hug only filling layers turns fixed with a note; constraints in frames
-- Layers tree with drag and drop, hide, lock, rename and keyboard navigation
+- Layers tree with drag and drop, hide, lock, rename and keyboard navigation; a locked layer stays put when the canvas, the arrow keys, align or flip change its selection, the panel still edits it
 - Copy, paste, duplicate, alt-drag, eyedropper
 - Distances on alt, smart guides, snapping that ctrl turns off
 

@@ -975,7 +975,8 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         return
       }
       if (handle?.startsWith('rotate')) {
-        const nodes = editor.selected()
+        const nodes = editor.changeable()
+        if (!nodes.length) return
         const b = boxOf(nodes)
         const c = { x: b.x + b.w / 2, y: b.y + b.h / 2 }
         drag = { kind: 'rotate', c, from: angle(c, p), nodes, handle, turn: b.rotation ?? 0, by: 0 }
@@ -983,7 +984,8 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         return
       }
       if (handle) {
-        const frames = editor.selected()
+        const frames = editor.changeable()
+        if (!frames.length) return
         const [turn, own] = turnOf(frames)
         const snaps = snapsNow()
         const image = (editor.cropping !== null || e.ctrlKey || e.metaKey) && frames.length === 1 && first && imageBox(first, placed(first))
@@ -1014,7 +1016,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         return
       }
       if (!sel.includes(id)) editor.set({ selection: [id] })
-      drag = { kind: 'move', start: p, frames: editor.selected(), active: false }
+      drag = { kind: 'move', start: p, frames: editor.changeable(), active: false }
     }
     const onPointerMove = (e: PointerEvent) => {
       const p = toDoc(e)
@@ -1131,12 +1133,12 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         let dx = p.x - drag.start.x
         let dy = p.y - drag.start.y
         if (!drag.active) {
-          if (Math.hypot(dx, dy) * view.zoom <= DRAG) return
+          if (Math.hypot(dx, dy) * view.zoom <= DRAG || !drag.frames.length) return
           drag.active = true
           editor.beginGroup()
           if (e.altKey) {
             editor.duplicate(drag.frames.map((n) => n.id), false)
-            drag.frames = editor.selected()
+            drag.frames = editor.changeable()
           }
           drag.box = bounds(drag.frames.map(covered))
           drag.snaps = snapsNow()
@@ -1152,7 +1154,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         if (loose && ids.some((id) => flowing(editor.nodes.get(id)?.parent))) {
           const page = pageAt(p)
           editor.apply({ type: 'move', ids, parent: page.id, index: page.children.length })
-          drag.frames = editor.selected()
+          drag.frames = editor.changeable()
           drag.start = p
           drag.box = bounds(drag.frames.map(covered))
           dx = dy = 0

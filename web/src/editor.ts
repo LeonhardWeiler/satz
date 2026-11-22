@@ -646,6 +646,10 @@ export class Editor {
     window.addEventListener('pointerup', () => this.endGroup(), { once: true })
   }
 
+  changeable(nodes = this.selected()): Node[] {
+    return nodes.filter((n) => !n.locked)
+  }
+
   selected(): Node[] {
     return this.selection.flatMap((id) => this.nodes.get(id)?.node ?? [])
   }

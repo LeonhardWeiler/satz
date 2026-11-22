@@ -1,7 +1,9 @@
 import { readFileSync } from 'node:fs'
 import { expect, test, vi } from 'vite-plus/test'
+import { ACTIONS } from './commands'
 import { Editor } from './editor'
 import { Engine, initSync } from './engine/engine'
+import { onKey } from './keys'
 import type { Command, EngineError, Snapshot } from './model'
 
 test('the snapshot the editor merges from changes equals the full one', () => {
@@ -104,4 +106,34 @@ test('moving the pointer does not notify pointer listeners', () => {
   editor.subscribePointer(listener)
   editor.pointer = { x: 10, y: 20 }
   expect(listener).not.toHaveBeenCalled()
+})
+
+test('commands that move or resize the selection leave its locked layers alone', () => {
+  initSync({ module: readFileSync(new URL('engine/engine_bg.wasm', import.meta.url)) })
+  vi.stubGlobal('document', { querySelector: () => null })
+  vi.stubGlobal('Element', Object)
+  vi.stubGlobal('HTMLElement', Object)
+  const run = (title: string) => (editor: Editor) => ACTIONS.find((a) => a.title === title)!.run(editor)
+  const key = (k: string) => (editor: Editor) => onKey(editor, { key: k, code: k, preventDefault: () => {} } as unknown as KeyboardEvent)
+  const commands = {
+    nudge: key('ArrowRight'),
+    'nudge down': key('ArrowDown'),
+    'align left': run('Align left'),
+    'align bottom': run('Align bottom'),
+    distribute: run('Distribute horizontal spacing'),
+    tidy: run('Tidy up'),
+    flip: run('Flip horizontal'),
+  }
+  for (const [name, command] of Object.entries(commands)) {
+    const editor = new Editor(Engine.sample())
+    const parent = editor.page.id
+    const ids = [0, 1, 2, 3].flatMap((i) => editor.apply({ type: 'create', parent, kind: 'rect', x: 10 + i * 40, y: 10 + i * 15, w: 20 + i * 5, h: 20 }))
+    editor.apply({ type: 'set', id: ids[1]!, locked: true })
+    editor.set({ selection: ids })
+    const before = editor.selected()
+    command(editor)
+    expect(editor.selected()[1], name).toEqual(before[1])
+    expect(editor.selected(), name).not.toEqual(before)
+  }
+  vi.unstubAllGlobals()
 })
