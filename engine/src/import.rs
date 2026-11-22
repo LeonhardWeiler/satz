@@ -226,10 +226,13 @@ fn scale([a, b, c, d, ..]: [f32; 6]) -> f32 {
 }
 
 fn svg(bytes: &[u8]) -> Res<Sheet> {
-    let tree =
-        usvg::Tree::from_data(bytes, &usvg::Options::default()).map_err(|e| Error::NotAnSvg {
-            message: e.to_string(),
-        })?;
+    let options = usvg::Options {
+        dpi: 72.0,
+        ..Default::default()
+    };
+    let tree = usvg::Tree::from_data(bytes, &options).map_err(|e| Error::NotAnSvg {
+        message: e.to_string(),
+    })?;
     let mut items = Vec::new();
     svg_group(tree.root(), 1.0, &mut items);
     let size = tree.size();
@@ -703,6 +706,24 @@ mod tests {
             [150.0, 10.0, 20.0, 20.0]
         );
         assert_eq!(image.style.fills[0].kind, FillKind::Image);
+    }
+
+    #[test]
+    fn svg_sizes_in_absolute_units_import_as_points() {
+        for (w, h, pt) in [
+            ("210mm", "297mm", (595.28, 841.89)),
+            ("2.54cm", "5.08cm", (72.0, 144.0)),
+            ("1in", "0.5in", (72.0, 36.0)),
+        ] {
+            let svg =
+                format!(r#"<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}"/>"#);
+            let pages = layers(&import(svg.as_bytes(), "a.svg").unwrap());
+            let (pw, ph) = (pages[0].0, pages[0].1);
+            assert!(
+                (pw - pt.0).abs() < 0.01 && (ph - pt.1).abs() < 0.01,
+                "{w} {h}: {pw} {ph}"
+            );
+        }
     }
 
     #[test]
