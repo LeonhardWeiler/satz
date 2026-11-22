@@ -1,4 +1,4 @@
-import { expect, test, choose, colors, drag, drawn, MM, near, open, pixels, screen, steady } from './util'
+import { expect, test, autosaved, choose, colors, drag, drawn, MM, near, open, pixels, screen, steady } from './util'
 
 
 test('moving a gradient layer leaves the page and the handles alone', async ({ page }) => {
@@ -335,6 +335,7 @@ test('side panels are resized at their inner edge and keep their size after a re
   await drag(page, [box.x + 2, box.y + 300], [box.x - 98, box.y + 300])
   const width = async () => Math.round((await right.boundingBox())!.width)
   await expect.poll(width).toBe(Math.round(box.width) + 100)
+  await autosaved(page, false)
   await page.reload()
   await expect.poll(width).toBe(Math.round(box.width) + 100)
   await page.mouse.dblclick(box.x - 98, box.y + 300)
