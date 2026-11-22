@@ -109,7 +109,8 @@ export default defineConfig({
       ),
     },
     overrides: [
-      { files: ['src/**'], rules: { 'eslint/no-restricted-properties': ['error', { object: 'WebAssembly', property: 'RuntimeError', message: 'A trap reaches stop() through Engine.onPanic.' }] } },
+      { files: ['src/**'], rules: { 'eslint/no-restricted-properties': ['error', { object: 'WebAssembly', property: 'RuntimeError', message: 'A trap reaches stop() through Engine.onPanic.' }, { object: 'window', property: 'localStorage', message: 'Stored data goes through load and store in settings.ts.' }] } },
+      { files: ['src/**'], excludeFiles: ['src/settings.ts'], rules: { 'eslint/no-restricted-globals': ['error', { name: 'localStorage', message: 'Stored data goes through load and store in settings.ts.' }] } },
       { files: ['src/ContextMenu.tsx'], rules: { 'react/no-array-index-key': 'off', 'typescript/no-base-to-string': 'off' } },
       { files: ['e2e/**', 'shots/**', 'src/**/*.test.ts', 'lint/**/*.test.ts'], excludeFiles: ['**/playwright.config.ts'], rules: { 'satz/no-test-timing': 'error' } },
       { files: ['src/**'], excludeFiles: ['src/**/*.test.ts', 'src/ColorPicker.tsx', 'src/Canvas.tsx'], rules: { 'satz/no-hex-color': 'error' } },

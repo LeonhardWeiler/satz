@@ -6,7 +6,7 @@ import { ContextMenu } from './ContextMenu'
 import { evalExpr, step } from './field'
 import { Icon, type IconName } from './icons'
 import type { Typeface } from './model'
-import { MAX_LENGTH, UNITS, useSettings } from './settings'
+import { MAX_LENGTH, UNITS, load, store, useSettings } from './settings'
 
 export const FOCUSABLE = 'button:enabled, input:enabled, select:enabled, textarea:enabled, a[href], [tabindex]:not([tabindex="-1"])'
 
@@ -421,12 +421,11 @@ export function Segmented<T extends string>({
 }
 
 const SIZES = 'satz.panels'
-let sizes = new Map<string, number>()
+const sizes = load(SIZES, { left: 0, right: 0 })
 let grab = 0
 
 export function restorePanels() {
-  sizes = new Map(Object.entries(JSON.parse(localStorage.getItem(SIZES) ?? '{}') as Record<string, number>))
-  for (const [side, v] of sizes) document.documentElement.style.setProperty(`--${side}-size`, `${v}px`)
+  for (const [side, v] of Object.entries(sizes)) if (v) document.documentElement.style.setProperty(`--${side}-size`, `${v}px`)
 }
 
 export function Edge({ side }: { side: 'left' | 'right' }) {
@@ -445,13 +444,13 @@ export function Edge({ side }: { side: 'left' | 'right' }) {
         if (!e.currentTarget.hasPointerCapture(e.pointerId)) return
         const v = Math.round(Math.min(560, Math.max(200, at(e) - grab)))
         document.documentElement.style.setProperty(`--${side}-size`, `${v}px`)
-        sizes.set(side, v)
+        sizes[side] = v
       }}
-      onPointerUp={() => localStorage.setItem(SIZES, JSON.stringify(Object.fromEntries(sizes)))}
+      onPointerUp={() => store(SIZES, sizes)}
       onDoubleClick={() => {
         document.documentElement.style.removeProperty(`--${side}-size`)
-        sizes.delete(side)
-        localStorage.setItem(SIZES, JSON.stringify(Object.fromEntries(sizes)))
+        sizes[side] = 0
+        store(SIZES, sizes)
       }}
     />
   )
