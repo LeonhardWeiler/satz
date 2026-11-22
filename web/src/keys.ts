@@ -44,7 +44,7 @@ export function isTyping(e: Event) {
 
 export function comboOf(e: KeyboardEvent) {
   if (['Control', 'Meta', 'Alt', 'Shift'].includes(e.key)) return null
-  const named = (i: 0 | 1, v: string) => Object.keys(KEYS).find((k) => KEYS[k][i] === v)
+  const named = (i: 0 | 1, v: string) => Object.entries(KEYS).find(([, names]) => names[i] === v)?.[0]
   const letter = /^[a-z]$/.test(keyOf(e)) && keyOf(e).toUpperCase()
   const digit = /^Digit\d$/.test(e.code) && e.code.at(-1)!
   const code = !letter && !digit && !named(0, e.key) && e.key !== 'Backspace' && named(1, e.code)
@@ -57,11 +57,12 @@ function mode(editor: Editor, e: KeyboardEvent) {
   const bare = !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey
   const key = keyOf(e)
   const done = e.key === 'Escape' || e.key === 'Enter'
+  const tool = VECTOR_KEYS[key]
   if (editor.overview && e.key === 'Escape') editor.set({ overview: null })
   else if (editor.preflight && e.key === 'Escape') editor.togglePreflight()
   else if (editor.vector && done) editor.set({ vector: null })
   else if (editor.vector?.at.length && (e.key === 'Delete' || e.key === 'Backspace')) editor.setKnots(remove(editor.knots(), editor.vector.at))
-  else if (editor.vector && bare && key in VECTOR_KEYS) editor.set({ vector: { ...editor.vector, mode: VECTOR_KEYS[key] } })
+  else if (editor.vector && bare && tool) editor.set({ vector: { ...editor.vector, mode: tool } })
   else if (editor.cropping && done) editor.set({ cropping: null })
   else if (editor.placing.length && e.key === 'Escape') editor.set({ placing: [] })
   else if (editor.threading && e.key === 'Escape') editor.set({ threading: null })
@@ -73,7 +74,8 @@ function mode(editor: Editor, e: KeyboardEvent) {
 function context(editor: Editor, e: KeyboardEvent) {
   const mod = e.ctrlKey || e.metaKey
   const ids = editor.selection
-  const one = editor.nodes.get(ids[0])
+  const one = editor.nodes.get(ids[0] ?? '')
+  const arrow = ARROWS[e.key]
   if (mod || e.altKey) return false
   if (e.key === 'Escape') {
     if (editor.tool !== 'move') editor.setTool('move')
@@ -81,14 +83,14 @@ function context(editor: Editor, e: KeyboardEvent) {
     else editor.set({ selection: one?.parent ? [one.parent.id] : [], guide: null })
   } else if (e.key === 'Tab' && (e.target === document.body || (e.target as Element).classList?.contains('canvas'))) {
     const list = siblings(editor).toReversed()
-    if (!list.length) return false
-    const i = list.indexOf(ids[0])
-    editor.set({ selection: [list[(i + (e.shiftKey ? -1 : 1) + list.length) % list.length]] })
+    const next = list[(list.indexOf(ids[0] ?? '') + (e.shiftKey ? -1 : 1) + list.length) % list.length]
+    if (!next) return false
+    editor.set({ selection: [next] })
   } else if (!ids.length) return false
   else if (e.key === 'Enter') enter(editor, e.shiftKey)
-  else if (ARROWS[e.key]) {
+  else if (arrow) {
     const step = (e.shiftKey ? 1 : 0.1) * MM
-    const [dx, dy] = ARROWS[e.key]
+    const [dx, dy] = arrow
     editor.batch(() => {
       for (const n of editor.selected()) editor.apply({ type: 'setFrame', id: n.id, x: n.x + dx * step, y: n.y + dy * step, w: n.w, h: n.h })
     })
@@ -119,7 +121,7 @@ export function onKey(editor: Editor, e: KeyboardEvent) {
 
 export function enter(editor: Editor, up: boolean) {
   const ids = editor.selection
-  const one = editor.nodes.get(ids[0])
+  const one = editor.nodes.get(ids[0] ?? '')
   if (up) {
     if (one?.parent && editor.selected().every((n) => editor.nodes.get(n.id)?.parent === one.parent)) editor.set({ selection: [one.parent.id] })
   } else if (one?.node.kind === 'shape' && ids.length === 1) editor.editPath(one.node.id)

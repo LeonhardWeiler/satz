@@ -15,21 +15,23 @@ export function contours(path: ArrayLike<number>): Contour[] {
   let knots: Knot[] = []
   for (let i = 0; i < path.length; ) {
     const v = path[i]
+    const p = (k: number) => path[i + k] ?? 0
     if (v === MOVE) {
-      knots = [knot(path[i + 1], path[i + 2])]
+      knots = [knot(p(1), p(2))]
       out.push({ knots, closed: false })
       i += 3
     } else if (v === LINE) {
-      knots.push(knot(path[i + 1], path[i + 2]))
+      knots.push(knot(p(1), p(2)))
       i += 3
     } else if (v === CUBIC) {
-      Object.assign(knots.at(-1)!, { ox: path[i + 1], oy: path[i + 2] })
-      knots.push({ ...knot(path[i + 5], path[i + 6]), ix: path[i + 3], iy: path[i + 4] })
+      Object.assign(knots.at(-1) ?? {}, { ox: p(1), oy: p(2) })
+      knots.push({ ...knot(p(5), p(6)), ix: p(3), iy: p(4) })
       i += 7
     } else {
-      out.at(-1)!.closed = true
-      const [first, last] = [knots[0], knots.at(-1)!]
-      if (knots.length > 1 && Math.hypot(first.x - last.x, first.y - last.y) < 1e-3) {
+      const contour = out.at(-1)
+      if (contour) contour.closed = true
+      const [first, last] = [knots[0], knots.at(-1)]
+      if (first && last && knots.length > 1 && Math.hypot(first.x - last.x, first.y - last.y) < 1e-3) {
         Object.assign(first, { ix: last.ix, iy: last.iy })
         knots.pop()
       }
@@ -46,10 +48,16 @@ export function toPath(cs: Contour[]): number[] {
     else path.push(CUBIC, a.ox, a.oy, b.ix, b.iy, b.x, b.y)
   }
   for (const { knots, closed } of cs) {
-    path.push(MOVE, knots[0].x, knots[0].y)
-    for (let i = 1; i < knots.length; i++) segment(knots[i - 1], knots[i])
+    const [first, ...rest] = knots
+    if (!first) continue
+    path.push(MOVE, first.x, first.y)
+    let last = first
+    for (const k of rest) {
+      segment(last, k)
+      last = k
+    }
     if (closed) {
-      segment(knots.at(-1)!, knots[0])
+      segment(last, first)
       path.push(CLOSE)
     }
   }
@@ -58,7 +66,10 @@ export function toPath(cs: Contour[]): number[] {
 
 function segments(cs: Contour[]) {
   return cs.flatMap(({ knots, closed }, c) =>
-    knots.flatMap((a, i) => (i + 1 < knots.length || (closed && knots.length > 1) ? [{ at: [c, i] as At, a, b: knots[(i + 1) % knots.length] }] : [])),
+    knots.flatMap((a, i) => {
+      const b = knots[(i + 1) % knots.length]
+      return b && (i + 1 < knots.length || (closed && knots.length > 1)) ? [{ at: [c, i] as At, a, b }] : []
+    }),
   )
 }
 
@@ -83,8 +94,9 @@ export function nearest(cs: Contour[], p: Point) {
 
 export function split(cs: Contour[], [c, i]: At, t: number): Contour[] {
   const out = structuredClone(cs)
-  const knots = out[c].knots
+  const knots = out[c]?.knots ?? []
   const [a, b] = [knots[i], knots[(i + 1) % knots.length]]
+  if (!a || !b) return out
   const { p01, p23, p012, p123, p } = bezier(a, b, t)
   const line = isLine(a, b)
   if (!line) {
@@ -105,11 +117,10 @@ export const curved = (k: Knot) => k.ix !== k.x || k.iy !== k.y || k.ox !== k.x 
 
 export function smooth(cs: Contour[], [c, i]: At, on: boolean): Contour[] {
   const out = structuredClone(cs)
-  const { knots, closed } = out[c]
-  const k = knots[i]
+  const { knots = [], closed = false } = out[c] ?? {}
   const n = knots.length
-  const prev = knots[closed ? (i + n - 1) % n : Math.max(i - 1, 0)]
-  const next = knots[closed ? (i + 1) % n : Math.min(i + 1, n - 1)]
+  const [k, prev, next] = [i, closed ? (i + n - 1) % n : Math.max(i - 1, 0), closed ? (i + 1) % n : Math.min(i + 1, n - 1)].map((j) => knots[j])
+  if (!k || !prev || !next) return out
   const [dx, dy] = [next.x - prev.x, next.y - prev.y]
   const len = (Math.hypot(dx, dy) || 1) * 3
   const [a, b] = on ? [Math.hypot(k.x - prev.x, k.y - prev.y) / len, Math.hypot(next.x - k.x, next.y - k.y) / len] : [0, 0]
@@ -120,7 +131,8 @@ export function smooth(cs: Contour[], [c, i]: At, on: boolean): Contour[] {
 export function shift(cs: Contour[], at: At[], part: 'point' | 'in' | 'out', dx: number, dy: number): Contour[] {
   const out = structuredClone(cs)
   for (const [c, i] of at) {
-    const k = out[c].knots[i]
+    const k = out[c]?.knots[i]
+    if (!k) continue
     if (part !== 'out') Object.assign(k, { ix: k.ix + dx, iy: k.iy + dy })
     if (part !== 'in') Object.assign(k, { ox: k.ox + dx, oy: k.oy + dy })
     if (part === 'point') Object.assign(k, { x: k.x + dx, y: k.y + dy })

@@ -46,7 +46,7 @@ const toggle = (editor: Editor, prop: 'hidden' | 'locked') => {
   const on = editor.selected().some((n) => !n[prop])
   each(editor, (n) => editor.apply({ type: 'set', id: n.id, [prop]: on }))
 }
-export const siblings = (editor: Editor) => (editor.nodes.get(editor.selection[0])?.parent?.children ?? editor.page.children).map((n) => n.id)
+export const siblings = (editor: Editor) => (editor.nodes.get(editor.selection[0] ?? '')?.parent?.children ?? editor.page.children).map((n) => n.id)
 
 function history(editor: Editor, type: 'undo' | 'redo') {
   editor.endTyping()
@@ -57,7 +57,8 @@ function history(editor: Editor, type: 'undo' | 'redo') {
 function jump(editor: Editor, to: (k: number, n: number) => number) {
   const { spreads } = editor.snapshot
   const k = spreads.findIndex((s) => s.includes(editor.pageId))
-  editor.showPage(spreads[Math.max(0, Math.min(spreads.length - 1, to(k, spreads.length)))][0])
+  const [id] = spreads[Math.max(0, Math.min(spreads.length - 1, to(k, spreads.length)))] ?? []
+  if (id) editor.showPage(id)
 }
 
 function remove(editor: Editor) {

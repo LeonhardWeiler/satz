@@ -28,7 +28,9 @@ export function evalExpr(src: string, cur: number, unit: string): number | null 
     }
     const m = /^(\d*\.?\d+)(mm|cm|pt|in|%)?$/.exec(t ?? '')
     if (!m) return NaN
-    return m[2] && UNIT[m[2]] && UNIT[unit] ? (+m[1] * UNIT[m[2]]) / UNIT[unit] : +m[1]
+    const [, n = '', u] = m
+    const [from, to] = [u && UNIT[u], UNIT[unit]]
+    return from && to ? (+n * from) / to : +n
   }
   const v = expr()
   return i === toks.length && Number.isFinite(v) ? v : null
