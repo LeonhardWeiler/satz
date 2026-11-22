@@ -173,7 +173,7 @@ export class Editor {
 
   constructor(readonly engine: Engine) {
     this.snapshot = this.read()
-    this.pageId = this.snapshot.pages[0].id
+    this.pageId = firstPage(this.snapshot).id
     this.nodes = this.index()
     this.savedAt = engine.version()
   }
@@ -185,7 +185,7 @@ export class Editor {
     this.typing = false
     this.w.groups = 0
     this.w.snapshot = this.read()
-    this.w.pageId = this.snapshot.pages[0].id
+    this.w.pageId = firstPage(this.snapshot).id
     this.w.nodes = this.index()
     this.saved(file, dirty ? '' : this.engine.version())
   }
@@ -199,13 +199,13 @@ export class Editor {
 
   get page() {
     const { pages, masters } = this.snapshot
-    return pages.find((p) => p.id === this.pageId) ?? masters.find((p) => p.id === this.pageId) ?? pages[0]
+    return pages.find((p) => p.id === this.pageId) ?? masters.find((p) => p.id === this.pageId) ?? firstPage(this.snapshot)
   }
 
   get spread(): Page[] {
     const { pages, spreads } = this.snapshot
     const ids = spreads.find((s) => s.includes(this.pageId))
-    return ids ? ids.map((id) => pages.find((p) => p.id === id)!) : [this.page]
+    return ids ? ids.flatMap((id) => pages.find((p) => p.id === id) ?? []) : [this.page]
   }
 
   get sheets(): Page[] {
@@ -218,14 +218,14 @@ export class Editor {
   }
 
   shown(n: Node): Box {
-    const [a, b, c, d, e, f] = this.engine.turn(n.id)
+    const [a = 1, b = 0, c = 0, d = 1, e = 0, f = 0] = this.engine.turn(n.id)
     const [cx, cy] = [n.x + n.w / 2, n.y + n.h / 2]
     const [x, y] = [a * cx + c * cy + e + this.dx(n.id), b * cx + d * cy + f]
     return { x: x - n.w / 2, y: y - n.h / 2, w: n.w, h: n.h, rotation: (Math.atan2(-b, a) * 180) / Math.PI }
   }
 
   local(id: string, p: Point): Point {
-    const [a, b, c, d, e, f] = this.engine.turn(id)
+    const [a = 1, b = 0, c = 0, d = 1, e = 0, f = 0] = this.engine.turn(id)
     const [x, y] = [p.x - this.dx(id) - e, p.y - f]
     return { x: a * x + b * y, y: c * x + d * y }
   }
@@ -239,7 +239,7 @@ export class Editor {
       const at = { x: c.x - this.dx(n.id), y: c.y }
       const line = ends(n)
       if (line) {
-        const [a, b] = line.map((p) => spin(p, degrees, at))
+        const [a, b] = [spin(line[0], degrees, at), spin(line[1], degrees, at)]
         this.apply({ type: 'setPath', id: n.id, path: [0, a.x, a.y, 1, b.x, b.y] })
         continue
       }
@@ -325,7 +325,7 @@ export class Editor {
 
   loadImage(bytes: Uint8Array<ArrayBuffer>, name: string, link = false) {
     const { hash, width, height } = this.change(() => this.engine.addImage(bytes, link ? name : undefined))
-    const [w, h] = [width, height].map((px) => (px * 72) / 300)
+    const [w, h] = [(width * 72) / 300, (height * 72) / 300]
     const fit = Math.min(1, this.page.width / w, this.page.height / h)
     this.setTool('move')
     this.set({ placing: [...this.placing, { hash, name, w: w * fit, h: h * fit, url: URL.createObjectURL(new Blob([bytes])) }] })
@@ -378,7 +378,7 @@ export class Editor {
       timed('snapshot', start)
       const { pages, masters } = this.snapshot
       if (!pages.some((p) => p.id === this.pageId) && !masters.some((p) => p.id === this.pageId)) {
-        this.w.pageId = pages[Math.max(0, Math.min(at, pages.length - 1))].id
+        this.w.pageId = (pages[Math.min(at, pages.length - 1)] ?? firstPage(this.snapshot)).id
       }
       start = performance.now()
       this.w.nodes = this.index()
@@ -414,14 +414,16 @@ export class Editor {
   }
 
   storyOf(n: TextNode) {
-    return this.snapshot.stories[n.story]
+    const story = this.snapshot.stories[n.story]
+    if (!story) throw new Error(`story ${n.story} is missing`)
+    return story
   }
 
   resize(nodes: Node[], mode: Resizing | 'autoFit') {
     this.batch(() => {
       for (const n of nodes) {
         if (n.kind !== 'text') continue
-        const one = !n.prev && !n.next && this.engine.textLine(n.id, 0)[1] >= this.storyOf(n).text.length
+        const one = !n.prev && !n.next && (this.engine.textLine(n.id, 0)[1] ?? 0) >= this.storyOf(n).text.length
         const m = mode === 'autoFit' ? (one ? 'autoWidth' : 'autoHeight') : mode
         if ((m === 'autoWidth' && (n.prev || n.next)) || (m === 'autoHeight' && n.next)) continue
         this.apply({ type: 'set', id: n.id, sizing: textSizing(n.sizing, m) })
@@ -439,7 +441,9 @@ export class Editor {
   }
 
   duplicate(ids: string[], step = true) {
-    const at = () => this.nodes.get(ids[0])!.node
+    const [first] = ids
+    if (!first) return
+    const at = () => this.nodes.get(first)!.node
     const last = this.copies?.ids.join() === ids.join() && step ? this.copies.from : null
     const d = last ? { x: at().x - last.x, y: at().y - last.y } : { x: 0, y: 0 }
     const from = { x: at().x, y: at().y }
@@ -486,18 +490,20 @@ export class Editor {
   }
 
   pasteText(text: string) {
-    const one = this.selection.length === 1 && this.nodes.get(this.selection[0])?.node
+    const [only, ...rest] = this.selection
+    const one = only && !rest.length && this.nodes.get(only)?.node
     if (one && one.kind === 'text') return void this.apply({ type: 'setText', id: one.id, text })
     const page = this.page
     const id = this.batch(() => {
       const [id] = this.apply({ type: 'create', parent: page.id, kind: 'text', x: 0, y: 0, w: 0, h: 0 })
+      if (!id) return
       this.apply({ type: 'setText', id, text })
       const n = () => this.nodes.get(id)!.node
       if (n().w > page.width * 0.8) this.apply({ type: 'setFrame', id, x: 0, y: 0, w: page.width * 0.8, h: n().h })
       this.apply({ type: 'setFrame', id, x: (page.width - n().w) / 2, y: (page.height - n().h) / 2, w: n().w, h: n().h })
       return id
     })
-    this.set({ selection: [id] })
+    if (id) this.set({ selection: [id] })
   }
 
   lookup(id: string) {
@@ -565,7 +571,7 @@ export class Editor {
 
   exitMaster() {
     const { pages } = this.snapshot
-    this.showPage(pages.find((p) => p.id === this.back)?.id ?? pages[0].id)
+    this.showPage(pages.find((p) => p.id === this.back)?.id ?? firstPage(this.snapshot).id)
   }
 
   editPath(id: string) {
@@ -672,7 +678,7 @@ export type Point = { x: number; y: number }
 
 export function ends(n: Node): [Point, Point] | undefined {
   if (n.kind !== 'shape' || n.shape !== 'path' || n.path.length !== 6) return undefined
-  const [, u0, v0, , u1, v1] = n.path
+  const [, u0 = 0, v0 = 0, , u1 = 0, v1 = 0] = n.path
   return [
     { x: n.x + u0 * n.w, y: n.y + v0 * n.h },
     { x: n.x + u1 * n.w, y: n.y + v1 * n.h },
@@ -703,4 +709,10 @@ export function insertion(parent: Container, ids: string[], p: Point) {
     ? [{ x: at, y: parent.y }, { x: at, y: parent.y + parent.h }]
     : [{ x: parent.x, y: at }, { x: parent.x + parent.w, y: at }]
   return { index, line }
+}
+
+export function firstPage({ pages }: Snapshot): Page {
+  const [page] = pages
+  if (!page) throw new Error('a document keeps one page')
+  return page
 }

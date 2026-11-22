@@ -36,11 +36,13 @@ function cursorOf(handle: string, turn: number) {
       <g transform="rotate(${-Math.round(degrees)} 12 12)"><path d="${path}" stroke="#000" stroke-width="3.5"/><path d="${path}" stroke="#fff" stroke-width="1.5"/></g></svg>`,
     )}") 12 12, ${fallback}`
   if (handle.startsWith('gap')) return handle[3] === 'x' ? 'ew-resize' : 'ns-resize'
-  if (handle.startsWith('rotate')) return svg(TURN, TURNS[handle.slice(6)] + turn, 'crosshair')
-  if (!(handle in RESIZE)) return handle.startsWith('end') ? 'crosshair' : ''
-  const a = (((RESIZE[handle] + turn) % 180) + 180) % 180
+  if (handle.startsWith('rotate')) return svg(TURN, (TURNS[handle.slice(6)] ?? 0) + turn, 'crosshair')
+  const r = RESIZE[handle]
+  if (r === undefined) return handle.startsWith('end') ? 'crosshair' : ''
+  const a = (((r + turn) % 180) + 180) % 180
   const k = Math.round(a / 45)
-  return Math.abs(a - k * 45) < 1 ? NATIVE[k % 4] : svg(ARROW, a, NATIVE[k % 4])
+  const native = NATIVE[k % 4] ?? 'default'
+  return Math.abs(a - k * 45) < 1 ? native : svg(ARROW, a, native)
 }
 const DEFAULT_SIZE: Record<Exclude<Tool, 'move' | 'pen' | 'eyedropper'>, [number, number]> = {
   rect: [30, 30], ellipse: [30, 30], polygon: [30, 30], star: [30, 30], frame: [30, 30], text: [0, 0], table: [90, 30],
@@ -62,7 +64,7 @@ type Drag =
   | { kind: 'move'; start: Point; frames: Node[]; active: boolean; flow?: Container; to?: ReturnType<typeof insertion>; box?: Box; snaps?: Snaps }
   | { kind: 'resize'; start: Point; handle: string; box: Box; frames: Node[]; snaps: Snaps; by: number; turn: number; own: number }
   | { kind: 'rotate'; c: Point; from: number; nodes: Node[]; handle: string; turn: number; by: number }
-  | { kind: 'end'; start: Point; id: string; ends: [Point, Point]; index: number }
+  | { kind: 'end'; start: Point; id: string; ends: [Point, Point]; index: 0 | 1 }
   | { kind: 'gap'; start: Point; row: Row; index: number }
   | { kind: 'radius'; start: Point; id: string; box: Box; radii: number[]; index: number; turn: number }
   | { kind: 'marquee'; start: Point; end: Point; base: string[]; knots?: At[] }
@@ -81,7 +83,7 @@ function angle(c: Point, p: Point) {
 function snap45(dx: number, dy: number) {
   const a = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4)
   const d = Math.hypot(dx, dy)
-  return [Math.cos(a) * d, Math.sin(a) * d]
+  return [Math.cos(a) * d, Math.sin(a) * d] as const
 }
 
 const RULER = 20
@@ -293,8 +295,10 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const page = pageAt(p)
       const s = inkedOf(page)
       if (!s) return null
-      const [x, y] = [p.x - page.x - s.rect.x, p.y - s.rect.y].map((v) => Math.floor((v / s.rect.w) * s.width))
-      return x >= 0 && y >= 0 && x < s.width && y < s.height ? Math.round(s.coverage[y * s.width + x]) : null
+      const cell = (v: number) => Math.floor((v / s.rect.w) * s.width)
+      const [x, y] = [cell(p.x - page.x - s.rect.x), cell(p.y - s.rect.y)]
+      const c = x >= 0 && y >= 0 && x < s.width && y < s.height ? s.coverage[y * s.width + x] : undefined
+      return c === undefined ? null : Math.round(c)
     }
     const pickAt = (p: Point, mode: 'click' | 'double' | 'deep') => {
       const { page, path } = hit(p)
@@ -323,12 +327,14 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       return !!(p && u && p.x >= u.x && p.x <= u.x + u.w && p.y >= u.y && p.y <= u.y + u.h)
     }
     const handles = () => {
-      const nodes = editor.selected().map(placed)
+      const selected = editor.selected()
+      const nodes = selected.map(placed)
       if ((editor.tool !== 'move' && drag?.kind !== 'draw') || !nodes.length || editor.editing || editor.vector) return {}
-      const n = nodes.length === 1 ? nodes[0] : undefined
+      const one = nodes.length === 1 ? selected[0] : undefined
+      const n = one && placed(one)
       const line = n && ends(n)
       if (line) return { line }
-      const shown = n && editor.shown(editor.selected()[0])
+      const shown = one && n && editor.shown(one)
       const box: Box = shown ? grow(shown, outset(n)) : turnOf(nodes)[0] ? boxOf(nodes) : bounds(nodes.map((n) => grow(n, outset(n))))
       const row = rowOf(editor)
       return {
@@ -338,13 +344,16 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       }
     }
 
-    const turnOf = (nodes: Node[]) => {
-      const turns = nodes.map((n) => editor.shown(n).rotation!)
-      const near = (a: number) => Math.abs(a - turns[0]) < 1e-6
-      return nodes.length === 1 || nodes.every((n, i) => near(turns[i]) && near(n.rotation)) ? [turns[0], nodes[0].rotation] : [0, 0]
+    const turnOf = (nodes: Node[]): readonly [number, number] => {
+      const turns = nodes.map((n) => [editor.shown(n).rotation ?? 0, n.rotation] as const)
+      const [first] = turns
+      if (!first) return [0, 0]
+      const near = (a: number) => Math.abs(a - first[0]) < 1e-6
+      return turns.length === 1 || turns.every(([t, r]) => near(t) && near(r)) ? first : [0, 0]
     }
     const boxOf = (nodes: Node[]): Box => {
-      if (nodes.length === 1) return editor.shown(nodes[0])
+      const [one, ...rest] = nodes
+      if (one && !rest.length) return editor.shown(one)
       const [turn, own] = turnOf(nodes)
       return { ...spun(bounds(nodes.map((n) => spun(placed(n), -own))), own), rotation: turn }
     }
@@ -365,8 +374,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const q = { x: p.x + snap([p.x], snaps.lines.x, SNAP / view.zoom), y: p.y + snap([p.y], snaps.lines.y, SNAP / view.zoom) }
       return { p: q, guides: guides({ ...q, w: 0, h: 0 }, snaps.lines, [q.x], [q.y]) }
     }
-    const placeAt = (p: Point, off: boolean) => {
-      const { w, h } = editor.placing[0]
+    const placeAt = (p: Point, { w, h }: { w: number; h: number }, off: boolean) => {
       const { lines } = snapsNow([])
       const [x, y] = [p.x - w / 2, p.y - h / 2]
       const dx = off ? 0 : snap([x, x + w / 2, x + w], lines.x, SNAP / view.zoom)
@@ -380,8 +388,8 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         `<line class="${cls}" x1="${X(x1)}" y1="${Y(y1)}" x2="${X(x2)}" y2="${Y(y2)}"/>`
       let svg = snapped.map((g) => (g.axis === 'x' ? line(g.at, g.from, g.at, g.to) : line(g.from, g.at, g.to, g.at))).join('')
       const hover = !drag && pointer && editor.tool === 'move' ? guideAt(toDoc(pointer)) : undefined
-      if (hover) {
-        const at = editor.sheets.find((s) => s.id === hover.id)!.guides[hover.axis][hover.index]
+      const at = hover && editor.sheets.find((s) => s.id === hover.id)?.guides[hover.axis][hover.index]
+      if (hover && at !== undefined) {
         svg += hover.axis === 'x' ? `<line class="guide" x1="${X(hover.dx + at)}" y1="0" x2="${X(hover.dx + at)}" y2="9999"/>` : `<line class="guide" x1="0" y1="${Y(at)}" x2="9999" y2="${Y(at)}"/>`
       }
       let tags = ''
@@ -482,7 +490,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const ed = editor.editing
       let text: { ops: Uint32Array; x: number }[] | undefined
       if (ed) {
-        const [cx, top, bottom] = editor.engine.caret(ed.id, ed.focus)
+        const [cx = 0, top = 0, bottom = 0] = editor.engine.caret(ed.id, ed.focus)
         const x = cx + editor.dx(ed.id)
         Object.assign(area.current?.style ?? {}, {
           left: `${view.x + x * view.zoom}px`,
@@ -608,7 +616,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     const imageBox = (n: Node, { x, y, w, h }: Box): Box | undefined => {
       const f = n.fills.find((f) => f.type === 'image')
       if (!f) return undefined
-      const [a, b, c, d, tx, ty] = f.transform
+      const [a = 1, b = 0, c = 0, d = 1, tx = 0, ty = 0] = f.transform
       const [x0, y0] = [x + w * (tx + Math.min(0, a) + Math.min(0, c)), y + h * (ty + Math.min(0, b) + Math.min(0, d))]
       return { x: x0, y: y0, w: w * (Math.abs(a) + Math.abs(c)), h: h * (Math.abs(b) + Math.abs(d)) }
     }
@@ -658,10 +666,12 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       const flow = p.parent === q.parent && p.parent?.kind === 'frame' && p.parent.direction !== 'none' ? p.parent : undefined
       editor.beginGroup()
       if (flow) {
-        const [i, j] = [p.node, q.node].map((n) => flow.children.indexOf(n)).sort((m, n) => m - n)
-        const [lo, hi] = [flow.children[i].id, flow.children[j].id]
-        editor.apply({ type: 'move', ids: [hi], parent: flow.id, index: i })
-        editor.apply({ type: 'move', ids: [lo], parent: flow.id, index: j })
+        const [i = -1, j = -1] = [flow.children.indexOf(p.node), flow.children.indexOf(q.node)].sort((m, n) => m - n)
+        const [lo, hi] = [flow.children[i], flow.children[j]]
+        if (lo && hi) {
+          editor.apply({ type: 'move', ids: [hi.id], parent: flow.id, index: i })
+          editor.apply({ type: 'move', ids: [lo.id], parent: flow.id, index: j })
+        }
       } else {
         const [m, n] = [p.node, q.node]
         editor.apply({ type: 'setFrame', id: m.id, x: n.x, y: n.y, w: m.w, h: m.h })
@@ -703,6 +713,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
 
     let place = canvas.getBoundingClientRect()
     const resize = new ResizeObserver(([entry]) => {
+      if (!entry) return
       const r = canvas.getBoundingClientRect()
       view.x += place.left - r.left
       view.y += place.top - r.top
@@ -755,6 +766,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     const create = (kind: NewKind, p: Point) => {
       const { parent, dx } = parentAt(p)
       const [id] = editor.apply({ type: 'create', parent, kind, x: p.x - dx, y: p.y, w: 0, h: 0 })
+      if (!id) throw new Error(`could not create a ${kind}`)
       return { id, dx }
     }
     const draw = (drag: Extract<Drag, { kind: 'draw' }>) => {
@@ -798,7 +810,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       }
       const image = editor.placing[0]
       if (image) {
-        const at = placeAt(p, e.ctrlKey || e.metaKey).p
+        const at = placeAt(p, image, e.ctrlKey || e.metaKey).p
         const { parent, dx } = parentAt(at)
         const { hash, name, w, h } = image
         snapped = []
@@ -875,8 +887,8 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         if (!under && knot) under = { at: knot, part: 'point' }
         const segment = nearestSegment(cs, q)
         if ((e.ctrlKey || e.metaKey) && under?.part === 'point') {
-          const k = cs[under.at[0]].knots[under.at[1]]
-          editor.setKnots(smooth(cs, under.at, !curved(k)), [under.at])
+          const k = cs[under.at[0]]?.knots[under.at[1]]
+          if (k) editor.setKnots(smooth(cs, under.at, !curved(k)), [under.at])
           drag = null
           return
         }
@@ -942,9 +954,10 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         return
       }
       const handle = handleUnder(e)
-      const line = handle?.startsWith('end') && ends(placed(editor.selected()[0]))
-      if (line) {
-        drag = { kind: 'end', start: p, id: editor.selection[0], ends: line, index: Number(handle!.slice(3)) }
+      const [first] = editor.selected()
+      const line = handle?.startsWith('end') && first && ends(placed(first))
+      if (first && line) {
+        drag = { kind: 'end', start: p, id: first.id, ends: line, index: handle === 'end1' ? 1 : 0 }
         editor.beginGroup()
         return
       }
@@ -954,9 +967,9 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         editor.beginGroup()
         return
       }
-      if (handle?.startsWith('radius')) {
-        const n = placed(editor.selected()[0])
-        const turn = editor.shown(n).rotation!
+      if (handle?.startsWith('radius') && first) {
+        const n = placed(first)
+        const turn = editor.shown(n).rotation ?? 0
         if (rounded(n)) drag = { kind: 'radius', start: p, id: n.id, box: n, radii: radii(n), index: Number(handle.slice(6)), turn }
         editor.beginGroup()
         return
@@ -973,7 +986,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         const frames = editor.selected()
         const [turn, own] = turnOf(frames)
         const snaps = snapsNow()
-        const image = (editor.cropping !== null || e.ctrlKey || e.metaKey) && frames.length === 1 && imageBox(frames[0], placed(frames[0]))
+        const image = (editor.cropping !== null || e.ctrlKey || e.metaKey) && frames.length === 1 && first && imageBox(first, placed(first))
         if (image) {
           const { x, y, w, h } = image
           snaps.lines.x.push({ at: x, from: y, to: y + h }, { at: x + w, from: y, to: y + h })
@@ -995,9 +1008,8 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         editor.set({ selection: sel.includes(id) ? sel.filter((s) => s !== id) : [...sel, id] })
         return
       }
-      if (id === editor.cropping) {
-        const node = editor.selected()[0]
-        drag = { kind: 'image', start: p, node, turn: editor.shown(node).rotation! }
+      if (id === editor.cropping && first) {
+        drag = { kind: 'image', start: p, node: first, turn: editor.shown(first).rotation ?? 0 }
         editor.beginGroup()
         return
       }
@@ -1018,7 +1030,8 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       }
       if ((editor.pen || editor.placing.length) && !drag) {
         cursor = p
-        if (editor.placing.length) ({ p: cursor, guides: snapped } = placeAt(p, e.ctrlKey || e.metaKey))
+        const [image] = editor.placing
+        if (image) ({ p: cursor, guides: snapped } = placeAt(p, image, e.ctrlKey || e.metaKey))
         canvas.toggleAttribute('data-close', closes(p))
         redraw()
         return
@@ -1112,7 +1125,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       } else if (drag.kind === 'image') {
         const d = spin({ x: p.x - drag.start.x, y: p.y - drag.start.y }, -drag.turn)
         const { id, fills, w, h } = drag.node
-        const moved = (t: number[]) => [t[0], t[1], t[2], t[3], t[4] + d.x / w, t[5] + d.y / h]
+        const moved = (t: number[]) => t.map((v, k) => (k === 4 ? v + d.x / w : k === 5 ? v + d.y / h : v))
         editor.apply({ type: 'set', id, fills: fills.map((f) => (f.type === 'image' ? { ...f, transform: moved(f.transform) } : f)) })
       } else if (drag.kind === 'move') {
         let dx = p.x - drag.start.x
@@ -1155,8 +1168,9 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           const tolerance = SNAP / view.zoom
           const by = (axis: 'x' | 'y', values: number[]) => {
             const line = snap(values, lines[axis], tolerance)
-            if (!values.length) return line
-            const gap = snap([values[0]], spacings({ ...b, x: b.x + dx, y: b.y + dy }, others, axis).map((at) => ({ at, from: 0, to: 0 })), tolerance)
+            const [first] = values
+            if (first === undefined) return line
+            const gap = snap([first], spacings({ ...b, x: b.x + dx, y: b.y + dy }, others, axis).map((at) => ({ at, from: 0, to: 0 })), tolerance)
             return gap && (!line || Math.abs(gap) < Math.abs(line)) ? gap : line
           }
           dx += by('x', xs(dx))
@@ -1177,17 +1191,16 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         canvas.style.cursor = cursorOf(drag.handle, drag.turn + by)
       } else if (drag.kind === 'gap') {
         const { row, index, start } = drag
-        setGap(editor, row, Math.max(0, row.gaps[index] + p[row.axis] - start[row.axis]))
+        setGap(editor, row, Math.max(0, (row.gaps[index] ?? 0) + p[row.axis] - start[row.axis]))
       } else if (drag.kind === 'radius') {
         const { box: b, index: i } = drag
         const [sx, sy] = [i === 1 || i === 2 ? -1 : 1, i < 2 ? 1 : -1]
         const d = spin({ x: p.x - drag.start.x, y: p.y - drag.start.y }, -drag.turn)
-        const r = Math.max(0, Math.min(drag.radii[i] + (d.x * sx + d.y * sy) / 2, b.w / 2, b.h / 2))
+        const r = Math.max(0, Math.min((drag.radii[i] ?? 0) + (d.x * sx + d.y * sy) / 2, b.w / 2, b.h / 2))
         const corners = drag.radii.map((v, j) => (j === i ? r : v))
         editor.apply({ type: 'set', id: drag.id, ...(e.ctrlKey || e.metaKey ? { corners } : { radius: r, corners: [] }) })
       } else if (drag.kind === 'end') {
-        const fixed = drag.ends[1 - drag.index]
-        const from = drag.ends[drag.index]
+        const [from, fixed] = drag.index ? [drag.ends[1], drag.ends[0]] : drag.ends
         let dx = from.x + p.x - drag.start.x - fixed.x
         let dy = from.y + p.y - drag.start.y - fixed.y
         if (e.shiftKey) [dx, dy] = snap45(dx, dy)
@@ -1212,6 +1225,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         drag.by *= scale
         drag.frames.forEach((n, i) => {
           const f = boxes[i]
+          if (!f) return
           if (scale !== 1 && n.kind === 'text') editor.apply({ type: 'scaleText', id: n.id, by: scale })
           editor.apply({ type: 'setFrame', id: n.id, ...f, x: f.x - editor.dx(n.id), crop: e.ctrlKey || e.metaKey || editor.cropping === n.id })
           const t = editor.nodes.get(n.id)?.node
@@ -1298,9 +1312,10 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         return
       }
       const [one] = editor.selected()
-      const handle = editor.selection.length === 1 && one.kind === 'text' ? handleUnder(e) : undefined
-      if (handle && /^[nsew]{1,2}$/.test(handle)) {
-        editor.resize([one], handle.length === 2 ? 'autoFit' : handle === 'n' || handle === 's' ? 'autoHeight' : 'autoWidth')
+      const text = editor.selection.length === 1 && one?.kind === 'text' ? one : undefined
+      const handle = text && handleUnder(e)
+      if (text && handle && /^[nsew]{1,2}$/.test(handle)) {
+        editor.resize([text], handle.length === 2 ? 'autoFit' : handle === 'n' || handle === 's' ? 'autoHeight' : 'autoWidth')
         return
       }
       const p = toDoc(e)

@@ -17,14 +17,15 @@ export function spin(p: Point, degrees: number, c: Point = { x: 0, y: 0 }): Poin
 
 export function upright(b: Box): Box {
   const c = { x: b.x + b.w / 2, y: b.y + b.h / 2 }
-  const ps = [[0, 0], [b.w, 0], [b.w, b.h], [0, b.h]].map(([u, v]) => spin({ x: b.x + u, y: b.y + v }, b.rotation ?? 0, c))
+  const ps = ([[0, 0], [b.w, 0], [b.w, b.h], [0, b.h]] as const).map(([u, v]) => spin({ x: b.x + u, y: b.y + v }, b.rotation ?? 0, c))
   const [xs, ys] = [ps.map((p) => p.x), ps.map((p) => p.y)]
   return rect({ x: Math.min(...xs), y: Math.min(...ys) }, { x: Math.max(...xs), y: Math.max(...ys) })
 }
 
 export function handleAt(view: View, x: number, y: number, { box, line, radii, gaps }: { box?: Box; line?: [Point, Point]; radii?: Point[]; gaps?: Gap[] }) {
   const g = gaps?.findIndex((p) => Math.hypot(p.x - x, p.y - y) <= HANDLE) ?? -1
-  if (g >= 0) return `gap${gaps![g].axis}${g}`
+  const gap = gaps?.[g]
+  if (gap) return `gap${gap.axis}${g}`
   if (box?.rotation) {
     const c = screen(view, { x: box.x + box.w / 2, y: box.y + box.h / 2 })
     ;({ x, y } = spin({ x, y }, -box.rotation, c))
@@ -32,10 +33,10 @@ export function handleAt(view: View, x: number, y: number, { box, line, radii, g
   const i = radii?.findIndex((p) => Math.hypot(p.x - x, p.y - y) <= HANDLE + 1) ?? -1
   if (i >= 0) return `radius${i}`
   if (line) {
-    const [a, b] = line.map((p) => screen(view, p))
+    const [a, b] = [screen(view, line[0]), screen(view, line[1])]
     const i = [a, b].findIndex((p) => Math.hypot(p.x - x, p.y - y) <= HANDLE / 2 + 1)
     if (i >= 0) return `end${i}`
-    const beyond = ([e, o]: Point[]) => Math.hypot(e.x - x, e.y - y) <= TURN && (x - e.x) * (e.x - o.x) + (y - e.y) * (e.y - o.y) > 0
+    const beyond = ([e, o]: [Point, Point]) => Math.hypot(e.x - x, e.y - y) <= TURN && (x - e.x) * (e.x - o.x) + (y - e.y) * (e.y - o.y) > 0
     return beyond([a, b]) ? 'rotatenw' : beyond([b, a]) ? 'rotatese' : undefined
   }
   if (!box) return undefined
@@ -64,10 +65,11 @@ export type Gap = Point & { axis: 'x' | 'y' }
 
 export function gapHandles(view: View, axis: 'x' | 'y', boxes: Box[]): Gap[] {
   const [x, w, y, h] = axis === 'x' ? (['x', 'w', 'y', 'h'] as const) : (['y', 'h', 'x', 'w'] as const)
-  return boxes.slice(1).map((b, i) => {
-    const a = boxes[i]
+  return boxes.flatMap((b, i) => {
+    const a = boxes[i - 1]
+    if (!a) return []
     const p = { [x]: (a[x] + a[w] + b[x]) / 2, [y]: (Math.max(a[y], b[y]) + Math.min(a[y] + a[h], b[y] + b[h])) / 2 } as Point
-    return { ...screen(view, p), axis }
+    return [{ ...screen(view, p), axis }]
   })
 }
 
