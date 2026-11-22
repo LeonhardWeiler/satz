@@ -81,7 +81,7 @@ function context(editor: Editor, e: KeyboardEvent) {
     if (editor.tool !== 'move') editor.setTool('move')
     else if (!ids.length && editor.master) editor.exitMaster()
     else editor.set({ selection: one?.parent ? [one.parent.id] : [], guide: null })
-  } else if (e.key === 'Tab' && (e.target === document.body || (e.target as Element).classList?.contains('canvas'))) {
+  } else if (e.key === 'Tab' && (e.target === document.body || (e.target instanceof Element && e.target.classList.contains('canvas')))) {
     const list = siblings(editor).toReversed()
     const next = list[(list.indexOf(ids[0] ?? '') + (e.shiftKey ? -1 : 1) + list.length) % list.length]
     if (!next) return false

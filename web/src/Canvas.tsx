@@ -701,7 +701,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         : handle ? 'Drag to crop the frame'
         : id === editor.cropping ? 'Drag to move the image' : ''
       const on = over(handles().box)
-      const now = `${guide ? `${guide.id} ${guide.axis} ${guide.index}` : ''} ${alt ? pageAt(toDoc(pointer), editor.sheets)?.id : ''}`
+      const now = `${guide ? `${guide.id} ${guide.axis} ${guide.index}` : ''} ${alt ? pageAt(toDoc(pointer), editor.sheets).id : ''}`
       if (id !== hover || side !== port || on !== near || now !== lit) {
         hover = id
         port = side
@@ -718,7 +718,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       view.x += place.left - r.left
       view.y += place.top - r.top
       place = r
-      const box = entry.devicePixelContentBoxSize?.[0]
+      const box = 'devicePixelContentBoxSize' in entry ? entry.devicePixelContentBoxSize[0] : undefined
       canvas.width = box ? box.inlineSize : Math.round(entry.contentRect.width * devicePixelRatio)
       canvas.height = box ? box.blockSize : Math.round(entry.contentRect.height * devicePixelRatio)
       surface?.delete()
@@ -1208,7 +1208,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         const [a, b] = drag.index ? [fixed, moved] : [moved, fixed]
         const off = editor.dx(drag.id)
         editor.apply({ type: 'setPath', id: drag.id, path: [0, a.x - off, a.y, 1, b.x - off, b.y] })
-      } else if (drag.kind === 'resize') {
+      } else {
         const d = spin({ x: p.x - drag.start.x, y: p.y - drag.start.y }, -drag.turn)
         const { box: b, handle: h, snaps, own } = drag
         const edge = (side: string, at: number) => (h.includes(side) ? [at] : [])

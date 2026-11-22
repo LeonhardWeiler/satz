@@ -157,7 +157,7 @@ export function Properties({ editor }: { editor: Editor }) {
   }
 
   const texts = nodes.length > 0 && nodes.every((n) => n.kind === 'text')
-  const cells = texts && nodes.every((n) => n.kind === 'text' && !!n.cell)
+  const cells = texts && nodes.every((n) => !!n.cell)
   const table = nodes.some((n) => n.kind === 'frame' && !!n.table)
   const fills = plain ? sameList((n) => n.fills) : null
   const fill = painted && (
@@ -470,8 +470,8 @@ export function Properties({ editor }: { editor: Editor }) {
                 {sided && (
                   <SidesToggle
                     what="stroke"
-                    pressed={same((n) => !!n.strokeSides?.length)}
-                    onClick={() => set({ strokeSides: same((n) => !!n.strokeSides?.length) ? [] : Array(4).fill(one?.strokeWeight ?? 1) })}
+                    pressed={same((n) => !!n.strokeSides.length)}
+                    onClick={() => set({ strokeSides: same((n) => !!n.strokeSides.length) ? [] : Array(4).fill(one?.strokeWeight ?? 1) })}
                   />
                 )}
                 {joinButton}
@@ -498,7 +498,7 @@ export function Properties({ editor }: { editor: Editor }) {
                   <Select label="End point" prefix="End" value={same((n) => (n.arrowEnd ? 'arrow' : 'none'))} options={ARROWS.end} onChange={(v) => set({ arrowEnd: v === 'arrow' })} />
                 </>
               )}
-              {sided && one?.strokeSides?.length === 4 &&
+              {sided && one?.strokeSides.length === 4 &&
                 SIDES.map(([side, icon], i) => (
                   <Field
                     key={side}

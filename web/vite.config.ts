@@ -99,6 +99,7 @@ export default defineConfig({
       'typescript/consistent-indexed-object-style': 'error',
       'typescript/consistent-type-definitions': ['error', 'type'],
       'typescript/no-dynamic-delete': 'error',
+      'typescript/no-unnecessary-condition': 'error',
       'typescript/no-unsafe-type-assertion': 'off',
       'typescript/no-misused-spread': 'off',
       'typescript/consistent-return': 'off',

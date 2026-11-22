@@ -208,7 +208,7 @@ export function Picker({
   useEffect(() => {
     const down = (e: globalThis.PointerEvent) => {
       const t = e.target as Node
-      if (!ref.current?.contains(t) && !owner?.current?.contains(t) && !(t as Element).closest?.('[role=menu]')) onClose(false)
+      if (!ref.current?.contains(t) && !owner?.current?.contains(t) && !(t instanceof Element && t.closest('[role=menu]'))) onClose(false)
     }
     const key = (e: globalThis.KeyboardEvent) => {
       if (e.key !== 'Escape') return
