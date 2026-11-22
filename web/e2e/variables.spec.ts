@@ -146,6 +146,20 @@ test('a number variable binds to width and detaches with the value of the curren
   await expect(panel.getByRole('textbox', { name: 'W in mm' })).toHaveValue('20')
 })
 
+test('a variable created from a stroke weight keeps the weight in pt', async ({ page }) => {
+  await open(page)
+  const panel = page.getByRole('complementary', { name: 'Properties' })
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Rectangle', exact: true }).last().click()
+  await panel.getByRole('button', { name: 'Add stroke' }).click()
+  const weight = panel.getByRole('textbox', { name: 'Stroke weight' })
+  await weight.fill('3')
+  await weight.press('Enter')
+  await panel.getByRole('button', { name: 'Apply variable to Stroke weight' }).click()
+  await page.getByRole('listbox', { name: 'Number variables' }).getByRole('button', { name: 'Create from value' }).click()
+  await panel.getByRole('button', { name: 'Detach variable from Stroke weight' }).click()
+  await expect(weight).toHaveValue('3')
+})
+
 test('a variable is renamed, duplicated and deleted like a swatch', async ({ page }) => {
   await open(page)
   const panel = page.getByRole('tabpanel', { name: 'Assets' })

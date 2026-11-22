@@ -81,5 +81,5 @@ export const MM = 2.834645669291339
 export const SELECTION = [0.302, 0.486, 1.0, 0.3]
 export const STYLED = ["size","lineHeight","letterSpacing","paragraphSpacing","paragraphIndent","indentLeft","indentRight","spaceBefore","font","textCase","textDecoration","features","axes","position","baselineShift","dropLines","dropChars","keepLines","keepTogether","keepNext","tabs","list"] as const
 export type Styled = (typeof STYLED)[number]
-export const BINDABLE = ["font","size","w","h","radius","strokeWeight","opacity","gap","paddingTop","paddingRight","paddingBottom","paddingLeft"] as const
-export type Bindable = (typeof BINDABLE)[number] | Styled
+export const BINDABLE = {"font": 1, "size": 1, "w": 2.834645669291339, "h": 2.834645669291339, "radius": 2.834645669291339, "strokeWeight": 1, "opacity": 0.01, "gap": 2.834645669291339, "paddingTop": 2.834645669291339, "paddingRight": 2.834645669291339, "paddingBottom": 2.834645669291339, "paddingLeft": 2.834645669291339} as const
+export type Bindable = keyof typeof BINDABLE | Styled

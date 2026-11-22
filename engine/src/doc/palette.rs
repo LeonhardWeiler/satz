@@ -75,10 +75,11 @@ impl Doc {
                 }
                 _ => continue,
             };
+            let scale = BINDABLE.iter().find(|b| b.0 == prop).map_or(1.0, |b| b.1);
             let v = match prop.as_str() {
-                "opacity" => (v / 100.0).clamp(0.0, 1.0),
-                "size" => v.clamp(0.1, MAX_TEXT),
-                _ => (v * MM).clamp(0.0, MAX_LENGTH),
+                "opacity" => (v * scale).clamp(0.0, 1.0),
+                "size" => (v * scale).clamp(0.1, MAX_TEXT),
+                _ => (v * scale).clamp(0.0, MAX_LENGTH),
             };
             match prop.as_str() {
                 "w" => frame[2] = v,
@@ -559,7 +560,7 @@ impl Doc {
         let n = self.node(&id)?;
         let story = prop == "size" || prop == "font";
         let n = if story { self.story(n) } else { n };
-        if !BINDABLE.contains(&prop.as_str()) {
+        if !BINDABLE.iter().any(|b| b.0 == prop) {
             return Err(Error::NotBindable { prop });
         }
         if story && variable.is_some() {
@@ -999,7 +1000,7 @@ mod tests {
     }
 
     #[test]
-    fn bound_numbers_follow_their_variable_in_mm_and_percent_until_set_directly() {
+    fn bound_numbers_follow_their_variable_in_their_unit_until_set_directly() {
         let (mut d, p) = empty();
         let (c, _) = collection(&mut d, "Sizes");
         let big = d
@@ -1028,7 +1029,7 @@ mod tests {
             (n.w, radius, n.style.stroke_weight, n.style.opacity)
         };
         let mm = |v: f64| v * MM;
-        assert_eq!(rect(&d), (mm(10.0), mm(10.0) as f32, mm(10.0) as f32, 0.5));
+        assert_eq!(rect(&d), (mm(10.0), mm(10.0) as f32, 10.0, 0.5));
         assert_eq!(page(&d).children[0].bindings, Default::default());
         assert_eq!(children(&page(&d).children[0])[0].bindings["w"], size);
         use_mode(&mut d, &f, &c, Some(&big));
@@ -1054,7 +1055,7 @@ mod tests {
         .unwrap();
         set_value(&mut d, &size, &big, Value::Number(30.0)).unwrap();
         use_mode(&mut d, &f, &c, Some(&big));
-        assert_eq!(rect(&d), (3.0, 1.0, mm(30.0) as f32, 0.5));
+        assert_eq!(rect(&d), (3.0, 1.0, 30.0, 0.5));
         let pg = page(&d);
         let bindings = &children(&pg.children[0])[0].bindings;
         assert_eq!(
@@ -1073,6 +1074,30 @@ mod tests {
             bind(&mut d, &r, "w", Some(&color)).err(),
             Some(Error::BindType)
         );
+    }
+
+    #[test]
+    fn a_variable_made_from_a_bindable_value_resolves_to_that_value() {
+        let (mut d, p) = empty();
+        let (c, _) = collection(&mut d, "Values");
+        for (i, &(prop, scale)) in BINDABLE.iter().enumerate().skip(1) {
+            let kind = if prop == "size" {
+                NewKind::Text
+            } else {
+                NewKind::Frame
+            };
+            let n = create(&mut d, &p, kind, [0.0, 0.0, 50.0, 50.0]);
+            let value = 0.1 + i as f64 * 0.05;
+            let v = variable(&mut d, &c, prop, Value::Number(value / scale)).unwrap();
+            bind(&mut d, &n, prop, Some(&v)).unwrap();
+            let id = d.node(&n).unwrap();
+            let got = match prop {
+                "w" => d.bounds(id)[2],
+                "h" => d.bounds(id)[3],
+                _ => num(&d.meta(d.story(id)), prop),
+            };
+            assert!((got - value).abs() < 1e-9, "{prop}: {got} != {value}");
+        }
     }
 
     #[test]

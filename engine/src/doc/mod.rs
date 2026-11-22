@@ -804,19 +804,19 @@ const LAYOUT_ORIGIN: &str = "layout";
 
 const SPARES: usize = 64;
 
-const BINDABLE: [&str; 12] = [
-    "font",
-    "size",
-    "w",
-    "h",
-    "radius",
-    "strokeWeight",
-    "opacity",
-    "gap",
-    "paddingTop",
-    "paddingRight",
-    "paddingBottom",
-    "paddingLeft",
+const BINDABLE: [(&str, f64); 12] = [
+    ("font", 1.0),
+    ("size", 1.0),
+    ("w", MM),
+    ("h", MM),
+    ("radius", MM),
+    ("strokeWeight", 1.0),
+    ("opacity", 0.01),
+    ("gap", MM),
+    ("paddingTop", MM),
+    ("paddingRight", MM),
+    ("paddingBottom", MM),
+    ("paddingLeft", MM),
 ];
 
 const STORY: [&str; 31] = [
