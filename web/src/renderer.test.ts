@@ -5,17 +5,20 @@ import { Engine, initSync } from './engine/engine'
 import type { Command, Snapshot } from './model'
 import { Renderer } from './renderer'
 
+const ck = await CanvasKitInit()
+initSync({ module: readFileSync(new URL('engine/engine_bg.wasm', import.meta.url)) })
+Engine.sample().free()
+
 const firstPage = (engine: Engine) => {
   const [page] = (JSON.parse(engine.snapshot()) as Snapshot).pages
   if (!page) throw new Error('no page')
   return page
 }
 
-test('layers with shadows are recorded again only when their content changes', async () => {
-  const ck = await CanvasKitInit()
-  initSync({ module: readFileSync(new URL('engine/engine_bg.wasm', import.meta.url)) })
+test('layers with shadows are recorded again only when their content changes', () => {
   const engine = Engine.sample()
   let recorded = 0
+  const recorder = ck.PictureRecorder
   Object.assign(ck, {
     PictureRecorder: new Proxy(ck.PictureRecorder, {
       construct: (target, args) => {
@@ -54,11 +57,10 @@ test('layers with shadows are recorded again only when their content changes', a
   expect(draw()).toBe(0)
   apply({ type: 'set', id: triangle.id, opacity: 0.5 })
   expect(draw()).toBe(1)
+  Object.assign(ck, { PictureRecorder: recorder })
 })
 
-test('text in several sizes shares one typeface per font, freed with the renderer', async () => {
-  const ck = await CanvasKitInit()
-  initSync({ module: readFileSync(new URL('engine/engine_bg.wasm', import.meta.url)) })
+test('text in several sizes shares one typeface per font, freed with the renderer', () => {
   const engine = Engine.sample()
   const typefaces: { delete: () => void }[] = []
   let freed = 0
@@ -84,9 +86,7 @@ test('text in several sizes shares one typeface per font, freed with the rendere
   ck.Typeface.MakeTypefaceFromData = make
 })
 
-test('text in a missing font is highlighted pink', async () => {
-  const ck = await CanvasKitInit()
-  initSync({ module: readFileSync(new URL('engine/engine_bg.wasm', import.meta.url)) })
+test('text in a missing font is highlighted pink', () => {
   const engine = Engine.sample()
   const renderer = new Renderer(ck, engine, () => {})
   const surface = ck.MakeSurface(300, 400)!
