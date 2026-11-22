@@ -214,5 +214,11 @@ mod tests {
         );
         run(&mut d, &[]).unwrap();
         assert_eq!(toc_of(&d), ("Second\t1\nIntro\t2".into(), vec![]));
+
+        run(&mut d, &[&h1, &h2]).unwrap();
+        d.apply(Command::DeleteTextStyle { id: h2 }).unwrap();
+        assert_eq!(toc_of(&d), ("Second\t1\nIntro\t2".into(), vec![h1.clone()]));
+        d.apply(Command::DeleteTextStyle { id: h1 }).unwrap();
+        assert_eq!(toc_of(&d).1, Vec::<String>::new());
     }
 }

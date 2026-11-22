@@ -1115,7 +1115,18 @@ impl Doc {
     pub(super) fn delete_text_style(&self, id: String) -> Res<Vec<String>> {
         let (i, _) = self.find::<TextStyle>("textStyles", &id)?;
         self.each(|n, _| match self.kind(n) {
-            Some(NodeKind::Text) if self.story(n) == n => self.detach(n, None, |s| s == id),
+            Some(NodeKind::Text) if self.story(n) == n => {
+                let mut toc = self.text_frame_of(n).toc;
+                if toc.contains(&id) {
+                    toc.retain(|s| *s != id);
+                    match toc.is_empty() {
+                        true => self.meta(n).delete(TOC),
+                        false => self.meta(n).insert(TOC, loro(&toc)?),
+                    }
+                    .map_err(err)?;
+                }
+                self.detach(n, None, |s| s == id)
+            }
             _ => Ok(()),
         })?;
         for (j, mut s) in self.list::<TextStyle>("textStyles").into_iter().enumerate() {
