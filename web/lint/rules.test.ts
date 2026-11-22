@@ -53,3 +53,9 @@ run(
   ],
   ['img.src = URL.createObjectURL(blob)'],
 )
+
+run(
+  'no-shortcut-in-title',
+  ['<b title="Rectangle" data-action="Rectangle tool" />', '<b title="Close (Esc)" />', '<b title="Previous match (Shift Enter)" />', '<b title={`${label} (${key})`} />', '<b title={`${label} (Ctrl click a point)`} />', '<b aria-label="Add page (Ctrl Alt P)" />', '<b title={`${w.slice(1)}`} />'],
+  ['<b title="Add page (Ctrl Alt P)" />', '<b title="Settings (Ctrl+,)" />', '<b title="Page overview (.)" />', '<b title={`${on ? "Unlock" : "Lock"} (Ctrl+Shift+L)`} />', '<b title={a ? "Export (Ctrl Shift E)" : "b"} />', '<b title="Next spread (PgDn)" />'],
+)
