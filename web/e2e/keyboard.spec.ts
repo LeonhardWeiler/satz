@@ -1,4 +1,5 @@
 import { expect, test, addPage, open, option, overview, showPage } from './util'
+import { readFileSync } from 'node:fs'
 
 test('the layers tree is one tab stop whose arrow keys move, open and close', async ({ page }) => {
   await open(page)
@@ -75,4 +76,37 @@ test('the arrow keys move through a context menu', async ({ page }) => {
   await expect(item('Duplicate page')).toBeFocused()
   await page.keyboard.press('ArrowUp')
   await expect(item('Insert page')).toBeFocused()
+})
+
+test('no shortcut, copy, cut, paste or context menu reaches the document behind a modal dialog', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  await open(page)
+  await page.getByRole('tree', { name: 'Layers' }).getByRole('button', { name: 'Sun', exact: true }).click()
+  await page.keyboard.press('Control+c')
+  const state = () =>
+    page.evaluate(() => [document.querySelector('[aria-label="Page canvas"]')!.getAttribute('data-sheets'), [...document.querySelectorAll('.layers .layer-name')].map((n) => n.textContent + n.closest('[aria-selected]')!.getAttribute('aria-selected')), document.title])
+  const before = await state()
+  const press = (keys: string) => page.keyboard.press(keys.split(' ').map((k) => ({ Ctrl: 'Control', PgDn: 'PageDown', PgUp: 'PageUp', Del: 'Delete', '+': 'Equal' })[k] ?? k).join('+'))
+  const modals: [string, () => Promise<void>][] = [
+    ['Projects', () => page.getByRole('button', { name: 'Projects' }).click()],
+    ['New document', () => press('Ctrl Alt N')],
+    ['Version history', () => press('Ctrl Alt Z')],
+    ['Command palette', () => press('Ctrl K')],
+    ['Settings', () => press('Ctrl ,')],
+  ]
+  for (const [name, show] of modals) {
+    const dialog = page.getByRole('dialog', { name })
+    await show()
+    await expect(dialog).toBeVisible()
+    await page.evaluate(() => (document.activeElement as HTMLElement).blur())
+    for (const [, keys = ''] of readFileSync('src/commands.ts', 'utf8').matchAll(/keys: '([^']+)'/g)) await press(keys)
+    for (const k of ['Control+x', 'Control+v', 'Control+c']) await page.keyboard.press(k)
+    await page.evaluate(() => (document.activeElement as HTMLElement).blur())
+    for (const k of ['Control+x', 'Control+v']) await page.keyboard.press(k)
+    await dialog.click({ button: 'right', position: { x: 2, y: 2 } })
+    await expect(dialog).toBeVisible()
+    expect(await state(), name).toEqual(before)
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeHidden()
+  }
 })

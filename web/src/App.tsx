@@ -10,7 +10,7 @@ import { Find } from './Find'
 import { History } from './History'
 import { autosave, autosaving, download, drop, exportFile, flush, open, placeImages, save, show, type Handle } from './file'
 import { Icon } from './icons'
-import { isTyping, keysOf, onKey } from './keys'
+import { ignored, isTyping, keysOf, onKey } from './keys'
 import { Layers } from './Layers'
 import { Overview } from './Overview'
 import { Palette } from './Palette'
@@ -162,7 +162,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
 
   useEffect(() => {
     const onMenu = (e: MouseEvent) => {
-      if (e.defaultPrevented || isTyping(e)) return
+      if (ignored(e) || isTyping(e)) return
       e.preventDefault()
       if (!(e.target as Element).closest('.stage, .layers')) editor.set({ selection: [] })
       setMenu({ x: e.clientX, y: e.clientY })
@@ -173,7 +173,7 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
 
   useEffect(() => {
     const clip = (e: ClipboardEvent) => {
-      if (e.defaultPrevented || isTyping(e) || !e.clipboardData) return
+      if (ignored(e) || isTyping(e) || !e.clipboardData) return
       const ids = editor.selection
       if (e.type === 'paste') {
         const images = [...e.clipboardData.files].filter((f) => f.type === 'image/png' || f.type === 'image/jpeg')
