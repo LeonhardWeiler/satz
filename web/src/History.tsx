@@ -13,7 +13,6 @@ export function History({ editor, onClose }: { editor: Editor; onClose: () => vo
   const [{ pages, masters, labels }] = useState(editor.snapshot)
   const [was] = useState(() => ({ page: editor.pageId, selection: editor.selection }))
   const [shown, setShown] = useState(versions[0])
-  const restored = useRef(false)
   useEffect(() => {
     ref.current!.showModal()
   }, [])
@@ -26,25 +25,25 @@ export function History({ editor, onClose }: { editor: Editor; onClose: () => vo
     setShown(v)
     editor.preview(v === versions[0] ? null : v)
   }
-  const restore = (v: Version) => {
+  const close = () => {
     ref.current!.close()
-    if (v === versions[0]) return
-    restored.current = true
     editor.preview(null)
+    onClose()
+  }
+  const cancel = () => {
+    close()
+    editor.showPage(was.page)
+    editor.set({ selection: was.selection })
+  }
+  const restore = (v: Version) => {
+    if (v === versions[0]) return cancel()
+    close()
     editor.apply({ type: 'restore', peer: v.peer, counter: v.counter })
     editor.say(`Restored the version of ${time(v.time)}`, { label: 'Undo', run: () => editor.apply({ type: 'undo' }) })
   }
-  const close = () => {
-    if (!restored.current) {
-      editor.preview(null)
-      editor.showPage(was.page)
-      editor.set({ selection: was.selection })
-    }
-    onClose()
-  }
 
   return (
-    <dialog ref={ref} className="palette history" aria-label="Version history" onClose={close} onClick={(e) => e.target === e.currentTarget && ref.current!.close()}>
+    <dialog ref={ref} className="palette history" aria-label="Version history" onCancel={cancel} onClick={(e) => e.target === e.currentTarget && cancel()}>
       <div className="pal-top">
         <Icon name="clock" />
         <span className="pal-in">Version history</span>
