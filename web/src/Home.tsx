@@ -66,8 +66,11 @@ export function Home({ editor, onNew, children }: { editor: Editor; onNew: () =>
         void findGranted(editor)
       } else {
         const e = Engine.sample()
-        await begin(editor, e.save())
-        e.free()
+        try {
+          await begin(editor, e.save())
+        } finally {
+          e.free()
+        }
       }
     } catch (e) {
       editor.fail(`Could not open ${name}: ${(e as Error).message}. Create a new document instead.`)
