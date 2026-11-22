@@ -94,7 +94,7 @@ export function Field({
             const move = (m: PointerEvent) => put(cur + Math.round((m.clientX - x0) / 2) * step(m, int))
             target.addEventListener('pointermove', move)
             target.addEventListener(
-              'pointerup',
+              'lostpointercapture',
               () => {
                 target.removeEventListener('pointermove', move)
                 setScrub(false)
@@ -446,7 +446,7 @@ export function Edge({ side }: { side: 'left' | 'right' }) {
         document.documentElement.style.setProperty(`--${side}-size`, `${v}px`)
         sizes[side] = v
       }}
-      onPointerUp={() => store(SIZES, sizes)}
+      onLostPointerCapture={() => store(SIZES, sizes)}
       onDoubleClick={() => {
         document.documentElement.style.removeProperty(`--${side}-size`)
         sizes[side] = 0

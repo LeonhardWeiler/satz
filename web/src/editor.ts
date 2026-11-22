@@ -666,7 +666,13 @@ export class Editor {
     this.finishPen(false)
     this.endTyping()
     this.beginGroup()
-    window.addEventListener('pointerup', () => this.endGroup(), { once: true })
+    const c = new AbortController()
+    const end = () => {
+      c.abort()
+      this.endGroup()
+    }
+    window.addEventListener('pointerup', end, { signal: c.signal })
+    window.addEventListener('pointercancel', end, { signal: c.signal })
   }
 
   changeable(nodes = this.selected()): Node[] {

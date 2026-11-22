@@ -55,9 +55,10 @@ run(
     'function save(bytes) { const url = URL.createObjectURL(new Blob([bytes])); a.href = url; a.click(); URL.revokeObjectURL(url) }',
     'async function f(url) { const e = url ? new Engine() : Engine.sample(); try { e.load(await get(url)) } finally { e.free() } }',
     'const create = async () => { const e = Engine.blank(1, 1, 1, false); try { await begin(e.save()) } finally { e.free() } }',
-    "el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up)",
+    "el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up)",
     '<b onPointerUp={up} onLostPointerCapture={up} />',
-    "<b onPointerUp={up} onPointerDown={() => el.addEventListener('lostpointercapture', up)} />",
+    "<b onPointerUp={up} onPointerDown={() => el.addEventListener('lostpointercapture', up, { once: true })} />",
+    "el.addEventListener('pointerup', end, { signal: c.signal }); el.addEventListener('pointercancel', end, { signal })",
   ],
   [
     'img.src = URL.createObjectURL(blob)',
@@ -66,9 +67,11 @@ run(
     'function f() { const e = new Engine(); g(() => { try { } finally { e.free() } }) }',
     'function f() { const e = new Engine(); try { } finally { other.free() } }',
     'new Editor(Engine.sample())',
-    "el.addEventListener('pointerup', up)",
+    "el.addEventListener('pointerup', up); el.removeEventListener('pointerup', up)",
     '<b onPointerUp={up} onPointerDown={down} />',
     "window.addEventListener('pointerup', end, { once: true })",
+    "el.addEventListener('wheel', f); el.removeEventListener('scroll', f)",
+    "el.addEventListener('wheel', f, { once: false, passive: true })",
   ],
 )
 
