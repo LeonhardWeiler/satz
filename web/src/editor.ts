@@ -340,7 +340,7 @@ export class Editor {
   preview(v: Version | null) {
     this.w.version = v
     this.change(() => this.engine.preview(v?.peer, v?.counter ?? 0))
-    if (v?.page) this.showPage(v.page)
+    if (v?.page) this.showPage(v.page, this.back)
   }
 
   registerImage(bytes: Uint8Array) {
@@ -544,11 +544,11 @@ export class Editor {
     this.w.selection = [frame]
   }
 
-  showPage(id: string) {
+  showPage(id: string, back = this.snapshot.pages.some((p) => p.id === this.pageId) ? this.pageId : this.back) {
     if (id === this.pageId) return
     this.finishPen(false)
     this.stopEditing()
-    if (this.snapshot.pages.some((p) => p.id === this.pageId)) this.w.back = this.pageId
+    this.w.back = back
     this.w.pageId = id
     this.w.nodes = this.index()
     this.set({ selection: [] })
