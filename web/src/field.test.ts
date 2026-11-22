@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test'
-import { evalExpr, step } from './field'
+import { MM } from './types'
+import { UNITS, evalExpr, limits, round, step } from './field'
 
 describe('evalExpr', () => {
   it('reads numbers with a comma or a point', () => {
@@ -42,5 +43,15 @@ describe('step', () => {
     expect(step({ shiftKey: true, altKey: false })).toBe(10)
     expect(step({ shiftKey: false, altKey: true })).toBe(0.1)
     expect(step({ shiftKey: false, altKey: true }, true)).toBe(1)
+  })
+})
+
+describe('limits', () => {
+  it.each(Object.entries(UNITS))('stops the step buttons at min and max in %s', (_, per) => {
+    const [min, max] = [2 * MM, 20000 * MM]
+    const at = (v: number) => limits(round(v / per, 2), min, max, per, 2)
+    expect(at(min)).toEqual([true, false])
+    expect(at(max)).toEqual([false, true])
+    expect(at((min + max) / 2)).toEqual([false, false])
   })
 })

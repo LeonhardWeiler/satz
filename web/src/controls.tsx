@@ -3,7 +3,7 @@ import { createPortal, flushSync } from 'react-dom'
 import { keyName } from './keys'
 import { MAC } from './textEdit'
 import { ContextMenu } from './ContextMenu'
-import { evalExpr, step } from './field'
+import { evalExpr, limits, round, step } from './field'
 import { Icon, type IconName } from './icons'
 import type { Typeface } from './model'
 import { MAX_LENGTH, UNITS, load, store, useSettings } from './settings'
@@ -19,7 +19,6 @@ export function roam(e: KeyboardEvent, items: Element[], back = ['ArrowUp'], for
   return true
 }
 
-const round = (v: number, digits: number) => Math.round(v * 10 ** digits) / 10 ** digits
 
 export function Field({
   label,
@@ -63,6 +62,7 @@ export function Field({
   }
   const edit = !readOnly && onCommit && shown !== null
   const cur = shown ?? 0
+  const [atMin, atMax] = limits(cur, min, max, per, digits)
   const commit = () => {
     setDraft(null)
     if (draft === null) return
@@ -108,7 +108,7 @@ export function Field({
         </span>
       )}
       {int && edit && (
-        <button type="button" className="field-step" tabIndex={-1} aria-label={`Decrease ${title}`} disabled={shown <= min / per} onClick={(e) => bump(-step(e, true))}>
+        <button type="button" className="field-step" tabIndex={-1} aria-label={`Decrease ${title}`} disabled={atMin} onClick={(e) => bump(-step(e, true))}>
           <Icon name="minus" />
         </button>
       )}
@@ -154,7 +154,7 @@ export function Field({
       />
       {(draft !== null || (shown !== null && !(shown === 0 && zero))) && unit && <span className="field-unit" data-unit={unit}>{unit}</span>}
       {int && edit && (
-        <button type="button" className="field-step" tabIndex={-1} aria-label={`Increase ${title}`} disabled={shown >= max} onClick={(e) => bump(step(e, true))}>
+        <button type="button" className="field-step" tabIndex={-1} aria-label={`Increase ${title}`} disabled={atMax} onClick={(e) => bump(step(e, true))}>
           <Icon name="plus" />
         </button>
       )}
