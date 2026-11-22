@@ -152,3 +152,16 @@ test('copied text leaves out the placeholders of anchored layers', () => {
   expect(editor.selectedText()).toBe('ab')
   expect(editor.copy([text!])).toBe('ab')
 })
+
+test('a day change shows the new date on the canvas', () => {
+  initSync({ module: readFileSync(new URL('engine/engine_bg.wasm', import.meta.url)) })
+  const editor = new Editor(Engine.blank(100, 100, 1, false))
+  const [text] = editor.apply({ type: 'create', parent: editor.snapshot.pages[0]!.id, kind: 'text', x: 0, y: 0, w: 50, h: 20 })
+  editor.apply({ type: 'editText', id: text!, range: [0, 0], text: '\u0019' })
+  editor.setToday(new Date(2026, 2, 9, 23, 59))
+  editor.saved(editor.file, editor.engine.version())
+  expect(editor.nodes.get(text!)?.node.name).toBe('March 9, 2026')
+  editor.setToday(new Date(2026, 2, 10, 0, 1))
+  expect(editor.nodes.get(text!)?.node.name).toBe('March 10, 2026')
+  expect(editor.dirty).toBe(false)
+})

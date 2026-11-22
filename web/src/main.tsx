@@ -52,6 +52,15 @@ if (!document.createElement('canvas').getContext('webgl2')) {
       editor.set({ autosaves: false })
     }
     onTrap(() => queueMicrotask(stop))
+    let midnight: ReturnType<typeof setTimeout> | undefined
+    const day = () => {
+      const now = new Date()
+      editor.setToday(now)
+      clearTimeout(midnight)
+      midnight = setTimeout(day, new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() - now.getTime())
+    }
+    day()
+    document.addEventListener('visibilitychange', day)
     if (!alone) {
       editor.set({ autosaves: false })
       editor.fail('Satz is open in another tab. This tab does not autosave; save the file with Ctrl+S.')
