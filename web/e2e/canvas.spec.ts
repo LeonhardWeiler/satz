@@ -328,6 +328,17 @@ test('space activates a focused layer button', async ({ page }) => {
   await expect(page.getByRole('complementary', { name: 'Properties' }).getByRole('heading', { level: 2 })).toHaveText('Sun')
 })
 
+test('a held space ends when the window loses focus', async ({ page }) => {
+  await open(page)
+  const canvas = page.getByLabel('Page canvas')
+  await canvas.focus()
+  await page.keyboard.down('Space')
+  await expect(canvas).toHaveAttribute('data-space')
+  await page.evaluate(() => window.dispatchEvent(new FocusEvent('blur')))
+  await expect(canvas).not.toHaveAttribute('data-space')
+  await page.keyboard.up('Space')
+})
+
 test('side panels are resized at their inner edge and keep their size after a reload, and a double click resets them', async ({ page }) => {
   await open(page)
   const right = page.getByRole('complementary', { name: 'Properties' })
