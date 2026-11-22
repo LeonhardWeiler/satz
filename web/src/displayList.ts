@@ -1,8 +1,9 @@
+export type Mat = [number, number, number, number, number, number]
 export type Stop = { at: number; color: Float32Array }
 export type Paint =
   | { type: 'solid'; color: Float32Array }
-  | { type: 'linear' | 'radial'; transform: Float32Array; stops: Stop[] }
-export type Shadow = { offset: Float32Array; blur: number; color: Float32Array }
+  | { type: 'linear' | 'radial'; transform: Mat; stops: Stop[] }
+export type Shadow = { offset: [number, number]; blur: number; color: Float32Array }
 
 export type Op = (
   | { op: 'page'; width: number; height: number; bleed: number }
@@ -17,110 +18,101 @@ export type Op = (
       glyphs: Uint16Array
       positions: Float32Array
     }
-  | { op: 'image'; image: number; transform: Float32Array }
+  | { op: 'image'; image: number; transform: Mat }
   | { op: 'pushClip'; path: Float32Array; invert: boolean }
   | { op: 'popClip' }
   | { op: 'strokePath'; paint: Paint; width: number; cap: number; join: number; path: Float32Array }
   | { op: 'pushLayer'; hash: number; opacity: number; blend: number; blur: number; shadows: Shadow[] }
-  | { op: 'pushTransform'; transform: Float32Array }
+  | { op: 'pushTransform'; transform: Mat }
   | { op: 'popLayer' | 'beginMask' | 'endMask' | 'popMask' | 'popTransform' }
 ) & { end?: number }
 
-const SIMPLE = { 2: 'endItem', 7: 'popClip', 10: 'popLayer', 11: 'beginMask', 12: 'endMask', 13: 'popMask', 15: 'popTransform' } as const
+const SIMPLE = new Map<number, 'endItem' | 'popClip' | 'popLayer' | 'beginMask' | 'endMask' | 'popMask' | 'popTransform'>([
+  [2, 'endItem'],
+  [7, 'popClip'],
+  [10, 'popLayer'],
+  [11, 'beginMask'],
+  [12, 'endMask'],
+  [13, 'popMask'],
+  [15, 'popTransform'],
+])
 
 export function decode(words: Uint32Array): Op[] {
   const { buffer, byteOffset } = words
-  const f32 = (at: number, n: number) => new Float32Array(buffer, byteOffset + at * 4, n)
+  const floats = new Float32Array(buffer, byteOffset, words.length)
   const ops: Op[] = []
   let i = 0
+  const next = <T>(list: ArrayLike<T>) => {
+    const v = list[i]
+    if (v === undefined) throw new Error(`display list: ends at word ${i}`)
+    i++
+    return v
+  }
+  const word = () => next(words)
+  const float = () => next(floats)
+  const f32 = (n: number) => {
+    i += n
+    if (i > words.length) throw new Error(`display list: ends at word ${words.length}`)
+    return new Float32Array(buffer, byteOffset + (i - n) * 4, n)
+  }
+  const mat = (): Mat => [float(), float(), float(), float(), float(), float()]
   const paint = (): Paint => {
-    const type = words[i++]
-    if (type === 0) {
-      i += 4
-      return { type: 'solid', color: f32(i - 4, 4) }
-    }
-    const transform = f32(i, 6)
-    const n = words[i + 6]
-    i += 7
-    const stops = Array.from({ length: n }, (_, k) => ({ at: f32(i + 5 * k, 1)[0], color: f32(i + 5 * k + 1, 4) }))
-    i += 5 * n
+    const type = word()
+    if (type === 0) return { type: 'solid', color: f32(4) }
+    const transform = mat()
+    const stops = Array.from({ length: word() }, () => ({ at: float(), color: f32(4) }))
     return { type: type === 1 ? 'linear' : 'radial', transform, stops }
   }
-  const path = () => {
-    const n = words[i]
-    i += 1 + n
-    return f32(i - n, n)
-  }
+  const path = () => f32(word())
   while (i < words.length) {
-    const code = words[i++]
+    const code = word()
     switch (code) {
-      case 0: {
-        const [width, height, bleed] = f32(i, 3)
-        ops.push({ op: 'page', width, height, bleed })
-        i += 3
+      case 0:
+        ops.push({ op: 'page', width: float(), height: float(), bleed: float() })
         break
-      }
       case 1:
-        ops.push({ op: 'beginItem', item: words[i], hash: words[i + 1] })
-        i += 2
+        ops.push({ op: 'beginItem', item: word(), hash: word() })
         break
-      case 3: {
-        const p = paint()
-        ops.push({ op: 'fillPath', paint: p, path: path() })
+      case 3:
+        ops.push({ op: 'fillPath', paint: paint(), path: path() })
         break
-      }
       case 4: {
-        const font = words[i]
-        const size = f32(i + 1, 1)[0]
-        i += 2
+        const font = word()
+        const size = float()
         const p = paint()
-        const n = words[i]
-        const glyphs = new Uint16Array(buffer, byteOffset + (i + 1) * 4, n)
-        i += 1 + Math.ceil(n / 2)
-        ops.push({ op: 'glyphRun', font, size, paint: p, glyphs, positions: f32(i, 2 * n) })
-        i += 2 * n
+        const n = word()
+        const glyphs = new Uint16Array(buffer, byteOffset + i * 4, n)
+        i += Math.ceil(n / 2)
+        ops.push({ op: 'glyphRun', font, size, paint: p, glyphs, positions: f32(2 * n) })
         break
       }
       case 5:
-        ops.push({ op: 'image', image: words[i], transform: f32(i + 1, 6) })
-        i += 7
+        ops.push({ op: 'image', image: word(), transform: mat() })
         break
       case 14:
-        ops.push({ op: 'pushTransform', transform: f32(i, 6) })
-        i += 6
+        ops.push({ op: 'pushTransform', transform: mat() })
         break
-      case 6: {
-        const invert = words[i++] === 1
-        ops.push({ op: 'pushClip', invert, path: path() })
+      case 6:
+        ops.push({ op: 'pushClip', invert: word() === 1, path: path() })
         break
+      case 8:
+        ops.push({ op: 'strokePath', paint: paint(), width: float(), cap: word(), join: word(), path: path() })
+        break
+      case 9:
+        ops.push({
+          op: 'pushLayer',
+          hash: word(),
+          opacity: float(),
+          blend: word(),
+          blur: float(),
+          shadows: Array.from({ length: word() }, () => ({ offset: [float(), float()], blur: float(), color: f32(4) })),
+        })
+        break
+      default: {
+        const op = SIMPLE.get(code)
+        if (!op) throw new Error(`display list: bad op ${code} at word ${i - 1}`)
+        ops.push({ op })
       }
-      case 8: {
-        const p = paint()
-        const width = f32(i, 1)[0]
-        const [cap, join] = [words[i + 1], words[i + 2]]
-        i += 3
-        ops.push({ op: 'strokePath', paint: p, width, cap, join, path: path() })
-        break
-      }
-      case 9: {
-        const hash = words[i]
-        const [opacity] = f32(i + 1, 1)
-        const blend = words[i + 2]
-        const [blur] = f32(i + 3, 1)
-        const n = words[i + 4]
-        i += 5
-        const shadows = Array.from({ length: n }, (_, k) => ({
-          offset: f32(i + 7 * k, 2),
-          blur: f32(i + 7 * k + 2, 1)[0],
-          color: f32(i + 7 * k + 3, 4),
-        }))
-        i += 7 * n
-        ops.push({ op: 'pushLayer', hash, opacity, blend, blur, shadows })
-        break
-      }
-      default:
-        if (!(code in SIMPLE)) throw new Error(`display list: bad op ${code} at word ${i - 1}`)
-        ops.push({ op: SIMPLE[code as keyof typeof SIMPLE] })
     }
   }
   return link(ops)
@@ -132,11 +124,19 @@ const CLOSE = new Set(['popClip', 'popLayer', 'popMask', 'popTransform', 'endIte
 export function link(ops: Op[]) {
   const open: Op[] = []
   ops.forEach((op, i) => {
-    if (CLOSE.has(op.op)) open.pop()!.end = i
+    if (CLOSE.has(op.op)) {
+      const o = open.pop()
+      if (!o) throw new Error(`display list: ${op.op} at ${i} closes nothing`)
+      o.end = i
+    }
     if (OPEN.has(op.op)) open.push(op)
   })
   for (const op of open) op.end = ops.length
   return ops
 }
 
-export const close = (ops: Op[], at: number) => ops[at].end!
+export function close(ops: Op[], at: number) {
+  const end = ops[at]?.end
+  if (end === undefined) throw new Error(`display list: op ${at} is not open`)
+  return end
+}

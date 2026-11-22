@@ -18,3 +18,9 @@ test('link sets the matching end, with endMask between beginMask and popMask', (
   const ops = link([{ op: 'beginMask' }, item(), { op: 'endItem' }, { op: 'endMask' }, item(), { op: 'endItem' }, { op: 'popMask' }])
   expect([0, 3, 1, 4].map((i) => close(ops, i))).toEqual([3, 6, 2, 5])
 })
+
+test('a list cut short throws instead of reading past its end', () => {
+  const bytes = read('display-list.bin')
+  const words = new Uint32Array(bytes.buffer, bytes.byteOffset, bytes.length / 4)
+  for (const cut of [5, 7, 30]) expect(() => decode(words.slice(0, words.length - cut))).toThrow('display list: ends at word')
+})
