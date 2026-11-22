@@ -53,11 +53,11 @@ impl Doc {
     pub(super) fn relink_image(&self, image: String, to: String, name: String) -> Res<Vec<String>> {
         let images = self.doc.get_map("images");
         if !self.image_links().contains_key(&image) {
-            return Err(format!("{image} is not a linked image"));
+            return Err(Error::NotLinked { hash: image });
         }
-        image::info(&to).ok_or(format!("image {to} is not read"))?;
+        image::info(&to).ok_or_else(|| Error::ImageNotRead { hash: to.clone() })?;
         if name.is_empty() {
-            return Err("a link needs a file name".into());
+            return Err(Error::LinkName);
         }
         if !matches!(value(&images, &to), Some(LoroValue::Binary(_))) {
             images.insert(&to, linked(name)).map_err(err)?;
@@ -99,9 +99,11 @@ impl Doc {
         let mut files = Vec::new();
         for h in &hashes {
             if !links.contains_key(h) {
-                return Err(format!("{h} is not a linked image"));
+                return Err(Error::NotLinked { hash: h.clone() });
             }
-            let id = image::id(h).ok_or(format!("the file of {} is missing", links[h]))?;
+            let id = image::id(h).ok_or_else(|| Error::FileMissing {
+                name: links[h].clone(),
+            })?;
             files.push(image::bytes(id));
         }
         let images = self.doc.get_map("images");

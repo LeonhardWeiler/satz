@@ -14,38 +14,37 @@ use crate::style::{Blend, Cap, Fill, FillKind, FillStop, Join};
 use serde_json::{Map, Value};
 use std::collections::HashMap;
 
-type Res<T> = Result<T, String>;
+use crate::error::{Error, Res};
 type Files = Vec<(String, Vec<u8>)>;
-
-const BAD: &str = "not a Figma file";
 
 fn unzip(z: &[u8]) -> Res<Files> {
     let le = |i: usize, n: usize| {
         z.get(i..i + n)
             .map(|b| b.iter().rev().fold(0, |v, &x| v << 8 | usize::from(x)))
-            .ok_or(BAD)
+            .ok_or(Error::NotFigma)
     };
     let u16_at = |i| le(i, 2);
     let u32_at = |i| le(i, 4);
     let end = (0..z.len().saturating_sub(21))
         .rev()
         .find(|&i| z.get(i..i + 4) == Some(b"PK\x05\x06"))
-        .ok_or(BAD)?;
+        .ok_or(Error::NotFigma)?;
     let mut at = u32_at(end + 16)?;
     let mut out = Vec::new();
     for _ in 0..u16_at(end + 10)? {
         let (method, size, name_len) = (u16_at(at + 10)?, u32_at(at + 20)?, u16_at(at + 28)?);
         let name =
-            String::from_utf8_lossy(z.get(at + 46..at + 46 + name_len).ok_or(BAD)?).into_owned();
+            String::from_utf8_lossy(z.get(at + 46..at + 46 + name_len).ok_or(Error::NotFigma)?)
+                .into_owned();
         let local = u32_at(at + 42)?;
         let start = local + 30 + u16_at(local + 26)? + u16_at(local + 28)?;
-        let data = z.get(start..start + size).ok_or(BAD)?;
+        let data = z.get(start..start + size).ok_or(Error::NotFigma)?;
         out.push((
             name,
             match method {
                 0 => data.to_vec(),
-                8 => miniz_oxide::inflate::decompress_to_vec(data).map_err(|_| BAD)?,
-                _ => return Err(BAD.into()),
+                8 => miniz_oxide::inflate::decompress_to_vec(data).map_err(|_| Error::NotFigma)?,
+                _ => return Err(Error::NotFigma),
             },
         ));
         at += 46 + name_len + u16_at(at + 30)? + u16_at(at + 32)?;
@@ -60,7 +59,7 @@ struct Kiwi<'a> {
 
 impl Kiwi<'_> {
     fn byte(&mut self) -> Res<u8> {
-        let b = *self.b.get(self.at).ok_or(BAD)?;
+        let b = *self.b.get(self.at).ok_or(Error::NotFigma)?;
         self.at += 1;
         Ok(b)
     }
@@ -97,7 +96,7 @@ impl Kiwi<'_> {
 
     fn string(&mut self) -> Res<String> {
         let rest = self.b.get(self.at..).unwrap_or_default();
-        let end = rest.iter().position(|&c| c == 0).ok_or(BAD)?;
+        let end = rest.iter().position(|&c| c == 0).ok_or(Error::NotFigma)?;
         let s = String::from_utf8_lossy(rest.split_at(end).0).into_owned();
         self.at += end + 1;
         Ok(s)
@@ -141,11 +140,11 @@ fn value(k: &mut Kiwi, types: &[Type], ty: i64, array: bool) -> Res<Value> {
     if array {
         let n = k.uint()?;
         if n > k.b.len().saturating_sub(k.at) as u64 {
-            return Err(BAD.into());
+            return Err(Error::NotFigma);
         }
         if ty == -2 {
-            let end = k.at.checked_add(n as usize).ok_or(BAD)?;
-            let bytes = k.b.get(k.at..end).ok_or(BAD)?;
+            let end = k.at.checked_add(n as usize).ok_or(Error::NotFigma)?;
+            let bytes = k.b.get(k.at..end).ok_or(Error::NotFigma)?;
             k.at = end;
             return Ok(Value::Array(bytes.iter().map(|&b| b.into()).collect()));
         }
@@ -160,8 +159,8 @@ fn value(k: &mut Kiwi, types: &[Type], ty: i64, array: bool) -> Res<Value> {
         -6 => k.string()?.into(),
         _ => {
             let t = types
-                .get(usize::try_from(ty).map_err(|_| BAD)?)
-                .ok_or(BAD)?;
+                .get(usize::try_from(ty).map_err(|_| Error::NotFigma)?)
+                .ok_or(Error::NotFigma)?;
             match t.kind {
                 0 => {
                     let v = k.uint()?;
@@ -184,7 +183,11 @@ fn value(k: &mut Kiwi, types: &[Type], ty: i64, array: bool) -> Res<Value> {
                         if id == 0 {
                             break;
                         }
-                        let f = t.fields.iter().find(|f| f.id == id).ok_or(BAD)?;
+                        let f = t
+                            .fields
+                            .iter()
+                            .find(|f| f.id == id)
+                            .ok_or(Error::NotFigma)?;
                         m.insert(f.name.clone(), value(k, types, f.ty, f.array)?);
                     }
                     Value::Object(m)
@@ -199,14 +202,15 @@ fn segments(b: &[u8]) -> Res<Vec<Vec<u8>>> {
     let mut out = Vec::new();
     while let Some(len) = b.get(at..at + 4) {
         let n = len.iter().rev().fold(0, |v, &x| v << 8 | usize::from(x));
-        let data = b.get(at + 4..at + 4 + n).ok_or(BAD)?;
+        let data = b.get(at + 4..at + 4 + n).ok_or(Error::NotFigma)?;
         out.push(if data.starts_with(&[0x28, 0xb5, 0x2f, 0xfd]) {
-            let mut d = ruzstd::decoding::StreamingDecoder::new(data).map_err(|_| BAD)?;
+            let mut d =
+                ruzstd::decoding::StreamingDecoder::new(data).map_err(|_| Error::NotFigma)?;
             let mut v = Vec::new();
-            std::io::Read::read_to_end(&mut d, &mut v).map_err(|_| BAD)?;
+            std::io::Read::read_to_end(&mut d, &mut v).map_err(|_| Error::NotFigma)?;
             v
         } else {
-            miniz_oxide::inflate::decompress_to_vec(data).map_err(|_| BAD)?
+            miniz_oxide::inflate::decompress_to_vec(data).map_err(|_| Error::NotFigma)?
         });
         at += 4 + n;
     }
@@ -216,7 +220,10 @@ fn segments(b: &[u8]) -> Res<Vec<Vec<u8>>> {
 fn read(bytes: &[u8]) -> Res<(Value, Files)> {
     let (canvas, images) = if bytes.starts_with(b"PK") {
         let mut files = unzip(bytes)?;
-        let i = files.iter().position(|f| f.0 == "canvas.fig").ok_or(BAD)?;
+        let i = files
+            .iter()
+            .position(|f| f.0 == "canvas.fig")
+            .ok_or(Error::NotFigma)?;
         let canvas = files.swap_remove(i).1;
         let images = files
             .into_iter()
@@ -227,13 +234,16 @@ fn read(bytes: &[u8]) -> Res<(Value, Files)> {
         (bytes.to_vec(), vec![])
     };
     if !canvas.starts_with(b"fig-kiwi") {
-        return Err(BAD.into());
+        return Err(Error::NotFigma);
     }
     let [schema_bytes, data, ..] = &segments(&canvas)?[..] else {
-        return Err(BAD.into());
+        return Err(Error::NotFigma);
     };
     let types = schema(schema_bytes)?;
-    let root = types.iter().position(|t| t.name == "Message").ok_or(BAD)?;
+    let root = types
+        .iter()
+        .position(|t| t.name == "Message")
+        .ok_or(Error::NotFigma)?;
     Ok((
         value(&mut Kiwi { b: data, at: 0 }, &types, root as i64, false)?,
         images,
@@ -485,7 +495,7 @@ impl Fig<'_> {
 pub fn sheets(file: &[u8]) -> Res<Vec<Sheet>> {
     let (msg, images) = read(file)?;
     let msg = &msg;
-    let all = msg["nodeChanges"].as_array().ok_or(BAD)?;
+    let all = msg["nodeChanges"].as_array().ok_or(Error::NotFigma)?;
     let mut fig = Fig {
         blobs: msg["blobs"]
             .as_array()
@@ -516,7 +526,10 @@ pub fn sheets(file: &[u8]) -> Res<Vec<Sheet>> {
             .flatten()
             .filter(|n| n["visible"] != false)
     };
-    let root = all.iter().find(|n| n["type"] == "DOCUMENT").ok_or(BAD)?;
+    let root = all
+        .iter()
+        .find(|n| n["type"] == "DOCUMENT")
+        .ok_or(Error::NotFigma)?;
     let mut out = Vec::new();
     for canvas in
         kids(root).filter(|c| c["type"] == "CANVAS" && c["name"] != "Internal Only Canvas")

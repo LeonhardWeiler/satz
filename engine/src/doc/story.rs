@@ -235,7 +235,7 @@ pub(super) fn byte_of(s: &str, index: usize) -> Res<usize> {
     if units >= index {
         Ok(s.len())
     } else {
-        Err("index outside the text".into())
+        Err(Error::IndexOutsideText)
     }
 }
 
@@ -276,7 +276,7 @@ impl Doc {
 
     pub fn set_today(&mut self, y: u32, m: u32, d: u32) -> Res<()> {
         if !(1..=9999).contains(&y) || !(1..=12).contains(&m) || !(1..=31).contains(&d) {
-            return Err(format!("no date {y}-{m}-{d}"));
+            return Err(Error::NoDate { y, m, d });
         }
         if self.today.replace([y, m, d]) == [y, m, d] {
             return Ok(());
@@ -290,7 +290,7 @@ impl Doc {
 
     pub(super) fn frame_lines(&self, n: TreeID) -> Res<(Rc<Story>, Vec<text::Line>)> {
         let flows = self.flows();
-        let f = flows.get(&n).ok_or("not a text node")?;
+        let f = flows.get(&n).ok_or(Error::NotText)?;
         Ok((
             f.story.clone(),
             f.placed.shifted(f.start as isize, 0).geometry,
@@ -365,12 +365,12 @@ impl Doc {
 
     pub fn frame_range(&self, id: &str) -> Res<[usize; 2]> {
         let flows = self.flows();
-        Ok(flows.get(&self.node(id)?).ok_or("not a text node")?.units)
+        Ok(flows.get(&self.node(id)?).ok_or(Error::NotText)?.units)
     }
 
     pub(super) fn holding(&self, n: TreeID, at: usize) -> Res<TreeID> {
         let flows = self.flows();
-        let mut f = flows.get(&n).ok_or("not a text node")?.head;
+        let mut f = flows.get(&n).ok_or(Error::NotText)?.head;
         let mut holder = f;
         while let Some(flow) = flows.get(&f) {
             let Some(next) = flow.next.filter(|_| flow.rest.is_some()) else {
@@ -499,7 +499,7 @@ impl Doc {
     pub(super) fn own_text(&self, id: TreeID) -> Res<LoroText> {
         container(&self.meta(id), "text")
             .and_then(|c| c.into_text().ok())
-            .ok_or_else(|| "not a text node".into())
+            .ok_or(Error::NotText)
     }
 
     pub(super) fn next_of(&self, id: TreeID) -> Option<TreeID> {
@@ -692,7 +692,7 @@ impl Doc {
             .iter()
             .any(|o| o.id != s.id && o.name == s.name);
         if taken {
-            return Err(format!("a text style named {} exists", s.name));
+            return Err(Error::TextStyleExists { name: s.name });
         }
         self.put("textStyles", i, s)
     }
@@ -915,7 +915,7 @@ impl Doc {
     pub(super) fn set_text(&self, id: String, text: String) -> Res<Vec<String>> {
         self.text(self.node(&id)?)?
             .update(&text, UpdateOptions::default())
-            .map_err(|e| format!("{e:?}"))?;
+            .map_err(|e| err(format!("{e:?}")))?;
         Ok(vec![])
     }
 
@@ -928,7 +928,7 @@ impl Doc {
         let [a, b] = range;
         let t = self.text(self.node(&id)?)?;
         if !(a <= b && b <= t.len_utf16()) {
-            return Err("range outside the text".into());
+            return Err(Error::RangeOutsideText);
         }
         if b > a {
             t.delete_utf16(a, b - a).map_err(err)?;
@@ -943,10 +943,10 @@ impl Doc {
         let head = self.story(n);
         self.text(head)?;
         if !(by > 0.0 && by.is_finite()) {
-            return Err("the scale must be positive".into());
+            return Err(Error::ScaleNotPositive);
         }
         let snap = self.snapshot();
-        let story = snap.stories.get(&head).ok_or("no story")?;
+        let story = snap.stories.get(&head).ok_or(Error::NoStory)?;
         let mut at = 0;
         let spans = story.spans.iter().map(|s| {
             at += s.len;
@@ -990,7 +990,7 @@ impl Doc {
         let len = t.len_utf16();
         let range = match range {
             Some([a, b]) if a <= b && b <= len => Some(a..b),
-            Some(_) => return Err("range outside the text".into()),
+            Some(_) => return Err(Error::RangeOutsideText),
             None => None,
         };
         if let Some(s) = props.text_style.as_deref().filter(|s| !s.is_empty()) {
@@ -999,11 +999,11 @@ impl Doc {
         if let Some(c) = props.condition.as_deref().filter(|c| !c.is_empty()) {
             let (_, v) = self.find::<Variable>("variables", c)?;
             if !v.values.values().all(|v| matches!(v, Value::Boolean(_))) {
-                return Err("a condition is a boolean variable".into());
+                return Err(Error::ConditionNotBoolean);
             }
         }
         let serde_json::Value::Object(set) = serde_json::to_value(&props).map_err(err)? else {
-            return Err("props are not a map".into());
+            return Err(Error::PropsNotAMap);
         };
         let set: Vec<_> = set
             .into_iter()
@@ -1096,10 +1096,12 @@ impl Doc {
         let (i, mut s) = self.find::<TextStyle>("textStyles", &id)?;
         for g in grep.iter().flatten() {
             if g.pattern.is_empty() || regex::Regex::new(&g.pattern).is_err() {
-                return Err(format!("{} is no regular expression", g.pattern));
+                return Err(Error::NotARegex {
+                    pattern: g.pattern.clone(),
+                });
             }
             if g.style == id {
-                return Err("a GREP style sets another text style".into());
+                return Err(Error::GrepSetsStyle);
             }
             self.find::<TextStyle>("textStyles", &g.style)?;
         }
@@ -1129,16 +1131,16 @@ impl Doc {
     pub fn threadable(&self, from: &str, to: &str) -> Res<(TreeID, TreeID)> {
         let (a, b) = (self.node(from)?, self.node(to)?);
         if self.kind(a) != Some(NodeKind::Text) || self.kind(b) != Some(NodeKind::Text) {
-            return Err("only text frames thread".into());
+            return Err(Error::ThreadNotText);
         }
         if a == b || self.next_of(b).is_some() || self.prev_of(b).is_some() {
-            return Err("the frame is threaded already".into());
+            return Err(Error::Threaded);
         }
         let (ra, rb) = (self.root(a), self.root(b));
         if ra != rb
             && (self.kind(ra) != Some(NodeKind::Page) || self.kind(rb) != Some(NodeKind::Page))
         {
-            return Err("frames thread within the pages or within one master".into());
+            return Err(Error::ThreadAcross);
         }
         Ok((a, b))
     }
@@ -1221,11 +1223,11 @@ fn restyle(s: &mut TextStyle, props: TextProps) -> Res<()> {
     props.check()?;
     let mut attrs = serde_json::to_value(&s.attrs).map_err(err)?;
     let serde_json::Value::Object(set) = serde_json::to_value(props).map_err(err)? else {
-        return Err("props are not a map".into());
+        return Err(Error::PropsNotAMap);
     };
     for (k, v) in set.into_iter().filter(|(_, v)| !v.is_null()) {
         if !STYLED.contains(&k.as_str()) {
-            return Err(format!("a text style does not set {k}"));
+            return Err(Error::NotInTextStyle { key: k });
         }
         s.bindings.remove(&k);
         attrs[&k] = v;

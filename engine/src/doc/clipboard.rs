@@ -145,7 +145,7 @@ impl Doc {
         let mut out = Vec::new();
         let mut clips = Vec::new();
         for id in self.sorted(&ids)?.into_iter().rev() {
-            let parent = self.tree.parent(id).ok_or("no parent")?;
+            let parent = self.tree.parent(id).ok_or(Error::NoParent)?;
             let clip = self.clip(id);
             let copy = self.paste(&clip, parent, self.index(id) + 1)?;
             self.meta(copy).delete(OVERRIDE_OF).map_err(err)?;
@@ -178,7 +178,7 @@ impl Doc {
         for (i, (clip, from)) in self.clipboard.iter().enumerate() {
             let (parent, index) = match above {
                 Some(a) => (
-                    self.tree.parent(a).ok_or("no parent")?,
+                    self.tree.parent(a).ok_or(Error::NoParent)?,
                     self.index(a) + 1 + i,
                 ),
                 None => {
@@ -189,7 +189,7 @@ impl Doc {
                         })
                         .or(page)
                         .or_else(|| self.pages().first().copied())
-                        .ok_or("no page")?;
+                        .ok_or(Error::NoPage)?;
                     (p.into(), self.children(p).len())
                 }
             };

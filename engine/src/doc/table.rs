@@ -94,7 +94,7 @@ impl Doc {
     }
 
     fn new_cell(&self, table: TreeID, at: Cell, like: TreeID) -> Res<()> {
-        let t = self.table(table).ok_or("no table")?;
+        let t = self.table(table).ok_or(Error::NoTable)?;
         let before: Vec<_> = (self.cells(table, &t).into_iter())
             .filter(|(_, c)| (c[1], c[0]) < (at[1], at[0]))
             .map(|(c, _)| c)
@@ -125,9 +125,13 @@ impl Doc {
                 .tree
                 .parent(n)
                 .and_then(parent_node)
-                .ok_or("no table")?;
+                .ok_or(Error::NoTable)?;
         }
-        Ok((n, self.table(n).ok_or(format!("{id} is not in a table"))?))
+        Ok((
+            n,
+            self.table(n)
+                .ok_or_else(|| Error::NotInATable { id: id.into() })?,
+        ))
     }
 
     pub(super) fn table_insert(&self, id: String, column: bool, at: usize) -> Res<Vec<String>> {
@@ -136,10 +140,10 @@ impl Doc {
         let a = usize::from(!column);
         let sizes = if column { &mut t.columns } else { &mut t.rows };
         if at > sizes.len() {
-            return Err("index outside the table".into());
+            return Err(Error::IndexOutsideTable);
         }
         if sizes.len() >= 1000 {
-            return Err("a table has at most 1000 rows and columns".into());
+            return Err(Error::TableTooBig);
         }
         sizes.insert(at, sizes[at.saturating_sub(1).min(sizes.len() - 1)]);
         let across = if column {
@@ -179,10 +183,10 @@ impl Doc {
         let a = usize::from(!column);
         let sizes = if column { &mut t.columns } else { &mut t.rows };
         if at >= sizes.len() {
-            return Err("index outside the table".into());
+            return Err(Error::IndexOutsideTable);
         }
         if sizes.len() == 1 {
-            return Err("a table keeps 1 row and column".into());
+            return Err(Error::TableKeepsOne);
         }
         sizes.remove(at);
         for (c, mut cell) in self.cells(n, &old) {
@@ -202,7 +206,7 @@ impl Doc {
     }
 
     pub(super) fn merge_cells(&self, ids: Vec<String>) -> Res<Vec<String>> {
-        let (n, t) = self.table_of(ids.first().ok_or("no cells")?)?;
+        let (n, t) = self.table_of(ids.first().ok_or(Error::NoCells)?)?;
         let cells = self.cells(n, &t);
         let mut chosen = Vec::new();
         for id in &ids {
@@ -210,13 +214,13 @@ impl Doc {
             let cell = cells
                 .iter()
                 .find(|x| x.0 == c)
-                .ok_or(format!("{id} is not a cell of the table"))?;
+                .ok_or_else(|| Error::NotACellOfTable { id: id.clone() })?;
             if !chosen.contains(cell) {
                 chosen.push(*cell);
             }
         }
         if chosen.len() < 2 {
-            return Err("merging takes 2 cells or more".into());
+            return Err(Error::MergeOne);
         }
         let lo = |i: usize| chosen.iter().map(|c| c.1[i]).min().unwrap();
         let hi = |i: usize| chosen.iter().map(|c| c.1[i] + c.1[i + 2]).max().unwrap();
@@ -229,7 +233,7 @@ impl Doc {
         };
         let area: usize = chosen.iter().map(|c| c.1[2] * c.1[3]).sum();
         if area != rect[2] * rect[3] || cells.iter().any(|c| inside(&c.1) && !chosen.contains(c)) {
-            return Err("the cells do not make a rectangle".into());
+            return Err(Error::NotARectangle);
         }
         chosen.sort_by_key(|c| (c.1[1], c.1[0]));
         let (keep, _) = chosen[0];
@@ -262,10 +266,10 @@ impl Doc {
             .cells(n, &t)
             .into_iter()
             .find(|x| x.0 == c)
-            .ok_or(format!("{id} is not a cell"))?
+            .ok_or_else(|| Error::NotACell { id: id.clone() })?
             .1;
         if w * h == 1 {
-            return Err(format!("{id} is not merged"));
+            return Err(Error::NotMerged { id });
         }
         self.put_cell(c, [x, y, 1, 1])?;
         for (i, j) in (y..y + h)
@@ -280,10 +284,10 @@ impl Doc {
     pub(super) fn size_table(&self, id: String, t: Table) -> Res<Vec<String>> {
         let (n, old) = self.table_of(&id)?;
         if t.columns.len() != old.columns.len() || t.rows.len() != old.rows.len() {
-            return Err("as many columns and rows as the table has".into());
+            return Err(Error::TableSizeCount);
         }
         if !t.sound() {
-            return Err("column widths are above 0 and row heights not below".into());
+            return Err(Error::TableSizeValue);
         }
         self.put_table(n, &t).map(|()| vec![])
     }

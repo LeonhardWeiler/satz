@@ -35,6 +35,7 @@ serde-wasm-bindgen = "0.6.5"
 serde_json = { version = "1.0.151", features = ["raw_value"] }
 skrifa = "0.42.1"
 subsetter = "0.2.6"
+thiserror = "2.0.21"
 tiny-skia = { version = "0.12.0", default-features = false, features = ["std", "simd"] }
 usvg = { version = "0.50", default-features = false, optional = true }
 wasm-bindgen = "=0.2.130"

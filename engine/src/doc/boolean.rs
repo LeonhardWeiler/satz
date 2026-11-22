@@ -205,12 +205,12 @@ fn area(faces: &[(BezPath, Point)], at: Point) -> Res<BezPath> {
     let face = ins
         .into_iter()
         .min_by(|a, b| a.area().abs().total_cmp(&b.area().abs()))
-        .ok_or("no area there")?;
+        .ok_or(Error::NoArea)?;
     let holes: BezPath = outs.iter().flat_map(|b| up(b).into_elements()).collect();
     let c = combine(&up(face), &holes, BinaryOp::Difference)?;
     let out = flat(c.contours());
     if out.is_empty() {
-        return Err("no area there".into());
+        return Err(Error::NoArea);
     }
     Ok(out)
 }
@@ -274,13 +274,14 @@ impl Doc {
         let id = self.layer(&id)?;
         let m = self.meta(id);
         if value(&m, "shape") != Some("path".into()) {
-            return Err("only paths have areas".into());
+            return Err(Error::AreaNotPath);
         }
         if !x.is_finite() || !y.is_finite() {
-            return Err("not a point".into());
+            return Err(Error::NotAPoint);
         }
         let frame = self.bounds(id);
-        let parent = parent_node(self.tree.parent(id).ok_or("no parent")?).ok_or("no parent")?;
+        let parent =
+            parent_node(self.tree.parent(id).ok_or(Error::NoParent)?).ok_or(Error::NoParent)?;
         let unturn = geom::invert(geom::rotation(num(&m, "rotation"), frame));
         let lines = self.lines_of(id)?;
         let [x, y] = geom::apply(unturn, geom::apply(geom::invert(self.turn(parent)), [x, y]));
@@ -346,25 +347,25 @@ impl Doc {
     pub(super) fn boolean(&self, ids: Vec<String>, op: BooleanOp) -> Res<Vec<String>> {
         let ids = self.sorted(&ids)?;
         let [bottom, rest @ ..] = &ids[..] else {
-            return Err("nothing to combine".into());
+            return Err(Error::NothingToCombine);
         };
         if rest.is_empty() {
-            return Err("a boolean needs two shapes or more".into());
+            return Err(Error::BooleanOne);
         }
         for &id in &ids {
             self.layer(&id.to_string())?;
             if self.kind(id) != Some(NodeKind::Shape) {
-                return Err("only shapes combine".into());
+                return Err(Error::BooleanNotShape);
             }
             if self.root(id) != self.root(*bottom) {
-                return Err("the shapes are on different pages".into());
+                return Err(Error::BooleanPages);
             }
         }
         let parent = |id: TreeID| {
             self.tree
                 .parent(id)
                 .and_then(parent_node)
-                .ok_or("no parent")
+                .ok_or(Error::NoParent)
         };
         let mut shapes = Vec::new();
         for &id in &ids {
@@ -384,7 +385,7 @@ impl Doc {
             out = flat(combine(&out, s, op)?.contours());
         }
         if out.is_empty() {
-            return Err("the shapes leave nothing".into());
+            return Err(Error::BooleanEmpty);
         }
         let back = geom::invert(self.turn(parent(*bottom)?));
         let out = geom::map(&path(&out), |[x, y]| {
@@ -490,7 +491,7 @@ mod tests {
                 y,
             })?;
             assert_eq!(d.snapshot().pages[0].children.len(), 1);
-            Ok::<_, String>(
+            Ok::<_, Error>(
                 page_ops(&d)
                     .iter()
                     .filter_map(|o| match o {

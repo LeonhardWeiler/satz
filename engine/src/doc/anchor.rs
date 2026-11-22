@@ -17,16 +17,16 @@ impl Doc {
         let (o, f) = (self.layer(&id)?, self.node(&text)?);
         let t = self.text(f)?;
         if at > t.len_utf16() {
-            return Err("index outside the text".into());
+            return Err(Error::IndexOutsideText);
         }
         if value(&self.meta(o), ANCHORED).is_some() {
-            return Err(format!("{id} is anchored"));
+            return Err(Error::Anchored { id });
         }
         let mut under = Vec::new();
         self.walk(o, &mut under);
         let head = self.story(f);
         if under.iter().any(|&n| self.story(n) == head) {
-            return Err("a layer cannot be anchored in its own text".into());
+            return Err(Error::AnchorInOwnText);
         }
         t.insert_utf16(at, &text::ANCHOR.to_string()).map_err(err)?;
         t.mark_utf16(at..at + 1, OBJECT, id).map_err(err)?;
@@ -41,7 +41,7 @@ impl Doc {
         let o = self.layer(&id)?;
         let m = self.meta(o);
         if value(&m, ANCHORED).is_none() {
-            return Err(format!("{id} is not anchored"));
+            return Err(Error::NotAnchored { id });
         }
         for head in self.heads() {
             let t = self.own_text(head)?;

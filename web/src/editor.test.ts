@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { expect, test, vi } from 'vite-plus/test'
 import { Editor } from './editor'
 import { Engine, initSync } from './engine/engine'
-import type { Command, Snapshot } from './model'
+import type { Command, EngineError, Snapshot } from './model'
 
 test('the snapshot the editor merges from changes equals the full one', () => {
   initSync({ module: readFileSync(new URL('engine/engine_bg.wasm', import.meta.url)) })
@@ -56,6 +56,12 @@ test('a project that fails to open leaves the open one as it was', () => {
   expect(() => editor.load(other, undefined, false, [new Uint8Array([1, 2, 3])])).toThrow()
   expect(editor.engine.version()).toBe(version)
   expect(editor.engine.imageFile(hash)).toBeDefined()
+})
+
+test('a failing command throws its text with the error as cause', () => {
+  initSync({ module: readFileSync(new URL('engine/engine_bg.wasm', import.meta.url)) })
+  const cause: EngineError = { type: 'notFound', what: 'node', id: '9@9' }
+  expect(() => new Engine().apply({ type: 'setText', id: '9@9', text: '' })).toThrow(expect.objectContaining({ message: 'no node 9@9', cause }))
 })
 
 test('a panic in the engine calls the panic hook once', () => {

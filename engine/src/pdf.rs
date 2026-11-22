@@ -44,7 +44,7 @@ pub struct Export<'a> {
     pub date: &'a str,
 }
 
-pub fn pdf(pages: &[Vec<Op>], x: &Export) -> Result<Vec<u8>, String> {
+pub fn pdf(pages: &[Vec<Op>], x: &Export) -> crate::error::Res<Vec<u8>> {
     let fonts = RefCell::default();
     let print = x.preset != Preset::Screen;
     let version = match x.preset {
@@ -130,7 +130,7 @@ pub fn pdf(pages: &[Vec<Op>], x: &Export) -> Result<Vec<u8>, String> {
         s.finish();
         page.finish();
     }
-    let pdf = doc.finish().map_err(|e| e.to_string())?;
+    let pdf = doc.finish().map_err(crate::error::err)?;
     Ok(match print {
         true => pdfx::pdfx(pdf, x.preset, x.mode == ColorMode::Rgb, x.title, x.date),
         false => pdf,

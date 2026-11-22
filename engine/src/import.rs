@@ -20,7 +20,7 @@ use hayro_interpret::{
 };
 use linesweeper::{BinaryOp, FillRule, binary_op};
 
-type Res<T> = Result<T, String>;
+use crate::error::{Error, Res};
 
 pub struct Shape {
     pub path: Vec<f32>,
@@ -52,14 +52,14 @@ pub fn import(bytes: &[u8], name: &str) -> Res<Vec<u8>> {
         "svg" => vec![svg(bytes)?],
         "pdf" => pdf(bytes)?,
         "fig" => crate::fig::sheets(bytes)?,
-        _ => return Err("only SVG, PDF and Figma files import".into()),
+        _ => return Err(Error::NotImportable),
     };
     build(stem, sheets)
 }
 
 fn build(name: &str, sheets: Vec<Sheet>) -> Res<Vec<u8>> {
     let Some(first) = sheets.first() else {
-        return Err("it has no pages".into());
+        return Err(Error::NoPages);
     };
     let mut d = Doc::blank(
         first.width,
@@ -227,7 +227,9 @@ fn scale([a, b, c, d, ..]: [f32; 6]) -> f32 {
 
 fn svg(bytes: &[u8]) -> Res<Sheet> {
     let tree =
-        usvg::Tree::from_data(bytes, &usvg::Options::default()).map_err(|e| e.to_string())?;
+        usvg::Tree::from_data(bytes, &usvg::Options::default()).map_err(|e| Error::NotAnSvg {
+            message: e.to_string(),
+        })?;
     let mut items = Vec::new();
     svg_group(tree.root(), 1.0, &mut items);
     let size = tree.size();
@@ -376,7 +378,9 @@ fn svg_paint(p: &usvg::Paint, alpha: f32, t: [f32; 6]) -> Option<Fill> {
 }
 
 fn pdf(bytes: &[u8]) -> Res<Vec<Sheet>> {
-    let pdf = Pdf::new(bytes.to_vec()).map_err(|e| format!("not a PDF ({e:?})"))?;
+    let pdf = Pdf::new(bytes.to_vec()).map_err(|e| Error::NotAPdf {
+        message: format!("{e:?}"),
+    })?;
     let cache = InterpreterCache::new();
     let mut sheets = Vec::new();
     for page in pdf.pages().iter() {
