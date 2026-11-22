@@ -32,7 +32,7 @@ export function History({ editor, onClose }: { editor: Editor; onClose: () => vo
   }
   const cancel = () => {
     close()
-    editor.showPage(was.page)
+    editor.showPage(was.page, editor.back)
     editor.set({ selection: was.selection })
   }
   const restore = (v: Version) => {
