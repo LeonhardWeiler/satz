@@ -55,7 +55,7 @@ onmessage = async ({ data: { doc, fonts, images, preview, out, source } }: Messa
       }))
       const ext = out.type === 'image/png' ? 'png' : 'jpg'
       const [only, ...rest] = files
-      const file = only && !rest.length ? only : zip(out.pages.map((i) => `${out.title}-${i + 1}.${ext}`), files, date)
+      const file = only && !rest.length ? only : zip(out.pages.map((i) => `${out.title}-${new Set(snap.labels).size === snap.labels.length ? snap.labels[i] : i + 1}.${ext}`), files, date)
       return postMessage({ file }, { transfer: [file.buffer] })
     }
     const { pages: shown, ppi, on, limit, over, gamut } = preview!

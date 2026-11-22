@@ -1,4 +1,4 @@
-import type { Node, Sizing, Span } from './types'
+import type { Node, Sizing, Snapshot, Span } from './types'
 
 export type * from './types'
 
@@ -25,4 +25,9 @@ export const radii = ({ radius, corners }: Rounded) => (corners?.length ? corner
 export const radiusOf = (s: Rounded) => {
   const r = radii(s)
   return r.every((v) => v === r[0]) ? r[0] : null
+}
+
+export const pageName = ({ pages, masters, labels }: Pick<Snapshot, 'pages' | 'masters' | 'labels'>, id: string | null) => {
+  const n = pages.findIndex((p) => p.id === id)
+  return n < 0 ? masters.find((m) => m.id === id)?.name : `Page ${labels[n]}`
 }

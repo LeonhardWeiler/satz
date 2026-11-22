@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Editor } from './editor'
 import { Keys } from './controls'
 import { Icon } from './icons'
-import type { Version } from './model'
+import { pageName, type Version } from './model'
 
 const day = (t: number) => new Date(t * 1000).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 const time = (t: number) => new Date(t * 1000).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' })
@@ -10,16 +10,12 @@ const time = (t: number) => new Date(t * 1000).toLocaleTimeString(undefined, { h
 export function History({ editor, onClose }: { editor: Editor; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null)
   const [versions] = useState(() => editor.engine.versions())
-  const [{ pages, masters, labels }] = useState(editor.snapshot)
+  const [snapshot] = useState(editor.snapshot)
   const [was] = useState(() => ({ page: editor.pageId, selection: editor.selection }))
   const [shown, setShown] = useState(versions[0])
   useEffect(() => {
     ref.current!.showModal()
   }, [])
-  const where = (id: string | null) => {
-    const n = pages.findIndex((p) => p.id === id)
-    return n < 0 ? masters.find((m) => m.id === id)?.name : `Page ${labels[n]}`
-  }
   const show = (v: Version) => {
     if (v === shown) return
     setShown(v)
@@ -55,7 +51,7 @@ export function History({ editor, onClose }: { editor: Editor; onClose: () => vo
             {(i === 0 || day(v.time) !== day(versions[i - 1]?.time ?? v.time)) && <div className="pal-g">{day(v.time)}</div>}
             <button type="button" className="pal-it" role="option" aria-selected={v === shown} onMouseEnter={() => show(v)} onFocus={() => show(v)} onClick={() => restore(v)}>
               <span className="pal-t">{time(v.time)}</span>
-              <small>{[i === 0 && 'Current', where(v.page), v.restored ? 'Restored' : `${v.edits} ${v.edits === 1 ? 'edit' : 'edits'}`].filter(Boolean).join(' · ')}</small>
+              <small>{[i === 0 && 'Current', pageName(snapshot, v.page), v.restored ? 'Restored' : `${v.edits} ${v.edits === 1 ? 'edit' : 'edits'}`].filter(Boolean).join(' · ')}</small>
             </button>
           </div>
         ))}

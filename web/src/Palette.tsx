@@ -6,7 +6,7 @@ import type { Editor } from './editor'
 import { Keys } from './controls'
 import { Icon, KindIcon } from './icons'
 import { sizeOf } from './Text'
-import type { Fill, Node } from './model'
+import { pageName, type Fill, type Node } from './model'
 
 type Item = { id: string; group: string; title: string; keys?: string; hint?: string; icon?: ReactNode; off?: boolean; run: () => void }
 
@@ -37,12 +37,12 @@ function items(editor: Editor): Item[] {
   const { pages, swatches, textStyles, colorMode } = editor.snapshot
   return [
     ...ACTIONS.filter((a) => !ONLY_WHEN_ABLE.has(a.title) || able(editor, a)).map((a) => ({ id: a.title, group: 'Commands', title: a.title, keys: keysOf(a), off: !able(editor, a), run: () => a.run(editor) })),
-    ...pages.flatMap((p, i) =>
+    ...pages.flatMap((p) =>
       flat(p.children).map((n) => ({
         id: n.id,
         group: 'Layers',
         title: n.name,
-        hint: `Page ${i + 1}`,
+        hint: pageName(editor.snapshot, p.id),
         icon: <KindIcon node={n} />,
         run: () => {
           editor.showPage(p.id)
@@ -50,10 +50,10 @@ function items(editor: Editor): Item[] {
         },
       })),
     ),
-    ...pages.map((p, i) => ({
+    ...pages.map((p) => ({
       id: p.id,
       group: 'Pages',
-      title: `Page ${i + 1}`,
+      title: pageName(editor.snapshot, p.id)!,
       hint: editor.masterOf(p)?.name,
       icon: <Icon name="doc" />,
       run: () => {

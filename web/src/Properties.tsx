@@ -9,7 +9,7 @@ import { ColorModeSelect, FORMATS, GridFields, ORIENTATIONS, formatOf } from './
 import { canLink, pickProfile } from './file'
 import { length, setSettings, useSettings } from './settings'
 import type { Bindable as Prop, Blend, Constraint, Command, DateFormat, Grid, LineStyle, Node, Page, Props, Section as Numbers, Anchoring, TextNode, Wrap } from './model'
-import { isOpen, radiusOf, rounded } from './model'
+import { isOpen, pageName, radiusOf, rounded } from './model'
 import { AlignBar, BOOLEANS, combinable, combine, rowOf, setGap } from './align'
 import { AutoLayout, flows, Sizing } from './AutoLayout'
 import { EffectList, PaintList } from './Paints'
@@ -210,7 +210,7 @@ export function Properties({ editor }: { editor: Editor }) {
       {!box && <DocumentSection editor={editor} pagesOnly={!!overview} />}
       {!box && (
         <Section
-          title={isPage ? (targets.length > 1 ? `Pages ${numbers.toSorted((a, b) => a - b).join(', ')}` : `Page ${numbers[0]}`) : 'Master'}
+          title={isPage ? (targets.length > 1 ? `Pages ${numbers.toSorted((a, b) => a - b).map((n) => snapshot.labels[n - 1]).join(', ')}` : pageName(snapshot, page.id)!) : 'Master'}
           actions={
             <>
               {isPage && page.detached.length > 0 && (
