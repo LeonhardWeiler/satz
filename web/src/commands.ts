@@ -34,11 +34,8 @@ export const ui: {
   zoomBy(factor: number): void
 } = { start: noop, open: noop, save: noop, place: noop, export: noop, find: noop, dialog: noop, hide: noop, focus: noop, fit: noop, fitSelection: noop, zoomTo: noop, zoomBy: noop }
 
-const pageOrLast = (editor: Editor) =>
-  editor.snapshot.pages.some((p) => p.id === editor.pageId) ? editor.pageId : editor.snapshot.pages.at(-1)!.id
-
 export function addPage(editor: Editor) {
-  const [id] = editor.apply({ type: 'addPage', after: pageOrLast(editor) })
+  const [id] = editor.apply({ type: 'addPage', after: editor.master ? editor.snapshot.pages.at(-1)!.id : editor.pageId })
   if (id) editor.showPage(id)
 }
 
@@ -104,14 +101,17 @@ export const ACTIONS: Action[] = [
     title: 'Delete selected pages',
     keys: '',
     group: 'Pages',
-    run: (editor) => editor.deletePages(editor.overview?.length ? editor.overview : [pageOrLast(editor)]),
+    run: (editor) => {
+      if (editor.master) editor.apply({ type: 'deleteMaster', id: editor.pageId })
+      else editor.deletePages(editor.overview?.length ? editor.overview : [editor.pageId])
+    },
   },
   {
     title: 'Duplicate page',
     keys: '',
     group: 'Pages',
     run: (editor) => {
-      const [id] = editor.apply({ type: 'duplicatePage', id: pageOrLast(editor) })
+      const [id] = editor.apply(editor.master ? { type: 'addMaster', like: editor.pageId, layers: true } : { type: 'duplicatePage', id: editor.pageId })
       if (id) editor.showPage(id)
     },
   },
