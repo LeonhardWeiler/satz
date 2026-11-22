@@ -1053,6 +1053,21 @@ impl Doc {
                 files.push((format!("{title}/Images/{name}"), image::bytes(id)));
             }
         }
+        let mut seen = std::collections::BTreeSet::new();
+        for (path, _) in &mut files {
+            let dot = path
+                .rfind('.')
+                .filter(|&i| i > path.rfind('/').unwrap_or(0));
+            let (stem, ext) = path.split_at(dot.unwrap_or(path.len()));
+            let unique = (1..)
+                .map(|n| match n {
+                    1 => path.clone(),
+                    _ => format!("{stem}-{n}{ext}"),
+                })
+                .find(|p| seen.insert(p.to_lowercase()))
+                .unwrap();
+            *path = unique;
+        }
         Ok(crate::zip::zip(&files, date))
     }
 
