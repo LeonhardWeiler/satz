@@ -38,6 +38,8 @@ export const keysFor = (title: string) => {
 }
 export const keyOf = (e: KeyboardEvent) => (e.altKey && /^Key[A-Z]$/.test(e.code) ? e.code.slice(3) : e.key).toLowerCase()
 
+export const ignored = (e: Event) => e.defaultPrevented || document.querySelector('dialog:modal') !== null
+
 export function isTyping(e: Event) {
   return e.target instanceof HTMLElement && e.target.closest('input:not([type=checkbox]), textarea, select, [contenteditable]') !== null
 }
@@ -104,7 +106,7 @@ const allowed = (editor: Editor, a: Action, combo: string, field: boolean, text:
   able(editor, a)
 
 export function onKey(editor: Editor, e: KeyboardEvent) {
-  if (e.defaultPrevented || e.isComposing || editor.dragging || document.querySelector('dialog:modal')) return
+  if (ignored(e) || e.isComposing || editor.dragging) return
   const target = e.target instanceof Element ? e.target : null
   const text = !!target?.closest('.text-input')
   const field = !text && (isTyping(e) || !!target?.closest(e.key === 'Enter' ? '.menu, button, a[href], summary' : '.menu'))
