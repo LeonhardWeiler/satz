@@ -4,10 +4,10 @@ import { Icon, type IconName } from './icons'
 import type { BooleanOp, Node } from './model'
 
 export const BOOLEANS: [BooleanOp, string, IconName, string][] = [
-  ['union', 'Union', 'union', 'Ctrl+Alt+U'],
-  ['subtract', 'Subtract', 'subtract', 'Ctrl+Alt+S'],
-  ['intersect', 'Intersect', 'intersect', 'Ctrl+Alt+I'],
-  ['exclude', 'Exclude', 'exclude', 'Ctrl+Alt+X'],
+  ['union', 'Union', 'union', 'Ctrl Alt U'],
+  ['subtract', 'Subtract', 'subtract', 'Ctrl Alt S'],
+  ['intersect', 'Intersect', 'intersect', 'Ctrl Alt I'],
+  ['exclude', 'Exclude', 'exclude', 'Ctrl Alt X'],
 ]
 
 export const combinable = (editor: Editor) => editor.selection.length > 1 && editor.selected().every((n) => n.kind === 'shape')
@@ -19,15 +19,15 @@ export function combine(editor: Editor, op: BooleanOp) {
 export type Align = 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom' | 'distributeX' | 'distributeY' | 'tidy'
 
 export const ALIGNS: [Align, string, IconName, string][] = [
-  ['left', 'Align left', 'alignLeftEdges', 'Alt+A'],
-  ['center', 'Align horizontal centers', 'alignCenters', 'Alt+H'],
-  ['right', 'Align right', 'alignRightEdges', 'Alt+D'],
-  ['top', 'Align top', 'alignTopEdges', 'Alt+W'],
-  ['middle', 'Align vertical centers', 'alignMiddles', 'Alt+V'],
-  ['bottom', 'Align bottom', 'alignBottomEdges', 'Alt+S'],
-  ['distributeX', 'Distribute horizontal spacing', 'distributeX', 'Alt+Shift+H'],
-  ['distributeY', 'Distribute vertical spacing', 'distributeY', 'Alt+Shift+V'],
-  ['tidy', 'Tidy up', 'tidy', 'Ctrl+Alt+Shift+T'],
+  ['left', 'Align left', 'alignLeftEdges', 'Alt A'],
+  ['center', 'Align horizontal centers', 'alignCenters', 'Alt H'],
+  ['right', 'Align right', 'alignRightEdges', 'Alt D'],
+  ['top', 'Align top', 'alignTopEdges', 'Alt W'],
+  ['middle', 'Align vertical centers', 'alignMiddles', 'Alt V'],
+  ['bottom', 'Align bottom', 'alignBottomEdges', 'Alt S'],
+  ['distributeX', 'Distribute horizontal spacing', 'distributeX', 'Alt Shift H'],
+  ['distributeY', 'Distribute vertical spacing', 'distributeY', 'Alt Shift V'],
+  ['tidy', 'Tidy up', 'tidy', 'Ctrl Alt Shift T'],
 ]
 
 const frameOf = (editor: Editor, id?: string) => {
@@ -108,13 +108,14 @@ export function setGap(editor: Editor, { axis, nodes }: Row, gap: number) {
 
 export function AlignBar({ editor, inside, children }: { editor: Editor; inside?: Node[]; children?: ReactNode }) {
   const n = inside?.length ?? editor.selection.length
-  const button = ([how, title, icon, key]: (typeof ALIGNS)[number]) => (
+  const button = ([how, title, icon]: (typeof ALIGNS)[number]) => (
     <button
       key={how}
       type="button"
       className="icon-button"
       aria-label={title}
-      title={inside ? `${title} inside the group` : n > 1 ? `${title} (${key})` : `${title} to the ${frameOf(editor, editor.selection[0]) ? 'frame' : 'page'} (${key})`}
+      title={inside ? `${title} inside the group` : n > 1 ? title : `${title} to the ${frameOf(editor, editor.selection[0]) ? 'frame' : 'page'}`}
+      data-action={inside ? undefined : title}
       onClick={() => align(editor, how, inside)}
     >
       <Icon name={icon} />

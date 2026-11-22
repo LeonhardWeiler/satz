@@ -185,8 +185,8 @@ export const ACTIONS: Action[] = [
     can: (editor) => editor.selected().some((n) => n.overrideOf),
     run: (editor) => editor.apply({ type: 'resetToMaster', ids: editor.selected().flatMap((n) => (n.overrideOf ? [n.id] : [])) }),
   },
-  ...BOOLEANS.map(([op, title, , keys]): Action => ({ title, keys: keys.replaceAll('+', ' '), group: 'Arrange', run: (editor) => combine(editor, op), can: combinable })),
-  ...ALIGNS.map(([how, title, , keys]): Action => ({ title, keys: keys.replaceAll('+', ' '), group: 'Align', run: (editor) => align(editor, how), can: (editor) => editor.selection.length >= (how === 'tidy' ? 2 : how.startsWith('distribute') ? 3 : 1) })),
+  ...BOOLEANS.map(([op, title, , keys]): Action => ({ title, keys, group: 'Arrange', run: (editor) => combine(editor, op), can: combinable })),
+  ...ALIGNS.map(([how, title, , keys]): Action => ({ title, keys, group: 'Align', run: (editor) => align(editor, how), can: (editor) => editor.selection.length >= (how === 'tidy' ? 2 : how.startsWith('distribute') ? 3 : 1) })),
   {
     title: 'Color mode CMYK or RGB',
     keys: '',

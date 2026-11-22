@@ -4,15 +4,16 @@ import { Icon, type IconName } from './icons'
 import { smooth } from './vector'
 import { Popover } from './Popover'
 import { Keys } from './controls'
+import { keysFor } from './keys'
 
-type Entry = { tool: Tool; label: string; key: string; icon: IconName }
+type Entry = { tool: Tool; label: string; action?: string; icon: IconName }
 
-const SHAPES: (Entry & { tool: Shape })[] = [
-  { tool: 'rect', label: 'Rectangle', key: 'R', icon: 'rect' },
-  { tool: 'line', label: 'Line', key: 'L', icon: 'line' },
-  { tool: 'ellipse', label: 'Ellipse', key: 'O', icon: 'ellipse' },
-  { tool: 'polygon', label: 'Polygon', key: 'Y', icon: 'polygon' },
-  { tool: 'star', label: 'Star', key: 'S', icon: 'star' },
+const SHAPES: (Entry & { tool: Shape; action: string })[] = [
+  { tool: 'rect', label: 'Rectangle', action: 'Rectangle tool', icon: 'rect' },
+  { tool: 'line', label: 'Line', action: 'Line tool', icon: 'line' },
+  { tool: 'ellipse', label: 'Ellipse', action: 'Ellipse tool', icon: 'ellipse' },
+  { tool: 'polygon', label: 'Polygon', action: 'Polygon tool', icon: 'polygon' },
+  { tool: 'star', label: 'Star', action: 'Star tool', icon: 'star' },
 ]
 const POINTS = [
   { mode: 'move', label: 'Move point', key: 'V', icon: 'move' },
@@ -20,22 +21,23 @@ const POINTS = [
   { mode: 'delete', label: 'Delete point', key: '-', icon: 'deletePoint' },
   { mode: 'fill', label: 'Fill area', key: 'B', icon: 'bucket' },
 ] as const
-const MOVE: Entry = { tool: 'move', label: 'Move', key: 'V', icon: 'move' }
-const FRAME: Entry = { tool: 'frame', label: 'Frame', key: 'F', icon: 'frame' }
-const PEN: Entry = { tool: 'pen', label: 'Pen', key: 'P', icon: 'pen' }
-const TEXT: Entry = { tool: 'text', label: 'Text', key: 'T', icon: 'text' }
-const TABLE: Entry = { tool: 'table', label: 'Table', key: '', icon: 'table' }
-const EYEDROPPER: Entry = { tool: 'eyedropper', label: 'Eyedropper', key: 'I', icon: 'eyedropper' }
+const MOVE: Entry = { tool: 'move', label: 'Move', action: 'Move tool', icon: 'move' }
+const FRAME: Entry = { tool: 'frame', label: 'Frame', action: 'Frame tool', icon: 'frame' }
+const PEN: Entry = { tool: 'pen', label: 'Pen', action: 'Pen tool', icon: 'pen' }
+const TEXT: Entry = { tool: 'text', label: 'Text', action: 'Text tool', icon: 'text' }
+const TABLE: Entry = { tool: 'table', label: 'Table', icon: 'table' }
+const EYEDROPPER: Entry = { tool: 'eyedropper', label: 'Eyedropper', action: 'Eyedropper', icon: 'eyedropper' }
 
 function ToolButton({ entry, active, editor }: { entry: Entry; active: Tool; editor: Editor }) {
-  const { tool, label, key, icon } = entry
+  const { tool, label, action, icon } = entry
   return (
     <button
       type="button"
       className="tool"
       aria-pressed={active === tool}
       aria-label={label}
-      title={key ? `${label} (${key})` : label}
+      title={label}
+      data-action={action}
       onClick={() => editor.setTool(tool)}
     >
       <Icon name={icon} />
@@ -120,7 +122,7 @@ export function Toolbar({ editor, onPlaceImage }: { editor: Editor; onPlaceImage
         </button>
         {open && (
           <Popover anchor={() => group.current!.getBoundingClientRect()} side="top" className="menu shapes" role="menu" aria-label="Shape tools">
-            {SHAPES.map(({ tool, label, key, icon }) => (
+            {SHAPES.map(({ tool, label, action, icon }) => (
               <button
                 key={tool}
                 type="button"
@@ -135,7 +137,7 @@ export function Toolbar({ editor, onPlaceImage }: { editor: Editor; onPlaceImage
                 <span>{shape.tool === tool && <Icon name="check" />}</span>
                 <Icon name={icon} />
                 <span>{label}</span>
-                <Keys keys={key} />
+                <Keys keys={keysFor(action)} />
               </button>
             ))}
           </Popover>
@@ -145,7 +147,7 @@ export function Toolbar({ editor, onPlaceImage }: { editor: Editor; onPlaceImage
       <ToolButton entry={TEXT} active={active} editor={editor} />
       <ToolButton entry={TABLE} active={active} editor={editor} />
       <ToolButton entry={EYEDROPPER} active={active} editor={editor} />
-      <button type="button" className="tool" aria-pressed={placing} aria-label="Place image" title="Place image (Ctrl+Shift+K)" onClick={onPlaceImage}>
+      <button type="button" className="tool" aria-pressed={placing} aria-label="Place image" title="Place image" data-action="Place image" onClick={onPlaceImage}>
         <Icon name="image" />
       </button>
     </div>

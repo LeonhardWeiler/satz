@@ -292,24 +292,25 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
           >
             {zoom}%
           </button>
-          <button type="button" className="tool palette-button" aria-label="Command palette" title="Search commands, layers and pages (Ctrl+K)" onClick={() => setDialog('palette')}>
+          <button type="button" className="tool palette-button" aria-label="Command palette" title="Search commands, layers and pages" data-action="Command palette" onClick={() => setDialog('palette')}>
             <Icon name="search" />
           </button>
           <button
             type="button"
             className="tool toggle"
             aria-label="Page overview"
-            title="Page overview (.)"
+            title="Page overview"
+            data-action="Page overview"
             aria-pressed={overview}
             onClick={() => editor.toggleOverview()}
           >
             <Icon name="pages" />
           </button>
           <span className="sep" />
-          <button type="button" className="tool" aria-label="Version history" title="Version history (Ctrl+Alt+Z)" onClick={() => showDialog('history')}>
+          <button type="button" className="tool" aria-label="Version history" title="Version history" data-action="Version history" onClick={() => showDialog('history')}>
             <Icon name="clock" />
           </button>
-          <button type="button" className="tool" aria-label="Settings" title="Settings (Ctrl+,)" onClick={() => setDialog('settings')}>
+          <button type="button" className="tool" aria-label="Settings" title="Settings" data-action="Settings" onClick={() => setDialog('settings')}>
             <Icon name="settings" />
           </button>
           <button
@@ -317,14 +318,15 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
             className="tool pf-count"
             data-sev={errors ? 'error' : issues.length ? 'warn' : undefined}
             aria-label={issues.length ? `Preflight, ${issues.length} issue${issues.length === 1 ? '' : 's'}` : 'Preflight and export options'}
-            title="Preflight and export options (Ctrl+Alt+Y)"
+            title="Preflight and export options"
+            data-action="Preflight"
             aria-pressed={preflight}
             onClick={() => editor.togglePreflight()}
           >
             <Icon name={issues.length ? 'warn' : 'ok'} />
             {issues.length > 0 && (errors || issues.length)}
           </button>
-          <button type="button" className="primary" title={errors ? 'Export: shows the errors first (Ctrl+Shift+E)' : 'Export every page (Ctrl+Shift+E)'} onClick={quickExport}>
+          <button type="button" className="primary" title={errors ? 'Export: shows the errors first' : 'Export every page'} data-action="Export" onClick={quickExport}>
             Export
           </button>
         </div>

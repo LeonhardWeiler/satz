@@ -69,7 +69,7 @@ export function AutoLayout({ editor, node, set }: { editor: Editor; node: Node &
       actions={
         <>
           {toggle}
-          <button type="button" className="icon-button" aria-label="Remove auto layout" title="Remove auto layout (Shift+Alt+A)" onClick={() => set({ direction: 'none' })}>
+          <button type="button" className="icon-button" aria-label="Remove auto layout" title="Remove auto layout" data-action="Remove auto layout" onClick={() => set({ direction: 'none' })}>
             <Icon name="minus" />
           </button>
         </>

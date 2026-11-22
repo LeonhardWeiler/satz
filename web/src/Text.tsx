@@ -7,6 +7,7 @@ import { neutral, type Color } from './color'
 import { scopeOf, useEditor, type Editor } from './editor'
 import { addFonts, addLocalFont, once, useLocalFonts } from './file'
 import { Icon, type IconName } from './icons'
+import { keysFor } from './keys'
 import { Dialog } from './Popover'
 import { MAX_LENGTH, length } from './settings'
 import { DATE, PAGE_NUMBER, insert, range, within } from './textEdit'
@@ -366,7 +367,7 @@ function Characters({ editor, node, font }: { editor: Editor; node: TextNode; fo
             label="Insert character"
             onClose={() => setAt(null)}
             items={[
-              [<span data-glyph="#">Page number</span>, () => put(PAGE_NUMBER), true, undefined, 'Ctrl Alt Shift N'],
+              [<span data-glyph="#">Page number</span>, () => put(PAGE_NUMBER), true, undefined, keysFor('Insert page number')],
               [<span data-glyph="#">Date</span>, () => put(DATE), true],
               null,
               ...CHARACTERS.map(([name, c]): [ReactNode, () => void, boolean] => [<span data-glyph={c.trim() || '␣'}>{name}</span>, () => put(c), true]),

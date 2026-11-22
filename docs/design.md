@@ -89,7 +89,8 @@ titles are enforced by `web/src/design.test.ts` and `web/src/commands.test.ts`; 
   its row. Secondary (`.button`) has the `--input` fill. Icon buttons have no fill until
   hover. Destructive actions use `--bad` text, never a red fill.
 - Shortcuts: keycap chips in dialogs, the palette and tooltips, mouse actions too ("Ctrl"
-  + "click"); plain `--muted` text in menus; buttons carry no keycap.
+  + "click"); plain `--muted` text in menus; buttons carry no keycap. A tooltip shows the
+  keys its action is bound to now, so a rebound shortcut shows up there too.
 - Default values (Auto, None, All) in `--text`; only Mixed and search hints in `--muted`.
 - Swatches: 16 px squares in lists, 28 px chips in paint rows, 1 px inset ring; stroke
   swatches are the same square as a ring.
