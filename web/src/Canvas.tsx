@@ -1362,6 +1362,12 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
         return
       }
     }
+    const onBlur = () => {
+      alt = false
+      space = false
+      canvas.removeAttribute('data-space')
+      redraw()
+    }
     const viewKey = (f: () => void) => () => {
       settle()
       f()
@@ -1426,6 +1432,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
     window.addEventListener('keydown', onKey)
     window.addEventListener('cover', clear)
     window.addEventListener('keyup', onKey)
+    window.addEventListener('blur', onBlur)
     const restyle = () => {
       accent = ''
       bad = ''
@@ -1460,6 +1467,7 @@ export function Canvas({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('cover', clear)
       window.removeEventListener('keyup', onKey)
+      window.removeEventListener('blur', onBlur)
       renderer.delete()
       surface?.delete()
       gl.delete()

@@ -5,6 +5,7 @@ const url = 'A file that calls URL.createObjectURL also calls URL.revokeObjectUR
 const engine = 'An Engine made here is freed in a finally of the same function.'
 const cancel = 'A file that listens to pointerup also listens to pointercancel or lostpointercapture.'
 const remove = 'A listener added here is removed in the same file, or passes once: true or a signal.'
+const held = 'A file that listens to keyup also listens to blur.'
 const ends = ['pointercancel', 'lostpointercapture']
 const event = (n: ESTree.CallExpression) => (n.arguments[0]?.type === 'Literal' && typeof n.arguments[0].value === 'string' ? n.arguments[0].value : undefined)
 const once = (n: ESTree.CallExpression) => {
@@ -32,9 +33,13 @@ export default defineRule({
     let cancelled = false
     const added: [ESTree.Node, string][] = []
     const removed = new Set<string>()
+    const keyups: ESTree.Node[] = []
+    let blurred = false
     const listen = (node: ESTree.Node, event: string) => {
       if (event === 'pointerup') ups.push(node)
       if (ends.includes(event)) cancelled = true
+      if (event === 'keyup') keyups.push(node)
+      if (event === 'blur') blurred = true
     }
     const make = (node: ESTree.Node) => {
       let d = node.parent
@@ -61,6 +66,7 @@ export default defineRule({
         if (called(node.callee, 'free') && node.callee.type === 'MemberExpression' && node.callee.object.type === 'Identifier' && inFinally(node)) freed.push([node.callee.object.name, scope(node)])
       },
       'Program:exit'() {
+        if (!blurred) for (const node of keyups) context.report({ node, message: held })
         if (!cancelled) for (const node of ups) context.report({ node, message: cancel })
         for (const [node, e] of added) if (!removed.has(e)) context.report({ node, message: remove })
         if (!revoked) for (const node of made) context.report({ node, message: url })
