@@ -73,7 +73,7 @@ run(
     "window.addEventListener('pointerup', end, { once: true })",
     "el.addEventListener('wheel', f); el.removeEventListener('scroll', f)",
     "el.addEventListener('wheel', f, { once: false, passive: true })",
-    "window.addEventListener('keyup', up)",
+    "window.addEventListener('keyup', up); window.removeEventListener('keyup', up)",
     '<b onKeyUp={up} />',
   ],
 )
