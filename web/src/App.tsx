@@ -162,14 +162,13 @@ export function App({ ck, editor }: { ck: CanvasKit; editor: Editor }) {
 
   useEffect(() => {
     const onMenu = (e: MouseEvent) => {
-      if (ignored(e) || isTyping(e)) return
+      if (ignored(e) || isTyping(e) || !(e.target as Element).closest('.stage, .layers')) return
       e.preventDefault()
-      if (!(e.target as Element).closest('.stage, .layers')) editor.set({ selection: [] })
       setMenu({ x: e.clientX, y: e.clientY })
     }
     window.addEventListener('contextmenu', onMenu)
     return () => window.removeEventListener('contextmenu', onMenu)
-  }, [editor])
+  }, [])
 
   useEffect(() => {
     const clip = (e: ClipboardEvent) => {
