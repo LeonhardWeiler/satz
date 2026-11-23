@@ -195,10 +195,9 @@ test('a right click selects the layer under it and offers the actions for it', a
   await page.keyboard.press('Escape')
   await rects.first().click({ button: 'right' })
   await page.keyboard.press('Escape')
-  await page.getByRole('toolbar', { name: 'Tools' }).click({ button: 'right' })
-  await expect(menu.getByRole('menuitem', { name: /Select all/ })).toBeVisible()
-  await expect(layers.getByRole('treeitem', { selected: true })).toHaveCount(0)
-  await page.keyboard.press('Escape')
+  await page.getByRole('complementary', { name: 'Properties' }).getByRole('heading').first().click({ button: 'right' })
+  await expect(layers.getByRole('treeitem', { selected: true })).toHaveCount(1)
+  await expect(menu).toHaveCount(0)
   await page.mouse.click(...(await screen(page, 5, 150)), { button: 'right' })
   await expect(menu.getByRole('menuitem', { name: /Select all/ })).toBeVisible()
   const ruler = async () => (await page.locator('.ruler-x').boundingBox())?.height ?? 0
