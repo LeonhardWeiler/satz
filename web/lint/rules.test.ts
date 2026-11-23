@@ -59,6 +59,7 @@ run(
     '<b onPointerUp={up} onLostPointerCapture={up} />',
     "<b onPointerUp={up} onPointerDown={() => el.addEventListener('lostpointercapture', up, { once: true })} />",
     "el.addEventListener('pointerup', end, { signal: c.signal }); el.addEventListener('pointercancel', end, { signal })",
+    "window.addEventListener('keyup', up); window.addEventListener('blur', reset); window.removeEventListener('keyup', up); window.removeEventListener('blur', reset)",
   ],
   [
     'img.src = URL.createObjectURL(blob)',
@@ -72,6 +73,8 @@ run(
     "window.addEventListener('pointerup', end, { once: true })",
     "el.addEventListener('wheel', f); el.removeEventListener('scroll', f)",
     "el.addEventListener('wheel', f, { once: false, passive: true })",
+    "window.addEventListener('keyup', up); window.removeEventListener('keyup', up)",
+    '<b onKeyUp={up} />',
   ],
 )
 
